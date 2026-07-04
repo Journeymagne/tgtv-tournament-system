@@ -11,7 +11,10 @@ loadEnvFile(path.join(ROOT, ".env"));
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
-const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, "data");
+const DEFAULT_DATA_DIR = process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME
+  ? path.join(require("os").tmpdir(), "kill-team-elo-data")
+  : path.join(ROOT, "data");
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : DEFAULT_DATA_DIR;
 const DB_PATH = path.join(DATA_DIR, "db.json");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const USE_POSTGRES = Boolean(DATABASE_URL);
@@ -1421,14 +1424,21 @@ const server = http.createServer((req, res) => {
   sendStatic(req, res);
 });
 
-ensureDb()
-  .then(() => {
-    server.listen(PORT, HOST, () => {
-      const storage = USE_POSTGRES ? "PostgreSQL" : "JSON";
-      console.log(`Kill Team Elo is running at http://${HOST}:${PORT} using ${storage}`);
+if (require.main === module) {
+  ensureDb()
+    .then(() => {
+      server.listen(PORT, HOST, () => {
+        const storage = USE_POSTGRES ? "PostgreSQL" : "JSON";
+        console.log(`Kill Team Elo is running at http://${HOST}:${PORT} using ${storage}`);
+      });
+    })
+    .catch((err) => {
+      console.error("Failed to initialize database:", err);
+      process.exit(1);
     });
-  })
-  .catch((err) => {
-    console.error("Failed to initialize database:", err);
-    process.exit(1);
-  });
+}
+
+module.exports = {
+  ensureDb,
+  handleApi
+};

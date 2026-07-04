@@ -4,6 +4,7 @@
   "private": true,
   "description": "Local Kill Team Approved Ops challenge and Elo tracker.",
   "scripts": {
+    "build": "node -e \"console.log('Netlify build: public assets are ready')\"",
     "start": "node server.js"
   },
   "dependencies": {

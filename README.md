@@ -58,6 +58,27 @@ PGSSL=true
 
 On startup, the server creates the required tables automatically. If PostgreSQL is empty and `data/db.json` exists, existing JSON data is imported once.
 
+## Netlify
+
+The project includes `netlify.toml`.
+
+Use these Netlify settings:
+
+```text
+Build command: npm run build
+Publish directory: public
+Functions directory: netlify/functions
+```
+
+Add environment variables in Netlify:
+
+```env
+DATABASE_URL=postgres://user:password@host:5432/database
+PGSSL=true
+```
+
+`DATABASE_URL` is important for production. Without PostgreSQL, Netlify Functions can only use temporary JSON storage, so data may disappear between function restarts.
+
 ## Features
 
 - registration and sign-in with name and password;
