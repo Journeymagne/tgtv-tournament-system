@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+
+node_modules/
+data/
+work/
+outputs/
+
+.agents/
+.codex/
+
+*.log
+*.err
+*.tmp
+Thumbs.db
