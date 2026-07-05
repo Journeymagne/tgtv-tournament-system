@@ -28,7 +28,7 @@ const opLabels = {
   tac: "Tac Op"
 };
 
-const factionOptions = [
+const killTeamOptions = [
   "Celestian Insidiants",
   "Novitiates",
   "Battleclade",
@@ -1323,16 +1323,6 @@ function addKillTeamStat(stats, team, winnerId, playerId) {
   }
 }
 
-function canonicalKillTeamName(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  const key = raw.toLowerCase().replace(/[’']/g, "").replace(/[^a-z0-9]+/g, " ").trim();
-  const option = factionOptions.find((item) =>
-    item.toLowerCase().replace(/[’']/g, "").replace(/[^a-z0-9]+/g, " ").trim() === key
-  );
-  return killTeamAliases.get(key) || option || raw;
-}
-
 function statNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
@@ -1351,7 +1341,7 @@ function canonicalKillTeamName(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
   const key = statKey(raw);
-  const option = factionOptions.find((item) => statKey(item) === key);
+  const option = killTeamOptions.find((item) => statKey(item) === key);
   return killTeamAliases.get(key) || option || raw;
 }
 
@@ -2077,7 +2067,7 @@ function comboField(label, name, optionsKey, selected = "", placeholder = "Searc
 }
 
 function comboOptionsFor(key) {
-  return key === "faction" ? factionOptions : tacOpOptions;
+  return key === "faction" ? killTeamOptions : tacOpOptions;
 }
 
 function wireComboFields() {

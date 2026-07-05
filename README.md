@@ -1,6 +1,6 @@
 # TGTV Ranking Tournament System
 
-A local website for challenges, Approved Ops results, and Elo ratings.
+A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
 ## Run
 
@@ -9,8 +9,6 @@ node server.js
 ```
 
 After the server starts, open `http://127.0.0.1:3000`.
-
-You can also launch `outputs/start-kill-team-elo.cmd` with a double-click. Keep the opened window running while you use the site.
 
 ## PostgreSQL
 
@@ -28,7 +26,7 @@ node server.js
 The local connection string is already written to `.env`:
 
 ```env
-DATABASE_URL=postgres://killteam:killteam_dev_password@localhost:5432/kill_team_elo
+DATABASE_URL=postgres://tgtv:tgtv_dev_password@localhost:5432/tgtv_tournament
 ```
 
 Stop the database:
@@ -46,7 +44,7 @@ docker compose down -v
 Create a `.env` file in the project root:
 
 ```env
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/kill_team_elo
+DATABASE_URL=postgres://tgtv:tgtv_dev_password@localhost:5432/tgtv_tournament
 ```
 
 For managed PostgreSQL services that require SSL:

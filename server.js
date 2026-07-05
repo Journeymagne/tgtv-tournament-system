@@ -12,7 +12,7 @@ loadEnvFile(path.join(ROOT, ".env"));
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
 const DEFAULT_DATA_DIR = process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME
-  ? path.join(require("os").tmpdir(), "kill-team-elo-data")
+  ? path.join(require("os").tmpdir(), "tgtv-ranking-tournament-data")
   : path.join(ROOT, "data");
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : DEFAULT_DATA_DIR;
 const DB_PATH = path.join(DATA_DIR, "db.json");
@@ -1429,7 +1429,7 @@ if (require.main === module) {
     .then(() => {
       server.listen(PORT, HOST, () => {
         const storage = USE_POSTGRES ? "PostgreSQL" : "JSON";
-        console.log(`Kill Team Elo is running at http://${HOST}:${PORT} using ${storage}`);
+        console.log(`TGTV Ranking Tournament System is running at http://${HOST}:${PORT} using ${storage}`);
       });
     })
     .catch((err) => {

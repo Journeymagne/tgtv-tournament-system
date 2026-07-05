@@ -1,18 +1,18 @@
 services:
   postgres:
     image: postgres:16
-    container_name: kill-team-elo-postgres
+    container_name: tgtv-tournament-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: killteam
-      POSTGRES_PASSWORD: killteam_dev_password
-      POSTGRES_DB: kill_team_elo
+      POSTGRES_USER: tgtv
+      POSTGRES_PASSWORD: tgtv_dev_password
+      POSTGRES_DB: tgtv_tournament
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U killteam -d kill_team_elo"]
+      test: ["CMD-SHELL", "pg_isready -U tgtv -d tgtv_tournament"]
       interval: 5s
       timeout: 5s
       retries: 10
