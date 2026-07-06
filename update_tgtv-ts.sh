@@ -6,18 +6,26 @@ APP_DIR="/app/tgtv-ts"
 APP_NAME="tgtv-app"
 ENV_FILE="/app/tgtv-ts.env"   # .env лежит вне репы, не в git
 
-echo "=== [1/5] git pull ==="
+echo "=== [1/6] git pull ==="
 cd "$REPO_DIR"
 git pull
 
-echo "=== [2/5] Stopping pm2 app (if running) ==="
+echo "=== [2/6] Stopping pm2 app (if running) ==="
 pm2 stop "$APP_NAME" 2>/dev/null || true
 
-echo "=== [3/5] Syncing files to $APP_DIR ==="
-rsync -av --delete --exclude='.git' --exclude='.env' \
+echo "=== [3/6] Syncing files to $APP_DIR ==="
+# node_modules исключены из --delete, чтобы не сносить их при каждом деплое
+rsync -av --delete \
+  --exclude='.git' \
+  --exclude='.env' \
+  --exclude='node_modules' \
   "$REPO_DIR/" "$APP_DIR/"
 
-echo "=== [4/5] Copying .env ==="
+echo "=== [4/6] Installing npm dependencies ==="
+cd "$APP_DIR"
+npm install --omit=dev
+
+echo "=== [5/6] Copying .env ==="
 if [ ! -f "$ENV_FILE" ]; then
   echo "ERROR: env file not found at $ENV_FILE"
   echo "Create it from the template:"
@@ -27,8 +35,7 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 cp "$ENV_FILE" "$APP_DIR/.env"
 
-echo "=== [5/5] Starting pm2 app ==="
-cd "$APP_DIR"
+echo "=== [6/6] Starting pm2 app ==="
 pm2 start server.js --name "$APP_NAME" 2>/dev/null || pm2 restart "$APP_NAME"
 pm2 save
 
