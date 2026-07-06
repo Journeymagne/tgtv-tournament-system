@@ -1,13 +1,27 @@
 # TGTV Ranking Tournament System
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
+## PreRun
+```powershell
+npm install
+```
+
 
 ## Run
 
 ```powershell
 node server.js
 ```
+установим менеджер npm процессов
+```powershell
+npm install -g pm2
 
+pm2 start server.js --name tgtv-app
+
+pm2 status
+pm2 logs tgtv-app
+
+```
 After the server starts, open `http://127.0.0.1:3000`.
 
 ## PostgreSQL
