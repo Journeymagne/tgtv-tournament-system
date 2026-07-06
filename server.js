@@ -63,6 +63,56 @@ const CHALLENGE_WILDCARDS = [
   "XV26 Stealth Suits"
 ];
 
+const KILL_TEAM_OPTIONS = [
+  "Celestian Insidiants",
+  "Novitiates",
+  "Battleclade",
+  "Hunter Clade",
+  "Elucidian Starstriders",
+  "Exaction Squad",
+  "Navy Breachers",
+  "Inquisitorial Agents",
+  "Sanctifiers",
+  "Death Korps",
+  "Kasrkin",
+  "Ratlings",
+  "Spectre Squad",
+  "Tempestus Aquilons",
+  "Angels of Death",
+  "Deathwatch",
+  "Phobos Strike Team",
+  "Scout Squad",
+  "Wolf Scouts",
+  "Gellerpox Infected",
+  "Legionaries",
+  "Murderwing",
+  "Nemesis Claw",
+  "Blooded",
+  "Chaos Cult",
+  "Fellgor Ravagers",
+  "Plague Marines",
+  "Warpcoven",
+  "Goremongers",
+  "Corsair Voidscarred",
+  "Blades of Khaine",
+  "Hand of the Archon",
+  "Mandrakes",
+  "Void-dancer Troupe",
+  "Brood Brothers",
+  "Wyrmblade",
+  "Hearthkyn Salvagers",
+  "Hernkyn Yaegirs",
+  "Canoptek Circle",
+  "Hierotek Circle",
+  "Kommandos",
+  "Wrecka Krew",
+  "Farstalker Kinband",
+  "Pathfinders",
+  "Vespid Stingwings",
+  "XV26 Stealth Battlesuits",
+  "Raveners"
+];
+
 const KILLZONE_OPTIONS = [
   "Volkus",
   "Gallowdark",
@@ -90,6 +140,10 @@ const KILL_TEAM_ALIASES = new Map([
   ["angels of death", "Angels of Death"],
   ["brood brother", "Brood Brothers"],
   ["brood brothers", "Brood Brothers"],
+  ["celestian insidiant", "Celestian Insidiants"],
+  ["celestian insidiants", "Celestian Insidiants"],
+  ["elucidian starstrider", "Elucidian Starstriders"],
+  ["elucidian starstriders", "Elucidian Starstriders"],
   ["farstalker kinband", "Farstalker Kinband"],
   ["fellgor ravager", "Fellgor Ravagers"],
   ["fellgor ravagers", "Fellgor Ravagers"],
@@ -103,6 +157,8 @@ const KILL_TEAM_ALIASES = new Map([
   ["imperial navy breachers", "Navy Breachers"],
   ["inquisitorial agent", "Inquisitorial Agents"],
   ["inquisitorial agents", "Inquisitorial Agents"],
+  ["legionary", "Legionaries"],
+  ["legionaries", "Legionaries"],
   ["navy breacher", "Navy Breachers"],
   ["navy breachers", "Navy Breachers"],
   ["tempestus aquilons", "Tempestus Aquillons"],
@@ -110,6 +166,13 @@ const KILL_TEAM_ALIASES = new Map([
   ["vespid stingwings", "Vespid Stingwings"],
   ["xv26 stealth battlesuits", "XV26 Stealth Suits"],
   ["xv26 stealth suits", "XV26 Stealth Suits"]
+]);
+
+const RESULT_KILL_TEAM_ALIASES = new Map([
+  ...KILL_TEAM_ALIASES,
+  ["tempestus aquilons", "Tempestus Aquilons"],
+  ["tempestus aquillons", "Tempestus Aquilons"],
+  ["xv26 stealth suits", "XV26 Stealth Battlesuits"]
 ]);
 
 const MIME = {
@@ -571,6 +634,23 @@ function normalizeKillTeam(value) {
   return direct || KILL_TEAM_ALIASES.get(key) || text;
 }
 
+function teamKey(value) {
+  return String(value || "").trim().toLowerCase().replace(/[`']/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function resultKillTeamInput(value) {
+  const text = optionalTextInput(value, "Kill Team");
+  if (!text) return "";
+  const key = teamKey(text);
+  const alias = RESULT_KILL_TEAM_ALIASES.get(key);
+  const direct = KILL_TEAM_OPTIONS.find((team) => teamKey(team) === key);
+  const team = alias || direct;
+  if (!team || !KILL_TEAM_OPTIONS.includes(team)) {
+    throw new Error("Choose a valid Kill Team from the list");
+  }
+  return team;
+}
+
 function challengeEventsForUser(db, user) {
   const gameEvents = db.games
     .filter((game) => game.status === "completed" && game.result?.winnerId === user.id)
@@ -867,7 +947,7 @@ function calculateApprovedOps(player) {
     crit: ops.crit,
     kill: ops.kill,
     tac: ops.tac,
-    faction: optionalTextInput(player.faction, "Kill Team"),
+    faction: resultKillTeamInput(player.faction),
     tacOp: optionalTextInput(player.tacOp, "Tac Op"),
     primary,
     primaryScore: ops[primary],
@@ -1044,6 +1124,12 @@ function publicProfileSummary(db, user, viewer = null) {
 
   const activeGame = viewer && viewer.id !== user.id ? activeGameBetween(db, viewer.id, user.id) : null;
   const pendingChallenge = viewer && viewer.id !== user.id ? pendingChallengeBetween(db, viewer.id, user.id) : null;
+  const adminPendingGames = viewer?.isAdmin
+    ? db.games
+        .filter((game) => game.status === "pending_confirmation" && game.playerIds.includes(user.id))
+        .sort((a, b) => String(b.submittedAt || b.createdAt).localeCompare(String(a.submittedAt || a.createdAt)))
+        .map((game) => gameView(game, db))
+    : [];
 
   return {
     user: publicUser(user),
@@ -1060,6 +1146,7 @@ function publicProfileSummary(db, user, viewer = null) {
       game: activeGame ? gameView(activeGame, db) : null,
       challenge: pendingChallenge ? challengeView(pendingChallenge, db) : null
     },
+    pendingGames: adminPendingGames,
     recentGames: completedGames.slice(0, 5).map((game) => gameView(game, db))
   };
 }
@@ -1073,6 +1160,21 @@ function activeGameBetween(db, userId, otherUserId) {
     ["open", "pending_confirmation"].includes(game.status) &&
     samePlayerPair(game.playerIds || [], userId, otherUserId)
   ) || null;
+}
+
+function cancelGameWithoutElo(db, game) {
+  game.status = "cancelled";
+  game.submittedBy = null;
+  game.submittedAt = null;
+  game.pendingResult = null;
+  game.result = null;
+  game.elo = null;
+
+  const challenge = db.challenges.find((item) => item.id === game.challengeId);
+  if (challenge && challenge.status === "accepted") {
+    challenge.status = "cancelled";
+    challenge.updatedAt = nowIso();
+  }
 }
 
 function pendingChallengeBetween(db, userId, otherUserId) {
@@ -1351,7 +1453,14 @@ async function handleApi(req, res) {
       const q = normalizeName(url.searchParams.get("q")).toLowerCase();
       const users = db.users
         .filter((item) => item.id !== user.id)
-        .filter((item) => !q || item.name.toLowerCase().includes(q))
+        .filter((item) => {
+          if (!q) return true;
+          return [
+            item.name,
+            item.registerNickname,
+            item.telegramContact
+          ].some((value) => String(value || "").toLowerCase().includes(q));
+        })
         .slice(0, 10)
         .map(publicUser);
       return json(res, 200, { users });
@@ -1471,21 +1580,14 @@ async function handleApi(req, res) {
       const game = db.games.find((item) => item.id === id);
       if (!game) return error(res, 404, "Game not found");
       if (!game.playerIds.includes(user.id)) return error(res, 403, "Only a game participant can exit this game");
-      if (game.status !== "open") return error(res, 409, "Only open games can be exited");
-
-      game.status = "cancelled";
-      game.submittedBy = null;
-      game.submittedAt = null;
-      game.pendingResult = null;
-      game.result = null;
-      game.elo = null;
-
-      const challenge = db.challenges.find((item) => item.id === game.challengeId);
-      if (challenge && challenge.status === "accepted") {
-        challenge.status = "cancelled";
-        challenge.updatedAt = nowIso();
+      if (!["open", "pending_confirmation"].includes(game.status)) {
+        return error(res, 409, "Only open or pending games can be exited");
+      }
+      if (game.status === "pending_confirmation" && game.pendingResult?.submittedBy !== user.id) {
+        return error(res, 403, "Only the player waiting for confirmation can delete this pending game");
       }
 
+      cancelGameWithoutElo(db, game);
       await writeDb(db);
       return json(res, 200, { game: gameView(game, db) });
     }
@@ -1527,6 +1629,20 @@ async function handleApi(req, res) {
       }, game, playerA, playerB);
       game.pendingResult.result = normalizedResult;
       applyFinalResult(game, playerA, playerB, normalizedResult, user.id);
+      await writeDb(db);
+      return json(res, 200, { game: gameView(game, db) });
+    }
+
+    const adminGameDeleteMatch = url.pathname.match(/^\/api\/admin\/games\/(\d+)$/);
+    if (method === "DELETE" && adminGameDeleteMatch) {
+      const admin = requireAdmin(db, req, res);
+      if (!admin) return;
+      const id = Number(adminGameDeleteMatch[1]);
+      const game = db.games.find((item) => item.id === id);
+      if (!game) return error(res, 404, "Game not found");
+      if (game.status !== "pending_confirmation") return error(res, 409, "Only pending games can be deleted here");
+
+      cancelGameWithoutElo(db, game);
       await writeDb(db);
       return json(res, 200, { game: gameView(game, db) });
     }

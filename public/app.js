@@ -37,40 +37,40 @@ const killTeamOptions = [
   "Novitiates",
   "Battleclade",
   "Hunter Clade",
-  "Elucidian Starstrider",
+  "Elucidian Starstriders",
   "Exaction Squad",
-  "Imperial Navy Breacher",
-  "Inquisitorial Agent",
+  "Navy Breachers",
+  "Inquisitorial Agents",
   "Sanctifiers",
   "Death Korps",
   "Kasrkin",
   "Ratlings",
   "Spectre Squad",
   "Tempestus Aquilons",
-  "Angel of Death",
+  "Angels of Death",
   "Deathwatch",
   "Phobos Strike Team",
   "Scout Squad",
   "Wolf Scouts",
   "Gellerpox Infected",
-  "Legionary",
+  "Legionaries",
   "Murderwing",
   "Nemesis Claw",
   "Blooded",
   "Chaos Cult",
-  "Fellgor Ravager",
+  "Fellgor Ravagers",
   "Plague Marines",
   "Warpcoven",
-  "Goremonger",
+  "Goremongers",
   "Corsair Voidscarred",
   "Blades of Khaine",
   "Hand of the Archon",
   "Mandrakes",
   "Void-dancer Troupe",
-  "Brood Brother",
+  "Brood Brothers",
   "Wyrmblade",
-  "Hearthkyn Salvager",
-  "Hernkyn Yaegir",
+  "Hearthkyn Salvagers",
+  "Hernkyn Yaegirs",
   "Canoptek Circle",
   "Hierotek Circle",
   "Kommandos",
@@ -124,6 +124,8 @@ const killTeamAliases = new Map([
   ["angels of death", "Angels of Death"],
   ["brood brother", "Brood Brothers"],
   ["brood brothers", "Brood Brothers"],
+  ["celestian insidiant", "Celestian Insidiants"],
+  ["celestian insidiants", "Celestian Insidiants"],
   ["corsair voidscarred", "Corsair Voidscarred"],
   ["elucidian starstrider", "Elucidian Starstriders"],
   ["elucidian starstriders", "Elucidian Starstriders"],
@@ -140,6 +142,8 @@ const killTeamAliases = new Map([
   ["imperial navy breachers", "Navy Breachers"],
   ["inquisitorial agent", "Inquisitorial Agents"],
   ["inquisitorial agents", "Inquisitorial Agents"],
+  ["legionary", "Legionaries"],
+  ["legionaries", "Legionaries"],
   ["navy breacher", "Navy Breachers"],
   ["navy breachers", "Navy Breachers"],
   ["novitiate", "Novitiates"],
@@ -434,7 +438,7 @@ function renderShell() {
         ${navButton("top", "Leaderboard")}
         ${navButton("play", "Matchmaking")}
         ${navButton("games", "Games")}
-        ${navButton("statistics", "Statistics")}
+        ${navButton("statistics", "Stats")}
         ${navButton("profile", "Profile")}
         ${navButton("challenge", "All Kill Team Challenge")}
         ${state.me.isAdmin ? navButton("admin", "Administration") : ""}
@@ -531,12 +535,12 @@ function renderPlay() {
       <div class="panel-header">
         <div>
           <h2>New challenge</h2>
-          <p class="muted">Find a player by name and send a challenge.</p>
+          <p class="muted">Find a player by name or contacts and send a challenge.</p>
         </div>
       </div>
       <div class="search-row">
         <div class="field" style="margin:0">
-          <input data-search-input placeholder="Player name">
+          <input data-search-input placeholder="Player name or contacts">
         </div>
         <button class="primary-button" data-search>Search</button>
       </div>
@@ -604,13 +608,17 @@ function gameCard(game) {
     : isPending
       ? pendingResultSummary(game)
       : "Waiting for Approved Ops result";
-  const action = isParticipant && game.status === "open"
+  const mainAction = isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>`
     : isParticipant && isPending && game.pendingResult?.submittedBy === state.me.id
       ? `<button class="small-button" data-game-result="${game.id}">Edit result</button>`
       : isParticipant && isPending
         ? `<button class="primary-button" data-game-review="${game.id}">Review result</button>`
         : "";
+  const canExit = isParticipant && (game.status === "open" || (isPending && game.pendingResult?.submittedBy === state.me.id));
+  const exitAction = canExit
+    ? `<button class="danger-button" data-game-exit="${game.id}">${isPending ? "Delete pending" : "Exit game"}</button>`
+    : "";
   const detailsAction = game.status === "open"
     ? ""
     : `<button class="small-button" data-game-open="${game.id}">Details</button>`;
@@ -623,7 +631,8 @@ function gameCard(game) {
       <div class="row-actions">
         <span class="status ${status}">${game.status === "completed" ? "completed" : isPending ? "pending" : "active"}</span>
         ${detailsAction}
-        ${action}
+        ${mainAction}
+        ${exitAction}
       </div>
     </div>
   `;
@@ -906,7 +915,6 @@ function renderProfile() {
     </section>
 
     <section class="grid-2">
-      ${profileContactsCard(state.me)}
       <div class="card panel">
         <div class="panel-header">
           <div>
@@ -1111,6 +1119,7 @@ function renderPlayerProfile() {
         </div>
         <div class="message" data-player-profile-message></div>
       </div>
+      ${state.me.isAdmin ? adminPendingGamesCard(profile) : ""}
       <div class="card panel">
         <div class="panel-header">
           <div>
@@ -1158,8 +1167,50 @@ function renderPlayerProfile() {
   document.querySelector("[data-profile-game]")?.addEventListener("click", async (event) => {
     await openGameDetail(Number(event.currentTarget.dataset.profileGame));
   });
+  wireAdminPendingGameButtons(user.id);
   wireGameButtons();
   wireChallengeProgressButtons();
+}
+
+function adminPendingGamesCard(profile) {
+  const games = profile.pendingGames || [];
+  return `
+    <div class="card panel">
+      <div class="panel-header">
+        <div>
+          <h3>Pending games</h3>
+          <p class="muted">Admin tools for unconfirmed submitted results.</p>
+        </div>
+      </div>
+      <div class="list">
+        ${games.length ? games.map((game) => `
+          <div class="row-card">
+            <div class="row-main">
+              <div class="row-title">${escapeHtml(gameTitle(game))}</div>
+              <div class="row-meta">${escapeHtml(pendingResultSummary(game))}</div>
+            </div>
+            <div class="row-actions">
+              <button class="small-button" data-admin-pending-open="${game.id}">Open</button>
+              <button class="danger-button" data-admin-pending-delete="${game.id}">Delete</button>
+            </div>
+          </div>
+        `).join("") : `<div class="empty">No pending games.</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function wireAdminPendingGameButtons(profileUserId) {
+  document.querySelectorAll("[data-admin-pending-open]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await openGameDetail(Number(button.dataset.adminPendingOpen));
+    });
+  });
+  document.querySelectorAll("[data-admin-pending-delete]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await adminDeletePendingGame(Number(button.dataset.adminPendingDelete), profileUserId);
+    });
+  });
 }
 
 function wireProfileSettings() {
@@ -1385,6 +1436,9 @@ function getKnownGame(gameId) {
   const id = Number(gameId);
   return (state.allGames || []).find((game) => game.id === id) ||
     (state.games || []).find((game) => game.id === id) ||
+    (state.playerProfile?.pendingGames || []).find((game) => game.id === id) ||
+    (state.playerProfile?.activeMatchup?.game?.id === id ? state.playerProfile.activeMatchup.game : null) ||
+    (state.playerProfile?.recentGames || []).find((game) => game.id === id) ||
     null;
 }
 
@@ -1431,7 +1485,7 @@ function renderStatistics() {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Statistics</h2>
+          <h2>Stats</h2>
           <p class="muted">Aggregated tournament data from completed games.</p>
         </div>
       </div>
@@ -1441,7 +1495,7 @@ function renderStatistics() {
         <button class="tab ${state.statisticsTab === "teams" ? "active" : ""}" data-statistics-tab="teams">Teams</button>
       </div>
       ${state.gamesError
-        ? `<div class="empty">Could not load statistics: ${escapeHtml(state.gamesError)}. Restart the local server and refresh the page.</div>`
+        ? `<div class="empty">Could not load stats: ${escapeHtml(state.gamesError)}. Restart the local server and refresh the page.</div>`
         : statisticsContent}
     </section>
   `;
@@ -1473,7 +1527,7 @@ function renderKillTeamWinrates(summary) {
           ${summary.rows.length
             ? summary.rows.map((row) => `
               <tr>
-                <td><strong>${escapeHtml(row.team)}</strong></td>
+                <td><button class="text-link-button" data-stat-team="${escapeHtml(row.team)}">${escapeHtml(row.team)}</button></td>
                 <td>${row.games}</td>
                 <td>${row.wins}</td>
                 <td>${row.losses}</td>
@@ -1834,6 +1888,7 @@ function killTeamRulesUrl(team) {
 function wireTeamStatistics() {
   document.querySelectorAll("[data-stat-team]").forEach((button) => {
     button.addEventListener("click", () => {
+      state.statisticsTab = "teams";
       state.selectedStatisticsTeam = button.dataset.statTeam;
       renderStatistics();
     });
@@ -1876,8 +1931,12 @@ function canonicalKillTeamName(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
   const key = statKey(raw);
-  const option = killTeamOptions.find((item) => statKey(item) === key);
-  return killTeamAliases.get(key) || option || raw;
+  return killTeamAliases.get(key) || killTeamOptions.find((item) => statKey(item) === key) || raw;
+}
+
+function validKillTeamName(value) {
+  const canonical = canonicalKillTeamName(value);
+  return killTeamOptions.includes(canonical) ? canonical : "";
 }
 
 function canonicalTacOpName(value) {
@@ -2042,12 +2101,16 @@ function renderGameDetail() {
   const statusLabel = game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "active";
   const submitter = game.players?.find((player) => player.id === game.pendingResult?.submittedBy || player.id === game.submittedBy);
   const isParticipant = game.players?.some((player) => player.id === state.me.id);
+  const canDeletePending = isParticipant && game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id;
   const playerAction = isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>
        <button class="danger-button" data-exit-game="${game.id}">Exit game</button>`
+    : canDeletePending
+      ? `<button class="danger-button" data-exit-game="${game.id}">Delete pending</button>`
     : "";
   const adminAction = state.me.isAdmin
-    ? `<button class="primary-button" data-admin-edit-game="${game.id}">${result ? "Edit result" : "Enter result"}</button>`
+    ? `<button class="primary-button" data-admin-edit-game="${game.id}">${result ? "Edit result" : "Enter result"}</button>
+       ${game.status === "pending_confirmation" ? `<button class="danger-button" data-admin-delete-game="${game.id}">Delete pending</button>` : ""}`
     : "";
 
   content.innerHTML = `
@@ -2055,7 +2118,7 @@ function renderGameDetail() {
       <div class="panel-header">
         <div>
           <h2>Game #${game.id}</h2>
-          <p class="muted">${escapeHtml(gameTitle(game))} &middot; ${fmtDate(game.createdAt)}</p>
+          <p class="muted">${gamePlayerLinks(game)} &middot; ${fmtDate(game.createdAt)}</p>
         </div>
         <div class="row-actions">
           <span class="status ${game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "open"}">${statusLabel}</span>
@@ -2089,16 +2152,30 @@ function renderGameDetail() {
   document.querySelector("[data-admin-edit-game]")?.addEventListener("click", () => {
     renderResultForm(game.id, { adminEdit: true });
   });
+  document.querySelector("[data-admin-delete-game]")?.addEventListener("click", (event) => {
+    adminDeletePendingGame(Number(event.currentTarget.dataset.adminDeleteGame));
+  });
   document.querySelector("[data-exit-game]")?.addEventListener("click", (event) => {
     exitOpenGame(Number(event.currentTarget.dataset.exitGame));
   });
   document.querySelector("[data-game-result]")?.addEventListener("click", (event) => {
     renderResultForm(Number(event.currentTarget.dataset.gameResult));
   });
+  wireLeaderboardProfiles();
 }
 
 function gameTitle(game) {
   return (game.players || []).map((player) => player.name).join(" vs ") || "Deleted players";
+}
+
+function gamePlayerLinks(game) {
+  const players = game.players || [];
+  if (!players.length) return "Deleted players";
+  return players.map((player) => playerProfileLink(player)).join(" vs ");
+}
+
+function playerProfileLink(player) {
+  return `<button class="text-link-button inline-profile-link" data-profile-user="${player.id}">${escapeHtml(player.name)}</button>`;
 }
 
 function eloReview(game) {
@@ -2149,7 +2226,7 @@ function handleSearchInput(event) {
 
   if (!value) {
     state.searchResults = [];
-    box.innerHTML = `<div class="empty">Start typing a player name.</div>`;
+    box.innerHTML = `<div class="empty">Start typing a player name or contact.</div>`;
     return;
   }
 
@@ -2164,7 +2241,7 @@ async function searchUsers(options = {}) {
   const raw = input.value.trim();
   if (!raw && !allowEmpty) {
     state.searchResults = [];
-    box.innerHTML = `<div class="empty">Start typing a player name.</div>`;
+    box.innerHTML = `<div class="empty">Start typing a player name or contact.</div>`;
     return;
   }
 
@@ -2185,7 +2262,7 @@ function renderSearchResults(box) {
     <div class="row-card suggestion-card">
       <div class="row-main">
         <div class="row-title">${escapeHtml(user.name)}</div>
-        <div class="row-meta">${user.rating} Elo</div>
+        <div class="row-meta">${escapeHtml(searchResultMeta(user))}</div>
       </div>
       <div class="row-actions">
         <button class="primary-button" data-challenge-user="${user.id}">Challenge</button>
@@ -2203,6 +2280,14 @@ function renderSearchResults(box) {
       }
     });
   });
+}
+
+function searchResultMeta(user) {
+  const contacts = [
+    user.registerNickname ? `Register: ${user.registerNickname}` : "",
+    user.telegramContact ? `Telegram: ${user.telegramContact}` : ""
+  ].filter(Boolean).join(" / ");
+  return contacts ? `${user.rating} Elo / ${contacts}` : `${user.rating} Elo`;
 }
 
 function wireChallengeButtons() {
@@ -2228,10 +2313,14 @@ function wireGameButtons() {
   document.querySelectorAll("[data-game-review]").forEach((button) => {
     button.addEventListener("click", () => renderResultReview(Number(button.dataset.gameReview)));
   });
+  document.querySelectorAll("[data-game-exit]").forEach((button) => {
+    button.addEventListener("click", () => exitOpenGame(Number(button.dataset.gameExit)));
+  });
 }
 
 async function exitOpenGame(gameId) {
-  const confirmed = window.confirm("Exit this game? The match will be closed without Elo changes.");
+  const game = getKnownGame(gameId);
+  const confirmed = window.confirm(`${game?.status === "pending_confirmation" ? "Delete this pending game" : "Exit this game"}? The match will be closed without Elo changes.`);
   if (!confirmed) return;
   try {
     await api(`/api/games/${gameId}/exit`, { method: "POST" });
@@ -2245,6 +2334,28 @@ async function exitOpenGame(gameId) {
   }
 }
 
+async function adminDeletePendingGame(gameId, profileUserId = null) {
+  const confirmed = window.confirm("Delete this pending game? The match will be closed without Elo changes.");
+  if (!confirmed) return;
+  try {
+    await api(`/api/admin/games/${gameId}`, { method: "DELETE" });
+    await refresh();
+    await loadGames();
+    if (profileUserId) {
+      await loadPlayerProfile(profileUserId);
+      renderShell();
+      setPlayerProfileMessage("Pending game deleted.");
+      return;
+    }
+    state.view = "games";
+    state.selectedGameId = null;
+    renderShell();
+  } catch (err) {
+    setMessage(err.message, true);
+    setPlayerProfileMessage(err.message, true);
+  }
+}
+
 function renderResultForm(gameId, options = {}) {
   const { adminEdit = false } = options;
   const game = getKnownGame(gameId);
@@ -2253,6 +2364,7 @@ function renderResultForm(gameId, options = {}) {
   const existingResult = adminEdit
     ? game.result || game.pendingResult?.result || null
     : game.pendingResult?.submittedBy === state.me.id ? game.pendingResult.result : null;
+  const canExitFromForm = !adminEdit && (game.status === "open" || (game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id));
   content.innerHTML = `
     <section class="card panel">
       <div class="panel-header">
@@ -2261,7 +2373,7 @@ function renderResultForm(gameId, options = {}) {
           <p class="muted">Each op scores 0-6 VP. Primary Op adds half of its VP, rounded up.</p>
         </div>
         <div class="row-actions">
-          ${!adminEdit && game.status === "open" ? `<button class="danger-button" type="button" data-exit-game="${game.id}">Exit game</button>` : ""}
+          ${canExitFromForm ? `<button class="danger-button" type="button" data-exit-game="${game.id}">${game.status === "pending_confirmation" ? "Delete pending" : "Exit game"}</button>` : ""}
           <button class="ghost-button" type="button" data-back>Back</button>
         </div>
       </div>
@@ -2470,6 +2582,7 @@ function renderResultReview(gameId) {
       setMessage(err.message, true);
     }
   });
+  wireLeaderboardProfiles();
 }
 
 function killzoneReview(result = {}) {
@@ -2489,13 +2602,13 @@ function killzoneReview(result = {}) {
 function reviewScoreCard(player, score = {}) {
   return `
     <div class="score-card review-score-card">
-      <h4>${escapeHtml(player.name)}</h4>
+      <h4>${playerProfileLink(player)}</h4>
       <div class="review-lines">
-        ${metricRow("Kill Team", score.faction || "-")}
+        ${metricRow("Kill Team", score.faction ? canonicalKillTeamName(score.faction) : "-")}
         ${metricRow("Tac Op", score.tacOp || "-")}
         ${metricRow("Crit Op", score.crit ?? 0)}
-        ${metricRow("Kill Op", score.kill ?? 0)}
         ${metricRow("Tac Op VP", score.tac ?? 0)}
+        ${metricRow("Kill Op", score.kill ?? 0)}
         ${metricRow("Primary", opLabels[score.primary] || "Crit Op")}
         ${metricRow("Primary bonus", score.primaryBonus ?? 0)}
       </div>
@@ -2592,7 +2705,7 @@ function scoreCard(player, score = {}) {
         ${comboField("Tac Op", `tac-op-${player.id}`, "tacOp", score.tacOp, "Search Tac Op")}
       </div>
       <div class="score-fields">
-        ${["crit", "kill", "tac"].map((op) => `
+        ${["crit", "tac", "kill"].map((op) => `
           <div class="field">
             <label>${opLabels[op]}</label>
             <input data-score-input name="${op}-${player.id}" type="number" min="0" max="6" value="${score[op] ?? 0}">
@@ -2603,8 +2716,8 @@ function scoreCard(player, score = {}) {
         <label>Primary Op</label>
         <select data-primary-select name="primary-${player.id}">
           <option value="crit" ${(score.primary || "crit") === "crit" ? "selected" : ""}>Crit Op</option>
-          <option value="kill" ${score.primary === "kill" ? "selected" : ""}>Kill Op</option>
           <option value="tac" ${score.primary === "tac" ? "selected" : ""}>Tac Op</option>
+          <option value="kill" ${score.primary === "kill" ? "selected" : ""}>Kill Op</option>
         </select>
       </div>
       <div class="total-line">
@@ -2616,6 +2729,9 @@ function scoreCard(player, score = {}) {
 }
 
 function comboField(label, name, optionsKey, selected = "", placeholder = "Search or select") {
+  const normalizedSelected = optionsKey === "faction"
+    ? validKillTeamName(selected) || selected
+    : selected;
   return `
     <div class="field combo-field" data-combo data-combo-options="${optionsKey}">
       <label>${escapeHtml(label)}</label>
@@ -2623,7 +2739,7 @@ function comboField(label, name, optionsKey, selected = "", placeholder = "Searc
         <input
           class="combo-input"
           name="${escapeHtml(name)}"
-          value="${escapeHtml(selected || "")}"
+          value="${escapeHtml(normalizedSelected || "")}"
           placeholder="${escapeHtml(placeholder)}"
           autocomplete="off"
           required
@@ -2645,8 +2761,21 @@ function wireComboFields() {
     const input = combo.querySelector("[data-combo-input]");
     const menu = combo.querySelector("[data-combo-menu]");
     const toggle = combo.querySelector("[data-combo-toggle]");
-    const options = comboOptionsFor(combo.dataset.comboOptions);
+    const optionsKey = combo.dataset.comboOptions;
+    const options = comboOptionsFor(optionsKey);
     let activeIndex = -1;
+
+    const normalizeValue = () => {
+      if (optionsKey !== "faction") return true;
+      const validValue = validKillTeamName(input.value);
+      if (validValue) {
+        input.value = validValue;
+        input.setCustomValidity("");
+        return true;
+      }
+      input.setCustomValidity("Choose a Kill Team from the list");
+      return false;
+    };
 
     const close = () => {
       menu.hidden = true;
@@ -2681,17 +2810,21 @@ function wireComboFields() {
 
     const choose = (value) => {
       input.value = value;
+      normalizeValue();
       close();
+      input.dispatchEvent(new Event("change", { bubbles: true }));
     };
 
     input.addEventListener("focus", () => renderOptions(false));
     input.addEventListener("blur", () => {
       window.setTimeout(() => {
+        normalizeValue();
         if (!combo.contains(document.activeElement)) close();
       }, 0);
     });
     input.addEventListener("input", () => {
       activeIndex = -1;
+      normalizeValue();
       renderOptions(false);
     });
     input.addEventListener("keydown", (event) => {
@@ -2724,6 +2857,7 @@ function wireComboFields() {
       const option = event.target.closest("[data-combo-value]");
       if (option) choose(option.dataset.comboValue);
     });
+    normalizeValue();
   });
 
   if (!wireComboFields.bound) {

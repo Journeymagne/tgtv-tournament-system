@@ -383,6 +383,23 @@ button:disabled {
   color: var(--accent);
 }
 
+.text-link-button {
+  min-height: 0;
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  font-weight: 900;
+  text-align: left;
+}
+
+.text-link-button:hover {
+  color: var(--accent);
+}
+
+.inline-profile-link {
+  display: inline;
+}
+
 .message {
   min-height: 22px;
   margin-top: 14px;
