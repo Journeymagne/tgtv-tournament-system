@@ -17,7 +17,10 @@ const state = {
   selectedStatisticsTeam: null,
   searchResults: [],
   adminUsers: [],
-  playerProfile: null
+  playerProfile: null,
+  feedback: [],
+  feedbackError: "",
+  feedbackMode: "form"
 };
 
 let searchDebounce = null;
@@ -435,6 +438,7 @@ function renderShell() {
         ${navButton("profile", "Profile")}
         ${navButton("challenge", "All Kill Team Challenge")}
         ${state.me.isAdmin ? navButton("admin", "Administration") : ""}
+        ${navButton("feedback", "Feedback")}
         <button class="nav-button sidebar-logout" data-logout>Sign out</button>
       </aside>
       <section class="content" data-content></section>
@@ -472,6 +476,7 @@ function renderShell() {
       if (targetView === "statistics") await loadGames();
       if (targetView === "profile") await loadChallengeProgress();
       if (targetView === "challenge") await loadChallengeProgress();
+      if (targetView === "feedback") state.feedbackMode = "form";
       if (targetView === "top") await loadTop();
       if (targetView === "admin") await loadAdmin();
       renderShell();
@@ -484,6 +489,7 @@ function renderShell() {
   else if (state.view === "gameDetail") renderGameDetail();
   else if (state.view === "statistics") renderStatistics();
   else if (state.view === "challenge") renderChallenge();
+  else if (state.view === "feedback") renderFeedback();
   else if (state.view === "top") renderTop();
   else if (state.view === "admin") renderAdmin();
   else renderPlay();
@@ -642,6 +648,141 @@ function resultSummary(game) {
   const score = resultHeadline(game, game.result);
   const eloParts = players.map((player) => `${player.name} ${signed(game.elo?.[player.id]?.delta ?? 0)}`);
   return `${score} - Elo ${eloParts.join(", ")}`;
+}
+
+async function loadFeedback() {
+  if (!state.me?.isAdmin) return;
+  try {
+    const data = await api("/api/admin/feedback");
+    state.feedback = data.feedback || [];
+    state.feedbackError = "";
+  } catch (err) {
+    state.feedback = [];
+    state.feedbackError = err.message;
+  }
+}
+
+function renderFeedback() {
+  const content = document.querySelector("[data-content]");
+  const adminInbox = state.me.isAdmin && state.feedbackMode === "inbox";
+  content.innerHTML = `
+    <section class="card panel">
+      <div class="panel-header">
+        <div>
+          <h2>Feedback</h2>
+          <p class="muted">Send a short note about a screen, bug, or improvement.</p>
+        </div>
+        ${state.me.isAdmin ? `
+          <div class="row-actions">
+            <button class="${adminInbox ? "ghost-button" : "primary-button"}" data-feedback-mode="form">Form</button>
+            <button class="${adminInbox ? "primary-button" : "ghost-button"}" data-feedback-mode="inbox">Admin inbox</button>
+          </div>
+        ` : ""}
+      </div>
+      ${adminInbox ? feedbackInboxMarkup() : feedbackFormMarkup()}
+      <div class="message" data-message></div>
+    </section>
+  `;
+
+  document.querySelectorAll("[data-feedback-mode]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      state.feedbackMode = button.dataset.feedbackMode;
+      if (state.feedbackMode === "inbox") await loadFeedback();
+      renderFeedback();
+    });
+  });
+  document.querySelector("[data-feedback-form]")?.addEventListener("submit", submitFeedback);
+  wireFeedbackAdminActions();
+}
+
+function feedbackFormMarkup() {
+  return `
+    <form class="feedback-form" data-feedback-form>
+      <div class="field">
+        <label>Screen</label>
+        <input name="screen" maxlength="80" placeholder="Example: Matchmaking" required>
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <textarea name="description" maxlength="1200" rows="6" placeholder="What happened or what should be improved?" required></textarea>
+      </div>
+      <button class="primary-button" type="submit">Send feedback</button>
+    </form>
+  `;
+}
+
+function feedbackInboxMarkup() {
+  if (state.feedbackError) {
+    return `<div class="empty">Could not load feedback: ${escapeHtml(state.feedbackError)}</div>`;
+  }
+  if (!state.feedback.length) return `<div class="empty">No feedback yet.</div>`;
+  return `
+    <div class="list">
+      ${state.feedback.map((item) => `
+        <div class="row-card feedback-card">
+          <div class="row-main">
+            <div class="row-title">${escapeHtml(item.screen)}</div>
+            <div class="row-meta">${escapeHtml(item.user?.name || "Deleted player")} &middot; ${fmtDate(item.createdAt)}</div>
+            ${item.status === "resolved" ? `<div class="row-meta">Resolved${item.resolvedByUser?.name ? ` by ${escapeHtml(item.resolvedByUser.name)}` : ""}${item.resolvedAt ? ` &middot; ${fmtDate(item.resolvedAt)}` : ""}</div>` : ""}
+            <p class="feedback-description">${escapeHtml(item.description)}</p>
+          </div>
+          <div class="row-actions">
+            <span class="status ${item.status === "resolved" ? "completed" : "open"}">${escapeHtml(item.status || "open")}</span>
+            <button class="small-button" data-feedback-status="${item.id}" data-status="${item.status === "resolved" ? "open" : "resolved"}">${item.status === "resolved" ? "Reopen" : "Resolve"}</button>
+            <button class="danger-button" data-feedback-delete="${item.id}">Delete</button>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function wireFeedbackAdminActions() {
+  document.querySelectorAll("[data-feedback-status]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        await api(`/api/admin/feedback/${button.dataset.feedbackStatus}`, {
+          method: "PATCH",
+          body: { status: button.dataset.status }
+        });
+        await loadFeedback();
+        renderFeedback();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
+  });
+  document.querySelectorAll("[data-feedback-delete]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!window.confirm("Delete this feedback item?")) return;
+      try {
+        await api(`/api/admin/feedback/${button.dataset.feedbackDelete}`, { method: "DELETE" });
+        await loadFeedback();
+        renderFeedback();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
+  });
+}
+
+async function submitFeedback(event) {
+  event.preventDefault();
+  const formElement = event.currentTarget;
+  const form = new FormData(formElement);
+  try {
+    await api("/api/feedback", {
+      method: "POST",
+      body: {
+        screen: form.get("screen"),
+        description: form.get("description")
+      }
+    });
+    formElement?.reset();
+    setMessage("Feedback sent. Thank you.");
+  } catch (err) {
+    setMessage(err.message, true);
+  }
 }
 
 function scoreSummary(result, players) {
@@ -1840,6 +1981,7 @@ function killTeamLogoSrc(team) {
     "Elucidian Starstriders": "Elucidian Starstriders.png",
     "Navy Breachers": "Imperial Navy Breachers.png",
     "Tempestus Aquilons": "Tempestus Aquilons.png",
+    "Tempestus Aquillons": "Tempestus Aquilons.png",
     "XV26 Stealth Suits": "XV26 Stealth Battlesuits.png"
   };
   const fileName = logoFiles[team] || `${team}.png`;

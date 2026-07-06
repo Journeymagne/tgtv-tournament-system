@@ -147,7 +147,8 @@ function emptyDb() {
     sessions: [],
     challenges: [],
     games: [],
-    nextIds: { user: 1, challenge: 1, game: 1 }
+    feedback: [],
+    nextIds: { user: 1, challenge: 1, game: 1, feedback: 1 }
   };
 }
 
@@ -253,18 +254,35 @@ async function ensurePostgres() {
       elo JSONB
     );
 
+    CREATE TABLE IF NOT EXISTS feedback (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      screen TEXT NOT NULL,
+      description TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      resolved_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_challenges_from_user_id ON challenges(from_user_id);
     CREATE INDEX IF NOT EXISTS idx_challenges_to_user_id ON challenges(to_user_id);
     CREATE INDEX IF NOT EXISTS idx_challenges_status ON challenges(status);
     CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
+    CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON feedback(created_at);
   `);
   await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data TEXT");
   await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS register_nickname TEXT");
   await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_contact TEXT");
   await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS challenge_credits JSONB");
   await db.query("ALTER TABLE games ADD COLUMN IF NOT EXISTS pending_result JSONB");
+  await db.query("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'open'");
+  await db.query("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL");
+  await db.query("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ");
+  await db.query("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ");
   await seedPostgresFromJsonIfEmpty();
 }
 
@@ -280,21 +298,24 @@ async function seedPostgresFromJsonIfEmpty() {
 async function readPostgresDb() {
   const db = getPool();
   await db.query("DELETE FROM sessions WHERE expires_at <= NOW()");
-  const [users, sessions, challenges, games] = await Promise.all([
+  const [users, sessions, challenges, games, feedback] = await Promise.all([
     db.query("SELECT * FROM users ORDER BY id"),
     db.query("SELECT * FROM sessions ORDER BY created_at"),
     db.query("SELECT * FROM challenges ORDER BY id"),
-    db.query("SELECT * FROM games ORDER BY id")
+    db.query("SELECT * FROM games ORDER BY id"),
+    db.query("SELECT * FROM feedback ORDER BY id")
   ]);
   const state = {
     users: users.rows.map(mapUser),
     sessions: sessions.rows.map(mapSession),
     challenges: challenges.rows.map(mapChallenge),
     games: games.rows.map(mapGame),
+    feedback: feedback.rows.map(mapFeedback),
     nextIds: {
       user: maxNext(users.rows),
       challenge: maxNext(challenges.rows),
-      game: maxNext(games.rows)
+      game: maxNext(games.rows),
+      feedback: maxNext(feedback.rows)
     }
   };
   return state;
@@ -307,6 +328,7 @@ async function writePostgresDb(state) {
     await client.query("BEGIN");
 
     await deleteMissing(client, "sessions", "token", state.sessions.map((item) => item.token), "text");
+    await deleteMissing(client, "feedback", "id", state.feedback.map((item) => item.id), "int");
     await deleteMissing(client, "games", "id", state.games.map((item) => item.id), "int");
     await deleteMissing(client, "challenges", "id", state.challenges.map((item) => item.id), "int");
     await deleteMissing(client, "users", "id", state.users.map((item) => item.id), "int");
@@ -404,9 +426,36 @@ async function writePostgresDb(state) {
       ]);
     }
 
+    for (const item of state.feedback) {
+      await client.query(`
+        INSERT INTO feedback (id, user_id, screen, description, status, resolved_by, resolved_at, updated_at, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (id) DO UPDATE SET
+          user_id = EXCLUDED.user_id,
+          screen = EXCLUDED.screen,
+          description = EXCLUDED.description,
+          status = EXCLUDED.status,
+          resolved_by = EXCLUDED.resolved_by,
+          resolved_at = EXCLUDED.resolved_at,
+          updated_at = EXCLUDED.updated_at,
+          created_at = EXCLUDED.created_at
+      `, [
+        item.id,
+        item.userId || null,
+        item.screen,
+        item.description,
+        item.status || "open",
+        item.resolvedBy || null,
+        item.resolvedAt || null,
+        item.updatedAt || null,
+        item.createdAt || nowIso()
+      ]);
+    }
+
     await resetSequence(client, "users", "id", "users_id_seq");
     await resetSequence(client, "challenges", "id", "challenges_id_seq");
     await resetSequence(client, "games", "id", "games_id_seq");
+    await resetSequence(client, "feedback", "id", "feedback_id_seq");
 
     await client.query("COMMIT");
   } catch (err) {
@@ -484,6 +533,20 @@ function mapGame(row) {
     pendingResult: row.pending_result,
     result: row.result,
     elo: row.elo
+  };
+}
+
+function mapFeedback(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    screen: row.screen,
+    description: row.description,
+    status: row.status || "open",
+    resolvedBy: row.resolved_by,
+    resolvedAt: toIso(row.resolved_at),
+    updatedAt: toIso(row.updated_at),
+    createdAt: toIso(row.created_at)
   };
 }
 
@@ -940,6 +1003,17 @@ function gameView(game, db) {
   };
 }
 
+function feedbackView(item, db) {
+  const user = db.users.find((entry) => entry.id === item.userId);
+  const resolvedBy = db.users.find((entry) => entry.id === item.resolvedBy);
+  return {
+    ...item,
+    status: item.status || "open",
+    user: user ? publicUser(user) : null,
+    resolvedByUser: resolvedBy ? publicUser(resolvedBy) : null
+  };
+}
+
 function userSummary(db, user) {
   const challenges = db.challenges
     .filter((challenge) => challenge.fromUserId === user.id || challenge.toUserId === user.id)
@@ -1195,6 +1269,67 @@ async function handleApi(req, res) {
         .map((game) => gameView(game, db))
         .sort((a, b) => String(b.submittedAt || b.createdAt).localeCompare(String(a.submittedAt || a.createdAt)));
       return json(res, 200, { games });
+    }
+
+    if (method === "POST" && url.pathname === "/api/feedback") {
+      const user = requireAuth(db, req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const screen = requiredProfileText(body.screen, "Screen", 80);
+      const description = requiredProfileText(body.description, "Description", 1200);
+      const item = {
+        id: db.nextIds.feedback++,
+        userId: user.id,
+        screen,
+        description,
+        status: "open",
+        resolvedBy: null,
+        resolvedAt: null,
+        updatedAt: null,
+        createdAt: nowIso()
+      };
+      db.feedback.push(item);
+      await writeDb(db);
+      return json(res, 201, { feedback: feedbackView(item, db) });
+    }
+
+    if (method === "GET" && url.pathname === "/api/admin/feedback") {
+      const admin = requireAdmin(db, req, res);
+      if (!admin) return;
+      const feedback = db.feedback
+        .map((item) => feedbackView(item, db))
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      return json(res, 200, { feedback });
+    }
+
+    const adminFeedbackMatch = url.pathname.match(/^\/api\/admin\/feedback\/(\d+)$/);
+    if (adminFeedbackMatch) {
+      const admin = requireAdmin(db, req, res);
+      if (!admin) return;
+      const item = db.feedback.find((entry) => entry.id === Number(adminFeedbackMatch[1]));
+      if (!item) return error(res, 404, "Feedback not found");
+
+      if (method === "PATCH") {
+        const body = await readBody(req);
+        const status = body.status === "resolved" ? "resolved" : "open";
+        item.status = status;
+        item.updatedAt = nowIso();
+        if (status === "resolved") {
+          item.resolvedBy = admin.id;
+          item.resolvedAt = item.updatedAt;
+        } else {
+          item.resolvedBy = null;
+          item.resolvedAt = null;
+        }
+        await writeDb(db);
+        return json(res, 200, { feedback: feedbackView(item, db) });
+      }
+
+      if (method === "DELETE") {
+        db.feedback = db.feedback.filter((entry) => entry.id !== item.id);
+        await writeDb(db);
+        return json(res, 200, { ok: true });
+      }
     }
 
     if (method === "GET" && url.pathname === "/api/challenge-progress") {

@@ -36,7 +36,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -181,7 +182,8 @@ button:disabled {
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
@@ -191,12 +193,20 @@ button:disabled {
   background: #0c0c0c;
 }
 
+.field textarea {
+  min-height: 132px;
+  padding-top: 12px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 .field input::placeholder {
   color: var(--quiet);
 }
 
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   outline: 2px solid rgba(255, 122, 26, 0.26);
   border-color: var(--accent);
 }
@@ -1281,6 +1291,13 @@ button:disabled {
   margin-top: 4px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.feedback-description {
+  margin: 8px 0 0;
+  color: var(--ink);
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .row-actions {
