@@ -14,6 +14,7 @@ const state = {
   selectedChallengeUserId: null,
   challengeOpenedFromProfile: false,
   statisticsTab: "killTeamWinrates",
+  selectedStatisticsTeam: null,
   searchResults: [],
   adminUsers: [],
   playerProfile: null
@@ -121,6 +122,8 @@ const killTeamAliases = new Map([
   ["brood brother", "Brood Brothers"],
   ["brood brothers", "Brood Brothers"],
   ["corsair voidscarred", "Corsair Voidscarred"],
+  ["elucidian starstrider", "Elucidian Starstriders"],
+  ["elucidian starstriders", "Elucidian Starstriders"],
   ["farstalker kinband", "Farstalker Kinband"],
   ["fellgor ravager", "Fellgor Ravagers"],
   ["fellgor ravagers", "Fellgor Ravagers"],
@@ -136,12 +139,18 @@ const killTeamAliases = new Map([
   ["inquisitorial agents", "Inquisitorial Agents"],
   ["navy breacher", "Navy Breachers"],
   ["navy breachers", "Navy Breachers"],
+  ["novitiate", "Novitiates"],
+  ["novitiates", "Novitiates"],
+  ["kommando", "Kommandos"],
+  ["kommandos", "Kommandos"],
   ["tempestus aquilons", "Tempestus Aquilons"],
   ["tempestus aquillons", "Tempestus Aquilons"],
   ["vespid stingwings", "Vespid Stingwings"],
   ["void dancer troupe", "Void-dancer Troupe"],
   ["void dancer", "Void-dancer Troupe"],
   ["void-dancer troupe", "Void-dancer Troupe"],
+  ["warp coven", "Warpcoven"],
+  ["warpcoven", "Warpcoven"],
   ["xv26 stealth battlesuits", "XV26 Stealth Battlesuits"],
   ["xv26 stealth suits", "XV26 Stealth Battlesuits"]
 ]);
@@ -214,6 +223,65 @@ function avatarMarkup(user) {
   return `<span>${escapeHtml(userInitials(user))}</span>`;
 }
 
+function crossedSwordsIcon() {
+  return `
+    <svg class="inline-icon swords-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M14.5 4.5 19 9l-2 2-4.5-4.5z"></path>
+      <path d="m4 20 7.6-7.6"></path>
+      <path d="m12.4 11.6 1.4-1.4"></path>
+      <path d="M9.5 4.5 5 9l2 2 4.5-4.5z"></path>
+      <path d="m20 20-7.6-7.6"></path>
+      <path d="m11.6 11.6-1.4-1.4"></path>
+      <path d="M3.5 18.5 5.5 20.5"></path>
+      <path d="M18.5 20.5 20.5 18.5"></path>
+    </svg>
+  `;
+}
+
+function profileInfoMarkup(user) {
+  const rows = [
+    ["Register Nickname", user?.registerNickname],
+    ["Telegram", user?.telegramContact]
+  ].filter(([, value]) => String(value || "").trim());
+
+  if (!rows.length) return "";
+  return `
+    <div class="profile-info-list">
+      ${rows.map(([label, value]) => `
+        <span class="profile-info-item">
+          <small>${escapeHtml(label)}</small>
+          <strong>${escapeHtml(value)}</strong>
+        </span>
+      `).join("")}
+    </div>
+  `;
+}
+
+function profileContactsCard(user) {
+  const rows = [
+    ["Register Nickname", user?.registerNickname],
+    ["Telegram Contact", user?.telegramContact]
+  ];
+  return `
+    <div class="card panel">
+      <div class="panel-header">
+        <div>
+          <h3>Contacts</h3>
+          <p class="muted">Player contact details.</p>
+        </div>
+      </div>
+      <div class="contact-list">
+        ${rows.map(([label, value]) => `
+          <div class="contact-row">
+            <span>${escapeHtml(label)}</span>
+            <strong>${value ? escapeHtml(value) : "Not filled"}</strong>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 async function refresh() {
   const data = await api("/api/me");
   state.me = data.user;
@@ -253,6 +321,16 @@ function renderAuth() {
       ? "Your name will be visible in player search and the leaderboard."
       : "Return to your challenges, matches, and rating.";
   const action = state.authMode === "setup" ? "Create administrator" : state.authMode === "register" ? "Create account" : "Sign in";
+  const profileFields = state.authMode !== "login" ? `
+    <div class="field">
+      <label for="register-nickname">Register Nickname</label>
+      <input id="register-nickname" name="registerNickname" maxlength="40" placeholder="Optional">
+    </div>
+    <div class="field">
+      <label for="telegram-contact">Telegram Contact</label>
+      <input id="telegram-contact" name="telegramContact" maxlength="80" placeholder="@username" required>
+    </div>
+  ` : "";
 
   app.innerHTML = `
     <main class="auth-layout">
@@ -281,6 +359,7 @@ function renderAuth() {
               <label for="password">Password</label>
               <input id="password" name="password" type="password" autocomplete="${state.authMode === "login" ? "current-password" : "new-password"}" required minlength="6">
             </div>
+            ${profileFields}
             <button class="primary-button" type="submit">${action}</button>
             <div class="message" data-message></div>
           </form>
@@ -302,6 +381,10 @@ async function submitAuth(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const body = { name: form.get("name"), password: form.get("password") };
+  if (state.authMode !== "login") {
+    body.registerNickname = form.get("registerNickname");
+    body.telegramContact = form.get("telegramContact");
+  }
   const path = state.authMode === "setup" ? "/api/setup-admin" : state.authMode === "register" ? "/api/register" : "/api/login";
   try {
     await api(path, { method: "POST", body });
@@ -409,7 +492,7 @@ function renderPlay() {
   const content = document.querySelector("[data-content]");
   const incoming = state.challenges.filter((item) => item.status === "pending" && item.toUserId === state.me.id);
   const outgoing = state.challenges.filter((item) => item.status === "pending" && item.fromUserId === state.me.id);
-  const openGames = state.games.filter((game) => game.status !== "completed");
+  const openGames = state.games.filter((game) => ["open", "pending_confirmation"].includes(game.status));
   const completedGames = state.games.filter((game) => game.status === "completed").slice(0, 8);
 
   content.innerHTML = `
@@ -558,7 +641,7 @@ function tieBreakerLabel(value) {
 
 function getProfileStats() {
   const completedGames = state.games.filter((game) => game.status === "completed");
-  const openGames = state.games.filter((game) => game.status !== "completed");
+  const openGames = state.games.filter((game) => ["open", "pending_confirmation"].includes(game.status));
   const pendingIncoming = state.challenges.filter((item) => item.status === "pending" && item.toUserId === state.me.id);
   const pendingOutgoing = state.challenges.filter((item) => item.status === "pending" && item.fromUserId === state.me.id);
   const wins = completedGames.filter((game) => game.result?.winnerId === state.me.id).length;
@@ -582,6 +665,7 @@ function renderProfile() {
         <p class="profile-label">Player profile</p>
         <h2>${escapeHtml(state.me.name)}</h2>
         <p class="muted">${state.me.isAdmin ? "Administrator" : "Player"} &middot; joined ${fmtDate(state.me.createdAt)}</p>
+        ${profileInfoMarkup(state.me)}
       </div>
       <div class="profile-rating">
         <span>${state.me.rating}</span>
@@ -627,6 +711,18 @@ function renderProfile() {
           </div>
           <button class="primary-button" type="submit">Save nickname</button>
         </form>
+        <form class="settings-block" data-profile-contact-form>
+          <h3>Contacts</h3>
+          <div class="field">
+            <label for="profile-register-nickname">Register Nickname</label>
+            <input id="profile-register-nickname" name="registerNickname" value="${escapeHtml(state.me.registerNickname || "")}" maxlength="40" placeholder="Optional">
+          </div>
+          <div class="field">
+            <label for="profile-telegram-contact">Telegram Contact</label>
+            <input id="profile-telegram-contact" name="telegramContact" value="${escapeHtml(state.me.telegramContact || "")}" maxlength="80" placeholder="@username" required>
+          </div>
+          <button class="primary-button" type="submit">Save contacts</button>
+        </form>
         <form class="settings-block" data-profile-password-form>
           <h3>Password</h3>
           <div class="field">
@@ -644,6 +740,7 @@ function renderProfile() {
     </section>
 
     <section class="grid-2">
+      ${profileContactsCard(state.me)}
       <div class="card panel">
         <div class="panel-header">
           <div>
@@ -800,10 +897,15 @@ function renderPlayerProfile() {
   const user = profile.user;
   const stats = profile.stats || {};
   const recentGames = profile.recentGames || [];
-  const pendingChallenge = pendingChallengeWith(user.id);
+  const challengeProgress = profile.challengeProgress || state.challengeProgress.find((item) => item.user.id === user.id) || null;
+  const activeMatchup = profile.activeMatchup || {};
+  const activeGame = activeMatchup.game || activeGameWith(user.id);
+  const pendingChallenge = activeMatchup.challenge || pendingChallengeWith(user.id);
   const challengeButton = user.id === state.me.id
     ? ""
-    : `<button class="primary-button" data-profile-challenge="${user.id}" ${pendingChallenge ? "disabled" : ""}>${pendingChallenge ? "Challenge pending" : "Challenge"}</button>`;
+    : activeGame
+      ? `<button class="primary-button game-challenge-button" data-profile-game="${activeGame.id}">Open game</button>`
+      : `<button class="primary-button game-challenge-button" data-profile-challenge="${user.id}" ${pendingChallenge ? "disabled" : ""}>${pendingChallenge ? "Challange pending" : "Challange to Play"}</button>`;
 
   content.innerHTML = `
     <section class="card panel profile-hero">
@@ -812,6 +914,7 @@ function renderPlayerProfile() {
         <p class="profile-label">Player profile</p>
         <h2>${escapeHtml(user.name)}</h2>
         <p class="muted">Player &middot; joined ${fmtDate(user.createdAt)}</p>
+        ${profileInfoMarkup(user)}
       </div>
       <div class="profile-rating">
         <span>${user.rating}</span>
@@ -829,10 +932,16 @@ function renderPlayerProfile() {
     </section>
 
     <section class="grid-2">
+      ${profileContactsCard(user)}
       <div class="card panel">
-        <div class="panel-header"><h3>Game challenges</h3></div>
-        <div class="row-actions">
-          ${challengeButton}
+        <div class="panel-header">
+          <h3 class="icon-heading">${crossedSwordsIcon()}<span>Game challenges</span></h3>
+        </div>
+        <div class="game-challenge-card-body">
+          <img class="game-challenge-logo" src="/game-challenge-logo.png?v=20260706-large-logo-1" alt="Game challenge logo">
+          <div class="row-actions game-challenge-actions">
+            ${challengeButton}
+          </div>
         </div>
         <div class="message" data-player-profile-message></div>
       </div>
@@ -843,9 +952,7 @@ function renderPlayerProfile() {
             <p class="muted">Ordered Kill Team win tracker.</p>
           </div>
         </div>
-        <div class="row-actions">
-          <button class="small-button" data-profile-challenge-progress="${user.id}">Challenge progress</button>
-        </div>
+        ${profileChallengeNextCard(challengeProgress)}
       </div>
       <div class="card panel wide-panel">
         <div class="panel-header">
@@ -882,6 +989,9 @@ function renderPlayerProfile() {
       setPlayerProfileMessage(err.message, true);
     }
   });
+  document.querySelector("[data-profile-game]")?.addEventListener("click", async (event) => {
+    await openGameDetail(Number(event.currentTarget.dataset.profileGame));
+  });
   wireGameButtons();
   wireChallengeProgressButtons();
 }
@@ -890,6 +1000,7 @@ function wireProfileSettings() {
   const avatarInput = document.querySelector("[data-avatar-input]");
   const removeAvatar = document.querySelector("[data-remove-avatar]");
   const nameForm = document.querySelector("[data-profile-name-form]");
+  const contactForm = document.querySelector("[data-profile-contact-form]");
   const passwordForm = document.querySelector("[data-profile-password-form]");
 
   avatarInput?.addEventListener("change", async () => {
@@ -914,6 +1025,15 @@ function wireProfileSettings() {
     event.preventDefault();
     const form = new FormData(nameForm);
     await updateProfile({ name: form.get("name") }, "Nickname updated.");
+  });
+
+  contactForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = new FormData(contactForm);
+    await updateProfile({
+      registerNickname: form.get("registerNickname"),
+      telegramContact: form.get("telegramContact")
+    }, "Contacts updated.");
   });
 
   passwordForm?.addEventListener("submit", async (event) => {
@@ -1012,11 +1132,19 @@ async function updateProfile(body, successMessage) {
 }
 
 function pendingChallengeWith(userId) {
-  return (state.challenges || []).some((challenge) =>
+  return (state.challenges || []).find((challenge) =>
     challenge.status === "pending" &&
     ((challenge.fromUserId === state.me.id && challenge.toUserId === userId) ||
       (challenge.fromUserId === userId && challenge.toUserId === state.me.id))
-  );
+  ) || null;
+}
+
+function activeGameWith(userId) {
+  return (state.games || []).find((game) =>
+    ["open", "pending_confirmation"].includes(game.status) &&
+    (game.playerIds || []).includes(state.me.id) &&
+    (game.playerIds || []).includes(userId)
+  ) || null;
 }
 
 async function loadPlayerProfile(userId) {
@@ -1124,9 +1252,15 @@ function renderGames() {
 
 function renderStatistics() {
   const content = document.querySelector("[data-content]");
-  const statisticsContent = state.statisticsTab === "tacOpWinrates"
-    ? renderTacOpWinrates(tacOpWinrateSummary(state.allGames || []))
-    : renderKillTeamWinrates(killTeamWinrateSummary(state.allGames || []));
+  const games = state.allGames || [];
+  const killTeamSummary = killTeamWinrateSummary(games);
+  const statisticsContent = state.statisticsTab === "teams"
+    ? state.selectedStatisticsTeam
+      ? renderTeamDetail(teamDetailSummary(state.selectedStatisticsTeam, games))
+      : renderTeamCards(killTeamSummary)
+    : state.statisticsTab === "tacOpWinrates"
+      ? renderTacOpWinrates(tacOpWinrateSummary(games))
+      : renderKillTeamWinrates(killTeamSummary);
   content.innerHTML = `
     <section class="card panel">
       <div class="panel-header">
@@ -1138,6 +1272,7 @@ function renderStatistics() {
       <div class="tabs stats-tabs">
         <button class="tab ${state.statisticsTab === "killTeamWinrates" ? "active" : ""}" data-statistics-tab="killTeamWinrates">Kill Team Winrates</button>
         <button class="tab ${state.statisticsTab === "tacOpWinrates" ? "active" : ""}" data-statistics-tab="tacOpWinrates">Tac Ops Winrates</button>
+        <button class="tab ${state.statisticsTab === "teams" ? "active" : ""}" data-statistics-tab="teams">Teams</button>
       </div>
       ${state.gamesError
         ? `<div class="empty">Could not load statistics: ${escapeHtml(state.gamesError)}. Restart the local server and refresh the page.</div>`
@@ -1147,9 +1282,11 @@ function renderStatistics() {
   document.querySelectorAll("[data-statistics-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       state.statisticsTab = button.dataset.statisticsTab;
+      state.selectedStatisticsTeam = null;
       renderStatistics();
     });
   });
+  wireTeamStatistics();
 }
 
 function renderKillTeamWinrates(summary) {
@@ -1214,6 +1351,98 @@ function renderTacOpWinrates(summary) {
             : `<tr><td colspan="6">No completed games with Tac Op data yet.</td></tr>`}
         </tbody>
       </table>
+    </div>
+  `;
+}
+
+function renderTeamCards(summary) {
+  return `
+    <div class="team-card-grid">
+      ${summary.rows.length
+        ? summary.rows.map((row) => `
+          <button class="team-stat-card" data-stat-team="${escapeHtml(row.team)}">
+            <img class="team-stat-logo" src="${killTeamLogoSrc(row.team)}" alt="">
+            <span>${row.games} games</span>
+            <strong>${escapeHtml(row.team)}</strong>
+            <div class="team-stat-rate">${row.winRate}%</div>
+          </button>
+        `).join("")
+        : `<div class="empty">No completed non-mirror games with Kill Team data yet.</div>`}
+    </div>
+  `;
+}
+
+function renderTeamDetail(detail) {
+  return `
+    <div class="team-detail">
+      <div class="team-detail-hero">
+        <button class="small-button" data-team-back>Teams</button>
+        <img class="team-detail-logo" src="${killTeamLogoSrc(detail.team)}" alt="">
+        <div class="team-detail-main">
+          <p class="profile-label">Kill Team</p>
+          <h3>${escapeHtml(detail.team)}</h3>
+          <p class="muted">${detail.games} games · ${detail.wins} wins · ${detail.losses} losses · ${detail.draws} draws</p>
+        </div>
+        <div class="profile-rating team-detail-rate">
+          <span>${detail.winRate}%</span>
+          <small>Winrate</small>
+        </div>
+        <a class="small-button" href="${killTeamRulesUrl(detail.team)}" target="_blank" rel="noreferrer">Rules</a>
+      </div>
+
+      <section class="grid-2 team-detail-grid">
+        <div class="team-detail-section">
+          <div class="panel-header"><h3>Recent games</h3></div>
+          <div class="list">
+            ${detail.recentGames.length
+              ? detail.recentGames.map((item) => teamRecentGameCard(item)).join("")
+              : `<div class="empty">No completed games on this Kill Team yet.</div>`}
+          </div>
+        </div>
+        <div class="team-detail-section">
+          <div class="panel-header"><h3>Best players</h3></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Player</th><th>Games</th><th>Wins</th><th>Winrate</th></tr></thead>
+              <tbody>
+                ${detail.players.length
+                  ? detail.players.map((row) => `
+                    <tr>
+                      <td><strong>${escapeHtml(row.name)}</strong></td>
+                      <td>${row.games}</td>
+                      <td>${row.wins}</td>
+                      <td><span class="rating-pill stat-rate">${row.winRate}%</span></td>
+                    </tr>
+                  `).join("")
+                  : `<tr><td colspan="4">No player data yet.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="team-detail-section">
+        <div class="panel-header"><h3>Matchups</h3></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Opponent</th><th>Games</th><th>Wins</th><th>Losses</th><th>Draws</th><th>Winrate</th></tr></thead>
+            <tbody>
+              ${detail.matchups.length
+                ? detail.matchups.map((row) => `
+                  <tr>
+                    <td><strong>${escapeHtml(row.team)}</strong></td>
+                    <td>${row.games}</td>
+                    <td>${row.wins}</td>
+                    <td>${row.losses}</td>
+                    <td>${row.draws}</td>
+                    <td><span class="rating-pill stat-rate">${row.winRate}%</span></td>
+                  </tr>
+                `).join("")
+                : `<tr><td colspan="6">No non-mirror matchup data yet.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   `;
 }
@@ -1308,6 +1537,146 @@ function tacOpWinrateSummary(games) {
   );
 
   return { rows, totalGames: completedGames.length, totalPicks };
+}
+
+function teamDetailSummary(team, games) {
+  const targetTeam = canonicalKillTeamName(team);
+  const playerStats = new Map();
+  const matchupStats = new Map();
+  const recentGames = [];
+  const totals = { games: 0, wins: 0, losses: 0, draws: 0 };
+
+  for (const game of games.filter((item) => item.status === "completed" && item.result)) {
+    const players = game.players || [];
+    if (players.length < 2) continue;
+    const [playerA, playerB] = players;
+    const scoreA = game.result.scores?.[playerA.id] || {};
+    const scoreB = game.result.scores?.[playerB.id] || {};
+    const teamA = canonicalKillTeamName(scoreA.faction || scoreA.killTeam || scoreA.team);
+    const teamB = canonicalKillTeamName(scoreB.faction || scoreB.killTeam || scoreB.team);
+    if (!teamA || !teamB) continue;
+
+    const entries = [
+      { player: playerA, score: scoreA, team: teamA, opponent: playerB, opponentScore: scoreB, opponentTeam: teamB },
+      { player: playerB, score: scoreB, team: teamB, opponent: playerA, opponentScore: scoreA, opponentTeam: teamA }
+    ].filter((entry) => entry.team === targetTeam);
+
+    for (const entry of entries) {
+      const result = teamEntryResult(game, entry.player.id);
+      totals.games += 1;
+      totals.wins += result === "win" ? 1 : 0;
+      totals.losses += result === "loss" ? 1 : 0;
+      totals.draws += result === "draw" ? 1 : 0;
+
+      if (!playerStats.has(entry.player.id)) {
+        playerStats.set(entry.player.id, { id: entry.player.id, name: entry.player.name, games: 0, wins: 0, losses: 0, draws: 0 });
+      }
+      addRecord(playerStats.get(entry.player.id), result);
+
+      if (entry.opponentTeam !== targetTeam) {
+        if (!matchupStats.has(entry.opponentTeam)) {
+          matchupStats.set(entry.opponentTeam, { team: entry.opponentTeam, games: 0, wins: 0, losses: 0, draws: 0 });
+        }
+        addRecord(matchupStats.get(entry.opponentTeam), result);
+      }
+
+      recentGames.push({
+        game,
+        player: entry.player,
+        opponent: entry.opponent,
+        score: entry.score,
+        opponentScore: entry.opponentScore,
+        opponentTeam: entry.opponentTeam,
+        result
+      });
+    }
+  }
+
+  const withWinRate = (row) => ({
+    ...row,
+    winRate: row.games ? Math.round((row.wins / row.games) * 100) : 0
+  });
+
+  return {
+    team: targetTeam,
+    ...withWinRate(totals),
+    recentGames: recentGames.sort((a, b) =>
+      String(b.game.submittedAt || b.game.createdAt).localeCompare(String(a.game.submittedAt || a.game.createdAt))
+    ),
+    players: Array.from(playerStats.values()).map(withWinRate).sort(statRowSort).slice(0, 10),
+    matchups: Array.from(matchupStats.values()).map(withWinRate).sort(statRowSort)
+  };
+}
+
+function teamEntryResult(game, playerId) {
+  const winnerId = game.result?.winnerId ? Number(game.result.winnerId) : null;
+  if (!winnerId) return "draw";
+  return winnerId === Number(playerId) ? "win" : "loss";
+}
+
+function addRecord(row, result) {
+  row.games += 1;
+  if (result === "win") row.wins += 1;
+  else if (result === "loss") row.losses += 1;
+  else row.draws += 1;
+}
+
+function statRowSort(a, b) {
+  return b.winRate - a.winRate ||
+    b.wins - a.wins ||
+    b.games - a.games ||
+    String(a.name || a.team).localeCompare(String(b.name || b.team));
+}
+
+function teamRecentGameCard(item) {
+  const score = approvedTotal(item.score);
+  const opponentScore = approvedTotal(item.opponentScore);
+  const resultLabel = item.result === "win" ? "Won" : item.result === "loss" ? "Lost" : "Draw";
+  return `
+    <div class="row-card">
+      <div class="row-main">
+        <div class="row-title">${escapeHtml(item.player.name)} vs ${escapeHtml(item.opponent.name)}</div>
+        <div class="row-meta">${resultLabel}, ${score}-${opponentScore} · vs ${escapeHtml(item.opponentTeam)} · ${fmtDate(item.game.submittedAt || item.game.createdAt)}</div>
+      </div>
+      <div class="row-actions">
+        <span class="status ${item.result === "win" ? "completed" : item.result === "loss" ? "pending" : "open"}">${item.result}</span>
+        <button class="small-button" data-game-open="${item.game.id}">Details</button>
+      </div>
+    </div>
+  `;
+}
+
+function killTeamRulesUrl(team) {
+  const slugs = {
+    "Angels of Death": "angel-of-death",
+    "Brood Brothers": "brood-brother",
+    "Elucidian Starstriders": "elucidian-starstrider",
+    "Fellgor Ravagers": "fellgor-ravager",
+    "Goremongers": "goremonger",
+    "Hearthkyn Salvagers": "hearthkyn-salvager",
+    "Hernkyn Yaegirs": "hernkyn-yaegir",
+    "Inquisitorial Agents": "inquisitorial-agent",
+    "Navy Breachers": "imperial-navy-breacher",
+    "Tempestus Aquilons": "tempestus-aquilons",
+    "Void-dancer Troupe": "void-dancer-troupe",
+    "XV26 Stealth Battlesuits": "xv26-stealth-battlesuits"
+  };
+  const slug = slugs[team] || statKey(team).replace(/\s+/g, "-");
+  return `https://wahapedia.ru/kill-team3/kill-teams/${slug}/`;
+}
+
+function wireTeamStatistics() {
+  document.querySelectorAll("[data-stat-team]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedStatisticsTeam = button.dataset.statTeam;
+      renderStatistics();
+    });
+  });
+  document.querySelector("[data-team-back]")?.addEventListener("click", () => {
+    state.selectedStatisticsTeam = null;
+    renderStatistics();
+  });
+  wireGameButtons();
 }
 
 function addKillTeamStat(stats, team, winnerId, playerId) {
@@ -1443,8 +1812,9 @@ function adminChallengeActions(progress) {
 
 function killTeamLogoSrc(team) {
   const logoFiles = {
+    "Elucidian Starstriders": "Elucidian Starstriders.png",
     "Navy Breachers": "Imperial Navy Breachers.png",
-    "Tempestus Aquillons": "Tempestus Aquilons.png",
+    "Tempestus Aquilons": "Tempestus Aquilons.png",
     "XV26 Stealth Suits": "XV26 Stealth Battlesuits.png"
   };
   const fileName = logoFiles[team] || `${team}.png`;
@@ -1504,6 +1874,11 @@ function renderGameDetail() {
   const result = game.result || game.pendingResult?.result || null;
   const statusLabel = game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "active";
   const submitter = game.players?.find((player) => player.id === game.pendingResult?.submittedBy || player.id === game.submittedBy);
+  const isParticipant = game.players?.some((player) => player.id === state.me.id);
+  const playerAction = isParticipant && game.status === "open"
+    ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>
+       <button class="danger-button" data-exit-game="${game.id}">Exit game</button>`
+    : "";
   const adminAction = state.me.isAdmin
     ? `<button class="primary-button" data-admin-edit-game="${game.id}">${result ? "Edit result" : "Enter result"}</button>`
     : "";
@@ -1518,6 +1893,7 @@ function renderGameDetail() {
         <div class="row-actions">
           <span class="status ${game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "open"}">${statusLabel}</span>
           <button class="ghost-button" data-back-games>Games</button>
+          ${playerAction}
           ${adminAction}
         </div>
       </div>
@@ -1545,6 +1921,12 @@ function renderGameDetail() {
   });
   document.querySelector("[data-admin-edit-game]")?.addEventListener("click", () => {
     renderResultForm(game.id, { adminEdit: true });
+  });
+  document.querySelector("[data-exit-game]")?.addEventListener("click", (event) => {
+    exitOpenGame(Number(event.currentTarget.dataset.exitGame));
+  });
+  document.querySelector("[data-game-result]")?.addEventListener("click", (event) => {
+    renderResultForm(Number(event.currentTarget.dataset.gameResult));
   });
 }
 
@@ -1681,6 +2063,21 @@ function wireGameButtons() {
   });
 }
 
+async function exitOpenGame(gameId) {
+  const confirmed = window.confirm("Exit this game? The match will be closed without Elo changes.");
+  if (!confirmed) return;
+  try {
+    await api(`/api/games/${gameId}/exit`, { method: "POST" });
+    await refresh();
+    await loadGames();
+    state.view = "play";
+    state.selectedGameId = null;
+    renderShell();
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
 function renderResultForm(gameId, options = {}) {
   const { adminEdit = false } = options;
   const game = getKnownGame(gameId);
@@ -1696,7 +2093,10 @@ function renderResultForm(gameId, options = {}) {
           <h2>${adminEdit ? "Edit Approved Ops result" : "Approved Ops result"}</h2>
           <p class="muted">Each op scores 0-6 VP. Primary Op adds half of its VP, rounded up.</p>
         </div>
-        <button class="ghost-button" data-back>Back</button>
+        <div class="row-actions">
+          ${!adminEdit && game.status === "open" ? `<button class="danger-button" type="button" data-exit-game="${game.id}">Exit game</button>` : ""}
+          <button class="ghost-button" type="button" data-back>Back</button>
+        </div>
       </div>
       <form class="result-form" data-result-form>
         <div class="score-grid">
@@ -1784,6 +2184,9 @@ function renderResultForm(gameId, options = {}) {
       return;
     }
     renderPlay();
+  });
+  document.querySelector("[data-exit-game]")?.addEventListener("click", (event) => {
+    exitOpenGame(Number(event.currentTarget.dataset.exitGame));
   });
   const refreshResultPreview = () => {
     updateTotals();
@@ -2434,12 +2837,18 @@ function renderAdmin() {
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Name</th><th>Rating</th><th>Matches</th><th>Admin</th><th></th></tr>
+            <tr><th>Name</th><th>Contacts</th><th>Rating</th><th>Matches</th><th>Admin</th><th></th></tr>
           </thead>
           <tbody>
             ${state.adminUsers.map((user) => `
               <tr>
                 <td>${escapeHtml(user.name)}</td>
+                <td>
+                  <div class="admin-contact-cell">
+                    <span>Register: ${escapeHtml(user.registerNickname || "-")}</span>
+                    <span>Telegram: ${escapeHtml(user.telegramContact || "-")}</span>
+                  </div>
+                </td>
                 <td>
                   <div class="admin-controls">
                     <input class="rating-input" type="number" min="0" max="5000" value="${user.rating}" data-rating="${user.id}">

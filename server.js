@@ -214,6 +214,8 @@ async function ensurePostgres() {
       name_key TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       avatar_data TEXT,
+      register_nickname TEXT,
+      telegram_contact TEXT,
       challenge_credits JSONB,
       rating INTEGER NOT NULL DEFAULT 1000,
       is_admin BOOLEAN NOT NULL DEFAULT FALSE,
@@ -259,6 +261,8 @@ async function ensurePostgres() {
     CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
   `);
   await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data TEXT");
+  await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS register_nickname TEXT");
+  await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_contact TEXT");
   await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS challenge_credits JSONB");
   await db.query("ALTER TABLE games ADD COLUMN IF NOT EXISTS pending_result JSONB");
   await seedPostgresFromJsonIfEmpty();
@@ -309,13 +313,15 @@ async function writePostgresDb(state) {
 
     for (const user of state.users) {
       await client.query(`
-        INSERT INTO users (id, name, name_key, password_hash, avatar_data, challenge_credits, rating, is_admin, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)
+        INSERT INTO users (id, name, name_key, password_hash, avatar_data, register_nickname, telegram_contact, challenge_credits, rating, is_admin, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12)
         ON CONFLICT (id) DO UPDATE SET
           name = EXCLUDED.name,
           name_key = EXCLUDED.name_key,
           password_hash = EXCLUDED.password_hash,
           avatar_data = EXCLUDED.avatar_data,
+          register_nickname = EXCLUDED.register_nickname,
+          telegram_contact = EXCLUDED.telegram_contact,
           challenge_credits = EXCLUDED.challenge_credits,
           rating = EXCLUDED.rating,
           is_admin = EXCLUDED.is_admin,
@@ -327,6 +333,8 @@ async function writePostgresDb(state) {
         user.name.toLowerCase(),
         user.passwordHash,
         user.avatarData || null,
+        user.registerNickname || null,
+        user.telegramContact || null,
         JSON.stringify(user.challengeCredits || []),
         user.rating,
         Boolean(user.isAdmin),
@@ -433,6 +441,8 @@ function mapUser(row) {
     name: row.name,
     passwordHash: row.password_hash,
     avatarData: row.avatar_data || null,
+    registerNickname: row.register_nickname || "",
+    telegramContact: row.telegram_contact || "",
     challengeCredits: Array.isArray(row.challenge_credits) ? row.challenge_credits : [],
     rating: row.rating,
     isAdmin: row.is_admin,
@@ -589,6 +599,8 @@ function publicUser(user) {
     id: user.id,
     name: user.name,
     avatarData: user.avatarData || null,
+    registerNickname: user.registerNickname || "",
+    telegramContact: user.telegramContact || "",
     challengeCredits: user.challengeCredits || [],
     rating: user.rating,
     isAdmin: Boolean(user.isAdmin),
@@ -602,6 +614,22 @@ function normalizeName(name) {
 
 function validateName(name) {
   return /^[\p{L}0-9 _.-]{2,24}$/u.test(name);
+}
+
+function profileText(value, label, maxLength) {
+  const text = String(value || "").trim().replace(/\s+/g, " ");
+  if (text.length > maxLength) {
+    throw new Error(`${label} must be ${maxLength} characters or fewer`);
+  }
+  return text;
+}
+
+function requiredProfileText(value, label, maxLength) {
+  const text = profileText(value, label, maxLength);
+  if (!text) {
+    throw new Error(`${label} is required`);
+  }
+  return text;
 }
 
 function validateAvatarData(value) {
@@ -930,7 +958,7 @@ function userSummary(db, user) {
   };
 }
 
-function publicProfileSummary(db, user) {
+function publicProfileSummary(db, user, viewer = null) {
   const completedGames = db.games
     .filter((game) => game.status === "completed" && game.playerIds.includes(user.id))
     .sort((a, b) => String(b.submittedAt || b.createdAt).localeCompare(String(a.submittedAt || a.createdAt)));
@@ -939,6 +967,9 @@ function publicProfileSummary(db, user) {
   const losses = completedGames.filter((game) => game.result?.winnerId && game.result.winnerId !== user.id).length;
   const eloDelta = completedGames.reduce((sum, game) => sum + Number(game.elo?.[user.id]?.delta || 0), 0);
   const winRate = completedGames.length ? Math.round((wins / completedGames.length) * 100) : 0;
+
+  const activeGame = viewer && viewer.id !== user.id ? activeGameBetween(db, viewer.id, user.id) : null;
+  const pendingChallenge = viewer && viewer.id !== user.id ? pendingChallengeBetween(db, viewer.id, user.id) : null;
 
   return {
     user: publicUser(user),
@@ -950,8 +981,32 @@ function publicProfileSummary(db, user) {
       eloDelta,
       winRate
     },
+    challengeProgress: challengeProgressForUser(db, user),
+    activeMatchup: {
+      game: activeGame ? gameView(activeGame, db) : null,
+      challenge: pendingChallenge ? challengeView(pendingChallenge, db) : null
+    },
     recentGames: completedGames.slice(0, 5).map((game) => gameView(game, db))
   };
+}
+
+function samePlayerPair(ids, a, b) {
+  return ids.includes(a) && ids.includes(b);
+}
+
+function activeGameBetween(db, userId, otherUserId) {
+  return db.games.find((game) =>
+    ["open", "pending_confirmation"].includes(game.status) &&
+    samePlayerPair(game.playerIds || [], userId, otherUserId)
+  ) || null;
+}
+
+function pendingChallengeBetween(db, userId, otherUserId) {
+  return db.challenges.find((challenge) =>
+    challenge.status === "pending" &&
+    ((challenge.fromUserId === userId && challenge.toUserId === otherUserId) ||
+      (challenge.fromUserId === otherUserId && challenge.toUserId === userId))
+  ) || null;
 }
 
 function sendStatic(req, res) {
@@ -978,11 +1033,13 @@ function sendStatic(req, res) {
 }
 
 async function handleApi(req, res) {
-  const db = await readDb();
   const url = new URL(req.url, `http://${req.headers.host}`);
+  url.pathname = normalizeApiPath(url.pathname);
   const method = req.method || "GET";
 
   try {
+    const db = await readDb();
+
     if (method === "GET" && url.pathname === "/api/me") {
       const user = currentUser(db, req);
       return json(res, 200, user ? userSummary(db, user) : {
@@ -1010,6 +1067,16 @@ async function handleApi(req, res) {
         user.updatedAt = nowIso();
       }
 
+      if (Object.prototype.hasOwnProperty.call(body, "registerNickname")) {
+        user.registerNickname = profileText(body.registerNickname, "Register Nickname", 40);
+        user.updatedAt = nowIso();
+      }
+
+      if (Object.prototype.hasOwnProperty.call(body, "telegramContact")) {
+        user.telegramContact = requiredProfileText(body.telegramContact, "Telegram Contact", 80);
+        user.updatedAt = nowIso();
+      }
+
       if (body.currentPassword || body.newPassword) {
         const currentPassword = String(body.currentPassword || "");
         const newPassword = String(body.newPassword || "");
@@ -1031,6 +1098,8 @@ async function handleApi(req, res) {
       const body = await readBody(req);
       const name = normalizeName(body.name);
       const password = String(body.password || "");
+      const registerNickname = profileText(body.registerNickname, "Register Nickname", 40);
+      const telegramContact = requiredProfileText(body.telegramContact, "Telegram Contact", 80);
       if (!validateName(name)) return error(res, 400, "Name must be 2-24 characters: letters, numbers, spaces, ._-");
       if (password.length < 6) return error(res, 400, "Password must be at least 6 characters");
       if (db.users.some((user) => user.name.toLowerCase() === name.toLowerCase())) {
@@ -1043,6 +1112,8 @@ async function handleApi(req, res) {
         name,
         passwordHash: hashPassword(password),
         avatarData: null,
+        registerNickname,
+        telegramContact,
         challengeCredits: [],
         rating: INITIAL_RATING,
         isAdmin: firstAdmin,
@@ -1061,6 +1132,8 @@ async function handleApi(req, res) {
       const body = await readBody(req);
       const name = normalizeName(body.name);
       const password = String(body.password || "");
+      const registerNickname = profileText(body.registerNickname, "Register Nickname", 40);
+      const telegramContact = requiredProfileText(body.telegramContact, "Telegram Contact", 80);
       if (!validateName(name)) return error(res, 400, "Name must be 2-24 characters: letters, numbers, spaces, ._-");
       if (password.length < 8) return error(res, 400, "Administrator password must be at least 8 characters");
       if (db.users.some((user) => user.name.toLowerCase() === name.toLowerCase())) {
@@ -1071,6 +1144,8 @@ async function handleApi(req, res) {
         name,
         passwordHash: hashPassword(password),
         avatarData: null,
+        registerNickname,
+        telegramContact,
         challengeCredits: [],
         rating: INITIAL_RATING,
         isAdmin: true,
@@ -1153,7 +1228,7 @@ async function handleApi(req, res) {
       if (!viewer) return;
       const profileUser = db.users.find((item) => item.id === Number(userProfileMatch[1]));
       if (!profileUser) return error(res, 404, "User not found");
-      return json(res, 200, publicProfileSummary(db, profileUser));
+      return json(res, 200, publicProfileSummary(db, profileUser, viewer));
     }
 
     if (method === "POST" && url.pathname === "/api/challenges") {
@@ -1162,12 +1237,10 @@ async function handleApi(req, res) {
       const body = await readBody(req);
       const toUser = db.users.find((item) => item.id === Number(body.toUserId));
       if (!toUser || toUser.id === user.id) return error(res, 400, "Challenge target user not found");
-      const existing = db.challenges.find((challenge) =>
-        challenge.status === "pending" &&
-        ((challenge.fromUserId === user.id && challenge.toUserId === toUser.id) ||
-          (challenge.fromUserId === toUser.id && challenge.toUserId === user.id))
-      );
-      if (existing) return error(res, 409, "These players already have a pending challenge");
+      const existingChallenge = pendingChallengeBetween(db, user.id, toUser.id);
+      if (existingChallenge) return error(res, 409, "These players already have a pending challenge");
+      const existingGame = activeGameBetween(db, user.id, toUser.id);
+      if (existingGame) return error(res, 409, "These players already have an active game");
       const challenge = {
         id: db.nextIds.challenge++,
         fromUserId: user.id,
@@ -1198,6 +1271,8 @@ async function handleApi(req, res) {
         if (action === "decline") {
           challenge.status = "declined";
         } else {
+          const existingGame = activeGameBetween(db, challenge.fromUserId, challenge.toUserId);
+          if (existingGame) return error(res, 409, "These players already have an active game");
           challenge.status = "accepted";
           const game = {
             id: db.nextIds.game++,
@@ -1249,6 +1324,33 @@ async function handleApi(req, res) {
       };
       game.result = null;
       game.elo = null;
+      await writeDb(db);
+      return json(res, 200, { game: gameView(game, db) });
+    }
+
+    const gameExitMatch = url.pathname.match(/^\/api\/games\/(\d+)\/exit$/);
+    if (method === "POST" && gameExitMatch) {
+      const user = requireAuth(db, req, res);
+      if (!user) return;
+      const id = Number(gameExitMatch[1]);
+      const game = db.games.find((item) => item.id === id);
+      if (!game) return error(res, 404, "Game not found");
+      if (!game.playerIds.includes(user.id)) return error(res, 403, "Only a game participant can exit this game");
+      if (game.status !== "open") return error(res, 409, "Only open games can be exited");
+
+      game.status = "cancelled";
+      game.submittedBy = null;
+      game.submittedAt = null;
+      game.pendingResult = null;
+      game.result = null;
+      game.elo = null;
+
+      const challenge = db.challenges.find((item) => item.id === game.challengeId);
+      if (challenge && challenge.status === "accepted") {
+        challenge.status = "cancelled";
+        challenge.updatedAt = nowIso();
+      }
+
       await writeDb(db);
       return json(res, 200, { game: gameView(game, db) });
     }
@@ -1414,6 +1516,18 @@ async function handleApi(req, res) {
   } catch (err) {
     error(res, 400, err.message || "Request failed");
   }
+}
+
+function normalizeApiPath(pathname) {
+  const functionPrefix = "/.netlify/functions/api";
+  let normalized = pathname || "/";
+  if (normalized.startsWith(functionPrefix)) {
+    normalized = `/api${normalized.slice(functionPrefix.length) || ""}`;
+  }
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
 }
 
 const server = http.createServer((req, res) => {
