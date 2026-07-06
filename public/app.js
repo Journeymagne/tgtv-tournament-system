@@ -398,6 +398,7 @@ async function submitAuth(event) {
 }
 
 function renderShell() {
+  setSidebarOpen(false);
   app.innerHTML = `
     <header class="topbar">
       <div class="topbar-title">
@@ -408,18 +409,23 @@ function renderShell() {
             <div class="app-brand-subtitle">Tournament System</div>
           </div>
         </div>
-        <button class="mark avatar-button" data-header-profile aria-label="Open profile">${avatarMarkup(state.me)}</button>
-        <div>
+        <div class="topbar-user-controls">
+          <button class="menu-toggle" data-sidebar-toggle aria-label="Open navigation" aria-expanded="false">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <button class="mark avatar-button" data-header-profile aria-label="Open profile">${avatarMarkup(state.me)}</button>
+        </div>
+        <div class="topbar-player">
           <div class="topbar-name-row">
             <h1>${escapeHtml(state.me.name)}</h1>
             <span class="rating-pill inline-rating">${state.me.rating} Elo</span>
           </div>
         </div>
       </div>
-      <div class="topbar-actions">
-        <button class="ghost-button" data-logout>Sign out</button>
-      </div>
     </header>
+    <button class="sidebar-backdrop" data-sidebar-close aria-label="Close navigation"></button>
     <main class="layout">
       <aside class="card sidebar">
         ${navButton("top", "Leaderboard")}
@@ -429,13 +435,19 @@ function renderShell() {
         ${navButton("profile", "Profile")}
         ${navButton("challenge", "All Kill Team Challenge")}
         ${state.me.isAdmin ? navButton("admin", "Administration") : ""}
+        <button class="nav-button sidebar-logout" data-logout>Sign out</button>
       </aside>
       <section class="content" data-content></section>
     </main>
   `;
 
+  document.querySelector("[data-sidebar-toggle]").addEventListener("click", () => {
+    setSidebarOpen(!document.body.classList.contains("sidebar-open"));
+  });
+  document.querySelector("[data-sidebar-close]").addEventListener("click", () => setSidebarOpen(false));
   document.querySelector("[data-logout]").addEventListener("click", logout);
   document.querySelector("[data-header-profile]").addEventListener("click", async () => {
+    setSidebarOpen(false);
     state.view = "profile";
     state.playerProfile = null;
     state.selectedChallengeUserId = state.me.id;
@@ -444,6 +456,7 @@ function renderShell() {
   });
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.addEventListener("click", async () => {
+      setSidebarOpen(false);
       const targetView = button.dataset.view;
       state.view = targetView;
       state.playerProfile = null;
@@ -474,6 +487,18 @@ function renderShell() {
   else if (state.view === "top") renderTop();
   else if (state.view === "admin") renderAdmin();
   else renderPlay();
+}
+
+function setSidebarOpen(isOpen) {
+  document.body.classList.toggle("sidebar-open", Boolean(isOpen));
+  document.querySelector("[data-sidebar-toggle]")?.setAttribute("aria-expanded", String(Boolean(isOpen)));
+}
+
+if (!window.__tgtvSidebarEscapeBound) {
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setSidebarOpen(false);
+  });
+  window.__tgtvSidebarEscapeBound = true;
 }
 
 function navButton(id, label) {
