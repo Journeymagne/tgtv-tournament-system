@@ -740,8 +740,7 @@ function buildChallengeTrackProgress(user, events, teams, wildcards) {
     if (event.action === "deduct") {
       const completedIndex = completed.findIndex((item) => item.team === event.team);
       if (completedIndex !== -1) {
-        completed.splice(completedIndex);
-        nextIndex = completed.length;
+        completed.splice(completedIndex, 1);
       }
       continue;
     }
