@@ -1079,7 +1079,7 @@ function renderPlayerProfile() {
     ? ""
     : activeGame
       ? `<button class="primary-button game-challenge-button" data-profile-game="${activeGame.id}">Open game</button>`
-      : `<button class="primary-button game-challenge-button" data-profile-challenge="${user.id}" ${pendingChallenge ? "disabled" : ""}>${pendingChallenge ? "Challange pending" : "Challange to Play"}</button>`;
+      : `<button class="primary-button game-challenge-button" data-profile-challenge="${user.id}" ${pendingChallenge ? "disabled" : ""}>${pendingChallenge ? "Challenge pending" : "Challenge to Play"}</button>`;
 
   content.innerHTML = `
     <section class="card panel profile-hero">
