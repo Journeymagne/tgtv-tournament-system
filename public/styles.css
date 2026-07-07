@@ -211,6 +211,37 @@ button:disabled {
   border-color: var(--accent);
 }
 
+.password-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+}
+
+.password-control input {
+  border-radius: 7px 0 0 7px;
+}
+
+.password-toggle {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  color: var(--muted);
+  background: #050505;
+  border: 1px solid var(--line-strong);
+  border-left: 0;
+  border-radius: 0 7px 7px 0;
+}
+
+.password-toggle:hover,
+.password-toggle[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+.password-control:focus-within input,
+.password-control:focus-within .password-toggle {
+  outline: 2px solid rgba(255, 122, 26, 0.26);
+  border-color: var(--accent);
+}
+
 .combo-field {
   position: relative;
 }

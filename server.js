@@ -55,12 +55,35 @@ const CHALLENGE_TEAMS = [
   "Canoptek Circle",
   "Wolf Scouts",
   "Celestian Insidiants",
-  "Murderwing"
+  "Murderwing",
+  "Spectre Squad"
 ];
 
 const CHALLENGE_WILDCARDS = [
   "Navy Breachers",
   "XV26 Stealth Suits"
+];
+
+const ALL_KILL_TEAM_EXTRA_TEAMS = [
+  "Novitiates",
+  "Elucidian Starstriders",
+  "Hunter Clade",
+  "Death Korps",
+  "Phobos Strike Team",
+  "Gellerpox Infected",
+  "Legionaries",
+  "Blooded",
+  "Warpcoven",
+  "Corsair Voidscarred",
+  "Wyrmblade",
+  "Void-Dancer Troupe",
+  "Kommandos",
+  "Pathfinders"
+];
+
+const ALL_KILL_TEAM_CHALLENGE_TEAMS = [
+  ...ALL_KILL_TEAM_EXTRA_TEAMS,
+  ...CHALLENGE_TEAMS
 ];
 
 const KILL_TEAM_OPTIONS = [
@@ -97,7 +120,7 @@ const KILL_TEAM_OPTIONS = [
   "Blades of Khaine",
   "Hand of the Archon",
   "Mandrakes",
-  "Void-dancer Troupe",
+  "Void-Dancer Troupe",
   "Brood Brothers",
   "Wyrmblade",
   "Hearthkyn Salvagers",
@@ -164,6 +187,10 @@ const KILL_TEAM_ALIASES = new Map([
   ["tempestus aquilons", "Tempestus Aquillons"],
   ["tempestus aquillons", "Tempestus Aquillons"],
   ["vespid stingwings", "Vespid Stingwings"],
+  ["void dancer troupe", "Void-Dancer Troupe"],
+  ["void-dancer troupe", "Void-Dancer Troupe"],
+  ["warp coven", "Warpcoven"],
+  ["warpcoven", "Warpcoven"],
   ["xv26 stealth battlesuits", "XV26 Stealth Suits"],
   ["xv26 stealth suits", "XV26 Stealth Suits"]
 ]);
@@ -630,7 +657,7 @@ function normalizeKillTeam(value) {
   const text = String(value || "").trim();
   if (!text) return "";
   const key = text.toLowerCase().replace(/\s+/g, " ");
-  const direct = [...CHALLENGE_TEAMS, ...CHALLENGE_WILDCARDS].find((team) => team.toLowerCase() === key);
+  const direct = [...ALL_KILL_TEAM_CHALLENGE_TEAMS].find((team) => team.toLowerCase() === key);
   return direct || KILL_TEAM_ALIASES.get(key) || text;
 }
 
@@ -682,12 +709,23 @@ function challengeEventsForUser(db, user) {
 
 function challengeProgressForUser(db, user) {
   const events = challengeEventsForUser(db, user);
-  let nextIndex = 0;
+  const classified = buildChallengeTrackProgress(user, events, CHALLENGE_TEAMS, CHALLENGE_WILDCARDS);
+  const allKillTeam = buildChallengeTrackProgress(user, events, ALL_KILL_TEAM_CHALLENGE_TEAMS, CHALLENGE_WILDCARDS);
+  return {
+    ...classified,
+    tracks: {
+      classified,
+      allKillTeam
+    }
+  };
+}
+
+function buildChallengeTrackProgress(user, events, teams, wildcards) {
   const completed = [];
   const wildcardCompleted = [];
 
   for (const event of events) {
-    if (CHALLENGE_WILDCARDS.includes(event.team)) {
+    if (wildcards.includes(event.team)) {
       if (event.action === "deduct") {
         const wildcardIndex = wildcardCompleted.findIndex((item) => item.team === event.team);
         if (wildcardIndex !== -1) wildcardCompleted.splice(wildcardIndex, 1);
@@ -708,28 +746,36 @@ function challengeProgressForUser(db, user) {
       continue;
     }
 
-    const expected = CHALLENGE_TEAMS[nextIndex];
-    if (event.team === expected) {
-      completed.push({ ...event, order: nextIndex + 1 });
-      nextIndex += 1;
+    const teamIndex = teams.indexOf(event.team);
+    if (teamIndex !== -1) {
+      const completedIndex = completed.findIndex((item) => item.team === event.team);
+      if (event.action === "deduct") {
+        if (completedIndex !== -1) completed.splice(completedIndex, 1);
+        continue;
+      }
+      if (completedIndex === -1) {
+        completed.push({ ...event, order: teamIndex + 1 });
+      }
     }
   }
 
   const completedTeams = new Set(completed.map((item) => item.team));
+  const nextIndex = teams.findIndex((team) => !completedTeams.has(team));
+  const currentIndex = nextIndex === -1 ? teams.length : nextIndex;
   return {
     user: publicUser(user),
-    total: CHALLENGE_TEAMS.length,
+    total: teams.length,
     completedCount: completed.length,
-    nextTeam: CHALLENGE_TEAMS[nextIndex] || null,
+    nextTeam: teams[currentIndex] || null,
     completed,
     wildcardCompleted,
-    teams: CHALLENGE_TEAMS.map((team, index) => ({
+    teams: teams.map((team, index) => ({
       order: index + 1,
       team,
-      status: completedTeams.has(team) ? "completed" : index === nextIndex ? "current" : "locked",
+      status: completedTeams.has(team) ? "completed" : index === currentIndex ? "current" : "locked",
       credit: completed.find((item) => item.team === team) || null
     })),
-    wildcards: CHALLENGE_WILDCARDS.map((team) => ({
+    wildcards: wildcards.map((team) => ({
       team,
       status: wildcardCompleted.some((item) => item.team === team) ? "completed" : "available",
       credit: wildcardCompleted.find((item) => item.team === team) || null
@@ -1274,10 +1320,12 @@ async function handleApi(req, res) {
       const body = await readBody(req);
       const name = normalizeName(body.name);
       const password = String(body.password || "");
+      const confirmPassword = String(body.confirmPassword || "");
       const registerNickname = profileText(body.registerNickname, "Register Nickname", 40);
       const telegramContact = requiredProfileText(body.telegramContact, "Telegram Contact", 80);
       if (!validateName(name)) return error(res, 400, "Name must be 2-24 characters: letters, numbers, spaces, ._-");
       if (password.length < 6) return error(res, 400, "Password must be at least 6 characters");
+      if (password !== confirmPassword) return error(res, 400, "Passwords do not match");
       if (db.users.some((user) => user.name.toLowerCase() === name.toLowerCase())) {
         return error(res, 409, "This name is already taken");
       }
@@ -1308,10 +1356,12 @@ async function handleApi(req, res) {
       const body = await readBody(req);
       const name = normalizeName(body.name);
       const password = String(body.password || "");
+      const confirmPassword = String(body.confirmPassword || "");
       const registerNickname = profileText(body.registerNickname, "Register Nickname", 40);
       const telegramContact = requiredProfileText(body.telegramContact, "Telegram Contact", 80);
       if (!validateName(name)) return error(res, 400, "Name must be 2-24 characters: letters, numbers, spaces, ._-");
       if (password.length < 8) return error(res, 400, "Administrator password must be at least 8 characters");
+      if (password !== confirmPassword) return error(res, 400, "Passwords do not match");
       if (db.users.some((user) => user.name.toLowerCase() === name.toLowerCase())) {
         return error(res, 409, "This name is already taken");
       }
@@ -1443,6 +1493,7 @@ async function handleApi(req, res) {
       return json(res, 200, {
         teams: CHALLENGE_TEAMS,
         wildcards: CHALLENGE_WILDCARDS,
+        allKillTeamTeams: ALL_KILL_TEAM_CHALLENGE_TEAMS,
         users
       });
     }
@@ -1678,7 +1729,10 @@ async function handleApi(req, res) {
       const body = await readBody(req);
       const team = normalizeKillTeam(body.team);
       const action = body.action === "remove" ? "remove" : "credit";
-      const validTeam = CHALLENGE_TEAMS.includes(team) || CHALLENGE_WILDCARDS.includes(team);
+      const trackKey = body.track === "allKillTeam" ? "allKillTeam" : "classified";
+      const trackTeams = trackKey === "allKillTeam" ? ALL_KILL_TEAM_CHALLENGE_TEAMS : CHALLENGE_TEAMS;
+      const trackWildcards = CHALLENGE_WILDCARDS;
+      const validTeam = trackTeams.includes(team) || trackWildcards.includes(team);
       if (!validTeam) return error(res, 400, "Unknown Kill Team for this challenge");
 
       target.challengeCredits = target.challengeCredits || [];
@@ -1695,11 +1749,9 @@ async function handleApi(req, res) {
       }
 
       const progress = challengeProgressForUser(db, target);
-      const mainStatus = progress.teams.find((item) => item.team === team)?.status;
-      if (CHALLENGE_TEAMS.includes(team) && mainStatus === "locked") {
-        return error(res, 409, "Previous Kill Teams must be completed first");
-      }
-      if (mainStatus === "completed" || progress.wildcards.find((item) => item.team === team)?.status === "completed") {
+      const trackProgress = progress.tracks?.[trackKey] || progress;
+      const mainStatus = trackProgress.teams.find((item) => item.team === team)?.status;
+      if (mainStatus === "completed" || trackProgress.wildcards.find((item) => item.team === team)?.status === "completed") {
         return json(res, 200, { progress });
       }
       target.challengeCredits.push({

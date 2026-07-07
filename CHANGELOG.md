@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Added password visibility toggles and password confirmation for registration/setup.
+- Added Classified and All Kill Team tabs to All Kill Team Challenge.
+- Added Spectre Squad to both challenge tracks and kept it last.
+- Made Navy Breachers and XV26 Stealth Suits wildcards in both challenge tracks.
+- Allowed administrators to manually credit any Kill Team in a challenge track.
+
 ## v0.2
 
 - Added player profiles with avatars, contacts, recent matches, win rate, and challenge progress.

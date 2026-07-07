@@ -13,6 +13,7 @@ const state = {
   challengeError: "",
   selectedChallengeUserId: null,
   challengeOpenedFromProfile: false,
+  challengeTab: "classified",
   statisticsTab: "killTeamWinrates",
   selectedStatisticsTeam: null,
   searchResults: [],
@@ -66,7 +67,7 @@ const killTeamOptions = [
   "Blades of Khaine",
   "Hand of the Archon",
   "Mandrakes",
-  "Void-dancer Troupe",
+  "Void-Dancer Troupe",
   "Brood Brothers",
   "Wyrmblade",
   "Hearthkyn Salvagers",
@@ -80,6 +81,32 @@ const killTeamOptions = [
   "Vespid Stingwings",
   "XV26 Stealth Battlesuits",
   "Raveners"
+];
+
+const allKillTeamExtraTeams = [
+  "Novitiates",
+  "Elucidian Starstriders",
+  "Hunter Clade",
+  "Death Korps",
+  "Phobos Strike Team",
+  "Gellerpox Infected",
+  "Legionaries",
+  "Blooded",
+  "Warpcoven",
+  "Corsair Voidscarred",
+  "Wyrmblade",
+  "Void-Dancer Troupe",
+  "Kommandos",
+  "Pathfinders"
+];
+
+const classifiedChallengeExtraTeams = [
+  "Spectre Squad"
+];
+
+const challengeWildcardTeams = [
+  "Navy Breachers",
+  "XV26 Stealth Suits"
 ];
 
 const tacOpOptions = [
@@ -153,9 +180,9 @@ const killTeamAliases = new Map([
   ["tempestus aquilons", "Tempestus Aquilons"],
   ["tempestus aquillons", "Tempestus Aquilons"],
   ["vespid stingwings", "Vespid Stingwings"],
-  ["void dancer troupe", "Void-dancer Troupe"],
-  ["void dancer", "Void-dancer Troupe"],
-  ["void-dancer troupe", "Void-dancer Troupe"],
+  ["void dancer troupe", "Void-Dancer Troupe"],
+  ["void dancer", "Void-Dancer Troupe"],
+  ["void-dancer troupe", "Void-Dancer Troupe"],
   ["warp coven", "Warpcoven"],
   ["warpcoven", "Warpcoven"],
   ["xv26 stealth battlesuits", "XV26 Stealth Battlesuits"],
@@ -338,6 +365,9 @@ function renderAuth() {
       <input id="telegram-contact" name="telegramContact" maxlength="80" placeholder="@username" required>
     </div>
   ` : "";
+  const confirmPasswordField = state.authMode !== "login"
+    ? passwordFieldMarkup("Confirm password", "confirmPassword", "confirm-password", "new-password")
+    : "";
 
   app.innerHTML = `
     <main class="auth-layout">
@@ -362,10 +392,8 @@ function renderAuth() {
               <label for="name">Name</label>
               <input id="name" name="name" autocomplete="username" required minlength="2" maxlength="24">
             </div>
-            <div class="field">
-              <label for="password">Password</label>
-              <input id="password" name="password" type="password" autocomplete="${state.authMode === "login" ? "current-password" : "new-password"}" required minlength="6">
-            </div>
+            ${passwordFieldMarkup("Password", "password", "password", state.authMode === "login" ? "current-password" : "new-password")}
+            ${confirmPasswordField}
             ${profileFields}
             <button class="primary-button" type="submit">${action}</button>
             <div class="message" data-message></div>
@@ -382,6 +410,43 @@ function renderAuth() {
     });
   });
   document.querySelector("[data-auth-form]").addEventListener("submit", submitAuth);
+  wirePasswordToggles();
+}
+
+function passwordFieldMarkup(label, name, id, autocomplete) {
+  return `
+    <div class="field">
+      <label for="${id}">${label}</label>
+      <div class="password-control">
+        <input id="${id}" name="${name}" type="password" autocomplete="${autocomplete}" required minlength="6">
+        <button class="password-toggle" type="button" data-password-toggle="${id}" aria-label="Show password" aria-pressed="false">
+          ${eyeIcon()}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function eyeIcon() {
+  return `
+    <svg class="inline-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+    </svg>
+  `;
+}
+
+function wirePasswordToggles() {
+  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = document.getElementById(button.dataset.passwordToggle);
+      if (!input) return;
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      button.setAttribute("aria-pressed", String(show));
+    });
+  });
 }
 
 async function submitAuth(event) {
@@ -389,6 +454,11 @@ async function submitAuth(event) {
   const form = new FormData(event.currentTarget);
   const body = { name: form.get("name"), password: form.get("password") };
   if (state.authMode !== "login") {
+    body.confirmPassword = form.get("confirmPassword");
+    if (body.password !== body.confirmPassword) {
+      setMessage("Passwords do not match", true);
+      return;
+    }
     body.registerNickname = form.get("registerNickname");
     body.telegramContact = form.get("telegramContact");
   }
@@ -1951,6 +2021,7 @@ function canonicalTacOpName(value) {
 function renderChallenge() {
   const content = document.querySelector("[data-content]");
   const selected = selectedChallengeProgress();
+  const activeProgress = selected ? challengeTrackProgress(selected) : null;
   const subtitle = selected?.user?.id === state.me.id
     ? "Your personal All Kill Team Challenge progress."
     : `Challenge progress for ${selected ? escapeHtml(selected.user.name) : "this player"}.`;
@@ -1962,11 +2033,21 @@ function renderChallenge() {
           <p class="muted">${subtitle} Win with each Kill Team in order. Wildcards can be completed at any time.</p>
         </div>
       </div>
+      <div class="tabs stats-tabs">
+        <button class="tab ${state.challengeTab === "classified" ? "active" : ""}" data-challenge-tab="classified">Classified</button>
+        <button class="tab ${state.challengeTab === "allKillTeam" ? "active" : ""}" data-challenge-tab="allKillTeam">All Kill Team</button>
+      </div>
       ${state.challengeError ? `<div class="empty">Could not load challenge progress: ${escapeHtml(state.challengeError)}</div>` : ""}
     </section>
-    ${selected ? challengeDetail(selected) : ""}
+    ${activeProgress ? challengeDetail(activeProgress) : ""}
   `;
 
+  document.querySelectorAll("[data-challenge-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.challengeTab = button.dataset.challengeTab;
+      renderChallenge();
+    });
+  });
   document.querySelectorAll("[data-credit-team]").forEach((button) => {
     button.addEventListener("click", async () => {
       await adminChallengeCredit(Number(button.dataset.creditUser), button.dataset.creditTeam, "credit");
@@ -1977,6 +2058,96 @@ function renderChallenge() {
       await adminChallengeCredit(Number(button.dataset.removeCreditUser), button.dataset.removeCreditTeam, "remove");
     });
   });
+}
+
+function challengeTrackProgress(progress) {
+  if (state.challengeTab === "classified") {
+    return moveChallengeTeamToEnd(progress?.tracks?.classified || classifiedFallbackProgress(progress), "Spectre Squad");
+  }
+  return moveChallengeTeamToEnd(progress?.tracks?.allKillTeam || allKillTeamFallbackProgress(progress), "Spectre Squad");
+}
+
+function classifiedFallbackProgress(progress) {
+  if (!progress || progress.teams?.some((item) => item.team === "Spectre Squad")) return progress;
+  return appendTeamsToChallengeProgress(progress, classifiedChallengeExtraTeams);
+}
+
+function allKillTeamFallbackProgress(progress) {
+  if (!progress) return null;
+  const teams = uniqueList([
+    ...allKillTeamExtraTeams,
+    ...(progress.teams || []).map((item) => item.team),
+    ...classifiedChallengeExtraTeams
+  ]).filter((team) => !challengeWildcardTeams.includes(team));
+  const completedByTeam = new Map((progress.completed || []).map((item) => [item.team, item]));
+  const wildcardCompletedByTeam = new Map((progress.wildcardCompleted || []).map((item) => [item.team, item]));
+  const completedTeams = new Set([...completedByTeam.keys()].filter((team) => teams.includes(team)));
+  const completedWildcards = new Set([...wildcardCompletedByTeam.keys()].filter((team) => challengeWildcardTeams.includes(team)));
+  const nextIndex = teams.findIndex((team) => !completedTeams.has(team));
+  const currentIndex = nextIndex === -1 ? teams.length : nextIndex;
+  return {
+    ...progress,
+    total: teams.length,
+    completedCount: completedTeams.size,
+    nextTeam: teams[currentIndex] || null,
+    teams: teams.map((team, index) => ({
+      order: index + 1,
+      team,
+      status: completedTeams.has(team) ? "completed" : index === currentIndex ? "current" : "locked",
+      credit: completedByTeam.get(team) || null
+    })),
+    wildcards: challengeWildcardTeams.map((team) => ({
+      team,
+      status: completedWildcards.has(team) ? "completed" : "available",
+      credit: wildcardCompletedByTeam.get(team) || null
+    }))
+  };
+}
+
+function moveChallengeTeamToEnd(progress, teamName) {
+  if (!progress?.teams?.some((item) => item.team === teamName)) return progress;
+  const teams = [
+    ...progress.teams.filter((item) => item.team !== teamName),
+    ...progress.teams.filter((item) => item.team === teamName)
+  ];
+  const completedTeams = new Set(teams.filter((item) => item.status === "completed").map((item) => item.team));
+  const currentIndex = teams.findIndex((item) => !completedTeams.has(item.team));
+  return {
+    ...progress,
+    nextTeam: currentIndex === -1 ? null : teams[currentIndex].team,
+    teams: teams.map((item, index) => ({
+      ...item,
+      order: index + 1,
+      status: completedTeams.has(item.team) ? "completed" : index === currentIndex ? "current" : "locked"
+    }))
+  };
+}
+
+function appendTeamsToChallengeProgress(progress, extraTeams) {
+  const teams = uniqueList([...(progress.teams || []).map((item) => item.team), ...extraTeams]);
+  const completedByTeam = new Map((progress.completed || []).map((item) => [item.team, item]));
+  const completedTeams = new Set([...completedByTeam.keys()].filter((team) => teams.includes(team)));
+  const nextIndex = teams.findIndex((team) => !completedTeams.has(team));
+  const currentIndex = nextIndex === -1 ? teams.length : nextIndex;
+  return {
+    ...progress,
+    total: teams.length,
+    completedCount: completedTeams.size,
+    nextTeam: teams[currentIndex] || null,
+    teams: teams.map((team, index) => ({
+      order: index + 1,
+      team,
+      status: completedTeams.has(team) ? "completed" : index === currentIndex ? "current" : "locked",
+      credit: completedByTeam.get(team) || null
+    }))
+  };
+}
+
+function uniqueList(items) {
+  return items.reduce((list, item) => {
+    if (item && !list.includes(item)) list.push(item);
+    return list;
+  }, []);
 }
 
 function challengeUserCard(progress) {
@@ -2005,7 +2176,7 @@ function challengeDetail(progress) {
       <div class="challenge-track">
         ${progress.teams.map((item) => challengeTeamCard(item, false, progress.user.id)).join("")}
       </div>
-      <div class="panel-header challenge-subheader">
+      ${progress.wildcards?.length ? `<div class="panel-header challenge-subheader">
         <div>
           <h3>Wildcards</h3>
           <p class="muted">These can be completed at any time.</p>
@@ -2013,7 +2184,7 @@ function challengeDetail(progress) {
       </div>
       <div class="challenge-track wildcard-track">
         ${progress.wildcards.map((item) => challengeTeamCard(item, true, progress.user.id)).join("")}
-      </div>
+      </div>` : ""}
       <div class="message" data-message></div>
     </section>
   `;
@@ -2043,6 +2214,10 @@ function killTeamLogoSrc(team) {
     "Navy Breachers": "Imperial Navy Breachers.png",
     "Tempestus Aquilons": "Tempestus Aquilons.png",
     "Tempestus Aquillons": "Tempestus Aquilons.png",
+    "Void-dancer Troupe": "Void-Dancer Troupe.png",
+    "Void-Dancer Troupe": "Void-Dancer Troupe.png",
+    "Warp Coven": "Warpcoven.png",
+    "Warpcoven": "Warpcoven.png",
     "XV26 Stealth Suits": "XV26 Stealth Battlesuits.png"
   };
   const fileName = logoFiles[team] || `${team}.png`;
@@ -2058,9 +2233,7 @@ function challengeTeamCard(item, wildcard = false, userId = null) {
   const adminAction = canEdit
     ? item.status === "completed"
       ? `<button class="small-button" data-remove-credit-user="${userId}" data-remove-credit-team="${escapeHtml(item.team)}">Subtract</button>`
-      : (item.status === "current" || item.status === "available")
-        ? `<button class="small-button" data-credit-user="${userId}" data-credit-team="${escapeHtml(item.team)}">Credit</button>`
-        : ""
+      : `<button class="small-button" data-credit-user="${userId}" data-credit-team="${escapeHtml(item.team)}">Credit</button>`
     : "";
   return `
     <div class="challenge-team-card ${item.status}">
@@ -2082,7 +2255,7 @@ function challengeTeamCard(item, wildcard = false, userId = null) {
 
 async function adminChallengeCredit(userId, team, action) {
   try {
-    await api(`/api/admin/users/${userId}/challenge-credit`, { method: "POST", body: { team, action } });
+    await api(`/api/admin/users/${userId}/challenge-credit`, { method: "POST", body: { team, action, track: state.challengeTab } });
     await loadChallengeProgress();
     state.selectedChallengeUserId = userId;
     renderChallenge();
