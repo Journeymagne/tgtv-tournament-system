@@ -870,7 +870,9 @@ function renderProfile() {
           <div class="avatar-settings-row">
             <div class="profile-avatar compact-avatar" data-avatar-preview>${avatarMarkup(state.me)}</div>
             <div>
-              <input class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-avatar-input>
+              <label class="primary-button custom-btn">Выберите файл
+                <input class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-avatar-input hidden>
+              </label>
               <p class="muted small-note">PNG, JPG, WebP or GIF. Large images are resized automatically.</p>
               <div class="row-actions">
                 <button class="small-button" data-remove-avatar type="button">Remove avatar</button>
