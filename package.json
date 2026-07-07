@@ -4,7 +4,6 @@
   "private": true,
   "description": "TGTV ranking, matchmaking, Approved Ops, and Kill Team challenge tracker.",
   "scripts": {
-    "build": "node -e \"console.log('Netlify build: public assets are ready')\"",
     "start": "node server.js"
   },
   "dependencies": {

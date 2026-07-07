@@ -11,9 +11,7 @@ loadEnvFile(path.join(ROOT, ".env"));
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
-const DEFAULT_DATA_DIR = process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME
-  ? path.join(require("os").tmpdir(), "tgtv-ranking-tournament-data")
-  : path.join(ROOT, "data");
+const DEFAULT_DATA_DIR = path.join(ROOT, "data");
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : DEFAULT_DATA_DIR;
 const DB_PATH = path.join(DATA_DIR, "db.json");
 const DATABASE_URL = process.env.DATABASE_URL || "";
@@ -762,7 +760,7 @@ function buildChallengeTrackProgress(user, events, teams, wildcards) {
   const nextIndex = teams.findIndex((team) => !completedTeams.has(team));
   const currentIndex = nextIndex === -1 ? teams.length : nextIndex;
   return {
-    user: publicUser(user),
+    user: publicUserSummary(user),
     total: teams.length,
     completedCount: completed.length,
     nextTeam: teams[currentIndex] || null,
@@ -790,6 +788,18 @@ function publicUser(user) {
     registerNickname: user.registerNickname || "",
     telegramContact: user.telegramContact || "",
     challengeCredits: user.challengeCredits || [],
+    rating: user.rating,
+    isAdmin: Boolean(user.isAdmin),
+    createdAt: user.createdAt
+  };
+}
+
+function publicUserSummary(user) {
+  return {
+    id: user.id,
+    name: user.name,
+    registerNickname: user.registerNickname || "",
+    telegramContact: user.telegramContact || "",
     rating: user.rating,
     isAdmin: Boolean(user.isAdmin),
     createdAt: user.createdAt
@@ -1245,9 +1255,13 @@ function sendStatic(req, res) {
       res.end("Not found");
       return;
     }
+    const ext = path.extname(filePath);
+    const cacheControl = ext === ".html"
+      ? "no-store, max-age=0"
+      : "public, max-age=604800";
     res.writeHead(200, {
-      "Content-Type": MIME[path.extname(filePath)] || "application/octet-stream",
-      "Cache-Control": "no-store, max-age=0"
+      "Content-Type": MIME[ext] || "application/octet-stream",
+      "Cache-Control": cacheControl
     });
     res.end(data);
   });
@@ -1408,7 +1422,7 @@ async function handleApi(req, res) {
     }
 
     if (method === "GET" && url.pathname === "/api/users") {
-      const users = db.users.map(publicUser).sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
+      const users = db.users.map(publicUserSummary).sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
       return json(res, 200, { users });
     }
 
@@ -1486,9 +1500,10 @@ async function handleApi(req, res) {
     if (method === "GET" && url.pathname === "/api/challenge-progress") {
       const user = requireAuth(db, req, res);
       if (!user) return;
-      const users = db.users
-        .map((item) => challengeProgressForUser(db, item))
-        .sort((a, b) => b.completedCount - a.completedCount || b.user.rating - a.user.rating || a.user.name.localeCompare(b.user.name));
+      const requestedUserId = Number(url.searchParams.get("userId") || user.id);
+      const requestedUser = db.users.find((item) => item.id === requestedUserId);
+      if (!requestedUser) return error(res, 404, "User not found");
+      const users = [challengeProgressForUser(db, requestedUser)];
       return json(res, 200, {
         teams: CHALLENGE_TEAMS,
         wildcards: CHALLENGE_WILDCARDS,
@@ -1512,7 +1527,7 @@ async function handleApi(req, res) {
           ].some((value) => String(value || "").toLowerCase().includes(q));
         })
         .slice(0, 10)
-        .map(publicUser);
+        .map(publicUserSummary);
       return json(res, 200, { users });
     }
 
@@ -1769,7 +1784,7 @@ async function handleApi(req, res) {
       if (!admin) return;
       const users = db.users.map((user) => {
         const games = db.games.filter((game) => game.playerIds.includes(user.id) && game.status === "completed");
-        return { ...publicUser(user), gamesPlayed: games.length };
+        return { ...publicUserSummary(user), gamesPlayed: games.length };
       }).sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
       return json(res, 200, { users });
     }
@@ -1821,11 +1836,7 @@ async function handleApi(req, res) {
 }
 
 function normalizeApiPath(pathname) {
-  const functionPrefix = "/.netlify/functions/api";
   let normalized = pathname || "/";
-  if (normalized.startsWith(functionPrefix)) {
-    normalized = `/api${normalized.slice(functionPrefix.length) || ""}`;
-  }
   if (normalized.length > 1 && normalized.endsWith("/")) {
     normalized = normalized.slice(0, -1);
   }

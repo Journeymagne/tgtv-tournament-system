@@ -529,8 +529,9 @@ function renderShell() {
     state.view = "profile";
     state.playerProfile = null;
     state.selectedChallengeUserId = state.me.id;
-    await loadChallengeProgress();
     renderShell();
+    await loadChallengeProgress(state.me.id);
+    if (state.view === "profile") renderShell();
   });
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -546,14 +547,18 @@ function renderShell() {
         state.selectedChallengeUserId = null;
         state.challengeOpenedFromProfile = false;
       }
-      if (targetView === "games") await loadGames();
-      if (targetView === "statistics") await loadGames();
-      if (targetView === "profile") await loadChallengeProgress();
-      if (targetView === "challenge") await loadChallengeProgress();
       if (targetView === "feedback") state.feedbackMode = "form";
-      if (targetView === "top") await loadTop();
-      if (targetView === "admin") await loadAdmin();
       renderShell();
+      try {
+        if (targetView === "games") await loadGames();
+        if (targetView === "statistics") await loadGames();
+        if (targetView === "profile") await loadChallengeProgress(state.me.id);
+        if (targetView === "challenge") await loadChallengeProgress(state.selectedChallengeUserId || state.me.id);
+        if (targetView === "top") await loadTop();
+        if (targetView === "admin") await loadAdmin();
+      } finally {
+        if (state.view === targetView) renderShell();
+      }
     });
   });
 
@@ -940,9 +945,7 @@ function renderProfile() {
           <div class="avatar-settings-row">
             <div class="profile-avatar compact-avatar" data-avatar-preview>${avatarMarkup(state.me)}</div>
             <div>
-              <label class="primary-button custom-btn">Выберите файл
-                <input class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-avatar-input hidden>
-              </label>
+              <input class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-avatar-input>
               <p class="muted small-note">PNG, JPG, WebP or GIF. Large images are resized automatically.</p>
               <div class="row-actions">
                 <button class="small-button" data-remove-avatar type="button">Remove avatar</button>
@@ -1458,14 +1461,21 @@ async function sendChallengeToUser(userId) {
   await refresh();
 }
 
-async function loadChallengeProgress() {
+function upsertChallengeProgress(progress) {
+  if (!progress?.user?.id) return;
+  const index = state.challengeProgress.findIndex((item) => item.user.id === progress.user.id);
+  if (index === -1) state.challengeProgress.push(progress);
+  else state.challengeProgress[index] = progress;
+}
+
+async function loadChallengeProgress(userId = null) {
   try {
-    const data = await api("/api/challenge-progress");
-    state.challengeProgress = data.users || [];
+    const targetUserId = Number(userId || state.selectedChallengeUserId || state.me.id);
+    const data = await api(`/api/challenge-progress?userId=${targetUserId}`);
+    (data.users || []).forEach(upsertChallengeProgress);
     state.challengeError = "";
-    if (!state.selectedChallengeUserId) state.selectedChallengeUserId = state.me.id;
+    if (!state.selectedChallengeUserId) state.selectedChallengeUserId = targetUserId || state.me.id;
   } catch (err) {
-    state.challengeProgress = [];
     state.challengeError = err.message;
   }
 }
@@ -1481,8 +1491,11 @@ async function openChallengeProgress(userId) {
   state.selectedChallengeUserId = Number(userId);
   state.challengeOpenedFromProfile = true;
   state.view = "challenge";
-  await loadChallengeProgress();
   renderShell();
+  await loadChallengeProgress(userId);
+  if (state.view === "challenge" && Number(state.selectedChallengeUserId) === Number(userId)) {
+    renderShell();
+  }
 }
 
 function wireChallengeProgressButtons() {
@@ -2039,7 +2052,7 @@ function renderChallenge() {
       </div>
       ${state.challengeError ? `<div class="empty">Could not load challenge progress: ${escapeHtml(state.challengeError)}</div>` : ""}
     </section>
-    ${activeProgress ? challengeDetail(activeProgress) : ""}
+    ${activeProgress ? challengeDetail(activeProgress) : `<section class="card panel"><div class="empty">Loading challenge progress...</div></section>`}
   `;
 
   document.querySelectorAll("[data-challenge-tab]").forEach((button) => {
@@ -2255,8 +2268,8 @@ function challengeTeamCard(item, wildcard = false, userId = null) {
 
 async function adminChallengeCredit(userId, team, action) {
   try {
-    await api(`/api/admin/users/${userId}/challenge-credit`, { method: "POST", body: { team, action, track: state.challengeTab } });
-    await loadChallengeProgress();
+    const data = await api(`/api/admin/users/${userId}/challenge-credit`, { method: "POST", body: { team, action, track: state.challengeTab } });
+    upsertChallengeProgress(data.progress);
     state.selectedChallengeUserId = userId;
     renderChallenge();
   } catch (err) {

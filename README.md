@@ -1,27 +1,13 @@
 # TGTV Ranking Tournament System
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
-## PreRun
-```powershell
-npm install
-```
-
 
 ## Run
 
 ```powershell
-node server.js
+npm start
 ```
-установим менеджер npm процессов
-```powershell
-npm install -g pm2
 
-pm2 start server.js --name tgtv-app
-
-pm2 status
-pm2 logs tgtv-app
-
-```
 After the server starts, open `http://127.0.0.1:3000`.
 
 ## PostgreSQL
@@ -69,27 +55,6 @@ PGSSL=true
 ```
 
 On startup, the server creates the required tables automatically. If PostgreSQL is empty and `data/db.json` exists, existing JSON data is imported once.
-
-## Netlify
-
-The project includes `netlify.toml`.
-
-Use these Netlify settings:
-
-```text
-Build command: npm run build
-Publish directory: public
-Functions directory: netlify/functions
-```
-
-Add environment variables in Netlify:
-
-```env
-DATABASE_URL=postgres://user:password@host:5432/database
-PGSSL=true
-```
-
-`DATABASE_URL` is important for production. Without PostgreSQL, Netlify Functions can only use temporary JSON storage, so data may disappear between function restarts.
 
 ## Features
 

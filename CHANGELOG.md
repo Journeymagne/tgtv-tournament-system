@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.4
+
+- Reduced challenge progress payloads and removed blocking loads before page navigation.
+- Optimized static image assets and enabled browser caching for non-HTML files.
+- Removed serverless deployment-specific function/configuration code.
 - Added password visibility toggles and password confirmation for registration/setup.
 - Added Classified and All Kill Team tabs to All Kill Team Challenge.
 - Added Spectre Squad to both challenge tracks and kept it last.
@@ -17,4 +22,4 @@
 - Added Stats pages for Kill Team winrates, Tac Ops winrates, and team detail pages.
 - Added feedback form with admin inbox, resolve/reopen, and delete actions.
 - Improved mobile navigation with an off-canvas sidebar.
-- Added Postgres support with JSON fallback for local/Netlify-style runs.
+- Added Postgres support with local JSON fallback.
