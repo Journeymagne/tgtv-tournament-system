@@ -4,6 +4,10 @@
 
 ## v0.4
 
+- Added Tomb World to Killzone options.
+- Added Stats season selection for Kill Team Winrates and Teams.
+- Added the 2026 Q2 Dataslate season.
+- Added Classified and Non-Classified labels to Kill Team profile pages.
 - Reduced challenge progress payloads and removed blocking loads before page navigation.
 - Optimized static image assets and enabled browser caching for non-HTML files.
 - Removed serverless deployment-specific function/configuration code.

@@ -16,6 +16,7 @@ const state = {
   challengeTab: "classified",
   statisticsTab: "killTeamWinrates",
   selectedStatisticsTeam: null,
+  selectedSeasonId: "2026-q2-dataslate",
   searchResults: [],
   adminUsers: [],
   playerProfile: null,
@@ -100,6 +101,23 @@ const allKillTeamExtraTeams = [
   "Pathfinders"
 ];
 
+const nonClassifiedKillTeams = new Set([
+  "Novitiates",
+  "Elucidian Starstriders",
+  "Hunter Clade",
+  "Death Korps",
+  "Phobos Strike Team",
+  "Gellerpox Infected",
+  "Legionaries",
+  "Blooded",
+  "Warpcoven",
+  "Corsair Voidscarred",
+  "Wyrmblade",
+  "Void-Dancer Troupe",
+  "Kommandos",
+  "Pathfinders"
+]);
+
 const classifiedChallengeExtraTeams = [
   "Spectre Squad"
 ];
@@ -141,9 +159,19 @@ const killzoneOptions = [
   "Gallowdark",
   "Bheta-Decima",
   "Octarius",
+  "Tomb World",
   "WTC ITD",
   "WTC Open",
   "Non-specific"
+];
+
+const seasons = [
+  {
+    id: "2026-q2-dataslate",
+    name: "2026 Q2 Dataslate",
+    startsAt: null,
+    endsAt: null
+  }
 ];
 
 const killTeamAliases = new Map([
@@ -1558,10 +1586,13 @@ function renderGames() {
 function renderStatistics() {
   const content = document.querySelector("[data-content]");
   const games = state.allGames || [];
-  const killTeamSummary = killTeamWinrateSummary(games);
+  const season = activeSeason();
+  const seasonGames = filterGamesBySeason(games, season);
+  const showSeasonSelector = ["killTeamWinrates", "teams"].includes(state.statisticsTab);
+  const killTeamSummary = killTeamWinrateSummary(seasonGames);
   const statisticsContent = state.statisticsTab === "teams"
     ? state.selectedStatisticsTeam
-      ? renderTeamDetail(teamDetailSummary(state.selectedStatisticsTeam, games))
+      ? renderTeamDetail(teamDetailSummary(state.selectedStatisticsTeam, seasonGames), season)
       : renderTeamCards(killTeamSummary)
     : state.statisticsTab === "tacOpWinrates"
       ? renderTacOpWinrates(tacOpWinrateSummary(games))
@@ -1579,6 +1610,7 @@ function renderStatistics() {
         <button class="tab ${state.statisticsTab === "tacOpWinrates" ? "active" : ""}" data-statistics-tab="tacOpWinrates">Tac Ops Winrates</button>
         <button class="tab ${state.statisticsTab === "teams" ? "active" : ""}" data-statistics-tab="teams">Teams</button>
       </div>
+      ${showSeasonSelector ? seasonSelectorMarkup() : ""}
       ${state.gamesError
         ? `<div class="empty">Could not load stats: ${escapeHtml(state.gamesError)}. Restart the local server and refresh the page.</div>`
         : statisticsContent}
@@ -1591,7 +1623,42 @@ function renderStatistics() {
       renderStatistics();
     });
   });
+  document.querySelector("[data-season-select]")?.addEventListener("change", (event) => {
+    state.selectedSeasonId = event.target.value;
+    state.selectedStatisticsTeam = null;
+    renderStatistics();
+  });
   wireTeamStatistics();
+}
+
+function activeSeason() {
+  return seasons.find((season) => season.id === state.selectedSeasonId) || seasons[0];
+}
+
+function seasonSelectorMarkup() {
+  return `
+    <div class="stats-season-row">
+      <label for="stats-season">Season</label>
+      <select id="stats-season" data-season-select>
+        ${seasons.map((season) => `
+          <option value="${escapeHtml(season.id)}" ${season.id === state.selectedSeasonId ? "selected" : ""}>${escapeHtml(season.name)}</option>
+        `).join("")}
+      </select>
+    </div>
+  `;
+}
+
+function filterGamesBySeason(games, season) {
+  if (!season) return games;
+  return games.filter((game) => {
+    const timestamp = game.submittedAt || game.result?.confirmedAt || game.createdAt || "";
+    if (!timestamp) return true;
+    const time = Date.parse(timestamp);
+    if (Number.isNaN(time)) return true;
+    if (season.startsAt && time < Date.parse(season.startsAt)) return false;
+    if (season.endsAt && time >= Date.parse(season.endsAt)) return false;
+    return true;
+  });
 }
 
 function renderKillTeamWinrates(summary) {
@@ -1678,6 +1745,7 @@ function renderTeamCards(summary) {
 }
 
 function renderTeamDetail(detail) {
+  const classification = killTeamClassification(detail.team);
   return `
     <div class="team-detail">
       <div class="team-detail-hero">
@@ -1686,6 +1754,7 @@ function renderTeamDetail(detail) {
         <div class="team-detail-main">
           <p class="profile-label">Kill Team</p>
           <h3>${escapeHtml(detail.team)}</h3>
+          <span class="team-classification ${classification === "Non-Classified" ? "non-classified" : "classified"}">${classification}</span>
           <p class="muted">${detail.games} games · ${detail.wins} wins · ${detail.losses} losses · ${detail.draws} draws</p>
         </div>
         <div class="profile-rating team-detail-rate">
@@ -1750,6 +1819,10 @@ function renderTeamDetail(detail) {
       </section>
     </div>
   `;
+}
+
+function killTeamClassification(team) {
+  return nonClassifiedKillTeams.has(canonicalKillTeamName(team)) ? "Non-Classified" : "Classified";
 }
 
 function killTeamWinrateSummary(games) {

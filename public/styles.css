@@ -335,15 +335,12 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 14px 4px;
+  min-height: 40px;
+  padding: 2px 14px 0;
   border-radius: 7px;
   font-weight: 900;
   line-height: 1;
   text-align: center;
-}
-
-.primary-button.custom-btn {
-  line-height: 20px;
 }
 
 .primary-button {
@@ -398,7 +395,8 @@ button:disabled {
 }
 
 .small-button {
-  padding: 2px 10px 4px;
+  min-height: 34px;
+  padding: 2px 10px 0;
   color: var(--ink);
   background: var(--panel-2);
   border: 1px solid var(--line-strong);
@@ -959,13 +957,15 @@ button:disabled {
 .challenge-team-card .status {
   width: auto;
   min-width: 88px;
+  height: 28px;
   min-height: 0;
-  padding: 2px 10px;
+  padding: 2px 10px 0;
 }
 
 .challenge-team-card .small-button {
   width: 82px;
-  padding: 2px 8px 4px;
+  min-height: 30px;
+  padding: 2px 8px 0;
   font-size: 12px;
 }
 
@@ -992,6 +992,30 @@ button:disabled {
 
 .stats-tabs {
   max-width: 760px;
+}
+
+.stats-season-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 18px;
+}
+
+.stats-season-row label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.stats-season-row select {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--panel-2);
+  font-weight: 900;
 }
 
 .stats-summary {
@@ -1115,6 +1139,29 @@ button:disabled {
 .team-detail-main h3 {
   margin: 0;
   font-size: 30px;
+}
+
+.team-classification {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  margin: 8px 0;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.team-classification.classified {
+  color: #050505;
+  background: var(--accent);
+}
+
+.team-classification.non-classified {
+  color: var(--ink);
+  background: var(--panel-3);
+  border: 1px solid var(--line-strong);
 }
 
 .team-detail-rate {
@@ -1359,6 +1406,7 @@ button:disabled {
 .status {
   display: inline-grid;
   place-items: center;
+  height: 28px;
   min-height: 0;
   padding: 2px 9px 0;
   border-radius: 7px;

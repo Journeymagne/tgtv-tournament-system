@@ -139,6 +139,7 @@ const KILLZONE_OPTIONS = [
   "Gallowdark",
   "Bheta-Decima",
   "Octarius",
+  "Tomb World",
   "WTC ITD",
   "WTC Open",
   "Non-specific"
