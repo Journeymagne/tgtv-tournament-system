@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## v0.4
+## v0.5
 
 - Added Tomb World to Killzone options.
 - Added Stats season selection for Kill Team Winrates and Teams.
