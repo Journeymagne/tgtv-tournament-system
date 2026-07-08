@@ -17,6 +17,9 @@ const state = {
   statisticsTab: "killTeamWinrates",
   selectedStatisticsTeam: null,
   selectedSeasonId: "2026-q2-dataslate",
+  statisticsFilters: { classification: "all", team: "" },
+  statisticsSort: { key: "winRate", dir: "desc" },
+  gameFilters: { player: "", team: "" },
   searchResults: [],
   adminUsers: [],
   playerProfile: null,
@@ -974,7 +977,7 @@ function renderProfile() {
             <div class="profile-avatar compact-avatar" data-avatar-preview>${avatarMarkup(state.me)}</div>
             <div>
               <input class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-avatar-input>
-              <p class="muted small-note">PNG, JPG, WebP or GIF. Large images are resized automatically.</p>
+              <p class="muted small-note">PNG, JPG, WebP or GIF. Max 1 MB.</p>
               <div class="row-actions">
                 <button class="small-button" data-remove-avatar type="button">Remove avatar</button>
               </div>
@@ -1371,8 +1374,8 @@ async function compressAvatar(file) {
   if (!allowedTypes.includes(file.type)) {
     throw new Error("Use PNG, JPG, WebP, or GIF.");
   }
-  if (file.size > 8 * 1024 * 1024) {
-    throw new Error("Avatar image must be 8 MB or smaller.");
+  if (file.size > 1024 * 1024) {
+    throw new Error("Avatar image must be 1 MB or smaller.");
   }
 
   const image = await loadImage(file);
@@ -1565,6 +1568,7 @@ async function openGameDetail(gameId) {
 function renderGames() {
   const content = document.querySelector("[data-content]");
   const completedGames = state.allGames.filter((game) => game.status === "completed");
+  const filteredGames = filterGames(completedGames);
   content.innerHTML = `
     <section class="card panel">
       <div class="panel-header">
@@ -1573,14 +1577,59 @@ function renderGames() {
           <p class="muted">Latest completed games from every player.</p>
         </div>
       </div>
-      <div class="list">
-        ${state.gamesError
-          ? `<div class="empty">Could not load games: ${escapeHtml(state.gamesError)}. Restart the local server and refresh the page.</div>`
-          : completedGames.length ? completedGames.map(gameCard).join("") : `<div class="empty">No completed games yet.</div>`}
+      <div class="filter-row games-filter-row">
+        <div class="field compact-field">
+          <label>Player</label>
+          <input type="search" data-games-player-filter value="${escapeHtml(state.gameFilters.player)}" placeholder="Player name">
+        </div>
+        <div class="field compact-field">
+          <label>Kill Team</label>
+          <select data-games-team-filter>
+            <option value="">All Kill Teams</option>
+            ${killTeamOptions.map((team) => `<option value="${escapeHtml(team)}" ${state.gameFilters.team === team ? "selected" : ""}>${escapeHtml(team)}</option>`).join("")}
+          </select>
+        </div>
       </div>
+      <div class="list" data-games-list>${gamesListMarkup(filteredGames)}</div>
     </section>
   `;
+  wireGameFilters();
   wireGameButtons();
+}
+
+function filterGames(games) {
+  const playerNeedle = state.gameFilters.player.trim().toLowerCase();
+  const teamFilter = state.gameFilters.team;
+  return games.filter((game) => {
+    const playerMatch = !playerNeedle || (game.players || []).some((player) => String(player.name || "").toLowerCase().includes(playerNeedle));
+    const teamMatch = !teamFilter || gameScoreEntries(game).some((entry) => entry.team === teamFilter);
+    return playerMatch && teamMatch;
+  });
+}
+
+function gamesListMarkup(games) {
+  if (state.gamesError) {
+    return `<div class="empty">Could not load games: ${escapeHtml(state.gamesError)}. Restart the local server and refresh the page.</div>`;
+  }
+  return games.length ? games.map(gameCard).join("") : `<div class="empty">No games match these filters.</div>`;
+}
+
+function refreshGamesList() {
+  const list = document.querySelector("[data-games-list]");
+  if (!list) return;
+  list.innerHTML = gamesListMarkup(filterGames(state.allGames.filter((game) => game.status === "completed")));
+  wireGameButtons();
+}
+
+function wireGameFilters() {
+  document.querySelector("[data-games-player-filter]")?.addEventListener("input", (event) => {
+    state.gameFilters.player = event.target.value;
+    refreshGamesList();
+  });
+  document.querySelector("[data-games-team-filter]")?.addEventListener("change", (event) => {
+    state.gameFilters.team = event.target.value;
+    refreshGamesList();
+  });
 }
 
 function renderStatistics() {
@@ -1595,7 +1644,7 @@ function renderStatistics() {
       ? renderTeamDetail(teamDetailSummary(state.selectedStatisticsTeam, seasonGames), season)
       : renderTeamCards(killTeamSummary)
     : state.statisticsTab === "tacOpWinrates"
-      ? renderTacOpWinrates(tacOpWinrateSummary(games))
+      ? renderTacOpWinrates(tacOpWinrateSummary(seasonGames, state.statisticsFilters))
       : renderKillTeamWinrates(killTeamSummary);
   content.innerHTML = `
     <section class="card panel">
@@ -1611,6 +1660,7 @@ function renderStatistics() {
         <button class="tab ${state.statisticsTab === "teams" ? "active" : ""}" data-statistics-tab="teams">Teams</button>
       </div>
       ${showSeasonSelector ? seasonSelectorMarkup() : ""}
+      ${["killTeamWinrates", "tacOpWinrates"].includes(state.statisticsTab) ? statsFiltersMarkup() : ""}
       ${state.gamesError
         ? `<div class="empty">Could not load stats: ${escapeHtml(state.gamesError)}. Restart the local server and refresh the page.</div>`
         : statisticsContent}
@@ -1628,6 +1678,8 @@ function renderStatistics() {
     state.selectedStatisticsTeam = null;
     renderStatistics();
   });
+  wireStatsFilters();
+  wireStatsSorting();
   wireTeamStatistics();
 }
 
@@ -1648,6 +1700,54 @@ function seasonSelectorMarkup() {
   `;
 }
 
+function statsFiltersMarkup() {
+  return `
+    <div class="filter-row stats-filter-row">
+      <div class="field compact-field">
+        <label>Classification</label>
+        <select data-stats-classification-filter>
+          <option value="all" ${state.statisticsFilters.classification === "all" ? "selected" : ""}>All</option>
+          <option value="classified" ${state.statisticsFilters.classification === "classified" ? "selected" : ""}>Classified</option>
+          <option value="non-classified" ${state.statisticsFilters.classification === "non-classified" ? "selected" : ""}>Non-Classified</option>
+        </select>
+      </div>
+      <div class="field compact-field">
+        <label>Kill Team</label>
+        <select data-stats-team-filter>
+          <option value="">All Kill Teams</option>
+          ${killTeamOptions.map((team) => `<option value="${escapeHtml(team)}" ${state.statisticsFilters.team === team ? "selected" : ""}>${escapeHtml(team)}</option>`).join("")}
+        </select>
+      </div>
+    </div>
+  `;
+}
+
+function wireStatsFilters() {
+  document.querySelector("[data-stats-classification-filter]")?.addEventListener("change", (event) => {
+    state.statisticsFilters.classification = event.target.value;
+    renderStatistics();
+  });
+  document.querySelector("[data-stats-team-filter]")?.addEventListener("change", (event) => {
+    state.statisticsFilters.team = event.target.value;
+    renderStatistics();
+  });
+}
+
+function wireStatsSorting() {
+  document.querySelectorAll("[data-stats-sort]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.statsSort;
+      if (state.statisticsSort.key === key) {
+        state.statisticsSort.dir = state.statisticsSort.dir === "asc" ? "desc" : "asc";
+      } else {
+        state.statisticsSort.key = key;
+        state.statisticsSort.dir = key === "team" || key === "tacOp" ? "asc" : "desc";
+      }
+      renderStatistics();
+    });
+  });
+}
+
 function filterGamesBySeason(games, season) {
   if (!season) return games;
   return games.filter((game) => {
@@ -1662,22 +1762,23 @@ function filterGamesBySeason(games, season) {
 }
 
 function renderKillTeamWinrates(summary) {
+  const rows = sortedStatRows(applyStatsTeamFilters(summary.rows), ["team", "games", "wins", "losses", "draws", "winRate"], "winRate");
   return `
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Kill Team</th>
-            <th>Games</th>
-            <th>Wins</th>
-            <th>Losses</th>
-            <th>Draws</th>
-            <th>Winrate</th>
+            ${sortableHeader("Kill Team", "team")}
+            ${sortableHeader("Games", "games")}
+            ${sortableHeader("Wins", "wins")}
+            ${sortableHeader("Losses", "losses")}
+            ${sortableHeader("Draws", "draws")}
+            ${sortableHeader("Winrate", "winRate")}
           </tr>
         </thead>
         <tbody>
-          ${summary.rows.length
-            ? summary.rows.map((row) => `
+          ${rows.length
+            ? rows.map((row) => `
               <tr>
                 <td><button class="text-link-button" data-stat-team="${escapeHtml(row.team)}">${escapeHtml(row.team)}</button></td>
                 <td>${row.games}</td>
@@ -1695,22 +1796,23 @@ function renderKillTeamWinrates(summary) {
 }
 
 function renderTacOpWinrates(summary) {
+  const rows = sortedStatRows(summary.rows, ["tacOp", "games", "wins", "winRate", "avgPoints", "avgPrimaryPoints"], "winRate");
   return `
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Tac Op</th>
-            <th>Games</th>
-            <th>Wins</th>
-            <th>Winrate</th>
-            <th>Avg VP</th>
-            <th>Avg VP as Primary</th>
+            ${sortableHeader("Tac Op", "tacOp")}
+            ${sortableHeader("Games", "games")}
+            ${sortableHeader("Wins", "wins")}
+            ${sortableHeader("Winrate", "winRate")}
+            ${sortableHeader("Avg VP", "avgPoints")}
+            ${sortableHeader("Avg VP as Primary", "avgPrimaryPoints")}
           </tr>
         </thead>
         <tbody>
-          ${summary.rows.length
-            ? summary.rows.map((row) => `
+          ${rows.length
+            ? rows.map((row) => `
               <tr>
                 <td><strong>${escapeHtml(row.tacOp)}</strong></td>
                 <td>${row.games}</td>
@@ -1725,6 +1827,39 @@ function renderTacOpWinrates(summary) {
       </table>
     </div>
   `;
+}
+
+function sortableHeader(label, key) {
+  const active = state.statisticsSort.key === key;
+  const marker = active ? (state.statisticsSort.dir === "asc" ? " ^" : " v") : "";
+  return `<th><button class="sort-button" data-stats-sort="${escapeHtml(key)}">${escapeHtml(label)}${marker}</button></th>`;
+}
+
+function sortedStatRows(rows, allowedKeys, defaultKey) {
+  const key = allowedKeys.includes(state.statisticsSort.key) ? state.statisticsSort.key : defaultKey;
+  const dir = state.statisticsSort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => compareStatValues(a[key], b[key]) * dir || String(a.team || a.tacOp || "").localeCompare(String(b.team || b.tacOp || "")));
+}
+
+function compareStatValues(a, b) {
+  const aNumber = statSortNumber(a);
+  const bNumber = statSortNumber(b);
+  if (aNumber !== null && bNumber !== null) return aNumber - bNumber;
+  return String(a || "").localeCompare(String(b || ""));
+}
+
+function statSortNumber(value) {
+  if (value === "-" || value === undefined || value === null || value === "") return null;
+  const number = Number(value);
+  return Number.isNaN(number) ? null : number;
+}
+
+function applyStatsTeamFilters(rows) {
+  return rows.filter((row) => statsTeamFilterMatches(row.team));
+}
+
+function statsTeamFilterMatches(team) {
+  return statsTeamFilterMatchesWithFilters(team, state.statisticsFilters);
 }
 
 function renderTeamCards(summary) {
@@ -1872,15 +2007,16 @@ function killTeamWinrateSummary(games) {
   return { rows, totalGames, countedGames, mirrorGames, skippedGames };
 }
 
-function tacOpWinrateSummary(games) {
+function tacOpWinrateSummary(games, filters = { classification: "all", team: "" }) {
   const stats = new Map();
   const completedGames = games.filter((item) => item.status === "completed" && item.result);
   let totalPicks = 0;
 
   for (const game of completedGames) {
     const winnerId = game.result.winnerId ? Number(game.result.winnerId) : null;
-    for (const player of game.players || []) {
-      const score = game.result.scores?.[player.id] || {};
+    for (const entry of gameScoreEntries(game)) {
+      const { player, score, team } = entry;
+      if (!statsTeamFilterMatchesWithFilters(team, filters)) continue;
       const tacOp = canonicalTacOpName(score.tacOp);
       if (!tacOp) continue;
 
@@ -1915,6 +2051,25 @@ function tacOpWinrateSummary(games) {
   );
 
   return { rows, totalGames: completedGames.length, totalPicks };
+}
+
+function gameScoreEntries(game) {
+  return (game.players || []).map((player) => {
+    const score = game.result?.scores?.[player.id] || game.pendingResult?.result?.scores?.[player.id] || {};
+    return {
+      player,
+      score,
+      team: canonicalKillTeamName(score.faction || score.killTeam || score.team)
+    };
+  }).filter((entry) => entry.team);
+}
+
+function statsTeamFilterMatchesWithFilters(team, filters) {
+  const canonical = canonicalKillTeamName(team);
+  if (filters.team && canonical !== filters.team) return false;
+  if (filters.classification === "classified" && killTeamClassification(canonical) !== "Classified") return false;
+  if (filters.classification === "non-classified" && killTeamClassification(canonical) !== "Non-Classified") return false;
+  return true;
 }
 
 function teamDetailSummary(team, games) {
@@ -2383,7 +2538,7 @@ function renderGameDetail() {
         </div>
         <div class="row-actions">
           <span class="status ${game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "open"}">${statusLabel}</span>
-          <button class="ghost-button" data-back-games>Games</button>
+          <button class="ghost-button" data-back-games>Back to Games</button>
           ${playerAction}
           ${adminAction}
         </div>
@@ -3358,7 +3513,12 @@ function usersTable(users) {
           ${users.map((user, index) => `
             <tr>
               <td class="rank">${index + 1}</td>
-              <td><button class="text-button player-name-button" data-profile-user="${user.id}">${escapeHtml(user.name)}</button></td>
+              <td>
+                <button class="text-button player-name-button leaderboard-player-button" data-profile-user="${user.id}">
+                  <span class="leaderboard-avatar">${avatarMarkup(user)}</span>
+                  <span>${escapeHtml(user.name)}</span>
+                </button>
+              </td>
               <td>${user.rating}</td>
               <td>${user.isAdmin ? "Admin" : "Player"}</td>
             </tr>

@@ -28,7 +28,7 @@ const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const INITIAL_RATING = 1000;
 const ELO_K = 32;
 const MAX_REQUEST_BYTES = 2 * 1024 * 1024;
-const MAX_AVATAR_DATA_URL_LENGTH = 1500000;
+const MAX_AVATAR_DATA_URL_LENGTH = 1024 * 1024;
 
 const CHALLENGE_TEAMS = [
   "Kasrkin",
@@ -1430,7 +1430,12 @@ async function handleApi(req, res) {
     }
 
     if (method === "GET" && url.pathname === "/api/users") {
-      const users = db.users.map(publicUserSummary).sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
+      const users = db.users
+        .map((user) => ({
+          ...publicUserSummary(user),
+          avatarData: user.avatarData && user.avatarData.length <= MAX_AVATAR_DATA_URL_LENGTH ? user.avatarData : null,
+        }))
+        .sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
       return json(res, 200, { users });
     }
 
