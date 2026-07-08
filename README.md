@@ -10,6 +10,12 @@ npm start
 
 After the server starts, open `http://127.0.0.1:3000`.
 
+The server uses port `3000` by default. For a staging replica, set another port in `.env`:
+
+```env
+PORT=3001
+```
+
 ## PostgreSQL
 
 The app uses PostgreSQL when `DATABASE_URL` is set. Without `DATABASE_URL`, it falls back to `data/db.json`.

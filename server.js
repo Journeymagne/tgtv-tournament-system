@@ -9,13 +9,20 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 
 loadEnvFile(path.join(ROOT, ".env"));
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = positiveIntegerEnv("PORT", 3000);
 const HOST = process.env.HOST || "127.0.0.1";
 const DEFAULT_DATA_DIR = path.join(ROOT, "data");
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : DEFAULT_DATA_DIR;
 const DB_PATH = path.join(DATA_DIR, "db.json");
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const USE_POSTGRES = Boolean(DATABASE_URL);
+
+function positiveIntegerEnv(name, fallback) {
+  const value = process.env[name];
+  if (!value) return fallback;
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 && number <= 65535 ? number : fallback;
+}
 
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const INITIAL_RATING = 1000;

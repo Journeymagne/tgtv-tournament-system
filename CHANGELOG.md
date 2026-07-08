@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.51
+
+- Added configurable server port through `PORT` with a default of `3000`.
+- Documented staging port setup in README and `.env.example`.
+
 ## v0.5
 
 - Added Tomb World to Killzone options.
