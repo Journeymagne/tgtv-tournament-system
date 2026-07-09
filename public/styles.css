@@ -230,6 +230,73 @@ button:disabled {
   min-height: 40px;
 }
 
+.filter-suggest-field {
+  position: relative;
+}
+
+.filter-suggestions {
+  position: absolute;
+  z-index: 18;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 3px;
+  max-height: 260px;
+  padding: 5px;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #0c0c0c;
+  box-shadow: var(--shadow);
+}
+
+.filter-suggestions[hidden] {
+  display: none;
+}
+
+.filter-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+  font-weight: 850;
+}
+
+.filter-suggestion:hover {
+  color: #050505;
+  background: var(--accent);
+}
+
+.filter-suggestion small,
+.filter-suggestion-empty {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.filter-suggestion:hover small {
+  color: #050505;
+}
+
+.filter-suggestion-empty {
+  padding: 10px;
+}
+
+.filter-summary {
+  margin: -6px 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .password-control {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;

@@ -19,7 +19,7 @@ const state = {
   selectedSeasonId: "2026-q2-dataslate",
   statisticsFilters: { classification: "all", team: "" },
   statisticsSort: { key: "winRate", dir: "desc" },
-  gameFilters: { player: "", team: "" },
+  gameFilters: { playerQuery: "", playerId: "", team: "" },
   searchResults: [],
   adminUsers: [],
   playerProfile: null,
@@ -1580,7 +1580,10 @@ function renderGames() {
       <div class="filter-row games-filter-row">
         <div class="field compact-field">
           <label>Player</label>
-          <input type="search" data-games-player-filter value="${escapeHtml(state.gameFilters.player)}" placeholder="Player name">
+          <div class="filter-suggest-field">
+            <input type="search" data-games-player-filter value="${escapeHtml(state.gameFilters.playerQuery)}" placeholder="Player name" autocomplete="off">
+            <div class="filter-suggestions" data-games-player-suggestions hidden></div>
+          </div>
         </div>
         <div class="field compact-field">
           <label>Kill Team</label>
@@ -1590,6 +1593,7 @@ function renderGames() {
           </select>
         </div>
       </div>
+      <div class="filter-summary" data-games-filter-summary>${gamesFilterSummary(filteredGames.length, completedGames.length)}</div>
       <div class="list" data-games-list>${gamesListMarkup(filteredGames)}</div>
     </section>
   `;
@@ -1598,13 +1602,52 @@ function renderGames() {
 }
 
 function filterGames(games) {
-  const playerNeedle = state.gameFilters.player.trim().toLowerCase();
+  const playerId = Number(state.gameFilters.playerId);
+  const hasPlayerFilter = Number.isInteger(playerId) && playerId > 0;
+  const playerNeedle = state.gameFilters.playerQuery.trim().toLowerCase();
   const teamFilter = state.gameFilters.team;
   return games.filter((game) => {
-    const playerMatch = !playerNeedle || (game.players || []).some((player) => String(player.name || "").toLowerCase().includes(playerNeedle));
+    const playerMatch = hasPlayerFilter
+      ? (game.players || []).some((player) => Number(player.id) === playerId)
+      : !playerNeedle || (game.players || []).some((player) => String(player.name || "").toLowerCase().includes(playerNeedle));
     const teamMatch = !teamFilter || gameScoreEntries(game).some((entry) => entry.team === teamFilter);
     return playerMatch && teamMatch;
   });
+}
+
+function gamePlayerFilterOptions(games) {
+  const players = new Map();
+  for (const game of games) {
+    const seenInGame = new Set();
+    for (const player of game.players || []) {
+      const id = Number(player.id);
+      if (!Number.isInteger(id) || id <= 0 || seenInGame.has(id)) continue;
+      seenInGame.add(id);
+      if (!players.has(id)) {
+        const name = String(player.name || "").trim() || `Player #${id}`;
+        players.set(id, { id, name, games: 0 });
+      }
+      players.get(id).games += 1;
+    }
+  }
+  return [...players.values()].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+}
+
+function gamePlayerSuggestionOptions(games, query) {
+  const needle = query.trim().toLowerCase();
+  return gamePlayerFilterOptions(games)
+    .filter((player) => !needle || player.name.toLowerCase().includes(needle))
+    .sort((a, b) => {
+      const aStarts = a.name.toLowerCase().startsWith(needle);
+      const bStarts = b.name.toLowerCase().startsWith(needle);
+      return Number(!aStarts) - Number(!bStarts) || b.games - a.games || a.name.localeCompare(b.name) || a.id - b.id;
+    })
+    .slice(0, 8);
+}
+
+function gamesFilterSummary(count, total) {
+  const gameLabel = total === 1 ? "game" : "games";
+  return `Showing ${count} of ${total} completed ${gameLabel}.`;
 }
 
 function gamesListMarkup(games) {
@@ -1614,22 +1657,79 @@ function gamesListMarkup(games) {
   return games.length ? games.map(gameCard).join("") : `<div class="empty">No games match these filters.</div>`;
 }
 
+function renderGamePlayerSuggestions() {
+  const box = document.querySelector("[data-games-player-suggestions]");
+  const input = document.querySelector("[data-games-player-filter]");
+  if (!box || !input) return;
+  const completedGames = state.allGames.filter((game) => game.status === "completed");
+  const options = gamePlayerSuggestionOptions(completedGames, input.value);
+  box.innerHTML = options.length
+    ? options.map((player) => `
+      <button class="filter-suggestion" type="button" data-games-player-suggestion="${player.id}" data-games-player-name="${escapeHtml(player.name)}">
+        <span>${escapeHtml(player.name)}</span>
+        <small>${player.games} ${player.games === 1 ? "game" : "games"}</small>
+      </button>
+    `).join("")
+    : `<div class="filter-suggestion-empty">No players found</div>`;
+  box.hidden = false;
+}
+
+function closeGamePlayerSuggestions() {
+  const box = document.querySelector("[data-games-player-suggestions]");
+  if (box) box.hidden = true;
+}
+
 function refreshGamesList() {
   const list = document.querySelector("[data-games-list]");
   if (!list) return;
-  list.innerHTML = gamesListMarkup(filterGames(state.allGames.filter((game) => game.status === "completed")));
+  const completedGames = state.allGames.filter((game) => game.status === "completed");
+  const filteredGames = filterGames(completedGames);
+  list.innerHTML = gamesListMarkup(filteredGames);
+  const summary = document.querySelector("[data-games-filter-summary]");
+  if (summary) summary.textContent = gamesFilterSummary(filteredGames.length, completedGames.length);
   wireGameButtons();
 }
 
 function wireGameFilters() {
-  document.querySelector("[data-games-player-filter]")?.addEventListener("input", (event) => {
-    state.gameFilters.player = event.target.value;
+  const playerInput = document.querySelector("[data-games-player-filter]");
+  const suggestionBox = document.querySelector("[data-games-player-suggestions]");
+  playerInput?.addEventListener("input", (event) => {
+    state.gameFilters.playerQuery = event.target.value;
+    state.gameFilters.playerId = "";
     refreshGamesList();
+    renderGamePlayerSuggestions();
+  });
+  playerInput?.addEventListener("focus", () => renderGamePlayerSuggestions());
+  playerInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeGamePlayerSuggestions();
+    if (event.key !== "Enter") return;
+    const first = suggestionBox?.querySelector("[data-games-player-suggestion]");
+    if (!first || suggestionBox.hidden) return;
+    event.preventDefault();
+    chooseGamePlayerSuggestion(first);
+  });
+  playerInput?.addEventListener("blur", () => {
+    window.setTimeout(closeGamePlayerSuggestions, 120);
+  });
+  suggestionBox?.addEventListener("mousedown", (event) => {
+    const button = event.target.closest("[data-games-player-suggestion]");
+    if (!button) return;
+    event.preventDefault();
+    chooseGamePlayerSuggestion(button);
   });
   document.querySelector("[data-games-team-filter]")?.addEventListener("change", (event) => {
     state.gameFilters.team = event.target.value;
     refreshGamesList();
   });
+}
+
+function chooseGamePlayerSuggestion(button) {
+  const input = document.querySelector("[data-games-player-filter]");
+  state.gameFilters.playerId = button.dataset.gamesPlayerSuggestion;
+  state.gameFilters.playerQuery = button.dataset.gamesPlayerName || "";
+  if (input) input.value = state.gameFilters.playerQuery;
+  closeGamePlayerSuggestions();
+  refreshGamesList();
 }
 
 function renderStatistics() {

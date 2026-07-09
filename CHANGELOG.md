@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.6
+
+- Added game history filters by player text search with suggestions and Kill Team.
+- Added statistics filters and sortable Kill Team winrate tables.
+
 ## v0.51
 
 - Added configurable server port through `PORT` with a default of `3000`.
