@@ -205,6 +205,9 @@ const RESULT_KILL_TEAM_ALIASES = new Map([
   ...KILL_TEAM_ALIASES,
   ["tempestus aquilons", "Tempestus Aquilons"],
   ["tempestus aquillons", "Tempestus Aquilons"],
+  ["xv26 stealth battlesuit", "XV26 Stealth Battlesuits"],
+  ["xv26 stealth battlesuits", "XV26 Stealth Battlesuits"],
+  ["xv26 stealth suit", "XV26 Stealth Battlesuits"],
   ["xv26 stealth suits", "XV26 Stealth Battlesuits"]
 ]);
 
@@ -1541,6 +1544,12 @@ async function handleApi(req, res) {
         })
         .slice(0, 10)
         .map(publicUserSummary);
+      if (q && !users.length) {
+        return json(res, 404, {
+          error: "User not found",
+          message: "A user with that name does not exist."
+        });
+      }
       return json(res, 200, { users });
     }
 

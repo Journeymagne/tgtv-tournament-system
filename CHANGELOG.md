@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Accept XV26 Stealth Battlesuits when saving Approved Ops results.
+- Return a 404 response with an English message when player search has no matches.
+
 ## v0.6
 
 - Added game history filters by player text search with suggestions and Kill Team.

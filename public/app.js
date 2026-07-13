@@ -216,7 +216,9 @@ const killTeamAliases = new Map([
   ["void-dancer troupe", "Void-Dancer Troupe"],
   ["warp coven", "Warpcoven"],
   ["warpcoven", "Warpcoven"],
+  ["xv26 stealth battlesuit", "XV26 Stealth Battlesuits"],
   ["xv26 stealth battlesuits", "XV26 Stealth Battlesuits"],
+  ["xv26 stealth suit", "XV26 Stealth Battlesuits"],
   ["xv26 stealth suits", "XV26 Stealth Battlesuits"]
 ]);
 
@@ -228,7 +230,7 @@ async function api(path, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Request failed");
+  if (!res.ok) throw new Error(data.message || data.error || "Request failed");
   return data;
 }
 
