@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Accept XV26 Stealth Battlesuits when saving Approved Ops results.
+- Accept XV26 Stealth Battlesuits and Stealth Suits variants when saving Approved Ops results.
 - Return a 404 response with an English message when player search has no matches.
 
 ## v0.6

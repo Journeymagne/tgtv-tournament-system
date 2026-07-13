@@ -203,8 +203,16 @@ const KILL_TEAM_ALIASES = new Map([
 
 const RESULT_KILL_TEAM_ALIASES = new Map([
   ...KILL_TEAM_ALIASES,
+  ["stealth battlesuit", "XV26 Stealth Battlesuits"],
+  ["stealth battlesuits", "XV26 Stealth Battlesuits"],
+  ["stealth suit", "XV26 Stealth Battlesuits"],
+  ["stealth suits", "XV26 Stealth Battlesuits"],
   ["tempestus aquilons", "Tempestus Aquilons"],
   ["tempestus aquillons", "Tempestus Aquilons"],
+  ["xv 26 stealth battlesuit", "XV26 Stealth Battlesuits"],
+  ["xv 26 stealth battlesuits", "XV26 Stealth Battlesuits"],
+  ["xv 26 stealth suit", "XV26 Stealth Battlesuits"],
+  ["xv 26 stealth suits", "XV26 Stealth Battlesuits"],
   ["xv26 stealth battlesuit", "XV26 Stealth Battlesuits"],
   ["xv26 stealth battlesuits", "XV26 Stealth Battlesuits"],
   ["xv26 stealth suit", "XV26 Stealth Battlesuits"],
@@ -678,9 +686,9 @@ function resultKillTeamInput(value) {
   const text = optionalTextInput(value, "Kill Team");
   if (!text) return "";
   const key = teamKey(text);
-  const alias = RESULT_KILL_TEAM_ALIASES.get(key);
   const direct = KILL_TEAM_OPTIONS.find((team) => teamKey(team) === key);
-  const team = alias || direct;
+  const alias = RESULT_KILL_TEAM_ALIASES.get(key);
+  const team = direct || alias;
   if (!team || !KILL_TEAM_OPTIONS.includes(team)) {
     throw new Error("Choose a valid Kill Team from the list");
   }

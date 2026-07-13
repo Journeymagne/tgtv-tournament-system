@@ -216,6 +216,14 @@ const killTeamAliases = new Map([
   ["void-dancer troupe", "Void-Dancer Troupe"],
   ["warp coven", "Warpcoven"],
   ["warpcoven", "Warpcoven"],
+  ["stealth battlesuit", "XV26 Stealth Battlesuits"],
+  ["stealth battlesuits", "XV26 Stealth Battlesuits"],
+  ["stealth suit", "XV26 Stealth Battlesuits"],
+  ["stealth suits", "XV26 Stealth Battlesuits"],
+  ["xv 26 stealth battlesuit", "XV26 Stealth Battlesuits"],
+  ["xv 26 stealth battlesuits", "XV26 Stealth Battlesuits"],
+  ["xv 26 stealth suit", "XV26 Stealth Battlesuits"],
+  ["xv 26 stealth suits", "XV26 Stealth Battlesuits"],
   ["xv26 stealth battlesuit", "XV26 Stealth Battlesuits"],
   ["xv26 stealth battlesuits", "XV26 Stealth Battlesuits"],
   ["xv26 stealth suit", "XV26 Stealth Battlesuits"],
@@ -2354,6 +2362,19 @@ function validKillTeamName(value) {
   return killTeamOptions.includes(canonical) ? canonical : "";
 }
 
+function comboOptionMatchesQuery(option, query) {
+  const optionKey = statKey(option);
+  const queryKey = statKey(query);
+  const compactOptionKey = optionKey.replace(/\s+/g, "");
+  const compactQueryKey = queryKey.replace(/\s+/g, "");
+  if (!queryKey) return true;
+  const canonicalQuery = canonicalKillTeamName(query);
+  return option.toLowerCase().includes(query.trim().toLowerCase()) ||
+    optionKey.includes(queryKey) ||
+    compactOptionKey.includes(compactQueryKey) ||
+    statKey(canonicalQuery) === optionKey;
+}
+
 function canonicalTacOpName(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -3305,7 +3326,7 @@ function wireComboFields() {
       const query = input.value.trim().toLowerCase();
       return (showAll || !query)
         ? options
-        : options.filter((option) => option.toLowerCase().includes(query))
+        : options.filter((option) => comboOptionMatchesQuery(option, query))
             .sort((a, b) => {
               const aStarts = a.toLowerCase().startsWith(query);
               const bStarts = b.toLowerCase().startsWith(query);
