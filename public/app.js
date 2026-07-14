@@ -25,7 +25,8 @@ const state = {
   playerProfile: null,
   feedback: [],
   feedbackError: "",
-  feedbackMode: "form"
+  feedbackMode: "form",
+  sharedChallengeTokenHandled: ""
 };
 
 let searchDebounce = null;
@@ -381,6 +382,52 @@ function render() {
     return;
   }
   renderShell();
+  handleSharedChallengeHash();
+}
+
+function sharedChallengeTokenFromHash() {
+  const match = String(window.location.hash || "").match(/^#challenge\/([^/?#]+)/);
+  if (!match) return "";
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return "";
+  }
+}
+
+function clearSharedChallengeHash() {
+  if (!String(window.location.hash || "").startsWith("#challenge/")) return;
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+}
+
+async function handleSharedChallengeHash() {
+  const token = sharedChallengeTokenFromHash();
+  if (!token || state.sharedChallengeTokenHandled === token) return;
+  state.sharedChallengeTokenHandled = token;
+  try {
+    const data = await api(`/api/challenges/share/${encodeURIComponent(token)}`);
+    const challenge = data.challenge;
+    if (!challenge || challenge.status !== "pending") {
+      throw new Error("This challenge has already been handled");
+    }
+    if (challenge.toUserId !== state.me.id) {
+      throw new Error("This challenge link is for another player");
+    }
+    const opponentName = challenge.from?.name || "your opponent";
+    if (!window.confirm(`Accept challenge from ${opponentName}?`)) {
+      clearSharedChallengeHash();
+      state.sharedChallengeTokenHandled = "";
+      return;
+    }
+    await api(`/api/challenges/share/${encodeURIComponent(token)}/accept`, { method: "POST" });
+    clearSharedChallengeHash();
+    state.sharedChallengeTokenHandled = "";
+    await refresh();
+    state.view = "play";
+    renderShell();
+  } catch (err) {
+    window.alert(err.message);
+  }
 }
 
 function renderAuth() {
@@ -627,6 +674,13 @@ if (!window.__tgtvSidebarEscapeBound) {
   window.__tgtvSidebarEscapeBound = true;
 }
 
+if (!window.__tgtvSharedChallengeHashBound) {
+  window.addEventListener("hashchange", () => {
+    if (state.me) handleSharedChallengeHash();
+  });
+  window.__tgtvSharedChallengeHashBound = true;
+}
+
 function navButton(id, label) {
   const active = state.view === id || (id === "top" && state.view === "player") || (id === "games" && state.view === "gameDetail");
   return `<button class="nav-button ${active ? "active" : ""}" data-view="${id}">${label}</button>`;
@@ -636,6 +690,7 @@ async function logout() {
   await api("/api/logout", { method: "POST" });
   state.me = null;
   state.view = "play";
+  state.sharedChallengeTokenHandled = "";
   render();
 }
 
@@ -698,10 +753,14 @@ function renderPlay() {
 function challengeCard(challenge) {
   const other = challenge.fromUserId === state.me.id ? challenge.to : challenge.from;
   const direction = challenge.fromUserId === state.me.id ? "You challenged" : "Challenge from";
+  const shareUrl = challengeShareUrl(challenge);
+  const shareAction = shareUrl
+    ? `<button class="small-button" data-challenge-share="${escapeHtml(shareUrl)}">Copy link</button>`
+    : "";
   const actions = challenge.toUserId === state.me.id
     ? `<button class="small-button" data-challenge-action="accept" data-id="${challenge.id}">Accept</button>
        <button class="small-button" data-challenge-action="decline" data-id="${challenge.id}">Decline</button>`
-    : `<button class="small-button" data-challenge-action="cancel" data-id="${challenge.id}">Cancel</button>`;
+    : `${shareAction}<button class="small-button" data-challenge-action="cancel" data-id="${challenge.id}">Cancel</button>`;
   return `
     <div class="row-card">
       <div class="row-main">
@@ -711,6 +770,27 @@ function challengeCard(challenge) {
       <div class="row-actions">${actions}</div>
     </div>
   `;
+}
+
+function challengeShareUrl(challenge) {
+  if (!challenge?.shareToken || challenge.fromUserId !== state.me.id || challenge.status !== "pending") return "";
+  return `${window.location.origin}${window.location.pathname}#challenge/${encodeURIComponent(challenge.shareToken)}`;
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const input = document.createElement("textarea");
+  input.value = text;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.top = "-9999px";
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand("copy");
+  input.remove();
 }
 
 function gameCard(game) {
@@ -2830,6 +2910,22 @@ function searchResultMeta(user) {
 }
 
 function wireChallengeButtons() {
+  document.querySelectorAll("[data-challenge-share]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const originalText = button.textContent;
+      try {
+        await copyText(button.dataset.challengeShare);
+        button.textContent = "Copied";
+        button.disabled = true;
+        window.setTimeout(() => {
+          button.textContent = originalText;
+          button.disabled = false;
+        }, 1400);
+      } catch (err) {
+        window.alert(err.message);
+      }
+    });
+  });
   document.querySelectorAll("[data-challenge-action]").forEach((button) => {
     button.addEventListener("click", async () => {
       const action = button.dataset.challengeAction;
@@ -3631,7 +3727,7 @@ function usersTable(users) {
   return `
     <div class="table-wrap">
       <table>
-        <thead><tr><th class="rank">#</th><th>Player</th><th>Rating</th><th>Role</th></tr></thead>
+        <thead><tr><th class="rank">#</th><th>Player</th><th>Rating</th></tr></thead>
         <tbody>
           ${users.map((user, index) => `
             <tr>
@@ -3643,7 +3739,6 @@ function usersTable(users) {
                 </button>
               </td>
               <td>${user.rating}</td>
-              <td>${user.isAdmin ? "Admin" : "Player"}</td>
             </tr>
           `).join("")}
         </tbody>

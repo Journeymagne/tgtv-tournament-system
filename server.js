@@ -344,6 +344,7 @@ async function ensurePostgres() {
       to_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       status TEXT NOT NULL,
       game_id INTEGER,
+      share_token TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ
     );
@@ -385,6 +386,8 @@ async function ensurePostgres() {
   await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS register_nickname TEXT");
   await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_contact TEXT");
   await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS challenge_credits JSONB");
+  await db.query("ALTER TABLE challenges ADD COLUMN IF NOT EXISTS share_token TEXT");
+  await db.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_challenges_share_token ON challenges(share_token) WHERE share_token IS NOT NULL");
   await db.query("ALTER TABLE games ADD COLUMN IF NOT EXISTS pending_result JSONB");
   await db.query("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'open'");
   await db.query("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL");
@@ -485,13 +488,14 @@ async function writePostgresDb(state) {
 
     for (const challenge of state.challenges) {
       await client.query(`
-        INSERT INTO challenges (id, from_user_id, to_user_id, status, game_id, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO challenges (id, from_user_id, to_user_id, status, game_id, share_token, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (id) DO UPDATE SET
           from_user_id = EXCLUDED.from_user_id,
           to_user_id = EXCLUDED.to_user_id,
           status = EXCLUDED.status,
           game_id = EXCLUDED.game_id,
+          share_token = EXCLUDED.share_token,
           created_at = EXCLUDED.created_at,
           updated_at = EXCLUDED.updated_at
       `, [
@@ -500,6 +504,7 @@ async function writePostgresDb(state) {
         challenge.toUserId,
         challenge.status,
         challenge.gameId || null,
+        challenge.shareToken || null,
         challenge.createdAt || nowIso(),
         challenge.updatedAt || null
       ]);
@@ -623,6 +628,7 @@ function mapChallenge(row) {
     toUserId: row.to_user_id,
     status: row.status,
     gameId: row.game_id,
+    shareToken: row.share_token || null,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at)
   };
@@ -882,6 +888,20 @@ function createSession(db, userId) {
   db.sessions = db.sessions.filter((session) => new Date(session.expiresAt).getTime() > Date.now());
   db.sessions.push({ token, userId, createdAt: nowIso(), expiresAt });
   return token;
+}
+
+function createChallengeShareToken(db) {
+  let token = "";
+  do {
+    token = crypto.randomBytes(18).toString("hex");
+  } while (db.challenges.some((challenge) => challenge.shareToken === token));
+  return token;
+}
+
+function challengeByShareToken(db, token) {
+  const normalized = String(token || "").trim().toLowerCase();
+  if (!/^[a-f0-9]{36}$/i.test(normalized)) return null;
+  return db.challenges.find((challenge) => challenge.shareToken === normalized) || null;
 }
 
 function parseCookies(req) {
@@ -1259,6 +1279,29 @@ function pendingChallengeBetween(db, userId, otherUserId) {
   ) || null;
 }
 
+function acceptPendingChallenge(db, challenge) {
+  const existingGame = activeGameBetween(db, challenge.fromUserId, challenge.toUserId);
+  if (existingGame) {
+    return { status: 409, message: "These players already have an active game" };
+  }
+  challenge.status = "accepted";
+  const game = {
+    id: db.nextIds.game++,
+    challengeId: challenge.id,
+    playerIds: [challenge.fromUserId, challenge.toUserId],
+    status: "open",
+    createdAt: nowIso(),
+    submittedBy: null,
+    submittedAt: null,
+    pendingResult: null,
+    result: null,
+    elo: null
+  };
+  db.games.push(game);
+  challenge.gameId = game.id;
+  return { game };
+}
+
 function sendStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const requested = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
@@ -1584,12 +1627,43 @@ async function handleApi(req, res) {
         id: db.nextIds.challenge++,
         fromUserId: user.id,
         toUserId: toUser.id,
+        shareToken: createChallengeShareToken(db),
         status: "pending",
         createdAt: nowIso()
       };
       db.challenges.push(challenge);
       await writeDb(db);
       return json(res, 201, { challenge: challengeView(challenge, db) });
+    }
+
+    const challengeShareMatch = url.pathname.match(/^\/api\/challenges\/share\/([a-fA-F0-9]{36})$/);
+    if (method === "GET" && challengeShareMatch) {
+      const user = requireAuth(db, req, res);
+      if (!user) return;
+      const challenge = challengeByShareToken(db, challengeShareMatch[1]);
+      if (!challenge) return error(res, 404, "Challenge link not found");
+      if (challenge.fromUserId !== user.id && challenge.toUserId !== user.id) {
+        return error(res, 403, "This challenge link is for another player");
+      }
+      return json(res, 200, { challenge: challengeView(challenge, db) });
+    }
+
+    const challengeShareAcceptMatch = url.pathname.match(/^\/api\/challenges\/share\/([a-fA-F0-9]{36})\/accept$/);
+    if (method === "POST" && challengeShareAcceptMatch) {
+      const user = requireAuth(db, req, res);
+      if (!user) return;
+      const challenge = challengeByShareToken(db, challengeShareAcceptMatch[1]);
+      if (!challenge) return error(res, 404, "Challenge link not found");
+      if (challenge.status !== "pending") return error(res, 409, "This challenge has already been handled");
+      if (challenge.toUserId !== user.id) return error(res, 403, "Only the recipient can accept this challenge link");
+      const accepted = acceptPendingChallenge(db, challenge);
+      if (accepted.status) return error(res, accepted.status, accepted.message);
+      challenge.updatedAt = nowIso();
+      await writeDb(db);
+      return json(res, 200, {
+        challenge: challengeView(challenge, db),
+        game: gameView(accepted.game, db)
+      });
     }
 
     const challengeMatch = url.pathname.match(/^\/api\/challenges\/(\d+)\/(accept|decline|cancel)$/);
@@ -1610,23 +1684,8 @@ async function handleApi(req, res) {
         if (action === "decline") {
           challenge.status = "declined";
         } else {
-          const existingGame = activeGameBetween(db, challenge.fromUserId, challenge.toUserId);
-          if (existingGame) return error(res, 409, "These players already have an active game");
-          challenge.status = "accepted";
-          const game = {
-            id: db.nextIds.game++,
-            challengeId: challenge.id,
-            playerIds: [challenge.fromUserId, challenge.toUserId],
-            status: "open",
-            createdAt: nowIso(),
-            submittedBy: null,
-            submittedAt: null,
-            pendingResult: null,
-            result: null,
-            elo: null
-          };
-          db.games.push(game);
-          challenge.gameId = game.id;
+          const accepted = acceptPendingChallenge(db, challenge);
+          if (accepted.status) return error(res, accepted.status, accepted.message);
         }
       }
       challenge.updatedAt = nowIso();

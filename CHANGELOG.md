@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.65
+
+- Added share links for pending challenges so recipients can accept from a direct link.
+- Removed the Role column from the leaderboard.
+
+## v0.6-battlesuits-hotfix
+
 - Accept XV26 Stealth Battlesuits and Stealth Suits variants when saving Approved Ops results.
 - Return a 404 response with an English message when player search has no matches.
 
