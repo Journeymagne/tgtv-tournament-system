@@ -1839,6 +1839,22 @@ tr:last-child td {
   overflow-wrap: anywhere;
 }
 
+.admin-password-card {
+  margin-top: 14px;
+}
+
+.admin-password-value {
+  max-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: #0c0c0c;
+  color: var(--gold);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 .rating-input {
   width: 92px;
   min-height: 34px;

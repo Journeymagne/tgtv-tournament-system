@@ -890,6 +890,10 @@ function createSession(db, userId) {
   return token;
 }
 
+function generateTemporaryPassword() {
+  return crypto.randomBytes(9).toString("base64url");
+}
+
 function createChallengeShareToken(db) {
   let token = "";
   do {
@@ -1142,6 +1146,27 @@ function applyFinalResult(game, playerA, playerB, result, confirmedBy = null) {
     [playerA.id]: { before: beforeA, after: playerA.rating, delta: elo.deltaA },
     [playerB.id]: { before: beforeB, after: playerB.rating, delta: elo.deltaB }
   };
+}
+
+function finalizePendingGameResult(db, game, confirmedBy) {
+  if (game.status !== "pending_confirmation" || !game.pendingResult?.result) {
+    return { status: 409, message: "There is no submitted result to confirm" };
+  }
+
+  const playerA = db.users.find((item) => item.id === game.playerIds[0]);
+  const playerB = db.users.find((item) => item.id === game.playerIds[1]);
+  if (!playerA || !playerB) {
+    return { status: 409, message: "One of the players has been deleted" };
+  }
+
+  const normalizedResult = calculateSubmittedResult({
+    scores: game.pendingResult.result.scores,
+    killzone: game.pendingResult.result.killzone,
+    tiebreakers: game.pendingResult.result.tiebreakers
+  }, game, playerA, playerB);
+  game.pendingResult.result = normalizedResult;
+  applyFinalResult(game, playerA, playerB, normalizedResult, confirmedBy);
+  return { game };
 }
 
 function reverseGameElo(game, players) {
@@ -1534,6 +1559,16 @@ async function handleApi(req, res) {
       return json(res, 200, { feedback });
     }
 
+    if (method === "GET" && url.pathname === "/api/admin/games") {
+      const admin = requireAdmin(db, req, res);
+      if (!admin) return;
+      const games = db.games
+        .filter((game) => ["open", "pending_confirmation"].includes(game.status))
+        .map((game) => gameView(game, db))
+        .sort((a, b) => String(b.submittedAt || b.createdAt).localeCompare(String(a.submittedAt || a.createdAt)));
+      return json(res, 200, { games });
+    }
+
     const adminFeedbackMatch = url.pathname.match(/^\/api\/admin\/feedback\/(\d+)$/);
     if (adminFeedbackMatch) {
       const admin = requireAdmin(db, req, res);
@@ -1773,16 +1808,21 @@ async function handleApi(req, res) {
         return json(res, 200, { game: gameView(game, db) });
       }
 
-      const playerA = db.users.find((item) => item.id === game.playerIds[0]);
-      const playerB = db.users.find((item) => item.id === game.playerIds[1]);
-      if (!playerA || !playerB) return error(res, 409, "One of the players has been deleted");
-      const normalizedResult = calculateSubmittedResult({
-        scores: game.pendingResult.result.scores,
-        killzone: game.pendingResult.result.killzone,
-        tiebreakers: game.pendingResult.result.tiebreakers
-      }, game, playerA, playerB);
-      game.pendingResult.result = normalizedResult;
-      applyFinalResult(game, playerA, playerB, normalizedResult, user.id);
+      const finalized = finalizePendingGameResult(db, game, user.id);
+      if (finalized.status) return error(res, finalized.status, finalized.message);
+      await writeDb(db);
+      return json(res, 200, { game: gameView(game, db) });
+    }
+
+    const adminGameConfirmMatch = url.pathname.match(/^\/api\/admin\/games\/(\d+)\/confirm-result$/);
+    if (method === "POST" && adminGameConfirmMatch) {
+      const admin = requireAdmin(db, req, res);
+      if (!admin) return;
+      const id = Number(adminGameConfirmMatch[1]);
+      const game = db.games.find((item) => item.id === id);
+      if (!game) return error(res, 404, "Game not found");
+      const finalized = finalizePendingGameResult(db, game, admin.id);
+      if (finalized.status) return error(res, finalized.status, finalized.message);
       await writeDb(db);
       return json(res, 200, { game: gameView(game, db) });
     }
@@ -1794,7 +1834,9 @@ async function handleApi(req, res) {
       const id = Number(adminGameDeleteMatch[1]);
       const game = db.games.find((item) => item.id === id);
       if (!game) return error(res, 404, "Game not found");
-      if (game.status !== "pending_confirmation") return error(res, 409, "Only pending games can be deleted here");
+      if (!["open", "pending_confirmation"].includes(game.status)) {
+        return error(res, 409, "Only active or pending games can be deleted here");
+      }
 
       cancelGameWithoutElo(db, game);
       await writeDb(db);
@@ -1876,6 +1918,21 @@ async function handleApi(req, res) {
         return { ...publicUserSummary(user), gamesPlayed: games.length };
       }).sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
       return json(res, 200, { users });
+    }
+
+    const adminUserResetPasswordMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/reset-password$/);
+    if (method === "POST" && adminUserResetPasswordMatch) {
+      const admin = requireAdmin(db, req, res);
+      if (!admin) return;
+      const target = db.users.find((user) => user.id === Number(adminUserResetPasswordMatch[1]));
+      if (!target) return error(res, 404, "User not found");
+      if (target.id === admin.id) return error(res, 400, "You cannot reset your own password here");
+      const password = generateTemporaryPassword();
+      target.passwordHash = hashPassword(password);
+      target.updatedAt = nowIso();
+      db.sessions = db.sessions.filter((session) => session.userId !== target.id);
+      await writeDb(db);
+      return json(res, 200, { user: publicUser(target), password });
     }
 
     const adminUserMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)$/);

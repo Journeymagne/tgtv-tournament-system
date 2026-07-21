@@ -22,6 +22,8 @@ const state = {
   gameFilters: { playerQuery: "", playerId: "", team: "" },
   searchResults: [],
   adminUsers: [],
+  adminGames: [],
+  adminPasswordReset: null,
   playerProfile: null,
   feedback: [],
   feedbackError: "",
@@ -614,6 +616,7 @@ function renderShell() {
   document.querySelector("[data-logout]").addEventListener("click", logout);
   document.querySelector("[data-header-profile]").addEventListener("click", async () => {
     setSidebarOpen(false);
+    state.adminPasswordReset = null;
     state.view = "profile";
     state.playerProfile = null;
     state.selectedChallengeUserId = state.me.id;
@@ -625,6 +628,7 @@ function renderShell() {
     button.addEventListener("click", async () => {
       setSidebarOpen(false);
       const targetView = button.dataset.view;
+      state.adminPasswordReset = null;
       state.view = targetView;
       state.playerProfile = null;
       state.selectedGameId = null;
@@ -691,6 +695,7 @@ async function logout() {
   state.me = null;
   state.view = "play";
   state.sharedChallengeTokenHandled = "";
+  state.adminPasswordReset = null;
   render();
 }
 
@@ -1303,6 +1308,7 @@ function renderPlayerProfile() {
 
     <section class="grid-2">
       ${profileContactsCard(user)}
+      ${state.me.isAdmin && user.id !== state.me.id ? adminPlayerToolsCard(user) : ""}
       <div class="card panel">
         <div class="panel-header">
           <h3 class="icon-heading">${crossedSwordsIcon()}<span>Game challenges</span></h3>
@@ -1343,6 +1349,7 @@ function renderPlayerProfile() {
   document.querySelector("[data-back-leaderboard]").addEventListener("click", async () => {
     state.view = "top";
     state.playerProfile = null;
+    state.adminPasswordReset = null;
     await loadTop();
     renderShell();
   });
@@ -1363,9 +1370,68 @@ function renderPlayerProfile() {
   document.querySelector("[data-profile-game]")?.addEventListener("click", async (event) => {
     await openGameDetail(Number(event.currentTarget.dataset.profileGame));
   });
+  wireAdminPlayerTools(user.id);
   wireAdminPendingGameButtons(user.id);
   wireGameButtons();
   wireChallengeProgressButtons();
+}
+
+function adminPlayerToolsCard(user) {
+  const reset = state.adminPasswordReset?.userId === user.id ? state.adminPasswordReset : null;
+  return `
+    <div class="card panel">
+      <div class="panel-header">
+        <div>
+          <h3>Admin account tools</h3>
+          <p class="muted">Reset this player's password and share the temporary value.</p>
+        </div>
+      </div>
+      <div class="row-actions">
+        <button class="danger-button" data-admin-reset-password="${user.id}">Reset password</button>
+      </div>
+      ${reset ? `
+        <div class="row-card admin-password-card">
+          <div class="row-main">
+            <div class="row-title">Temporary password</div>
+            <div class="row-meta">Visible here until you leave this profile.</div>
+          </div>
+          <div class="row-actions">
+            <code class="admin-password-value">${escapeHtml(reset.password)}</code>
+            <button class="small-button" data-admin-copy-password="${escapeHtml(reset.password)}">Copy</button>
+          </div>
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function wireAdminPlayerTools(profileUserId) {
+  document.querySelector("[data-admin-reset-password]")?.addEventListener("click", async () => {
+    const confirmed = window.confirm("Reset this player's password? Their active sessions will be signed out.");
+    if (!confirmed) return;
+    try {
+      const data = await api(`/api/admin/users/${profileUserId}/reset-password`, { method: "POST" });
+      state.adminPasswordReset = { userId: profileUserId, password: data.password };
+      renderShell();
+    } catch (err) {
+      setPlayerProfileMessage(err.message, true);
+    }
+  });
+  document.querySelector("[data-admin-copy-password]")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const originalText = button.textContent;
+    try {
+      await copyText(button.dataset.adminCopyPassword);
+      button.textContent = "Copied";
+      button.disabled = true;
+      window.setTimeout(() => {
+        button.textContent = originalText;
+        button.disabled = false;
+      }, 1400);
+    } catch (err) {
+      setPlayerProfileMessage(err.message, true);
+    }
+  });
 }
 
 function adminPendingGamesCard(profile) {
@@ -1387,6 +1453,7 @@ function adminPendingGamesCard(profile) {
             </div>
             <div class="row-actions">
               <button class="small-button" data-admin-pending-open="${game.id}">Open</button>
+              <button class="small-button" data-admin-pending-confirm="${game.id}">Force confirm</button>
               <button class="danger-button" data-admin-pending-delete="${game.id}">Delete</button>
             </div>
           </div>
@@ -1404,7 +1471,12 @@ function wireAdminPendingGameButtons(profileUserId) {
   });
   document.querySelectorAll("[data-admin-pending-delete]").forEach((button) => {
     button.addEventListener("click", async () => {
-      await adminDeletePendingGame(Number(button.dataset.adminPendingDelete), profileUserId);
+      await adminDeleteGame(Number(button.dataset.adminPendingDelete), profileUserId);
+    });
+  });
+  document.querySelectorAll("[data-admin-pending-confirm]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await adminForceConfirmGame(Number(button.dataset.adminPendingConfirm), profileUserId);
     });
   });
 }
@@ -1561,12 +1633,14 @@ function activeGameWith(userId) {
 }
 
 async function loadPlayerProfile(userId) {
+  if (state.adminPasswordReset?.userId !== Number(userId)) state.adminPasswordReset = null;
   state.playerProfile = await api(`/api/users/${Number(userId)}`);
 }
 
 async function openPlayerProfile(userId) {
   const id = Number(userId);
   if (id === state.me.id) {
+    state.adminPasswordReset = null;
     state.view = "profile";
     state.playerProfile = null;
     renderShell();
@@ -1641,6 +1715,7 @@ async function loadGames() {
 function getKnownGame(gameId) {
   const id = Number(gameId);
   return (state.allGames || []).find((game) => game.id === id) ||
+    (state.adminGames || []).find((game) => game.id === id) ||
     (state.games || []).find((game) => game.id === id) ||
     (state.playerProfile?.pendingGames || []).find((game) => game.id === id) ||
     (state.playerProfile?.activeMatchup?.game?.id === id ? state.playerProfile.activeMatchup.game : null) ||
@@ -2729,7 +2804,8 @@ function renderGameDetail() {
     : "";
   const adminAction = state.me.isAdmin
     ? `<button class="primary-button" data-admin-edit-game="${game.id}">${result ? "Edit result" : "Enter result"}</button>
-       ${game.status === "pending_confirmation" ? `<button class="danger-button" data-admin-delete-game="${game.id}">Delete pending</button>` : ""}`
+       ${game.status === "pending_confirmation" && game.pendingResult?.result ? `<button class="small-button" data-admin-confirm-game="${game.id}">Force confirm</button>` : ""}
+       ${["open", "pending_confirmation"].includes(game.status) ? `<button class="danger-button" data-admin-delete-game="${game.id}">Delete game</button>` : ""}`
     : "";
 
   content.innerHTML = `
@@ -2772,7 +2848,10 @@ function renderGameDetail() {
     renderResultForm(game.id, { adminEdit: true });
   });
   document.querySelector("[data-admin-delete-game]")?.addEventListener("click", (event) => {
-    adminDeletePendingGame(Number(event.currentTarget.dataset.adminDeleteGame));
+    adminDeleteGame(Number(event.currentTarget.dataset.adminDeleteGame));
+  });
+  document.querySelector("[data-admin-confirm-game]")?.addEventListener("click", (event) => {
+    adminForceConfirmGame(Number(event.currentTarget.dataset.adminConfirmGame));
   });
   document.querySelector("[data-exit-game]")?.addEventListener("click", (event) => {
     exitOpenGame(Number(event.currentTarget.dataset.exitGame));
@@ -2969,21 +3048,48 @@ async function exitOpenGame(gameId) {
   }
 }
 
-async function adminDeletePendingGame(gameId, profileUserId = null) {
-  const confirmed = window.confirm("Delete this pending game? The match will be closed without Elo changes.");
+async function adminDeleteGame(gameId, profileUserId = null) {
+  const game = getKnownGame(gameId);
+  const confirmed = window.confirm(`Delete this ${game?.status === "pending_confirmation" ? "pending" : "active"} game? The match will be closed without Elo changes.`);
   if (!confirmed) return;
   try {
     await api(`/api/admin/games/${gameId}`, { method: "DELETE" });
     await refresh();
+    if (state.me?.isAdmin) await loadAdmin();
     await loadGames();
     if (profileUserId) {
       await loadPlayerProfile(profileUserId);
       renderShell();
-      setPlayerProfileMessage("Pending game deleted.");
+      setPlayerProfileMessage("Game deleted.");
       return;
     }
-    state.view = "games";
+    state.view = state.me?.isAdmin ? "admin" : "games";
     state.selectedGameId = null;
+    renderShell();
+  } catch (err) {
+    setMessage(err.message, true);
+    setPlayerProfileMessage(err.message, true);
+  }
+}
+
+async function adminForceConfirmGame(gameId, profileUserId = null) {
+  const confirmed = window.confirm("Force confirm this submitted result? Elo changes will be applied.");
+  if (!confirmed) return;
+  try {
+    await api(`/api/admin/games/${gameId}/confirm-result`, { method: "POST" });
+    await refresh();
+    if (state.me?.isAdmin) await loadAdmin();
+    await loadTop();
+    await loadGames();
+    if (profileUserId) {
+      await loadPlayerProfile(profileUserId);
+      renderShell();
+      setPlayerProfileMessage("Result force confirmed.");
+      return;
+    }
+    if (state.view === "gameDetail") {
+      state.selectedGameId = gameId;
+    }
     renderShell();
   } catch (err) {
     setMessage(err.message, true);
@@ -3760,13 +3866,51 @@ function wireLeaderboardProfiles() {
 }
 
 async function loadAdmin() {
-  const data = await api("/api/admin/users");
-  state.adminUsers = data.users || [];
+  const [usersData, gamesData] = await Promise.all([
+    api("/api/admin/users"),
+    api("/api/admin/games")
+  ]);
+  state.adminUsers = usersData.users || [];
+  state.adminGames = gamesData.games || [];
+}
+
+function adminActiveGamesPanel() {
+  const games = state.adminGames || [];
+  return `
+    <section class="card panel">
+      <div class="panel-header">
+        <div>
+          <h2>Active games</h2>
+          <p class="muted">Open games and submitted results waiting for player confirmation.</p>
+        </div>
+      </div>
+      <div class="list">
+        ${games.length ? games.map((game) => {
+          const pending = game.status === "pending_confirmation";
+          return `
+            <div class="row-card">
+              <div class="row-main">
+                <div class="row-title">${escapeHtml(gameTitle(game))}</div>
+                <div class="row-meta">${escapeHtml(pending ? pendingResultSummary(game) : `Accepted match · ${fmtDate(game.createdAt)}`)}</div>
+              </div>
+              <div class="row-actions">
+                <span class="status ${pending ? "pending" : "open"}">${pending ? "pending" : "open"}</span>
+                <button class="small-button" data-admin-game-open="${game.id}">Open</button>
+                ${pending && game.pendingResult?.result ? `<button class="small-button" data-admin-game-confirm="${game.id}">Force confirm</button>` : ""}
+                <button class="danger-button" data-admin-game-delete="${game.id}">Delete</button>
+              </div>
+            </div>
+          `;
+        }).join("") : `<div class="empty">No active games.</div>`}
+      </div>
+    </section>
+  `;
 }
 
 function renderAdmin() {
   const content = document.querySelector("[data-content]");
   content.innerHTML = `
+    ${adminActiveGamesPanel()}
     <section class="card panel">
       <div class="panel-header">
         <div>
@@ -3782,7 +3926,7 @@ function renderAdmin() {
           <tbody>
             ${state.adminUsers.map((user) => `
               <tr>
-                <td>${escapeHtml(user.name)}</td>
+                <td><button class="text-link-button inline-profile-link" data-profile-user="${user.id}">${escapeHtml(user.name)}</button></td>
                 <td>
                   <div class="admin-contact-cell">
                     <span>Register: ${escapeHtml(user.registerNickname || "-")}</span>
@@ -3832,6 +3976,26 @@ function renderAdmin() {
       } catch (err) {
         setMessage(err.message, true);
       }
+    });
+  });
+  wireAdminGameButtons();
+  wireLeaderboardProfiles();
+}
+
+function wireAdminGameButtons() {
+  document.querySelectorAll("[data-admin-game-open]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await openGameDetail(Number(button.dataset.adminGameOpen));
+    });
+  });
+  document.querySelectorAll("[data-admin-game-confirm]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await adminForceConfirmGame(Number(button.dataset.adminGameConfirm));
+    });
+  });
+  document.querySelectorAll("[data-admin-game-delete]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await adminDeleteGame(Number(button.dataset.adminGameDelete));
     });
   });
 }

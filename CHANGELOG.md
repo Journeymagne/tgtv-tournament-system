@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added admin tools to view active games, force-confirm submitted results, and delete active/pending games.
+- Added admin password reset from player profiles with a generated temporary password.
+
 ## v0.65
 
 - Added share links for pending challenges so recipients can accept from a direct link.
