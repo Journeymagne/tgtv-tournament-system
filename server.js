@@ -61,8 +61,8 @@ const CHALLENGE_TEAMS = [
   "Wolf Scouts",
   "Celestian Insidiants",
   "Murderwing",
-  "Dragon Masters",
-  "Spectre Squad"
+  "Spectre Squad",
+  "Dragon Masters"
 ];
 
 const CHALLENGE_WILDCARDS = [

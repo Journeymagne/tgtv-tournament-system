@@ -126,7 +126,8 @@ const nonClassifiedKillTeams = new Set([
 ]);
 
 const classifiedChallengeExtraTeams = [
-  "Spectre Squad"
+  "Spectre Squad",
+  "Dragon Masters"
 ];
 
 const challengeWildcardTeams = [
@@ -2594,13 +2595,13 @@ function renderChallenge() {
 
 function challengeTrackProgress(progress) {
   if (state.challengeTab === "classified") {
-    return moveChallengeTeamToEnd(progress?.tracks?.classified || classifiedFallbackProgress(progress), "Spectre Squad");
+    return moveChallengeTeamToEnd(progress?.tracks?.classified || classifiedFallbackProgress(progress), "Dragon Masters");
   }
-  return moveChallengeTeamToEnd(progress?.tracks?.allKillTeam || allKillTeamFallbackProgress(progress), "Spectre Squad");
+  return moveChallengeTeamToEnd(progress?.tracks?.allKillTeam || allKillTeamFallbackProgress(progress), "Dragon Masters");
 }
 
 function classifiedFallbackProgress(progress) {
-  if (!progress || progress.teams?.some((item) => item.team === "Spectre Squad")) return progress;
+  if (!progress) return progress;
   return appendTeamsToChallengeProgress(progress, classifiedChallengeExtraTeams);
 }
 
@@ -2752,8 +2753,12 @@ function killTeamLogoSrc(team) {
     "Warpcoven": "Warpcoven.png",
     "XV26 Stealth Suits": "XV26 Stealth Battlesuits.png"
   };
+  const logoVersions = {
+    "Dragon Masters": "20260724-transparent-1"
+  };
   const fileName = logoFiles[team] || `${team}.png`;
-  return `/kill-team-logos/${encodeURIComponent(fileName)}`;
+  const version = logoVersions[team];
+  return `/kill-team-logos/${encodeURIComponent(fileName)}${version ? `?v=${version}` : ""}`;
 }
 
 function challengeTeamCard(item, wildcard = false, userId = null) {

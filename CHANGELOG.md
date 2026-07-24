@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Updated Dragon Masters logo to a transparent 256x256 asset and placed Dragon Masters last in challenge tracks.
 - Added Dragon Masters as a selectable Kill Team, challenge team, and stats team with logo.
 - Added admin tools to view active games, force-confirm submitted results, and delete active/pending games.
 - Added admin password reset from player profiles with a generated temporary password.
