@@ -61,6 +61,7 @@ const CHALLENGE_TEAMS = [
   "Wolf Scouts",
   "Celestian Insidiants",
   "Murderwing",
+  "Dragon Masters",
   "Spectre Squad"
 ];
 
@@ -108,6 +109,7 @@ const KILL_TEAM_OPTIONS = [
   "Tempestus Aquilons",
   "Angels of Death",
   "Deathwatch",
+  "Dragon Masters",
   "Phobos Strike Team",
   "Scout Squad",
   "Wolf Scouts",
@@ -171,6 +173,8 @@ const KILL_TEAM_ALIASES = new Map([
   ["brood brothers", "Brood Brothers"],
   ["celestian insidiant", "Celestian Insidiants"],
   ["celestian insidiants", "Celestian Insidiants"],
+  ["dragon master", "Dragon Masters"],
+  ["dragon masters", "Dragon Masters"],
   ["elucidian starstrider", "Elucidian Starstriders"],
   ["elucidian starstriders", "Elucidian Starstriders"],
   ["farstalker kinband", "Farstalker Kinband"],

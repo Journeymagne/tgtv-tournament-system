@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added Dragon Masters as a selectable Kill Team, challenge team, and stats team with logo.
 - Added admin tools to view active games, force-confirm submitted results, and delete active/pending games.
 - Added admin password reset from player profiles with a generated temporary password.
 

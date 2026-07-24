@@ -57,6 +57,7 @@ const killTeamOptions = [
   "Tempestus Aquilons",
   "Angels of Death",
   "Deathwatch",
+  "Dragon Masters",
   "Phobos Strike Team",
   "Scout Squad",
   "Wolf Scouts",
@@ -188,6 +189,8 @@ const killTeamAliases = new Map([
   ["celestian insidiant", "Celestian Insidiants"],
   ["celestian insidiants", "Celestian Insidiants"],
   ["corsair voidscarred", "Corsair Voidscarred"],
+  ["dragon master", "Dragon Masters"],
+  ["dragon masters", "Dragon Masters"],
   ["elucidian starstrider", "Elucidian Starstriders"],
   ["elucidian starstriders", "Elucidian Starstriders"],
   ["farstalker kinband", "Farstalker Kinband"],
@@ -2128,13 +2131,14 @@ function statsTeamFilterMatches(team) {
 }
 
 function renderTeamCards(summary) {
+  const rows = teamCardRows(summary);
   return `
     <div class="team-card-grid">
-      ${summary.rows.length
-        ? summary.rows.map((row) => `
+      ${rows.length
+        ? rows.map((row) => `
           <button class="team-stat-card" data-stat-team="${escapeHtml(row.team)}">
             <img class="team-stat-logo" src="${killTeamLogoSrc(row.team)}" alt="">
-            <span>${row.games} games</span>
+            <span>${row.games ? `${row.games} games` : "No games"}</span>
             <strong>${escapeHtml(row.team)}</strong>
             <div class="team-stat-rate">${row.winRate}%</div>
           </button>
@@ -2142,6 +2146,15 @@ function renderTeamCards(summary) {
         : `<div class="empty">No completed non-mirror games with Kill Team data yet.</div>`}
     </div>
   `;
+}
+
+function teamCardRows(summary) {
+  const activeRows = summary.rows || [];
+  const activeTeams = new Set(activeRows.map((row) => row.team));
+  const inactiveRows = killTeamOptions
+    .filter((team) => !activeTeams.has(team))
+    .map((team) => ({ team, games: 0, wins: 0, losses: 0, draws: 0, winRate: 0 }));
+  return [...activeRows, ...inactiveRows];
 }
 
 function renderTeamDetail(detail) {
