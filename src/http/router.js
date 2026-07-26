@@ -1,0 +1,126 @@
+const { HttpError, readBody, sendJson } = require("./io");
+const { logRequest, logError } = require("./logger");
+
+function normalizeApiPath(pathname) {
+  let normalized = pathname || "/";
+  if (normalized.length > 1 && normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
+}
+
+function segmentsOf(path) {
+  return path.split("/").filter(Boolean);
+}
+
+function matchSegments(routeSegments, pathSegments) {
+  if (routeSegments.length !== pathSegments.length) return null;
+  const params = {};
+  for (let index = 0; index < routeSegments.length; index += 1) {
+    const routeSegment = routeSegments[index];
+    const pathSegment = pathSegments[index];
+    if (routeSegment.startsWith(":")) {
+      params[routeSegment.slice(1)] = decodeURIComponent(pathSegment);
+      continue;
+    }
+    if (routeSegment !== pathSegment) return null;
+  }
+  return params;
+}
+
+function dynamicCount(path) {
+  return segmentsOf(path).filter((segment) => segment.startsWith(":")).length;
+}
+
+function matchRoute(routes, method, pathname) {
+  const pathSegments = segmentsOf(pathname);
+  const candidates = routes
+    .filter((route) => route.method === method)
+    .sort((a, b) => dynamicCount(a.path) - dynamicCount(b.path));
+
+  for (const route of candidates) {
+    const params = matchSegments(segmentsOf(route.path), pathSegments);
+    if (params) return { route, params };
+  }
+  return null;
+}
+
+const METHODS_WITH_BODY = new Set(["POST", "PATCH", "PUT"]);
+
+function createRouter(routes, deps) {
+  const { withClient, withTransaction, loadUser } = deps;
+
+  async function runRoute(route, params, req, url) {
+    const runner = route.tx ? withTransaction : withClient;
+    return runner(async (client) => {
+      const auth = route.auth || "none";
+      let user = null;
+
+      if (auth !== "none") {
+        user = await loadUser(client, req);
+        if (!user) throw new HttpError(401, "You need to sign in");
+        if (auth === "admin" && !user.isAdmin) {
+          throw new HttpError(403, "Administrator rights required");
+        }
+      } else if (route.loadUser) {
+        user = await loadUser(client, req);
+      }
+
+      const body = METHODS_WITH_BODY.has(route.method) ? await readBody(req) : {};
+
+      return route.handler({
+        params,
+        query: url.searchParams,
+        body,
+        user,
+        client,
+        req
+      });
+    });
+  }
+
+  return async function router(req, res) {
+    const startedAt = Date.now();
+    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    const pathname = normalizeApiPath(url.pathname);
+    const method = req.method || "GET";
+    let status = 500;
+
+    try {
+      const match = matchRoute(routes, method, pathname);
+      if (!match) {
+        status = 404;
+        sendJson(res, 404, { error: "Route not found" });
+        return;
+      }
+
+      const result = await runRoute(match.route, match.params, req, url);
+
+      if (result === undefined) {
+        status = 204;
+        sendJson(res, 204, {});
+        return;
+      }
+      if (result && typeof result === "object" && "body" in result) {
+        status = result.status || 200;
+        sendJson(res, status, result.body, result.headers || {});
+        return;
+      }
+      status = 200;
+      sendJson(res, 200, result);
+    } catch (err) {
+      if (err instanceof HttpError) {
+        status = err.status;
+        sendJson(res, err.status, { error: err.message });
+      } else {
+        status = 500;
+        logError(`unhandled error on ${method} ${pathname}`, err);
+        sendJson(res, 500, { error: "Server error" });
+      }
+    } finally {
+      logRequest({ method, path: pathname, status, durationMs: Date.now() - startedAt });
+    }
+  };
+}
+
+module.exports = { matchRoute, normalizeApiPath, createRouter };
