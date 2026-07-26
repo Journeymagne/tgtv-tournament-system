@@ -1080,6 +1080,9 @@ function resolveStaticPath(pathname) {
   } catch {
     return null;
   }
+  // NUL в пути валит fs.readFile синхронным TypeError: %00 переживает
+  // decodeURIComponent и проходит проверку префикса.
+  if (requested.includes("\0")) return null;
   const filePath = path.normalize(path.join(PUBLIC_DIR, requested));
   if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_PREFIX)) return null;
   return filePath;
