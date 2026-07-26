@@ -181,9 +181,9 @@ docker compose exec -T postgres psql -U tgtv -d tgtv_tournament_test -c "SELECT 
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test --test-concurrency=1 test/unit/ test/integration/",
-    "test:unit": "node --test test/unit/",
-    "test:integration": "node --test --test-concurrency=1 test/integration/"
+    "test": "node --test --test-concurrency=1 \"test/unit/**/*.test.js\" \"test/integration/**/*.test.js\"",
+    "test:unit": "node --test \"test/unit/**/*.test.js\"",
+    "test:integration": "node --test --test-concurrency=1 \"test/integration/**/*.test.js\""
   },
   "dependencies": {
     "pg": "^8.22.0"
@@ -192,6 +192,8 @@ docker compose exec -T postgres psql -U tgtv -d tgtv_tournament_test -c "SELECT 
 ```
 
 `--test-concurrency=1` обязателен для интеграционных тестов: они делят одну базу и чистят её между кейсами.
+
+Пути задаются glob-шаблонами в кавычках, а не именами каталогов: на Node 22.13 `node --test test/integration` пытается исполнить каталог как файл и падает (проверено на этой машине). Кавычки нужны, чтобы шаблон раскрывал Node, а не оболочка.
 
 - [ ] **Step 6: Написать помощник для базы**
 
