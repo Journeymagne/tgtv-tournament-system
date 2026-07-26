@@ -8,6 +8,7 @@ PostgreSQL is required. Without `DATABASE_URL` the server refuses to start.
 
 ```powershell
 docker compose up -d
+npm install
 npm start
 ```
 
