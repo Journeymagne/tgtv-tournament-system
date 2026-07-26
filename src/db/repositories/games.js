@@ -107,7 +107,10 @@ async function clearResult(client, id) {
   return mapGame(rows[0]);
 }
 
-async function saveFinalResult(client, id, { result, elo, submittedBy = null }) {
+// `newSubmission` distinguishes a fresh submission (admin override) from a
+// confirmation of an existing one (normal player flow): the former bumps
+// submitted_at to now, the latter preserves whatever was already recorded.
+async function saveFinalResult(client, id, { result, elo, submittedBy = null, newSubmission = false }) {
   const { rows } = await client.query(
     `UPDATE games
      SET status = 'completed',
@@ -115,9 +118,9 @@ async function saveFinalResult(client, id, { result, elo, submittedBy = null }) 
          elo = $3::jsonb,
          pending_result = NULL,
          submitted_by = COALESCE($4, submitted_by),
-         submitted_at = COALESCE(submitted_at, NOW())
+         submitted_at = CASE WHEN $5 THEN NOW() ELSE COALESCE(submitted_at, NOW()) END
      WHERE id = $1 RETURNING ${COLUMNS}`,
-    [id, JSON.stringify(result), JSON.stringify(elo), submittedBy]
+    [id, JSON.stringify(result), JSON.stringify(elo), submittedBy, newSubmission]
   );
   return mapGame(rows[0]);
 }

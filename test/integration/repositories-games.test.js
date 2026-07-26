@@ -194,6 +194,36 @@ test("saveFinalResult завершает игру и сохраняет Elo", as
   assert.equal(finished.elo[alpha.id].delta, 16);
 });
 
+test("saveFinalResult по умолчанию сохраняет существующий submitted_at (COALESCE)", async () => {
+  const game = await games.insert(client, { challengeId: null, playerIds: [alpha.id, bravo.id] });
+  await client.query("UPDATE games SET submitted_at = $2 WHERE id = $1", [
+    game.id, "2020-01-01T00:00:00.000Z"
+  ]);
+
+  const saved = await games.saveFinalResult(client, game.id, {
+    result: { winnerId: alpha.id }, elo: {}
+  });
+
+  assert.equal(new Date(saved.submittedAt).toISOString(), "2020-01-01T00:00:00.000Z");
+});
+
+test("saveFinalResult с newSubmission: true переносит submitted_at на текущий момент", async () => {
+  const game = await games.insert(client, { challengeId: null, playerIds: [alpha.id, bravo.id] });
+  await client.query("UPDATE games SET submitted_at = $2 WHERE id = $1", [
+    game.id, "2020-01-01T00:00:00.000Z"
+  ]);
+
+  const saved = await games.saveFinalResult(client, game.id, {
+    result: { winnerId: alpha.id }, elo: {}, newSubmission: true
+  });
+
+  assert.notEqual(new Date(saved.submittedAt).toISOString(), "2020-01-01T00:00:00.000Z");
+  assert.ok(
+    new Date(saved.submittedAt).getTime() > new Date("2020-01-01T00:00:00.000Z").getTime(),
+    "submitted_at должен сдвинуться вперёд, а не просто отличаться"
+  );
+});
+
 test("clearResult возвращает игру в открытое состояние", async () => {
   const game = await games.insert(client, { challengeId: null, playerIds: [alpha.id, bravo.id] });
   await games.savePendingResult(client, game.id, {

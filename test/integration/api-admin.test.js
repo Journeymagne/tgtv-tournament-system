@@ -80,13 +80,43 @@ test("админ может переписать результат заверш
   });
   assert.equal((await usersRepo.findById(client, root.id)).rating, 1016);
 
-  await admin.saveGameResult({
+  // Backdate so a bump is unambiguous, not just "happened to differ by a few ms".
+  await client.query("UPDATE games SET submitted_at = $2 WHERE id = $1", [
+    game.id, "2020-01-01T00:00:00.000Z"
+  ]);
+
+  const overridden = await admin.saveGameResult({
     client, user: root, params: { id: String(game.id) },
     body: { scores: scores(player.id, root.id) }
   });
 
   assert.equal((await usersRepo.findById(client, root.id)).rating, 984);
   assert.equal((await usersRepo.findById(client, player.id)).rating, 1016);
+  assert.ok(
+    new Date(overridden.game.submittedAt).getTime() > new Date("2020-01-01T00:00:00.000Z").getTime(),
+    "админский override — это новая подача результата, submitted_at должен сдвинуться вперёд"
+  );
+});
+
+test("подтверждение результата игроком сохраняет исходный submitted_at", async () => {
+  const game = await gamesRepo.insert(client, {
+    challengeId: null, playerIds: [root.id, player.id]
+  });
+  const submitted = await gamesApi.submitResult({
+    client, user: root, params: { id: String(game.id) },
+    body: { scores: scores(root.id, player.id) }
+  });
+  const submittedAt = submitted.game.submittedAt;
+  assert.ok(submittedAt);
+
+  const confirmed = await gamesApi.respondToResult({
+    client, user: player, params: { id: String(game.id), action: "confirm-result" }
+  });
+
+  assert.equal(
+    confirmed.game.submittedAt, submittedAt,
+    "подтверждение — это не новая подача, submitted_at не должен измениться"
+  );
 });
 
 test("РЕГРЕСС D2: неудачный патч не оставляет частичных изменений", async () => {
