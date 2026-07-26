@@ -1,11 +1,14 @@
 const http = require("node:http");
 
-async function startApiServer(handleApi) {
+async function startApiServer(handler) {
   const server = http.createServer((req, res) => {
-    handleApi(req, res).catch(() => {
-      if (!res.headersSent) res.writeHead(500);
-      res.end();
-    });
+    const result = handler(req, res);
+    if (result && typeof result.catch === "function") {
+      result.catch(() => {
+        if (!res.headersSent) res.writeHead(500);
+        res.end();
+      });
+    }
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();

@@ -5,14 +5,23 @@ const { TEST_DATABASE_URL, resetDatabase, closeTestPool } = require("../helpers/
 
 process.env.DATABASE_URL = TEST_DATABASE_URL;
 
-const { ensureDb, handleApi } = require("../../server");
+const { getPool, withClient, withTransaction } = require("../../src/db/pool");
+const { migrate } = require("../../src/db/migrate");
+const { createRouter } = require("../../src/http/router");
+const routes = require("../../src/api/routes");
+const { loadUserFromRequest } = require("../../src/api/auth");
 const { startApiServer, createClient } = require("../helpers/client");
 
 let server;
 
 test.before(async () => {
-  await ensureDb();
-  server = await startApiServer(handleApi);
+  await migrate(getPool());
+  const router = createRouter(routes, {
+    withClient,
+    withTransaction,
+    loadUser: loadUserFromRequest
+  });
+  server = await startApiServer(router);
 });
 
 test.after(async () => {
@@ -179,4 +188,28 @@ test("неизвестный маршрут отдаёт 404", async () => {
   const client = createClient(server.baseUrl);
   const res = await client.get("/api/nope");
   assert.equal(res.status, 404);
+});
+
+test("КОНТРАКТ B1: лидерборд не отдаёт контакты анониму", async () => {
+  const alpha = createClient(server.baseUrl);
+  await alpha.post("/api/register", registration("Alpha"));
+
+  const anonymous = createClient(server.baseUrl);
+  const res = await anonymous.get("/api/users");
+
+  assert.equal(res.status, 200);
+  assert.ok(!JSON.stringify(res.body).includes("@alpha"));
+  assert.deepEqual(
+    Object.keys(res.body.users[0]).sort(),
+    ["avatarData", "id", "isAdmin", "name", "rating"]
+  );
+});
+
+test("КОНТРАКТ D5: поиск без совпадений отдаёт 200 и пустой список", async () => {
+  const alpha = createClient(server.baseUrl);
+  await alpha.post("/api/register", registration("Alpha"));
+
+  const res = await alpha.get("/api/users/search?q=ghost");
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.users, []);
 });
