@@ -137,6 +137,31 @@ test("search ищет по имени, нику и телеграму, искл�
   assert.equal(all.some((user) => user.id === alpha.id), false);
 });
 
+test("search экранирует спецсимволы LIKE (_ не подставляет любой символ)", async () => {
+  const alpha = await users.insert(client, newUser("Alpha"));
+  const target = await users.insert(client, newUser("al_ce"));
+  await users.insert(client, newUser("alxce"));
+
+  const found = await users.search(client, { q: "al_ce", excludeId: alpha.id, limit: 10 });
+  assert.deepEqual(found.map((user) => user.id), [target.id]);
+});
+
+test("search экранирует спецсимволы LIKE (% не подставляет любую строку)", async () => {
+  const alpha = await users.insert(client, newUser("Alpha"));
+  await users.insert(client, newUser("Bravo"));
+  await users.insert(client, newUser("Charlie"));
+
+  const found = await users.search(client, { q: "%", excludeId: alpha.id, limit: 10 });
+  assert.deepEqual(found, []);
+});
+
+test("search без excludeId всё равно находит совпадения", async () => {
+  const bravo = await users.insert(client, newUser("Bravo"));
+
+  const found = await users.search(client, { q: "bra", limit: 10 });
+  assert.deepEqual(found.map((user) => user.id), [bravo.id]);
+});
+
 test("hasAdmin и countAdmins считают администраторов", async () => {
   assert.equal(await users.hasAdmin(client), false);
   await users.insert(client, newUser("Alpha", { isAdmin: true }));

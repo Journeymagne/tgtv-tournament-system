@@ -1,9 +1,6 @@
-const { mapUser } = require("../rows");
+const { USER_COLUMNS, mapUser, aliasColumns } = require("../rows");
 
-const USER_COLUMNS = `
-  u.id, u.name, u.name_key, u.password_hash, u.avatar_data, u.register_nickname,
-  u.telegram_contact, u.challenge_credits, u.rating, u.is_admin, u.created_at, u.updated_at
-`;
+const JOINED_USER_COLUMNS = aliasColumns(USER_COLUMNS, "u");
 
 async function create(client, { token, userId, expiresAt }) {
   await client.query(
@@ -16,7 +13,7 @@ async function create(client, { token, userId, expiresAt }) {
 async function findActiveUser(client, token) {
   if (!token) return null;
   const { rows } = await client.query(
-    `SELECT ${USER_COLUMNS}
+    `SELECT ${JOINED_USER_COLUMNS}
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token = $1 AND s.expires_at > NOW()`,
     [token]

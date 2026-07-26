@@ -69,14 +69,21 @@ async function listWithGameCounts(client) {
   return rows.map((row) => ({ ...mapUser(row), gamesPlayed: row.games_played }));
 }
 
+// Escapes LIKE metacharacters (\, %, _) so a search term is matched as a
+// literal substring, matching the plain `.includes()` semantics of the
+// legacy in-memory search this repository replaces.
+function escapeLikeTerm(term) {
+  return term.replace(/([\\%_])/g, "\\$1");
+}
+
 async function search(client, { q, excludeId, limit = 10 }) {
-  const term = String(q || "").toLowerCase();
+  const term = escapeLikeTerm(String(q || "").toLowerCase());
   const { rows } = await client.query(
     `SELECT ${COLUMNS} FROM users
-     WHERE id <> $1
-       AND ($2 = '' OR name_key LIKE '%' || $2 || '%'
-            OR LOWER(COALESCE(register_nickname, '')) LIKE '%' || $2 || '%'
-            OR LOWER(COALESCE(telegram_contact, '')) LIKE '%' || $2 || '%')
+     WHERE ($1::int IS NULL OR id <> $1)
+       AND ($2 = '' OR name_key LIKE '%' || $2 || '%' ESCAPE '\\'
+            OR LOWER(COALESCE(register_nickname, '')) LIKE '%' || $2 || '%' ESCAPE '\\'
+            OR LOWER(COALESCE(telegram_contact, '')) LIKE '%' || $2 || '%' ESCAPE '\\')
      ORDER BY rating DESC, name ASC
      LIMIT $3`,
     [excludeId, term, limit]

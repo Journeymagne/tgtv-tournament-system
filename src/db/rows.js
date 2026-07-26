@@ -21,6 +21,20 @@ function toIso(value) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
+// Prefixes each column in a COLUMNS constant with a table alias, e.g.
+// aliasColumns(USER_COLUMNS, "u") => "u.id, u.name, ...". Lets joined
+// queries reuse the same column list the unqualified selects use, so a
+// column added to a *_COLUMNS constant is picked up everywhere without
+// hand-copying the list.
+function aliasColumns(columns, alias) {
+  return columns
+    .split(",")
+    .map((column) => column.trim())
+    .filter(Boolean)
+    .map((column) => `${alias}.${column}`)
+    .join(", ");
+}
+
 function mapUser(row) {
   if (!row) return null;
   return {
@@ -89,6 +103,7 @@ module.exports = {
   GAME_COLUMNS,
   FEEDBACK_COLUMNS,
   toIso,
+  aliasColumns,
   mapUser,
   mapChallenge,
   mapGame,
