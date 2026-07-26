@@ -2,25 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { logRequest, logError } = require("../../src/http/logger");
-
-// Capture what would otherwise hit real stdout/stderr so test output stays
-// clean, and so we can assert on exactly what was written.
-function captureStream(stream) {
-  const original = stream.write;
-  const calls = [];
-  stream.write = (chunk, ...rest) => {
-    calls.push(String(chunk));
-    // Don't actually forward to the real stream during the test.
-    if (typeof rest[rest.length - 1] === "function") rest[rest.length - 1]();
-    return true;
-  };
-  return {
-    calls,
-    restore() {
-      stream.write = original;
-    }
-  };
-}
+const { captureStream } = require("../helpers/capture-stream");
 
 test("logRequest пишет одну строку валидного JSON в stdout с ожидаемыми полями", () => {
   const stdout = captureStream(process.stdout);

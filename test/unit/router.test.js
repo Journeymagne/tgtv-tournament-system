@@ -4,6 +4,7 @@ const http = require("node:http");
 
 const { matchRoute, normalizeApiPath, createRouter } = require("../../src/http/router");
 const { HttpError } = require("../../src/http/io");
+const { captureStream } = require("../helpers/capture-stream");
 
 test("normalizeApiPath срезает завершающий слэш", () => {
   assert.equal(normalizeApiPath("/api/users/"), "/api/users");
@@ -41,6 +42,22 @@ test("статический маршрут выигрывает у параме
   ];
   const match = matchRoute(routes, "GET", "/api/users/search");
   assert.equal(match.route.handler(), "static");
+});
+
+test("при равном числе динамических сегментов побеждает позиционная специфичность, а не порядок в таблице маршрутов", () => {
+  // Both routes have exactly one dynamic segment, so a count-only sort
+  // can't break the tie and falls back to array order. /api/foo/:x has a
+  // static segment ("foo") at index 1 where /api/:y/bar has a dynamic one,
+  // so /api/foo/:x is the more specific match for /api/foo/bar regardless
+  // of which route was declared first.
+  const routeFooX = { method: "GET", path: "/api/foo/:x", handler: () => "foo-x" };
+  const routeYBar = { method: "GET", path: "/api/:y/bar", handler: () => "y-bar" };
+
+  const forward = matchRoute([routeFooX, routeYBar], "GET", "/api/foo/bar");
+  const reversed = matchRoute([routeYBar, routeFooX], "GET", "/api/foo/bar");
+
+  assert.equal(forward.route.handler(), "foo-x");
+  assert.equal(reversed.route.handler(), "foo-x");
 });
 
 async function callRouter(routes, deps, method, path, body) {
@@ -123,25 +140,38 @@ test("неожиданная ошибка отдаётся как 500 без д�
   ];
   // logError writes to stderr by design (C1: real errors must be logged for
   // operators). Capture it so this expected error log doesn't pollute the
-  // test run, mirroring the capture pattern in test/unit/logger.test.js.
-  const originalWrite = process.stderr.write;
-  const stderrCalls = [];
-  process.stderr.write = (chunk, ...rest) => {
-    stderrCalls.push(String(chunk));
-    if (typeof rest[rest.length - 1] === "function") rest[rest.length - 1]();
-    return true;
-  };
+  // test run, using the shared capture pattern from test/unit/logger.test.js.
+  const stderr = captureStream(process.stderr);
   let res;
   try {
     res = await callRouter(routes, noDbDeps, "GET", "/api/boom");
   } finally {
-    process.stderr.write = originalWrite;
+    stderr.restore();
   }
   assert.equal(res.status, 500);
   assert.equal(res.body.error, "Server error");
   assert.ok(!JSON.stringify(res.body).includes("secret internal detail"));
-  assert.equal(stderrCalls.length, 1);
-  assert.ok(stderrCalls[0].includes("secret internal detail"));
+  assert.equal(stderr.calls.length, 1);
+  assert.ok(stderr.calls[0].includes("secret internal detail"));
+});
+
+test("некорректный %-код в параметре пути отдаёт 404, а не 500, и не пишет лог ошибки", async () => {
+  const routes = [
+    { method: "GET", path: "/api/users/:id", handler: async () => ({ ok: true }) }
+  ];
+  // %zz is not valid percent-encoding; decodeURIComponent throws on it.
+  // That's bad client input, not a server fault (C1), so it must fall
+  // through to the normal 404 with nothing sent to logError.
+  const stderr = captureStream(process.stderr);
+  let res;
+  try {
+    res = await callRouter(routes, noDbDeps, "GET", "/api/users/%zz");
+  } finally {
+    stderr.restore();
+  }
+  assert.equal(res.status, 404);
+  assert.equal(res.body.error, "Route not found");
+  assert.equal(stderr.calls.length, 0);
 });
 
 test("неизвестный маршрут отдаёт 404", async () => {
@@ -187,4 +217,35 @@ test("tx: true запускает обработчик в транзакции",
   await callRouter(routes, deps, "POST", "/api/write", {});
   await callRouter(routes, deps, "GET", "/api/read");
   assert.deepEqual(calls, ["transaction", "client"]);
+});
+
+test("loadUser и обработчик получают одну и ту же ссылку на client (гарантия A1)", async () => {
+  const sharedClient = { marker: "shared-client" };
+  let clientSeenByLoadUser = null;
+  let clientSeenByHandler = null;
+  const deps = {
+    withClient: (fn) => fn(sharedClient),
+    withTransaction: (fn) => fn(sharedClient),
+    loadUser: async (client) => {
+      clientSeenByLoadUser = client;
+      return { id: 1, isAdmin: false };
+    }
+  };
+  const routes = [
+    {
+      method: "GET",
+      path: "/api/shared",
+      auth: "user",
+      handler: async ({ client }) => {
+        clientSeenByHandler = client;
+        return { ok: true };
+      }
+    }
+  ];
+
+  const res = await callRouter(routes, deps, "GET", "/api/shared");
+
+  assert.equal(res.status, 200);
+  assert.ok(clientSeenByLoadUser);
+  assert.equal(clientSeenByLoadUser, clientSeenByHandler);
 });

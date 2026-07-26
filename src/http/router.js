@@ -20,7 +20,16 @@ function matchSegments(routeSegments, pathSegments) {
     const routeSegment = routeSegments[index];
     const pathSegment = pathSegments[index];
     if (routeSegment.startsWith(":")) {
-      params[routeSegment.slice(1)] = decodeURIComponent(pathSegment);
+      // A malformed percent-encoding (e.g. "%zz") is bad client input, not
+      // a server fault: treat it as no-match so the request falls through
+      // to the normal 404 instead of throwing inside the router's try block.
+      let decoded;
+      try {
+        decoded = decodeURIComponent(pathSegment);
+      } catch {
+        return null;
+      }
+      params[routeSegment.slice(1)] = decoded;
       continue;
     }
     if (routeSegment !== pathSegment) return null;
@@ -32,11 +41,30 @@ function dynamicCount(path) {
   return segmentsOf(path).filter((segment) => segment.startsWith(":")).length;
 }
 
+// Orders routes so the more specific one wins a match. Fewer dynamic
+// segments wins first; if that ties, break it by positional specificity
+// (leftmost differing segment) rather than declaration order, so route
+// table order never silently decides which endpoint handles a request.
+function compareSpecificity(a, b) {
+  const countDiff = dynamicCount(a.path) - dynamicCount(b.path);
+  if (countDiff !== 0) return countDiff;
+
+  const segsA = segmentsOf(a.path);
+  const segsB = segmentsOf(b.path);
+  const len = Math.min(segsA.length, segsB.length);
+  for (let index = 0; index < len; index += 1) {
+    const aDynamic = segsA[index].startsWith(":");
+    const bDynamic = segsB[index].startsWith(":");
+    if (aDynamic !== bDynamic) return aDynamic ? 1 : -1;
+  }
+  return 0;
+}
+
 function matchRoute(routes, method, pathname) {
   const pathSegments = segmentsOf(pathname);
   const candidates = routes
     .filter((route) => route.method === method)
-    .sort((a, b) => dynamicCount(a.path) - dynamicCount(b.path));
+    .sort(compareSpecificity);
 
   for (const route of candidates) {
     const params = matchSegments(segmentsOf(route.path), pathSegments);
