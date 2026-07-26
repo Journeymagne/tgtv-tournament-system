@@ -29,11 +29,37 @@ Set `DB_PORT` to something else if port 5432 is already taken on your machine,
 and keep `DATABASE_URL` in sync with it.
 
 For managed PostgreSQL services that require SSL, set `PGSSL=true`.
-In production, set `NODE_ENV=production` so the session cookie carries the
-`Secure` flag, or set `COOKIE_SECURE=true` explicitly.
 
 The schema is created and upgraded automatically by versioned migrations on
 startup. Applied versions are recorded in the `schema_migrations` table.
+
+## Deploying to production
+
+**`NODE_ENV=production` must be set on the running process.** `src/config.js`
+defaults `COOKIE_SECURE` to `NODE_ENV === "production"`, and the `Secure`
+flag on the session cookie is what stops it (and the admin password reset,
+which returns a plaintext temporary password over that same cookie's
+channel) from ever being sent over plain HTTP.
+
+`update_tgtv-ts.sh` sets `NODE_ENV=production` itself when it starts the app
+under pm2, so a deploy through that script gets this for free -- but if you
+start the app any other way (a different process manager, a container image,
+a manual `pm2 start`), you must set it yourself, e.g.:
+
+```bash
+NODE_ENV=production pm2 start server.js --name tgtv-app
+```
+
+If your setup can't rely on `NODE_ENV` (for example the app runs behind a
+proxy that already terminates TLS but `NODE_ENV` isn't propagated), set
+`COOKIE_SECURE=true` explicitly in `.env` instead -- it always overrides the
+`NODE_ENV`-based default. Only run without either setting on a deployment
+that is genuinely not served over HTTPS.
+
+`update_tgtv-ts.sh` also expects an env file to already exist outside the
+repo at the path it names (`ENV_FILE`, `/app/tgtv-ts.env` by default) and
+copies it into place on every deploy -- create it once from `.env.example`
+and update it there, not in the repo checkout.
 
 ## Tests
 

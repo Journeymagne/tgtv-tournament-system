@@ -36,7 +36,15 @@ fi
 cp "$ENV_FILE" "$APP_DIR/.env"
 
 echo "=== [6/6] Starting pm2 app ==="
-pm2 start server.js --name "$APP_NAME" 2>/dev/null || pm2 restart "$APP_NAME"
+# NODE_ENV=production makes src/config.js default COOKIE_SECURE to true (the
+# session cookie, including the one carrying an admin password reset, gets
+# the Secure flag). pm2 fixes the env a process was (re)started with and
+# keeps reusing it on later restarts unless told otherwise, so --update-env
+# is required here too -- without it, an app that was ever started without
+# NODE_ENV set would keep running without it forever, even after this script
+# starts exporting it.
+export NODE_ENV=production
+pm2 start server.js --name "$APP_NAME" 2>/dev/null || pm2 restart "$APP_NAME" --update-env
 pm2 save
 
 echo ""
