@@ -189,6 +189,41 @@ test("updateMe меняет профиль и требует текущий па
   assert.equal(await verifyPassword("brandnew1", after.passwordHash), true);
 });
 
+test("updateMe не меняет профиль при неверном currentPassword в том же запросе", async () => {
+  await auth.register({ client, body: body("Alpha") });
+  const user = await users.findByNameKey(client, "alpha");
+
+  await assert.rejects(
+    () =>
+      auth.updateMe({
+        client,
+        user,
+        body: { name: "Alpha Renamed", currentPassword: "wrong", newPassword: "brandnew1" }
+      }),
+    (err) => err.status === 401
+  );
+
+  const fresh = await users.findById(client, user.id);
+  assert.equal(fresh.name, "Alpha");
+});
+
+test("конкурентная первая регистрация не создаёт двух администраторов", async () => {
+  const clientA = await pool.connect();
+  const clientB = await pool.connect();
+  try {
+    const [alpha, bravo] = await Promise.all([
+      auth.register({ client: clientA, body: body("Racer1") }),
+      auth.register({ client: clientB, body: body("Racer2") })
+    ]);
+
+    const admins = [alpha.body.user.isAdmin, bravo.body.user.isAdmin].filter(Boolean);
+    assert.equal(admins.length, 1);
+  } finally {
+    clientA.release();
+    clientB.release();
+  }
+});
+
 test("updateMe отклоняет занятое имя", async () => {
   await auth.register({ client, body: body("Alpha") });
   await auth.register({ client, body: body("Bravo") });

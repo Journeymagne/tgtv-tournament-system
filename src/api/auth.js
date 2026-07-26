@@ -1,19 +1,14 @@
 const crypto = require("node:crypto");
 
 const { SESSION_TTL_MS, INITIAL_RATING, COOKIE_SECURE } = require("../config");
-const { HttpError, ValidationError, parseCookies, sessionCookie, clearedSessionCookie } =
-  require("../http/io");
+const { HttpError, ValidationError, parseCookies, sessionCookie, clearedSessionCookie } = require("../http/io");
 const users = require("../db/repositories/users");
 const sessions = require("../db/repositories/sessions");
 const challenges = require("../db/repositories/challenges");
 const games = require("../db/repositories/games");
 const { hashPassword, verifyPassword } = require("../domain/passwords");
-const {
-  requireName,
-  profileText,
-  requiredProfileText,
-  validateAvatarData
-} = require("../domain/validation");
+const { requireName, normalizeName, profileText, requiredProfileText, validateAvatarData } =
+  require("../domain/validation");
 const { userSummary } = require("./views");
 
 async function loadUserFromRequest(client, req) {
@@ -58,11 +53,11 @@ async function buildUserSummary(client, user) {
 }
 
 function readCredentials(body, minPasswordLength, tooShortMessage) {
-  const name = requireName(body.name);
   const password = String(body.password || "");
   const confirmPassword = String(body.confirmPassword || "");
   const registerNickname = profileText(body.registerNickname, "Register Nickname", 40);
   const telegramContact = requiredProfileText(body.telegramContact, "Telegram Contact", 80);
+  const name = requireName(body.name);
 
   if (password.length < minPasswordLength) throw new ValidationError(tooShortMessage);
   if (password !== confirmPassword) throw new ValidationError("Passwords do not match");
@@ -71,9 +66,7 @@ function readCredentials(body, minPasswordLength, tooShortMessage) {
 }
 
 async function createAccount(client, credentials, isAdmin) {
-  if (await users.isNameTaken(client, credentials.name)) {
-    throw new HttpError(409, "This name is already taken");
-  }
+  if (await users.isNameTaken(client, credentials.name)) throw new HttpError(409, "This name is already taken");
 
   const user = await users.insert(client, {
     name: credentials.name,
@@ -95,9 +88,7 @@ async function createAccount(client, credentials, isAdmin) {
 }
 
 async function me({ client, user }) {
-  if (!user) {
-    return { user: null, hasAdmin: await users.hasAdmin(client) };
-  }
+  if (!user) return { user: null, hasAdmin: await users.hasAdmin(client) };
   return buildUserSummary(client, user);
 }
 
@@ -106,9 +97,7 @@ async function updateMe({ client, user, body }) {
 
   if (Object.prototype.hasOwnProperty.call(body, "name")) {
     const name = requireName(body.name);
-    if (await users.isNameTaken(client, name, user.id)) {
-      throw new HttpError(409, "This name is already taken");
-    }
+    if (await users.isNameTaken(client, name, user.id)) throw new HttpError(409, "This name is already taken");
     patch.name = name;
   }
   if (Object.prototype.hasOwnProperty.call(body, "avatarData")) {
@@ -121,41 +110,53 @@ async function updateMe({ client, user, body }) {
     patch.telegramContact = requiredProfileText(body.telegramContact, "Telegram Contact", 80);
   }
 
-  let updated = Object.keys(patch).length
-    ? await users.updateProfile(client, user.id, patch)
-    : user;
-
+  // Validate the password change (if any) before any write happens below,
+  // so a wrong currentPassword can never leave a partially-applied patch.
+  let newPasswordHash = null;
   if (body.currentPassword || body.newPassword) {
     const currentPassword = String(body.currentPassword || "");
     const newPassword = String(body.newPassword || "");
     if (!(await verifyPassword(currentPassword, user.passwordHash))) {
       throw new HttpError(401, "Current password is incorrect");
     }
-    if (newPassword.length < 6) {
-      throw new ValidationError("New password must be at least 6 characters");
-    }
-    updated = await users.setPasswordHash(client, user.id, await hashPassword(newPassword));
+    if (newPassword.length < 6) throw new ValidationError("New password must be at least 6 characters");
+    newPasswordHash = await hashPassword(newPassword);
   }
+
+  let updated = Object.keys(patch).length ? await users.updateProfile(client, user.id, patch) : user;
+  if (newPasswordHash) updated = await users.setPasswordHash(client, user.id, newPasswordHash);
 
   return buildUserSummary(client, updated);
 }
 
+// Serializes the first-admin check-and-insert across concurrent register/setup-admin
+// requests; pg_advisory_xact_lock releases automatically at commit or rollback.
+const FIRST_ADMIN_LOCK_KEY = 847362951;
+
+async function withFirstAdminTransaction(client, run) {
+  await client.query("BEGIN");
+  try {
+    await client.query("SELECT pg_advisory_xact_lock($1)", [FIRST_ADMIN_LOCK_KEY]);
+    const result = await run(await users.hasAdmin(client));
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  }
+}
+
 async function register({ client, body }) {
   const credentials = readCredentials(body, 6, "Password must be at least 6 characters");
-  const isFirstAdmin = !(await users.hasAdmin(client));
-  return createAccount(client, credentials, isFirstAdmin);
+  return withFirstAdminTransaction(client, (hasAdmin) => createAccount(client, credentials, !hasAdmin));
 }
 
 async function setupAdmin({ client, body }) {
-  if (await users.hasAdmin(client)) {
-    throw new HttpError(409, "An administrator already exists");
-  }
-  const credentials = readCredentials(
-    body,
-    8,
-    "Administrator password must be at least 8 characters"
-  );
-  return createAccount(client, credentials, true);
+  return withFirstAdminTransaction(client, (hasAdmin) => {
+    if (hasAdmin) throw new HttpError(409, "An administrator already exists");
+    const credentials = readCredentials(body, 8, "Administrator password must be at least 8 characters");
+    return createAccount(client, credentials, true);
+  });
 }
 
 // Заглушка нужной длины: verifyPassword на ней действительно считает scrypt,
@@ -163,14 +164,11 @@ async function setupAdmin({ client, body }) {
 const ABSENT_USER_HASH = `${"0".repeat(32)}:${"0".repeat(128)}`;
 
 async function login({ client, body }) {
-  const name = String(body.name || "").trim().replace(/\s+/g, " ");
+  const name = normalizeName(body.name);
   const user = await users.findByNameKey(client, name);
   const stored = user ? user.passwordHash : ABSENT_USER_HASH;
   const matches = await verifyPassword(String(body.password || ""), stored);
-
-  if (!user || !matches) {
-    throw new HttpError(401, "Invalid name or password");
-  }
+  if (!user || !matches) throw new HttpError(401, "Invalid name or password");
 
   const token = await startSession(client, user.id);
   return {
