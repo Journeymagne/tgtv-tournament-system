@@ -12,9 +12,9 @@ function withAction(handler, action) {
 module.exports = [
   { method: "GET", path: "/api/me", handler: auth.me, auth: "none", loadUser: true },
   { method: "PATCH", path: "/api/me", handler: auth.updateMe, auth: "user", tx: true },
-  { method: "POST", path: "/api/register", handler: auth.register, auth: "none", tx: true },
-  { method: "POST", path: "/api/setup-admin", handler: auth.setupAdmin, auth: "none", tx: true },
-  { method: "POST", path: "/api/login", handler: auth.login, auth: "none", tx: true },
+  { method: "POST", path: "/api/register", handler: auth.register, auth: "none", tx: true, rateLimit: "auth" },
+  { method: "POST", path: "/api/setup-admin", handler: auth.setupAdmin, auth: "none", tx: true, rateLimit: "auth" },
+  { method: "POST", path: "/api/login", handler: auth.login, auth: "none", tx: true, rateLimit: "auth" },
   { method: "POST", path: "/api/logout", handler: auth.logout, auth: "none", tx: true },
 
   { method: "GET", path: "/api/users", handler: users.list, auth: "none" },
@@ -137,7 +137,8 @@ module.exports = [
     path: "/api/admin/users/:id/reset-password",
     handler: admin.resetPassword,
     auth: "admin",
-    tx: true
+    tx: true,
+    rateLimit: "auth"
   },
   { method: "PATCH", path: "/api/admin/users/:id", handler: admin.updateUser, auth: "admin", tx: true },
   { method: "DELETE", path: "/api/admin/users/:id", handler: admin.deleteUser, auth: "admin", tx: true }

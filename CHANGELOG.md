@@ -6,6 +6,16 @@
 - Added Dragon Masters as a selectable Kill Team, challenge team, and stats team with logo.
 - Added admin tools to view active games, force-confirm submitted results, and delete active/pending games.
 - Added admin password reset from player profiles with a generated temporary password.
+- Rebuilt the backend into focused modules: HTTP layer, domain rules, and SQL repositories.
+- Replaced whole-database read-modify-write with transactional per-row SQL, fixing lost updates when two players acted at the same time.
+- Moved to versioned database migrations recorded in `schema_migrations`.
+- Removed the JSON storage fallback; PostgreSQL is now required. Use `scripts/import-json-db.js` to migrate existing JSON data.
+- Unified Kill Team names into one canonical registry and migrated stored results and challenge credits.
+- Stopped returning Telegram contacts and register nicknames to anonymous callers on the leaderboard.
+- Added security headers, the `Secure` cookie flag in production, and rate limiting on sign-in and registration.
+- Player search now returns an empty list instead of a 404 when nothing matches.
+- Administrators can no longer record a result for a cancelled game.
+- Added unit and integration test suites; run them with `npm test`.
 
 ## v0.65
 

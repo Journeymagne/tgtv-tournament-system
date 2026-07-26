@@ -1,5 +1,18 @@
 const { HttpError, readBody, sendJson } = require("./io");
 const { logRequest, logError } = require("./logger");
+const { createRateLimiter } = require("./rate-limit");
+const { LOGIN_RATE_LIMIT } = require("../config");
+
+const authLimiter = createRateLimiter(LOGIN_RATE_LIMIT);
+
+// Behind a reverse proxy, remoteAddress is the proxy's address, not the
+// client's. X-Forwarded-For is deliberately not consulted: trusting that
+// header without a configured list of trusted proxies would let any client
+// spoof its address and bypass the limit entirely, which is worse than not
+// limiting at all.
+function clientKey(req) {
+  return req.socket?.remoteAddress || null;
+}
 
 function normalizeApiPath(pathname) {
   let normalized = pathname || "/";
@@ -81,6 +94,8 @@ function createRouter(routes, deps) {
   async function runRoute(route, params, req, url) {
     const runner = route.tx ? withTransaction : withClient;
     return runner(async (client) => {
+      if (route.rateLimit === "auth") authLimiter.check(clientKey(req));
+
       const auth = route.auth || "none";
       let user = null;
 
@@ -151,4 +166,9 @@ function createRouter(routes, deps) {
   };
 }
 
-module.exports = { matchRoute, normalizeApiPath, createRouter };
+// The auth rate limiter is a module-level singleton by design (one counter
+// per pm2 process, see rate-limit.js). That makes it persist across tests
+// within the same file/process; exposing reset() lets integration tests that
+// exercise real auth routes many times (e.g. characterization.test.js) clear
+// it between cases instead of tripping the limit on unrelated assertions.
+module.exports = { matchRoute, normalizeApiPath, createRouter, resetAuthLimiterForTests: () => authLimiter.reset() };

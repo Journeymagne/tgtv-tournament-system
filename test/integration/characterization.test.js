@@ -7,7 +7,7 @@ process.env.DATABASE_URL = TEST_DATABASE_URL;
 
 const { getPool, withClient, withTransaction } = require("../../src/db/pool");
 const { migrate } = require("../../src/db/migrate");
-const { createRouter } = require("../../src/http/router");
+const { createRouter, resetAuthLimiterForTests } = require("../../src/http/router");
 const routes = require("../../src/api/routes");
 const { loadUserFromRequest } = require("../../src/api/auth");
 const { startApiServer, createClient } = require("../helpers/client");
@@ -31,6 +31,13 @@ test.after(async () => {
 
 test.beforeEach(async () => {
   await resetDatabase();
+  // This file drives real HTTP requests through the router, all from the
+  // same loopback address. The auth rate limiter (src/http/rate-limit.js)
+  // is a process-wide singleton by design, so without a reset here its
+  // counter accumulates across every test in this file and would eventually
+  // 429 legitimate register/login calls that have nothing to do with the
+  // rate-limiting feature itself.
+  resetAuthLimiterForTests();
 });
 
 function registration(name, overrides = {}) {
