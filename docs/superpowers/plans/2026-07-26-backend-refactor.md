@@ -554,6 +554,7 @@ test("конфигурация отдаёт значения по умолчан
   assert.equal(config.MAX_REQUEST_BYTES, 2 * 1024 * 1024);
   assert.equal(config.MAX_AVATAR_DATA_URL_LENGTH, 1024 * 1024);
   assert.equal(config.LOGIN_RATE_LIMIT.max, 10);
+  assert.equal(config.LOGIN_RATE_LIMIT.windowMs, 900000);
 });
 
 test("requireDatabaseUrl бросает понятную ошибку при пустом значении", () => {
