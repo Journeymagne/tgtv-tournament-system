@@ -3,7 +3,13 @@ const { logRequest, logError } = require("./logger");
 const { createRateLimiter } = require("./rate-limit");
 const { LOGIN_RATE_LIMIT } = require("../config");
 
-const authLimiter = createRateLimiter(LOGIN_RATE_LIMIT);
+// Module-level singleton by default (one counter per process, see
+// rate-limit.js). createRouter accepts an override through deps.authLimiter
+// so callers that need an isolated instance - e.g. tests that drive many
+// auth requests through the real router - can inject one instead of reaching
+// into this module's internals. Every production call site (server.js)
+// passes nothing extra and keeps getting this shared instance.
+const defaultAuthLimiter = createRateLimiter(LOGIN_RATE_LIMIT);
 
 // Behind a reverse proxy, remoteAddress is the proxy's address, not the
 // client's. X-Forwarded-For is deliberately not consulted: trusting that
@@ -89,13 +95,17 @@ function matchRoute(routes, method, pathname) {
 const METHODS_WITH_BODY = new Set(["POST", "PATCH", "PUT"]);
 
 function createRouter(routes, deps) {
-  const { withClient, withTransaction, loadUser } = deps;
+  const { withClient, withTransaction, loadUser, authLimiter = defaultAuthLimiter } = deps;
 
   async function runRoute(route, params, req, url) {
+    // Checked before any connection is acquired: a request the limiter is
+    // about to reject must not cost a pool checkout or a BEGIN/ROLLBACK
+    // round trip (that cost is exactly what the limiter exists to prevent
+    // under a burst).
+    if (route.rateLimit === "auth") authLimiter.check(clientKey(req));
+
     const runner = route.tx ? withTransaction : withClient;
     return runner(async (client) => {
-      if (route.rateLimit === "auth") authLimiter.check(clientKey(req));
-
       const auth = route.auth || "none";
       let user = null;
 
@@ -166,9 +176,4 @@ function createRouter(routes, deps) {
   };
 }
 
-// The auth rate limiter is a module-level singleton by design (one counter
-// per pm2 process, see rate-limit.js). That makes it persist across tests
-// within the same file/process; exposing reset() lets integration tests that
-// exercise real auth routes many times (e.g. characterization.test.js) clear
-// it between cases instead of tripping the limit on unrelated assertions.
-module.exports = { matchRoute, normalizeApiPath, createRouter, resetAuthLimiterForTests: () => authLimiter.reset() };
+module.exports = { matchRoute, normalizeApiPath, createRouter };

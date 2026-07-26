@@ -7,19 +7,29 @@ process.env.DATABASE_URL = TEST_DATABASE_URL;
 
 const { getPool, withClient, withTransaction } = require("../../src/db/pool");
 const { migrate } = require("../../src/db/migrate");
-const { createRouter, resetAuthLimiterForTests } = require("../../src/http/router");
+const { createRouter } = require("../../src/http/router");
+const { createRateLimiter } = require("../../src/http/rate-limit");
 const routes = require("../../src/api/routes");
 const { loadUserFromRequest } = require("../../src/api/auth");
 const { startApiServer, createClient } = require("../helpers/client");
 
 let server;
 
+// This file drives real HTTP requests through the router, all from the same
+// loopback address, and issues far more than the production auth limit's
+// `max` worth of register/login calls across its tests. Rather than share
+// the router's default (production) limiter singleton, this suite injects
+// its own instance via deps.authLimiter with a generous `max`, and resets it
+// between tests so no test's calls can 429 an unrelated one.
+const testAuthLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 1000 });
+
 test.before(async () => {
   await migrate(getPool());
   const router = createRouter(routes, {
     withClient,
     withTransaction,
-    loadUser: loadUserFromRequest
+    loadUser: loadUserFromRequest,
+    authLimiter: testAuthLimiter
   });
   server = await startApiServer(router);
 });
@@ -31,13 +41,7 @@ test.after(async () => {
 
 test.beforeEach(async () => {
   await resetDatabase();
-  // This file drives real HTTP requests through the router, all from the
-  // same loopback address. The auth rate limiter (src/http/rate-limit.js)
-  // is a process-wide singleton by design, so without a reset here its
-  // counter accumulates across every test in this file and would eventually
-  // 429 legitimate register/login calls that have nothing to do with the
-  // rate-limiting feature itself.
-  resetAuthLimiterForTests();
+  testAuthLimiter.reset();
 });
 
 function registration(name, overrides = {}) {

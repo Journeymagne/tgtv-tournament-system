@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const http = require("node:http");
 
 const { matchRoute, normalizeApiPath, createRouter } = require("../../src/http/router");
+const { createRateLimiter } = require("../../src/http/rate-limit");
 const { HttpError } = require("../../src/http/io");
 const { captureStream } = require("../helpers/capture-stream");
 
@@ -248,4 +249,71 @@ test("loadUser и обработчик получают одну и ту же с
   assert.equal(res.status, 200);
   assert.ok(clientSeenByLoadUser);
   assert.equal(clientSeenByLoadUser, clientSeenByHandler);
+});
+
+test("превышение auth-лимита отдаёт 429 без единого обращения к транзакции/пулу (Finding 1)", async () => {
+  const calls = [];
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 2 });
+  const deps = {
+    withClient: (fn) => {
+      calls.push("client");
+      return fn(null);
+    },
+    withTransaction: (fn) => {
+      calls.push("transaction");
+      return fn(null);
+    },
+    loadUser: async () => null,
+    authLimiter: limiter
+  };
+  const routes = [
+    {
+      method: "POST",
+      path: "/api/login",
+      auth: "none",
+      tx: true,
+      rateLimit: "auth",
+      handler: async () => ({ ok: true })
+    }
+  ];
+
+  const first = await callRouter(routes, deps, "POST", "/api/login", {});
+  const second = await callRouter(routes, deps, "POST", "/api/login", {});
+  const third = await callRouter(routes, deps, "POST", "/api/login", {});
+
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(third.status, 429);
+  assert.equal(third.body.error, "Too many attempts. Try again later.");
+  // Exactly two runner invocations - one per allowed request. The rejected
+  // third request must never reach withTransaction/withClient at all: no
+  // pool checkout, no BEGIN/ROLLBACK for a request the limiter is rejecting.
+  assert.deepEqual(calls, ["transaction", "transaction"]);
+});
+
+test("createRouter по умолчанию использует общий лимитер модуля, если deps.authLimiter не передан", async () => {
+  // No authLimiter in deps: createRouter must fall back to the shared
+  // module-level instance so server.js (which passes no limiter) keeps
+  // working unchanged. This only proves the route still resolves and the
+  // rateLimit branch doesn't throw when deps omit authLimiter entirely;
+  // the dedicated test above (with an injected limiter) proves the 429/
+  // no-runner-call behaviour precisely.
+  const deps = {
+    withClient: (fn) => fn(null),
+    withTransaction: (fn) => fn(null),
+    loadUser: async () => null
+  };
+  const routes = [
+    {
+      method: "POST",
+      path: "/api/default-limiter",
+      auth: "none",
+      tx: true,
+      rateLimit: "auth",
+      handler: async () => ({ ok: true })
+    }
+  ];
+
+  const res = await callRouter(routes, deps, "POST", "/api/default-limiter", {});
+  assert.equal(res.status, 200);
 });
