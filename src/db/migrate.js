@@ -1,8 +1,9 @@
 const { logError } = require("../http/logger");
 
-const MIGRATIONS = [require("./migrations/001_baseline")].sort(
-  (a, b) => a.version - b.version
-);
+const MIGRATIONS = [
+  require("./migrations/001_baseline"),
+  require("./migrations/002_kill_team_names")
+].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
   CREATE TABLE IF NOT EXISTS schema_migrations (
