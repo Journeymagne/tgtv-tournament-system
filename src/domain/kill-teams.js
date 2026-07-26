@@ -56,6 +56,11 @@ const ALL_KILL_TEAM_TRACK = [...EXTRA_TRACK_TEAMS, ...CLASSIFIED_TRACK];
 
 const WILDCARDS = ["Navy Breachers", "XV26 Stealth Battlesuits"];
 
+// KILL_TEAMS is derived from ALL_KILL_TEAM_TRACK and WILDCARDS, so "tracks +
+// wildcards cover the registry exactly" holds by construction, not by a
+// separately maintained list. Do not replace this with an independent
+// KILL_TEAMS array — that reintroduces the two-vocabulary split (D3) this
+// module exists to eliminate.
 const KILL_TEAMS = [...ALL_KILL_TEAM_TRACK, ...WILDCARDS];
 
 const KILLZONES = [
