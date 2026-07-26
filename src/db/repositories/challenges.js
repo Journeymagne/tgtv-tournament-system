@@ -13,11 +13,11 @@ async function lockById(client, id) {
   return mapChallenge(rows[0]);
 }
 
-async function findByShareToken(client, token) {
+async function findByShareToken(client, token, { forUpdate = false } = {}) {
   const normalized = String(token || "").trim().toLowerCase();
   if (!/^[a-f0-9]{36}$/.test(normalized)) return null;
   const { rows } = await client.query(
-    `SELECT ${COLUMNS} FROM challenges WHERE share_token = $1 FOR UPDATE`,
+    `SELECT ${COLUMNS} FROM challenges WHERE share_token = $1${forUpdate ? " FOR UPDATE" : ""}`,
     [normalized]
   );
   return mapChallenge(rows[0]);

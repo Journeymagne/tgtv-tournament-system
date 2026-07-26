@@ -41,6 +41,28 @@ test.afterEach(() => {
   client.release();
 });
 
+// Helpers for proving that a `FOR UPDATE` lock actually blocks a second
+// connection, instead of just asserting that a row came back.
+const STILL_BLOCKED = Symbol("still-blocked");
+
+// Resolves to STILL_BLOCKED if `promise` hasn't settled within `ms` — used to
+// assert a lock attempt is genuinely stuck, not merely slow.
+function assertStillBlocked(promise, ms, message) {
+  return Promise.race([
+    promise.then(() => "resolved"),
+    new Promise((resolve) => setTimeout(() => resolve(STILL_BLOCKED), ms))
+  ]).then((outcome) => assert.equal(outcome, STILL_BLOCKED, message));
+}
+
+// Bounds a wait so a lock that never releases fails the test instead of
+// hanging the suite.
+function withDeadline(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+  ]);
+}
+
 test("челлендж создаётся со статусом pending и share-токеном", async () => {
   const created = await challenges.insert(client, {
     fromUserId: alpha.id, toUserId: bravo.id, shareToken: "a".repeat(36)
@@ -56,6 +78,52 @@ test("findByShareToken находит челлендж", async () => {
   await challenges.insert(client, { fromUserId: alpha.id, toUserId: bravo.id, shareToken: token });
   assert.ok(await challenges.findByShareToken(client, token));
   assert.equal(await challenges.findByShareToken(client, "c".repeat(36)), null);
+});
+
+test("findByShareToken блокирует строку только когда forUpdate: true", async () => {
+  const token = "9".repeat(36);
+  await challenges.insert(client, { fromUserId: alpha.id, toUserId: bravo.id, shareToken: token });
+
+  const clientA = await pool.connect();
+  const clientB = await pool.connect();
+  let aDone = false;
+  let bDone = false;
+  try {
+    await clientA.query("BEGIN");
+    await clientB.query("BEGIN");
+
+    const lockedByA = await challenges.findByShareToken(clientA, token, { forUpdate: true });
+    assert.ok(lockedByA, "A should have locked the challenge row");
+
+    // Default call (no options) must not be a locking read: it should see
+    // the committed row immediately, even while A holds FOR UPDATE.
+    const plainRead = await challenges.findByShareToken(clientB, token);
+    assert.ok(plainRead, "non-locking findByShareToken must not be blocked by another transaction's lock");
+
+    // Requesting a lock from B must now block, since A still holds it.
+    const bLockPromise = challenges.findByShareToken(clientB, token, { forUpdate: true });
+    await assertStillBlocked(
+      bLockPromise, 300,
+      "findByShareToken(..., { forUpdate: true }) should block while another transaction holds the lock"
+    );
+
+    await clientA.query("COMMIT");
+    aDone = true;
+
+    const lockedByB = await withDeadline(
+      bLockPromise, 2000,
+      "B did not acquire the share-token lock after A committed"
+    );
+    assert.ok(lockedByB);
+
+    await clientB.query("COMMIT");
+    bDone = true;
+  } finally {
+    if (!aDone) await clientA.query("ROLLBACK").catch(() => {});
+    if (!bDone) await clientB.query("ROLLBACK").catch(() => {});
+    clientA.release();
+    clientB.release();
+  }
 });
 
 test("share-токен уникален", async () => {
@@ -171,10 +239,45 @@ test("listCompleted отдаёт только завершённые, свежи
 
 test("lockById блокирует строку игры", async () => {
   const game = await games.insert(client, { challengeId: null, playerIds: [alpha.id, bravo.id] });
-  await client.query("BEGIN");
-  const locked = await games.lockById(client, game.id);
-  assert.equal(locked.id, game.id);
-  await client.query("COMMIT");
+
+  // Proves actual row-level locking (needed by Task 17 to serialize two
+  // simultaneous match-result confirmations): two independent pool
+  // connections, both in transactions, both calling lockById on the same
+  // row. B must genuinely block until A commits.
+  const clientA = await pool.connect();
+  const clientB = await pool.connect();
+  let aDone = false;
+  let bDone = false;
+  try {
+    await clientA.query("BEGIN");
+    await clientB.query("BEGIN");
+
+    const lockedByA = await games.lockById(clientA, game.id);
+    assert.equal(lockedByA.id, game.id);
+
+    const bLockPromise = games.lockById(clientB, game.id);
+    await assertStillBlocked(
+      bLockPromise, 300,
+      "lockById on connection B should still be blocked while A holds the lock"
+    );
+
+    await clientA.query("COMMIT");
+    aDone = true;
+
+    const lockedByB = await withDeadline(
+      bLockPromise, 2000,
+      "B did not acquire the lock after A committed"
+    );
+    assert.equal(lockedByB.id, game.id);
+
+    await clientB.query("COMMIT");
+    bDone = true;
+  } finally {
+    if (!aDone) await clientA.query("ROLLBACK").catch(() => {});
+    if (!bDone) await clientB.query("ROLLBACK").catch(() => {});
+    clientA.release();
+    clientB.release();
+  }
 });
 
 test("feedback создаётся, меняет статус и удаляется", async () => {
