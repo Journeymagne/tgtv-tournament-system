@@ -835,17 +835,26 @@ const SECURITY_HEADERS = {
   ].join("; ")
 };
 
+// Копим сырые Buffer и декодируем один раз в конце. Наивное `body += chunk`
+// декодирует каждый чанк отдельно и рвёт многобайтовый UTF-8 на границе чанков
+// (кириллица — два байта), а `body.length` считает единицы UTF-16, а не байты,
+// пропуская тело вдвое-втрое больше лимита. Тот же дефект есть в старом
+// server.js:946-966 и здесь исправляется.
 function readBody(req, maxBytes = MAX_REQUEST_BYTES) {
   return new Promise((resolve, reject) => {
-    let body = "";
+    const chunks = [];
+    let totalBytes = 0;
     req.on("data", (chunk) => {
-      body += chunk;
-      if (body.length > maxBytes) {
+      totalBytes += chunk.length;
+      if (totalBytes > maxBytes) {
         reject(new HttpError(413, "Request body is too large"));
         req.destroy();
+        return;
       }
+      chunks.push(chunk);
     });
     req.on("end", () => {
+      const body = Buffer.concat(chunks).toString("utf8");
       if (!body) return resolve({});
       try {
         resolve(JSON.parse(body));
