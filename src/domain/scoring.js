@@ -60,8 +60,8 @@ function calculateTieBreakers(input, playerAId, playerBId, scoreA, scoreB) {
     [playerBId]: scoreB.crit + scoreB.tac
   };
   const apl = {
-    [playerAId]: aplInput(input.apl?.[playerAId] ?? 0),
-    [playerBId]: aplInput(input.apl?.[playerBId] ?? 0)
+    [playerAId]: aplInput(input.apl?.[playerAId]),
+    [playerBId]: aplInput(input.apl?.[playerBId])
   };
   const rollOffWinnerId = input.rollOffWinnerId ? Number(input.rollOffWinnerId) : null;
 

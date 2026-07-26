@@ -64,7 +64,13 @@ test("parseKillzone проверяет справочники и layout", () => 
 test("тайбрейкер решается по primary", () => {
   const scoreA = calculateApprovedOps(ops({ crit: 6, kill: 0, tac: 0, primary: "crit" }));
   const scoreB = calculateApprovedOps(ops({ crit: 0, kill: 2, tac: 4, primary: "kill" }));
-  const result = calculateTieBreakers({ enabled: true }, 1, 2, scoreA, scoreB);
+  const result = calculateTieBreakers(
+    { enabled: true, apl: { 1: 5, 2: 5 } },
+    1,
+    2,
+    scoreA,
+    scoreB
+  );
   assert.equal(result.decidedBy, "primary");
   assert.equal(result.winnerId, 1);
 });
@@ -72,7 +78,13 @@ test("тайбрейкер решается по primary", () => {
 test("тайбрейкер решается по сумме crit и tac", () => {
   const scoreA = calculateApprovedOps(ops({ crit: 4, kill: 0, tac: 2, primary: "crit" }));
   const scoreB = calculateApprovedOps(ops({ crit: 0, kill: 4, tac: 2, primary: "kill" }));
-  const result = calculateTieBreakers({ enabled: true }, 1, 2, scoreA, scoreB);
+  const result = calculateTieBreakers(
+    { enabled: true, apl: { 1: 5, 2: 5 } },
+    1,
+    2,
+    scoreA,
+    scoreB
+  );
   assert.equal(result.decidedBy, "critTac");
   assert.equal(result.winnerId, 1);
 });
@@ -116,6 +128,15 @@ test("roll-off не принимает постороннего игрока", (
         scoreA,
         scoreB
       ),
+    ValidationError
+  );
+});
+
+test("тайбрейкер требует APL обоих игроков и отклоняет пропуск", () => {
+  const scoreA = calculateApprovedOps(ops({ crit: 6, kill: 0, tac: 0, primary: "crit" }));
+  const scoreB = calculateApprovedOps(ops({ crit: 0, kill: 2, tac: 4, primary: "kill" }));
+  assert.throws(
+    () => calculateTieBreakers({ enabled: true }, 1, 2, scoreA, scoreB),
     ValidationError
   );
 });
