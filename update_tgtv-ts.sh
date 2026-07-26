@@ -21,9 +21,9 @@ rsync -av --delete \
   --exclude='node_modules' \
   "$REPO_DIR/" "$APP_DIR/"
 
-echo "=== [4/6] Installing npm dependencies ==="
+echo "=== [4/6] Installing npm dependencies from package-lock.json ==="
 cd "$APP_DIR"
-npm install --omit=dev
+npm ci --omit=dev
 
 echo "=== [5/6] Copying .env ==="
 if [ ! -f "$ENV_FILE" ]; then
