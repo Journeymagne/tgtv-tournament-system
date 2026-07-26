@@ -32,15 +32,19 @@ const SECURITY_HEADERS = {
 
 function readBody(req, maxBytes = MAX_REQUEST_BYTES) {
   return new Promise((resolve, reject) => {
-    let body = "";
+    const chunks = [];
+    let totalBytes = 0;
     req.on("data", (chunk) => {
-      body += chunk;
-      if (body.length > maxBytes) {
+      totalBytes += chunk.length;
+      if (totalBytes > maxBytes) {
         reject(new HttpError(413, "Request body is too large"));
         req.destroy();
+        return;
       }
+      chunks.push(chunk);
     });
     req.on("end", () => {
+      const body = Buffer.concat(chunks).toString("utf8");
       if (!body) return resolve({});
       try {
         resolve(JSON.parse(body));
@@ -89,22 +93,18 @@ function sendText(res, status, text, headers = {}) {
   res.end(text);
 }
 
-function sessionCookie(token, ttlMs, secure) {
-  const parts = [
-    `sid=${encodeURIComponent(token)}`,
-    "HttpOnly",
-    "SameSite=Lax",
-    "Path=/",
-    `Max-Age=${Math.floor(ttlMs / 1000)}`
-  ];
+function buildSessionCookie(value, maxAgeSeconds, secure) {
+  const parts = [`sid=${value}`, "HttpOnly", "SameSite=Lax", "Path=/", `Max-Age=${maxAgeSeconds}`];
   if (secure) parts.push("Secure");
   return parts.join("; ");
 }
 
+function sessionCookie(token, ttlMs, secure) {
+  return buildSessionCookie(encodeURIComponent(token), Math.floor(ttlMs / 1000), secure);
+}
+
 function clearedSessionCookie(secure) {
-  const parts = ["sid=", "HttpOnly", "SameSite=Lax", "Path=/", "Max-Age=0"];
-  if (secure) parts.push("Secure");
-  return parts.join("; ");
+  return buildSessionCookie("", 0, secure);
 }
 
 module.exports = {

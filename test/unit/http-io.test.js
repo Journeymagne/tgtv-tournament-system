@@ -9,6 +9,7 @@ const {
   readBody,
   parseCookies,
   sendJson,
+  sendText,
   sessionCookie,
   clearedSessionCookie
 } = require("../../src/http/io");
@@ -30,10 +31,22 @@ function fakeResponse() {
   };
 }
 
+// `body` is either a string (delivered as a single chunk, for backward
+// compatibility) or an array of chunks (strings/Buffers) delivered in order —
+// used to simulate a multi-byte character split across TCP packet boundaries.
 function fakeRequest(body, headers = {}) {
-  const stream = Readable.from(body ? [Buffer.from(body)] : []);
+  let chunks;
+  if (Array.isArray(body)) {
+    chunks = body.map((part) => (Buffer.isBuffer(part) ? part : Buffer.from(part)));
+  } else {
+    chunks = body ? [Buffer.from(body)] : [];
+  }
+  const stream = Readable.from(chunks);
   stream.headers = headers;
-  stream.destroy = () => {};
+  stream.destroyed = false;
+  stream.destroy = () => {
+    stream.destroyed = true;
+  };
   return stream;
 }
 
@@ -63,8 +76,39 @@ test("readBody отвергает некорректный JSON как Validatio
   await assert.rejects(() => readBody(fakeRequest("{oops"), 1000), ValidationError);
 });
 
-test("readBody отвергает слишком большое тело", async () => {
-  await assert.rejects(() => readBody(fakeRequest("x".repeat(50)), 10), HttpError);
+test("readBody отвергает слишком большое тело и останавливает поток", async () => {
+  const stream = fakeRequest("x".repeat(50));
+  await assert.rejects(() => readBody(stream, 10), HttpError);
+  assert.equal(stream.destroyed, true);
+});
+
+test("readBody собирает многобайтовый символ, разбитый между чанками, без повреждения", async () => {
+  // "é" is 2 bytes in UTF-8 (0xC3 0xA9). Split the buffer so the two bytes of
+  // that one character land in different chunks — this is exactly the case
+  // where naive `body += chunk` decodes each chunk as UTF-8 independently and
+  // turns the character into replacement bytes.
+  const json = '{"name":"café"}';
+  const full = Buffer.from(json, "utf8");
+  const eBytes = Buffer.from("é", "utf8");
+  const splitPoint = full.indexOf(eBytes) + 1;
+  assert.ok(splitPoint > 0 && splitPoint < full.length, "test setup must actually split the character");
+
+  const chunks = [full.subarray(0, splitPoint), full.subarray(splitPoint)];
+  const body = await readBody(fakeRequest(chunks), 1000);
+  assert.deepEqual(body, { name: "café" });
+});
+
+test("readBody отвергает тело, чей байтовый размер превышает лимит при меньшей длине строки", async () => {
+  // Six Cyrillic characters: 6 UTF-16 code units (body.length === 6) but
+  // 12 UTF-8 bytes — under the old `body.length > maxBytes` check this would
+  // slip under a maxBytes of 10; the byte-counting check must still reject it.
+  const body = "п".repeat(6);
+  assert.equal(body.length, 6);
+  assert.ok(Buffer.byteLength(body, "utf8") > 10);
+
+  const stream = fakeRequest(body);
+  await assert.rejects(() => readBody(stream, 10), HttpError);
+  assert.equal(stream.destroyed, true);
 });
 
 test("parseCookies разбирает пары", () => {
@@ -94,6 +138,27 @@ test("sendJson ничего не пишет, если ответ уже отпр
   sendJson(res, 200, { first: true });
   sendJson(res, 500, { second: true });
   assert.equal(res.payload, '{"first":true}');
+});
+
+test("sendText проставляет статус, text/plain и security-заголовки", () => {
+  const res = fakeResponse();
+  sendText(res, 404, "Not found");
+
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.payload, "Not found");
+  assert.equal(res.headers["Content-Type"], "text/plain; charset=utf-8");
+  assert.equal(res.headers["Content-Length"], Buffer.byteLength("Not found"));
+  assert.equal(res.headers["X-Content-Type-Options"], "nosniff");
+  assert.equal(res.headers["X-Frame-Options"], "DENY");
+  assert.equal(res.headers["Referrer-Policy"], "same-origin");
+  assert.ok(res.headers["Content-Security-Policy"].includes("script-src 'self'"));
+});
+
+test("sendText ничего не пишет, если ответ уже отправлен", () => {
+  const res = fakeResponse();
+  sendText(res, 200, "first");
+  sendText(res, 500, "second");
+  assert.equal(res.payload, "first");
 });
 
 test("sessionCookie ставит Secure только когда попрошено", () => {
