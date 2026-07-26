@@ -23,6 +23,7 @@ function resolveStaticPath(pathname) {
   } catch {
     return null;
   }
+  if (requested.includes("\0")) return null;
   const filePath = path.normalize(path.join(PUBLIC_DIR, requested));
   if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_PREFIX)) return null;
   return filePath;
