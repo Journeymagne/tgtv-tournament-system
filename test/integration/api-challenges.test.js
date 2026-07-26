@@ -206,6 +206,45 @@ test("нечисловой id в respond отдаёт 404, а не 500", async (
   );
 });
 
+// Mirrors withTx in test/integration/api-auth.test.js: create() no longer
+// manages its own transaction (the router does, via tx: true), so racing it
+// from two separate connections needs each side to supply the ambient
+// transaction itself.
+async function withTx(conn, fn) {
+  await conn.query("BEGIN");
+  try {
+    const result = await fn();
+    await conn.query("COMMIT");
+    return result;
+  } catch (err) {
+    await conn.query("ROLLBACK");
+    throw err;
+  }
+}
+
+test("MEDIUM 2: конкурентные челленджи одной паре создают ровно один, а не два", async () => {
+  const clientA = await pool.connect();
+  const clientB = await pool.connect();
+  try {
+    const outcomes = await Promise.allSettled([
+      withTx(clientA, () => api.create({ client: clientA, user: alpha, body: { toUserId: bravo.id } })),
+      withTx(clientB, () => api.create({ client: clientB, user: bravo, body: { toUserId: alpha.id } }))
+    ]);
+
+    const fulfilled = outcomes.filter((item) => item.status === "fulfilled");
+    const rejected = outcomes.filter((item) => item.status === "rejected");
+    assert.equal(fulfilled.length, 1, "ровно один запрос должен создать челлендж");
+    assert.equal(rejected.length, 1, "второй должен получить отказ, а не тоже создать челлендж");
+    assert.equal(rejected[0].reason.status, 409);
+
+    const stored = await challengesRepo.listForUser(client, alpha.id);
+    assert.equal(stored.length, 1, "в БД должен остаться ровно один челлендж на пару");
+  } finally {
+    clientA.release();
+    clientB.release();
+  }
+});
+
 test("посторонний с валидным share-токеном на обработанном челлендже получает 409, а не 403", async () => {
   const created = await api.create({ client, user: alpha, body: { toUserId: bravo.id } });
   const token = created.body.challenge.shareToken;

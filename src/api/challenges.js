@@ -33,12 +33,27 @@ async function acceptChallenge(client, challenge) {
   return { game, challenge: updated };
 }
 
+// MEDIUM 2: serializes the check-and-insert below for one pair of user ids.
+// Sorting the ids first means both directions of a challenge between the
+// same two players (A -> B or B -> A) take the SAME advisory lock, so two
+// concurrent POST /api/challenges can no longer both pass
+// findPendingBetween/findActiveBetween and both insert. Scoped to the
+// ambient transaction (tx: true on this route) so it releases automatically
+// at commit/rollback -- same pattern as withFirstAdminLock in
+// src/api/auth.js.
+async function lockPair(client, userIdA, userIdB) {
+  const [a, b] = [userIdA, userIdB].sort((x, y) => x - y);
+  await client.query("SELECT pg_advisory_xact_lock($1, $2)", [a, b]);
+}
+
 async function create({ client, user, body }) {
   const toUserId = requirePositiveIntId(body.toUserId, 400, "Challenge target user not found");
   const target = await usersRepo.findById(client, toUserId);
   if (!target || target.id === user.id) {
     throw new HttpError(400, "Challenge target user not found");
   }
+
+  await lockPair(client, user.id, target.id);
 
   const pending = await challengesRepo.findPendingBetween(client, user.id, target.id);
   if (pending) {
