@@ -45,6 +45,23 @@ function requestWithCookie(token) {
   return { headers: { cookie: `sid=${token}` } };
 }
 
+// Mirrors withTransaction in src/db/pool.js: register/setup-admin no longer manage
+// their own transaction (the router does, via tx: true routes), so any test that
+// depends on their advisory-lock serialization has to supply the ambient transaction
+// itself — otherwise pg_advisory_xact_lock takes and releases within its own
+// single-statement implicit transaction and never actually serializes anything.
+async function withTx(client, fn) {
+  await client.query("BEGIN");
+  try {
+    const result = await fn();
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  }
+}
+
 test("регистрация возвращает 201 и ставит cookie", async () => {
   const result = await auth.register({ client, body: body("Alpha") });
 
@@ -212,8 +229,8 @@ test("конкурентная первая регистрация не созд
   const clientB = await pool.connect();
   try {
     const [alpha, bravo] = await Promise.all([
-      auth.register({ client: clientA, body: body("Racer1") }),
-      auth.register({ client: clientB, body: body("Racer2") })
+      withTx(clientA, () => auth.register({ client: clientA, body: body("Racer1") })),
+      withTx(clientB, () => auth.register({ client: clientB, body: body("Racer2") }))
     ]);
 
     const admins = [alpha.body.user.isAdmin, bravo.body.user.isAdmin].filter(Boolean);

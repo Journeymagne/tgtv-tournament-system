@@ -130,29 +130,27 @@ async function updateMe({ client, user, body }) {
 }
 
 // Serializes the first-admin check-and-insert across concurrent register/setup-admin
-// requests; pg_advisory_xact_lock releases automatically at commit or rollback.
+// requests. pg_advisory_xact_lock is scoped to the ambient transaction and releases
+// automatically at commit or rollback of THAT transaction — this helper must not open
+// its own: routes carrying this helper are registered with tx: true, so the router
+// (src/http/router.js, via withTransaction in src/db/pool.js) already has one open
+// around the whole handler call. If this helper issued its own BEGIN/COMMIT here, the
+// COMMIT would commit the router's transaction early, making the rest of the handler's
+// work durable before the router can roll it back on a later failure.
 const FIRST_ADMIN_LOCK_KEY = 847362951;
 
-async function withFirstAdminTransaction(client, run) {
-  await client.query("BEGIN");
-  try {
-    await client.query("SELECT pg_advisory_xact_lock($1)", [FIRST_ADMIN_LOCK_KEY]);
-    const result = await run(await users.hasAdmin(client));
-    await client.query("COMMIT");
-    return result;
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  }
+async function withFirstAdminLock(client, run) {
+  await client.query("SELECT pg_advisory_xact_lock($1)", [FIRST_ADMIN_LOCK_KEY]);
+  return run(await users.hasAdmin(client));
 }
 
 async function register({ client, body }) {
   const credentials = readCredentials(body, 6, "Password must be at least 6 characters");
-  return withFirstAdminTransaction(client, (hasAdmin) => createAccount(client, credentials, !hasAdmin));
+  return withFirstAdminLock(client, (hasAdmin) => createAccount(client, credentials, !hasAdmin));
 }
 
 async function setupAdmin({ client, body }) {
-  return withFirstAdminTransaction(client, (hasAdmin) => {
+  return withFirstAdminLock(client, (hasAdmin) => {
     if (hasAdmin) throw new HttpError(409, "An administrator already exists");
     const credentials = readCredentials(body, 8, "Administrator password must be at least 8 characters");
     return createAccount(client, credentials, true);
