@@ -151,3 +151,47 @@ test("прогресс не содержит поле user — его добав
   const progress = buildTrackProgress([], CLASSIFIED_TRACK, WILDCARDS);
   assert.equal("user" in progress, false);
 });
+
+test("событие без временной метки получает at: null", () => {
+  const user = { id: 1, challengeCredits: [] };
+  const games = [completedGame(1, 1, "Kasrkin", null)];
+  const events = buildChallengeEvents(games, user);
+
+  assert.equal(events[0].at, null);
+});
+
+test("недатированное событие сортируется перед датированными, а не после", () => {
+  const user = {
+    id: 1,
+    challengeCredits: [
+      { team: "Ratlings", action: "credit", creditedAt: "2026-01-01T00:00:00.000Z" }
+    ]
+  };
+  const games = [completedGame(2, 1, "Kasrkin", null)];
+  const events = buildChallengeEvents(games, user);
+
+  assert.deepEqual(events.map((event) => event.team), ["Kasrkin", "Ratlings"]);
+  assert.equal(events[0].at, null);
+});
+
+test("события с одинаковым at сохраняют порядок ввода", () => {
+  const sameInstant = "2026-01-01T00:00:00.000Z";
+  const events = [
+    { team: "Kasrkin", action: "credit", at: sameInstant },
+    { team: "Kasrkin", action: "deduct", at: sameInstant }
+  ];
+  const progress = buildTrackProgress(events, CLASSIFIED_TRACK, WILDCARDS);
+
+  assert.equal(progress.completedCount, 0);
+  assert.equal(progress.teams[0].status, "current");
+});
+
+test("списание команды, которую никогда не начисляли, не ломает прогресс", () => {
+  const events = [{ team: "Kasrkin", action: "deduct", at: "2026-01-01T00:00:00.000Z" }];
+
+  assert.doesNotThrow(() => {
+    const progress = buildTrackProgress(events, CLASSIFIED_TRACK, WILDCARDS);
+    assert.equal(progress.completedCount, 0);
+    assert.equal(progress.teams[0].status, "current");
+  });
+});

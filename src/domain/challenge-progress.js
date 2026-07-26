@@ -26,7 +26,23 @@ function buildChallengeEvents(games, user) {
 
   return [...gameEvents, ...manualEvents]
     .filter((event) => event.team)
-    .sort((a, b) => String(a.at).localeCompare(String(b.at)));
+    .sort(compareByAt);
+}
+
+// `at` is deliberately left `null` when a game/credit has no timestamp,
+// instead of falling back to nowIso() the way server.js does. Fabricating
+// "now" for an event with no recorded time would invent data and make an
+// undated event sort as if it just happened, which changes the answer
+// depending on when you happen to read it. Every current write path sets a
+// timestamp (see server.js game submission and manual credit/deduct
+// handlers), so this is unreachable with today's data — but the ordering
+// below pins the contract rather than leaving it to accidental string
+// comparison. Do not "fix" this by restoring nowIso().
+function compareByAt(a, b) {
+  if (a.at == null && b.at == null) return 0;
+  if (a.at == null) return -1;
+  if (b.at == null) return 1;
+  return String(a.at).localeCompare(String(b.at));
 }
 
 function buildTrackProgress(events, teams, wildcards) {
