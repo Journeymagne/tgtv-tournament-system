@@ -77,9 +77,7 @@ const PATCHES = [
   "ALTER TABLE feedback ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'open'",
   "ALTER TABLE feedback ADD COLUMN IF NOT EXISTS resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL",
   "ALTER TABLE feedback ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ",
-  "ALTER TABLE feedback ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ",
-  "ALTER TABLE games ADD COLUMN IF NOT EXISTS elo JSONB",
-  "CREATE INDEX IF NOT EXISTS idx_games_player_ids ON games USING GIN (player_ids)"
+  "ALTER TABLE feedback ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ"
 ];
 
 module.exports = {
