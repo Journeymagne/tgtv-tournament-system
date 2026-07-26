@@ -16,7 +16,8 @@
 - **Единственная runtime-зависимость — `pg`.** Не добавлять express, fastify, dotenv, ORM, тест-раннеры и библиотеки rate limit.
 - **CommonJS.** Проект использует `require`/`module.exports`; не переводить на ESM.
 - **Только PostgreSQL.** JSON-хранилище удаляется; без `DATABASE_URL` сервер не стартует.
-- **Целевой размер модуля — не более 200 строк.**
+- **Целевой размер модуля — не более 200 строк.** Единственное задокументированное исключение — `src/db/repositories/users.js` (~220 строк): это плоский список однотипных запросов без ветвящейся логики, дробить его на части вреднее, чем оставить одним модулем.
+- **Никакого дословного дублирования.** Перевод строк PostgreSQL в доменные объекты живёт только в `src/db/rows.js`; набор активных статусов игры объявлен только в `src/db/repositories/games.js`.
 - **Публичный контракт API не меняется,** кроме явно перечисленных в задачах 14, 17 и 19 изменений (B1, D1, D2, D4, D5, D3).
 - **`public/app.js` не трогать.**
 - **Все тексты ошибок для клиента — на английском,** как в текущем коде.
@@ -37,6 +38,7 @@
 | `src/db/migrate.js` | Таблица `schema_migrations`, применение миграций по порядку |
 | `src/db/migrations/001_baseline.js` | Текущая схема, идемпотентно |
 | `src/db/migrations/002_kill_team_names.js` | Канонизация названий в сохранённых данных |
+| `src/db/rows.js` | Перевод строк PostgreSQL в доменные объекты, общий для всех репозиториев |
 | `src/db/repositories/users.js` | Запросы к `users` |
 | `src/db/repositories/sessions.js` | Запросы к `sessions` |
 | `src/db/repositories/challenges.js` | Запросы к `challenges` |
@@ -3244,6 +3246,7 @@ git commit -m "feat: add challenge track progress module"
 Начало замены чтения-и-перезаписи всей БД. Закрывает A2 (идентификаторы выдаёт `RETURNING id`) и A3 (сессия проверяется одним запросом с условием на срок, без записи).
 
 **Files:**
+- Create: `src/db/rows.js`
 - Create: `src/db/repositories/users.js`
 - Create: `src/db/repositories/sessions.js`
 - Test: `test/integration/repositories-users.test.js`
@@ -3251,7 +3254,8 @@ git commit -m "feat: add challenge track progress module"
 **Interfaces:**
 - Consumes: `src/db/pool.js`, `src/db/migrate.js`.
 - Produces:
-  - `src/db/repositories/users.js` → `{ mapUser, findById, findByIds, lockByIds, findByNameKey, isNameTaken, listLeaderboard, listWithGameCounts, search, insert, updateProfile, setPasswordHash, addRating, setRating, setAdmin, appendChallengeCredit, remove, countAdmins, hasAdmin }`
+  - `src/db/rows.js` → `{ USER_COLUMNS, CHALLENGE_COLUMNS, GAME_COLUMNS, FEEDBACK_COLUMNS, toIso, mapUser, mapChallenge, mapGame, mapFeedback }` — единственное место перевода строк БД в доменные объекты.
+  - `src/db/repositories/users.js` → `{ findById, findByIds, lockByIds, findByNameKey, isNameTaken, listLeaderboard, listWithGameCounts, search, insert, updateProfile, setPasswordHash, addRating, setRating, setAdmin, appendChallengeCredit, remove, countAdmins, hasAdmin }`
   - `findByIds` — обычное чтение для сборки представлений; `lockByIds` — только для мутаций, берёт `FOR UPDATE`.
   - `src/db/repositories/sessions.js` → `{ create, findActiveUser, deleteByToken, deleteByUserId, deleteExpired }`
   - Доменная форма пользователя: `{ id, name, passwordHash, avatarData, registerNickname, telegramContact, challengeCredits, rating, isAdmin, createdAt, updatedAt }`.
@@ -3493,16 +3497,29 @@ node --test test/integration/repositories-users.test.js
 
 Ожидаемо: FAIL, `Cannot find module '../../src/db/repositories/users'`.
 
-- [ ] **Step 3: Написать репозиторий users**
+- [ ] **Step 3: Написать общий модуль перевода строк**
 
-`lockByIds` сортирует идентификаторы перед блокировкой: одинаковый порядок захвата строк во всех запросах исключает взаимную блокировку двух транзакций.
+Единственное место, где строка PostgreSQL превращается в доменный объект. Раньше `toIso` пришлось бы копировать в каждый из пяти репозиториев.
 
-Create `src/db/repositories/users.js`:
+Create `src/db/rows.js`:
 
 ```js
-const COLUMNS = `
+const USER_COLUMNS = `
   id, name, name_key, password_hash, avatar_data, register_nickname,
   telegram_contact, challenge_credits, rating, is_admin, created_at, updated_at
+`;
+
+const CHALLENGE_COLUMNS = `
+  id, from_user_id, to_user_id, status, game_id, share_token, created_at, updated_at
+`;
+
+const GAME_COLUMNS = `
+  id, challenge_id, player_ids, status, created_at,
+  submitted_by, submitted_at, pending_result, result, elo
+`;
+
+const FEEDBACK_COLUMNS = `
+  id, user_id, screen, description, status, resolved_by, resolved_at, updated_at, created_at
 `;
 
 function toIso(value) {
@@ -3526,6 +3543,73 @@ function mapUser(row) {
     updatedAt: toIso(row.updated_at)
   };
 }
+
+function mapChallenge(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    fromUserId: row.from_user_id,
+    toUserId: row.to_user_id,
+    status: row.status,
+    gameId: row.game_id,
+    shareToken: row.share_token || null,
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at)
+  };
+}
+
+function mapGame(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    challengeId: row.challenge_id,
+    playerIds: row.player_ids || [],
+    status: row.status,
+    createdAt: toIso(row.created_at),
+    submittedBy: row.submitted_by,
+    submittedAt: toIso(row.submitted_at),
+    pendingResult: row.pending_result,
+    result: row.result,
+    elo: row.elo
+  };
+}
+
+function mapFeedback(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    screen: row.screen,
+    description: row.description,
+    status: row.status || "open",
+    resolvedBy: row.resolved_by,
+    resolvedAt: toIso(row.resolved_at),
+    updatedAt: toIso(row.updated_at),
+    createdAt: toIso(row.created_at)
+  };
+}
+
+module.exports = {
+  USER_COLUMNS,
+  CHALLENGE_COLUMNS,
+  GAME_COLUMNS,
+  FEEDBACK_COLUMNS,
+  toIso,
+  mapUser,
+  mapChallenge,
+  mapGame,
+  mapFeedback
+};
+```
+
+- [ ] **Step 4: Написать репозиторий users**
+
+`lockByIds` сортирует идентификаторы перед блокировкой: одинаковый порядок захвата строк во всех запросах исключает взаимную блокировку двух транзакций.
+
+Create `src/db/repositories/users.js`:
+
+```js
+const { USER_COLUMNS: COLUMNS, mapUser } = require("../rows");
 
 function nameKeyOf(name) {
   return String(name || "").toLowerCase();
@@ -3725,7 +3809,6 @@ async function hasAdmin(client) {
 }
 
 module.exports = {
-  mapUser,
   findById,
   findByIds,
   lockByIds,
@@ -3747,12 +3830,12 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 4: Написать репозиторий sessions**
+- [ ] **Step 5: Написать репозиторий sessions**
 
 Create `src/db/repositories/sessions.js`:
 
 ```js
-const { mapUser } = require("./users");
+const { mapUser } = require("../rows");
 
 const USER_COLUMNS = `
   u.id, u.name, u.name_key, u.password_hash, u.avatar_data, u.register_nickname,
@@ -3794,7 +3877,7 @@ async function deleteExpired(client) {
 module.exports = { create, findActiveUser, deleteByToken, deleteByUserId, deleteExpired };
 ```
 
-- [ ] **Step 5: Запустить тест и убедиться, что он проходит**
+- [ ] **Step 6: Запустить тест и убедиться, что он проходит**
 
 ```bash
 node --test test/integration/repositories-users.test.js
@@ -3802,10 +3885,10 @@ node --test test/integration/repositories-users.test.js
 
 Ожидаемо: `pass 17`, `fail 0`.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/db/repositories/users.js src/db/repositories/sessions.js test/integration/repositories-users.test.js
+git add src/db/rows.js src/db/repositories/users.js src/db/repositories/sessions.js test/integration/repositories-users.test.js
 git commit -m "feat: add users and sessions repositories"
 ```
 
@@ -4045,28 +4128,7 @@ node --test test/integration/repositories-games.test.js
 Create `src/db/repositories/challenges.js`:
 
 ```js
-const COLUMNS = `
-  id, from_user_id, to_user_id, status, game_id, share_token, created_at, updated_at
-`;
-
-function toIso(value) {
-  if (!value) return null;
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
-
-function mapChallenge(row) {
-  if (!row) return null;
-  return {
-    id: row.id,
-    fromUserId: row.from_user_id,
-    toUserId: row.to_user_id,
-    status: row.status,
-    gameId: row.game_id,
-    shareToken: row.share_token || null,
-    createdAt: toIso(row.created_at),
-    updatedAt: toIso(row.updated_at)
-  };
-}
+const { CHALLENGE_COLUMNS: COLUMNS, mapChallenge } = require("../rows");
 
 async function findById(client, id) {
   const { rows } = await client.query(`SELECT ${COLUMNS} FROM challenges WHERE id = $1`, [id]);
@@ -4141,7 +4203,6 @@ async function attachGame(client, id, gameId) {
 }
 
 module.exports = {
-  mapChallenge,
   findById,
   lockById,
   findByShareToken,
@@ -4158,33 +4219,10 @@ module.exports = {
 Create `src/db/repositories/games.js`:
 
 ```js
-const COLUMNS = `
-  id, challenge_id, player_ids, status, created_at,
-  submitted_by, submitted_at, pending_result, result, elo
-`;
+const { GAME_COLUMNS: COLUMNS, mapGame } = require("../rows");
 
+// Единственное объявление набора активных статусов. src/api/games.js импортирует его отсюда.
 const ACTIVE_STATUSES = ["open", "pending_confirmation"];
-
-function toIso(value) {
-  if (!value) return null;
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
-
-function mapGame(row) {
-  if (!row) return null;
-  return {
-    id: row.id,
-    challengeId: row.challenge_id,
-    playerIds: row.player_ids || [],
-    status: row.status,
-    createdAt: toIso(row.created_at),
-    submittedBy: row.submitted_by,
-    submittedAt: toIso(row.submitted_at),
-    pendingResult: row.pending_result,
-    result: row.result,
-    elo: row.elo
-  };
-}
 
 async function findById(client, id) {
   const { rows } = await client.query(`SELECT ${COLUMNS} FROM games WHERE id = $1`, [id]);
@@ -4317,7 +4355,6 @@ async function cancel(client, id) {
 }
 
 module.exports = {
-  mapGame,
   ACTIVE_STATUSES,
   findById,
   lockById,
@@ -4340,29 +4377,7 @@ module.exports = {
 Create `src/db/repositories/feedback.js`:
 
 ```js
-const COLUMNS = `
-  id, user_id, screen, description, status, resolved_by, resolved_at, updated_at, created_at
-`;
-
-function toIso(value) {
-  if (!value) return null;
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
-
-function mapFeedback(row) {
-  if (!row) return null;
-  return {
-    id: row.id,
-    userId: row.user_id,
-    screen: row.screen,
-    description: row.description,
-    status: row.status || "open",
-    resolvedBy: row.resolved_by,
-    resolvedAt: toIso(row.resolved_at),
-    updatedAt: toIso(row.updated_at),
-    createdAt: toIso(row.created_at)
-  };
-}
+const { FEEDBACK_COLUMNS: COLUMNS, mapFeedback } = require("../rows");
 
 async function findById(client, id) {
   const { rows } = await client.query(`SELECT ${COLUMNS} FROM feedback WHERE id = $1`, [id]);
@@ -4403,7 +4418,7 @@ async function remove(client, id) {
   await client.query("DELETE FROM feedback WHERE id = $1", [id]);
 }
 
-module.exports = { mapFeedback, findById, listAll, insert, setStatus, remove };
+module.exports = { findById, listAll, insert, setStatus, remove };
 ```
 
 - [ ] **Step 6: Запустить тест и убедиться, что он проходит**
@@ -6154,7 +6169,7 @@ const { calculateSubmittedResult, matchScoreFor } = require("../domain/scoring")
 const { calculateElo, ELO_K } = require("../domain/elo");
 const { gameView } = require("./views");
 
-const ACTIVE_STATUSES = ["open", "pending_confirmation"];
+const { ACTIVE_STATUSES } = gamesRepo;
 
 async function lockGame(client, id) {
   const game = await gamesRepo.lockById(client, Number(id));
@@ -6350,8 +6365,8 @@ git commit -m "fix: make game result handling atomic and kill the lost-update ra
 **Interfaces:**
 - Consumes: репозитории; `src/api/games.js` → `finalizeResult`, `cancelGame`, `lockGame`, `lockPlayers`, `reverseElo`, `applyElo`; `src/domain/passwords.js` → `generateTemporaryPassword`, `hashPassword`; `src/domain/kill-teams.js`.
 - Produces:
-  - `src/api/feedback.js` → `{ create }`
-  - `src/api/admin.js` → `{ listFeedback, updateFeedback, deleteFeedback, listActiveGames, confirmGameResult, deleteGame, saveGameResult, listUsers, updateUser, deleteUser, resetPassword, challengeCredit }`
+  - `src/api/feedback.js` → `{ create, list, updateStatus, remove }` — обратная связь целиком живёт здесь, включая административные действия
+  - `src/api/admin.js` → `{ listActiveGames, confirmGameResult, deleteGame, saveGameResult, listUsers, updateUser, deleteUser, resetPassword, challengeCredit }`
 
 - [ ] **Step 1: Написать падающий тест**
 
@@ -6609,17 +6624,17 @@ test("обратная связь создаётся, закрывается, п
   assert.equal(created.body.feedback.user.name, "Player");
 
   const id = String(created.body.feedback.id);
-  const resolved = await admin.updateFeedback({
+  const resolved = await feedbackApi.updateStatus({
     client, user: root, params: { id }, body: { status: "resolved" }
   });
   assert.equal(resolved.feedback.status, "resolved");
   assert.equal(resolved.feedback.resolvedByUser.name, "Root");
 
-  const listed = await admin.listFeedback({ client });
+  const listed = await feedbackApi.list({ client });
   assert.equal(listed.feedback.length, 1);
 
-  await admin.deleteFeedback({ client, user: root, params: { id } });
-  assert.equal((await admin.listFeedback({ client })).feedback.length, 0);
+  await feedbackApi.remove({ client, user: root, params: { id } });
+  assert.equal((await feedbackApi.list({ client })).feedback.length, 0);
 });
 
 test("обратная связь требует экран и описание", async () => {
@@ -6643,6 +6658,7 @@ node --test test/integration/api-admin.test.js
 Create `src/api/feedback.js`:
 
 ```js
+const { HttpError } = require("../http/io");
 const usersRepo = require("../db/repositories/users");
 const feedbackRepo = require("../db/repositories/feedback");
 const { requiredProfileText } = require("../domain/validation");
@@ -6658,7 +6674,41 @@ async function create({ client, user, body }) {
   return { status: 201, body: { feedback: feedbackView(item, people) } };
 }
 
-module.exports = { create };
+async function list({ client }) {
+  const items = await feedbackRepo.listAll(client);
+  const ids = new Set();
+  for (const item of items) {
+    if (item.userId) ids.add(item.userId);
+    if (item.resolvedBy) ids.add(item.resolvedBy);
+  }
+  const people = await usersRepo.findByIds(client, [...ids]);
+  return { feedback: items.map((item) => feedbackView(item, people)) };
+}
+
+async function requireItem(client, id) {
+  const existing = await feedbackRepo.findById(client, Number(id));
+  if (!existing) throw new HttpError(404, "Feedback not found");
+  return existing;
+}
+
+async function updateStatus({ client, user, params, body }) {
+  const existing = await requireItem(client, params.id);
+  const status = body.status === "resolved" ? "resolved" : "open";
+  const updated = await feedbackRepo.setStatus(client, existing.id, status, user.id);
+  const people = await usersRepo.findByIds(
+    client,
+    [updated.userId, updated.resolvedBy].filter(Boolean)
+  );
+  return { feedback: feedbackView(updated, people) };
+}
+
+async function remove({ client, params }) {
+  const existing = await requireItem(client, params.id);
+  await feedbackRepo.remove(client, existing.id);
+  return { ok: true };
+}
+
+module.exports = { create, list, updateStatus, remove };
 ```
 
 - [ ] **Step 4: Написать административные обработчики**
@@ -6672,10 +6722,8 @@ const { HttpError, ValidationError } = require("../http/io");
 const usersRepo = require("../db/repositories/users");
 const sessionsRepo = require("../db/repositories/sessions");
 const gamesRepo = require("../db/repositories/games");
-const feedbackRepo = require("../db/repositories/feedback");
 const games = require("./games");
-const { publicUser, publicUserSummary, gameView, feedbackView, challengeProgressView } =
-  require("./views");
+const { publicUser, publicUserSummary, gameView, challengeProgressView } = require("./views");
 const { requireInteger } = require("../domain/validation");
 const { calculateSubmittedResult } = require("../domain/scoring");
 const { hashPassword, generateTemporaryPassword } = require("../domain/passwords");
@@ -6700,37 +6748,6 @@ async function requireTarget(client, id) {
   const target = await usersRepo.findById(client, Number(id));
   if (!target) throw new HttpError(404, "User not found");
   return target;
-}
-
-async function listFeedback({ client }) {
-  const items = await feedbackRepo.listAll(client);
-  const ids = new Set();
-  for (const item of items) {
-    if (item.userId) ids.add(item.userId);
-    if (item.resolvedBy) ids.add(item.resolvedBy);
-  }
-  const people = await usersRepo.findByIds(client, [...ids]);
-  return { feedback: items.map((item) => feedbackView(item, people)) };
-}
-
-async function updateFeedback({ client, user, params, body }) {
-  const existing = await feedbackRepo.findById(client, Number(params.id));
-  if (!existing) throw new HttpError(404, "Feedback not found");
-
-  const status = body.status === "resolved" ? "resolved" : "open";
-  const updated = await feedbackRepo.setStatus(client, existing.id, status, user.id);
-  const people = await usersRepo.findByIds(
-    client,
-    [updated.userId, updated.resolvedBy].filter(Boolean)
-  );
-  return { feedback: feedbackView(updated, people) };
-}
-
-async function deleteFeedback({ client, params }) {
-  const existing = await feedbackRepo.findById(client, Number(params.id));
-  if (!existing) throw new HttpError(404, "Feedback not found");
-  await feedbackRepo.remove(client, existing.id);
-  return { ok: true };
 }
 
 async function listActiveGames({ client }) {
@@ -6882,9 +6899,6 @@ async function challengeCredit({ client, user, params, body }) {
 }
 
 module.exports = {
-  listFeedback,
-  updateFeedback,
-  deleteFeedback,
   listActiveGames,
   confirmGameResult,
   deleteGame,
@@ -7022,18 +7036,18 @@ module.exports = [
 
   { method: "POST", path: "/api/feedback", handler: feedback.create, auth: "user", tx: true },
 
-  { method: "GET", path: "/api/admin/feedback", handler: admin.listFeedback, auth: "admin" },
+  { method: "GET", path: "/api/admin/feedback", handler: feedback.list, auth: "admin" },
   {
     method: "PATCH",
     path: "/api/admin/feedback/:id",
-    handler: admin.updateFeedback,
+    handler: feedback.updateStatus,
     auth: "admin",
     tx: true
   },
   {
     method: "DELETE",
     path: "/api/admin/feedback/:id",
-    handler: admin.deleteFeedback,
+    handler: feedback.remove,
     auth: "admin",
     tx: true
   },
