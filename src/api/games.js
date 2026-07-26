@@ -42,7 +42,15 @@ async function viewOf(client, game) {
   return gameView(game, people);
 }
 
-async function applyElo(client, game, playerA, playerB, result, confirmedBy) {
+// `newSubmission` and `submittedBy` are forwarded to gamesRepo.saveFinalResult.
+// The default (newSubmission: false, submittedBy defaulting to the game's
+// existing submitter) is exactly today's behaviour for the player-confirmation
+// path: submitted_at is preserved. An admin override passes
+// { newSubmission: true, submittedBy: <admin id> } so submitted_at bumps to now
+// and the admin is recorded as the submitter.
+async function applyElo(client, game, playerA, playerB, result, confirmedBy, options = {}) {
+  const { newSubmission = false, submittedBy = game.submittedBy } = options;
+
   const matchScoreA = matchScoreFor(result, playerA.id, playerB.id);
   const { deltaA, deltaB } = calculateElo(playerA.rating, playerB.rating, matchScoreA);
 
@@ -58,7 +66,8 @@ async function applyElo(client, game, playerA, playerB, result, confirmedBy) {
   return gamesRepo.saveFinalResult(client, game.id, {
     result: { ...result, confirmedBy, confirmedAt: confirmedBy ? new Date().toISOString() : null },
     elo,
-    submittedBy: game.submittedBy
+    submittedBy,
+    newSubmission
   });
 }
 

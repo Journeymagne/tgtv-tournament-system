@@ -5,8 +5,7 @@ const gamesRepo = require("../db/repositories/games");
 const games = require("./games");
 const { publicUser, publicUserSummary, gameView, challengeProgressView } = require("./views");
 const { requireInteger } = require("../domain/validation");
-const { calculateSubmittedResult, matchScoreFor } = require("../domain/scoring");
-const { calculateElo, ELO_K } = require("../domain/elo");
+const { calculateSubmittedResult } = require("../domain/scoring");
 const { hashPassword, generateTemporaryPassword } = require("../domain/passwords");
 const { requirePositiveIntId } = require("./params");
 const { requireKillTeam, CLASSIFIED_TRACK, ALL_KILL_TEAM_TRACK, WILDCARDS } =
@@ -69,19 +68,12 @@ async function saveGameResult({ client, user, params, body }) {
   const refreshed = await usersRepo.findByIds(client, [playerA.id, playerB.id]);
   const beforeA = refreshed.find((person) => person.id === playerA.id);
   const beforeB = refreshed.find((person) => person.id === playerB.id);
-  const matchScoreA = matchScoreFor(result, beforeA.id, beforeB.id);
-  const { deltaA, deltaB } = calculateElo(beforeA.rating, beforeB.rating, matchScoreA);
-  const afterA = await usersRepo.addRating(client, beforeA.id, deltaA);
-  const afterB = await usersRepo.addRating(client, beforeB.id, deltaB);
-  // Admin override is a new submission, not a confirmation, so bump submitted_at.
-  const updated = await gamesRepo.saveFinalResult(client, game.id, {
-    result: { ...result, confirmedBy: user.id, confirmedAt: new Date().toISOString() },
-    elo: {
-      k: ELO_K,
-      [beforeA.id]: { before: beforeA.rating, after: afterA.rating, delta: deltaA },
-      [beforeB.id]: { before: beforeB.rating, after: afterB.rating, delta: deltaB }
-    },
-    submittedBy: user.id, newSubmission: true
+
+  // Admin override is a new submission, not a confirmation, so bump submitted_at
+  // and record the admin as the submitter.
+  const updated = await games.applyElo(client, game, beforeA, beforeB, result, user.id, {
+    newSubmission: true,
+    submittedBy: user.id
   });
 
   const people = await usersRepo.findByIds(client, updated.playerIds);
