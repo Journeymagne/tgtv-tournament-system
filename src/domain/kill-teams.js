@@ -154,6 +154,17 @@ function requireKillTeam(value) {
   return team;
 }
 
+// HIGH 1: restores the pre-refactor tolerance (server.js's
+// resultKillTeamInput returned "" for blank input instead of throwing). A
+// game result's faction may be left blank -- a legacy pending_result stored
+// before validation existed can have an empty faction, and re-validating it
+// on confirm must not make it permanently unconfirmable -- but a non-empty
+// value still has to resolve to a real Kill Team.
+function optionalKillTeam(value) {
+  if (!String(value || "").trim()) return "";
+  return requireKillTeam(value);
+}
+
 module.exports = {
   KILL_TEAMS,
   CLASSIFIED_TRACK,
@@ -164,5 +175,6 @@ module.exports = {
   LEGACY_NAMES,
   teamKey,
   canonicalKillTeam,
-  requireKillTeam
+  requireKillTeam,
+  optionalKillTeam
 };

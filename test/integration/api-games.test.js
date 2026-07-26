@@ -259,6 +259,32 @@ test("ожидающую игру может удалить только отп�
   );
 });
 
+test("HIGH 1: устаревший pending_result с пустой фракцией всё ещё можно подтвердить", async () => {
+  const game = await openGame();
+
+  // Simulates data written before validation existed (server.js's
+  // resultKillTeamInput tolerated blank input): store the pending result
+  // directly via the repository, bypassing submitResult's own validation,
+  // with alpha's faction left empty.
+  const legacyScores = scores(alpha.id, bravo.id);
+  legacyScores[alpha.id] = { ...legacyScores[alpha.id], faction: "" };
+  await gamesRepo.savePendingResult(client, game.id, {
+    submittedBy: alpha.id,
+    pendingResult: {
+      submittedBy: alpha.id,
+      submittedAt: new Date().toISOString(),
+      result: { winnerId: alpha.id, scores: legacyScores, killzone: null, tiebreakers: null }
+    }
+  });
+
+  const confirmed = await api.respondToResult({
+    client, user: bravo, params: { id: String(game.id), action: "confirm-result" }
+  });
+
+  assert.equal(confirmed.game.status, "completed");
+  assert.equal(confirmed.game.result.scores[alpha.id].faction, "");
+});
+
 test("список завершённых игр содержит игроков", async () => {
   const game = await openGame();
   await api.submitResult({

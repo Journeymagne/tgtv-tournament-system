@@ -14,7 +14,8 @@ const {
   LEGACY_NAMES,
   teamKey,
   canonicalKillTeam,
-  requireKillTeam
+  requireKillTeam,
+  optionalKillTeam
 } = require("../../src/domain/kill-teams");
 const { ValidationError } = require("../../src/http/io");
 
@@ -78,6 +79,15 @@ test("мусорный ввод не проходит", () => {
 test("requireKillTeam бросает ValidationError на мусоре", () => {
   assert.throws(() => requireKillTeam("Not A Real Team"), ValidationError);
   assert.equal(requireKillTeam("kasrkin"), "Kasrkin");
+});
+
+test("HIGH 1: optionalKillTeam допускает пустое значение, но не мусорное", () => {
+  assert.equal(optionalKillTeam(""), "");
+  assert.equal(optionalKillTeam("   "), "");
+  assert.equal(optionalKillTeam(null), "");
+  assert.equal(optionalKillTeam(undefined), "");
+  assert.equal(optionalKillTeam("kasrkin"), "Kasrkin");
+  assert.throws(() => optionalKillTeam("Not A Real Team"), ValidationError);
 });
 
 test("LEGACY_NAMES покрывает ровно расхождение старых словарей", () => {

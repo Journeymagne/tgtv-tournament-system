@@ -45,6 +45,13 @@ test("недопустимые очки и Kill Team отклоняются", ()
   assert.throws(() => calculateApprovedOps(ops({ faction: "Nope" })), ValidationError);
 });
 
+test("HIGH 1: пустая фракция допустима — restores server.js's resultKillTeamInput tolerance", () => {
+  assert.equal(calculateApprovedOps(ops({ faction: "" })).faction, "");
+  assert.equal(calculateApprovedOps(ops({ faction: undefined })).faction, "");
+  // Still rejects a non-empty value that isn't a real Kill Team.
+  assert.throws(() => calculateApprovedOps(ops({ faction: "Nope" })), ValidationError);
+});
+
 test("parseKillzone принимает пустой ввод", () => {
   assert.equal(parseKillzone(undefined), null);
   assert.equal(parseKillzone({}), null);

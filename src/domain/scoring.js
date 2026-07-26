@@ -1,5 +1,5 @@
 const { ValidationError } = require("../http/io");
-const { KILLZONES, CRIT_OPS, requireKillTeam } = require("./kill-teams");
+const { KILLZONES, CRIT_OPS, optionalKillTeam } = require("./kill-teams");
 const {
   scoreInput,
   primaryInput,
@@ -21,7 +21,7 @@ function calculateApprovedOps(player = {}) {
     crit: ops.crit,
     kill: ops.kill,
     tac: ops.tac,
-    faction: requireKillTeam(player.faction),
+    faction: optionalKillTeam(player.faction),
     tacOp: optionalTextInput(player.tacOp, "Tac Op"),
     primary,
     primaryScore: ops[primary],
