@@ -7,8 +7,7 @@ const sessions = require("../db/repositories/sessions");
 const challenges = require("../db/repositories/challenges");
 const games = require("../db/repositories/games");
 const { hashPassword, verifyPassword } = require("../domain/passwords");
-const { requireName, normalizeName, profileText, requiredProfileText, validateAvatarData } =
-  require("../domain/validation");
+const { requireName, normalizeName, profileText, requiredProfileText, validateAvatarData } = require("../domain/validation");
 const { userSummary } = require("./views");
 
 async function loadUserFromRequest(client, req) {
@@ -123,20 +122,24 @@ async function updateMe({ client, user, body }) {
     newPasswordHash = await hashPassword(newPassword);
   }
 
-  let updated = Object.keys(patch).length ? await users.updateProfile(client, user.id, patch) : user;
+  let updated = Object.keys(patch).length ? await applyProfilePatch(client, user.id, patch) : user;
   if (newPasswordHash) updated = await users.setPasswordHash(client, user.id, newPasswordHash);
 
   return buildUserSummary(client, updated);
 }
 
-// Serializes the first-admin check-and-insert across concurrent register/setup-admin
-// requests. pg_advisory_xact_lock is scoped to the ambient transaction and releases
-// automatically at commit or rollback of THAT transaction — this helper must not open
-// its own: routes carrying this helper are registered with tx: true, so the router
-// (src/http/router.js, via withTransaction in src/db/pool.js) already has one open
-// around the whole handler call. If this helper issued its own BEGIN/COMMIT here, the
-// COMMIT would commit the router's transaction early, making the rest of the handler's
-// work durable before the router can roll it back on a later failure.
+// MEDIUM 1: isNameTaken-then-write is a TOCTOU gap; map the resulting unique violation to 409, not 500.
+async function applyProfilePatch(client, id, patch) {
+  try {
+    return await users.updateProfile(client, id, patch);
+  } catch (err) {
+    if (err.code === "23505") throw new HttpError(409, "This name is already taken");
+    throw err;
+  }
+}
+
+// Serializes the first-admin check-and-insert via a transaction-scoped lock.
+// Must not open its own transaction: callers below are tx: true routes already inside one.
 const FIRST_ADMIN_LOCK_KEY = 847362951;
 
 async function withFirstAdminLock(client, run) {
@@ -157,8 +160,7 @@ async function setupAdmin({ client, body }) {
   });
 }
 
-// Заглушка нужной длины: verifyPassword на ней действительно считает scrypt,
-// поэтому время ответа не выдаёт, существует ли учётная запись.
+// Заглушка нужной длины: verifyPassword на ней всё равно считает scrypt, так что время ответа не выдаёт существование учётной записи.
 const ABSENT_USER_HASH = `${"0".repeat(32)}:${"0".repeat(128)}`;
 
 async function login({ client, body }) {
@@ -190,6 +192,7 @@ module.exports = {
   buildUserSummary,
   me,
   updateMe,
+  applyProfilePatch,
   register,
   setupAdmin,
   login,

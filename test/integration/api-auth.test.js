@@ -251,3 +251,40 @@ test("updateMe отклоняет занятое имя", async () => {
     (err) => err.status === 409
   );
 });
+
+test("MEDIUM 1: гонка при записи имени (23505) отображается как 409, а не 500", async () => {
+  await auth.register({ client, body: body("Alice") });
+  await auth.register({ client, body: body("Bob") });
+  const alice = await users.findByNameKey(client, "alice");
+  const bob = await users.findByNameKey(client, "bob");
+
+  const clientA = await pool.connect();
+  const clientB = await pool.connect();
+  try {
+    await clientA.query("BEGIN");
+    await clientB.query("BEGIN");
+
+    // clientA claims "Charlie" for Alice inside its own OPEN (uncommitted)
+    // transaction -- exactly the TOCTOU window an unlocked
+    // isNameTaken-then-write leaves open for a concurrent request.
+    await users.updateProfile(clientA, alice.id, { name: "Charlie" });
+
+    // clientB tries to write the same name for Bob via the fixed helper
+    // directly (bypassing isNameTaken, whose own outcome would otherwise
+    // depend on real timing here). Its UPDATE blocks on clientA's
+    // uncommitted unique-index entry until clientA resolves.
+    const promiseB = auth.applyProfilePatch(clientB, bob.id, { name: "Charlie" });
+
+    await clientA.query("COMMIT");
+
+    await assert.rejects(
+      promiseB,
+      (err) => err.status === 409 && err.message === "This name is already taken"
+    );
+  } finally {
+    await clientA.query("ROLLBACK").catch(() => {});
+    await clientB.query("ROLLBACK").catch(() => {});
+    clientA.release();
+    clientB.release();
+  }
+});
