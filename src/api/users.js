@@ -13,6 +13,7 @@ const {
   ALL_KILL_TEAM_TRACK,
   WILDCARDS
 } = require("../domain/kill-teams");
+const { requirePositiveIntId } = require("./params");
 
 const SEARCH_LIMIT = 10;
 
@@ -32,13 +33,17 @@ async function search({ client, user, query }) {
 }
 
 async function requireUser(client, id) {
-  const found = await usersRepo.findById(client, Number(id));
+  const found = await usersRepo.findById(client, id);
   if (!found) throw new HttpError(404, "User not found");
   return found;
 }
 
 async function profile({ client, user, params }) {
-  const target = await requireUser(client, params.id);
+  // A malformed path id (e.g. "abc") never matched the old server.js route
+  // regex, so it fell through to the router's own 404 "Route not found".
+  // Mirror that here instead of letting NaN reach the parameterized query.
+  const targetId = requirePositiveIntId(params.id, 404, "Route not found");
+  const target = await requireUser(client, targetId);
   const isSelf = target.id === user.id;
 
   const completedGames = await gamesRepo.listCompletedForUser(client, target.id);
@@ -73,7 +78,13 @@ async function profile({ client, user, params }) {
 }
 
 async function challengeProgress({ client, user, query }) {
-  const requestedId = Number(query.get("userId") || user.id);
+  // `userId` is a query parameter, not a path segment, so a malformed value
+  // never falls into the router's "route not found" case the way a bad
+  // path id does. server.js resolved it to "User not found" (the same 404
+  // a valid-but-unknown id gets) -- reproduce that instead of letting NaN
+  // reach the parameterized query.
+  const raw = query.get("userId");
+  const requestedId = raw ? requirePositiveIntId(raw, 404, "User not found") : user.id;
   const target = await requireUser(client, requestedId);
   const completedGames = await gamesRepo.listCompletedForUser(client, target.id);
 

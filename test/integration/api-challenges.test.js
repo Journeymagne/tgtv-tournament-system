@@ -184,3 +184,42 @@ test("share-токены уникальны", async () => {
   const second = await api.create({ client, user: alpha, body: { toUserId: charlie.id } });
   assert.notEqual(first.body.challenge.shareToken, second.body.challenge.shareToken);
 });
+
+test("нечисловой toUserId отдаёт 400, а не 500", async () => {
+  await assert.rejects(
+    () => api.create({ client, user: alpha, body: { toUserId: "abc" } }),
+    (err) => err.status === 400 && err.message === "Challenge target user not found"
+  );
+});
+
+test("отсутствующий toUserId отдаёт 400, а не 500", async () => {
+  await assert.rejects(
+    () => api.create({ client, user: alpha, body: {} }),
+    (err) => err.status === 400 && err.message === "Challenge target user not found"
+  );
+});
+
+test("нечисловой id в respond отдаёт 404, а не 500", async () => {
+  await assert.rejects(
+    () => api.respond({ client, user: alpha, params: { id: "abc", action: "accept" } }),
+    (err) => err.status === 404
+  );
+});
+
+test("посторонний с валидным share-токеном на обработанном челлендже получает 409, а не 403", async () => {
+  const created = await api.create({ client, user: alpha, body: { toUserId: bravo.id } });
+  const token = created.body.challenge.shareToken;
+  await api.respond({
+    client, user: bravo, params: { id: String(created.body.challenge.id), action: "decline" }
+  });
+
+  const charlie = await usersRepo.insert(client, {
+    name: "Charlie", passwordHash: "s:h", registerNickname: "", telegramContact: "@c",
+    rating: 1000, isAdmin: false
+  });
+
+  await assert.rejects(
+    () => api.acceptByShareToken({ client, user: charlie, params: { token } }),
+    (err) => err.status === 409 && err.message === "This challenge has already been handled"
+  );
+});

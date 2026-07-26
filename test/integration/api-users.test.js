@@ -193,3 +193,17 @@ test("challengeProgress умеет отдавать прогресс друго�
     (err) => err.status === 404
   );
 });
+
+test("нечисловой id профиля отдаёт 404, а не 500", async () => {
+  await assert.rejects(
+    () => api.profile({ client, user: alpha, params: { id: "abc" } }),
+    (err) => err.status === 404
+  );
+});
+
+test("нечисловой userId в challengeProgress отдаёт 404, а не 500", async () => {
+  await assert.rejects(
+    () => api.challengeProgress({ client, user: alpha, query: new URLSearchParams("userId=abc") }),
+    (err) => err.status === 404
+  );
+});
