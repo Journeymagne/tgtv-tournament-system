@@ -7,6 +7,7 @@ const {
   ValidationError,
   SECURITY_HEADERS,
   readBody,
+  clientKey,
   parseCookies,
   sendJson,
   sendText,
@@ -109,6 +110,29 @@ test("readBody отвергает тело, чей байтовый размер
   const stream = fakeRequest(body);
   await assert.rejects(() => readBody(stream, 10), HttpError);
   assert.equal(stream.destroyed, true);
+});
+
+test("clientKey игнорирует X-Forwarded-For, когда trustProxy выключен (Blocker 1)", () => {
+  const req = {
+    headers: { "x-forwarded-for": "1.2.3.4" },
+    socket: { remoteAddress: "10.0.0.9" }
+  };
+  assert.equal(clientKey(req, false), "10.0.0.9");
+});
+
+test("clientKey использует правый (добавленный прокси) адрес, когда trustProxy включён (Blocker 1)", () => {
+  const req = {
+    headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" },
+    socket: { remoteAddress: "10.0.0.9" }
+  };
+  // 1.2.3.4 is whatever the client put in the header; 5.6.7.8 is what this
+  // app's own trusted proxy appended, so only that one is trustworthy.
+  assert.equal(clientKey(req, true), "5.6.7.8");
+});
+
+test("clientKey с trustProxy включённым падает обратно на remoteAddress без заголовка", () => {
+  const req = { headers: {}, socket: { remoteAddress: "10.0.0.9" } };
+  assert.equal(clientKey(req, true), "10.0.0.9");
 });
 
 test("parseCookies разбирает пары", () => {

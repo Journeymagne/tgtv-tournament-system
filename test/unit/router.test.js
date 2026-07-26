@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
+const { PassThrough } = require("node:stream");
 
 const { matchRoute, normalizeApiPath, createRouter } = require("../../src/http/router");
 const { createRateLimiter } = require("../../src/http/rate-limit");
@@ -61,14 +62,14 @@ test("при равном числе динамических сегментов
   assert.equal(reversed.route.handler(), "foo-x");
 });
 
-async function callRouter(routes, deps, method, path, body) {
+async function callRouter(routes, deps, method, path, body, headers = {}) {
   const router = createRouter(routes, deps);
   const server = http.createServer((req, res) => router(req, res));
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();
   const res = await fetch(`http://127.0.0.1:${port}${path}`, {
     method,
-    headers: body ? { "content-type": "application/json" } : {},
+    headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
     body: body ? JSON.stringify(body) : undefined
   });
   const text = await res.text();
@@ -266,6 +267,9 @@ test("превышение auth-лимита отдаёт 429 без едино�
     loadUser: async () => null,
     authLimiter: limiter
   };
+  // Handler always fails: since Blocker 1, only failures spend budget (a
+  // successful attempt never does - see the dedicated test below), so this
+  // route needs to genuinely fail to exercise the max: 2 cutoff at all.
   const routes = [
     {
       method: "POST",
@@ -273,7 +277,9 @@ test("превышение auth-лимита отдаёт 429 без едино�
       auth: "none",
       tx: true,
       rateLimit: "auth",
-      handler: async () => ({ ok: true })
+      handler: async () => {
+        throw new HttpError(401, "Invalid name or password");
+      }
     }
   ];
 
@@ -281,8 +287,8 @@ test("превышение auth-лимита отдаёт 429 без едино�
   const second = await callRouter(routes, deps, "POST", "/api/login", {});
   const third = await callRouter(routes, deps, "POST", "/api/login", {});
 
-  assert.equal(first.status, 200);
-  assert.equal(second.status, 200);
+  assert.equal(first.status, 401);
+  assert.equal(second.status, 401);
   assert.equal(third.status, 429);
   assert.equal(third.body.error, "Too many attempts. Try again later.");
   // Exactly two runner invocations - one per allowed request. The rejected
@@ -316,4 +322,166 @@ test("createRouter по умолчанию использует общий ли�
 
   const res = await callRouter(routes, deps, "POST", "/api/default-limiter", {});
   assert.equal(res.status, 200);
+});
+
+test("Blocker 1: успешные попытки не расходуют бюджет rateLimit: auth — расходуют только ошибки", async () => {
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 2 });
+  let shouldFail = false;
+  const routes = [
+    {
+      method: "POST",
+      path: "/api/login",
+      auth: "none",
+      tx: true,
+      rateLimit: "auth",
+      handler: async () => {
+        if (shouldFail) throw new HttpError(401, "Invalid name or password");
+        return { ok: true };
+      }
+    }
+  ];
+  const deps = {
+    withClient: (fn) => fn(null),
+    withTransaction: (fn) => fn(null),
+    loadUser: async () => null,
+    authLimiter: limiter
+  };
+
+  // Far more successful "sign-ins" than max: none of them may trip the limiter.
+  for (let i = 0; i < 10; i += 1) {
+    const res = await callRouter(routes, deps, "POST", "/api/login", {});
+    assert.equal(res.status, 200, `successful attempt #${i} must not be rate limited`);
+  }
+
+  // Now spend the budget with genuine failures: max is 2, so the 3rd trips it.
+  shouldFail = true;
+  const first = await callRouter(routes, deps, "POST", "/api/login", {});
+  const second = await callRouter(routes, deps, "POST", "/api/login", {});
+  const third = await callRouter(routes, deps, "POST", "/api/login", {});
+  assert.equal(first.status, 401);
+  assert.equal(second.status, 401);
+  assert.equal(third.status, 429);
+});
+
+test("Blocker 1: TRUST_PROXY выключен по умолчанию — подменённый X-Forwarded-For не создаёт отдельный бюджет", async () => {
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 1 });
+  const routes = [
+    {
+      method: "POST",
+      path: "/api/login",
+      auth: "none",
+      tx: true,
+      rateLimit: "auth",
+      handler: async () => {
+        throw new HttpError(401, "Invalid name or password");
+      }
+    }
+  ];
+  const deps = {
+    withClient: (fn) => fn(null),
+    withTransaction: (fn) => fn(null),
+    loadUser: async () => null,
+    authLimiter: limiter
+    // trustProxy omitted -> defaults to config.TRUST_PROXY, which is off.
+  };
+
+  const first = await callRouter(routes, deps, "POST", "/api/login", {}, { "x-forwarded-for": "1.1.1.1" });
+  const second = await callRouter(routes, deps, "POST", "/api/login", {}, { "x-forwarded-for": "2.2.2.2" });
+
+  assert.equal(first.status, 401);
+  // Both requests arrive from the same real remoteAddress (127.0.0.1)
+  // despite claiming different X-Forwarded-For values -- with trustProxy
+  // off the header is never consulted, so they share one bucket and the
+  // second trips max: 1.
+  assert.equal(second.status, 429);
+});
+
+test("Blocker 1: TRUST_PROXY включён — используется добавленный прокси (правый) адрес цепочки", async () => {
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 1 });
+  const routes = [
+    {
+      method: "POST",
+      path: "/api/login",
+      auth: "none",
+      tx: true,
+      rateLimit: "auth",
+      handler: async () => {
+        throw new HttpError(401, "Invalid name or password");
+      }
+    }
+  ];
+  const deps = {
+    withClient: (fn) => fn(null),
+    withTransaction: (fn) => fn(null),
+    loadUser: async () => null,
+    authLimiter: limiter,
+    trustProxy: true
+  };
+
+  // Both requests claim the SAME spoofed leftmost ("client-controlled")
+  // entry but arrive with DIFFERENT rightmost (proxy-appended) addresses --
+  // these must be treated as two different clients, each with its own budget.
+  const first = await callRouter(
+    routes, deps, "POST", "/api/login", {}, { "x-forwarded-for": "9.9.9.9, 5.5.5.5" }
+  );
+  const second = await callRouter(
+    routes, deps, "POST", "/api/login", {}, { "x-forwarded-for": "9.9.9.9, 6.6.6.6" }
+  );
+  assert.equal(first.status, 401);
+  assert.equal(second.status, 401, "a different proxy-appended address must get its own budget");
+
+  // Repeating the first request's rightmost address is genuinely the same
+  // client hitting max: 1 again, so it must now be blocked.
+  const third = await callRouter(
+    routes, deps, "POST", "/api/login", {}, { "x-forwarded-for": "9.9.9.9, 5.5.5.5" }
+  );
+  assert.equal(third.status, 429);
+});
+
+test("Blocker 2: тело запроса читается до получения клиента из пула", async () => {
+  const calls = [];
+  const deps = {
+    withClient: (fn) => {
+      calls.push("client");
+      return fn(null);
+    },
+    withTransaction: (fn) => {
+      calls.push("transaction");
+      return fn(null);
+    },
+    loadUser: async () => null
+  };
+  const routes = [
+    {
+      method: "POST",
+      path: "/api/upload",
+      tx: true,
+      auth: "none",
+      handler: async ({ body }) => ({ echoed: body })
+    }
+  ];
+  const router = createRouter(routes, deps);
+
+  // A hand-built req that we control byte-by-byte, standing in for a slow
+  // client upload (e.g. a ~1MB avatar PATCH over poor Wi-Fi): nothing is
+  // written to it until the test says so.
+  const req = new PassThrough();
+  req.method = "POST";
+  req.url = "/api/upload";
+  req.headers = { host: "localhost" };
+  req.socket = { remoteAddress: "127.0.0.1" };
+  const res = { headersSent: false, writeHead() {}, end() {} };
+
+  const pending = router(req, res);
+
+  // Let a few ticks pass with the body still unsent. Pre-fix, the runner
+  // (withTransaction) was invoked BEFORE the body was read, so "transaction"
+  // would already be in `calls` here.
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, [], "no pool client should be acquired before the body is fully read");
+
+  req.end(Buffer.from(JSON.stringify({ hello: "world" })));
+  await pending;
+
+  assert.deepEqual(calls, ["transaction"]);
 });

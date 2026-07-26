@@ -56,6 +56,30 @@ function readBody(req, maxBytes = MAX_REQUEST_BYTES) {
   });
 }
 
+// Behind a reverse proxy, req.socket.remoteAddress is the proxy's own
+// address, not the client's - every request looks like it came from the
+// same place, which collapses a per-client rate limit into one shared
+// bucket for the whole site (Blocker 1). trustProxy is false by default
+// (see config.TRUST_PROXY) and is passed in explicitly - rather than read
+// from config here - so tests can exercise both branches without touching
+// process.env / module-cached config. When true, the client address is the
+// RIGHTMOST entry of X-Forwarded-For: the one this app's own trusted proxy
+// appended. The leftmost entries are whatever the client put in the header
+// and are fully under its control, so they are never trusted.
+function clientKey(req, trustProxy) {
+  if (trustProxy) {
+    const header = req.headers?.["x-forwarded-for"];
+    if (header) {
+      const chain = String(header)
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+      if (chain.length) return chain[chain.length - 1];
+    }
+  }
+  return req.socket?.remoteAddress || null;
+}
+
 function parseCookies(req) {
   const cookie = req.headers.cookie || "";
   return Object.fromEntries(
@@ -112,6 +136,7 @@ module.exports = {
   ValidationError,
   SECURITY_HEADERS,
   readBody,
+  clientKey,
   parseCookies,
   sendJson,
   sendText,
