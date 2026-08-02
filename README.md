@@ -4,63 +4,82 @@ A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, 
 
 ## Run
 
+PostgreSQL is required. Without `DATABASE_URL` the server refuses to start.
+
 ```powershell
+docker compose up -d
+npm install
 npm start
 ```
 
 After the server starts, open `http://127.0.0.1:3000`.
 
-The server uses port `3000` by default. For a staging replica, set another port in `.env`:
+## Configuration
+
+Copy `.env.example` to `.env` and fill in the values:
 
 ```env
-PORT=3001
+DB_PASSWORD=your_password
+DB_PORT=5432
+DATABASE_URL=postgres://tgtv:your_password@localhost:5432/tgtv_tournament
+PORT=3000
 ```
 
-## PostgreSQL
+Set `DB_PORT` to something else if port 5432 is already taken on your machine,
+and keep `DATABASE_URL` in sync with it.
 
-The app uses PostgreSQL when `DATABASE_URL` is set. Without `DATABASE_URL`, it falls back to `data/db.json`.
+For managed PostgreSQL services that require SSL, set `PGSSL=true`.
 
-### Local PostgreSQL with Docker
+The schema is created and upgraded automatically by versioned migrations on
+startup. Applied versions are recorded in the `schema_migrations` table.
 
-Install Docker Desktop, then run:
+## Deploying to production
+
+**`NODE_ENV=production` must be set on the running process.** `src/config.js`
+defaults `COOKIE_SECURE` to `NODE_ENV === "production"`, and the `Secure`
+flag on the session cookie is what stops it (and the admin password reset,
+which returns a plaintext temporary password over that same cookie's
+channel) from ever being sent over plain HTTP.
+
+`update_tgtv-ts.sh` sets `NODE_ENV=production` itself when it starts the app
+under pm2, so a deploy through that script gets this for free -- but if you
+start the app any other way (a different process manager, a container image,
+a manual `pm2 start`), you must set it yourself, e.g.:
+
+```bash
+NODE_ENV=production pm2 start server.js --name tgtv-app
+```
+
+If your setup can't rely on `NODE_ENV` (for example the app runs behind a
+proxy that already terminates TLS but `NODE_ENV` isn't propagated), set
+`COOKIE_SECURE=true` explicitly in `.env` instead -- it always overrides the
+`NODE_ENV`-based default. Only run without either setting on a deployment
+that is genuinely not served over HTTPS.
+
+`update_tgtv-ts.sh` also expects an env file to already exist outside the
+repo at the path it names (`ENV_FILE`, `/app/tgtv-ts.env` by default) and
+copies it into place on every deploy -- create it once from `.env.example`
+and update it there, not in the repo checkout.
+
+## Tests
+
+Tests need a separate database:
 
 ```powershell
-docker compose up -d
-node server.js
+docker compose exec postgres createdb -U tgtv tgtv_tournament_test
+npm test
 ```
 
-The local connection string is already written to `.env`:
+`npm run test:unit` runs the tests that need no database.
 
-```env
-DATABASE_URL=postgres://tgtv:tgtv_dev_password@localhost:5432/tgtv_tournament
-```
+## Migrating from JSON storage
 
-Stop the database:
+Earlier versions fell back to `data/db.json`. That fallback is gone. To move
+existing JSON data into PostgreSQL, run once:
 
 ```powershell
-docker compose down
+node scripts/import-json-db.js
 ```
-
-Delete the local database data:
-
-```powershell
-docker compose down -v
-```
-
-Create a `.env` file in the project root:
-
-```env
-DATABASE_URL=postgres://tgtv:tgtv_dev_password@localhost:5432/tgtv_tournament
-```
-
-For managed PostgreSQL services that require SSL:
-
-```env
-DATABASE_URL=postgres://user:password@host:5432/database
-PGSSL=true
-```
-
-On startup, the server creates the required tables automatically. If PostgreSQL is empty and `data/db.json` exists, existing JSON data is imported once.
 
 ## Features
 
@@ -72,5 +91,3 @@ On startup, the server creates the required tables automatically. If PostgreSQL 
 - automatic total and Elo calculation with `K=32`;
 - leaderboard;
 - admin panel: view users, delete users, edit ratings, assign administrators.
-
-Data is stored in `data/db.json`.
