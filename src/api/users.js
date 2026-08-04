@@ -2,6 +2,7 @@ const { HttpError } = require("../http/io");
 const usersRepo = require("../db/repositories/users");
 const gamesRepo = require("../db/repositories/games");
 const challengesRepo = require("../db/repositories/challenges");
+const tournamentMatchesRepo = require("../db/repositories/tournament-matches");
 const {
   leaderboardUser,
   publicUserSummary,
@@ -14,6 +15,12 @@ const {
   WILDCARDS
 } = require("../domain/kill-teams");
 const { requirePositiveIntId } = require("./params");
+const {
+  attachTournamentGameDetails,
+  collectSyntheticPeopleIds,
+  sortGameViews,
+  syntheticTournamentMatchGames
+} = require("./tournament-game-details");
 
 const SEARCH_LIMIT = 10;
 
@@ -46,7 +53,14 @@ async function profile({ client, user, params }) {
   const target = await requireUser(client, targetId);
   const isSelf = target.id === user.id;
 
-  const completedGames = await gamesRepo.listCompletedForUser(client, target.id);
+  const completedGames = await attachTournamentGameDetails(
+    client,
+    await gamesRepo.listCompletedForUser(client, target.id)
+  );
+  const completedUnlinkedTournamentMatches = await tournamentMatchesRepo.listCompletedUnlinkedForUser(
+    client,
+    target.id
+  );
   const activeGame = isSelf ? null : await gamesRepo.findActiveBetween(client, user.id, target.id);
   const pendingChallenge = isSelf
     ? null
@@ -59,21 +73,28 @@ async function profile({ client, user, params }) {
   for (const game of [...completedGames, ...adminPendingGames]) {
     for (const id of game.playerIds) peopleIds.add(id);
   }
+  for (const id of collectSyntheticPeopleIds(completedUnlinkedTournamentMatches)) {
+    peopleIds.add(id);
+  }
   if (activeGame) for (const id of activeGame.playerIds) peopleIds.add(id);
   if (pendingChallenge) {
     peopleIds.add(pendingChallenge.fromUserId);
     peopleIds.add(pendingChallenge.toUserId);
   }
   const people = await usersRepo.findByIds(client, [...peopleIds]);
+  const allCompletedGames = sortGameViews([
+    ...completedGames,
+    ...syntheticTournamentMatchGames(completedUnlinkedTournamentMatches, people)
+  ]);
 
   return publicProfileSummary({
     user: target,
-    completedGames,
+    completedGames: allCompletedGames,
     people,
     activeGame,
     pendingChallenge,
     adminPendingGames,
-    allGamesForProgress: completedGames
+    allGamesForProgress: allCompletedGames
   });
 }
 
@@ -87,12 +108,24 @@ async function challengeProgress({ client, user, query }) {
   const requestedId = raw ? requirePositiveIntId(raw, 404, "User not found") : user.id;
   const target = await requireUser(client, requestedId);
   const completedGames = await gamesRepo.listCompletedForUser(client, target.id);
+  const completedUnlinkedTournamentMatches = await tournamentMatchesRepo.listCompletedUnlinkedForUser(
+    client,
+    target.id
+  );
 
   return {
     teams: CLASSIFIED_TRACK,
     wildcards: WILDCARDS,
     allKillTeamTeams: ALL_KILL_TEAM_TRACK,
-    users: [challengeProgressView(completedGames, target)]
+    users: [
+      challengeProgressView(
+        sortGameViews([
+          ...completedGames,
+          ...syntheticTournamentMatchGames(completedUnlinkedTournamentMatches)
+        ]),
+        target
+      )
+    ]
   };
 }
 

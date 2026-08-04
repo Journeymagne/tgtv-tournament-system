@@ -34,7 +34,19 @@ test("migrate на пустой базе создаёт схему", async () =>
     `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`
   );
   const tables = rows.map((row) => row.tablename);
-  for (const table of ["challenges", "feedback", "games", "schema_migrations", "sessions", "users"]) {
+  for (const table of [
+    "challenges",
+    "feedback",
+    "games",
+    "schema_migrations",
+    "sessions",
+    "tournament_audit_events",
+    "tournament_matches",
+    "tournament_participants",
+    "tournament_rounds",
+    "tournaments",
+    "users"
+  ]) {
     assert.ok(tables.includes(table), `ожидалась таблица ${table}`);
   }
 });

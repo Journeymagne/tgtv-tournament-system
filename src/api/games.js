@@ -2,10 +2,17 @@ const { HttpError } = require("../http/io");
 const usersRepo = require("../db/repositories/users");
 const gamesRepo = require("../db/repositories/games");
 const challengesRepo = require("../db/repositories/challenges");
+const tournamentMatchesRepo = require("../db/repositories/tournament-matches");
 const { calculateSubmittedResult, matchScoreFor } = require("../domain/scoring");
 const { calculateElo, ELO_K } = require("../domain/elo");
 const { gameView } = require("./views");
 const { requirePositiveIntId } = require("./params");
+const {
+  attachTournamentGameDetails,
+  collectSyntheticPeopleIds,
+  sortGameViews,
+  syntheticTournamentMatchGames
+} = require("./tournament-game-details");
 
 const { ACTIVE_STATUSES } = gamesRepo;
 
@@ -20,6 +27,9 @@ async function lockGame(client, id) {
   const gameId = requirePositiveIntId(id, 404, "Route not found");
   const game = await gamesRepo.lockById(client, gameId);
   if (!game) throw new HttpError(404, "Game not found");
+  if (game.sourceType !== "challenge") {
+    throw new HttpError(409, "Tournament games are managed from the tournament match");
+  }
   return game;
 }
 
@@ -105,13 +115,20 @@ async function cancelGame(client, game) {
 }
 
 async function listCompleted({ client }) {
-  const completed = await gamesRepo.listCompleted(client);
+  const completed = await attachTournamentGameDetails(client, await gamesRepo.listCompleted(client));
+  const unlinkedTournamentMatches = await tournamentMatchesRepo.listCompletedUnlinked(client);
   const peopleIds = new Set();
   for (const game of completed) {
     for (const id of game.playerIds) peopleIds.add(id);
   }
+  for (const id of collectSyntheticPeopleIds(unlinkedTournamentMatches)) peopleIds.add(id);
   const people = await usersRepo.findByIds(client, [...peopleIds]);
-  return { games: completed.map((game) => gameView(game, people)) };
+  return {
+    games: sortGameViews([
+      ...completed.map((game) => gameView(game, people)),
+      ...syntheticTournamentMatchGames(unlinkedTournamentMatches, people)
+    ])
+  };
 }
 
 async function submitResult({ client, user, params, body }) {

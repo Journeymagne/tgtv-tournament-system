@@ -69,6 +69,11 @@ async function listWithGameCounts(client) {
   return rows.map((row) => ({ ...mapUser(row), gamesPlayed: row.games_played }));
 }
 
+async function listForRatingReplay(client) {
+  const { rows } = await client.query(`SELECT ${COLUMNS} FROM users ORDER BY id FOR UPDATE`);
+  return rows.map(mapUser);
+}
+
 // Escapes LIKE metacharacters (\, %, _) so a search term is matched as a
 // literal substring, matching the plain `.includes()` semantics of the
 // legacy in-memory search this repository replaces.
@@ -212,6 +217,7 @@ module.exports = {
   isNameTaken,
   listLeaderboard,
   listWithGameCounts,
+  listForRatingReplay,
   search,
   insert,
   updateProfile,

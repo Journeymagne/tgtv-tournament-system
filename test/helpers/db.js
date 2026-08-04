@@ -14,7 +14,18 @@ function testPool() {
   return pool;
 }
 
-const TABLES = ["sessions", "feedback", "games", "challenges", "users"];
+const TABLES = [
+  "tournament_audit_events",
+  "tournament_matches",
+  "tournament_rounds",
+  "tournament_participants",
+  "tournaments",
+  "sessions",
+  "feedback",
+  "games",
+  "challenges",
+  "users"
+];
 
 async function resetDatabase() {
   const client = await testPool().connect();

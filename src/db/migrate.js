@@ -2,7 +2,11 @@ const { logError } = require("../http/logger");
 
 const MIGRATIONS = [
   require("./migrations/001_baseline"),
-  require("./migrations/002_kill_team_names")
+  require("./migrations/002_kill_team_names"),
+  require("./migrations/003_tournaments"),
+  require("./migrations/004_tournament_creation_settings"),
+  require("./migrations/005_tournament_tiebreakers"),
+  require("./migrations/006_tournament_game_backfill")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

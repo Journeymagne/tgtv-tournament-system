@@ -6,9 +6,18 @@ const users = require("../db/repositories/users");
 const sessions = require("../db/repositories/sessions");
 const challenges = require("../db/repositories/challenges");
 const games = require("../db/repositories/games");
+const tournamentMatches = require("../db/repositories/tournament-matches");
 const { hashPassword, verifyPassword } = require("../domain/passwords");
 const { requireName, normalizeName, profileText, requiredProfileText, validateAvatarData } = require("../domain/validation");
-const { userSummary } = require("./views");
+const { userSummary, tournamentMatchGameView } = require("./views");
+const {
+  attachTournamentGameDetails,
+  collectSyntheticPeopleIds,
+  sortGameViews,
+  syntheticTournamentMatchGames
+} = require("./tournament-game-details");
+
+const { ACTIVE_STATUSES } = games;
 
 async function loadUserFromRequest(client, req) {
   const token = parseCookies(req).sid;
@@ -25,28 +34,56 @@ async function startSession(client, userId) {
 }
 
 async function buildUserSummary(client, user) {
-  const [userChallenges, userGames] = await Promise.all([
+  const [
+    userChallenges,
+    userGames,
+    activeTournamentMatches,
+    completedUnlinkedTournamentMatches
+  ] = await Promise.all([
     challenges.listForUser(client, user.id),
-    games.listForUser(client, user.id)
+    games.listForUser(client, user.id),
+    tournamentMatches.listActiveForUser(client, user.id),
+    tournamentMatches.listCompletedUnlinkedForUser(client, user.id)
   ]);
+
+  const gamesWithoutActiveTournamentDuplicates = await attachTournamentGameDetails(client, userGames.filter(
+    (game) => !(game.sourceType === "tournament_match" && ACTIVE_STATUSES.includes(game.status))
+  ));
 
   const peopleIds = new Set([user.id]);
   for (const challenge of userChallenges) {
     peopleIds.add(challenge.fromUserId);
     peopleIds.add(challenge.toUserId);
   }
-  for (const game of userGames) {
+  for (const game of gamesWithoutActiveTournamentDuplicates) {
     for (const id of game.playerIds) peopleIds.add(id);
+  }
+  for (const item of activeTournamentMatches) {
+    if (item.participantA.userId) peopleIds.add(item.participantA.userId);
+    if (item.participantB.userId) peopleIds.add(item.participantB.userId);
+  }
+  for (const id of collectSyntheticPeopleIds(completedUnlinkedTournamentMatches)) {
+    peopleIds.add(id);
   }
 
   const people = await users.findByIds(client, [...peopleIds]);
   const hasAdmin = await users.hasAdmin(client);
+  const completedSyntheticTournamentGames = syntheticTournamentMatchGames(
+    completedUnlinkedTournamentMatches,
+    people
+  );
 
   return userSummary({
     user,
     hasAdmin,
     challenges: userChallenges,
-    games: userGames,
+    games: sortGameViews([
+      ...gamesWithoutActiveTournamentDuplicates,
+      ...completedSyntheticTournamentGames
+    ]),
+    tournamentGames: activeTournamentMatches.map((item) =>
+      tournamentMatchGameView({ ...item, people })
+    ),
     people
   });
 }

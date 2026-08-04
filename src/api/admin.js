@@ -8,6 +8,7 @@ const { requireInteger } = require("../domain/validation");
 const { calculateSubmittedResult } = require("../domain/scoring");
 const { hashPassword, generateTemporaryPassword } = require("../domain/passwords");
 const { requirePositiveIntId } = require("./params");
+const { recalculateCompletedGameRatings } = require("./rating-replay");
 const { requireKillTeam, CLASSIFIED_TRACK, ALL_KILL_TEAM_TRACK, WILDCARDS } =
   require("../domain/kill-teams");
 
@@ -75,9 +76,11 @@ async function saveGameResult({ client, user, params, body }) {
     newSubmission: true,
     submittedBy: user.id
   });
+  await recalculateCompletedGameRatings(client);
 
-  const people = await usersRepo.findByIds(client, updated.playerIds);
-  return { game: gameView(updated, people) };
+  const replayed = await gamesRepo.findById(client, updated.id);
+  const people = await usersRepo.findByIds(client, replayed.playerIds);
+  return { game: gameView(replayed, people) };
 }
 
 async function listUsers({ client }) {

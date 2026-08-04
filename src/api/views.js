@@ -57,6 +57,10 @@ function challengeView(challenge, people) {
 }
 
 function gameView(game, people) {
+  if (Array.isArray(game.players) && game.players.length) {
+    return { ...game, players: game.players };
+  }
+
   return {
     ...game,
     players: (game.playerIds || [])
@@ -83,12 +87,12 @@ function challengeProgressView(games, user) {
   return { ...classified, tracks: { classified, allKillTeam } };
 }
 
-function userSummary({ user, hasAdmin, challenges, games, people }) {
+function userSummary({ user, hasAdmin, challenges, games, tournamentGames = [], people }) {
   return {
     user: publicUser(user),
     hasAdmin,
     challenges: challenges.map((challenge) => challengeView(challenge, people)),
-    games: games.map((game) => gameView(game, people))
+    games: [...games.map((game) => gameView(game, people)), ...tournamentGames]
   };
 }
 
@@ -127,6 +131,174 @@ function publicProfileSummary({
   };
 }
 
+function tournamentParticipantView(participant, people = []) {
+  const user = findUser(people, participant.userId);
+  return {
+    id: participant.id,
+    tournamentId: participant.tournamentId,
+    userId: participant.userId,
+    user: user ? publicUser(user) : null,
+    displayName: participant.displayName,
+    faction: participant.faction || "",
+    factionRules: participant.factionRules || "",
+    seed: participant.seed,
+    status: participant.status,
+    source: participant.source,
+    joinedAt: participant.joinedAt,
+    withdrawnAt: participant.withdrawnAt,
+    removedAt: participant.removedAt,
+    placedAt: participant.placedAt
+  };
+}
+
+function tournamentMatchView(match, participantById = new Map()) {
+  return {
+    id: match.id,
+    tournamentId: match.tournamentId,
+    roundId: match.roundId,
+    roundNumber: match.roundNumber,
+    bracketPosition: match.bracketPosition,
+    status: match.status,
+    isBye: match.isBye,
+    participantAId: match.participantAId,
+    participantBId: match.participantBId,
+    participantA: participantById.get(match.participantAId) || null,
+    participantB: participantById.get(match.participantBId) || null,
+    sourceMatchAId: match.sourceMatchAId,
+    sourceMatchBId: match.sourceMatchBId,
+    winnerParticipantId: match.winnerParticipantId,
+    pendingResult: match.pendingResult,
+    result: match.result,
+    matchPoints: match.matchPoints,
+    elo: match.elo,
+    gameId: match.gameId,
+    completedAt: match.completedAt
+  };
+}
+
+function tournamentRoundView(round, matches, participantById) {
+  return {
+    id: round.id,
+    tournamentId: round.tournamentId,
+    roundNumber: round.roundNumber,
+    status: round.status,
+    metadata: round.metadata,
+    startedAt: round.startedAt,
+    completedAt: round.completedAt,
+    matches: matches
+      .filter((match) => match.roundId === round.id)
+      .map((match) => tournamentMatchView(match, participantById))
+  };
+}
+
+function tournamentSummaryView(tournament) {
+  return {
+    id: tournament.id,
+    ownerUserId: tournament.ownerUserId,
+    slug: tournament.slug,
+    name: tournament.name,
+    description: tournament.description,
+    gameSystem: tournament.gameSystem,
+    startsAt: tournament.startsAt,
+    rulesSummary: tournament.rulesSummary,
+    rulesLink: tournament.rulesLink,
+    status: tournament.status,
+    format: tournament.format,
+    swissRoundCount: tournament.swissRoundCount,
+    singleEliminationSize: tournament.singleEliminationSize,
+    tiebreakerOrder: tournament.tiebreakerOrder,
+    ratingPolicy: tournament.ratingPolicy,
+    challengeCreditPolicy: tournament.challengeCreditPolicy,
+    finalResults: tournament.finalResults,
+    participantCount: tournament.participantCount,
+    roundCount: tournament.roundCount,
+    publishedAt: tournament.publishedAt,
+    startedAt: tournament.startedAt,
+    completedAt: tournament.completedAt,
+    cancelledAt: tournament.cancelledAt,
+    createdAt: tournament.createdAt
+  };
+}
+
+function tournamentParticipantPlayer(participant) {
+  if (!participant) return null;
+  const user = participant.user || null;
+  return {
+    id: participant.userId || -participant.id,
+    name: participant.displayName || user?.name || "Player",
+    rating: user?.rating || null,
+    faction: participant.faction || "",
+    tournamentParticipantId: participant.id,
+    hasProfile: Boolean(participant.userId)
+  };
+}
+
+function tournamentMatchGameView({ tournament, match, participantA, participantB, people = [] }) {
+  const participantViews = [participantA, participantB].map((participant) =>
+    tournamentParticipantView(participant, people)
+  );
+  const participantById = new Map(participantViews.map((participant) => [participant.id, participant]));
+  const matchView = tournamentMatchView(match, participantById);
+  const players = participantViews.map(tournamentParticipantPlayer).filter(Boolean);
+
+  return {
+    id: `tournament-match-${match.id}`,
+    sourceType: "tournament_match",
+    sourceId: match.id,
+    status: match.status === "completed"
+      ? "completed"
+      : match.status === "pending_confirmation"
+        ? "pending_confirmation"
+        : "open",
+    createdAt: match.createdAt,
+    submittedBy: match.submittedByUserId,
+    submittedAt: match.pendingResult?.submittedAt || match.completedAt || null,
+    pendingResult: match.pendingResult,
+    result: match.result,
+    elo: match.elo,
+    playerIds: players.filter((player) => player.hasProfile).map((player) => player.id),
+    players,
+    tournament: tournamentSummaryView(tournament),
+    tournamentMatch: matchView
+  };
+}
+
+function tournamentDetailView({
+  tournament,
+  participants = [],
+  people = [],
+  rounds = [],
+  matches = [],
+  standings = [],
+  viewer = {},
+  auditEvents = []
+}) {
+  const participantViews = participants.map((participant) =>
+    tournamentParticipantView(participant, people)
+  );
+  const participantById = new Map(participantViews.map((participant) => [participant.id, participant]));
+  return {
+    tournament: { ...tournamentSummaryView(tournament), viewer },
+    participants: participantViews,
+    rounds: rounds.map((round) => tournamentRoundView(round, matches, participantById)),
+    standings: standings.map((row) => ({
+      rank: row.rank,
+      participantId: row.participant.id,
+      wins: row.wins,
+      draws: row.draws,
+      losses: row.losses,
+      matchPoints: row.matchPoints,
+      byes: row.byes,
+      strengthOfSchedule: row.strengthOfSchedule,
+      buchholz: row.buchholz,
+      totalVp: row.totalVp,
+      vpDiff: row.vpDiff
+    })),
+    finalResults: tournament.finalResults || null,
+    auditEvents
+  };
+}
+
 module.exports = {
   publicUser,
   publicUserSummary,
@@ -136,5 +308,11 @@ module.exports = {
   feedbackView,
   challengeProgressView,
   userSummary,
-  publicProfileSummary
+  publicProfileSummary,
+  tournamentSummaryView,
+  tournamentDetailView,
+  tournamentParticipantView,
+  tournamentMatchGameView,
+  tournamentMatchView,
+  tournamentRoundView
 };

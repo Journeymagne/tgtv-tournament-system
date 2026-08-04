@@ -9,6 +9,8 @@ const state = {
   allGames: [],
   gamesError: "",
   selectedGameId: null,
+  tournaments: [],
+  tournamentsError: "",
   challengeProgress: [],
   challengeError: "",
   selectedChallengeUserId: null,
@@ -20,9 +22,21 @@ const state = {
   statisticsFilters: { classification: "all", team: "" },
   statisticsSort: { key: "winRate", dir: "desc" },
   gameFilters: { playerQuery: "", playerId: "", team: "" },
+  leaderboardTab: "leaderboard",
+  leaderboardPage: 1,
+  adminUsersPage: 1,
+  gamesTab: "history",
+  tournamentsTab: "public",
   searchResults: [],
   adminUsers: [],
   adminGames: [],
+  adminTournaments: [],
+  adminTournamentMode: "list",
+  selectedTournamentId: null,
+  adminTournamentDetail: null,
+  adminTournamentPreview: null,
+  publicTournamentDetail: null,
+  tournamentInfoTab: "standings",
   adminPasswordReset: null,
   playerProfile: null,
   feedback: [],
@@ -33,6 +47,21 @@ const state = {
 
 let searchDebounce = null;
 let searchRequestId = 0;
+let publicTournamentRequestId = 0;
+
+const LEADERBOARD_PAGE_SIZE = 50;
+
+const standingsTiebreakerOptions = [
+  { key: "strength_of_schedule", label: "Strength of Schedule" },
+  { key: "buchholz", label: "Buchholz" },
+  { key: "head_to_head", label: "Head-to-head" },
+  { key: "total_vp", label: "Total VP" },
+  { key: "vp_diff", label: "VP Diff" }
+];
+
+const singleEliminationSizes = [8, 16, 32, 64];
+const gameSystemOptions = ["Warhammer 40k Kill Team"];
+const MAX_TOURNAMENT_RULES_PDF_SIZE = 2 * 1024 * 1024;
 
 const opLabels = {
   crit: "Crit Op",
@@ -376,6 +405,7 @@ async function boot() {
   try {
     await refresh();
     await loadTop();
+    if (state.me) await applyAppRouteFromHash();
     render();
   } catch (err) {
     app.innerHTML = `<div class="loading">${escapeHtml(err.message)}</div>`;
@@ -383,12 +413,179 @@ async function boot() {
 }
 
 function render() {
+  const tournamentSlug = tournamentSlugFromHash();
+  if (tournamentSlug) {
+    renderPublicTournamentRoute(tournamentSlug);
+    return;
+  }
   if (!state.me) {
     renderAuth();
     return;
   }
   renderShell();
   handleSharedChallengeHash();
+}
+
+window.addEventListener("hashchange", handleHashNavigation);
+window.addEventListener("popstate", handleHashNavigation);
+
+async function handleHashNavigation() {
+  try {
+    if (tournamentSlugFromHash() || !state.me) {
+      render();
+      return;
+    }
+    const routed = await applyAppRouteFromHash();
+    if (routed) renderShell();
+    else render();
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+function hashSegments() {
+  const raw = String(window.location.hash || "").replace(/^#\/?/, "").replace(/\/+$/, "");
+  if (!raw) return [];
+  return raw.split("/").filter(Boolean).map((segment) => {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      return "";
+    }
+  });
+}
+
+function appRouteFromHash() {
+  if (tournamentSlugFromHash() || sharedChallengeTokenFromHash()) return null;
+  const segments = hashSegments();
+  if (!segments.length) return null;
+  const [section, subroute, id] = segments;
+  if (section === "matchmaking" || section === "play") return { view: "play" };
+  if (section === "leaderboard" || section === "top") {
+    return { view: "top", leaderboardTab: subroute === "users" ? "users" : "leaderboard" };
+  }
+  if (section === "games") {
+    if (subroute === "game") return { view: "gameDetail", selectedGameId: Number(id) };
+    return { view: "games", gamesTab: subroute === "sessions" ? "sessions" : "history" };
+  }
+  if (section === "tournaments") {
+    if (subroute === "admin") {
+      return {
+        view: "tournaments",
+        tournamentsTab: "admin",
+        adminTournamentMode: id === "create" ? "create" : id ? "detail" : "list",
+        selectedTournamentId: id && id !== "create" ? Number(id) : null
+      };
+    }
+    return { view: "tournaments", tournamentsTab: "public" };
+  }
+  if (section === "stats" || section === "statistics") return { view: "statistics" };
+  if (section === "profile") return { view: "profile" };
+  if (section === "players") return { view: "player", selectedPlayerId: Number(subroute) };
+  if (section === "challenge") return { view: "challenge" };
+  if (section === "feedback") return { view: "feedback" };
+  return null;
+}
+
+async function applyAppRouteFromHash() {
+  const route = appRouteFromHash();
+  if (!route) return false;
+  await applyAppRoute(route);
+  return true;
+}
+
+async function applyAppRoute(route) {
+  state.adminPasswordReset = null;
+  state.view = route.view;
+  state.playerProfile = null;
+  state.selectedGameId = null;
+  if (route.view !== "tournaments") {
+    state.adminTournamentMode = "list";
+    state.selectedTournamentId = null;
+    state.adminTournamentDetail = null;
+    state.adminTournamentPreview = null;
+  }
+  if (route.view === "challenge") {
+    state.challengeOpenedFromProfile = false;
+    state.selectedChallengeUserId = state.me.id;
+  } else {
+    state.selectedChallengeUserId = null;
+    state.challengeOpenedFromProfile = false;
+  }
+  if (route.view === "feedback") state.feedbackMode = "form";
+  if (route.view === "top") {
+    state.leaderboardTab = state.me?.isAdmin ? route.leaderboardTab || "leaderboard" : "leaderboard";
+    if (state.leaderboardTab === "users") await loadAdminUsers();
+    else await loadTop();
+  } else if (route.view === "games") {
+    state.gamesTab = state.me?.isAdmin ? route.gamesTab || "history" : "history";
+    if (state.gamesTab === "sessions") await loadAdminGames();
+    else await loadGames();
+  } else if (route.view === "gameDetail") {
+    state.selectedGameId = Number.isInteger(route.selectedGameId) && route.selectedGameId > 0 ? route.selectedGameId : null;
+    await loadGames();
+  } else if (route.view === "tournaments") {
+    state.tournamentsTab = state.me?.isAdmin ? route.tournamentsTab || "public" : "public";
+    if (state.tournamentsTab === "admin") {
+      state.adminTournamentMode = route.adminTournamentMode || "list";
+      state.selectedTournamentId = Number.isInteger(route.selectedTournamentId) && route.selectedTournamentId > 0
+        ? route.selectedTournamentId
+        : null;
+      state.adminTournamentDetail = null;
+      state.adminTournamentPreview = null;
+      await loadTournamentAdmin();
+    } else {
+      state.adminTournamentMode = "list";
+      state.selectedTournamentId = null;
+      state.adminTournamentDetail = null;
+      state.adminTournamentPreview = null;
+      await loadTournaments();
+    }
+  } else if (route.view === "statistics") {
+    await loadGames();
+  } else if (route.view === "profile") {
+    await loadChallengeProgress(state.me.id);
+  } else if (route.view === "player") {
+    const selectedPlayerId = Number.isInteger(route.selectedPlayerId) && route.selectedPlayerId > 0 ? route.selectedPlayerId : state.me.id;
+    if (selectedPlayerId === state.me.id) {
+      state.view = "profile";
+      state.playerProfile = null;
+      await loadChallengeProgress(state.me.id);
+    } else {
+      await loadPlayerProfile(selectedPlayerId);
+    }
+  } else if (route.view === "challenge") {
+    await loadChallengeProgress(state.selectedChallengeUserId || state.me.id);
+  }
+}
+
+function appHashForState() {
+  if (state.view === "play") return "#/matchmaking";
+  if (state.view === "top") return state.leaderboardTab === "users" ? "#/leaderboard/users" : "#/leaderboard";
+  if (state.view === "games") return state.gamesTab === "sessions" ? "#/games/sessions" : "#/games";
+  if (state.view === "gameDetail" && state.selectedGameId) return `#/games/game/${encodeURIComponent(state.selectedGameId)}`;
+  if (state.view === "tournaments") {
+    if (state.tournamentsTab === "admin") {
+      if (state.adminTournamentMode === "create") return "#/tournaments/admin/create";
+      if (state.selectedTournamentId) return `#/tournaments/admin/${encodeURIComponent(state.selectedTournamentId)}`;
+      return "#/tournaments/admin";
+    }
+    return "#/tournaments";
+  }
+  if (state.view === "statistics") return "#/stats";
+  if (state.view === "profile") return "#/profile";
+  if (state.view === "player" && state.playerProfile?.user?.id) return `#/players/${encodeURIComponent(state.playerProfile.user.id)}`;
+  if (state.view === "challenge") return "#/challenge";
+  if (state.view === "feedback") return "#/feedback";
+  return "";
+}
+
+function syncAppHash(options = {}) {
+  const hash = appHashForState();
+  if (!hash || window.location.hash === hash) return;
+  const url = `${window.location.pathname}${window.location.search}${hash}`;
+  if (options.replace) window.history.replaceState(null, "", url);
+  else window.history.pushState(null, "", url);
 }
 
 function sharedChallengeTokenFromHash() {
@@ -401,9 +598,607 @@ function sharedChallengeTokenFromHash() {
   }
 }
 
+function tournamentSlugFromHash() {
+  const segments = hashSegments();
+  if (segments.length !== 2 || segments[0] !== "tournaments" || segments[1] === "admin") return "";
+  return segments[1] || "";
+}
+
 function clearSharedChallengeHash() {
   if (!String(window.location.hash || "").startsWith("#challenge/")) return;
   window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+}
+
+function clearTournamentHash() {
+  if (!tournamentSlugFromHash()) return;
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+}
+
+async function renderPublicTournamentRoute(slug) {
+  const requestId = ++publicTournamentRequestId;
+  publicTournamentContainer().innerHTML = `<div class="loading">Loading tournament...</div>`;
+  try {
+    const data = await api(`/api/tournaments/${encodeURIComponent(slug)}`);
+    if (requestId !== publicTournamentRequestId) return;
+    renderPublicTournament(data);
+  } catch (err) {
+    if (requestId !== publicTournamentRequestId) return;
+    state.publicTournamentDetail = null;
+    publicTournamentContainer().innerHTML = `
+      <div class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
+        <section class="card panel public-tournament-shell">
+          <div class="panel-header">
+            <div>
+              <h2>Tournament not found</h2>
+              <p class="muted">${escapeHtml(err.message)}</p>
+            </div>
+            ${state.me ? "" : `
+              <div class="row-actions">
+                <button class="small-button" data-public-login>Sign in</button>
+              </div>
+            `}
+          </div>
+        </section>
+      </div>
+    `;
+    wirePublicTournamentNav();
+  }
+}
+
+function publicTournamentContainer() {
+  if (!state.me) return app;
+  const shouldRenderShell = state.view !== "tournaments" || !document.querySelector("[data-content]");
+  state.view = "tournaments";
+  state.tournamentsTab = "public";
+  state.adminTournamentMode = "list";
+  state.selectedTournamentId = null;
+  state.adminTournamentDetail = null;
+  state.adminTournamentPreview = null;
+  if (shouldRenderShell) renderShell();
+  return document.querySelector("[data-content]");
+}
+
+function renderPublicTournament(data) {
+  const tournament = data.tournament || {};
+  state.publicTournamentDetail = data;
+  if (!canManageTournamentParticipants(data)) state.tournamentInfoTab = "standings";
+  publicTournamentContainer().innerHTML = `
+    <div class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
+      <section class="card panel public-tournament-shell">
+        <div class="panel-header public-tournament-header">
+          <div>
+            <p class="profile-label">${escapeHtml(formatLabel(tournament.format))}</p>
+            <h2>${escapeHtml(tournament.name || "Tournament")}</h2>
+            <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}${tournament.startsAt ? ` · ${fmtDate(tournament.startsAt)}` : ""}</p>
+          </div>
+          <div class="row-actions">
+            ${state.me ? `
+              ${publicTournamentViewerActions(data)}
+              ${tournament.viewer?.canAdmin ? `<button class="small-button" data-public-admin-tournament="${tournament.id}">Manage</button>` : ""}
+            ` : `
+              <button class="small-button" data-public-login>Sign in</button>
+              <button class="primary-button" data-public-register>Register</button>
+            `}
+          </div>
+        </div>
+        ${tournament.description ? `<p class="public-tournament-description">${escapeHtml(tournament.description)}</p>` : ""}
+        ${tournamentRulesLinkMarkup(tournament)}
+        <section class="profile-grid">
+          ${metricCard("Players", (data.participants || []).filter((item) => item.status !== "removed").length)}
+          ${metricCard("Rounds", (data.rounds || []).length)}
+          ${metricCard("Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked")}
+          ${metricCard("All Kill Team Challenge", tournament.challengeCreditPolicy === "count" ? "Enabled" : "Disabled")}
+        </section>
+      </section>
+      <section class="grid-2 public-tournament-grid">
+        ${tournamentInfoPanel(data, { publicRoute: true })}
+        <div class="card panel wide-panel">
+          <div class="panel-header">
+            <div>
+              <h3>Matches</h3>
+              <p class="muted">Approved Ops totals are shown when results are complete.</p>
+            </div>
+          </div>
+          ${publicRoundsMarkup(data.rounds || [], tournament)}
+        </div>
+      </section>
+    </div>
+  `;
+  wirePublicTournamentNav(data);
+}
+
+function publicTournamentViewerActions(data) {
+  const tournament = data.tournament || {};
+  const viewer = tournament.viewer || {};
+  if (!state.me) return "";
+  if (!viewer.participantId && tournament.status === "registration_open") {
+    return `<button class="primary-button" data-public-tournament-join="${tournament.id}">Join</button>`;
+  }
+  if (viewer.participantId && ["draft", "registration_open", "registration_closed"].includes(tournament.status)) {
+    return `<button class="danger-button" data-public-tournament-withdraw="${tournament.id}">Withdraw</button>`;
+  }
+  return "";
+}
+
+function wirePublicTournamentNav(data) {
+  const tournament = data?.tournament || {};
+  wireTournamentInfoControls(data, { publicRoute: true });
+  document.querySelector("[data-public-login]")?.addEventListener("click", () => {
+    state.authMode = "login";
+    clearTournamentHash();
+    render();
+  });
+  document.querySelector("[data-public-register]")?.addEventListener("click", () => {
+    state.authMode = "register";
+    clearTournamentHash();
+    render();
+  });
+  document.querySelector("[data-public-back]")?.addEventListener("click", () => {
+    clearTournamentHash();
+    render();
+  });
+  document.querySelector("[data-public-admin-tournament]")?.addEventListener("click", async () => {
+    clearTournamentHash();
+    state.view = "tournaments";
+    state.tournamentsTab = "admin";
+    state.adminTournamentMode = "detail";
+    state.selectedTournamentId = tournament.id;
+    await loadTournamentAdmin();
+    syncAppHash();
+    renderShell();
+  });
+  document.querySelector("[data-public-tournament-join]")?.addEventListener("click", async () => {
+    try {
+      await api(`/api/tournaments/${tournament.id}/join`, { method: "POST", body: {} });
+      await renderPublicTournamentRoute(tournament.slug);
+    } catch (err) {
+      window.alert(err.message);
+    }
+  });
+  document.querySelector("[data-public-tournament-withdraw]")?.addEventListener("click", async () => {
+    if (!window.confirm("Withdraw from this tournament?")) return;
+    try {
+      await api(`/api/tournaments/${tournament.id}/withdraw`, { method: "POST" });
+      await renderPublicTournamentRoute(tournament.slug);
+    } catch (err) {
+      window.alert(err.message);
+    }
+  });
+  document.querySelectorAll("[data-public-tournament-result]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const match = findTournamentMatch(data, Number(button.dataset.publicTournamentResult));
+      const admin = button.dataset.publicTournamentAdminResult === "1";
+      if (match) renderTournamentResultForm(data, match, { admin, publicRoute: true });
+    });
+  });
+  document.querySelectorAll("[data-public-tournament-review]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const match = findTournamentMatch(data, Number(button.dataset.publicTournamentReview));
+      if (match) renderTournamentResultReview(data, match, { publicRoute: true });
+    });
+  });
+}
+
+function tournamentStatusLabel(status) {
+  const labels = {
+    draft: "Draft",
+    registration_open: "Registration open",
+    registration_closed: "Registration closed",
+    in_progress: "In progress",
+    completed: "Completed",
+    cancelled: "Cancelled"
+  };
+  return labels[status] || status || "";
+}
+
+function formatLabel(format) {
+  return format === "swiss" ? "Swiss" : "Single elimination";
+}
+
+function standingsSubtitle(tournament) {
+  const tiebreakers = tournament.tiebreakerOrder || [];
+  return tiebreakers.length ? `Tiebreakers: ${tiebreakers.map(tiebreakerLabelForStandings).join(", ")}` : "No standings tiebreakers enabled.";
+}
+
+function tournamentRulesLinkMarkup(tournament) {
+  const link = tournament?.rulesLink || "";
+  if (!link) return "";
+  const isPdf = isTournamentRulesPdf(link);
+  const label = isPdf ? "Open tournament rules PDF" : "Open tournament rules";
+  const download = isPdf ? ` download="${escapeHtml(`${tournament?.slug || "tournament"}-rules.pdf`)}"` : "";
+  return `
+    <p class="tournament-rules-link">
+      <a href="${escapeHtml(link)}" target="_blank" rel="noopener"${download}>${label}</a>
+    </p>
+  `;
+}
+
+function isTournamentRulesPdf(link) {
+  return String(link || "").startsWith("data:application/pdf;base64,");
+}
+
+function tiebreakerLabelForStandings(key) {
+  const labels = {
+    strength_of_schedule: "Strength of Schedule",
+    buchholz: "Buchholz",
+    head_to_head: "Head-to-head",
+    total_vp: "Total VP",
+    vp_diff: "VP Diff"
+  };
+  return labels[key] || key;
+}
+
+function participantStatusSummary(participants) {
+  const active = participants.filter((item) => ["joined", "active"].includes(item.status)).length;
+  const pending = participants.filter((item) => item.status === "pending_placement").length;
+  return pending ? `${active} active, ${pending} pending next round` : `${active} active`;
+}
+
+function canManageTournamentParticipants(data) {
+  const tournament = data?.tournament || {};
+  return Boolean(state.me?.isAdmin && tournament.id);
+}
+
+function tournamentInfoPanel(data, options = {}) {
+  const tournament = data.tournament || {};
+  const canManage = canManageTournamentParticipants(data);
+  const activeTab = canManage && state.tournamentInfoTab === "participants" ? "participants" : "standings";
+  const wrapperTag = options.admin ? "section" : "div";
+  const wrapperClass = options.admin ? "admin-subpanel wide-panel" : "card panel wide-panel";
+  const title = activeTab === "participants" ? "Participants" : "Standings";
+  const subtitle = activeTab === "participants"
+    ? participantStatusSummary(data.participants || [])
+    : standingsSubtitle(tournament);
+  return `
+    <${wrapperTag} class="${wrapperClass}">
+      <div class="panel-header">
+        <div>
+          <h3>${title}</h3>
+          <p class="muted">${escapeHtml(subtitle)}</p>
+        </div>
+      </div>
+      ${canManage ? tournamentInfoTabs(activeTab) : ""}
+      ${activeTab === "participants" ? adminTournamentParticipantsContent(data) : publicStandingsTable(data)}
+      ${canManage ? `<div class="message" data-message></div>` : ""}
+    </${wrapperTag}>
+  `;
+}
+
+function tournamentInfoTabs(activeTab) {
+  return `
+    <div class="tabs tournament-info-tabs">
+      <button class="tab ${activeTab === "standings" ? "active" : ""}" data-tournament-info-tab="standings">Standings</button>
+      <button class="tab ${activeTab === "participants" ? "active" : ""}" data-tournament-info-tab="participants">Participants</button>
+    </div>
+  `;
+}
+
+function publicStandingsTable(data) {
+  const standings = data.standings || [];
+  const participants = new Map((data.participants || []).map((item) => [item.id, item]));
+  const extraColumns = (data.tournament?.tiebreakerOrder || [])
+    .filter((key, index, order) => order.indexOf(key) === index)
+    .map((key) => {
+      if (key === "strength_of_schedule") {
+        return { label: "Strength of Schedule", value: (row) => row.strengthOfSchedule ?? 0 };
+      }
+      if (key === "buchholz") return { label: "Buchholz", value: (row) => row.buchholz ?? 0 };
+      return null;
+    })
+    .filter(Boolean);
+  if (!standings.length) return `<div class="empty">No standings yet.</div>`;
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="rank">#</th>
+            <th>Player</th>
+            <th>Kill Team</th>
+            <th>TP</th>
+            <th>W-D-L</th>
+            <th>Total VP</th>
+            <th>VP Diff</th>
+            ${extraColumns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${standings.map((row) => {
+            const participant = participants.get(row.participantId);
+            return `
+              <tr>
+                <td class="rank">${row.rank}</td>
+                <td>${escapeHtml(participant?.displayName || "Player")}</td>
+                <td>${escapeHtml(participant?.faction || "Faction TBD")}</td>
+                <td>${row.matchPoints}</td>
+                <td>${row.wins}-${row.draws}-${row.losses}</td>
+                <td>${row.totalVp}</td>
+                <td>${row.vpDiff}</td>
+                ${extraColumns.map((column) => `<td>${column.value(row)}</td>`).join("")}
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function publicParticipantsList(participants) {
+  if (!participants.length) return `<div class="empty">No participants yet.</div>`;
+  return `
+    <div class="list">
+      ${participants.map((participant) => `
+        <div class="row-card compact-row-card">
+          <div class="row-main">
+            <div class="row-title">${escapeHtml(participant.displayName)}</div>
+            <div class="row-meta">${escapeHtml(participant.faction || "Faction TBD")}</div>
+          </div>
+          <span class="status ${participant.status === "active" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(participant.status)}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function publicRoundsMarkup(rounds, tournament = {}) {
+  if (!rounds.length) return `<div class="empty">Matches are not generated yet.</div>`;
+  return `
+    <div class="public-rounds">
+      ${rounds.map((round) => `
+        <section class="public-round">
+          <div class="public-round-title">
+            <strong>Round ${round.roundNumber}</strong>
+            <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(round.status)}</span>
+          </div>
+          <div class="list">
+            ${(round.matches || []).map((match) => publicMatchMarkup(match, tournament)).join("")}
+          </div>
+        </section>
+      `).join("")}
+    </div>
+  `;
+}
+
+function publicMatchMarkup(match, tournament = {}) {
+  const playerA = match.participantA?.displayName || "TBD";
+  const playerB = match.isBye ? "BYE" : match.participantB?.displayName || "TBD";
+  const score = publicMatchScore(match);
+  return `
+    <div class="row-card compact-row-card">
+      <div class="row-main">
+          <div class="row-title">${escapeHtml(playerA)} vs ${escapeHtml(playerB)}</div>
+          <div class="row-meta">${escapeHtml(score)}</div>
+        </div>
+      <div class="row-actions">
+        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(match.status)}</span>
+        ${publicMatchActions(match, tournament)}
+      </div>
+    </div>
+  `;
+}
+
+function publicMatchActions(match, tournament = {}) {
+  const canAdmin = Boolean(tournament.viewer?.canAdmin);
+  const participantId = tournament.viewer?.participantId;
+  if (!state.me || match.isBye) return "";
+  if (canAdmin) {
+    if (match.status === "active") {
+      return `<button class="small-button" data-public-tournament-result="${match.id}" data-public-tournament-admin-result="1">Enter result</button>`;
+    }
+    if (match.status === "pending_confirmation" && match.pendingResult?.result) {
+      return `<button class="small-button" data-public-tournament-result="${match.id}" data-public-tournament-admin-result="1">Edit result</button>`;
+    }
+    return "";
+  }
+  if (!participantId) return "";
+  if (![match.participantAId, match.participantBId].includes(participantId)) return "";
+  if (match.status === "active") {
+    return `<button class="small-button" data-public-tournament-result="${match.id}">Enter result</button>`;
+  }
+  if (match.status === "pending_confirmation" && match.pendingResult?.result) {
+    if (match.pendingResult.submittedBy === state.me.id) {
+      return `<button class="small-button" data-public-tournament-result="${match.id}">Edit result</button>`;
+    }
+    return `<button class="primary-button" data-public-tournament-review="${match.id}">Review</button>`;
+  }
+  return "";
+}
+
+function publicMatchScore(match) {
+  if (match.isBye) return "Bye";
+  const result = match.result || match.pendingResult?.result;
+  const a = match.participantA;
+  const b = match.participantB;
+  if (!result || !a || !b) return "Waiting for result";
+  const scoreA = result.scores?.[a.userId] || result.scores?.[-a.id] || {};
+  const scoreB = result.scores?.[b.userId] || result.scores?.[-b.id] || {};
+  const totalA = Number(scoreA.total || 0);
+  const totalB = Number(scoreB.total || 0);
+  const winner = match.winnerParticipantId
+    ? [a, b].find((participant) => participant.id === match.winnerParticipantId)
+    : null;
+  return winner ? `${totalA}-${totalB}, ${winner.displayName} won` : `${totalA}-${totalB}`;
+}
+
+async function loadTournaments() {
+  try {
+    const data = await api("/api/tournaments");
+    state.tournaments = data.tournaments || [];
+    state.tournamentsError = "";
+  } catch (err) {
+    state.tournaments = [];
+    state.tournamentsError = err.message;
+  }
+}
+
+function pageTabs(section, tabs, active) {
+  if (!state.me?.isAdmin) return "";
+  return `
+    <div class="tabs page-tabs">
+      ${tabs.map((tab) => `
+        <button class="tab ${active === tab.id ? "active" : ""}" data-page-tab="${section}" data-page-tab-value="${tab.id}">
+          ${escapeHtml(tab.label)}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function wirePageTabs() {
+  document.querySelectorAll("[data-page-tab]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const section = button.dataset.pageTab;
+      const value = button.dataset.pageTabValue;
+      try {
+        if (section === "leaderboard") {
+          state.leaderboardTab = value;
+          if (value === "users") await loadAdminUsers();
+          else await loadTop();
+        } else if (section === "games") {
+          state.gamesTab = value;
+          if (value === "sessions") await loadAdminGames();
+          else await loadGames();
+        } else if (section === "tournaments") {
+          state.tournamentsTab = value;
+          if (value === "admin") {
+            if (!state.selectedTournamentId && state.adminTournamentMode !== "create") state.adminTournamentMode = "list";
+            await loadTournamentAdmin();
+          } else {
+            state.adminTournamentMode = "list";
+            state.selectedTournamentId = null;
+            state.adminTournamentDetail = null;
+            state.adminTournamentPreview = null;
+            await loadTournaments();
+          }
+        }
+        syncAppHash();
+        renderShell();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
+  });
+}
+
+function renderTournaments() {
+  const content = document.querySelector("[data-content]");
+  const tournaments = state.tournaments || [];
+  const activeTab = state.me?.isAdmin ? state.tournamentsTab : "public";
+  if (state.tournamentsTab !== activeTab) state.tournamentsTab = activeTab;
+  content.innerHTML = `
+    ${pageTabs("tournaments", [
+      { id: "public", label: "Public Tournaments" },
+      { id: "admin", label: "Tournament Administration" }
+    ], activeTab)}
+    ${activeTab === "admin" ? adminTournamentAdminView() : `
+      <section class="card panel">
+      <div class="panel-header">
+        <div>
+          <h2>Tournaments</h2>
+          <p class="muted">Published TGTV tournaments and public standings.</p>
+        </div>
+      </div>
+      ${state.tournamentsError ? `<div class="empty">${escapeHtml(state.tournamentsError)}</div>` : `
+        ${publicTournamentSections(tournaments)}
+      `}
+      </section>
+    `}
+  `;
+  wirePageTabs();
+  if (activeTab === "admin") {
+    wireAdminTournamentControls();
+    return;
+  }
+  document.querySelectorAll("[data-tournament-open]").forEach((button) => {
+    button.addEventListener("click", () => {
+      window.location.hash = `/tournaments/${encodeURIComponent(button.dataset.tournamentOpen)}`;
+    });
+  });
+}
+
+function publicTournamentSections(tournaments) {
+  if (!tournaments.length) return `<div class="empty">No published tournaments yet.</div>`;
+  const sections = [
+    { title: "Ongoing", items: tournaments.filter((tournament) => tournament.status === "in_progress") },
+    {
+      title: "Future",
+      items: tournaments.filter((tournament) =>
+        ["registration_open", "registration_closed"].includes(tournament.status)
+      )
+    },
+    {
+      title: "Ended",
+      items: tournaments.filter((tournament) => ["completed", "cancelled"].includes(tournament.status))
+    }
+  ];
+  return `
+    <div class="tournament-sections">
+      ${sections.map((section) => `
+        <section class="tournament-list-section">
+          <div class="tournament-list-heading">
+            <h3>${escapeHtml(section.title)}</h3>
+            <span>${section.items.length}</span>
+          </div>
+          <div class="list tournament-card-list">
+            ${section.items.length ? section.items.map(publicTournamentCard).join("") : `<div class="empty compact-empty">No tournaments.</div>`}
+          </div>
+        </section>
+      `).join("")}
+    </div>
+  `;
+}
+
+function publicTournamentCard(tournament) {
+  return `
+    <div class="row-card tournament-card">
+      <div class="row-main tournament-card-main">
+        <div>
+          <div class="row-title">${escapeHtml(tournament.name || "Untitled tournament")}</div>
+          <div class="row-meta">${escapeHtml(formatLabel(tournament.format))} / ${escapeHtml(tournamentStatusLabel(tournament.status))}</div>
+        </div>
+        <dl class="tournament-card-facts">
+          ${tournamentCardFact("Participants", tournamentParticipantCountLabel(tournament))}
+          ${tournamentCardFact("Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked")}
+          ${tournamentCardFact("Starts", tournament.startsAt ? fmtDate(tournament.startsAt) : "No date")}
+          ${tournamentCardFact("Rounds", tournamentRoundCountLabel(tournament))}
+        </dl>
+      </div>
+      <div class="row-actions">
+        <span class="status ${tournamentStatusClass(tournament.status)}">${escapeHtml(tournamentStatusLabel(tournament.status))}</span>
+        <button class="primary-button" data-tournament-open="${escapeHtml(tournament.slug)}">Open</button>
+      </div>
+    </div>
+  `;
+}
+
+function tournamentCardFact(label, value) {
+  return `
+    <div>
+      <dt>${escapeHtml(label)}</dt>
+      <dd>${escapeHtml(value)}</dd>
+    </div>
+  `;
+}
+
+function tournamentParticipantCountLabel(tournament) {
+  const count = Number(tournament.participantCount || 0);
+  const limit = tournamentParticipantLimit(tournament);
+  return limit ? `${count}/${limit}` : String(count);
+}
+
+function tournamentParticipantLimit(tournament) {
+  if (tournament.format !== "single_elimination") return 0;
+  return Number(tournament.singleEliminationSize || 0);
+}
+
+function tournamentRoundCountLabel(tournament) {
+  if (tournament.format === "swiss") {
+    return String(tournament.swissRoundCount || tournament.roundCount || 0);
+  }
+  const size = Number(tournament.singleEliminationSize || 0);
+  if (size > 1) return String(Math.ceil(Math.log2(size)));
+  return String(tournament.roundCount || 0);
 }
 
 async function handleSharedChallengeHash() {
@@ -561,7 +1356,11 @@ async function submitAuth(event) {
     await api(path, { method: "POST", body });
     await refresh();
     await loadTop();
-    state.view = "play";
+    const routed = await applyAppRouteFromHash();
+    if (!routed && !tournamentSlugFromHash()) {
+      state.view = "play";
+      syncAppHash({ replace: true });
+    }
     render();
   } catch (err) {
     setMessage(err.message, true);
@@ -602,10 +1401,10 @@ function renderShell() {
         ${navButton("top", "Leaderboard")}
         ${navButton("play", "Matchmaking")}
         ${navButton("games", "Games")}
+        ${navButton("tournaments", "Tournaments")}
         ${navButton("statistics", "Stats")}
         ${navButton("profile", "Profile")}
         ${navButton("challenge", "All Kill Team Challenge")}
-        ${state.me.isAdmin ? navButton("admin", "Administration") : ""}
         ${navButton("feedback", "Feedback")}
         <button class="nav-button sidebar-logout" data-logout>Sign out</button>
       </aside>
@@ -624,6 +1423,7 @@ function renderShell() {
     state.view = "profile";
     state.playerProfile = null;
     state.selectedChallengeUserId = state.me.id;
+    syncAppHash();
     renderShell();
     await loadChallengeProgress(state.me.id);
     if (state.view === "profile") renderShell();
@@ -644,14 +1444,24 @@ function renderShell() {
         state.challengeOpenedFromProfile = false;
       }
       if (targetView === "feedback") state.feedbackMode = "form";
+      if (targetView === "top") state.leaderboardTab = "leaderboard";
+      if (targetView === "games") state.gamesTab = "history";
+      if (targetView === "tournaments") {
+        state.tournamentsTab = "public";
+        state.adminTournamentMode = "list";
+        state.selectedTournamentId = null;
+        state.adminTournamentDetail = null;
+        state.adminTournamentPreview = null;
+      }
+      syncAppHash();
       renderShell();
       try {
         if (targetView === "games") await loadGames();
+        if (targetView === "tournaments") await loadTournaments();
         if (targetView === "statistics") await loadGames();
         if (targetView === "profile") await loadChallengeProgress(state.me.id);
         if (targetView === "challenge") await loadChallengeProgress(state.selectedChallengeUserId || state.me.id);
         if (targetView === "top") await loadTop();
-        if (targetView === "admin") await loadAdmin();
       } finally {
         if (state.view === targetView) renderShell();
       }
@@ -661,12 +1471,12 @@ function renderShell() {
   if (state.view === "profile") renderProfile();
   else if (state.view === "player") renderPlayerProfile();
   else if (state.view === "games") renderGames();
+  else if (state.view === "tournaments") renderTournaments();
   else if (state.view === "gameDetail") renderGameDetail();
   else if (state.view === "statistics") renderStatistics();
   else if (state.view === "challenge") renderChallenge();
   else if (state.view === "feedback") renderFeedback();
   else if (state.view === "top") renderTop();
-  else if (state.view === "admin") renderAdmin();
   else renderPlay();
 }
 
@@ -803,6 +1613,12 @@ async function copyText(text) {
 }
 
 function gameCard(game) {
+  if (game.sourceType === "tournament_match") {
+    return game.status === "completed"
+      ? completedTournamentGameCard(game)
+      : tournamentMatchGameCard(game);
+  }
+
   const players = game.players || [];
   const title = players.map((player) => player.id === state.me.id ? "You" : player.name).join(" vs ");
   const isParticipant = players.some((player) => player.id === state.me.id);
@@ -843,6 +1659,111 @@ function gameCard(game) {
   `;
 }
 
+function tournamentMatchLabel(game) {
+  const match = game.tournamentMatch || {};
+  const tournament = game.tournament || {};
+  return [
+    tournament.name || "Tournament",
+    match.roundNumber ? `Round ${match.roundNumber}` : "",
+    match.bracketPosition ? `Match ${match.bracketPosition}` : ""
+  ].filter(Boolean).join(" / ");
+}
+
+function tournamentMatchSourceId(game) {
+  const fromSource = Number(game?.sourceId || game?.tournamentMatch?.id || 0);
+  if (Number.isInteger(fromSource) && fromSource > 0) return fromSource;
+  const fromSyntheticId = Number(String(game?.id || "").replace(/^tournament-match-/, ""));
+  return Number.isInteger(fromSyntheticId) && fromSyntheticId > 0 ? fromSyntheticId : 0;
+}
+
+function getKnownTournamentGame(matchId) {
+  const id = Number(matchId);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return [...(state.games || []), ...(state.allGames || [])].find((game) =>
+    game.sourceType === "tournament_match" && tournamentMatchSourceId(game) === id
+  ) || null;
+}
+
+function tournamentMatchDataFromGame(game) {
+  const match = game?.tournamentMatch || {};
+  return {
+    tournament: game?.tournament || {},
+    participants: [match.participantA, match.participantB].filter(Boolean),
+    rounds: [{ roundNumber: match.roundNumber, matches: [match] }]
+  };
+}
+
+function completedTournamentGameCard(game) {
+  const matchId = tournamentMatchSourceId(game);
+  const players = game.players || [];
+  const title = players.map((player) => Number(player.id) === state.me.id ? "You" : player.name).join(" vs ") || "Tournament match";
+  const result = resultSummary(game);
+  const openAction = game.tournament?.slug
+    ? `<button class="small-button" data-tournament-game-open="${matchId}">Open tournament</button>`
+    : "";
+
+  return `
+    <div class="row-card">
+      <div class="row-main">
+        <div class="row-title">${escapeHtml(title)}</div>
+        <div class="row-meta">Tournament: ${escapeHtml(tournamentMatchLabel(game))} / ${escapeHtml(result)}</div>
+      </div>
+      <div class="row-actions">
+        <span class="status completed">completed</span>
+        ${openAction}
+      </div>
+    </div>
+  `;
+}
+
+function tournamentMatchGameCard(game) {
+  const match = game.tournamentMatch || {};
+  const tournament = game.tournament || {};
+  const matchId = tournamentMatchSourceId(game);
+  const players = game.players || [];
+  const title = players.map((player) => Number(player.id) === state.me.id ? "You" : player.name).join(" vs ") || "Tournament match";
+  const isParticipant = players.some((player) => Number(player.id) === state.me.id);
+  const canPlayerReport = isParticipant && players.length === 2;
+  const canPeerReview = canPlayerReport && players.every((player) => player.hasProfile !== false && Number(player.id) > 0);
+  const canAdminReport = Boolean(state.me?.isAdmin);
+  const requiresAdminResult = players.some((player) => player.hasProfile === false || Number(player.id) < 0);
+  const isPending = game.status === "pending_confirmation";
+  const status = isPending ? "pending" : "open";
+  const result = isPending
+    ? pendingResultSummary(game)
+    : canPlayerReport || canAdminReport
+      ? "Waiting for Approved Ops result"
+      : "Administrator result entry required";
+  const openAction = tournament.slug
+    ? `<button class="small-button" data-tournament-game-open="${matchId}">Open tournament</button>`
+    : "";
+  const mainAction = canAdminReport && requiresAdminResult
+    ? `<button class="primary-button" data-tournament-game-result="${matchId}" data-tournament-game-admin-result="1">Enter Results</button>`
+    : canPlayerReport && !isPending
+      ? `<button class="primary-button" data-tournament-game-result="${matchId}">Enter Results</button>`
+      : canPlayerReport && isPending && game.pendingResult?.submittedBy === state.me.id
+        ? `<button class="primary-button" data-tournament-game-result="${matchId}">Edit Results</button>`
+        : canPeerReview && isPending
+          ? `<button class="primary-button" data-tournament-game-review="${matchId}">Review Results</button>`
+          : canAdminReport
+            ? `<button class="primary-button" data-tournament-game-result="${matchId}" data-tournament-game-admin-result="1">Enter Results</button>`
+            : "";
+
+  return `
+    <div class="row-card">
+      <div class="row-main">
+        <div class="row-title">${escapeHtml(title)}</div>
+        <div class="row-meta">Tournament: ${escapeHtml(tournamentMatchLabel(game))} / ${escapeHtml(result)}</div>
+      </div>
+      <div class="row-actions">
+        <span class="status ${status}">${isPending ? "pending" : "active"}</span>
+        ${mainAction}
+        ${openAction}
+      </div>
+    </div>
+  `;
+}
+
 function pendingResultSummary(game) {
   const pending = game.pendingResult;
   const result = pending?.result;
@@ -853,13 +1774,17 @@ function pendingResultSummary(game) {
   const prefix = pending?.submittedBy === state.me.id
     ? "You submitted"
     : `${submitter?.name || "Opponent"} submitted`;
-  return `${prefix}: ${score}. Waiting for confirmation.`;
+  const waiting = players.some((player) => player.hasProfile === false || Number(player.id) < 0)
+    ? "Waiting for administrator review."
+    : "Waiting for confirmation.";
+  return `${prefix}: ${score}. ${waiting}`;
 }
 
 function resultSummary(game) {
   const players = game.players || [];
   if (!game.result) return "Result saved";
   const score = resultHeadline(game, game.result);
+  if (!game.elo) return score;
   const eloParts = players.map((player) => `${player.name} ${signed(game.elo?.[player.id]?.delta ?? 0)}`);
   return `${score} - Elo ${eloParts.join(", ")}`;
 }
@@ -1221,6 +2146,7 @@ function wireOpenMatchmakingButton() {
     state.view = "play";
     state.playerProfile = null;
     state.selectedGameId = null;
+    syncAppHash();
     renderShell();
   });
 }
@@ -1355,6 +2281,7 @@ function renderPlayerProfile() {
     state.playerProfile = null;
     state.adminPasswordReset = null;
     await loadTop();
+    syncAppHash();
     renderShell();
   });
 
@@ -1647,11 +2574,13 @@ async function openPlayerProfile(userId) {
     state.adminPasswordReset = null;
     state.view = "profile";
     state.playerProfile = null;
+    syncAppHash();
     renderShell();
     return;
   }
   await loadPlayerProfile(id);
   state.view = "player";
+  syncAppHash();
   renderShell();
 }
 
@@ -1731,6 +2660,7 @@ async function openGameDetail(gameId) {
   await loadGames();
   state.selectedGameId = Number(gameId);
   state.view = "gameDetail";
+  syncAppHash();
   renderShell();
 }
 
@@ -1738,8 +2668,15 @@ function renderGames() {
   const content = document.querySelector("[data-content]");
   const completedGames = state.allGames.filter((game) => game.status === "completed");
   const filteredGames = filterGames(completedGames);
+  const activeTab = state.me?.isAdmin ? state.gamesTab : "history";
+  if (state.gamesTab !== activeTab) state.gamesTab = activeTab;
   content.innerHTML = `
-    <section class="card panel">
+    ${pageTabs("games", [
+      { id: "history", label: "Completed Games" },
+      { id: "sessions", label: "Sessions Administration" }
+    ], activeTab)}
+    ${activeTab === "sessions" ? adminActiveGamesPanel() : `
+      <section class="card panel">
       <div class="panel-header">
         <div>
           <h2>Games</h2>
@@ -1764,10 +2701,16 @@ function renderGames() {
       </div>
       <div class="filter-summary" data-games-filter-summary>${gamesFilterSummary(filteredGames.length, completedGames.length)}</div>
       <div class="list" data-games-list>${gamesListMarkup(filteredGames)}</div>
-    </section>
+      </section>
+    `}
   `;
-  wireGameFilters();
-  wireGameButtons();
+  wirePageTabs();
+  if (activeTab === "sessions") {
+    wireAdminGameButtons();
+  } else {
+    wireGameFilters();
+    wireGameButtons();
+  }
 }
 
 function filterGames(games) {
@@ -2860,6 +3803,7 @@ function renderGameDetail() {
     state.view = "games";
     state.selectedGameId = null;
     await loadGames();
+    syncAppHash();
     renderShell();
   });
   document.querySelector("[data-admin-edit-game]")?.addEventListener("click", () => {
@@ -3034,6 +3978,28 @@ function wireChallengeButtons() {
 }
 
 function wireGameButtons() {
+  document.querySelectorAll("[data-tournament-game-open]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const game = getKnownTournamentGame(Number(button.dataset.tournamentGameOpen));
+      const slug = game?.tournament?.slug;
+      if (slug) window.location.hash = `/tournaments/${encodeURIComponent(slug)}`;
+    });
+  });
+  document.querySelectorAll("[data-tournament-game-result]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const game = getKnownTournamentGame(Number(button.dataset.tournamentGameResult));
+      const match = game?.tournamentMatch;
+      const admin = button.dataset.tournamentGameAdminResult === "1";
+      if (match) renderTournamentResultForm(tournamentMatchDataFromGame(game), match, { admin, returnTo: "play" });
+    });
+  });
+  document.querySelectorAll("[data-tournament-game-review]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const game = getKnownTournamentGame(Number(button.dataset.tournamentGameReview));
+      const match = game?.tournamentMatch;
+      if (match) renderTournamentResultReview(tournamentMatchDataFromGame(game), match, { returnTo: "play" });
+    });
+  });
   document.querySelectorAll("[data-game-open]").forEach((button) => {
     button.addEventListener("click", async () => {
       await openGameDetail(Number(button.dataset.gameOpen));
@@ -3060,6 +4026,7 @@ async function exitOpenGame(gameId) {
     await loadGames();
     state.view = "play";
     state.selectedGameId = null;
+    syncAppHash();
     renderShell();
   } catch (err) {
     setMessage(err.message, true);
@@ -3073,7 +4040,7 @@ async function adminDeleteGame(gameId, profileUserId = null) {
   try {
     await api(`/api/admin/games/${gameId}`, { method: "DELETE" });
     await refresh();
-    if (state.me?.isAdmin) await loadAdmin();
+    if (state.me?.isAdmin) await loadAdminGames();
     await loadGames();
     if (profileUserId) {
       await loadPlayerProfile(profileUserId);
@@ -3081,8 +4048,10 @@ async function adminDeleteGame(gameId, profileUserId = null) {
       setPlayerProfileMessage("Game deleted.");
       return;
     }
-    state.view = state.me?.isAdmin ? "admin" : "games";
+    state.view = "games";
+    state.gamesTab = state.me?.isAdmin ? "sessions" : "history";
     state.selectedGameId = null;
+    syncAppHash();
     renderShell();
   } catch (err) {
     setMessage(err.message, true);
@@ -3096,7 +4065,7 @@ async function adminForceConfirmGame(gameId, profileUserId = null) {
   try {
     await api(`/api/admin/games/${gameId}/confirm-result`, { method: "POST" });
     await refresh();
-    if (state.me?.isAdmin) await loadAdmin();
+    if (state.me?.isAdmin) await loadAdminGames();
     await loadTop();
     await loadGames();
     if (profileUserId) {
@@ -3202,6 +4171,7 @@ function renderResultForm(gameId, options = {}) {
           </div>
           <div class="tiebreaker-live" data-result-preview></div>
         </section>
+        ${debugRandomResultButtonMarkup()}
         <button class="primary-button" type="submit">${adminEdit ? "Save result" : "Submit result"}</button>
         <div class="message" data-message></div>
       </form>
@@ -3237,42 +4207,23 @@ function renderResultForm(gameId, options = {}) {
   });
   document.querySelector("[data-tiebreaker-enabled]").addEventListener("change", refreshResultPreview);
   wireComboFields();
-  document.querySelector("[data-result-form]").addEventListener("submit", async (event) => {
+  const resultForm = document.querySelector("[data-result-form]");
+  resultForm.querySelector("[data-debug-random-result]")?.addEventListener("click", () => {
+    fillDebugRandomResult(game.players);
+    refreshResultPreview();
+  });
+  resultForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const scores = {};
-    game.players.forEach((player) => {
-      scores[player.id] = {
-        faction: document.querySelector(`[name="faction-${player.id}"]`).value,
-        tacOp: document.querySelector(`[name="tac-op-${player.id}"]`).value,
-        crit: Number(document.querySelector(`[name="crit-${player.id}"]`).value),
-        kill: Number(document.querySelector(`[name="kill-${player.id}"]`).value),
-        tac: Number(document.querySelector(`[name="tac-${player.id}"]`).value),
-        primary: document.querySelector(`[name="primary-${player.id}"]`).value
-      };
-    });
-    const tiebreakersEnabled = document.querySelector("[data-tiebreaker-enabled]").checked;
-    const tiebreakers = {
-      enabled: tiebreakersEnabled,
-      apl: Object.fromEntries(game.players.map((player) => [
-        player.id,
-        Number(document.querySelector(`[name="apl-${player.id}"]`).value || 0)
-      ])),
-      rollOffWinnerId: document.querySelector(`[name="rollOffWinnerId"]`).value || null
-    };
-    const killzone = {
-      killzone: document.querySelector(`[name="killzone"]`).value || "",
-      critOp: document.querySelector(`[name="critOp"]`).value || "",
-      layout: document.querySelector(`[name="killzoneLayout"]`).value || ""
-    };
     try {
       const path = adminEdit ? `/api/admin/games/${game.id}/result` : `/api/games/${game.id}/result`;
-      await api(path, { method: "POST", body: { scores, tiebreakers, killzone } });
+      await api(path, { method: "POST", body: approvedOpsPayloadFromForm(game.players) });
       await refresh();
       await loadTop();
       await loadGames();
       if (adminEdit) {
         state.selectedGameId = game.id;
         state.view = "gameDetail";
+        syncAppHash();
       }
       renderShell();
     } catch (err) {
@@ -3344,6 +4295,256 @@ function renderResultReview(gameId) {
   wireLeaderboardProfiles();
 }
 
+function findTournamentMatch(data, matchId) {
+  for (const round of data.rounds || []) {
+    const match = (round.matches || []).find((item) => item.id === matchId);
+    if (match) return match;
+  }
+  return null;
+}
+
+function participantResultPlayer(participant) {
+  if (!participant) return null;
+  return {
+    id: participant.userId || -participant.id,
+    participantId: participant.id,
+    name: participant.displayName || participant.user?.name || "Player",
+    faction: participant.faction || "",
+    hasProfile: Boolean(participant.userId)
+  };
+}
+
+function tournamentGameLike(match) {
+  return {
+    id: match.id,
+    status: match.status,
+    players: [participantResultPlayer(match.participantA), participantResultPlayer(match.participantB)].filter(Boolean),
+    pendingResult: match.pendingResult,
+    result: match.result
+  };
+}
+
+function tournamentScoreForPlayer(existingResult, player) {
+  const score = existingResult?.scores?.[player.id] || {};
+  return {
+    ...score,
+    faction: score.faction || player.faction || ""
+  };
+}
+
+function renderTournamentResultForm(data, match, options = {}) {
+  const { admin = false, publicRoute = false, returnTo = "" } = options;
+  const tournament = data.tournament || {};
+  const game = tournamentGameLike(match);
+  if (game.players.length !== 2) return;
+  const existingResult = match.result || match.pendingResult?.result || null;
+  const panel = `
+    <section class="card panel">
+      <div class="panel-header">
+        <div>
+          <h2>Match Result</h2>
+          <p class="muted">${escapeHtml(tournament.name || "Tournament")} / Round ${match.roundNumber}, Match ${match.bracketPosition}</p>
+        </div>
+        <button class="ghost-button" type="button" data-tournament-result-back>Back</button>
+      </div>
+      <form class="result-form" data-tournament-result-form>
+        <div class="score-grid">
+          ${game.players.map((player) => scoreCard(player, tournamentScoreForPlayer(existingResult, player))).join("")}
+        </div>
+        <section class="killzone-panel">
+          <h3>Mission</h3>
+          <div class="killzone-grid">
+            <div class="field">
+              <label>Killzone</label>
+              <select name="killzone">
+                <option value="">Not selected</option>
+                ${killzoneOptions.map((option) => `
+                  <option value="${escapeHtml(option)}" ${existingResult?.killzone?.killzone === option ? "selected" : ""}>${escapeHtml(option)}</option>
+                `).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label>Crit Op</label>
+              <select name="critOp">
+                <option value="">Not selected</option>
+                ${critOpOptions.map((option) => `
+                  <option value="${escapeHtml(option)}" ${existingResult?.killzone?.critOp === option ? "selected" : ""}>${escapeHtml(option)}</option>
+                `).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label>Layout</label>
+              <select name="killzoneLayout">
+                <option value="">Not selected</option>
+                ${[1, 2, 3, 4, 5, 6].map((layout) => `
+                  <option value="${layout}" ${Number(existingResult?.killzone?.layout) === layout ? "selected" : ""}>${layout}</option>
+                `).join("")}
+              </select>
+            </div>
+          </div>
+        </section>
+        <section class="tiebreaker-panel">
+          <label class="checkbox-line">
+            <input type="checkbox" data-tiebreaker-enabled ${existingResult?.tiebreakers?.enabled ? "checked" : ""}>
+            <span>Enable Tie-Breakers</span>
+          </label>
+          <div class="tiebreaker-menu" data-tiebreaker-menu ${existingResult?.tiebreakers?.enabled ? "" : "hidden"}>
+            <ol class="tiebreaker-list">
+              <li>Primary</li>
+              <li>Tac Op + Crit Op</li>
+              <li>APL on table</li>
+              <li>Roll-off</li>
+            </ol>
+            <div class="tiebreaker-grid">
+              ${game.players.map((player) => `
+                <div class="field">
+                  <label>APL on table: ${escapeHtml(player.name)}</label>
+                  <input data-tiebreaker-input name="apl-${player.id}" type="number" min="0" max="99" value="${existingResult?.tiebreakers?.apl?.[player.id] ?? 0}">
+                </div>
+              `).join("")}
+              <div class="field">
+                <label>Roll-off winner</label>
+                <select data-tiebreaker-input name="rollOffWinnerId">
+                  <option value="">Select if still tied</option>
+                  ${game.players.map((player) => `<option value="${player.id}" ${Number(existingResult?.tiebreakers?.rollOffWinnerId) === player.id ? "selected" : ""}>${escapeHtml(player.name)}</option>`).join("")}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="tiebreaker-live" data-result-preview></div>
+        </section>
+        ${debugRandomResultButtonMarkup()}
+        <button class="primary-button" type="submit">${admin ? "Complete match" : "Submit result"}</button>
+        <div class="message" data-message></div>
+      </form>
+    </section>
+  `;
+  setTournamentResultContent(panel, publicRoute);
+
+  document.querySelector("[data-tournament-result-back]").addEventListener("click", async () => {
+    await returnFromTournamentResult(tournament, publicRoute, returnTo);
+  });
+  const refreshResultPreview = () => {
+    updateTotals();
+    updateTiebreakerMenu();
+    updateResultPreview(game);
+  };
+  document.querySelectorAll("[data-score-input], [data-primary-select], [data-tiebreaker-input]").forEach((input) => {
+    input.addEventListener("input", refreshResultPreview);
+    input.addEventListener("change", refreshResultPreview);
+  });
+  document.querySelector("[data-tiebreaker-enabled]").addEventListener("change", refreshResultPreview);
+  wireComboFields();
+  const resultForm = document.querySelector("[data-tournament-result-form]");
+  resultForm.querySelector("[data-debug-random-result]")?.addEventListener("click", () => {
+    fillDebugRandomResult(game.players);
+    refreshResultPreview();
+  });
+  resultForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const path = admin
+        ? `/api/admin/tournaments/${tournament.id}/matches/${match.id}/result`
+        : `/api/tournaments/${tournament.id}/matches/${match.id}/result`;
+      await api(path, { method: "POST", body: approvedOpsPayloadFromForm(game.players) });
+      await refresh();
+      await loadTop();
+      await loadGames();
+      if (admin) await loadTournamentAdmin();
+      await returnFromTournamentResult(tournament, publicRoute, returnTo);
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+  refreshResultPreview();
+}
+
+function renderTournamentResultReview(data, match, options = {}) {
+  const { publicRoute = false, returnTo = "" } = options;
+  const tournament = data.tournament || {};
+  const game = tournamentGameLike(match);
+  const result = match.pendingResult?.result;
+  if (!result || game.players.length !== 2) return;
+  const submitter = game.players.find((player) => player.id === match.pendingResult?.submittedBy);
+  const panel = `
+    <section class="card panel">
+      <div class="panel-header">
+        <div>
+          <h2>Confirm tournament result</h2>
+          <p class="muted">Submitted by ${escapeHtml(submitter?.name || "opponent")}.</p>
+        </div>
+        <button class="ghost-button" data-tournament-review-back>Back</button>
+      </div>
+      <div class="result-headline">${escapeHtml(resultHeadline(game, result))}</div>
+      ${killzoneReview(result)}
+      <div class="score-grid">
+        ${game.players.map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
+      </div>
+      ${result.tiebreakers?.enabled ? tieBreakerReview(game, result) : ""}
+      <div class="review-actions">
+        <button class="primary-button" data-tournament-confirm-result="${match.id}">Confirm result</button>
+        <button class="danger-button" data-tournament-reject-result="${match.id}">Reject</button>
+      </div>
+      <div class="message" data-message></div>
+    </section>
+  `;
+  setTournamentResultContent(panel, publicRoute);
+  document.querySelector("[data-tournament-review-back]").addEventListener("click", async () => {
+    await returnFromTournamentResult(tournament, publicRoute, returnTo);
+  });
+  document.querySelector("[data-tournament-confirm-result]").addEventListener("click", async () => {
+    try {
+      await api(`/api/tournaments/${tournament.id}/matches/${match.id}/confirm-result`, { method: "POST" });
+      await refresh();
+      await loadTop();
+      await loadGames();
+      await returnFromTournamentResult(tournament, publicRoute, returnTo);
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+  document.querySelector("[data-tournament-reject-result]").addEventListener("click", async () => {
+    try {
+      await api(`/api/tournaments/${tournament.id}/matches/${match.id}/reject-result`, { method: "POST" });
+      await returnFromTournamentResult(tournament, publicRoute, returnTo);
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+  wireLeaderboardProfiles();
+}
+
+function setTournamentResultContent(panel, publicRoute) {
+  const content = document.querySelector("[data-content]");
+  if (content && !publicRoute) {
+    content.innerHTML = panel;
+    return;
+  }
+  app.innerHTML = `<main class="public-tournament-layout">${panel}</main>`;
+}
+
+async function returnFromTournamentResult(tournament, publicRoute, returnTo = "") {
+  if (returnTo === "play") {
+    await refresh();
+    await loadGames();
+    state.view = "play";
+    state.selectedGameId = null;
+    syncAppHash();
+    renderShell();
+    return;
+  }
+  if (publicRoute) {
+    await renderPublicTournamentRoute(tournament.slug);
+    return;
+  }
+  state.view = "tournaments";
+  state.tournamentsTab = "admin";
+  state.adminTournamentMode = "detail";
+  await loadTournamentAdmin();
+  syncAppHash();
+  renderShell();
+}
+
 function killzoneReview(result = {}) {
   const killzone = result.killzone || {};
   const hasKillzone = Boolean(killzone.killzone);
@@ -3361,7 +4562,7 @@ function killzoneReview(result = {}) {
 function reviewScoreCard(player, score = {}) {
   return `
     <div class="score-card review-score-card">
-      <h4>${playerProfileLink(player)}</h4>
+      <h4>${playerNameMarkup(player)}</h4>
       <div class="review-lines">
         ${metricRow("Kill Team", score.faction ? canonicalKillTeamName(score.faction) : "-")}
         ${metricRow("Tac Op", score.tacOp || "-")}
@@ -3377,6 +4578,12 @@ function reviewScoreCard(player, score = {}) {
       </div>
     </div>
   `;
+}
+
+function playerNameMarkup(player) {
+  return player?.id > 0 && player.hasProfile !== false
+    ? playerProfileLink(player)
+    : escapeHtml(player?.name || "Player");
 }
 
 function tieBreakerReview(game, result) {
@@ -3487,12 +4694,66 @@ function scoreCard(player, score = {}) {
   `;
 }
 
-function comboField(label, name, optionsKey, selected = "", placeholder = "Search or select") {
+function debugRandomResultButtonMarkup() {
+  return `
+    <div class="row-actions">
+      <button class="small-button" type="button" data-debug-random-result>Debug: random scores</button>
+    </div>
+  `;
+}
+
+function fillDebugRandomResult(players = []) {
+  for (const player of players) {
+    setFormControlValue(`faction-${player.id}`, validKillTeamName(player.faction) || randomOption(killTeamOptions));
+    setFormControlValue(`tac-op-${player.id}`, randomOption(tacOpOptions));
+    setFormControlValue(`crit-${player.id}`, randomInteger(0, 6));
+    setFormControlValue(`tac-${player.id}`, randomInteger(0, 6));
+    setFormControlValue(`kill-${player.id}`, randomInteger(0, 6));
+    setFormControlValue(`primary-${player.id}`, randomOption(["crit", "tac", "kill"]));
+    setFormControlValue(`apl-${player.id}`, randomInteger(0, 16));
+  }
+
+  const [a, b] = players;
+  if (a && b && scoreFromForm(a.id).total === scoreFromForm(b.id).total) {
+    const control = document.querySelector(`[name="kill-${b.id}"]`);
+    if (control) {
+      const current = Number(control.value || 0);
+      setFormControlValue(`kill-${b.id}`, current < 6 ? current + 1 : Math.max(0, current - 1));
+    }
+  }
+
+  setFormControlValue("killzone", randomOption(killzoneOptions));
+  setFormControlValue("critOp", randomOption(critOpOptions));
+  setFormControlValue("killzoneLayout", randomInteger(1, 6));
+
+  const rollOffWinnerId = randomOption(players.map((player) => String(player.id)));
+  setFormControlValue("rollOffWinnerId", rollOffWinnerId);
+}
+
+function setFormControlValue(name, value) {
+  const control = document.querySelector(`[name="${name}"]`);
+  if (!control) return;
+  control.value = String(value ?? "");
+  control.dispatchEvent(new Event("input", { bubbles: true }));
+  control.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function randomInteger(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomOption(options = []) {
+  if (!options.length) return "";
+  return options[randomInteger(0, options.length - 1)];
+}
+
+function comboField(label, name, optionsKey, selected = "", placeholder = "Search or select", options = {}) {
+  const optional = Boolean(options.optional);
   const normalizedSelected = optionsKey === "faction"
     ? validKillTeamName(selected) || selected
     : selected;
   return `
-    <div class="field combo-field" data-combo data-combo-options="${optionsKey}">
+    <div class="field combo-field" data-combo data-combo-options="${optionsKey}" data-combo-optional="${optional ? "true" : "false"}">
       <label>${escapeHtml(label)}</label>
       <div class="combo-control">
         <input
@@ -3501,7 +4762,7 @@ function comboField(label, name, optionsKey, selected = "", placeholder = "Searc
           value="${escapeHtml(normalizedSelected || "")}"
           placeholder="${escapeHtml(placeholder)}"
           autocomplete="off"
-          required
+          ${optional ? "" : "required"}
           data-combo-input
         >
         <button class="combo-toggle" type="button" data-combo-toggle aria-label="Show options"></button>
@@ -3521,11 +4782,16 @@ function wireComboFields() {
     const menu = combo.querySelector("[data-combo-menu]");
     const toggle = combo.querySelector("[data-combo-toggle]");
     const optionsKey = combo.dataset.comboOptions;
+    const optional = combo.dataset.comboOptional === "true";
     const options = comboOptionsFor(optionsKey);
     let activeIndex = -1;
 
     const normalizeValue = () => {
       if (optionsKey !== "faction") return true;
+      if (optional && !String(input.value || "").trim()) {
+        input.setCustomValidity("");
+        return true;
+      }
       const validValue = validKillTeamName(input.value);
       if (validValue) {
         input.value = validValue;
@@ -3755,6 +5021,36 @@ function scoreFromForm(playerId) {
   };
 }
 
+function approvedOpsPayloadFromForm(players = []) {
+  const scores = {};
+  players.forEach((player) => {
+    scores[player.id] = {
+      faction: document.querySelector(`[name="faction-${player.id}"]`)?.value || "",
+      tacOp: document.querySelector(`[name="tac-op-${player.id}"]`)?.value || "",
+      crit: Number(document.querySelector(`[name="crit-${player.id}"]`)?.value || 0),
+      kill: Number(document.querySelector(`[name="kill-${player.id}"]`)?.value || 0),
+      tac: Number(document.querySelector(`[name="tac-${player.id}"]`)?.value || 0),
+      primary: document.querySelector(`[name="primary-${player.id}"]`)?.value || "crit"
+    };
+  });
+  return {
+    scores,
+    tiebreakers: {
+      enabled: Boolean(document.querySelector("[data-tiebreaker-enabled]")?.checked),
+      apl: Object.fromEntries(players.map((player) => [
+        player.id,
+        Number(document.querySelector(`[name="apl-${player.id}"]`)?.value || 0)
+      ])),
+      rollOffWinnerId: document.querySelector(`[name="rollOffWinnerId"]`)?.value || null
+    },
+    killzone: {
+      killzone: document.querySelector(`[name="killzone"]`)?.value || "",
+      critOp: document.querySelector(`[name="critOp"]`)?.value || "",
+      layout: document.querySelector(`[name="killzoneLayout"]`)?.value || ""
+    }
+  };
+}
+
 function higherValueWinner(a, b, values) {
   if (values[a.id] === values[b.id]) return null;
   return values[a.id] > values[b.id] ? a : b;
@@ -3829,10 +5125,61 @@ async function loadTop() {
   state.users = data.users || [];
 }
 
+function paginate(items, page, pageSize = LEADERBOARD_PAGE_SIZE) {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(Math.max(1, Number(page) || 1), totalPages);
+  const start = (currentPage - 1) * pageSize;
+  const end = Math.min(start + pageSize, total);
+  return {
+    items: items.slice(start, end),
+    currentPage,
+    totalPages,
+    total,
+    start,
+    end
+  };
+}
+
+function paginationMarkup(target, pageData, itemLabel = "players") {
+  if (pageData.total <= LEADERBOARD_PAGE_SIZE) return "";
+  const first = pageData.total ? pageData.start + 1 : 0;
+  return `
+    <div class="pagination-row">
+      <div class="pagination-summary">
+        Showing ${first}-${pageData.end} of ${pageData.total} ${escapeHtml(itemLabel)}.
+        <span class="pagination-current">Page ${pageData.currentPage} of ${pageData.totalPages}</span>
+      </div>
+      <div class="pagination-actions">
+        <button class="small-button" data-pagination-target="${escapeHtml(target)}" data-pagination-page="${pageData.currentPage - 1}" ${pageData.currentPage <= 1 ? "disabled" : ""}>Previous</button>
+        <button class="small-button" data-pagination-target="${escapeHtml(target)}" data-pagination-page="${pageData.currentPage + 1}" ${pageData.currentPage >= pageData.totalPages ? "disabled" : ""}>Next</button>
+      </div>
+    </div>
+  `;
+}
+
+function wirePaginationControls() {
+  document.querySelectorAll("[data-pagination-target]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const page = Number(button.dataset.paginationPage || 1);
+      if (button.dataset.paginationTarget === "leaderboard") state.leaderboardPage = page;
+      if (button.dataset.paginationTarget === "admin-users") state.adminUsersPage = page;
+      renderShell();
+    });
+  });
+}
+
 function renderTop() {
   const content = document.querySelector("[data-content]");
+  const activeTab = state.me?.isAdmin ? state.leaderboardTab : "leaderboard";
+  if (state.leaderboardTab !== activeTab) state.leaderboardTab = activeTab;
   content.innerHTML = `
-    <section class="card panel">
+    ${pageTabs("leaderboard", [
+      { id: "leaderboard", label: "Leaderboard" },
+      { id: "users", label: "User Administration" }
+    ], activeTab)}
+    ${activeTab === "users" ? adminUsersPanel() : `
+      <section class="card panel">
       <div class="panel-header">
         <div>
           <h2>Leaderboard</h2>
@@ -3841,21 +5188,27 @@ function renderTop() {
       </div>
       ${usersTable(state.users)}
       <div class="message" data-message></div>
-    </section>
+      </section>
+    `}
   `;
-  wireLeaderboardProfiles();
+  wirePageTabs();
+  wirePaginationControls();
+  if (activeTab === "users") wireAdminUserControls();
+  else wireLeaderboardProfiles();
 }
 
 function usersTable(users) {
-  if (!users.length) return `<div class="empty">No users yet.</div>`;
+  const pageData = paginate(users, state.leaderboardPage);
+  state.leaderboardPage = pageData.currentPage;
+  if (!pageData.total) return `<div class="empty">No users yet.</div>`;
   return `
     <div class="table-wrap">
       <table>
         <thead><tr><th class="rank">#</th><th>Player</th><th>Rating</th></tr></thead>
         <tbody>
-          ${users.map((user, index) => `
+          ${pageData.items.map((user, index) => `
             <tr>
-              <td class="rank">${index + 1}</td>
+              <td class="rank">${pageData.start + index + 1}</td>
               <td>
                 <button class="text-button player-name-button leaderboard-player-button" data-profile-user="${user.id}">
                   <span class="leaderboard-avatar">${avatarMarkup(user)}</span>
@@ -3868,6 +5221,7 @@ function usersTable(users) {
         </tbody>
       </table>
     </div>
+    ${paginationMarkup("leaderboard", pageData, "players")}
   `;
 }
 
@@ -3884,12 +5238,650 @@ function wireLeaderboardProfiles() {
 }
 
 async function loadAdmin() {
-  const [usersData, gamesData] = await Promise.all([
+  const [usersData, gamesData, tournamentsData] = await Promise.all([
     api("/api/admin/users"),
-    api("/api/admin/games")
+    api("/api/admin/games"),
+    api("/api/admin/tournaments")
   ]);
   state.adminUsers = usersData.users || [];
   state.adminGames = gamesData.games || [];
+  state.adminTournaments = tournamentsData.tournaments || [];
+  if (state.selectedTournamentId) {
+    const selectedExists = state.adminTournaments.some((tournament) => tournament.id === state.selectedTournamentId);
+    if (selectedExists) {
+      await loadAdminTournamentDetail(state.selectedTournamentId, { preservePreview: true });
+    } else {
+      state.adminTournamentMode = "list";
+      state.selectedTournamentId = null;
+      state.adminTournamentDetail = null;
+      state.adminTournamentPreview = null;
+    }
+  }
+}
+
+async function loadAdminUsers() {
+  const data = await api("/api/admin/users");
+  state.adminUsers = data.users || [];
+}
+
+async function loadAdminGames() {
+  const data = await api("/api/admin/games");
+  state.adminGames = data.games || [];
+}
+
+async function loadTournamentAdmin() {
+  const [usersData, tournamentsData] = await Promise.all([
+    api("/api/admin/users"),
+    api("/api/admin/tournaments")
+  ]);
+  state.adminUsers = usersData.users || [];
+  state.adminTournaments = tournamentsData.tournaments || [];
+  if (state.selectedTournamentId) {
+    const selectedExists = state.adminTournaments.some((tournament) => tournament.id === state.selectedTournamentId);
+    if (selectedExists) {
+      await loadAdminTournamentDetail(state.selectedTournamentId, { preservePreview: true });
+    } else {
+      state.adminTournamentMode = "list";
+      state.selectedTournamentId = null;
+      state.adminTournamentDetail = null;
+      state.adminTournamentPreview = null;
+    }
+  }
+}
+
+async function loadAdminTournamentDetail(id, options = {}) {
+  const { preservePreview = false } = options;
+  state.selectedTournamentId = Number(id);
+  state.adminTournamentDetail = await api(`/api/admin/tournaments/${state.selectedTournamentId}`);
+  if (
+    !preservePreview ||
+    !["draft", "registration_open", "registration_closed"].includes(state.adminTournamentDetail?.tournament?.status)
+  ) {
+    state.adminTournamentPreview = null;
+  }
+}
+
+async function loadAdminTournamentPreview(id) {
+  const data = await api(`/api/admin/tournaments/${id}/preview`);
+  state.adminTournamentPreview = data.preview || null;
+}
+
+function adminTournamentAdminView() {
+  if (state.adminTournamentDetail) return adminTournamentDetailPanel(state.adminTournamentDetail);
+  if (state.adminTournamentMode === "create") return adminTournamentCreatePanel();
+  return adminTournamentsPanel();
+}
+
+function adminTournamentsPanel() {
+  const tournaments = state.adminTournaments || [];
+  return `
+    <section class="card panel">
+      <div class="panel-header">
+        <div>
+          <h2>Tournament Administration</h2>
+          <p class="muted">Current tournaments.</p>
+        </div>
+        <button class="primary-button" data-admin-tournament-new>Create</button>
+      </div>
+      <div class="list admin-tournament-list">
+        ${tournaments.length ? tournaments.map(adminTournamentRow).join("") : `<div class="empty">No tournaments yet.</div>`}
+      </div>
+      <div class="message" data-message></div>
+    </section>
+  `;
+}
+
+function adminTournamentCreatePanel() {
+  return `
+    <section class="card panel">
+      <div class="panel-header">
+        <div>
+          <h2>Create tournament</h2>
+          <p class="muted">Configure tournament settings before opening the tournament page.</p>
+        </div>
+        <button class="ghost-button" data-admin-tournament-create-cancel>Back</button>
+      </div>
+      <form class="admin-tournament-form" data-admin-tournament-create>
+        <div class="grid-2">
+          <div class="field">
+            <label>Name</label>
+            <input name="name" maxlength="120" required placeholder="TGTV Open">
+          </div>
+          <div class="field">
+            <label>Short URL</label>
+            <input name="slug" maxlength="120" placeholder="Optional">
+          </div>
+          <div class="field">
+            <label>Format</label>
+            <select name="format" data-admin-tournament-format>
+              <option value="single_elimination">Single elimination</option>
+              <option value="swiss">Swiss</option>
+            </select>
+          </div>
+          <div class="field" data-format-field="single_elimination">
+            <label>Bracket size</label>
+            <select name="singleEliminationSize">
+              ${singleEliminationSizes.map((size) => `<option value="${size}">${size} players</option>`).join("")}
+            </select>
+          </div>
+          <div class="field" data-format-field="swiss">
+            <label>Swiss rounds</label>
+            <input name="swissRoundCount" type="number" min="1" value="3">
+          </div>
+          <div class="field">
+            <label>Starts at</label>
+            <input name="startsAt" type="datetime-local">
+          </div>
+          <div class="field">
+            <label>Rating policy</label>
+            <select name="ratingPolicy">
+              <option value="ranked">Ranked</option>
+              <option value="unranked">Unranked</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>All Kill Team Challenge</label>
+            <select name="challengeCreditPolicy">
+              <option value="count">Enabled</option>
+              <option value="none">Disabled</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Game system</label>
+            <select name="gameSystem">
+              ${gameSystemOptions.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Tournament Rules</label>
+          <textarea name="tournamentRules" maxlength="6000" required placeholder="Event format, result reporting, scoring, and admin decisions."></textarea>
+        </div>
+        <div class="field tournament-rules-upload">
+          <label>Tournament Rules Link</label>
+          <input name="rulesLink" maxlength="2048" placeholder="https://...">
+          <div class="rules-file-row">
+            <input type="file" accept="application/pdf,.pdf" data-tournament-rules-file>
+            <input type="hidden" name="rulesFileData">
+            <span class="field-help" data-tournament-rules-file-status>No PDF selected</span>
+          </div>
+        </div>
+        <div class="tournament-tiebreakers">
+          <span class="muted">Standings tiebreakers</span>
+          ${tournamentTiebreakerSelects([])}
+        </div>
+        <button class="primary-button" type="submit">Create</button>
+        <div class="message" data-message></div>
+      </form>
+    </section>
+  `;
+}
+
+function adminTournamentRow(tournament) {
+  return `
+    <div class="row-card">
+      <div class="row-main">
+        <button class="text-button row-title" data-admin-tournament-open="${tournament.id}">${escapeHtml(tournament.name || "Untitled tournament")}</button>
+        <div class="row-meta">${escapeHtml(formatLabel(tournament.format))} / ${escapeHtml(tournament.slug)} / ${tournament.startsAt ? fmtDate(tournament.startsAt) : "No date"}</div>
+      </div>
+      <div class="row-actions">
+        <span class="status ${tournamentStatusClass(tournament.status)}">${escapeHtml(tournamentStatusLabel(tournament.status))}</span>
+        <button class="small-button" data-admin-tournament-open="${tournament.id}">Open</button>
+      </div>
+    </div>
+  `;
+}
+
+function adminTournamentDetailPanel(data) {
+  const tournament = data.tournament || {};
+  const publicUrl = tournamentPublicUrl(tournament);
+  return `
+    <section class="card panel admin-tournament-detail">
+      <div class="panel-header">
+        <div>
+          <p class="profile-label">${escapeHtml(formatLabel(tournament.format))}</p>
+          <h2>${escapeHtml(tournament.name || "Untitled tournament")}</h2>
+          <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}${tournament.startsAt ? ` / ${fmtDate(tournament.startsAt)}` : ""}</p>
+        </div>
+        <div class="row-actions">
+          <button class="small-button" data-admin-tournament-public="${tournament.slug}">View public</button>
+          <button class="small-button" data-admin-tournament-copy="${escapeHtml(publicUrl)}">Copy link</button>
+          <button class="ghost-button" data-admin-tournament-close>Back to list</button>
+        </div>
+      </div>
+      <section class="profile-grid">
+        ${metricCard("Participants", String((data.participants || []).filter((item) => item.status !== "removed").length))}
+        ${metricCard(tournament.format === "single_elimination" ? "Bracket size" : "Rounds", tournament.format === "single_elimination" ? String(tournament.singleEliminationSize || 8) : String(tournament.swissRoundCount || (data.rounds || []).length))}
+        ${metricCard("Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked")}
+        ${metricCard("All Kill Team Challenge", tournament.challengeCreditPolicy === "count" ? "Enabled" : "Disabled")}
+      </section>
+      <div class="admin-tournament-actions">
+        ${adminTournamentActionButtons(data)}
+      </div>
+      ${adminTournamentEditForm(tournament)}
+      ${tournamentInfoPanel(data, { admin: true })}
+      ${adminTournamentPreviewPanel(data)}
+      ${adminTournamentRoundsPanel(data)}
+      <div class="message" data-message></div>
+    </section>
+  `;
+}
+
+function adminTournamentActionButtons(data) {
+  const tournament = data.tournament || {};
+  const buttons = [];
+  if (tournament.status === "draft") {
+    buttons.push(`<button class="primary-button" data-admin-tournament-action="publish-open">Publish and open</button>`);
+    buttons.push(`<button class="small-button" data-admin-tournament-action="publish-closed">Publish closed</button>`);
+  }
+  if (tournament.status === "registration_open") {
+    buttons.push(`<button class="small-button" data-admin-tournament-action="close-registration">Close registration</button>`);
+  }
+  if (tournament.status === "registration_closed") {
+    buttons.push(`<button class="small-button" data-admin-tournament-action="reopen-registration">Reopen registration</button>`);
+    buttons.push(`<button class="primary-button" data-admin-tournament-action="start">Start tournament</button>`);
+  }
+  if (["draft", "registration_open", "registration_closed"].includes(tournament.status)) {
+    buttons.push(`<button class="small-button" data-admin-tournament-action="preview">Preview pairings</button>`);
+  }
+  if (tournament.status === "in_progress") {
+    const nextRoundState = nextRoundActionState(data);
+    if (nextRoundState.canGenerate) {
+      buttons.push(`<button class="primary-button" data-admin-tournament-action="generate-next-round">Generate next round</button>`);
+    } else {
+      buttons.push(`<span class="muted">${escapeHtml(nextRoundState.message)}</span>`);
+    }
+  }
+  return buttons.length ? buttons.join("") : `<span class="muted">Setup is locked while the tournament is running.</span>`;
+}
+
+function nextRoundActionState(data) {
+  const tournament = data.tournament || {};
+  const rounds = data.rounds || [];
+  if (tournament.status !== "in_progress") return { canGenerate: false, message: "Tournament is not running." };
+  if (!rounds.length) return { canGenerate: false, message: "No rounds generated yet." };
+
+  if (tournament.format === "swiss") {
+    const currentRound = rounds[rounds.length - 1];
+    const complete = (currentRound.matches || []).length > 0 &&
+      (currentRound.matches || []).every((match) => match.status === "completed");
+    if (!complete) return { canGenerate: false, message: "Finish all matches in the current Swiss round before generating the next round." };
+    if (currentRound.roundNumber >= Number(tournament.swissRoundCount || 0)) {
+      return { canGenerate: false, message: "All Swiss rounds have been generated." };
+    }
+    return { canGenerate: true, message: "" };
+  }
+
+  const nextRound = rounds.find((round) => round.status === "not_ready");
+  if (!nextRound) return { canGenerate: false, message: "No next bracket round to activate." };
+  const previousRound = rounds.find((round) => round.roundNumber === nextRound.roundNumber - 1);
+  const previousComplete = previousRound &&
+    (previousRound.matches || []).length > 0 &&
+    (previousRound.matches || []).every((match) => match.status === "completed");
+  if (!previousComplete) return { canGenerate: false, message: "Finish the current bracket round before generating the next round." };
+  const nextReady = (nextRound.matches || []).every((match) =>
+    match.isBye || (match.participantAId && match.participantBId)
+  );
+  if (!nextReady) return { canGenerate: false, message: "The next bracket round is waiting for winners." };
+  return { canGenerate: true, message: "" };
+}
+
+function adminTournamentEditForm(tournament) {
+  const setupLocked = tournament.status === "in_progress";
+  const readOnly = ["completed", "cancelled"].includes(tournament.status);
+  const lockAttrs = setupLocked || readOnly ? "disabled" : "";
+  const textLockAttrs = readOnly ? "disabled" : "";
+  const existingRulesLinkType = isTournamentRulesPdf(tournament.rulesLink) ? "pdf" : tournament.rulesLink ? "url" : "";
+  const rulesLinkValue = existingRulesLinkType === "url" ? tournament.rulesLink : "";
+  return `
+    <form class="admin-tournament-form compact-admin-form" data-admin-tournament-update data-existing-rules-link-type="${existingRulesLinkType}">
+      <div class="grid-2">
+        <div class="field">
+          <label>Name</label>
+          <input name="name" maxlength="120" value="${escapeHtml(tournament.name || "")}" ${lockAttrs}>
+        </div>
+        <div class="field">
+          <label>Starts at</label>
+          <input name="startsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(tournament.startsAt))}" ${textLockAttrs}>
+        </div>
+        <div class="field">
+          <label>Format</label>
+          <select name="format" data-admin-tournament-format ${lockAttrs}>
+            <option value="single_elimination" ${tournament.format === "single_elimination" ? "selected" : ""}>Single elimination</option>
+            <option value="swiss" ${tournament.format === "swiss" ? "selected" : ""}>Swiss</option>
+          </select>
+        </div>
+        <div class="field" data-format-field="single_elimination">
+          <label>Bracket size</label>
+          <select name="singleEliminationSize" ${lockAttrs}>
+            ${singleEliminationSizes.map((size) => `<option value="${size}" ${Number(tournament.singleEliminationSize || 8) === size ? "selected" : ""}>${size} players</option>`).join("")}
+          </select>
+        </div>
+        <div class="field" data-format-field="swiss">
+          <label>Swiss rounds</label>
+          <input name="swissRoundCount" type="number" min="1" value="${tournament.swissRoundCount || 3}" ${lockAttrs}>
+        </div>
+        <div class="field">
+          <label>Rating policy</label>
+          <select name="ratingPolicy" ${lockAttrs}>
+            <option value="ranked" ${tournament.ratingPolicy === "ranked" ? "selected" : ""}>Ranked</option>
+            <option value="unranked" ${tournament.ratingPolicy === "unranked" ? "selected" : ""}>Unranked</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>All Kill Team Challenge</label>
+          <select name="challengeCreditPolicy" ${lockAttrs}>
+            <option value="count" ${tournament.challengeCreditPolicy === "count" ? "selected" : ""}>Enabled</option>
+            <option value="none" ${tournament.challengeCreditPolicy === "none" ? "selected" : ""}>Disabled</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Game system</label>
+          <select name="gameSystem" ${lockAttrs}>
+            ${gameSystemOptions.map((option) => `<option value="${escapeHtml(option)}" ${(tournament.gameSystem || gameSystemOptions[0]) === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Tournament Rules</label>
+        <textarea name="tournamentRules" maxlength="6000" ${textLockAttrs}>${escapeHtml(tournamentRulesValue(tournament))}</textarea>
+      </div>
+      <div class="field tournament-rules-upload">
+        <label>Tournament Rules Link</label>
+        <input name="rulesLink" maxlength="2048" value="${escapeHtml(rulesLinkValue)}" placeholder="https://..." ${textLockAttrs}>
+        <div class="rules-file-row">
+          <input type="file" accept="application/pdf,.pdf" data-tournament-rules-file ${textLockAttrs}>
+          <input type="hidden" name="rulesFileData">
+          <span class="field-help" data-tournament-rules-file-status>${existingRulesLinkType === "pdf" ? "Existing PDF attached" : "No PDF selected"}</span>
+        </div>
+        ${tournament.rulesLink ? tournamentRulesLinkMarkup(tournament) : ""}
+      </div>
+      <div class="tournament-tiebreakers">
+        <span class="muted">Standings tiebreakers</span>
+        ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], lockAttrs)}
+      </div>
+      <button class="small-button" type="submit" ${readOnly ? "disabled" : ""}>Save tournament</button>
+    </form>
+  `;
+}
+
+function adminTournamentParticipantsPanel(data) {
+  return `
+    <section class="admin-subpanel">
+      ${adminTournamentParticipantsContent(data)}
+    </section>
+  `;
+}
+
+function adminTournamentParticipantsContent(data) {
+  const tournament = data.tournament || {};
+  const participants = data.participants || [];
+  const visibleParticipants = participants.filter((participant) => participant.status !== "removed");
+  const canRemove = !["in_progress", "completed", "cancelled"].includes(tournament.status);
+  const canBulkAdd = !["in_progress", "completed", "cancelled"].includes(tournament.status);
+  const readOnly = ["completed", "cancelled"].includes(tournament.status);
+  const seedLocked = ["in_progress", "completed", "cancelled"].includes(tournament.status);
+  const availableUsers = availableTournamentUsers(participants);
+  return `
+    <div class="tournament-participant-admin">
+      <div class="participant-admin-note muted">
+        ${tournament.format === "swiss" && tournament.status === "in_progress" ? "Late adds enter only the next generated Swiss round." : "Linked users or unregistered participants."}
+      </div>
+      <form class="admin-participant-form" data-admin-tournament-add-participant>
+        <div class="grid-2">
+          <div class="field">
+            <label>TGTV user</label>
+            <select name="userId">
+              <option value="">Unregistered participant</option>
+              ${availableUsers.map((user) => `<option value="${user.id}">${escapeHtml(user.name)} (${user.rating})</option>`).join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label>Display name</label>
+            <input name="displayName" maxlength="80" placeholder="Required for unregistered">
+          </div>
+        </div>
+        ${comboField("Faction", "faction", "faction", "", "Optional", { optional: true })}
+        <button class="small-button" type="submit">Add participant</button>
+      </form>
+      ${canBulkAdd ? `
+        <form class="admin-participant-form" data-admin-tournament-bulk>
+          <div class="field">
+            <label>Bulk unregistered participants</label>
+            <textarea name="names" placeholder="One display name per line"></textarea>
+          </div>
+          <button class="small-button" type="submit">Bulk add</button>
+        </form>
+      ` : ""}
+      <div class="list">
+        ${visibleParticipants.length ? visibleParticipants.map((participant) => adminTournamentParticipantAdminRow(participant, data, {
+          canRemove,
+          readOnly,
+          seedLocked
+        })).join("") : `<div class="empty">No participants yet.</div>`}
+      </div>
+      <button class="small-button" data-admin-tournament-save-seeds ${seedLocked ? "disabled" : ""}>Save seed order</button>
+    </div>
+  `;
+}
+
+function adminTournamentParticipantAdminRow(participant, data, options = {}) {
+  const tournament = data.tournament || {};
+  const participants = data.participants || [];
+  const inactive = ["withdrawn", "removed"].includes(participant.status);
+  const locked = options.readOnly || inactive;
+  const replacementUsers = availableTournamentUsers(participants, participant.id)
+    .filter((user) => user.id !== participant.userId);
+  const replaceLabel = participant.userId ? "Replace" : "Link user";
+  const replacePlaceholder = participant.userId ? "Replace with registered user" : "Link registered user";
+  const replaceLockedAfterStart = tournament.status === "in_progress" && participant.userId;
+  const replaceDisabled = locked || replaceLockedAfterStart || !replacementUsers.length;
+  return `
+    <div class="row-card compact-row-card participant-admin-row">
+      <div class="row-main">
+        <div class="row-title">${escapeHtml(participant.displayName)}</div>
+        <div class="row-meta">Seed ${participant.seed || "-"} / ${escapeHtml(participantUserLabel(participant))} / ${escapeHtml(participant.faction || "Faction TBD")}</div>
+        <div class="participant-admin-controls">
+          <div class="participant-faction-control">
+            ${comboField("Kill Team", `participant-faction-${participant.id}`, "faction", participant.faction || "", "Optional", { optional: true })}
+            <button class="small-button" data-admin-participant-save-faction="${participant.id}" ${locked ? "disabled" : ""}>Save faction</button>
+          </div>
+          <div class="participant-replace-control">
+            <label>Registered user</label>
+            <div class="participant-replace-row">
+              <select data-admin-participant-replace-user="${participant.id}" ${replaceDisabled ? "disabled" : ""}>
+                <option value="">${escapeHtml(replacePlaceholder)}</option>
+                ${replacementUsers.map((user) => `<option value="${user.id}">${escapeHtml(user.name)} (${user.rating})</option>`).join("")}
+              </select>
+              <button class="small-button" data-admin-participant-replace="${participant.id}" ${replaceDisabled ? "disabled" : ""}>${replaceLabel}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row-actions">
+        <input class="seed-input" type="number" min="1" value="${participant.seed || 1}" data-participant-seed="${participant.id}" ${options.seedLocked || !["joined", "active"].includes(participant.status) ? "disabled" : ""}>
+        <span class="status ${participant.status === "active" || participant.status === "joined" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(participant.status)}</span>
+        ${options.canRemove && participant.status !== "removed" ? `<button class="danger-button" data-admin-participant-remove="${participant.id}">Remove</button>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function availableTournamentUsers(participants, exceptParticipantId = null) {
+  const linkedUserIds = new Set(
+    participants
+      .filter((participant) => participant.id !== exceptParticipantId)
+      .filter((participant) => participant.userId && !["withdrawn", "removed"].includes(participant.status))
+      .map((participant) => participant.userId)
+  );
+  return (state.adminUsers || []).filter((user) => !linkedUserIds.has(user.id));
+}
+
+function participantUserLabel(participant) {
+  if (!participant.userId) return "unregistered";
+  return participant.user?.name ? `TGTV: ${participant.user.name}` : `TGTV user #${participant.userId}`;
+}
+
+function allowParticipantLink(tournament, participant, availableUsers) {
+  if (participant.userId) return false;
+  if (!availableUsers.length) return false;
+  if (["completed", "cancelled"].includes(tournament.status)) return false;
+  return !["withdrawn", "removed"].includes(participant.status);
+}
+
+function adminTournamentStandingsPanel(data) {
+  return `
+    <section class="admin-subpanel">
+      <div class="panel-header">
+        <div>
+          <h3>Standings</h3>
+          <p class="muted">${standingsSubtitle(data.tournament || {})}</p>
+        </div>
+      </div>
+      ${publicStandingsTable(data)}
+    </section>
+  `;
+}
+
+function adminTournamentPreviewPanel(data) {
+  const preview = state.adminTournamentPreview;
+  if (!preview) return "";
+  const names = participantNameLookup(data.participants || []);
+  return `
+    <section class="admin-subpanel wide-panel">
+      <div class="panel-header">
+        <div>
+          <h3>Preview</h3>
+          <p class="muted">${escapeHtml(formatLabel(preview.format))} pairings before start.</p>
+        </div>
+      </div>
+      ${previewRoundsMarkup(preview.rounds || [], names)}
+    </section>
+  `;
+}
+
+function adminTournamentRoundsPanel(data) {
+  const rounds = data.rounds || [];
+  if (!rounds.length) {
+    return `<section class="admin-subpanel wide-panel"><div class="empty">Matches are not generated yet.</div></section>`;
+  }
+  return `
+    <section class="admin-subpanel wide-panel">
+      <div class="panel-header">
+        <div>
+          <h3>Rounds and matches</h3>
+          <p class="muted">Admin result entry completes active tournament matches immediately.</p>
+        </div>
+      </div>
+      <div class="public-rounds">
+        ${rounds.map((round) => `
+          <section class="public-round">
+            <div class="public-round-title">
+              <strong>Round ${round.roundNumber}</strong>
+              <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(round.status)}</span>
+            </div>
+            <div class="list">
+              ${(round.matches || []).map((match) => adminTournamentMatchMarkup(match)).join("")}
+            </div>
+          </section>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function adminTournamentMatchMarkup(match) {
+  const playerA = match.participantA?.displayName || "TBD";
+  const playerB = match.isBye ? "BYE" : match.participantB?.displayName || "TBD";
+  const canResult = ["active", "pending_confirmation", "completed"].includes(match.status) && !match.isBye;
+  const actionLabel = match.status === "completed" ? "Edit result" : "Enter result";
+  return `
+    <div class="row-card compact-row-card">
+      <div class="row-main">
+        <div class="row-title">${escapeHtml(playerA)} vs ${escapeHtml(playerB)}</div>
+        <div class="row-meta">${escapeHtml(publicMatchScore(match))}</div>
+      </div>
+      <div class="row-actions">
+        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(match.status)}</span>
+        ${canResult ? `<button class="small-button" data-admin-tournament-match-result="${match.id}">${actionLabel}</button>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function previewRoundsMarkup(rounds, names) {
+  return `
+    <div class="public-rounds">
+      ${rounds.map((round) => `
+        <section class="public-round">
+          <div class="public-round-title">
+            <strong>Round ${round.roundNumber}</strong>
+            <span class="status ${round.status === "active" ? "pending" : ""}">${escapeHtml(round.status)}</span>
+          </div>
+          <div class="list">
+            ${(round.matches || []).map((match) => `
+              <div class="row-card compact-row-card">
+                <div class="row-main">
+                  <div class="row-title">${escapeHtml(names.get(match.participantAId) || "TBD")} vs ${escapeHtml(match.isBye ? "BYE" : names.get(match.participantBId) || "TBD")}</div>
+                  <div class="row-meta">${match.isBye ? "Bye" : "Pending result"}</div>
+                </div>
+                <span class="status ${match.status === "active" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(match.status)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </section>
+      `).join("")}
+    </div>
+  `;
+}
+
+function participantNameLookup(participants) {
+  return new Map(participants.map((participant) => [participant.id, participant.displayName]));
+}
+
+function tournamentRulesValue(tournament) {
+  return tournament.rulesSummary || tournament.description || "";
+}
+
+function tournamentTiebreakerSelects(selected = [], disabled = "") {
+  const order = Array.isArray(selected) ? selected.slice(0, 4) : [];
+  return `
+    <div class="tiebreaker-rank-list">
+      ${[0, 1, 2, 3].map((index) => {
+        const value = order[index] || "";
+        return `
+          <label class="tiebreaker-rank-field">
+            <span>Priority ${index + 1}</span>
+            <select data-tournament-tiebreaker-select ${disabled}>
+              <option value="">None</option>
+              ${standingsTiebreakerOptions.map((item) => `
+                <option value="${item.key}" ${item.key === value ? "selected" : ""}>${escapeHtml(item.label)}</option>
+              `).join("")}
+            </select>
+          </label>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function tournamentStatusClass(status) {
+  if (status === "completed") return "completed";
+  if (["registration_open", "in_progress"].includes(status)) return "open";
+  if (["registration_closed", "draft"].includes(status)) return "pending";
+  return "";
+}
+
+function tournamentPublicUrl(tournament) {
+  return `${window.location.origin}/#tournaments/${encodeURIComponent(tournament.slug || "")}`;
+}
+
+function datetimeLocalValue(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 function adminActiveGamesPanel() {
@@ -3898,7 +5890,7 @@ function adminActiveGamesPanel() {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Active games</h2>
+          <h2>Sessions Administration</h2>
           <p class="muted">Open games and submitted results waiting for player confirmation.</p>
         </div>
       </div>
@@ -3925,24 +5917,24 @@ function adminActiveGamesPanel() {
   `;
 }
 
-function renderAdmin() {
-  const content = document.querySelector("[data-content]");
-  content.innerHTML = `
-    ${adminActiveGamesPanel()}
+function adminUsersPanel() {
+  const pageData = paginate(state.adminUsers, state.adminUsersPage);
+  state.adminUsersPage = pageData.currentPage;
+  return `
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Users</h2>
+          <h2>User Administration</h2>
           <p class="muted">Ratings, administrator rights, and account removal.</p>
         </div>
       </div>
       <div class="table-wrap">
-        <table>
+        ${pageData.total ? `<table>
           <thead>
             <tr><th>Name</th><th>Contacts</th><th>Rating</th><th>Matches</th><th>Admin</th><th></th></tr>
           </thead>
           <tbody>
-            ${state.adminUsers.map((user) => `
+            ${pageData.items.map((user) => `
               <tr>
                 <td><button class="text-link-button inline-profile-link" data-profile-user="${user.id}">${escapeHtml(user.name)}</button></td>
                 <td>
@@ -3963,12 +5955,21 @@ function renderAdmin() {
               </tr>
             `).join("")}
           </tbody>
-        </table>
+        </table>` : `<div class="empty">No users yet.</div>`}
       </div>
+      ${paginationMarkup("admin-users", pageData, "users")}
       <div class="message" data-message></div>
     </section>
   `;
+}
 
+function renderAdmin() {
+  state.view = "tournaments";
+  state.tournamentsTab = "admin";
+  renderTournaments();
+}
+
+function wireAdminUserControls() {
   document.querySelectorAll("[data-save-rating]").forEach((button) => {
     button.addEventListener("click", async () => {
       const id = button.dataset.saveRating;
@@ -3988,7 +5989,7 @@ function renderAdmin() {
       try {
         await api(`/api/admin/users/${button.dataset.deleteUser}`, { method: "DELETE" });
         await refresh();
-        await loadAdmin();
+        await loadAdminUsers();
         await loadTop();
         renderShell();
       } catch (err) {
@@ -3996,7 +5997,6 @@ function renderAdmin() {
       }
     });
   });
-  wireAdminGameButtons();
   wireLeaderboardProfiles();
 }
 
@@ -4018,11 +6018,541 @@ function wireAdminGameButtons() {
   });
 }
 
+function wireAdminTournamentFormBehavior() {
+  document.querySelectorAll(".admin-tournament-form").forEach((form) => {
+    const formatSelect = form.querySelector("[data-admin-tournament-format]");
+    if (formatSelect) {
+      const updateFormatFields = () => updateTournamentFormatFields(form);
+      formatSelect.addEventListener("change", updateFormatFields);
+      updateFormatFields();
+    }
+
+    const rulesFile = form.querySelector("[data-tournament-rules-file]");
+    if (rulesFile) {
+      rulesFile.addEventListener("change", () => handleTournamentRulesFile(rulesFile));
+    }
+
+    const rulesLink = form.elements.rulesLink;
+    if (rulesLink) {
+      rulesLink.addEventListener("input", () => {
+        if (!rulesLink.value) return;
+        if (form.elements.rulesFileData) form.elements.rulesFileData.value = "";
+        if (rulesFile) rulesFile.value = "";
+        const status = form.querySelector("[data-tournament-rules-file-status]");
+        if (status) status.textContent = "No PDF selected";
+      });
+    }
+
+    form.querySelectorAll("[data-tournament-tiebreaker-select]").forEach((select) => {
+      select.addEventListener("change", () => updateTournamentTiebreakerSelects(form));
+    });
+    updateTournamentTiebreakerSelects(form);
+  });
+}
+
+function updateTournamentFormatFields(form) {
+  const format = form.querySelector("[data-admin-tournament-format]")?.value || "single_elimination";
+  form.querySelectorAll("[data-format-field]").forEach((field) => {
+    const active = field.dataset.formatField === format;
+    field.hidden = !active;
+    field.querySelectorAll("input, select, textarea").forEach((control) => {
+      if (!control.dataset.initialDisabled) {
+        control.dataset.initialDisabled = control.disabled ? "1" : "0";
+      }
+      control.disabled = !active || control.dataset.initialDisabled === "1";
+    });
+  });
+}
+
+function handleTournamentRulesFile(input) {
+  const form = input.closest("form");
+  const file = input.files?.[0];
+  const hidden = form?.elements.rulesFileData;
+  const status = form?.querySelector("[data-tournament-rules-file-status]");
+  if (!form || !hidden) return;
+  if (!file) {
+    hidden.value = "";
+    form.dataset.rulesFileLoading = "";
+    if (status) status.textContent = form.dataset.existingRulesLinkType === "pdf" ? "Existing PDF attached" : "No PDF selected";
+    return;
+  }
+  const looksLikePdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  if (!looksLikePdf) {
+    input.value = "";
+    hidden.value = "";
+    form.dataset.rulesFileLoading = "";
+    if (status) status.textContent = "Choose a PDF file";
+    setMessage("Tournament rules file must be a PDF", true);
+    return;
+  }
+  if (file.size > MAX_TOURNAMENT_RULES_PDF_SIZE) {
+    input.value = "";
+    hidden.value = "";
+    form.dataset.rulesFileLoading = "";
+    if (status) status.textContent = "PDF is too large";
+    setMessage("Tournament rules PDF must be 2 MB or smaller", true);
+    return;
+  }
+  form.dataset.rulesFileLoading = "1";
+  if (status) status.textContent = "Loading PDF...";
+  const reader = new FileReader();
+  reader.onload = () => {
+    hidden.value = String(reader.result || "");
+    form.dataset.rulesFileLoading = "";
+    if (form.elements.rulesLink) form.elements.rulesLink.value = "";
+    if (status) status.textContent = file.name;
+  };
+  reader.onerror = () => {
+    input.value = "";
+    hidden.value = "";
+    form.dataset.rulesFileLoading = "";
+    if (status) status.textContent = "Could not read PDF";
+    setMessage("Could not read tournament rules PDF", true);
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateTournamentTiebreakerSelects(form) {
+  const selects = Array.from(form.querySelectorAll("[data-tournament-tiebreaker-select]"));
+  const selected = new Set(selects.map((select) => select.value).filter(Boolean));
+  selects.forEach((select) => {
+    select.querySelectorAll("option").forEach((option) => {
+      option.disabled = Boolean(option.value && option.value !== select.value && selected.has(option.value));
+    });
+  });
+}
+
+function currentTournamentDetail() {
+  return state.adminTournamentDetail || state.publicTournamentDetail || null;
+}
+
+async function refreshTournamentParticipantView(tournament) {
+  state.adminTournamentPreview = null;
+  if (tournamentSlugFromHash() && tournament?.slug) {
+    await renderPublicTournamentRoute(tournament.slug);
+    return;
+  }
+  await loadTournamentAdmin();
+  renderTournaments();
+}
+
+function wireTournamentInfoControls(data, options = {}) {
+  document.querySelectorAll("[data-tournament-info-tab]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      state.tournamentInfoTab = button.dataset.tournamentInfoTab || "standings";
+      try {
+        if (state.tournamentInfoTab === "participants" && canManageTournamentParticipants(data)) {
+          await loadAdminUsers();
+        }
+        if (options.publicRoute) renderPublicTournament(data);
+        else renderTournaments();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
+  });
+
+  if (!document.querySelector("[data-admin-tournament-add-participant]")) return;
+  wireComboFields();
+  wireTournamentParticipantAdminControls();
+}
+
+function wireTournamentParticipantAdminControls() {
+  document.querySelector("[data-admin-tournament-add-participant]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitAdminTournamentParticipant(event.currentTarget);
+  });
+
+  document.querySelector("[data-admin-tournament-bulk]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitAdminTournamentBulk(event.currentTarget);
+  });
+
+  document.querySelector("[data-admin-tournament-save-seeds]")?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await saveAdminTournamentSeeds();
+  });
+
+  document.querySelectorAll("[data-admin-participant-remove]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await removeAdminTournamentParticipant(Number(button.dataset.adminParticipantRemove));
+    });
+  });
+
+  document.querySelectorAll("[data-admin-participant-save-faction]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await saveAdminTournamentParticipantFaction(Number(button.dataset.adminParticipantSaveFaction));
+    });
+  });
+
+  document.querySelectorAll("[data-admin-participant-replace]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await replaceAdminTournamentParticipant(Number(button.dataset.adminParticipantReplace));
+    });
+  });
+
+  document.querySelectorAll("[data-admin-participant-link]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await linkAdminTournamentParticipant(Number(button.dataset.adminParticipantLink));
+    });
+  });
+}
+
+function wireAdminTournamentControls() {
+  wireAdminTournamentFormBehavior();
+  wireTournamentInfoControls(state.adminTournamentDetail);
+
+  document.querySelector("[data-admin-tournament-new]")?.addEventListener("click", () => {
+    state.adminTournamentMode = "create";
+    state.selectedTournamentId = null;
+    state.adminTournamentDetail = null;
+    state.adminTournamentPreview = null;
+    syncAppHash();
+    renderTournaments();
+  });
+
+  document.querySelector("[data-admin-tournament-create-cancel]")?.addEventListener("click", () => {
+    state.adminTournamentMode = "list";
+    state.selectedTournamentId = null;
+    state.adminTournamentDetail = null;
+    state.adminTournamentPreview = null;
+    syncAppHash();
+    renderTournaments();
+  });
+
+  document.querySelector("[data-admin-tournament-create]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const body = adminTournamentBodyFromForm(event.currentTarget, { includeSlug: true });
+      const data = await api("/api/admin/tournaments", { method: "POST", body });
+      state.selectedTournamentId = data.tournament.id;
+      state.adminTournamentMode = "detail";
+      state.adminTournamentPreview = null;
+      await loadTournamentAdmin();
+      syncAppHash();
+      renderShell();
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+
+  document.querySelectorAll("[data-admin-tournament-open]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        state.adminTournamentMode = "detail";
+        await loadAdminTournamentDetail(Number(button.dataset.adminTournamentOpen));
+        syncAppHash();
+        renderTournaments();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
+  });
+
+  document.querySelector("[data-admin-tournament-close]")?.addEventListener("click", () => {
+    state.adminTournamentMode = "list";
+    state.selectedTournamentId = null;
+    state.adminTournamentDetail = null;
+    state.adminTournamentPreview = null;
+    syncAppHash();
+    renderTournaments();
+  });
+
+  document.querySelector("[data-admin-tournament-update]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const id = state.adminTournamentDetail?.tournament?.id;
+      await api(`/api/admin/tournaments/${id}`, {
+        method: "PATCH",
+        body: adminTournamentBodyFromForm(event.currentTarget)
+      });
+      state.adminTournamentPreview = null;
+      await loadTournamentAdmin();
+      renderTournaments();
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+
+  document.querySelectorAll("[data-admin-tournament-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await runAdminTournamentAction(button.dataset.adminTournamentAction);
+    });
+  });
+
+  document.querySelector("[data-admin-tournament-public]")?.addEventListener("click", () => {
+    const slug = document.querySelector("[data-admin-tournament-public]")?.dataset.adminTournamentPublic;
+    if (!slug) return;
+    window.location.hash = `/tournaments/${encodeURIComponent(slug)}`;
+  });
+
+  document.querySelector("[data-admin-tournament-copy]")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    try {
+      await copyText(button.dataset.adminTournamentCopy);
+      button.textContent = "Copied";
+      window.setTimeout(() => {
+        button.textContent = "Copy link";
+      }, 1400);
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+
+  document.querySelectorAll("[data-admin-tournament-match-result]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const detail = state.adminTournamentDetail;
+      const match = findTournamentMatch(detail, Number(button.dataset.adminTournamentMatchResult));
+      if (match) renderTournamentResultForm(detail, match, { admin: true });
+    });
+  });
+}
+
+function adminTournamentBodyFromForm(form, options = {}) {
+  const { includeSlug = false } = options;
+  if (form.dataset.rulesFileLoading === "1") {
+    throw new Error("Wait until the tournament rules PDF finishes loading");
+  }
+  const body = {};
+  setFormValue(body, form, "name");
+  setFormValue(body, form, "gameSystem");
+  setFormValue(body, form, "startsAt");
+  setFormValue(body, form, "format");
+  setFormValue(body, form, "ratingPolicy");
+  setFormValue(body, form, "challengeCreditPolicy");
+  if (includeSlug) setFormValue(body, form, "slug");
+
+  const tournamentRulesField = form.elements.tournamentRules;
+  if (tournamentRulesField && !tournamentRulesField.disabled) {
+    body.tournamentRules = tournamentRulesField.value;
+  } else {
+    setFormValue(body, form, "description");
+    setFormValue(body, form, "rulesSummary");
+  }
+
+  const swissRoundField = form.elements.swissRoundCount;
+  if (swissRoundField && !swissRoundField.disabled && body.format === "swiss") {
+    body.swissRoundCount = Number(swissRoundField.value || 0);
+  }
+  const singleEliminationSizeField = form.elements.singleEliminationSize;
+  if (singleEliminationSizeField && !singleEliminationSizeField.disabled && body.format === "single_elimination") {
+    body.singleEliminationSize = Number(singleEliminationSizeField.value || 0);
+  }
+
+  const rulesFileData = form.elements.rulesFileData?.value || "";
+  const rulesLinkField = form.elements.rulesLink;
+  if (rulesFileData) {
+    body.rulesLink = rulesFileData;
+  } else if (rulesLinkField && !rulesLinkField.disabled) {
+    const rulesLink = String(rulesLinkField.value || "").trim();
+    if (rulesLink || form.dataset.existingRulesLinkType !== "pdf") {
+      body.rulesLink = rulesLink;
+    }
+  }
+
+  const tiebreakerSelects = Array.from(form.querySelectorAll("[data-tournament-tiebreaker-select]"))
+    .filter((select) => !select.disabled);
+  if (tiebreakerSelects.length) {
+    const selected = [];
+    const seen = new Set();
+    for (const select of tiebreakerSelects) {
+      const value = select.value;
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      selected.push(value);
+    }
+    body.tiebreakerOrder = selected.slice(0, 4);
+  }
+  return body;
+}
+
+function setFormValue(body, form, fieldName) {
+  const field = form.elements[fieldName];
+  if (!field || field.disabled) return;
+  body[fieldName] = field.value;
+}
+
+async function runAdminTournamentAction(action) {
+  const tournament = state.adminTournamentDetail?.tournament;
+  if (!tournament) return;
+  try {
+    if (action === "preview") {
+      await loadAdminTournamentPreview(tournament.id);
+    } else if (action === "publish-open") {
+      await api(`/api/admin/tournaments/${tournament.id}/publish`, {
+        method: "POST",
+        body: { status: "registration_open" }
+      });
+    } else if (action === "publish-closed") {
+      await api(`/api/admin/tournaments/${tournament.id}/publish`, {
+        method: "POST",
+        body: { status: "registration_closed" }
+      });
+    } else if (action === "close-registration") {
+      await api(`/api/admin/tournaments/${tournament.id}/registration/close`, { method: "POST" });
+    } else if (action === "reopen-registration") {
+      await api(`/api/admin/tournaments/${tournament.id}/registration/reopen`, { method: "POST" });
+    } else if (action === "start") {
+      if (!window.confirm("Start this tournament? Seeds and setup will be locked.")) return;
+      await api(`/api/admin/tournaments/${tournament.id}/start`, { method: "POST" });
+    } else if (action === "generate-next-round") {
+      const confirmed = window.confirm("Generate the next round now? Review and edit completed match results before confirming; pairings will be locked after this step.");
+      if (!confirmed) return;
+      await api(`/api/admin/tournaments/${tournament.id}/rounds/next`, { method: "POST" });
+    }
+    await loadTournamentAdmin();
+    renderTournaments();
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function submitAdminTournamentParticipant(form) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const formData = new FormData(form);
+  const body = {
+    displayName: formData.get("displayName") || "",
+    faction: formData.get("faction") || ""
+  };
+  const userId = Number(formData.get("userId") || 0);
+  if (userId) body.userId = userId;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants`, { method: "POST", body });
+    form.reset();
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function submitAdminTournamentBulk(form) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const names = new FormData(form).get("names") || "";
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants/bulk`, {
+      method: "POST",
+      body: { names }
+    });
+    form.reset();
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function saveAdminTournamentSeeds() {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const participantIds = (detail.participants || [])
+    .filter((participant) => ["joined", "active"].includes(participant.status))
+    .map((participant) => ({
+      id: participant.id,
+      seed: Number(document.querySelector(`[data-participant-seed="${participant.id}"]`)?.value || participant.seed || 9999)
+    }))
+    .sort((a, b) => a.seed - b.seed || a.id - b.id)
+    .map((participant) => participant.id);
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/seeds`, {
+      method: "POST",
+      body: { participantIds }
+    });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function removeAdminTournamentParticipant(participantId) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const participant = (detail.participants || []).find((item) => item.id === participantId);
+  if (!window.confirm(`Remove ${participant?.displayName || "participant"}?`)) return;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, { method: "DELETE" });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function linkAdminTournamentParticipant(participantId) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const select = document.querySelector(`[data-admin-participant-link-user="${participantId}"]`);
+  const userId = Number(select?.value || 0);
+  if (!userId) {
+    setMessage("Choose a TGTV user to link", true);
+    return;
+  }
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, {
+      method: "PATCH",
+      body: { userId }
+    });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function saveAdminTournamentParticipantFaction(participantId) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const input = document.querySelector(`[name="participant-faction-${participantId}"]`);
+  if (input && !input.reportValidity()) return;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, {
+      method: "PATCH",
+      body: { faction: input?.value || "" }
+    });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function replaceAdminTournamentParticipant(participantId) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const participant = (detail.participants || []).find((item) => item.id === participantId);
+  if (tournament.status === "in_progress" && participant?.userId) {
+    setMessage("Registered player replacement is locked after start; add a late participant instead.", true);
+    return;
+  }
+  const select = document.querySelector(`[data-admin-participant-replace-user="${participantId}"]`);
+  const userId = Number(select?.value || 0);
+  if (!userId) {
+    setMessage("Choose a registered user", true);
+    return;
+  }
+  const user = (state.adminUsers || []).find((item) => item.id === userId);
+  const body = { userId };
+  if (user && tournament.status !== "in_progress") body.displayName = user.name;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, {
+      method: "PATCH",
+      body
+    });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
 async function adminPatch(id, body) {
   try {
     await api(`/api/admin/users/${id}`, { method: "PATCH", body });
     await refresh();
-    await loadAdmin();
+    await loadAdminUsers();
     await loadTop();
     renderShell();
   } catch (err) {

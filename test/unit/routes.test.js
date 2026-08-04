@@ -42,7 +42,12 @@ const REQUIRES_AUTHENTICATED_USER = [
   ["POST", "/api/challenges/:id/accept"],
   ["POST", "/api/challenges/:id/decline"],
   ["POST", "/api/challenges/:id/cancel"],
-  ["POST", "/api/feedback"]
+  ["POST", "/api/feedback"],
+  ["POST", "/api/tournaments/:id/join"],
+  ["POST", "/api/tournaments/:id/withdraw"],
+  ["POST", "/api/tournaments/:id/matches/:matchId/result"],
+  ["POST", "/api/tournaments/:id/matches/:matchId/confirm-result"],
+  ["POST", "/api/tournaments/:id/matches/:matchId/reject-result"]
 ];
 
 test("MEDIUM 3: маршруты, чей обработчик разыменовывает ctx.user, требуют auth: user", () => {

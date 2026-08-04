@@ -4,6 +4,7 @@ const challenges = require("./challenges");
 const games = require("./games");
 const feedback = require("./feedback");
 const admin = require("./admin");
+const tournaments = require("./tournaments");
 
 function withAction(handler, action) {
   return (ctx) => handler({ ...ctx, params: { ...ctx.params, action } });
@@ -78,6 +79,50 @@ module.exports = [
 
   { method: "POST", path: "/api/feedback", handler: feedback.create, auth: "user", tx: true },
 
+  { method: "GET", path: "/api/tournaments", handler: tournaments.listPublic, auth: "none" },
+  {
+    method: "GET",
+    path: "/api/tournaments/:slug",
+    handler: tournaments.getPublic,
+    auth: "none",
+    loadUser: true
+  },
+  {
+    method: "POST",
+    path: "/api/tournaments/:id/join",
+    handler: tournaments.join,
+    auth: "user",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/tournaments/:id/withdraw",
+    handler: tournaments.withdraw,
+    auth: "user",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/tournaments/:id/matches/:matchId/result",
+    handler: tournaments.submitResult,
+    auth: "user",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/tournaments/:id/matches/:matchId/confirm-result",
+    handler: tournaments.confirmResult,
+    auth: "user",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/tournaments/:id/matches/:matchId/reject-result",
+    handler: tournaments.rejectResult,
+    auth: "user",
+    tx: true
+  },
+
   { method: "GET", path: "/api/admin/feedback", handler: feedback.list, auth: "admin" },
   {
     method: "PATCH",
@@ -125,6 +170,117 @@ module.exports = [
   },
 
   { method: "GET", path: "/api/admin/users", handler: admin.listUsers, auth: "admin" },
+  { method: "GET", path: "/api/admin/tournaments", handler: tournaments.listAdmin, auth: "admin" },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments",
+    handler: tournaments.createAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "GET",
+    path: "/api/admin/tournaments/:id",
+    handler: tournaments.getAdmin,
+    auth: "admin"
+  },
+  {
+    method: "PATCH",
+    path: "/api/admin/tournaments/:id",
+    handler: tournaments.updateAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/publish",
+    handler: tournaments.publishAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/registration/close",
+    handler: tournaments.closeRegistration,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/registration/reopen",
+    handler: tournaments.reopenRegistration,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/participants",
+    handler: tournaments.addParticipant,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/participants/bulk",
+    handler: tournaments.bulkParticipants,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "PATCH",
+    path: "/api/admin/tournaments/:id/participants/:participantId",
+    handler: tournaments.updateParticipant,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "DELETE",
+    path: "/api/admin/tournaments/:id/participants/:participantId",
+    handler: tournaments.removeParticipant,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/seeds",
+    handler: tournaments.updateSeeds,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "GET",
+    path: "/api/admin/tournaments/:id/preview",
+    handler: tournaments.previewAdmin,
+    auth: "admin"
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/start",
+    handler: tournaments.startAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/rounds/next",
+    handler: tournaments.generateNextRoundAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/matches/:matchId/result",
+    handler: tournaments.saveMatchResultAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "PATCH",
+    path: "/api/admin/tournaments/:id/matches/:matchId/result",
+    handler: tournaments.saveMatchResultAdmin,
+    auth: "admin",
+    tx: true
+  },
   {
     method: "POST",
     path: "/api/admin/users/:id/challenge-credit",

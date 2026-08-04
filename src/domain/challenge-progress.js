@@ -7,7 +7,12 @@ const {
 
 function buildChallengeEvents(games, user) {
   const gameEvents = games
-    .filter((game) => game.status === "completed" && game.result?.winnerId === user.id)
+    .filter(
+      (game) =>
+        game.status === "completed" &&
+        game.result?.winnerId === user.id &&
+        game.result?.challengeCredit !== false
+    )
     .map((game) => ({
       team: canonicalKillTeam(game.result.scores?.[user.id]?.faction),
       source: "game",
