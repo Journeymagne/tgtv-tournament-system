@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: tgtv-tournament-postgres-stage
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: tgtv
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: tgtv_tournament_stage
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data_stage:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tgtv -d tgtv_tournament_stage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data_stage:
