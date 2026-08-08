@@ -882,6 +882,70 @@ button:disabled {
   line-height: 1.5;
 }
 
+.markdown-content {
+  overflow-wrap: anywhere;
+}
+
+.markdown-content > * {
+  margin: 0 0 10px;
+}
+
+.markdown-content > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 22px;
+}
+
+.markdown-content li + li {
+  margin-top: 4px;
+}
+
+.markdown-content a {
+  color: var(--accent);
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.markdown-content code {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #080808;
+  color: var(--ink);
+}
+
+.markdown-content pre {
+  overflow-x: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #080808;
+}
+
+.markdown-content pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.markdown-content blockquote {
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: rgba(255, 122, 26, 0.08);
+}
+
 .public-tournament-grid {
   align-items: start;
 }

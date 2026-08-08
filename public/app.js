@@ -287,6 +287,135 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function markdownToHtml(value) {
+  const lines = String(value || "").replace(/\r\n?/g, "\n").split("\n");
+  const blocks = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+
+    const fence = line.match(/^\s*```(\w+)?\s*$/);
+    if (fence) {
+      const code = [];
+      index += 1;
+      while (index < lines.length && !/^\s*```\s*$/.test(lines[index])) {
+        code.push(lines[index]);
+        index += 1;
+      }
+      if (index < lines.length) index += 1;
+      blocks.push(`<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`);
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length + 2;
+      blocks.push(`<h${level}>${markdownInlineToHtml(heading[2])}</h${level}>`);
+      index += 1;
+      continue;
+    }
+
+    if (/^\s*([-*+])\s+/.test(line)) {
+      const items = [];
+      while (index < lines.length && /^\s*([-*+])\s+/.test(lines[index])) {
+        items.push(lines[index].replace(/^\s*[-*+]\s+/, ""));
+        index += 1;
+      }
+      blocks.push(`<ul>${items.map((item) => `<li>${markdownInlineToHtml(item)}</li>`).join("")}</ul>`);
+      continue;
+    }
+
+    if (/^\s*\d+[.)]\s+/.test(line)) {
+      const items = [];
+      while (index < lines.length && /^\s*\d+[.)]\s+/.test(lines[index])) {
+        items.push(lines[index].replace(/^\s*\d+[.)]\s+/, ""));
+        index += 1;
+      }
+      blocks.push(`<ol>${items.map((item) => `<li>${markdownInlineToHtml(item)}</li>`).join("")}</ol>`);
+      continue;
+    }
+
+    if (/^\s*>\s?/.test(line)) {
+      const quote = [];
+      while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
+        quote.push(lines[index].replace(/^\s*>\s?/, ""));
+        index += 1;
+      }
+      blocks.push(`<blockquote>${quote.map(markdownInlineToHtml).join("<br>")}</blockquote>`);
+      continue;
+    }
+
+    if (/^\s*---+\s*$/.test(line)) {
+      blocks.push("<hr>");
+      index += 1;
+      continue;
+    }
+
+    const paragraph = [];
+    while (index < lines.length && lines[index].trim() && !isMarkdownBlockStart(lines[index])) {
+      paragraph.push(lines[index]);
+      index += 1;
+    }
+    blocks.push(`<p>${paragraph.map(markdownInlineToHtml).join("<br>")}</p>`);
+  }
+
+  return blocks.join("");
+}
+
+function isMarkdownBlockStart(line) {
+  return /^\s*```/.test(line) ||
+    /^(#{1,4})\s+/.test(line) ||
+    /^\s*([-*+])\s+/.test(line) ||
+    /^\s*\d+[.)]\s+/.test(line) ||
+    /^\s*>\s?/.test(line) ||
+    /^\s*---+\s*$/.test(line);
+}
+
+function markdownInlineToHtml(value) {
+  const tokens = [];
+  const token = (html) => {
+    const key = `\uE000${tokens.length}\uE001`;
+    tokens.push(html);
+    return key;
+  };
+  let text = String(value || "");
+
+  text = text.replace(/`([^`\n]+)`/g, (_, code) => token(`<code>${escapeHtml(code)}</code>`));
+  text = text.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (match, label, href) => {
+    const safeUrl = safeMarkdownUrl(href);
+    if (!safeUrl) return match;
+    return token(`<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`);
+  });
+  text = text.replace(/(^|[\s(])(https?:\/\/[^\s<>"')]+)/g, (match, prefix, href) => {
+    const safeUrl = safeMarkdownUrl(href);
+    if (!safeUrl) return match;
+    return `${prefix}${token(`<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(href)}</a>`)}`;
+  });
+
+  text = escapeHtml(text)
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/__([^_\n]+)__/g, "<strong>$1</strong>")
+    .replace(/~~([^~\n]+)~~/g, "<del>$1</del>")
+    .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+    .replace(/(^|[\s(])_([^_\n]+)_/g, "$1<em>$2</em>");
+
+  tokens.forEach((html, itemIndex) => {
+    text = text.replaceAll(`\uE000${itemIndex}\uE001`, html);
+  });
+  return text;
+}
+
+function safeMarkdownUrl(value) {
+  const text = String(value || "").trim();
+  if (!/^(https?:\/\/|mailto:)/i.test(text)) return "";
+  return text;
+}
+
 function fmtDate(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat("ru", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
@@ -681,7 +810,7 @@ function renderPublicTournament(data) {
             `}
           </div>
         </div>
-        ${tournament.description ? `<p class="public-tournament-description">${escapeHtml(tournament.description)}</p>` : ""}
+        ${tournament.description ? `<div class="public-tournament-description markdown-content">${markdownToHtml(tournament.description)}</div>` : ""}
         ${tournamentRulesLinkMarkup(tournament)}
         <section class="profile-grid">
           ${metricCard("Players", (data.participants || []).filter((item) => item.status !== "removed").length)}
