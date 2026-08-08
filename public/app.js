@@ -2923,12 +2923,12 @@ function renderGames() {
 function filterGames(games) {
   const playerId = Number(state.gameFilters.playerId);
   const hasPlayerFilter = Number.isInteger(playerId) && playerId > 0;
-  const playerNeedle = state.gameFilters.playerQuery.trim().toLowerCase();
+  const playerNeedle = state.gameFilters.playerQuery.trim();
   const teamFilter = state.gameFilters.team;
   return games.filter((game) => {
     const playerMatch = hasPlayerFilter
       ? (game.players || []).some((player) => Number(player.id) === playerId)
-      : !playerNeedle || (game.players || []).some((player) => String(player.name || "").toLowerCase().includes(playerNeedle));
+      : !playerNeedle || (game.players || []).some((player) => searchTextMatches(player.name, playerNeedle));
     const teamMatch = !teamFilter || gameScoreEntries(game).some((entry) => entry.team === teamFilter);
     return playerMatch && teamMatch;
   });
@@ -2953,12 +2953,12 @@ function gamePlayerFilterOptions(games) {
 }
 
 function gamePlayerSuggestionOptions(games, query) {
-  const needle = query.trim().toLowerCase();
+  const needle = query.trim();
   return gamePlayerFilterOptions(games)
-    .filter((player) => !needle || player.name.toLowerCase().includes(needle))
+    .filter((player) => !needle || searchTextMatches(player.name, needle))
     .sort((a, b) => {
-      const aStarts = a.name.toLowerCase().startsWith(needle);
-      const bStarts = b.name.toLowerCase().startsWith(needle);
+      const aStarts = searchTextStartsWith(a.name, needle);
+      const bStarts = searchTextStartsWith(b.name, needle);
       return Number(!aStarts) - Number(!bStarts) || b.games - a.games || a.name.localeCompare(b.name) || a.id - b.id;
     })
     .slice(0, 8);
@@ -3669,6 +3669,38 @@ function statKey(value) {
   return String(value || "").trim().toLowerCase().replace(/[`']/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function searchKey(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .trim()
+    .toLowerCase()
+    .replace(/[`'’]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function compactSearchKey(value) {
+  return searchKey(value).replace(/\s+/g, "");
+}
+
+function searchTextMatches(text, query) {
+  const rawText = String(text || "").toLowerCase();
+  const rawQuery = String(query || "").trim().toLowerCase();
+  const queryKey = searchKey(query);
+  if (!rawQuery && !queryKey) return true;
+  if (rawQuery && rawText.includes(rawQuery)) return true;
+  if (!queryKey) return false;
+  const textKey = searchKey(text);
+  return textKey.includes(queryKey) || compactSearchKey(text).includes(compactSearchKey(query));
+}
+
+function searchTextStartsWith(text, query) {
+  const rawQuery = String(query || "").trim().toLowerCase();
+  const queryKey = searchKey(query);
+  if (!rawQuery && !queryKey) return true;
+  return String(text || "").toLowerCase().startsWith(rawQuery) || searchKey(text).startsWith(queryKey);
+}
+
 function canonicalKillTeamName(value) {
   const raw = String(value || "").trim();
   if (!raw) return "";
@@ -3682,16 +3714,14 @@ function validKillTeamName(value) {
 }
 
 function comboOptionMatchesQuery(option, query) {
-  const optionKey = statKey(option);
-  const queryKey = statKey(query);
-  const compactOptionKey = optionKey.replace(/\s+/g, "");
-  const compactQueryKey = queryKey.replace(/\s+/g, "");
-  if (!queryKey) return true;
+  const optionLabel = comboOptionLabel(option);
+  if (searchTextMatches(comboOptionSearchText(option), query)) return true;
   const canonicalQuery = canonicalKillTeamName(query);
-  return option.toLowerCase().includes(query.trim().toLowerCase()) ||
-    optionKey.includes(queryKey) ||
-    compactOptionKey.includes(compactQueryKey) ||
-    statKey(canonicalQuery) === optionKey;
+  return Boolean(canonicalQuery) && searchKey(canonicalQuery) === searchKey(optionLabel);
+}
+
+function comboOptionStartsWithQuery(option, query) {
+  return searchTextStartsWith(comboOptionSearchText(option), query);
 }
 
 function canonicalTacOpName(value) {
@@ -4956,44 +4986,118 @@ function randomOption(options = []) {
 
 function comboField(label, name, optionsKey, selected = "", placeholder = "Search or select", options = {}) {
   const optional = Boolean(options.optional);
-  const normalizedSelected = optionsKey === "faction"
-    ? validKillTeamName(selected) || selected
-    : selected;
+  const disabled = Boolean(options.disabled);
+  const valueMode = options.valueMode || (options.items ? "value" : "label");
+  const items = options.items ? normalizeComboOptions(options.items) : null;
+  const normalizedSelected = valueMode === "value"
+    ? String(selected || "")
+    : optionsKey === "faction"
+      ? validKillTeamName(selected) || selected
+      : selected;
+  const selectedOption = items?.find((item) => String(item.value) === String(normalizedSelected));
+  const displaySelected = valueMode === "value" ? selectedOption?.label || "" : normalizedSelected || "";
+  const itemsAttribute = items ? ` data-combo-items="${escapeHtml(JSON.stringify(items))}"` : "";
+  const valueInput = valueMode === "value"
+    ? `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(normalizedSelected)}" data-combo-value-input ${disabled ? "disabled" : ""} ${options.valueAttributes || ""}>`
+    : "";
+  const inputName = valueMode === "value" ? "" : ` name="${escapeHtml(name)}"`;
   return `
-    <div class="field combo-field" data-combo data-combo-options="${optionsKey}" data-combo-optional="${optional ? "true" : "false"}">
+    <div class="field combo-field" data-combo data-combo-options="${optionsKey}" data-combo-optional="${optional ? "true" : "false"}" data-combo-value-mode="${valueMode}"${itemsAttribute}>
       <label>${escapeHtml(label)}</label>
       <div class="combo-control">
         <input
           class="combo-input"
-          name="${escapeHtml(name)}"
-          value="${escapeHtml(normalizedSelected || "")}"
+          ${inputName}
+          value="${escapeHtml(displaySelected)}"
           placeholder="${escapeHtml(placeholder)}"
           autocomplete="off"
           ${optional ? "" : "required"}
+          ${disabled ? "disabled" : ""}
           data-combo-input
         >
-        <button class="combo-toggle" type="button" data-combo-toggle aria-label="Show options"></button>
+        ${valueInput}
+        <button class="combo-toggle" type="button" data-combo-toggle aria-label="Show options" ${disabled ? "disabled" : ""}></button>
       </div>
       <div class="combo-menu" data-combo-menu hidden></div>
     </div>
   `;
 }
 
-function comboOptionsFor(key) {
-  return key === "faction" ? killTeamOptions : tacOpOptions;
+function normalizeComboOptions(options = []) {
+  return options.map((option) => {
+    if (typeof option === "string") return { value: option, label: option, search: option };
+    const value = String(option?.value ?? "");
+    const label = String(option?.label ?? value);
+    const search = String(option?.search ?? label);
+    return { value, label, search };
+  });
+}
+
+function comboOptionLabel(option) {
+  return typeof option === "string" ? option : String(option?.label ?? option?.value ?? "");
+}
+
+function comboOptionValue(option) {
+  return typeof option === "string" ? option : String(option?.value ?? option?.label ?? "");
+}
+
+function comboOptionSearchText(option) {
+  if (typeof option === "string") return option;
+  return [option?.label, option?.search, option?.value].filter(Boolean).join(" ");
+}
+
+function comboOptionsFor(key, combo = null) {
+  if (combo?.dataset.comboItems) {
+    try {
+      return normalizeComboOptions(JSON.parse(combo.dataset.comboItems));
+    } catch {
+      return [];
+    }
+  }
+  if (key === "faction") return normalizeComboOptions(killTeamOptions);
+  if (key === "tacOp") return normalizeComboOptions(tacOpOptions);
+  return [];
+}
+
+function userComboItems(users = []) {
+  return users.map((user) => ({
+    value: String(user.id),
+    label: `${user.name} (${user.rating})`,
+    search: [user.name, user.registerNickname, user.telegramContact, user.rating].filter(Boolean).join(" ")
+  }));
 }
 
 function wireComboFields() {
   document.querySelectorAll("[data-combo]").forEach((combo) => {
     const input = combo.querySelector("[data-combo-input]");
+    const valueInput = combo.querySelector("[data-combo-value-input]");
     const menu = combo.querySelector("[data-combo-menu]");
     const toggle = combo.querySelector("[data-combo-toggle]");
     const optionsKey = combo.dataset.comboOptions;
     const optional = combo.dataset.comboOptional === "true";
-    const options = comboOptionsFor(optionsKey);
+    const valueMode = combo.dataset.comboValueMode || "label";
+    const options = comboOptionsFor(optionsKey, combo);
     let activeIndex = -1;
 
     const normalizeValue = () => {
+      if (valueMode === "value") {
+        const typed = String(input.value || "").trim();
+        if (!valueInput.value && typed) {
+          const exact = options.find((option) => searchKey(option.label) === searchKey(typed));
+          if (exact) {
+            input.value = exact.label;
+            valueInput.value = exact.value;
+          }
+        }
+        const current = options.find((option) => option.value === valueInput.value);
+        if (current && input.value !== current.label) valueInput.value = "";
+        if (valueInput.value || (optional && !typed)) {
+          input.setCustomValidity("");
+          return true;
+        }
+        input.setCustomValidity("Choose an option from the list");
+        return false;
+      }
       if (optionsKey !== "faction") return true;
       if (optional && !String(input.value || "").trim()) {
         input.setCustomValidity("");
@@ -5016,14 +5120,14 @@ function wireComboFields() {
     };
 
     const filteredOptions = (showAll = false) => {
-      const query = input.value.trim().toLowerCase();
+      const query = input.value.trim();
       return (showAll || !query)
         ? options
         : options.filter((option) => comboOptionMatchesQuery(option, query))
             .sort((a, b) => {
-              const aStarts = a.toLowerCase().startsWith(query);
-              const bStarts = b.toLowerCase().startsWith(query);
-              return Number(!aStarts) - Number(!bStarts) || a.localeCompare(b);
+              const aStarts = comboOptionStartsWithQuery(a, query);
+              const bStarts = comboOptionStartsWithQuery(b, query);
+              return Number(!aStarts) - Number(!bStarts) || comboOptionLabel(a).localeCompare(comboOptionLabel(b));
             });
     };
 
@@ -5031,8 +5135,8 @@ function wireComboFields() {
       const matches = filteredOptions(showAll);
       menu.innerHTML = matches.length
         ? matches.map((option, index) => `
-          <button class="combo-option ${index === activeIndex ? "active" : ""}" type="button" data-combo-value="${escapeHtml(option)}">
-            ${escapeHtml(option)}
+          <button class="combo-option ${index === activeIndex ? "active" : ""}" type="button" data-combo-value="${escapeHtml(comboOptionValue(option))}">
+            ${escapeHtml(comboOptionLabel(option))}
           </button>
         `).join("")
         : `<div class="combo-empty">No matches</div>`;
@@ -5040,10 +5144,12 @@ function wireComboFields() {
       combo.classList.add("open");
     };
 
-    const choose = (value) => {
-      input.value = value;
+    const choose = (option) => {
+      input.value = comboOptionLabel(option);
+      if (valueInput) valueInput.value = comboOptionValue(option);
       normalizeValue();
       close();
+      if (valueInput) valueInput.dispatchEvent(new Event("change", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     };
 
@@ -5056,6 +5162,7 @@ function wireComboFields() {
     });
     input.addEventListener("input", () => {
       activeIndex = -1;
+      if (valueInput) valueInput.value = "";
       normalizeValue();
       renderOptions(false);
     });
@@ -5076,7 +5183,8 @@ function wireComboFields() {
         renderOptions(false);
       } else if (event.key === "Enter" && !menu.hidden && items[activeIndex]) {
         event.preventDefault();
-        choose(items[activeIndex].dataset.comboValue);
+        const selected = options.find((option) => comboOptionValue(option) === items[activeIndex].dataset.comboValue);
+        if (selected) choose(selected);
       }
     });
     toggle.addEventListener("click", () => {
@@ -5087,7 +5195,8 @@ function wireComboFields() {
     menu.addEventListener("mousedown", (event) => event.preventDefault());
     menu.addEventListener("click", (event) => {
       const option = event.target.closest("[data-combo-value]");
-      if (option) choose(option.dataset.comboValue);
+      const selected = options.find((item) => comboOptionValue(item) === option?.dataset.comboValue);
+      if (selected) choose(selected);
     });
     normalizeValue();
   });
@@ -5836,13 +5945,11 @@ function adminTournamentParticipantsContent(data) {
       </div>
       <form class="admin-participant-form" data-admin-tournament-add-participant>
         <div class="grid-2">
-          <div class="field">
-            <label>TGTV user</label>
-            <select name="userId">
-              <option value="">Unregistered participant</option>
-              ${availableUsers.map((user) => `<option value="${user.id}">${escapeHtml(user.name)} (${user.rating})</option>`).join("")}
-            </select>
-          </div>
+          ${comboField("TGTV user", "userId", "users", "", "Unregistered participant", {
+            optional: true,
+            valueMode: "value",
+            items: userComboItems(availableUsers)
+          })}
           <div class="field">
             <label>Display name</label>
             <input name="displayName" maxlength="80" placeholder="Required for unregistered">
@@ -5894,12 +6001,14 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
             <button class="small-button" data-admin-participant-save-faction="${participant.id}" ${locked ? "disabled" : ""}>Save faction</button>
           </div>
           <div class="participant-replace-control">
-            <label>Registered user</label>
             <div class="participant-replace-row">
-              <select data-admin-participant-replace-user="${participant.id}" ${replaceDisabled ? "disabled" : ""}>
-                <option value="">${escapeHtml(replacePlaceholder)}</option>
-                ${replacementUsers.map((user) => `<option value="${user.id}">${escapeHtml(user.name)} (${user.rating})</option>`).join("")}
-              </select>
+              ${comboField("Registered user", `replacement-user-${participant.id}`, "users", "", replacePlaceholder, {
+                optional: true,
+                valueMode: "value",
+                items: userComboItems(replacementUsers),
+                disabled: replaceDisabled,
+                valueAttributes: `data-admin-participant-replace-user="${participant.id}"`
+              })}
               <button class="small-button" data-admin-participant-replace="${participant.id}" ${replaceDisabled ? "disabled" : ""}>${replaceLabel}</button>
             </div>
           </div>

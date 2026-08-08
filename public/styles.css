@@ -2219,6 +2219,15 @@ tr:last-child td {
   background: #0c0c0c;
 }
 
+.participant-replace-row .combo-field {
+  flex: 1 1 230px;
+  margin: 0;
+}
+
+.participant-replace-row .combo-control {
+  min-width: 0;
+}
+
 .participant-link-control {
   display: flex;
   align-items: center;
