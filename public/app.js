@@ -1254,8 +1254,9 @@ function renderAuth() {
       <input id="telegram-contact" name="telegramContact" maxlength="80" placeholder="@username" required>
     </div>
   ` : "";
+  const passwordMinLength = state.authMode === "login" ? 1 : 6;
   const confirmPasswordField = state.authMode !== "login"
-    ? passwordFieldMarkup("Confirm password", "confirmPassword", "confirm-password", "new-password")
+    ? passwordFieldMarkup("Confirm password", "confirmPassword", "confirm-password", "new-password", 6)
     : "";
 
   app.innerHTML = `
@@ -1281,7 +1282,7 @@ function renderAuth() {
               <label for="name">Name</label>
               <input id="name" name="name" autocomplete="username" required minlength="2" maxlength="24">
             </div>
-            ${passwordFieldMarkup("Password", "password", "password", state.authMode === "login" ? "current-password" : "new-password")}
+            ${passwordFieldMarkup("Password", "password", "password", state.authMode === "login" ? "current-password" : "new-password", passwordMinLength)}
             ${confirmPasswordField}
             ${profileFields}
             <button class="primary-button" type="submit">${action}</button>
@@ -1302,12 +1303,12 @@ function renderAuth() {
   wirePasswordToggles();
 }
 
-function passwordFieldMarkup(label, name, id, autocomplete) {
+function passwordFieldMarkup(label, name, id, autocomplete, minLength = 6) {
   return `
     <div class="field">
       <label for="${id}">${label}</label>
       <div class="password-control">
-        <input id="${id}" name="${name}" type="password" autocomplete="${autocomplete}" required minlength="6">
+        <input id="${id}" name="${name}" type="password" autocomplete="${autocomplete}" required minlength="${minLength}">
         <button class="password-toggle" type="button" data-password-toggle="${id}" aria-label="Show password" aria-pressed="false">
           ${eyeIcon()}
         </button>
