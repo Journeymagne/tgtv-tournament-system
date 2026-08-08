@@ -12,6 +12,7 @@ const { buildTournamentPreview } = require("../domain/tournaments/preview");
 const { buildStandings } = require("../domain/tournaments/standings");
 const { calculateSubmittedResult, matchScoreFor } = require("../domain/scoring");
 const { calculateElo, ELO_K } = require("../domain/elo");
+const { requireKillTeam } = require("../domain/kill-teams");
 const { uniqueSlug } = require("../domain/tournaments/slug");
 const { buildSwissNextRound } = require("../domain/tournaments/swiss");
 const { recalculateCompletedGameRatings } = require("./rating-replay");
@@ -256,7 +257,13 @@ async function join({ client, user, params, body }) {
   if (tournament.status !== TOURNAMENT_STATUSES.REGISTRATION_OPEN) {
     throw new HttpError(409, "Registration is not open");
   }
-  const participant = await createParticipant(client, tournament, user, body, "self_join");
+  const participant = await createParticipant(
+    client,
+    tournament,
+    user,
+    { ...body, faction: requireKillTeam(body.faction) },
+    "self_join"
+  );
   await audit(client, tournament, user, "participant_join", {
     entityType: "participant",
     entityId: participant.id,

@@ -886,6 +886,17 @@ button:disabled {
   align-items: start;
 }
 
+.tournament-registration-shell {
+  width: min(620px, 100%);
+  margin: 0 auto;
+}
+
+.tournament-registration-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
 .public-rounds {
   display: grid;
   gap: 16px;

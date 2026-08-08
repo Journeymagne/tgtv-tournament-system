@@ -720,6 +720,78 @@ function publicTournamentViewerActions(data) {
   return "";
 }
 
+function renderTournamentJoinForm(data) {
+  const tournament = data.tournament || {};
+  const telegramContact = state.me?.telegramContact || "";
+  publicTournamentContainer().innerHTML = `
+    <div class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
+      <section class="card panel public-tournament-shell tournament-registration-shell">
+        <div class="panel-header public-tournament-header">
+          <div>
+            <p class="profile-label">Registration</p>
+            <h2>Join ${escapeHtml(tournament.name || "Tournament")}</h2>
+            <p class="muted">Enter your contact link and choose your Kill Team.</p>
+          </div>
+          <div class="row-actions">
+            <button class="small-button" type="button" data-tournament-registration-cancel>Cancel</button>
+          </div>
+        </div>
+        <form class="tournament-registration-form" data-public-tournament-registration>
+          <div class="field">
+            <label for="tournament-telegram-contact">Telegram</label>
+            <input
+              id="tournament-telegram-contact"
+              name="telegramContact"
+              value="${escapeHtml(telegramContact)}"
+              placeholder="https://t.me/username"
+              maxlength="80"
+              required
+            >
+          </div>
+          ${comboField("Faction", "faction", "faction", "", "Choose Kill Team")}
+          <button class="primary-button" type="submit">Join tournament</button>
+          <div class="message" data-message></div>
+        </form>
+      </section>
+    </div>
+  `;
+
+  wireComboFields();
+  document.querySelector("[data-tournament-registration-cancel]")?.addEventListener("click", () => {
+    renderPublicTournament(data);
+  });
+  document.querySelector("[data-public-tournament-registration]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const telegram = String(formData.get("telegramContact") || "").trim();
+    const faction = validKillTeamName(formData.get("faction"));
+    if (!telegram) {
+      setMessage("Telegram link is required", true);
+      return;
+    }
+    if (!faction) {
+      setMessage("Choose a Kill Team from the list", true);
+      return;
+    }
+
+    try {
+      const profile = await api("/api/me", {
+        method: "PATCH",
+        body: { telegramContact: telegram }
+      });
+      state.me = profile.user || state.me;
+      await api(`/api/tournaments/${tournament.id}/join`, {
+        method: "POST",
+        body: { faction }
+      });
+      await renderPublicTournamentRoute(tournament.slug);
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+}
+
 function wirePublicTournamentNav(data) {
   const tournament = data?.tournament || {};
   wireTournamentInfoControls(data, { publicRoute: true });
@@ -748,12 +820,7 @@ function wirePublicTournamentNav(data) {
     renderShell();
   });
   document.querySelector("[data-public-tournament-join]")?.addEventListener("click", async () => {
-    try {
-      await api(`/api/tournaments/${tournament.id}/join`, { method: "POST", body: {} });
-      await renderPublicTournamentRoute(tournament.slug);
-    } catch (err) {
-      window.alert(err.message);
-    }
+    renderTournamentJoinForm(data);
   });
   document.querySelector("[data-public-tournament-withdraw]")?.addEventListener("click", async () => {
     if (!window.confirm("Withdraw from this tournament?")) return;
