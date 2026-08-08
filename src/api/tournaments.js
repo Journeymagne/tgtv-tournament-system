@@ -64,7 +64,7 @@ async function peopleForParticipants(client, participants) {
 
 function viewerFor(tournament, participants, user) {
   if (!user) return { role: "spectator", canAdmin: false, participantId: null };
-  const participant = participants.find((item) => item.userId === user.id) || null;
+  const participant = participants.find((item) => item.userId === user.id && isListedParticipant(item)) || null;
   return {
     role: user.isAdmin ? "admin" : participant ? "participant" : "spectator",
     canAdmin: Boolean(user.isAdmin),
@@ -72,16 +72,18 @@ function viewerFor(tournament, participants, user) {
   };
 }
 
-async function fullView(client, tournament, user, { includeAudit = false, includePrivate = false } = {}) {
+function isListedParticipant(participant) {
+  return ![PARTICIPANT_STATUSES.WITHDRAWN, PARTICIPANT_STATUSES.REMOVED].includes(participant.status);
+}
+
+async function fullView(client, tournament, user, { includeAudit = false } = {}) {
   const participants = await participantsRepo.listByTournament(client, tournament.id);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await matchesRepo.listByTournament(client, tournament.id);
   const people = await peopleForParticipants(client, participants);
   const standings = buildStandings(participants, matches, tournament.tiebreakerOrder);
   const auditEvents = includeAudit ? await auditRepo.listByTournament(client, tournament.id) : [];
-  const visibleParticipants = includePrivate
-    ? participants
-    : participants.filter((item) => !["removed"].includes(item.status));
+  const visibleParticipants = participants.filter(isListedParticipant);
 
   return tournamentDetailView({
     tournament,
@@ -113,7 +115,7 @@ async function listAdmin({ client }) {
 
 async function getAdmin({ client, user, params }) {
   const tournament = await requireTournament(client, params.id);
-  return fullView(client, tournament, user, { includeAudit: true, includePrivate: true });
+  return fullView(client, tournament, user, { includeAudit: true });
 }
 
 async function createAdmin({ client, user, body }) {

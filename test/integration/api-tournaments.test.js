@@ -458,6 +458,48 @@ test("public tournament list includes participant and round summary counts", asy
   assert.equal(listed.roundCount, 1);
 });
 
+test("withdrawn tournament participants are hidden from rosters and counts", async () => {
+  const tournament = await createPublishedTournament({
+    format: "swiss",
+    swissRoundCount: 2
+  });
+  const alpha = await createUser("Alpha");
+  const bravo = await createUser("Bravo");
+
+  await addUserParticipant(tournament, alpha);
+  await tournamentsApi.join({
+    client,
+    user: bravo,
+    params: { id: String(tournament.id) },
+    body: { faction: "Kasrkin" }
+  });
+  await tournamentsApi.withdraw({
+    client,
+    user: bravo,
+    params: { id: String(tournament.id) }
+  });
+
+  const publicView = await tournamentsApi.getPublic({
+    client,
+    user: bravo,
+    params: { slug: tournament.slug }
+  });
+  assert.deepEqual(publicView.participants.map((participant) => participant.displayName), ["Alpha"]);
+  assert.equal(publicView.standings.length, 1);
+  assert.equal(publicView.tournament.viewer.participantId, null);
+
+  const adminView = await tournamentsApi.getAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  assert.deepEqual(adminView.participants.map((participant) => participant.displayName), ["Alpha"]);
+
+  const list = await tournamentsApi.listPublic({ client });
+  const listed = list.tournaments.find((item) => item.id === tournament.id);
+  assert.equal(listed.participantCount, 1);
+});
+
 test("Swiss late participant входит только в следующий сгенерированный раунд", async () => {
   const users = [];
   for (const name of ["Alpha", "Bravo", "Charlie", "Delta", "Echo"]) {

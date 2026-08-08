@@ -789,6 +789,7 @@ function publicTournamentContainer() {
 
 function renderPublicTournament(data) {
   const tournament = data.tournament || {};
+  const listedParticipants = listedTournamentParticipants(data.participants || []);
   state.publicTournamentDetail = data;
   if (!canManageTournamentParticipants(data)) state.tournamentInfoTab = "standings";
   publicTournamentContainer().innerHTML = `
@@ -813,7 +814,7 @@ function renderPublicTournament(data) {
         ${tournament.description ? `<div class="public-tournament-description markdown-content">${markdownToHtml(tournament.description)}</div>` : ""}
         ${tournamentRulesLinkMarkup(tournament)}
         <section class="profile-grid">
-          ${metricCard("Players", (data.participants || []).filter((item) => item.status !== "removed").length)}
+          ${metricCard("Players", listedParticipants.length)}
           ${metricCard("Rounds", (data.rounds || []).length)}
           ${metricCard("Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked")}
           ${metricCard("All Kill Team Challenge", tournament.challengeCreditPolicy === "count" ? "Enabled" : "Disabled")}
@@ -1025,9 +1026,18 @@ function tiebreakerLabelForStandings(key) {
 }
 
 function participantStatusSummary(participants) {
-  const active = participants.filter((item) => ["joined", "active"].includes(item.status)).length;
-  const pending = participants.filter((item) => item.status === "pending_placement").length;
+  const listed = listedTournamentParticipants(participants);
+  const active = listed.filter((item) => ["joined", "active"].includes(item.status)).length;
+  const pending = listed.filter((item) => item.status === "pending_placement").length;
   return pending ? `${active} active, ${pending} pending next round` : `${active} active`;
+}
+
+function isListedTournamentParticipant(participant) {
+  return !["withdrawn", "removed"].includes(participant?.status);
+}
+
+function listedTournamentParticipants(participants) {
+  return (participants || []).filter(isListedTournamentParticipant);
 }
 
 function canManageTournamentParticipants(data) {
@@ -5813,7 +5823,7 @@ function adminTournamentParticipantsPanel(data) {
 function adminTournamentParticipantsContent(data) {
   const tournament = data.tournament || {};
   const participants = data.participants || [];
-  const visibleParticipants = participants.filter((participant) => participant.status !== "removed");
+  const visibleParticipants = listedTournamentParticipants(participants);
   const canRemove = !["in_progress", "completed", "cancelled"].includes(tournament.status);
   const canBulkAdd = !["in_progress", "completed", "cancelled"].includes(tournament.status);
   const readOnly = ["completed", "cancelled"].includes(tournament.status);
