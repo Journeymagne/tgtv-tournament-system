@@ -5,7 +5,9 @@ const { getPool, closePool, withClient, withTransaction } = require("./src/db/po
 const { migrate } = require("./src/db/migrate");
 const { createRouter } = require("./src/http/router");
 const { sendStatic } = require("./src/http/static");
+const { sendText } = require("./src/http/io");
 const { logError } = require("./src/http/logger");
+const { handleSeoRequest } = require("./src/http/seo");
 const routes = require("./src/api/routes");
 const { loadUserFromRequest } = require("./src/api/auth");
 
@@ -20,7 +22,14 @@ const server = http.createServer((req, res) => {
     router(req, res);
     return;
   }
-  sendStatic(req, res);
+  handleSeoRequest(req, res, { withClient })
+    .then((handled) => {
+      if (!handled) sendStatic(req, res);
+    })
+    .catch((err) => {
+      logError("seo route failed", err);
+      sendText(res, 500, "Server error");
+    });
 });
 
 async function start() {

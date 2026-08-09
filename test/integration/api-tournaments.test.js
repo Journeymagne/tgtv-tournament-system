@@ -117,7 +117,12 @@ async function closeAndStart(tournament) {
     user: root,
     params: { id: String(tournament.id) }
   });
-  return tournamentsApi.startAdmin({
+  await tournamentsApi.startAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  return tournamentsApi.generateNextRoundAdmin({
     client,
     user: root,
     params: { id: String(tournament.id) }
@@ -224,6 +229,106 @@ test("single elimination: игроки подтверждают результа
   assert.equal(publicPage.tournament.rulesLink, "https://example.com/tournament-rules.pdf");
   assert.equal(publicPage.tournament.singleEliminationSize, 8);
   assert.equal(publicPage.tournament.viewer.role, "spectator");
+});
+
+test("admin can delete a tournament with linked games and replay ratings", async () => {
+  const alpha = await createUser("Alpha");
+  const tournament = await createPublishedTournament();
+  await addUserParticipant(tournament, alpha);
+  await fillSingleEliminationTournament(tournament, 1);
+
+  const started = await closeAndStart(tournament);
+  const match = activeMatchForUser(started, alpha.id);
+  const opponent = await usersRepo.findById(client, matchOpponentUserId(match, alpha.id));
+
+  const submitted = await tournamentsApi.submitResult({
+    client,
+    user: alpha,
+    params: { id: String(tournament.id), matchId: String(match.id) },
+    body: { scores: scores(alpha.id, opponent.id) }
+  });
+  const pending = submitted.rounds[0].matches.find((item) => item.id === match.id);
+  const confirmed = await tournamentsApi.confirmResult({
+    client,
+    user: opponent,
+    params: { id: String(tournament.id), matchId: String(match.id) }
+  });
+  const completedMatch = confirmed.rounds[0].matches.find((item) => item.id === match.id);
+  assert.equal(pending.gameId, completedMatch.gameId);
+  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1016);
+  assert.ok(await gamesRepo.findById(client, completedMatch.gameId));
+
+  const deleted = await tournamentsApi.deleteAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+
+  assert.equal(deleted.ok, true);
+  assert.equal(deleted.deletedGames, 1);
+  assert.equal(await gamesRepo.findById(client, completedMatch.gameId), null);
+  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1000);
+  assert.equal((await usersRepo.findById(client, opponent.id)).rating, 1000);
+  assert.equal((await tournamentsApi.listAdmin({ client })).tournaments.length, 0);
+});
+
+test("single elimination activates child matches and publishes editable final standings", async () => {
+  const tournament = await createPublishedTournament({
+    tiebreakerOrder: ["total_vp", "vp_diff"]
+  });
+  for (let index = 1; index <= 8; index += 1) {
+    await addUserParticipant(tournament, await createUser(`Bracket ${index}`));
+  }
+
+  let view = await closeAndStart(tournament);
+  const completeActiveMatches = async () => {
+    const active = view.rounds
+      .flatMap((round) => round.matches)
+      .filter((match) => match.status === "active" && !match.isBye);
+    for (const match of active) {
+      view = await tournamentsApi.saveMatchResultAdmin({
+        client,
+        user: root,
+        params: { id: String(tournament.id), matchId: String(match.id) },
+        body: { scores: scores(match.participantA.userId, match.participantB.userId) }
+      });
+    }
+    return active.length;
+  };
+
+  assert.equal(await completeActiveMatches(), 4);
+  const secondRound = view.rounds.find((round) => round.roundNumber === 2);
+  assert.equal(secondRound.status, "active");
+  assert.equal(secondRound.matches.length, 2);
+  assert.equal(secondRound.matches.every((match) => match.status === "active"), true);
+  assert.equal(secondRound.matches.every((match) => match.participantAId && match.participantBId), true);
+
+  assert.equal(await completeActiveMatches(), 2);
+  const finalRound = view.rounds.find((round) => round.roundNumber === 3);
+  assert.equal(finalRound.status, "active");
+  assert.equal(finalRound.matches[0].status, "active");
+  assert.equal(Boolean(finalRound.matches[0].participantAId && finalRound.matches[0].participantBId), true);
+
+  assert.equal(await completeActiveMatches(), 1);
+  assert.equal(view.tournament.status, "in_progress");
+  assert.equal(
+    view.rounds.flatMap((round) => round.matches).every((match) => match.status === "completed"),
+    true
+  );
+
+  const computedOrder = view.standings.map((row) => row.participantId);
+  const manualOrder = [computedOrder[1], computedOrder[0], ...computedOrder.slice(2)];
+  const published = await tournamentsApi.publishFinalStandingsAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) },
+    body: { participantIds: manualOrder }
+  });
+
+  assert.equal(published.tournament.status, "completed");
+  assert.equal(published.tournament.finalResults.length, 8);
+  assert.equal(published.tournament.finalResults[0].participantId, manualOrder[0]);
+  assert.equal(published.tournament.finalResults[1].participantId, manualOrder[1]);
 });
 
 test("unranked tournament сохраняет Approved Ops результат без Elo и challenge-credit", async () => {
@@ -410,6 +515,48 @@ test("single elimination start requires the selected bracket size", async () => 
   );
 });
 
+test("tournament start leaves first round pending until admin generates it", async () => {
+  const tournament = await createPublishedTournament({
+    format: "swiss",
+    swissRoundCount: 2
+  });
+  for (const name of ["Alpha", "Bravo", "Charlie", "Delta"]) {
+    await addUserParticipant(tournament, await createUser(name));
+  }
+
+  await tournamentsApi.closeRegistration({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  const started = await tournamentsApi.startAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+
+  assert.equal(started.tournament.status, "in_progress");
+  assert.equal(started.rounds.length, 0);
+  assert.equal(started.participants.every((participant) => participant.status === "active"), true);
+
+  const preview = await tournamentsApi.previewNextRoundAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  assert.equal(preview.round.roundNumber, 1);
+  assert.equal(preview.round.matches.filter((match) => match.status === "active").length, 2);
+
+  const generated = await tournamentsApi.generateNextRoundAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  assert.equal(generated.rounds.length, 1);
+  assert.equal(generated.rounds[0].roundNumber, 1);
+  assert.equal(generated.rounds[0].status, "active");
+});
+
 test("single elimination participant list is capped by bracket size", async () => {
   const tournament = await createPublishedTournament();
   await fillSingleEliminationTournament(tournament, 0);
@@ -580,6 +727,48 @@ test("Swiss bulk add is blocked after tournament start", async () => {
   );
 });
 
+test("Swiss late participant can be removed before placement after tournament start", async () => {
+  const tournament = await createPublishedTournament({
+    format: "swiss",
+    swissRoundCount: 2
+  });
+  const users = [];
+  for (const name of ["Alpha", "Bravo", "Charlie", "Delta", "Echo"]) {
+    users.push(await createUser(name));
+  }
+  for (const person of users.slice(0, 4)) await addUserParticipant(tournament, person);
+
+  const started = await closeAndStart(tournament);
+  const activeParticipant = started.participants.find((participant) => participant.userId === users[0].id);
+  const late = await addUserParticipant(tournament, users[4]);
+
+  assert.equal(late.status, "pending_placement");
+
+  const removed = await tournamentsApi.removeParticipant({
+    client,
+    user: root,
+    params: { id: String(tournament.id), participantId: String(late.id) }
+  });
+  assert.equal(removed.participant.status, "removed");
+
+  const view = await tournamentsApi.getAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  assert.equal(view.participants.some((participant) => participant.id === late.id), false);
+
+  await assert.rejects(
+    () =>
+      tournamentsApi.removeParticipant({
+        client,
+        user: root,
+        params: { id: String(tournament.id), participantId: String(activeParticipant.id) }
+      }),
+    (err) => err.status === 409 && /generated matches/.test(err.message)
+  );
+});
+
 test("admin can edit a completed Swiss match before generating the next round", async () => {
   const alpha = await createUser("Alpha");
   const tournament = await createPublishedTournament({
@@ -744,4 +933,79 @@ test("api me includes active tournament match card without pending duplicate", a
   assert.equal(pendingCards[0].sourceId, match.id);
   assert.equal(pendingCards[0].status, "pending_confirmation");
   assert.equal(pendingCards[0].pendingResult.submittedBy, alpha.id);
+});
+
+test("IRL Swiss tournament stores season, manages tables, and uses round setup payload", async () => {
+  const tournament = await createPublishedTournament({
+    format: "swiss",
+    swissRoundCount: 2,
+    seasonId: "2026-q2-dataslate",
+    venueMode: "irl"
+  });
+  const players = [];
+  for (const name of ["Alpha", "Bravo", "Charlie", "Delta"]) {
+    const user = await createUser(name);
+    players.push(user);
+    await addUserParticipant(tournament, user);
+  }
+
+  const firstTable = await tournamentsApi.addTableAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) },
+    body: { tableNumber: 1, killzone: "Volkus", deployment: 1 }
+  });
+  const secondTable = await tournamentsApi.addTableAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) },
+    body: { tableNumber: 2, killzone: "Gallowdark", deployment: 2 }
+  });
+
+  let view = await closeAndStart(tournament);
+  assert.equal(view.tournament.seasonId, "2026-q2-dataslate");
+  assert.equal(view.tournament.venueMode, "irl");
+  assert.equal(view.tables.length, 2);
+  assert.deepEqual(view.rounds[0].matches.map((match) => match.table?.tableNumber).sort(), [1, 2]);
+  assert.deepEqual(view.rounds[0].matches.map((match) => match.mission?.layout).sort(), [1, 2]);
+
+  for (const match of view.rounds[0].matches.filter((item) => item.status === "active")) {
+    view = await tournamentsApi.saveMatchResultAdmin({
+      client,
+      user: root,
+      params: { id: String(tournament.id), matchId: String(match.id) },
+      body: {
+        scores: scores(match.participantA.userId, match.participantB.userId),
+        killzone: match.mission
+      }
+    });
+  }
+
+  assert.equal(view.tournamentGames.length, 2);
+  const preview = await tournamentsApi.previewNextRoundAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  assert.equal(preview.round.roundNumber, 2);
+  assert.equal(preview.tables.length, 2);
+
+  view = await tournamentsApi.generateNextRoundAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) },
+    body: {
+      mission: { critOp: "Loot" },
+      matchups: preview.round.matches.map((match, index) => ({
+        participantAId: match.participantAId,
+        participantBId: match.participantBId,
+        tableId: index === 0 ? secondTable.body.table.id : firstTable.body.table.id
+      }))
+    }
+  });
+
+  const secondRound = view.rounds.find((round) => round.roundNumber === 2);
+  assert.equal(secondRound.status, "active");
+  assert.equal(secondRound.matches.every((match) => match.mission?.critOp === "Loot"), true);
+  assert.equal(secondRound.matches.every((match) => match.tableId), true);
 });

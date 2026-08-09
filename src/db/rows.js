@@ -20,7 +20,7 @@ const TOURNAMENT_COLUMNS = `
   id, owner_user_id, slug, name, description, game_system, starts_at,
   rules_summary, rules_link, status, format, swiss_round_count,
   single_elimination_size, tiebreaker_order, rating_policy,
-  challenge_credit_policy, final_results, published_at, started_at,
+  challenge_credit_policy, season_id, venue_mode, final_results, published_at, started_at,
   completed_at, cancelled_at, created_at, updated_at
 `;
 
@@ -39,8 +39,13 @@ const TOURNAMENT_MATCH_COLUMNS = `
   id, tournament_id, round_id, round_number, bracket_position, status,
   is_bye, participant_a_id, participant_b_id, source_match_a_id,
   source_match_b_id, winner_participant_id, pending_result, result,
-  match_points, elo, game_id, submitted_by_user_id, completed_at, created_at,
-  updated_at
+  match_points, elo, game_id, submitted_by_user_id, table_id, mission,
+  completed_at, created_at, updated_at
+`;
+
+const TOURNAMENT_TABLE_COLUMNS = `
+  id, tournament_id, table_number, killzone, deployment,
+  created_at, updated_at
 `;
 
 const TOURNAMENT_AUDIT_EVENT_COLUMNS = `
@@ -150,6 +155,8 @@ function mapTournament(row) {
     tiebreakerOrder: row.tiebreaker_order || [],
     ratingPolicy: row.rating_policy || "ranked",
     challengeCreditPolicy: row.challenge_credit_policy || "count",
+    seasonId: row.season_id || "2026-q2-dataslate",
+    venueMode: row.venue_mode || "tts",
     finalResults: row.final_results || null,
     participantCount: row.participant_count === undefined ? undefined : Number(row.participant_count || 0),
     roundCount: row.round_count === undefined ? undefined : Number(row.round_count || 0),
@@ -220,7 +227,22 @@ function mapTournamentMatch(row) {
     elo: row.elo || null,
     gameId: row.game_id,
     submittedByUserId: row.submitted_by_user_id,
+    tableId: row.table_id,
+    mission: row.mission || null,
     completedAt: toIso(row.completed_at),
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at)
+  };
+}
+
+function mapTournamentTable(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    tournamentId: row.tournament_id,
+    tableNumber: row.table_number,
+    killzone: row.killzone || "",
+    deployment: row.deployment,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at)
   };
@@ -251,6 +273,7 @@ module.exports = {
   TOURNAMENT_PARTICIPANT_COLUMNS,
   TOURNAMENT_ROUND_COLUMNS,
   TOURNAMENT_MATCH_COLUMNS,
+  TOURNAMENT_TABLE_COLUMNS,
   TOURNAMENT_AUDIT_EVENT_COLUMNS,
   toIso,
   aliasColumns,
@@ -262,5 +285,6 @@ module.exports = {
   mapTournamentParticipant,
   mapTournamentRound,
   mapTournamentMatch,
+  mapTournamentTable,
   mapTournamentAuditEvent
 };

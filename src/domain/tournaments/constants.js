@@ -37,6 +37,7 @@ const MATCH_STATUSES = {
 
 const RATING_POLICIES = ["ranked", "unranked"];
 const CHALLENGE_CREDIT_POLICIES = ["count", "none"];
+const VENUE_MODES = ["tts", "irl"];
 const SINGLE_ELIMINATION_SIZES = [8, 16, 32, 64];
 const STANDINGS_TIEBREAKERS = [
   "strength_of_schedule",
@@ -54,6 +55,7 @@ module.exports = {
   MATCH_STATUSES,
   RATING_POLICIES,
   CHALLENGE_CREDIT_POLICIES,
+  VENUE_MODES,
   SINGLE_ELIMINATION_SIZES,
   STANDINGS_TIEBREAKERS
 };

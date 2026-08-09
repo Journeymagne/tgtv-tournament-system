@@ -11,13 +11,13 @@ const {
 async function insert(client, match) {
   const { rows } = await client.query(
     `INSERT INTO tournament_matches
-       (tournament_id, round_id, round_number, bracket_position, status, is_bye,
+     (tournament_id, round_id, round_number, bracket_position, status, is_bye,
         participant_a_id, participant_b_id, source_match_a_id, source_match_b_id,
         winner_participant_id, pending_result, result, match_points, elo, game_id,
-        submitted_by_user_id, completed_at)
+        submitted_by_user_id, table_id, mission, completed_at)
      VALUES
        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-        $12::jsonb, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17, $18)
+        $12::jsonb, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17, $18, $19::jsonb, $20)
      RETURNING ${COLUMNS}`,
     [
       match.tournamentId,
@@ -37,6 +37,8 @@ async function insert(client, match) {
       match.elo ? JSON.stringify(match.elo) : null,
       match.gameId || null,
       match.submittedByUserId || null,
+      match.tableId || null,
+      match.mission ? JSON.stringify(match.mission) : null,
       match.completedAt || null
     ]
   );
@@ -213,13 +215,15 @@ async function update(client, id, patch) {
     elo: "elo",
     gameId: "game_id",
     submittedByUserId: "submitted_by_user_id",
+    tableId: "table_id",
+    mission: "mission",
     completedAt: "completed_at"
   };
   const assignments = [];
   const values = [id];
   for (const [field, column] of Object.entries(fields)) {
     if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
-    const isJson = ["pendingResult", "result", "matchPoints", "elo"].includes(field);
+    const isJson = ["pendingResult", "result", "matchPoints", "elo", "mission"].includes(field);
     values.push(isJson ? JSON.stringify(patch[field] || null) : patch[field]);
     assignments.push(`${column} = $${values.length}${isJson ? "::jsonb" : ""}`);
   }

@@ -24,6 +24,8 @@ const FIELD_COLUMNS = {
   tiebreakerOrder: "tiebreaker_order",
   ratingPolicy: "rating_policy",
   challengeCreditPolicy: "challenge_credit_policy",
+  seasonId: "season_id",
+  venueMode: "venue_mode",
   finalResults: "final_results",
   publishedAt: "published_at",
   startedAt: "started_at",
@@ -52,8 +54,8 @@ async function insert(client, tournament) {
        (owner_user_id, slug, name, description, game_system, starts_at,
         rules_summary, rules_link, status, format, swiss_round_count,
         single_elimination_size, tiebreaker_order, rating_policy,
-        challenge_credit_policy)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14)
+        challenge_credit_policy, season_id, venue_mode)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16)
      RETURNING ${COLUMNS}`,
     [
       tournament.ownerUserId || null,
@@ -69,7 +71,9 @@ async function insert(client, tournament) {
       tournament.singleEliminationSize || null,
       tournament.tiebreakerOrder || [],
       tournament.ratingPolicy || "ranked",
-      tournament.challengeCreditPolicy || "count"
+      tournament.challengeCreditPolicy || "count",
+      tournament.seasonId || "2026-q2-dataslate",
+      tournament.venueMode || "tts"
     ]
   );
   return mapTournament(rows[0]);
@@ -163,6 +167,16 @@ async function update(client, id, patch) {
   return mapTournament(rows[0]);
 }
 
+async function remove(client, id) {
+  const { rows } = await client.query(
+    `DELETE FROM tournaments
+     WHERE id = $1
+     RETURNING ${COLUMNS}`,
+    [id]
+  );
+  return mapTournament(rows[0]);
+}
+
 module.exports = {
   PUBLISHED_STATUSES,
   isSlugTaken,
@@ -172,5 +186,6 @@ module.exports = {
   findBySlug,
   listPublished,
   listAdmin,
-  update
+  update,
+  remove
 };

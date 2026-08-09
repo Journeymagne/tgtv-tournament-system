@@ -156,6 +156,18 @@ async function cancel(client, id) {
   return mapGame(rows[0]);
 }
 
+async function removeBySourceIds(client, sourceType, sourceIds) {
+  const ids = [...new Set(sourceIds)].filter((id) => Number.isInteger(id));
+  if (!ids.length) return [];
+  const { rows } = await client.query(
+    `DELETE FROM games
+     WHERE source_type = $1 AND source_id = ANY($2::int[])
+     RETURNING ${COLUMNS}`,
+    [sourceType, ids]
+  );
+  return rows.map(mapGame);
+}
+
 module.exports = {
   ACTIVE_STATUSES,
   findById,
@@ -172,5 +184,6 @@ module.exports = {
   clearResult,
   saveFinalResult,
   updateElo,
-  cancel
+  cancel,
+  removeBySourceIds
 };

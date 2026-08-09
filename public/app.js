@@ -62,6 +62,8 @@ const standingsTiebreakerOptions = [
 const singleEliminationSizes = [8, 16, 32, 64];
 const gameSystemOptions = ["Warhammer 40k Kill Team"];
 const MAX_TOURNAMENT_RULES_PDF_SIZE = 2 * 1024 * 1024;
+const TOURNAMENT_AUTOSAVE_TEXT_DELAY_MS = 900;
+const TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS = 180;
 
 const opLabels = {
   crit: "Crit Op",
@@ -209,6 +211,11 @@ const seasons = [
     startsAt: null,
     endsAt: null
   }
+];
+
+const venueModeOptions = [
+  { key: "tts", label: "Tabletop Simulator" },
+  { key: "irl", label: "In Real Life" }
 ];
 
 const killTeamAliases = new Map([
@@ -542,7 +549,7 @@ async function boot() {
 }
 
 function render() {
-  const tournamentSlug = tournamentSlugFromHash();
+  const tournamentSlug = tournamentSlugFromLocation();
   if (tournamentSlug) {
     renderPublicTournamentRoute(tournamentSlug);
     return;
@@ -560,7 +567,7 @@ window.addEventListener("popstate", handleHashNavigation);
 
 async function handleHashNavigation() {
   try {
-    if (tournamentSlugFromHash() || !state.me) {
+    if (tournamentSlugFromLocation() || !state.me) {
       render();
       return;
     }
@@ -585,7 +592,7 @@ function hashSegments() {
 }
 
 function appRouteFromHash() {
-  if (tournamentSlugFromHash() || sharedChallengeTokenFromHash()) return null;
+  if (tournamentSlugFromLocation() || sharedChallengeTokenFromHash()) return null;
   const segments = hashSegments();
   if (!segments.length) return null;
   const [section, subroute, id] = segments;
@@ -660,6 +667,7 @@ async function applyAppRoute(route) {
       state.selectedTournamentId = Number.isInteger(route.selectedTournamentId) && route.selectedTournamentId > 0
         ? route.selectedTournamentId
         : null;
+      if (state.adminTournamentMode === "detail" && state.selectedTournamentId) state.tournamentInfoTab = "settings";
       state.adminTournamentDetail = null;
       state.adminTournamentPreview = null;
       await loadTournamentAdmin();
@@ -711,10 +719,23 @@ function appHashForState() {
 
 function syncAppHash(options = {}) {
   const hash = appHashForState();
-  if (!hash || window.location.hash === hash) return;
-  const url = `${window.location.pathname}${window.location.search}${hash}`;
+  const pathname = tournamentSlugFromPath() ? "/" : window.location.pathname;
+  if (!hash || (window.location.hash === hash && window.location.pathname === pathname)) return;
+  const url = `${pathname}${window.location.search}${hash}`;
   if (options.replace) window.history.replaceState(null, "", url);
   else window.history.pushState(null, "", url);
+}
+
+function pathSegments() {
+  const raw = String(window.location.pathname || "/").replace(/^\/+|\/+$/g, "");
+  if (!raw) return [];
+  return raw.split("/").filter(Boolean).map((segment) => {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      return "";
+    }
+  });
 }
 
 function sharedChallengeTokenFromHash() {
@@ -733,14 +754,41 @@ function tournamentSlugFromHash() {
   return segments[1] || "";
 }
 
+function tournamentSlugFromPath() {
+  const segments = pathSegments();
+  if (segments.length !== 2 || segments[0] !== "tournaments" || segments[1] === "admin") return "";
+  return segments[1] || "";
+}
+
+function tournamentPublicPath(slug) {
+  return `/tournaments/${encodeURIComponent(slug || "")}`;
+}
+
+function tournamentSlugFromLocation() {
+  const pathSlug = tournamentSlugFromPath();
+  if (pathSlug) return pathSlug;
+  const hashSlug = tournamentSlugFromHash();
+  if (hashSlug) {
+    window.history.replaceState(null, "", `${tournamentPublicPath(hashSlug)}${window.location.search}`);
+    return hashSlug;
+  }
+  return "";
+}
+
+function navigateToPublicTournament(slug) {
+  if (!slug) return;
+  window.history.pushState(null, "", tournamentPublicPath(slug));
+  renderPublicTournamentRoute(slug);
+}
+
 function clearSharedChallengeHash() {
   if (!String(window.location.hash || "").startsWith("#challenge/")) return;
   window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
 }
 
-function clearTournamentHash() {
-  if (!tournamentSlugFromHash()) return;
-  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+function clearTournamentRoute() {
+  if (!tournamentSlugFromLocation()) return;
+  window.history.replaceState(null, "", `/${window.location.search}`);
 }
 
 async function renderPublicTournamentRoute(slug) {
@@ -791,7 +839,6 @@ function renderPublicTournament(data) {
   const tournament = data.tournament || {};
   const listedParticipants = listedTournamentParticipants(data.participants || []);
   state.publicTournamentDetail = data;
-  if (!canManageTournamentParticipants(data)) state.tournamentInfoTab = "standings";
   publicTournamentContainer().innerHTML = `
     <div class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
       <section class="card panel public-tournament-shell">
@@ -804,7 +851,6 @@ function renderPublicTournament(data) {
           <div class="row-actions">
             ${state.me ? `
               ${publicTournamentViewerActions(data)}
-              ${tournament.viewer?.canAdmin ? `<button class="small-button" data-public-admin-tournament="${tournament.id}">Manage</button>` : ""}
             ` : `
               <button class="small-button" data-public-login>Sign in</button>
               <button class="primary-button" data-public-register>Register</button>
@@ -814,24 +860,14 @@ function renderPublicTournament(data) {
         ${tournament.description ? `<div class="public-tournament-description markdown-content">${markdownToHtml(tournament.description)}</div>` : ""}
         ${tournamentRulesLinkMarkup(tournament)}
         <section class="profile-grid">
-          ${metricCard("Players", listedParticipants.length)}
-          ${metricCard("Rounds", (data.rounds || []).length)}
-          ${metricCard("Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked")}
-          ${metricCard("All Kill Team Challenge", tournament.challengeCreditPolicy === "count" ? "Enabled" : "Disabled")}
+          ${metricCard("Date", tournamentDateLabel(tournament))}
+          ${metricCard("Participants", String(listedParticipants.length))}
+          ${metricCard("Rounds", tournamentRoundsLabel(tournament, data))}
+          ${metricCard("Venue", venueModeLabel(tournament.venueMode))}
+          ${metricCard("Season", seasonLabel(tournament.seasonId))}
         </section>
       </section>
-      <section class="grid-2 public-tournament-grid">
-        ${tournamentInfoPanel(data, { publicRoute: true })}
-        <div class="card panel wide-panel">
-          <div class="panel-header">
-            <div>
-              <h3>Matches</h3>
-              <p class="muted">Approved Ops totals are shown when results are complete.</p>
-            </div>
-          </div>
-          ${publicRoundsMarkup(data.rounds || [], tournament)}
-        </div>
-      </section>
+      ${tournamentInfoPanel(data, { publicRoute: true })}
     </div>
   `;
   wirePublicTournamentNav(data);
@@ -927,27 +963,17 @@ function wirePublicTournamentNav(data) {
   wireTournamentInfoControls(data, { publicRoute: true });
   document.querySelector("[data-public-login]")?.addEventListener("click", () => {
     state.authMode = "login";
-    clearTournamentHash();
+    clearTournamentRoute();
     render();
   });
   document.querySelector("[data-public-register]")?.addEventListener("click", () => {
     state.authMode = "register";
-    clearTournamentHash();
+    clearTournamentRoute();
     render();
   });
   document.querySelector("[data-public-back]")?.addEventListener("click", () => {
-    clearTournamentHash();
+    clearTournamentRoute();
     render();
-  });
-  document.querySelector("[data-public-admin-tournament]")?.addEventListener("click", async () => {
-    clearTournamentHash();
-    state.view = "tournaments";
-    state.tournamentsTab = "admin";
-    state.adminTournamentMode = "detail";
-    state.selectedTournamentId = tournament.id;
-    await loadTournamentAdmin();
-    syncAppHash();
-    renderShell();
   });
   document.querySelector("[data-public-tournament-join]")?.addEventListener("click", async () => {
     renderTournamentJoinForm(data);
@@ -990,6 +1016,29 @@ function tournamentStatusLabel(status) {
 
 function formatLabel(format) {
   return format === "swiss" ? "Swiss" : "Single elimination";
+}
+
+function latestSeason() {
+  return seasons[seasons.length - 1] || { id: "2026-q2-dataslate", name: "2026 Q2 Dataslate" };
+}
+
+function seasonLabel(seasonId) {
+  return seasons.find((season) => season.id === seasonId)?.name || seasonId || latestSeason().name;
+}
+
+function venueModeLabel(mode) {
+  return venueModeOptions.find((item) => item.key === mode)?.label || "Tabletop Simulator";
+}
+
+function tournamentDateLabel(tournament = {}) {
+  return tournament.startsAt ? fmtDate(tournament.startsAt) : "No date";
+}
+
+function tournamentRoundsLabel(tournament = {}, data = {}) {
+  if (tournament.format === "single_elimination") {
+    return String(Math.round(Math.log2(Number(tournament.singleEliminationSize || 8))));
+  }
+  return String(tournament.swissRoundCount || (data.rounds || []).length || 0);
 }
 
 function standingsSubtitle(tournament) {
@@ -1047,40 +1096,101 @@ function canManageTournamentParticipants(data) {
 
 function tournamentInfoPanel(data, options = {}) {
   const tournament = data.tournament || {};
-  const canManage = canManageTournamentParticipants(data);
-  const activeTab = canManage && state.tournamentInfoTab === "participants" ? "participants" : "standings";
+  const canManage = Boolean(options.admin && canManageTournamentParticipants(data));
+  const activeTab = tournamentInfoActiveTab(data, options);
   const wrapperTag = options.admin ? "section" : "div";
   const wrapperClass = options.admin ? "admin-subpanel wide-panel" : "card panel wide-panel";
-  const title = activeTab === "participants" ? "Participants" : "Standings";
-  const subtitle = activeTab === "participants"
-    ? participantStatusSummary(data.participants || [])
-    : standingsSubtitle(tournament);
+  const titleByTab = {
+    settings: "Settings",
+    standings: "Standings",
+    matches: "Matches",
+    stats: "Stats",
+    participants: "Participants",
+    tables: "Tables"
+  };
+  const subtitleByTab = {
+    settings: "Tournament setup and rules.",
+    standings: standingsSubtitle(tournament),
+    matches: "Match result totals are shown when results are complete.",
+    stats: `${tournament.name || "Tournament"} games only.`,
+    participants: participantStatusSummary(data.participants || []),
+    tables: "IRL table numbers stay fixed for the whole tournament."
+  };
   return `
     <${wrapperTag} class="${wrapperClass}">
       <div class="panel-header">
         <div>
-          <h3>${title}</h3>
-          <p class="muted">${escapeHtml(subtitle)}</p>
+          <h3>${titleByTab[activeTab]}</h3>
+          <p class="muted">${escapeHtml(subtitleByTab[activeTab])}</p>
         </div>
       </div>
-      ${canManage ? tournamentInfoTabs(activeTab) : ""}
-      ${activeTab === "participants" ? adminTournamentParticipantsContent(data) : publicStandingsTable(data)}
+      ${tournamentInfoTabs(activeTab, data, options)}
+      ${tournamentInfoTabContent(activeTab, data, options)}
       ${canManage ? `<div class="message" data-message></div>` : ""}
     </${wrapperTag}>
   `;
 }
 
-function tournamentInfoTabs(activeTab) {
+function tournamentInfoTabDefinitions(data, options = {}) {
+  const tabs = [
+    { id: "standings", label: "Standings" },
+    { id: "matches", label: "Matches" },
+    { id: "stats", label: "Stats" }
+  ];
+  if (options.admin) tabs.unshift({ id: "settings", label: "Settings" });
+  if (options.admin && canManageTournamentParticipants(data)) {
+    tabs.push({ id: "participants", label: "Participants" });
+    if (data?.tournament?.venueMode === "irl") tabs.push({ id: "tables", label: "Tables" });
+  }
+  return tabs;
+}
+
+function tournamentInfoActiveTab(data, options = {}) {
+  const tabs = tournamentInfoTabDefinitions(data, options);
+  const fallbackTab = tabs[0]?.id || "standings";
+  const activeTab = tabs.some((tab) => tab.id === state.tournamentInfoTab) ? state.tournamentInfoTab : fallbackTab;
+  state.tournamentInfoTab = activeTab;
+  return activeTab;
+}
+
+function tournamentInfoTabs(activeTab, data, options = {}) {
+  const tabs = tournamentInfoTabDefinitions(data, options);
   return `
     <div class="tabs tournament-info-tabs">
-      <button class="tab ${activeTab === "standings" ? "active" : ""}" data-tournament-info-tab="standings">Standings</button>
-      <button class="tab ${activeTab === "participants" ? "active" : ""}" data-tournament-info-tab="participants">Participants</button>
+      ${tabs.map((tab) => `
+        <button class="tab ${activeTab === tab.id ? "active" : ""}" data-tournament-info-tab="${tab.id}">${escapeHtml(tab.label)}</button>
+      `).join("")}
     </div>
   `;
 }
 
+function tournamentInfoTabContent(activeTab, data, options = {}) {
+  if (activeTab === "settings" && options.admin) return adminTournamentSettingsContent(data);
+  if (activeTab === "participants") return adminTournamentParticipantsContent(data);
+  if (activeTab === "tables") return adminTournamentTablesContent(data);
+  if (activeTab === "stats") return tournamentStatsContent(data);
+  if (activeTab === "matches") return tournamentMatchesContent(data, options);
+  return `${publicStandingsTable(data)}${options.admin ? adminFinalStandingsEditor(data) : ""}`;
+}
+
+function tournamentMatchesContent(data, options = {}) {
+  if (options.admin) {
+    return `${adminTournamentPreviewPanel(data)}${adminTournamentRoundsPanel(data)}`;
+  }
+  return publicRoundsMarkup(data.rounds || [], data.tournament || {});
+}
+
+function adminTournamentSettingsContent(data) {
+  return adminTournamentEditForm(data.tournament || {});
+}
+
+function displayedStandings(data) {
+  const finalResults = data.tournament?.finalResults;
+  return Array.isArray(finalResults) && finalResults.length ? finalResults : data.standings || [];
+}
+
 function publicStandingsTable(data) {
-  const standings = data.standings || [];
+  const standings = displayedStandings(data);
   const participants = new Map((data.participants || []).map((item) => [item.id, item]));
   const extraColumns = (data.tournament?.tiebreakerOrder || [])
     .filter((key, index, order) => order.indexOf(key) === index)
@@ -1170,11 +1280,12 @@ function publicMatchMarkup(match, tournament = {}) {
   const playerA = match.participantA?.displayName || "TBD";
   const playerB = match.isBye ? "BYE" : match.participantB?.displayName || "TBD";
   const score = publicMatchScore(match);
+  const meta = [score, matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
     <div class="row-card compact-row-card">
       <div class="row-main">
           <div class="row-title">${escapeHtml(playerA)} vs ${escapeHtml(playerB)}</div>
-          <div class="row-meta">${escapeHtml(score)}</div>
+          <div class="row-meta">${escapeHtml(meta)}</div>
         </div>
       <div class="row-actions">
         <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(match.status)}</span>
@@ -1185,18 +1296,8 @@ function publicMatchMarkup(match, tournament = {}) {
 }
 
 function publicMatchActions(match, tournament = {}) {
-  const canAdmin = Boolean(tournament.viewer?.canAdmin);
   const participantId = tournament.viewer?.participantId;
   if (!state.me || match.isBye) return "";
-  if (canAdmin) {
-    if (match.status === "active") {
-      return `<button class="small-button" data-public-tournament-result="${match.id}" data-public-tournament-admin-result="1">Enter result</button>`;
-    }
-    if (match.status === "pending_confirmation" && match.pendingResult?.result) {
-      return `<button class="small-button" data-public-tournament-result="${match.id}" data-public-tournament-admin-result="1">Edit result</button>`;
-    }
-    return "";
-  }
   if (!participantId) return "";
   if (![match.participantAId, match.participantBId].includes(participantId)) return "";
   if (match.status === "active") {
@@ -1225,6 +1326,16 @@ function publicMatchScore(match) {
     ? [a, b].find((participant) => participant.id === match.winnerParticipantId)
     : null;
   return winner ? `${totalA}-${totalB}, ${winner.displayName} won` : `${totalA}-${totalB}`;
+}
+
+function matchSetupMeta(match) {
+  const mission = match.mission || match.result?.killzone || match.pendingResult?.result?.killzone || {};
+  const parts = [];
+  if (match.table?.tableNumber) parts.push(`Table ${match.table.tableNumber}`);
+  if (mission.killzone) parts.push(`Killzone: ${mission.killzone}`);
+  if (mission.critOp) parts.push(`Crit Op: ${mission.critOp}`);
+  if (mission.layout) parts.push(`Deployment ${mission.layout}`);
+  return parts.join(" / ");
 }
 
 async function loadTournaments() {
@@ -1318,7 +1429,7 @@ function renderTournaments() {
   }
   document.querySelectorAll("[data-tournament-open]").forEach((button) => {
     button.addEventListener("click", () => {
-      window.location.hash = `/tournaments/${encodeURIComponent(button.dataset.tournamentOpen)}`;
+      navigateToPublicTournament(button.dataset.tournamentOpen);
     });
   });
 }
@@ -1564,7 +1675,7 @@ async function submitAuth(event) {
     await refresh();
     await loadTop();
     const routed = await applyAppRouteFromHash();
-    if (!routed && !tournamentSlugFromHash()) {
+    if (!routed && !tournamentSlugFromLocation()) {
       state.view = "play";
       syncAppHash({ replace: true });
     }
@@ -3170,6 +3281,9 @@ function wireStatsSorting() {
 function filterGamesBySeason(games, season) {
   if (!season) return games;
   return games.filter((game) => {
+    if (game.sourceType === "tournament_match" && game.tournament?.seasonId) {
+      return game.tournament.seasonId === season.id;
+    }
     const timestamp = game.submittedAt || game.result?.confirmedAt || game.createdAt || "";
     if (!timestamp) return true;
     const time = Date.parse(timestamp);
@@ -4219,7 +4333,7 @@ function wireGameButtons() {
     button.addEventListener("click", () => {
       const game = getKnownTournamentGame(Number(button.dataset.tournamentGameOpen));
       const slug = game?.tournament?.slug;
-      if (slug) window.location.hash = `/tournaments/${encodeURIComponent(slug)}`;
+      navigateToPublicTournament(slug);
     });
   });
   document.querySelectorAll("[data-tournament-game-result]").forEach((button) => {
@@ -4575,6 +4689,7 @@ function renderTournamentResultForm(data, match, options = {}) {
   const game = tournamentGameLike(match);
   if (game.players.length !== 2) return;
   const existingResult = match.result || match.pendingResult?.result || null;
+  const missionDefaults = existingResult?.killzone || match.mission || {};
   const panel = `
     <section class="card panel">
       <div class="panel-header">
@@ -4596,7 +4711,7 @@ function renderTournamentResultForm(data, match, options = {}) {
               <select name="killzone">
                 <option value="">Not selected</option>
                 ${killzoneOptions.map((option) => `
-                  <option value="${escapeHtml(option)}" ${existingResult?.killzone?.killzone === option ? "selected" : ""}>${escapeHtml(option)}</option>
+                  <option value="${escapeHtml(option)}" ${missionDefaults.killzone === option ? "selected" : ""}>${escapeHtml(option)}</option>
                 `).join("")}
               </select>
             </div>
@@ -4605,7 +4720,7 @@ function renderTournamentResultForm(data, match, options = {}) {
               <select name="critOp">
                 <option value="">Not selected</option>
                 ${critOpOptions.map((option) => `
-                  <option value="${escapeHtml(option)}" ${existingResult?.killzone?.critOp === option ? "selected" : ""}>${escapeHtml(option)}</option>
+                  <option value="${escapeHtml(option)}" ${missionDefaults.critOp === option ? "selected" : ""}>${escapeHtml(option)}</option>
                 `).join("")}
               </select>
             </div>
@@ -4614,7 +4729,7 @@ function renderTournamentResultForm(data, match, options = {}) {
               <select name="killzoneLayout">
                 <option value="">Not selected</option>
                 ${[1, 2, 3, 4, 5, 6].map((layout) => `
-                  <option value="${layout}" ${Number(existingResult?.killzone?.layout) === layout ? "selected" : ""}>${layout}</option>
+                  <option value="${layout}" ${Number(missionDefaults.layout) === layout ? "selected" : ""}>${layout}</option>
                 `).join("")}
               </select>
             </div>
@@ -5021,6 +5136,62 @@ function comboField(label, name, optionsKey, selected = "", placeholder = "Searc
       <div class="combo-menu" data-combo-menu hidden></div>
     </div>
   `;
+}
+
+function tournamentFinalStandingsReady(data) {
+  const tournament = data.tournament || {};
+  const rounds = data.rounds || [];
+  const matches = rounds.flatMap((round) => round.matches || []);
+  if (tournament.status !== "in_progress") return false;
+  if (!matches.length || matches.some((match) => match.status !== "completed")) return false;
+  if (tournament.format === "swiss") {
+    return rounds.length >= Number(tournament.swissRoundCount || 0);
+  }
+  return true;
+}
+
+function adminFinalStandingsEditor(data) {
+  if (!canManageTournamentParticipants(data) || !tournamentFinalStandingsReady(data)) return "";
+  const standings = data.standings || [];
+  const participants = listedTournamentParticipants(data.participants || []);
+  if (!standings.length || !participants.length) return "";
+  const participantsById = new Map(participants.map((participant) => [participant.id, participant]));
+  const standingsByParticipantId = new Map(standings.map((row) => [row.participantId, row]));
+  const optionMarkup = (selectedId) => participants.map((participant) => `
+    <option value="${participant.id}" data-stats="${escapeHtml(finalStandingStatsText(standingsByParticipantId.get(participant.id)))}" ${participant.id === selectedId ? "selected" : ""}>
+      ${escapeHtml(participant.displayName)}${participant.faction ? ` / ${escapeHtml(participant.faction)}` : ""}
+    </option>
+  `).join("");
+  return `
+    <form class="final-standings-editor" data-admin-final-standings>
+      <div class="final-standings-header">
+        <div>
+          <h4>Final standings preview</h4>
+          <p class="muted">Review and adjust placements before publishing the tournament result.</p>
+        </div>
+        <button class="primary-button final-standings-publish" type="submit">Publish standings</button>
+      </div>
+      <div class="final-standing-list">
+        ${standings.map((row, index) => {
+          const selectedParticipant = participantsById.get(row.participantId) || participants[index] || participants[0];
+          return `
+            <div class="final-standing-row">
+              <div class="final-standing-rank">#${index + 1}</div>
+              <select data-final-standing-select aria-label="Final standing ${index + 1}">
+                ${optionMarkup(selectedParticipant.id)}
+              </select>
+              <div class="final-standing-stats">${escapeHtml(finalStandingStatsText(standingsByParticipantId.get(selectedParticipant.id) || row))}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <div class="message" data-final-standings-message></div>
+    </form>
+  `;
+}
+
+function finalStandingStatsText(row = {}) {
+  return `TP ${row.matchPoints || 0} / ${row.wins || 0}-${row.draws || 0}-${row.losses || 0} / VP ${row.totalVp || 0} / Diff ${row.vpDiff || 0}`;
 }
 
 function normalizeComboOptions(options = []) {
@@ -5708,6 +5879,18 @@ function adminTournamentCreatePanel() {
               ${gameSystemOptions.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}
             </select>
           </div>
+          <div class="field">
+            <label>Season</label>
+            <select name="seasonId">
+              ${seasons.map((season) => `<option value="${escapeHtml(season.id)}" ${season.id === latestSeason().id ? "selected" : ""}>${escapeHtml(season.name)}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label>Venue</label>
+            <select name="venueMode">
+              ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}">${escapeHtml(option.label)}</option>`).join("")}
+            </select>
+          </div>
         </div>
         <div class="field">
           <label>Tournament Rules</label>
@@ -5759,25 +5942,24 @@ function adminTournamentDetailPanel(data) {
           <h2>${escapeHtml(tournament.name || "Untitled tournament")}</h2>
           <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}${tournament.startsAt ? ` / ${fmtDate(tournament.startsAt)}` : ""}</p>
         </div>
-        <div class="row-actions">
+        <div class="row-actions admin-tournament-header-actions">
           <button class="small-button" data-admin-tournament-public="${tournament.slug}">View public</button>
           <button class="small-button" data-admin-tournament-copy="${escapeHtml(publicUrl)}">Copy link</button>
+          <button class="danger-button" data-admin-tournament-action="delete">Delete tournament</button>
           <button class="ghost-button" data-admin-tournament-close>Back to list</button>
         </div>
       </div>
       <section class="profile-grid">
-        ${metricCard("Participants", String((data.participants || []).filter((item) => item.status !== "removed").length))}
-        ${metricCard(tournament.format === "single_elimination" ? "Bracket size" : "Rounds", tournament.format === "single_elimination" ? String(tournament.singleEliminationSize || 8) : String(tournament.swissRoundCount || (data.rounds || []).length))}
-        ${metricCard("Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked")}
-        ${metricCard("All Kill Team Challenge", tournament.challengeCreditPolicy === "count" ? "Enabled" : "Disabled")}
+        ${metricCard("Date", tournamentDateLabel(tournament))}
+        ${metricCard("Participants", String(listedTournamentParticipants(data.participants || []).length))}
+        ${metricCard("Rounds", tournamentRoundsLabel(tournament, data))}
+        ${metricCard("Venue", venueModeLabel(tournament.venueMode))}
+        ${metricCard("Season", seasonLabel(tournament.seasonId))}
       </section>
       <div class="admin-tournament-actions">
         ${adminTournamentActionButtons(data)}
       </div>
-      ${adminTournamentEditForm(tournament)}
       ${tournamentInfoPanel(data, { admin: true })}
-      ${adminTournamentPreviewPanel(data)}
-      ${adminTournamentRoundsPanel(data)}
       <div class="message" data-message></div>
     </section>
   `;
@@ -5803,7 +5985,8 @@ function adminTournamentActionButtons(data) {
   if (tournament.status === "in_progress") {
     const nextRoundState = nextRoundActionState(data);
     if (nextRoundState.canGenerate) {
-      buttons.push(`<button class="primary-button" data-admin-tournament-action="generate-next-round">Generate next round</button>`);
+      const label = (data.rounds || []).length ? "Generate next round" : "Generate first round";
+      buttons.push(`<button class="primary-button" data-admin-tournament-action="generate-next-round">${label}</button>`);
     } else {
       buttons.push(`<span class="muted">${escapeHtml(nextRoundState.message)}</span>`);
     }
@@ -5815,7 +5998,7 @@ function nextRoundActionState(data) {
   const tournament = data.tournament || {};
   const rounds = data.rounds || [];
   if (tournament.status !== "in_progress") return { canGenerate: false, message: "Tournament is not running." };
-  if (!rounds.length) return { canGenerate: false, message: "No rounds generated yet." };
+  if (!rounds.length) return { canGenerate: true, message: "" };
 
   if (tournament.format === "swiss") {
     const currentRound = rounds[rounds.length - 1];
@@ -5850,7 +6033,7 @@ function adminTournamentEditForm(tournament) {
   const existingRulesLinkType = isTournamentRulesPdf(tournament.rulesLink) ? "pdf" : tournament.rulesLink ? "url" : "";
   const rulesLinkValue = existingRulesLinkType === "url" ? tournament.rulesLink : "";
   return `
-    <form class="admin-tournament-form compact-admin-form" data-admin-tournament-update data-existing-rules-link-type="${existingRulesLinkType}">
+    <form class="admin-tournament-form compact-admin-form tournament-settings-form" data-admin-tournament-update data-existing-rules-link-type="${existingRulesLinkType}">
       <div class="grid-2">
         <div class="field">
           <label>Name</label>
@@ -5897,6 +6080,18 @@ function adminTournamentEditForm(tournament) {
             ${gameSystemOptions.map((option) => `<option value="${escapeHtml(option)}" ${(tournament.gameSystem || gameSystemOptions[0]) === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
           </select>
         </div>
+        <div class="field">
+          <label>Season</label>
+          <select name="seasonId" ${lockAttrs}>
+            ${seasons.map((season) => `<option value="${escapeHtml(season.id)}" ${(tournament.seasonId || latestSeason().id) === season.id ? "selected" : ""}>${escapeHtml(season.name)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label>Venue</label>
+          <select name="venueMode" ${lockAttrs}>
+            ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}" ${(tournament.venueMode || "tts") === option.key ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
+          </select>
+        </div>
       </div>
       <div class="field">
         <label>Tournament Rules</label>
@@ -5916,7 +6111,10 @@ function adminTournamentEditForm(tournament) {
         <span class="muted">Standings tiebreakers</span>
         ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], lockAttrs)}
       </div>
-      <button class="small-button" type="submit" ${readOnly ? "disabled" : ""}>Save tournament</button>
+      <div class="admin-save-row">
+        <button class="primary-button admin-save-button" type="submit" data-admin-tournament-save-button ${readOnly ? "disabled" : ""}>Save tournament</button>
+        <span class="autosave-status" data-admin-tournament-autosave-status aria-live="polite"></span>
+      </div>
     </form>
   `;
 }
@@ -5929,11 +6127,220 @@ function adminTournamentParticipantsPanel(data) {
   `;
 }
 
+function tournamentStatsContent(data) {
+  const games = (data.tournamentGames || []).filter((game) => game.status === "completed" && game.result);
+  if (!games.length) return `<div class="empty">No completed tournament games yet.</div>`;
+  const teams = tournamentKillTeamStats(games);
+  const tacOps = tournamentTacOpStats(games);
+  return `
+    <div class="tournament-stats">
+      <section class="profile-grid">
+        ${metricCard("Completed games", games.length)}
+        ${metricCard("Tac Ops", tacOps.length)}
+        ${metricCard("Kill Teams", teams.length)}
+        ${metricCard("Season", seasonLabel(data.tournament?.seasonId))}
+      </section>
+      <div class="grid-2 tournament-stats-grid">
+        ${tournamentTacOpStatsTable(tacOps)}
+        ${tournamentStatsTable("Kill Team stats", teams, "team")}
+      </div>
+    </div>
+  `;
+}
+
+function tournamentTacOpStats(games) {
+  return tacOpWinrateSummary(games, { classification: "all", team: "" }).rows;
+}
+
+function tournamentKillTeamStats(games) {
+  const byTeam = new Map();
+  for (const game of games) {
+    const [a, b] = game.players || [];
+    if (!a || !b) continue;
+    for (const player of [a, b]) {
+      const team = player.faction || "Faction TBD";
+      if (!byTeam.has(team)) {
+        byTeam.set(team, {
+          key: team,
+          name: team,
+          matches: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
+          totalVp: 0,
+          vpDiff: 0,
+          eloDelta: 0
+        });
+      }
+    }
+    addTournamentStatLine(byTeam.get(a.faction || "Faction TBD"), a, b, game);
+    addTournamentStatLine(byTeam.get(b.faction || "Faction TBD"), b, a, game);
+  }
+  return [...byTeam.values()].sort((a, b) =>
+    b.wins * 3 + b.draws - (a.wins * 3 + a.draws) ||
+    b.vpDiff - a.vpDiff ||
+    b.totalVp - a.totalVp ||
+    a.name.localeCompare(b.name)
+  );
+}
+
+function addTournamentStatLine(row, player, opponent, game) {
+  const ownScore = game.result?.scores?.[player.id] || {};
+  const opponentScore = game.result?.scores?.[opponent.id] || {};
+  const ownTotal = Number(ownScore.total || 0);
+  const opponentTotal = Number(opponentScore.total || 0);
+  row.matches += 1;
+  row.totalVp += ownTotal;
+  row.vpDiff += ownTotal - opponentTotal;
+  row.eloDelta += Number(game.elo?.[player.id]?.delta || 0);
+  if (!game.result?.winnerId) row.draws += 1;
+  else if (Number(game.result.winnerId) === Number(player.id)) row.wins += 1;
+  else row.losses += 1;
+}
+
+function tournamentTacOpStatsTable(rows) {
+  return `
+    <section class="admin-subpanel tournament-stat-table">
+      <h4>Tac Op stats</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tac Op</th>
+              <th>Games</th>
+              <th>Wins</th>
+              <th>Win rate</th>
+              <th>Avg VP</th>
+              <th>Avg VP as Primary</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.length ? rows.map((row) => `
+              <tr>
+                <td>${escapeHtml(row.tacOp)}</td>
+                <td>${row.games}</td>
+                <td>${row.wins}</td>
+                <td>${row.winRate}%</td>
+                <td>${row.avgPoints}</td>
+                <td>${row.avgPrimaryPoints}</td>
+              </tr>
+            `).join("") : `<tr><td colspan="6">No Tac Op data yet.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function tournamentStatsTable(title, rows, kind) {
+  return `
+    <section class="admin-subpanel tournament-stat-table">
+      <h4>${escapeHtml(title)}</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>${kind === "player" ? "Player" : "Kill Team"}</th>
+              ${kind === "player" ? "<th>Kill Team</th>" : ""}
+              <th>W-D-L</th>
+              <th>Win rate</th>
+              <th>Total VP</th>
+              <th>VP Diff</th>
+              <th>Elo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <td>${escapeHtml(row.name)}</td>
+                ${kind === "player" ? `<td>${escapeHtml(row.faction || "-")}</td>` : ""}
+                <td>${row.wins}-${row.draws}-${row.losses}</td>
+                <td>${row.matches ? Math.round((row.wins / row.matches) * 100) : 0}%</td>
+                <td>${row.totalVp}</td>
+                <td>${signed(row.vpDiff)}</td>
+                <td>${signed(row.eloDelta)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function adminTournamentTablesContent(data) {
+  const tournament = data.tournament || {};
+  const tables = data.tables || [];
+  const readOnly = ["completed", "cancelled"].includes(tournament.status);
+  if (tournament.venueMode !== "irl") return `<div class="empty">Tables are available only for In Real Life tournaments.</div>`;
+  return `
+    <div class="tournament-table-admin">
+      <form class="admin-table-form" data-admin-tournament-table-add>
+        <div class="grid-3">
+          <div class="field">
+            <label>Table number</label>
+            <input name="tableNumber" type="number" min="1" placeholder="Next" ${readOnly ? "disabled" : ""}>
+          </div>
+          <div class="field">
+            <label>Killzone</label>
+            <select name="killzone" ${readOnly ? "disabled" : ""}>
+              <option value="">Not selected</option>
+              ${optionsHtml(killzoneOptions, "")}
+            </select>
+          </div>
+          <div class="field">
+            <label>Deployment</label>
+            <select name="deployment" ${readOnly ? "disabled" : ""}>
+              <option value="">Not selected</option>
+              ${[1, 2, 3, 4, 5, 6].map((item) => `<option value="${item}">${item}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <button class="small-button" type="submit" ${readOnly ? "disabled" : ""}>Add table</button>
+      </form>
+      <div class="list">
+        ${tables.length ? tables.map((table) => adminTournamentTableRow(table, readOnly)).join("") : `<div class="empty">No tables yet.</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function adminTournamentTableRow(table, readOnly) {
+  return `
+    <div class="row-card compact-row-card tournament-table-row">
+      <div class="row-main">
+        <div class="row-title">Table ${table.tableNumber}</div>
+        <div class="row-meta">${escapeHtml(table.killzone || "No Killzone")} / Deployment ${table.deployment || "-"}</div>
+        <div class="table-admin-controls">
+          <div class="field">
+            <label>Killzone</label>
+            <select name="table-killzone-${table.id}" ${readOnly ? "disabled" : ""}>
+              <option value="">Not selected</option>
+              ${optionsHtml(killzoneOptions, table.killzone || "")}
+            </select>
+          </div>
+          <div class="field">
+            <label>Deployment</label>
+            <select name="table-deployment-${table.id}" ${readOnly ? "disabled" : ""}>
+              <option value="">Not selected</option>
+              ${[1, 2, 3, 4, 5, 6].map((item) => `<option value="${item}" ${Number(table.deployment) === item ? "selected" : ""}>${item}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="row-actions">
+        <button class="small-button" data-admin-table-save="${table.id}" ${readOnly ? "disabled" : ""}>Save</button>
+        <button class="danger-button" data-admin-table-delete="${table.id}" ${readOnly ? "disabled" : ""}>Delete</button>
+      </div>
+    </div>
+  `;
+}
+
 function adminTournamentParticipantsContent(data) {
   const tournament = data.tournament || {};
   const participants = data.participants || [];
   const visibleParticipants = listedTournamentParticipants(participants);
-  const canRemove = !["in_progress", "completed", "cancelled"].includes(tournament.status);
+  const canRemove = !["completed", "cancelled"].includes(tournament.status);
   const canBulkAdd = !["in_progress", "completed", "cancelled"].includes(tournament.status);
   const readOnly = ["completed", "cancelled"].includes(tournament.status);
   const seedLocked = ["in_progress", "completed", "cancelled"].includes(tournament.status);
@@ -5984,6 +6391,7 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
   const participants = data.participants || [];
   const inactive = ["withdrawn", "removed"].includes(participant.status);
   const locked = options.readOnly || inactive;
+  const canRemove = options.canRemove && canRemoveTournamentParticipant(data, participant);
   const replacementUsers = availableTournamentUsers(participants, participant.id)
     .filter((user) => user.id !== participant.userId);
   const replaceLabel = participant.userId ? "Replace" : "Link user";
@@ -6017,10 +6425,27 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
       <div class="row-actions">
         <input class="seed-input" type="number" min="1" value="${participant.seed || 1}" data-participant-seed="${participant.id}" ${options.seedLocked || !["joined", "active"].includes(participant.status) ? "disabled" : ""}>
         <span class="status ${participant.status === "active" || participant.status === "joined" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(participant.status)}</span>
-        ${options.canRemove && participant.status !== "removed" ? `<button class="danger-button" data-admin-participant-remove="${participant.id}">Remove</button>` : ""}
+        ${canRemove ? `<button class="danger-button" data-admin-participant-remove="${participant.id}">Remove</button>` : ""}
       </div>
     </div>
   `;
+}
+
+function tournamentParticipantHasMatch(data, participantId) {
+  const id = Number(participantId);
+  return (data.rounds || []).some((round) =>
+    (round.matches || []).some(
+      (match) => Number(match.participantAId) === id || Number(match.participantBId) === id
+    )
+  );
+}
+
+function canRemoveTournamentParticipant(data, participant) {
+  const tournament = data.tournament || {};
+  if (!participant || ["withdrawn", "removed"].includes(participant.status)) return false;
+  if (["completed", "cancelled"].includes(tournament.status)) return false;
+  if (tournament.status !== "in_progress") return true;
+  return participant.status === "pending_placement" && !tournamentParticipantHasMatch(data, participant.id);
 }
 
 function availableTournamentUsers(participants, exceptParticipantId = null) {
@@ -6111,11 +6536,12 @@ function adminTournamentMatchMarkup(match) {
   const playerB = match.isBye ? "BYE" : match.participantB?.displayName || "TBD";
   const canResult = ["active", "pending_confirmation", "completed"].includes(match.status) && !match.isBye;
   const actionLabel = match.status === "completed" ? "Edit result" : "Enter result";
+  const meta = [publicMatchScore(match), matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
     <div class="row-card compact-row-card">
       <div class="row-main">
         <div class="row-title">${escapeHtml(playerA)} vs ${escapeHtml(playerB)}</div>
-        <div class="row-meta">${escapeHtml(publicMatchScore(match))}</div>
+        <div class="row-meta">${escapeHtml(meta)}</div>
       </div>
       <div class="row-actions">
         <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(match.status)}</span>
@@ -6189,7 +6615,7 @@ function tournamentStatusClass(status) {
 }
 
 function tournamentPublicUrl(tournament) {
-  return `${window.location.origin}/#tournaments/${encodeURIComponent(tournament.slug || "")}`;
+  return `${window.location.origin}${tournamentPublicPath(tournament.slug || "")}`;
 }
 
 function datetimeLocalValue(value) {
@@ -6363,7 +6789,99 @@ function wireAdminTournamentFormBehavior() {
       select.addEventListener("change", () => updateTournamentTiebreakerSelects(form));
     });
     updateTournamentTiebreakerSelects(form);
+    wireAdminTournamentAutosave(form);
   });
+}
+
+function wireAdminTournamentAutosave(form) {
+  if (!form.matches("[data-admin-tournament-update]") || form.dataset.autosaveWired === "1") return;
+  form.dataset.autosaveWired = "1";
+
+  let timer = null;
+  let saving = false;
+  let pending = false;
+  let lastSnapshot = adminTournamentAutosaveSnapshot(form);
+  const status = form.querySelector("[data-admin-tournament-autosave-status]");
+
+  const setStatus = (text, kind = "") => {
+    if (!status) return;
+    status.textContent = text;
+    status.dataset.status = kind;
+  };
+
+  const runSave = async () => {
+    timer = null;
+    if (saving) {
+      pending = true;
+      return;
+    }
+    const snapshot = adminTournamentAutosaveSnapshot(form);
+    if (!snapshot) {
+      setStatus("Not saved", "error");
+      return;
+    }
+    if (snapshot === lastSnapshot) {
+      setStatus("", "");
+      return;
+    }
+
+    saving = true;
+    setStatus("Saving...", "saving");
+    try {
+      await saveAdminTournamentUpdate(form, { renderAfterSave: false });
+      lastSnapshot = snapshot;
+      setStatus("Saved", "saved");
+    } catch (err) {
+      setStatus("Save failed", "error");
+      setMessage(err.message, true);
+    } finally {
+      saving = false;
+      if (pending) {
+        pending = false;
+        schedule(TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS);
+      }
+    }
+  };
+
+  const schedule = (delay) => {
+    if (!adminTournamentCanAutosave(form)) {
+      setStatus("Not saved", "error");
+      return;
+    }
+    setStatus("Unsaved changes", "pending");
+    window.clearTimeout(timer);
+    timer = window.setTimeout(runSave, delay);
+  };
+
+  form.addEventListener("tournament-autosave-request", () => schedule(TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS));
+  form.querySelectorAll("input, select, textarea").forEach((control) => {
+    if (control.type === "hidden" || control.type === "submit") return;
+    const isTextControl = control.tagName === "TEXTAREA" || ["text", "datetime-local", "number"].includes(control.type);
+    control.addEventListener("input", () => schedule(isTextControl ? TOURNAMENT_AUTOSAVE_TEXT_DELAY_MS : TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS));
+    control.addEventListener("change", () => schedule(TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS));
+  });
+}
+
+function adminTournamentCanAutosave(form) {
+  if (!state.adminTournamentDetail?.tournament?.id) return false;
+  if (form.dataset.rulesFileLoading === "1") return false;
+  if (!form.checkValidity()) return false;
+  const rulesLink = form.elements.rulesLink;
+  const rulesFileData = form.elements.rulesFileData?.value || "";
+  const rulesLinkValue = String(rulesLink?.value || "").trim();
+  if (rulesLink && !rulesLink.disabled && rulesLinkValue && !rulesFileData && !/^https?:\/\/\S+$/i.test(rulesLinkValue)) {
+    return false;
+  }
+  return true;
+}
+
+function adminTournamentAutosaveSnapshot(form) {
+  if (!adminTournamentCanAutosave(form)) return "";
+  try {
+    return JSON.stringify(adminTournamentBodyFromForm(form));
+  } catch (err) {
+    return "";
+  }
 }
 
 function updateTournamentFormatFields(form) {
@@ -6417,6 +6935,7 @@ function handleTournamentRulesFile(input) {
     form.dataset.rulesFileLoading = "";
     if (form.elements.rulesLink) form.elements.rulesLink.value = "";
     if (status) status.textContent = file.name;
+    form.dispatchEvent(new CustomEvent("tournament-autosave-request", { bubbles: true }));
   };
   reader.onerror = () => {
     input.value = "";
@@ -6444,7 +6963,7 @@ function currentTournamentDetail() {
 
 async function refreshTournamentParticipantView(tournament) {
   state.adminTournamentPreview = null;
-  if (tournamentSlugFromHash() && tournament?.slug) {
+  if (tournamentSlugFromLocation() && tournament?.slug) {
     await renderPublicTournamentRoute(tournament.slug);
     return;
   }
@@ -6468,9 +6987,96 @@ function wireTournamentInfoControls(data, options = {}) {
     });
   });
 
-  if (!document.querySelector("[data-admin-tournament-add-participant]")) return;
-  wireComboFields();
-  wireTournamentParticipantAdminControls();
+  wireFinalStandingsControls(data, options);
+
+  if (document.querySelector("[data-admin-tournament-table-add]")) {
+    wireTournamentTableAdminControls();
+  }
+  if (document.querySelector("[data-admin-tournament-add-participant]")) {
+    wireComboFields();
+    wireTournamentParticipantAdminControls();
+  }
+}
+
+function updateFinalStandingsSelects() {
+  document.querySelectorAll("[data-final-standing-select]").forEach((select) => {
+    select.querySelectorAll("option").forEach((option) => {
+      option.disabled = false;
+    });
+  });
+}
+
+function updateFinalStandingStats(select) {
+  const stats = select.closest(".final-standing-row")?.querySelector(".final-standing-stats");
+  if (stats) stats.textContent = select.selectedOptions[0]?.dataset.stats || "";
+}
+
+function wireFinalStandingsControls(data, options = {}) {
+  const form = document.querySelector("[data-admin-final-standings]");
+  if (!form) return;
+  const message = form.querySelector("[data-final-standings-message]");
+  const setFinalMessage = (text, isError = false) => {
+    if (!message) {
+      setMessage(text, isError);
+      return;
+    }
+    message.textContent = text;
+    message.classList.toggle("error", Boolean(isError));
+  };
+  const selects = Array.from(form.querySelectorAll("[data-final-standing-select]"));
+  selects.forEach((select) => {
+    updateFinalStandingStats(select);
+    select.addEventListener("change", () => {
+      updateFinalStandingStats(select);
+      updateFinalStandingsSelects();
+    });
+  });
+  updateFinalStandingsSelects();
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const participantIds = selects.map((select) => Number(select.value));
+    if (participantIds.some((id) => !Number.isSafeInteger(id)) || new Set(participantIds).size !== participantIds.length) {
+      setFinalMessage("Each final position must use a different player", true);
+      return;
+    }
+    if (!window.confirm("Publish final standings and end this tournament?")) return;
+    try {
+      const updated = await api(`/api/admin/tournaments/${data.tournament.id}/standings/publish`, {
+        method: "POST",
+        body: { participantIds }
+      });
+      state.adminTournamentPreview = null;
+      if (options.publicRoute) {
+        state.publicTournamentDetail = updated;
+        renderPublicTournament(updated);
+      } else {
+        state.adminTournamentDetail = updated;
+        renderTournaments();
+      }
+    } catch (err) {
+      setFinalMessage(err.message, true);
+    }
+  });
+}
+
+function wireTournamentTableAdminControls() {
+  document.querySelector("[data-admin-tournament-table-add]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitAdminTournamentTable(event.currentTarget);
+  });
+
+  document.querySelectorAll("[data-admin-table-save]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await saveAdminTournamentTable(Number(button.dataset.adminTableSave));
+    });
+  });
+
+  document.querySelectorAll("[data-admin-table-delete]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await deleteAdminTournamentTable(Number(button.dataset.adminTableDelete));
+    });
+  });
 }
 
 function wireTournamentParticipantAdminControls() {
@@ -6543,6 +7149,7 @@ function wireAdminTournamentControls() {
       const data = await api("/api/admin/tournaments", { method: "POST", body });
       state.selectedTournamentId = data.tournament.id;
       state.adminTournamentMode = "detail";
+      state.tournamentInfoTab = "settings";
       state.adminTournamentPreview = null;
       await loadTournamentAdmin();
       syncAppHash();
@@ -6556,6 +7163,7 @@ function wireAdminTournamentControls() {
     button.addEventListener("click", async () => {
       try {
         state.adminTournamentMode = "detail";
+        state.tournamentInfoTab = "settings";
         await loadAdminTournamentDetail(Number(button.dataset.adminTournamentOpen));
         syncAppHash();
         renderTournaments();
@@ -6577,14 +7185,7 @@ function wireAdminTournamentControls() {
   document.querySelector("[data-admin-tournament-update]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
-      const id = state.adminTournamentDetail?.tournament?.id;
-      await api(`/api/admin/tournaments/${id}`, {
-        method: "PATCH",
-        body: adminTournamentBodyFromForm(event.currentTarget)
-      });
-      state.adminTournamentPreview = null;
-      await loadTournamentAdmin();
-      renderTournaments();
+      await saveAdminTournamentUpdate(event.currentTarget);
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -6599,7 +7200,7 @@ function wireAdminTournamentControls() {
   document.querySelector("[data-admin-tournament-public]")?.addEventListener("click", () => {
     const slug = document.querySelector("[data-admin-tournament-public]")?.dataset.adminTournamentPublic;
     if (!slug) return;
-    window.location.hash = `/tournaments/${encodeURIComponent(slug)}`;
+    navigateToPublicTournament(slug);
   });
 
   document.querySelector("[data-admin-tournament-copy]")?.addEventListener("click", async (event) => {
@@ -6624,6 +7225,32 @@ function wireAdminTournamentControls() {
   });
 }
 
+async function saveAdminTournamentUpdate(form, options = {}) {
+  const { renderAfterSave = true } = options;
+  const id = state.adminTournamentDetail?.tournament?.id;
+  const data = await api(`/api/admin/tournaments/${id}`, {
+    method: "PATCH",
+    body: adminTournamentBodyFromForm(form)
+  });
+  state.adminTournamentPreview = null;
+  if (data?.tournament && state.adminTournamentDetail?.tournament?.id === data.tournament.id) {
+    state.adminTournamentDetail.tournament = {
+      ...state.adminTournamentDetail.tournament,
+      ...data.tournament
+    };
+  }
+  if (data?.tournament) {
+    state.adminTournaments = (state.adminTournaments || []).map((tournament) =>
+      tournament.id === data.tournament.id ? { ...tournament, ...data.tournament } : tournament
+    );
+  }
+  if (renderAfterSave) {
+    await loadTournamentAdmin();
+    renderTournaments();
+  }
+  return data;
+}
+
 function adminTournamentBodyFromForm(form, options = {}) {
   const { includeSlug = false } = options;
   if (form.dataset.rulesFileLoading === "1") {
@@ -6636,6 +7263,8 @@ function adminTournamentBodyFromForm(form, options = {}) {
   setFormValue(body, form, "format");
   setFormValue(body, form, "ratingPolicy");
   setFormValue(body, form, "challengeCreditPolicy");
+  setFormValue(body, form, "seasonId");
+  setFormValue(body, form, "venueMode");
   if (includeSlug) setFormValue(body, form, "slug");
 
   const tournamentRulesField = form.elements.tournamentRules;
@@ -6712,12 +7341,282 @@ async function runAdminTournamentAction(action) {
       if (!window.confirm("Start this tournament? Seeds and setup will be locked.")) return;
       await api(`/api/admin/tournaments/${tournament.id}/start`, { method: "POST" });
     } else if (action === "generate-next-round") {
-      const confirmed = window.confirm("Generate the next round now? Review and edit completed match results before confirming; pairings will be locked after this step.");
-      if (!confirmed) return;
-      await api(`/api/admin/tournaments/${tournament.id}/rounds/next`, { method: "POST" });
+      await openNextRoundSetupModal(tournament.id);
+      return;
+    } else if (action === "delete") {
+      if (!window.confirm(`Delete tournament "${tournament.name || "Untitled tournament"}"? Linked tournament games will be deleted and ratings will be recalculated.`)) return;
+      await api(`/api/admin/tournaments/${tournament.id}`, { method: "DELETE" });
+      state.adminTournamentMode = "list";
+      state.selectedTournamentId = null;
+      state.adminTournamentDetail = null;
+      state.adminTournamentPreview = null;
+      await loadTournamentAdmin();
+      syncAppHash();
+      renderTournaments();
+      return;
     }
     await loadTournamentAdmin();
     renderTournaments();
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function openNextRoundSetupModal(tournamentId) {
+  try {
+    const preview = await api(`/api/admin/tournaments/${tournamentId}/rounds/next/preview`);
+    renderRoundSetupModal(preview);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+function closeRoundSetupModal() {
+  document.querySelector("[data-round-setup-modal]")?.remove();
+}
+
+function renderRoundSetupModal(preview) {
+  closeRoundSetupModal();
+  const tournament = state.adminTournamentDetail?.tournament || {};
+  const round = preview.round || {};
+  const tables = preview.tables || state.adminTournamentDetail?.tables || [];
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal-backdrop" data-round-setup-modal>
+      <section class="card panel round-setup-dialog" role="dialog" aria-modal="true">
+        <div class="panel-header">
+          <div>
+            <p class="profile-label">${escapeHtml(venueModeLabel(tournament.venueMode))}</p>
+            <h2>Generate Round ${round.roundNumber || ""}</h2>
+            <p class="muted">Review pairings before saving the round.</p>
+          </div>
+          <button class="ghost-button" type="button" data-round-setup-close>Cancel</button>
+        </div>
+        <form class="round-setup-form" data-round-setup-form>
+          ${roundMissionFields(tournament, round)}
+          <div class="round-setup-list" data-round-setup-list>
+            ${(round.matches || []).filter((match) => !match.isBye).map((match) =>
+              roundSetupMatchRow(match, tournament, tables)
+            ).join("")}
+          </div>
+          <div class="row-actions">
+            ${tournament.format === "swiss" ? `<button class="small-button" type="button" data-round-setup-add-empty>Create empty pairing</button>` : ""}
+            <button class="primary-button" type="submit">Generate round</button>
+          </div>
+          <div class="message" data-round-setup-message></div>
+        </form>
+      </section>
+    </div>
+  `);
+  wireRoundSetupModal(tournament, tables);
+}
+
+function roundMissionFields(tournament, round) {
+  const mission = round.mission || {};
+  const killzoneField = tournament.venueMode === "tts" ? `
+    <div class="field">
+      <label>Killzone</label>
+      <select name="roundKillzone">
+        <option value="">Not selected</option>
+        ${optionsHtml(killzoneOptions, mission.killzone || "")}
+      </select>
+    </div>
+  ` : "";
+  return `
+    <section class="admin-subpanel">
+      <div class="grid-2">
+        ${killzoneField}
+        <div class="field">
+          <label>Crit Op</label>
+          <select name="roundCritOp">
+            <option value="">Not selected</option>
+            ${optionsHtml(critOpOptions, mission.critOp || "")}
+          </select>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function roundSetupMatchRow(match = {}, tournament = {}, tables = []) {
+  return `
+    <div class="row-card compact-row-card round-setup-match-row">
+      <div class="row-main">
+        <div class="round-setup-match-grid ${tournament.venueMode === "irl" ? "has-table" : ""}">
+          ${roundSetupPlayerSelect("participantAId", match.participantAId)}
+          ${roundSetupPlayerSelect("participantBId", match.participantBId)}
+          ${tournament.venueMode === "irl" ? roundSetupTableSelect(match.tableId, tables) : ""}
+        </div>
+      </div>
+      <div class="row-actions">
+        <button class="small-button" type="button" data-round-setup-clear>Clear</button>
+      </div>
+    </div>
+  `;
+}
+
+function roundSetupPlayerSelect(name, selectedId = "") {
+  const participants = listedTournamentParticipants(state.adminTournamentDetail?.participants || [])
+    .filter((participant) => ["joined", "active", "pending_placement"].includes(participant.status));
+  return `
+    <div class="field">
+      <label>${name === "participantAId" ? "Player A" : "Player B"}</label>
+      <select name="${name}">
+        <option value="">Empty</option>
+        ${participants.map((participant) => `
+          <option value="${participant.id}" ${Number(selectedId) === participant.id ? "selected" : ""}>
+            ${escapeHtml(participant.displayName)}${participant.faction ? ` / ${escapeHtml(participant.faction)}` : ""}
+          </option>
+        `).join("")}
+      </select>
+    </div>
+  `;
+}
+
+function roundSetupTableSelect(selectedId, tables = []) {
+  const selectedTable = tables.find((table) => Number(selectedId) === table.id);
+  return `
+    <div class="field">
+      <label>Table</label>
+      <select name="tableId">
+        <option value="">Auto</option>
+        ${tables.map((table) => `
+          <option value="${table.id}" data-deployment="${escapeHtml(table.deployment || "")}" ${Number(selectedId) === table.id ? "selected" : ""}>
+            ${escapeHtml(tableLabel(table))}
+          </option>
+        `).join("")}
+      </select>
+      <span class="field-help" data-round-table-deployment>${selectedTable?.deployment ? `Deployment ${selectedTable.deployment}` : "Deployment auto from table"}</span>
+    </div>
+  `;
+}
+
+function tableLabel(table = {}) {
+  return [
+    `Table ${table.tableNumber}`,
+    table.killzone || "",
+    table.deployment ? `Deployment ${table.deployment}` : ""
+  ].filter(Boolean).join(" / ");
+}
+
+function wireRoundSetupModal(tournament, tables) {
+  document.querySelector("[data-round-setup-close]")?.addEventListener("click", closeRoundSetupModal);
+  document.querySelector("[data-round-setup-add-empty]")?.addEventListener("click", () => {
+    document.querySelector("[data-round-setup-list]")?.insertAdjacentHTML(
+      "beforeend",
+      roundSetupMatchRow({}, tournament, tables)
+    );
+  });
+  document.querySelector("[data-round-setup-list]")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-round-setup-clear]");
+    if (!button) return;
+    const row = button.closest(".round-setup-match-row");
+    row?.querySelectorAll("select").forEach((select) => {
+      select.value = "";
+      if (select.name === "tableId") updateRoundSetupTableDeployment(select);
+    });
+  });
+  document.querySelector("[data-round-setup-list]")?.addEventListener("change", (event) => {
+    if (event.target?.name !== "tableId") return;
+    updateRoundSetupTableDeployment(event.target);
+  });
+  document.querySelectorAll('[name="tableId"]').forEach(updateRoundSetupTableDeployment);
+  document.querySelector("[data-round-setup-form]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = document.querySelector("[data-round-setup-message]");
+    try {
+      await api(`/api/admin/tournaments/${tournament.id}/rounds/next`, {
+        method: "POST",
+        body: roundSetupPayload(event.currentTarget, tournament)
+      });
+      closeRoundSetupModal();
+      await loadTournamentAdmin();
+      renderTournaments();
+    } catch (err) {
+      if (message) {
+        message.textContent = err.message;
+        message.classList.add("error");
+      } else {
+        setMessage(err.message, true);
+      }
+    }
+  });
+}
+
+function updateRoundSetupTableDeployment(select) {
+  const help = select.closest(".field")?.querySelector("[data-round-table-deployment]");
+  if (!help) return;
+  const deployment = select.selectedOptions[0]?.dataset.deployment || "";
+  help.textContent = deployment ? `Deployment ${deployment}` : "Deployment auto from table";
+}
+
+function roundSetupPayload(form, tournament) {
+  const rows = Array.from(form.querySelectorAll(".round-setup-match-row"));
+  return {
+    mission: {
+      killzone: tournament.venueMode === "tts" ? form.elements.roundKillzone?.value || "" : "",
+      critOp: form.elements.roundCritOp?.value || ""
+    },
+    matchups: rows.map((row) => ({
+      participantAId: row.querySelector('[name="participantAId"]')?.value || "",
+      participantBId: row.querySelector('[name="participantBId"]')?.value || "",
+      tableId: tournament.venueMode === "irl" ? row.querySelector('[name="tableId"]')?.value || "" : ""
+    }))
+  };
+}
+
+async function refreshAdminTournamentDetailView() {
+  await loadTournamentAdmin();
+  renderTournaments();
+}
+
+function tablePayloadFromForm(form) {
+  const data = new FormData(form);
+  return {
+    tableNumber: data.get("tableNumber") || "",
+    killzone: data.get("killzone") || "",
+    deployment: data.get("deployment") || ""
+  };
+}
+
+async function submitAdminTournamentTable(form) {
+  const tournament = state.adminTournamentDetail?.tournament;
+  if (!tournament) return;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/tables`, {
+      method: "POST",
+      body: tablePayloadFromForm(form)
+    });
+    form.reset();
+    await refreshAdminTournamentDetailView();
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function saveAdminTournamentTable(tableId) {
+  const tournament = state.adminTournamentDetail?.tournament;
+  if (!tournament) return;
+  const killzone = document.querySelector(`[name="table-killzone-${tableId}"]`)?.value || "";
+  const deployment = document.querySelector(`[name="table-deployment-${tableId}"]`)?.value || "";
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/tables/${tableId}`, {
+      method: "PATCH",
+      body: { killzone, deployment }
+    });
+    await refreshAdminTournamentDetailView();
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function deleteAdminTournamentTable(tableId) {
+  const tournament = state.adminTournamentDetail?.tournament;
+  if (!tournament) return;
+  const table = (state.adminTournamentDetail?.tables || []).find((item) => item.id === tableId);
+  if (!window.confirm(`Delete Table ${table?.tableNumber || ""}?`)) return;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/tables/${tableId}`, { method: "DELETE" });
+    await refreshAdminTournamentDetailView();
   } catch (err) {
     setMessage(err.message, true);
   }

@@ -9,6 +9,7 @@ const {
   TOURNAMENT_FORMATS,
   RATING_POLICIES,
   CHALLENGE_CREDIT_POLICIES,
+  VENUE_MODES,
   SINGLE_ELIMINATION_SIZES,
   STANDINGS_TIEBREAKERS
 } = require("./constants");
@@ -17,6 +18,7 @@ const NAME_MAX = 120;
 const DESCRIPTION_MAX = 6000;
 const RULES_MAX = 6000;
 const GAME_SYSTEM_MAX = 80;
+const SEASON_ID_MAX = 80;
 const FACTION_RULES_MAX = 1000;
 const RULES_LINK_MAX = 2_800_000;
 const GAME_SYSTEMS = ["Warhammer 40k Kill Team"];
@@ -97,6 +99,14 @@ function normalizeGameSystem(value) {
   return gameSystem;
 }
 
+function normalizeSeasonId(value) {
+  const seasonId = optionalTournamentText(value, "Season", SEASON_ID_MAX) || "2026-q2-dataslate";
+  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(seasonId)) {
+    throw new ValidationError("Choose a valid season");
+  }
+  return seasonId;
+}
+
 function normalizeRulesLink(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -168,6 +178,12 @@ function normalizeTournamentPatch(body = {}) {
       "challenge credit policy"
     );
   }
+  if (Object.prototype.hasOwnProperty.call(body, "seasonId")) {
+    patch.seasonId = normalizeSeasonId(body.seasonId);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "venueMode")) {
+    patch.venueMode = normalizePolicy(body.venueMode, VENUE_MODES, "tts", "venue");
+  }
   return patch;
 }
 
@@ -175,6 +191,8 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
   const patch = normalizeTournamentPatch({
     format: TOURNAMENT_FORMATS.SINGLE_ELIMINATION,
     gameSystem: "Warhammer 40k Kill Team",
+    seasonId: "2026-q2-dataslate",
+    venueMode: "tts",
     singleEliminationSize: 8,
     ratingPolicy: "ranked",
     challengeCreditPolicy: "count",
@@ -194,7 +212,9 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     singleEliminationSize: patch.singleEliminationSize || null,
     tiebreakerOrder: patch.tiebreakerOrder || [],
     ratingPolicy: patch.ratingPolicy || "ranked",
-    challengeCreditPolicy: patch.challengeCreditPolicy || "count"
+    challengeCreditPolicy: patch.challengeCreditPolicy || "count",
+    seasonId: patch.seasonId || "2026-q2-dataslate",
+    venueMode: patch.venueMode || "tts"
   };
 }
 
@@ -213,6 +233,8 @@ function validatePublishable(tournament) {
   }
   normalizeTiebreakerOrder(tournament.tiebreakerOrder);
   normalizeRulesLink(tournament.rulesLink);
+  normalizeSeasonId(tournament.seasonId);
+  normalizePolicy(tournament.venueMode, VENUE_MODES, "tts", "venue");
 }
 
 function normalizeParticipantName(value) {

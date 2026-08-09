@@ -172,6 +172,9 @@ function tournamentMatchView(match, participantById = new Map()) {
     matchPoints: match.matchPoints,
     elo: match.elo,
     gameId: match.gameId,
+    tableId: match.tableId,
+    table: match.table || null,
+    mission: match.mission || null,
     completedAt: match.completedAt
   };
 }
@@ -209,6 +212,8 @@ function tournamentSummaryView(tournament) {
     tiebreakerOrder: tournament.tiebreakerOrder,
     ratingPolicy: tournament.ratingPolicy,
     challengeCreditPolicy: tournament.challengeCreditPolicy,
+    seasonId: tournament.seasonId,
+    venueMode: tournament.venueMode,
     finalResults: tournament.finalResults,
     participantCount: tournament.participantCount,
     roundCount: tournament.roundCount,
@@ -263,12 +268,26 @@ function tournamentMatchGameView({ tournament, match, participantA, participantB
   };
 }
 
+function tournamentTableView(table) {
+  return {
+    id: table.id,
+    tournamentId: table.tournamentId,
+    tableNumber: table.tableNumber,
+    killzone: table.killzone || "",
+    deployment: table.deployment,
+    createdAt: table.createdAt,
+    updatedAt: table.updatedAt
+  };
+}
+
 function tournamentDetailView({
   tournament,
   participants = [],
   people = [],
   rounds = [],
   matches = [],
+  tables = [],
+  tournamentGames = [],
   standings = [],
   viewer = {},
   auditEvents = []
@@ -277,10 +296,18 @@ function tournamentDetailView({
     tournamentParticipantView(participant, people)
   );
   const participantById = new Map(participantViews.map((participant) => [participant.id, participant]));
+  const tableViews = tables.map(tournamentTableView);
+  const tableById = new Map(tableViews.map((table) => [table.id, table]));
+  const matchesWithTables = matches.map((match) => ({
+    ...match,
+    table: tableById.get(match.tableId) || null
+  }));
   return {
     tournament: { ...tournamentSummaryView(tournament), viewer },
     participants: participantViews,
-    rounds: rounds.map((round) => tournamentRoundView(round, matches, participantById)),
+    tables: tableViews,
+    rounds: rounds.map((round) => tournamentRoundView(round, matchesWithTables, participantById)),
+    tournamentGames,
     standings: standings.map((row) => ({
       rank: row.rank,
       participantId: row.participant.id,
@@ -312,6 +339,7 @@ module.exports = {
   tournamentSummaryView,
   tournamentDetailView,
   tournamentParticipantView,
+  tournamentTableView,
   tournamentMatchGameView,
   tournamentMatchView,
   tournamentRoundView

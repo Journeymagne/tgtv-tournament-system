@@ -23,12 +23,16 @@ DB_PASSWORD=your_password
 DB_PORT=5432
 DATABASE_URL=postgres://tgtv:your_password@localhost:5432/tgtv_tournament
 PORT=3000
+SITE_URL=https://rating.ktcompanion.ru
 ```
 
 Set `DB_PORT` to something else if port 5432 is already taken on your machine,
 and keep `DATABASE_URL` in sync with it.
 
 For managed PostgreSQL services that require SSL, set `PGSSL=true`.
+
+`SITE_URL` is optional locally, but production should set it to the public
+HTTPS origin so canonical URLs, `robots.txt`, and `sitemap.xml` are stable.
 
 The schema is created and upgraded automatically by versioned migrations on
 startup. Applied versions are recorded in the `schema_migrations` table.

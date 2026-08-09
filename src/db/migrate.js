@@ -6,7 +6,8 @@ const MIGRATIONS = [
   require("./migrations/003_tournaments"),
   require("./migrations/004_tournament_creation_settings"),
   require("./migrations/005_tournament_tiebreakers"),
-  require("./migrations/006_tournament_game_backfill")
+  require("./migrations/006_tournament_game_backfill"),
+  require("./migrations/007_tournament_venue_tables")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

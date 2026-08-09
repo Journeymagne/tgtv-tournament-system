@@ -192,6 +192,13 @@ module.exports = [
     tx: true
   },
   {
+    method: "DELETE",
+    path: "/api/admin/tournaments/:id",
+    handler: tournaments.deleteAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
     method: "POST",
     path: "/api/admin/tournaments/:id/publish",
     handler: tournaments.publishAdmin,
@@ -254,6 +261,12 @@ module.exports = [
     auth: "admin"
   },
   {
+    method: "GET",
+    path: "/api/admin/tournaments/:id/rounds/next/preview",
+    handler: tournaments.previewNextRoundAdmin,
+    auth: "admin"
+  },
+  {
     method: "POST",
     path: "/api/admin/tournaments/:id/start",
     handler: tournaments.startAdmin,
@@ -264,6 +277,34 @@ module.exports = [
     method: "POST",
     path: "/api/admin/tournaments/:id/rounds/next",
     handler: tournaments.generateNextRoundAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/tables",
+    handler: tournaments.addTableAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "PATCH",
+    path: "/api/admin/tournaments/:id/tables/:tableId",
+    handler: tournaments.updateTableAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "DELETE",
+    path: "/api/admin/tournaments/:id/tables/:tableId",
+    handler: tournaments.deleteTableAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/standings/publish",
+    handler: tournaments.publishFinalStandingsAdmin,
     auth: "admin",
     tx: true
   },
