@@ -6626,6 +6626,14 @@ function datetimeLocalValue(value) {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
+function datetimeLocalToIso(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text;
+  return date.toISOString();
+}
+
 function adminActiveGamesPanel() {
   const games = state.adminGames || [];
   return `
@@ -7260,6 +7268,10 @@ function adminTournamentBodyFromForm(form, options = {}) {
   setFormValue(body, form, "name");
   setFormValue(body, form, "gameSystem");
   setFormValue(body, form, "startsAt");
+  if (Object.prototype.hasOwnProperty.call(body, "startsAt")) {
+    // datetime-local has no timezone; convert in the browser before the API sees it.
+    body.startsAt = datetimeLocalToIso(body.startsAt);
+  }
   setFormValue(body, form, "format");
   setFormValue(body, form, "ratingPolicy");
   setFormValue(body, form, "challengeCreditPolicy");
