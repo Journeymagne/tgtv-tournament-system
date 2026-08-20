@@ -19,6 +19,27 @@
   --shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f3f5;
+  --surface: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f5f6f8;
+  --panel-3: #e8eaed;
+  --ink: #171717;
+  --muted: #555b63;
+  --quiet: #737983;
+  --line: #d4d7dc;
+  --line-strong: #b9bec6;
+  --accent: #f36d0d;
+  --accent-hover: #ff7a1a;
+  --accent-dark: #b74708;
+  --gold: #9b5700;
+  --good: #178653;
+  --danger: #c53d34;
+  --shadow: 0 14px 32px rgba(28, 31, 35, 0.12);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -880,6 +901,38 @@ button:disabled {
   margin: 0 0 18px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+:root[data-theme="light"] body {
+  background:
+    linear-gradient(90deg, rgba(243, 109, 13, 0.08), transparent 280px),
+    repeating-linear-gradient(135deg, rgba(23, 23, 23, 0.025) 0 1px, transparent 1px 16px),
+    var(--bg);
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 14px;
+  right: 18px;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--panel-2);
+  box-shadow: var(--shadow);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .grid-3 {
@@ -2768,6 +2821,163 @@ tr:last-child td {
       "meta rate"
       "logo logo"
       "name name";
+  }
+}
+
+/* Keep the fixed theme control clear of the duplicated legacy topbar rules above. */
+.topbar {
+  padding-right: 76px;
+}
+
+@media (max-width: 560px) {
+  .topbar {
+    padding-right: 64px;
+  }
+}
+
+/* Shared controls added after the legacy responsive blocks so both style sets inherit them. */
+.topbar {
+  padding-right: 76px;
+}
+
+.tournament-tiebreaker-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-icon-button,
+.dialog-close-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  color: var(--ink);
+  background: var(--panel-2);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.info-icon-button:hover,
+.info-icon-button:focus-visible,
+.dialog-close-button:hover,
+.dialog-close-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tiebreaker-help-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.tiebreaker-help-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.tiebreaker-help-content {
+  padding: 20px;
+}
+
+.tiebreaker-help-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.tiebreaker-help-header h3,
+.tiebreaker-help-header p {
+  margin: 0;
+}
+
+.tiebreaker-help-header p {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.tiebreaker-help-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.tiebreaker-help-list > div {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-2);
+}
+
+.tiebreaker-help-list dt {
+  color: var(--accent);
+  font-weight: 950;
+}
+
+.tiebreaker-help-list dd {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+:root[data-theme="light"] .topbar {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+:root[data-theme="light"] .brand-panel {
+  background:
+    linear-gradient(140deg, rgba(243, 109, 13, 0.12), rgba(255, 255, 255, 0.98) 34%),
+    linear-gradient(90deg, var(--accent) 0 5px, transparent 5px),
+    var(--surface);
+}
+
+:root[data-theme="light"] .field input,
+:root[data-theme="light"] .field select,
+:root[data-theme="light"] .field textarea,
+:root[data-theme="light"] .combo-input,
+:root[data-theme="light"] .combo-toggle,
+:root[data-theme="light"] .combo-menu,
+:root[data-theme="light"] .password-toggle,
+:root[data-theme="light"] .seed-input,
+:root[data-theme="light"] .rating-input,
+:root[data-theme="light"] .tiebreaker-rank-field select,
+:root[data-theme="light"] .rules-file-row,
+:root[data-theme="light"] .admin-password-value {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+:root[data-theme="light"] .markdown-content code,
+:root[data-theme="light"] .markdown-content pre,
+:root[data-theme="light"] .profile-info-item,
+:root[data-theme="light"] .empty,
+:root[data-theme="light"] th,
+:root[data-theme="light"] .preview-step,
+:root[data-theme="light"] .admin-subpanel .table-wrap,
+:root[data-theme="light"] .admin-subpanel .row-card,
+:root[data-theme="light"] .final-standing-row {
+  background: var(--panel-2);
+}
+
+@media (max-width: 560px) {
+  .theme-toggle {
+    top: 10px;
+    right: 10px;
+  }
+
+  .topbar {
+    padding-right: 64px;
   }
 }
 :root {

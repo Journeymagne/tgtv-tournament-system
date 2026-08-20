@@ -50,13 +50,34 @@ let searchRequestId = 0;
 let publicTournamentRequestId = 0;
 
 const LEADERBOARD_PAGE_SIZE = 50;
+const THEME_STORAGE_KEY = "tgtv-theme";
 
 const standingsTiebreakerOptions = [
-  { key: "strength_of_schedule", label: "Strength of Schedule" },
-  { key: "buchholz", label: "Buchholz" },
-  { key: "head_to_head", label: "Head-to-head" },
-  { key: "total_vp", label: "Total VP" },
-  { key: "vp_diff", label: "VP Diff" }
+  {
+    key: "strength_of_schedule",
+    label: "Strength of Schedule",
+    description: "Sum of the Tournament Points earned by every opponent the player faced."
+  },
+  {
+    key: "buchholz",
+    label: "Buchholz",
+    description: "Sum of opponents' Tournament Points after excluding the highest and lowest opponent totals. It is 0 until the player has faced at least three opponents."
+  },
+  {
+    key: "head_to_head",
+    label: "Head-to-head",
+    description: "If the tied players faced each other, the winner of their direct match ranks higher. A draw or no direct match does not break the tie."
+  },
+  {
+    key: "total_vp",
+    label: "Total VP",
+    description: "Total Victory Points scored by the player across all completed tournament matches."
+  },
+  {
+    key: "vp_diff",
+    label: "VP Diff",
+    description: "The player's total VP minus their opponents' total VP across all completed tournament matches."
+  }
 ];
 
 const singleEliminationSizes = [8, 16, 32, 64];
@@ -1224,7 +1245,7 @@ function publicStandingsTable(data) {
             return `
               <tr>
                 <td class="rank">${row.rank}</td>
-                <td>${escapeHtml(participant?.displayName || "Player")}</td>
+                <td>${tournamentParticipantProfileLink(participant, "Player")}</td>
                 <td>${escapeHtml(participant?.faction || "Faction TBD")}</td>
                 <td>${row.matchPoints}</td>
                 <td>${row.wins}-${row.draws}-${row.losses}</td>
@@ -1247,7 +1268,7 @@ function publicParticipantsList(participants) {
       ${participants.map((participant) => `
         <div class="row-card compact-row-card">
           <div class="row-main">
-            <div class="row-title">${escapeHtml(participant.displayName)}</div>
+            <div class="row-title">${tournamentParticipantProfileLink(participant)}</div>
             <div class="row-meta">${escapeHtml(participant.faction || "Faction TBD")}</div>
           </div>
           <span class="status ${participant.status === "active" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(participant.status)}</span>
@@ -1277,14 +1298,12 @@ function publicRoundsMarkup(rounds, tournament = {}) {
 }
 
 function publicMatchMarkup(match, tournament = {}) {
-  const playerA = match.participantA?.displayName || "TBD";
-  const playerB = match.isBye ? "BYE" : match.participantB?.displayName || "TBD";
   const score = publicMatchScore(match);
   const meta = [score, matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
     <div class="row-card compact-row-card">
       <div class="row-main">
-          <div class="row-title">${escapeHtml(playerA)} vs ${escapeHtml(playerB)}</div>
+          <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? "BYE" : tournamentParticipantProfileLink(match.participantB)}</div>
           <div class="row-meta">${escapeHtml(meta)}</div>
         </div>
       <div class="row-actions">
@@ -4186,7 +4205,13 @@ function gamePlayerLinks(game) {
 }
 
 function playerProfileLink(player) {
-  return `<button class="text-link-button inline-profile-link" data-profile-user="${player.id}">${escapeHtml(player.name)}</button>`;
+  return `<button class="text-link-button inline-profile-link" type="button" data-profile-user="${player.id}">${escapeHtml(player.name)}</button>`;
+}
+
+function tournamentParticipantProfileLink(participant, fallbackName = "TBD") {
+  const displayName = participant?.displayName || fallbackName;
+  if (!state.me || !participant?.userId) return escapeHtml(displayName);
+  return playerProfileLink({ id: participant.userId, name: displayName });
 }
 
 function eloReview(game) {
@@ -5033,7 +5058,8 @@ function scoreCard(player, score = {}) {
       <div class="field">
         <label>Primary Op</label>
         <select data-primary-select name="primary-${player.id}">
-          <option value="crit" ${(score.primary || "crit") === "crit" ? "selected" : ""}>Crit Op</option>
+          <option value="" ${!score.primary ? "selected" : ""}>Select Primary Op</option>
+          <option value="crit" ${score.primary === "crit" ? "selected" : ""}>Crit Op</option>
           <option value="tac" ${score.primary === "tac" ? "selected" : ""}>Tac Op</option>
           <option value="kill" ${score.primary === "kill" ? "selected" : ""}>Kill Op</option>
         </select>
@@ -5495,7 +5521,7 @@ function scoreFromForm(playerId) {
   const crit = Number(document.querySelector(`[name="crit-${playerId}"]`)?.value || 0);
   const kill = Number(document.querySelector(`[name="kill-${playerId}"]`)?.value || 0);
   const tac = Number(document.querySelector(`[name="tac-${playerId}"]`)?.value || 0);
-  const primary = document.querySelector(`[name="primary-${playerId}"]`)?.value || "crit";
+  const primary = document.querySelector(`[name="primary-${playerId}"]`)?.value || "";
   const primaryScore = { crit, kill, tac }[primary] || 0;
   return {
     crit,
@@ -5511,13 +5537,17 @@ function scoreFromForm(playerId) {
 function approvedOpsPayloadFromForm(players = []) {
   const scores = {};
   players.forEach((player) => {
+    const primary = document.querySelector(`[name="primary-${player.id}"]`)?.value || "";
+    if (!Object.prototype.hasOwnProperty.call(opLabels, primary)) {
+      throw new Error(`Select Primary Op for ${player.name}`);
+    }
     scores[player.id] = {
       faction: document.querySelector(`[name="faction-${player.id}"]`)?.value || "",
       tacOp: document.querySelector(`[name="tac-op-${player.id}"]`)?.value || "",
       crit: Number(document.querySelector(`[name="crit-${player.id}"]`)?.value || 0),
       kill: Number(document.querySelector(`[name="kill-${player.id}"]`)?.value || 0),
       tac: Number(document.querySelector(`[name="tac-${player.id}"]`)?.value || 0),
-      primary: document.querySelector(`[name="primary-${player.id}"]`)?.value || "crit"
+      primary
     };
   });
   return {
@@ -5894,7 +5924,7 @@ function adminTournamentCreatePanel() {
         </div>
         <div class="field">
           <label>Tournament Rules</label>
-          <textarea name="tournamentRules" maxlength="6000" required placeholder="Event format, result reporting, scoring, and admin decisions."></textarea>
+          <textarea name="tournamentRules" maxlength="6000" placeholder="Optional: event format, result reporting, scoring, and admin decisions."></textarea>
         </div>
         <div class="field tournament-rules-upload">
           <label>Tournament Rules Link</label>
@@ -5906,7 +5936,7 @@ function adminTournamentCreatePanel() {
           </div>
         </div>
         <div class="tournament-tiebreakers">
-          <span class="muted">Standings tiebreakers</span>
+          ${tournamentTiebreakerHeading()}
           ${tournamentTiebreakerSelects([])}
         </div>
         <button class="primary-button" type="submit">Create</button>
@@ -6108,7 +6138,7 @@ function adminTournamentEditForm(tournament) {
         ${tournament.rulesLink ? tournamentRulesLinkMarkup(tournament) : ""}
       </div>
       <div class="tournament-tiebreakers">
-        <span class="muted">Standings tiebreakers</span>
+        ${tournamentTiebreakerHeading()}
         ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], lockAttrs)}
       </div>
       <div class="admin-save-row">
@@ -6401,7 +6431,7 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
   return `
     <div class="row-card compact-row-card participant-admin-row">
       <div class="row-main">
-        <div class="row-title">${escapeHtml(participant.displayName)}</div>
+        <div class="row-title">${tournamentParticipantProfileLink(participant)}</div>
         <div class="row-meta">Seed ${participant.seed || "-"} / ${escapeHtml(participantUserLabel(participant))} / ${escapeHtml(participant.faction || "Faction TBD")}</div>
         <div class="participant-admin-controls">
           <div class="participant-faction-control">
@@ -6532,15 +6562,13 @@ function adminTournamentRoundsPanel(data) {
 }
 
 function adminTournamentMatchMarkup(match) {
-  const playerA = match.participantA?.displayName || "TBD";
-  const playerB = match.isBye ? "BYE" : match.participantB?.displayName || "TBD";
   const canResult = ["active", "pending_confirmation", "completed"].includes(match.status) && !match.isBye;
   const actionLabel = match.status === "completed" ? "Edit result" : "Enter result";
   const meta = [publicMatchScore(match), matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
     <div class="row-card compact-row-card">
       <div class="row-main">
-        <div class="row-title">${escapeHtml(playerA)} vs ${escapeHtml(playerB)}</div>
+        <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? "BYE" : tournamentParticipantProfileLink(match.participantB)}</div>
         <div class="row-meta">${escapeHtml(meta)}</div>
       </div>
       <div class="row-actions">
@@ -6604,6 +6632,34 @@ function tournamentTiebreakerSelects(selected = [], disabled = "") {
         `;
       }).join("")}
     </div>
+  `;
+}
+
+function tournamentTiebreakerHeading() {
+  return `
+    <div class="tournament-tiebreaker-heading">
+      <span class="muted">Standings tiebreakers</span>
+      <button class="info-icon-button" type="button" data-tournament-tiebreaker-help-open aria-label="Explain standings tiebreakers" title="How standings tiebreakers work">!</button>
+    </div>
+    <dialog class="tiebreaker-help-dialog" data-tournament-tiebreaker-help>
+      <div class="tiebreaker-help-content">
+        <div class="tiebreaker-help-header">
+          <div>
+            <h3>Standings tiebreakers</h3>
+            <p>TP is compared first. Selected tiebreakers are then applied from Priority 1 to Priority 4.</p>
+          </div>
+          <button class="dialog-close-button" type="button" data-tournament-tiebreaker-help-close aria-label="Close">&times;</button>
+        </div>
+        <dl class="tiebreaker-help-list">
+          ${standingsTiebreakerOptions.map((item) => `
+            <div>
+              <dt>${escapeHtml(item.label)}</dt>
+              <dd>${escapeHtml(item.description)}</dd>
+            </div>
+          `).join("")}
+        </dl>
+      </div>
+    </dialog>
   `;
 }
 
@@ -6796,6 +6852,16 @@ function wireAdminTournamentFormBehavior() {
     form.querySelectorAll("[data-tournament-tiebreaker-select]").forEach((select) => {
       select.addEventListener("change", () => updateTournamentTiebreakerSelects(form));
     });
+    const tiebreakerHelp = form.querySelector("[data-tournament-tiebreaker-help]");
+    form.querySelector("[data-tournament-tiebreaker-help-open]")?.addEventListener("click", () => {
+      if (typeof tiebreakerHelp?.showModal === "function") tiebreakerHelp.showModal();
+    });
+    form.querySelector("[data-tournament-tiebreaker-help-close]")?.addEventListener("click", () => {
+      tiebreakerHelp?.close();
+    });
+    tiebreakerHelp?.addEventListener("click", (event) => {
+      if (event.target === tiebreakerHelp) tiebreakerHelp.close();
+    });
     updateTournamentTiebreakerSelects(form);
     wireAdminTournamentAutosave(form);
   });
@@ -6980,6 +7046,7 @@ async function refreshTournamentParticipantView(tournament) {
 }
 
 function wireTournamentInfoControls(data, options = {}) {
+  wireLeaderboardProfiles();
   document.querySelectorAll("[data-tournament-info-tab]").forEach((button) => {
     button.addEventListener("click", async () => {
       state.tournamentInfoTab = button.dataset.tournamentInfoTab || "standings";
@@ -7787,4 +7854,39 @@ async function adminPatch(id, body) {
   }
 }
 
+function savedThemePreference() {
+  try {
+    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (["dark", "light"].includes(saved)) return saved;
+  } catch {
+    // Local storage can be unavailable in privacy-restricted browsers.
+  }
+  return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+function applyTheme(theme) {
+  const selected = theme === "light" ? "light" : "dark";
+  document.documentElement.dataset.theme = selected;
+  const button = document.querySelector("[data-theme-toggle]");
+  if (!button) return;
+  const nextLabel = selected === "light" ? "Switch to dark theme" : "Switch to light theme";
+  button.setAttribute("aria-label", nextLabel);
+  button.setAttribute("title", nextLabel);
+  button.innerHTML = selected === "light" ? "&#9790;" : "&#9728;";
+}
+
+function wireThemeToggle() {
+  document.querySelector("[data-theme-toggle]")?.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, next);
+    } catch {
+      // The theme still applies for the current page when storage is blocked.
+    }
+    applyTheme(next);
+  });
+}
+
+applyTheme(savedThemePreference());
+wireThemeToggle();
 boot();

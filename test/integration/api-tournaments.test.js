@@ -231,6 +231,31 @@ test("single elimination: игроки подтверждают результа
   assert.equal(publicPage.tournament.viewer.role, "spectator");
 });
 
+test("tournament rules are optional and every admin can manage another admin's tournament", async () => {
+  const secondAdmin = await createUser("Second Admin", { isAdmin: true });
+  const tournament = await createPublishedTournament({
+    description: "",
+    rulesSummary: "",
+    rulesLink: ""
+  });
+
+  const updated = await tournamentsApi.updateAdmin({
+    client,
+    user: secondAdmin,
+    params: { id: String(tournament.id) },
+    body: { name: "Updated by another admin" }
+  });
+
+  assert.equal(updated.tournament.name, "Updated by another admin");
+  const adminView = await tournamentsApi.getAdmin({
+    client,
+    user: secondAdmin,
+    params: { id: String(tournament.id) }
+  });
+  assert.equal(adminView.tournament.ownerUserId, root.id);
+  assert.equal(adminView.tournament.name, "Updated by another admin");
+});
+
 test("admin can delete a tournament with linked games and replay ratings", async () => {
   const alpha = await createUser("Alpha");
   const tournament = await createPublishedTournament();
@@ -443,7 +468,9 @@ test("registered player can submit result against unregistered tournament partic
   const completedMatch = completed.rounds[0].matches.find((item) => item.id === match.id);
   assert.equal(completedMatch.status, "completed");
   assert.equal(completedMatch.gameId, null);
-  assert.equal(completedMatch.elo, null);
+  assert.equal(completedMatch.elo.flat, 15);
+  assert.equal(completedMatch.elo[alpha.id].delta, 15);
+  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1015);
 
   const completedGames = await gamesApi.listCompleted({ client });
   const syntheticGame = completedGames.games.find((game) => game.id === `tournament-match-${match.id}`);
@@ -462,9 +489,24 @@ test("registered player can submit result against unregistered tournament partic
   });
   assert.equal(alphaProfile.stats.matches, 1);
   assert.equal(alphaProfile.stats.wins, 1);
-  assert.equal(alphaProfile.stats.eloDelta, 0);
+  assert.equal(alphaProfile.stats.eloDelta, 15);
   assert.equal(alphaProfile.recentGames[0].id, `tournament-match-${match.id}`);
   assert.equal(alphaProfile.recentGames[0].tournamentMatch.id, match.id);
+
+  await tournamentsApi.saveMatchResultAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id), matchId: String(match.id) },
+    body: { scores: scores(alpha.id, -unregistered.id) }
+  });
+  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1015);
+
+  await tournamentsApi.deleteAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1000);
 });
 
 test("один TGTV user не может быть привязан к двум активным участникам одного турнира", async () => {

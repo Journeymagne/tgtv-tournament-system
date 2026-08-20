@@ -220,10 +220,8 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
 
 function validatePublishable(tournament) {
   requiredTournamentText(tournament.name, "Tournament name", NAME_MAX);
-  requiredTournamentText(tournament.description, "Description", DESCRIPTION_MAX);
   requiredTournamentText(tournament.gameSystem, "Game system", GAME_SYSTEM_MAX);
   if (!tournament.startsAt) throw new ValidationError("Start date is required");
-  requiredTournamentText(tournament.rulesSummary, "Rules summary", RULES_MAX);
   normalizeFormat(tournament.format);
   if (tournament.format === TOURNAMENT_FORMATS.SWISS && !tournament.swissRoundCount) {
     throw new ValidationError("Swiss round count is required");

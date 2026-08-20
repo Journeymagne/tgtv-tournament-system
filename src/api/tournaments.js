@@ -38,6 +38,8 @@ const {
   MATCH_STATUSES
 } = require("../domain/tournaments/constants");
 
+const UNREGISTERED_OPPONENT_RATING_BONUS = 15;
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -411,6 +413,7 @@ async function deleteAdmin({ client, params }) {
     matches.map((match) => match.id)
   );
   await revertGameEloDeltas(client, deletedGames);
+  await revertGameEloDeltas(client, matches.filter((match) => !match.gameId));
   const removed = await tournamentsRepo.remove(client, tournament.id);
   await recalculateCompletedGameRatings(client);
   return {
@@ -1102,9 +1105,24 @@ async function ensureTournamentGame(client, match, participantA, participantB) {
 
 async function applyTournamentElo(client, tournament, participantA, participantB, result) {
   if (tournament.ratingPolicy !== "ranked") return null;
-  if (!participantA.userId || !participantB.userId) return null;
+  const userIds = [...new Set([participantA.userId, participantB.userId].filter(Number.isInteger))];
+  if (!userIds.length) return null;
 
-  const players = await usersRepo.lockByIds(client, [participantA.userId, participantB.userId]);
+  if (userIds.length === 1) {
+    const [player] = await usersRepo.lockByIds(client, userIds);
+    if (!player) throw new HttpError(409, "The registered tournament player has been deleted");
+    const updated = await usersRepo.addRating(client, player.id, UNREGISTERED_OPPONENT_RATING_BONUS);
+    return {
+      flat: UNREGISTERED_OPPONENT_RATING_BONUS,
+      [player.id]: {
+        before: player.rating,
+        after: updated.rating,
+        delta: UNREGISTERED_OPPONENT_RATING_BONUS
+      }
+    };
+  }
+
+  const players = await usersRepo.lockByIds(client, userIds);
   const playerA = players.find((player) => player.id === participantA.userId);
   const playerB = players.find((player) => player.id === participantB.userId);
   if (!playerA || !playerB) throw new HttpError(409, "One of the tournament players has been deleted");
