@@ -196,8 +196,9 @@ test("clearedSessionCookie обнуляет срок жизни", () => {
   assert.ok(clearedSessionCookie(false).includes("Max-Age=0"));
 });
 
-test("SECURITY_HEADERS разрешает data: только для картинок", () => {
+test("SECURITY_HEADERS разрешает data: и blob: только для картинок", () => {
   const csp = SECURITY_HEADERS["Content-Security-Policy"];
-  assert.ok(csp.includes("img-src 'self' data:"));
+  assert.ok(csp.includes("img-src 'self' data: blob:"));
   assert.ok(!csp.includes("script-src 'self' data:"));
+  assert.ok(!csp.includes("script-src 'self' blob:"));
 });
