@@ -37,6 +37,31 @@ HTTPS origin so canonical URLs, `robots.txt`, and `sitemap.xml` are stable.
 The schema is created and upgraded automatically by versioned migrations on
 startup. Applied versions are recorded in the `schema_migrations` table.
 
+### Production rollout for canonical tournament Games
+
+Migration `010_canonical_tournament_games` is an expand/backfill migration. It
+creates `game_participants`, creates a real `games` row for every playable
+tournament match (including guest participants), repairs interrupted links, and
+keeps the existing tournament result columns for a compatibility window. It
+does not delete production data or remove old columns.
+
+Before deploying, take a PostgreSQL backup and verify that it can be restored.
+Drain traffic and stop every old application instance before starting the new
+release: an old instance could otherwise create a tournament match after the
+one-time backfill. Startup migrations are serialized across new app instances
+with a PostgreSQL advisory lock. Start one new instance, then run:
+
+```powershell
+npm run verify:migration:canonical-games
+```
+
+All checks must report `OK` before traffic is restored and the remaining new
+instances are started. Legacy tournament result routes and duplicated match
+columns intentionally stay available in this release, so a normal application
+rollback does not require a down migration. Restore the pre-deploy backup only
+if the integrity checks report damaged data; keep all writers stopped while
+doing so.
+
 ## Deploying to production
 
 **`NODE_ENV=production` must be set on the running process.** `src/config.js`

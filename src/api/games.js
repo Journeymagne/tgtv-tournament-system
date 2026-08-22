@@ -9,9 +9,7 @@ const { gameView } = require("./views");
 const { requirePositiveIntId } = require("./params");
 const {
   attachTournamentGameDetails,
-  collectSyntheticPeopleIds,
-  sortGameViews,
-  syntheticTournamentMatchGames
+  sortGameViews
 } = require("./tournament-game-details");
 
 const { ACTIVE_STATUSES } = gamesRepo;
@@ -27,10 +25,25 @@ async function lockGame(client, id) {
   const gameId = requirePositiveIntId(id, 404, "Route not found");
   const game = await gamesRepo.lockById(client, gameId);
   if (!game) throw new HttpError(404, "Game not found");
-  if (game.sourceType !== "challenge") {
-    throw new HttpError(409, "Tournament games are managed from the tournament match");
-  }
   return game;
+}
+
+async function findGame(client, id) {
+  const gameId = requirePositiveIntId(id, 404, "Route not found");
+  const game = await gamesRepo.findById(client, gameId);
+  if (!game) throw new HttpError(404, "Game not found");
+  return game;
+}
+
+async function tournamentRequest(client, game, context, action) {
+  const match = await tournamentMatchesRepo.findById(client, game.sourceId);
+  if (!match || match.gameId !== game.id) throw new HttpError(409, "Tournament game link is invalid");
+  const tournaments = require("./tournaments");
+  await tournaments[action]({
+    ...context,
+    params: { ...context.params, id: match.tournamentId, matchId: match.id }
+  });
+  return viewOf(client, await gamesRepo.findById(client, game.id));
 }
 
 function requireParticipant(game, user, message) {
@@ -48,8 +61,9 @@ async function lockPlayers(client, game) {
 }
 
 async function viewOf(client, game) {
-  const people = await usersRepo.findByIds(client, game.playerIds);
-  return gameView(game, people);
+  const [detailed] = await attachTournamentGameDetails(client, [game]);
+  const people = await usersRepo.findByIds(client, detailed.playerIds);
+  return gameView(detailed, people);
 }
 
 // `newSubmission` and `submittedBy` are forwarded to gamesRepo.saveFinalResult.
@@ -116,22 +130,21 @@ async function cancelGame(client, game) {
 
 async function listCompleted({ client }) {
   const completed = await attachTournamentGameDetails(client, await gamesRepo.listCompleted(client));
-  const unlinkedTournamentMatches = await tournamentMatchesRepo.listCompletedUnlinked(client);
   const peopleIds = new Set();
   for (const game of completed) {
     for (const id of game.playerIds) peopleIds.add(id);
   }
-  for (const id of collectSyntheticPeopleIds(unlinkedTournamentMatches)) peopleIds.add(id);
   const people = await usersRepo.findByIds(client, [...peopleIds]);
   return {
-    games: sortGameViews([
-      ...completed.map((game) => gameView(game, people)),
-      ...syntheticTournamentMatchGames(unlinkedTournamentMatches, people)
-    ])
+    games: sortGameViews(completed.map((game) => gameView(game, people)))
   };
 }
 
 async function submitResult({ client, user, params, body }) {
+  const candidate = await findGame(client, params.id);
+  if (candidate.sourceType === "tournament_match") {
+    return { game: await tournamentRequest(client, candidate, { client, user, params, body }, "submitResult") };
+  }
   const game = await lockGame(client, params.id);
   requireParticipant(game, user, "Only a game participant can submit the result");
 
@@ -159,6 +172,9 @@ async function submitResult({ client, user, params, body }) {
 
 async function exitGame({ client, user, params }) {
   const game = await lockGame(client, params.id);
+  if (game.sourceType === "tournament_match") {
+    throw new HttpError(409, "Tournament games cannot be exited independently from their tournament");
+  }
   requireParticipant(game, user, "Only a game participant can exit this game");
 
   if (!ACTIVE_STATUSES.includes(game.status)) {
@@ -173,6 +189,11 @@ async function exitGame({ client, user, params }) {
 }
 
 async function respondToResult({ client, user, params }) {
+  const candidate = await findGame(client, params.id);
+  if (candidate.sourceType === "tournament_match") {
+    const action = params.action === "reject-result" ? "rejectResult" : "confirmResult";
+    return { game: await tournamentRequest(client, candidate, { client, user, params }, action) };
+  }
   const game = await lockGame(client, params.id);
   requireParticipant(game, user, "Only a game participant can confirm the result");
 
@@ -201,6 +222,9 @@ module.exports = {
   cancelGame,
   reverseElo,
   applyElo,
+  findGame,
+  viewOf,
+  tournamentRequest,
   lockGame,
   lockPlayers
 };

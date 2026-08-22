@@ -18,7 +18,7 @@ class ValidationError extends HttpError {
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
-  "Referrer-Policy": "same-origin",
+  "Referrer-Policy": "no-referrer",
   "Content-Security-Policy": [
     "default-src 'self'",
     "script-src 'self'",

@@ -174,7 +174,7 @@ test("sendText проставляет статус, text/plain и security-за�
   assert.equal(res.headers["Content-Length"], Buffer.byteLength("Not found"));
   assert.equal(res.headers["X-Content-Type-Options"], "nosniff");
   assert.equal(res.headers["X-Frame-Options"], "DENY");
-  assert.equal(res.headers["Referrer-Policy"], "same-origin");
+  assert.equal(res.headers["Referrer-Policy"], "no-referrer");
   assert.ok(res.headers["Content-Security-Policy"].includes("script-src 'self'"));
 });
 

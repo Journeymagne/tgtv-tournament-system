@@ -1,9 +1,9 @@
 const tournamentMatchesRepo = require("../db/repositories/tournament-matches");
+const gameParticipantsRepo = require("../db/repositories/game-participants");
 const {
   tournamentSummaryView,
   tournamentMatchView,
-  tournamentParticipantView,
-  tournamentMatchGameView
+  tournamentParticipantView
 } = require("./views");
 
 function tournamentGameIds(games) {
@@ -13,7 +13,11 @@ function tournamentGameIds(games) {
 }
 
 async function attachTournamentGameDetails(client, games) {
-  const links = await tournamentMatchesRepo.listByGameIds(client, tournamentGameIds(games));
+  const gameIds = tournamentGameIds(games);
+  const [links, gameParticipants] = await Promise.all([
+    tournamentMatchesRepo.listByGameIds(client, gameIds),
+    gameParticipantsRepo.listByGameIds(client, gameIds)
+  ]);
   if (!links.length) return games;
 
   const byGameId = new Map(
@@ -21,6 +25,11 @@ async function attachTournamentGameDetails(client, games) {
       .filter((link) => Number.isInteger(link.match?.gameId))
       .map((link) => [link.match.gameId, link])
   );
+  const participantsByGameId = new Map();
+  for (const participant of gameParticipants) {
+    if (!participantsByGameId.has(participant.gameId)) participantsByGameId.set(participant.gameId, []);
+    participantsByGameId.get(participant.gameId).push(participant);
+  }
 
   return games.map((game) => {
     const link = byGameId.get(game.id);
@@ -30,22 +39,28 @@ async function attachTournamentGameDetails(client, games) {
       .filter(Boolean)
       .map((participant) => tournamentParticipantView(participant));
     const participantById = new Map(participants.map((participant) => [participant.id, participant]));
+    const players = (participantsByGameId.get(game.id) || []).map((participant) => ({
+      id: participant.resultKey,
+      userId: participant.userId || null,
+      name: participant.user?.name || participant.displayNameSnapshot || "Player",
+      avatarData: participant.user?.avatarData || null,
+      registerNickname: participant.user?.registerNickname || "",
+      telegramContact: participant.user?.telegramContact || "",
+      rating: participant.user?.rating ?? null,
+      isAdmin: Boolean(participant.user?.isAdmin),
+      createdAt: participant.user?.createdAt || null,
+      faction: participant.factionSnapshot || "",
+      tournamentParticipantId: participant.tournamentParticipantId || null,
+      hasProfile: Boolean(participant.userId)
+    }));
 
     return {
       ...game,
+      players,
       tournament: tournamentSummaryView(link.tournament),
       tournamentMatch: tournamentMatchView(link.match, participantById)
     };
   });
-}
-
-function collectSyntheticPeopleIds(items) {
-  const ids = new Set();
-  for (const item of items) {
-    if (item.participantA?.userId) ids.add(item.participantA.userId);
-    if (item.participantB?.userId) ids.add(item.participantB.userId);
-  }
-  return ids;
 }
 
 function sortGameViews(games) {
@@ -58,13 +73,7 @@ function sortGameViews(games) {
   });
 }
 
-function syntheticTournamentMatchGames(items, people = []) {
-  return items.map((item) => tournamentMatchGameView({ ...item, people }));
-}
-
 module.exports = {
   attachTournamentGameDetails,
-  collectSyntheticPeopleIds,
-  sortGameViews,
-  syntheticTournamentMatchGames
+  sortGameViews
 };

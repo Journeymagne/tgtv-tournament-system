@@ -22,6 +22,7 @@ const TABLES = [
   "tournaments",
   "sessions",
   "feedback",
+  "game_participants",
   "games",
   "challenges",
   "users"

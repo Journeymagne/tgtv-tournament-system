@@ -168,16 +168,14 @@ test("single elimination: игроки подтверждают результа
   assert.equal(pending.status, "pending_confirmation");
   assert.equal(pending.pendingResult.submittedBy, alpha.id);
 
-  await assert.rejects(
-    () =>
-      gamesApi.submitResult({
-        client,
-        user: alpha,
-        params: { id: String(pending.gameId) },
-        body: { scores: scores(alpha.id, opponent.id) }
-      }),
-    (err) => err.status === 409
-  );
+  const editedThroughGames = await gamesApi.submitResult({
+    client,
+    user: alpha,
+    params: { id: String(pending.gameId) },
+    body: { scores: scores(alpha.id, opponent.id) }
+  });
+  assert.equal(editedThroughGames.game.id, pending.gameId);
+  assert.equal(editedThroughGames.game.status, "pending_confirmation");
 
   const confirmed = await tournamentsApi.confirmResult({
     client,
@@ -263,6 +261,10 @@ test("admin can delete a tournament with linked games and replay ratings", async
   await fillSingleEliminationTournament(tournament, 1);
 
   const started = await closeAndStart(tournament);
+  const startedGameIds = started.rounds
+    .flatMap((round) => round.matches)
+    .map((item) => item.gameId)
+    .filter(Number.isInteger);
   const match = activeMatchForUser(started, alpha.id);
   const opponent = await usersRepo.findById(client, matchOpponentUserId(match, alpha.id));
 
@@ -290,8 +292,8 @@ test("admin can delete a tournament with linked games and replay ratings", async
   });
 
   assert.equal(deleted.ok, true);
-  assert.equal(deleted.deletedGames, 1);
-  assert.equal(await gamesRepo.findById(client, completedMatch.gameId), null);
+  assert.equal(deleted.deletedGames, startedGameIds.length);
+  for (const gameId of startedGameIds) assert.equal(await gamesRepo.findById(client, gameId), null);
   assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1000);
   assert.equal((await usersRepo.findById(client, opponent.id)).rating, 1000);
   assert.equal((await tournamentsApi.listAdmin({ client })).tournaments.length, 0);
@@ -457,7 +459,7 @@ test("registered player can submit result against unregistered tournament partic
   assert.equal(pendingMatch.status, "pending_confirmation");
   assert.equal(pendingMatch.pendingResult.submittedBy, alpha.id);
   assert.equal(pendingMatch.pendingResult.result.winnerId, alpha.id);
-  assert.equal(pendingMatch.gameId, null);
+  assert.ok(Number.isInteger(pendingMatch.gameId));
 
   const completed = await tournamentsApi.saveMatchResultAdmin({
     client,
@@ -467,20 +469,20 @@ test("registered player can submit result against unregistered tournament partic
   });
   const completedMatch = completed.rounds[0].matches.find((item) => item.id === match.id);
   assert.equal(completedMatch.status, "completed");
-  assert.equal(completedMatch.gameId, null);
+  assert.equal(completedMatch.gameId, pendingMatch.gameId);
   assert.equal(completedMatch.elo.flat, 15);
   assert.equal(completedMatch.elo[alpha.id].delta, 15);
   assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1015);
 
   const completedGames = await gamesApi.listCompleted({ client });
-  const syntheticGame = completedGames.games.find((game) => game.id === `tournament-match-${match.id}`);
-  assert.ok(syntheticGame);
-  assert.equal(syntheticGame.status, "completed");
-  assert.equal(syntheticGame.result.winnerId, alpha.id);
-  assert.equal(syntheticGame.tournament.slug, tournament.slug);
-  assert.equal(syntheticGame.tournamentMatch.id, match.id);
-  assert.ok(syntheticGame.players.some((player) => player.id === alpha.id));
-  assert.ok(syntheticGame.players.some((player) => player.id === -unregistered.id));
+  const tournamentGame = completedGames.games.find((game) => game.id === completedMatch.gameId);
+  assert.ok(tournamentGame);
+  assert.equal(tournamentGame.status, "completed");
+  assert.equal(tournamentGame.result.winnerId, alpha.id);
+  assert.equal(tournamentGame.tournament.slug, tournament.slug);
+  assert.equal(tournamentGame.tournamentMatch.id, match.id);
+  assert.ok(tournamentGame.players.some((player) => player.id === alpha.id));
+  assert.ok(tournamentGame.players.some((player) => player.id === -unregistered.id));
 
   const alphaProfile = await usersApi.profile({
     client,
@@ -490,7 +492,7 @@ test("registered player can submit result against unregistered tournament partic
   assert.equal(alphaProfile.stats.matches, 1);
   assert.equal(alphaProfile.stats.wins, 1);
   assert.equal(alphaProfile.stats.eloDelta, 15);
-  assert.equal(alphaProfile.recentGames[0].id, `tournament-match-${match.id}`);
+  assert.equal(alphaProfile.recentGames[0].id, completedMatch.gameId);
   assert.equal(alphaProfile.recentGames[0].tournamentMatch.id, match.id);
 
   await tournamentsApi.saveMatchResultAdmin({

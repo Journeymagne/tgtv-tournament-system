@@ -9,6 +9,7 @@ const { calculateSubmittedResult } = require("../domain/scoring");
 const { hashPassword, generateTemporaryPassword } = require("../domain/passwords");
 const { requirePositiveIntId } = require("./params");
 const { recalculateCompletedGameRatings } = require("./rating-replay");
+const { attachTournamentGameDetails } = require("./tournament-game-details");
 const { requireKillTeam, CLASSIFIED_TRACK, ALL_KILL_TEAM_TRACK, WILDCARDS } =
   require("../domain/kill-teams");
 
@@ -33,13 +34,16 @@ async function requireTarget(client, id) {
 }
 
 async function listActiveGames({ client }) {
-  const active = await gamesRepo.listActive(client);
+  const active = await attachTournamentGameDetails(client, await gamesRepo.listActive(client));
   const people = await peopleForGames(client, active);
   return { games: active.map((game) => gameView(game, people)) };
 }
 
 async function confirmGameResult({ client, user, params }) {
   const game = await games.lockGame(client, params.id);
+  if (game.sourceType === "tournament_match") {
+    throw new HttpError(409, "Use the tournament game result editor to confirm this result");
+  }
   const finalized = await games.finalizeResult(client, game, user.id);
   const people = await usersRepo.findByIds(client, finalized.playerIds);
   return { game: gameView(finalized, people) };
@@ -47,6 +51,9 @@ async function confirmGameResult({ client, user, params }) {
 
 async function deleteGame({ client, params }) {
   const game = await games.lockGame(client, params.id);
+  if (game.sourceType === "tournament_match") {
+    throw new HttpError(409, "Tournament games cannot be deleted independently from their tournament");
+  }
   if (!["open", "pending_confirmation"].includes(game.status)) {
     throw new HttpError(409, "Only active or pending games can be deleted here");
   }
@@ -56,6 +63,19 @@ async function deleteGame({ client, params }) {
 }
 
 async function saveGameResult({ client, user, params, body }) {
+  const candidate = await games.findGame(client, params.id);
+  if (candidate.sourceType === "tournament_match") {
+    const tournaments = require("./tournaments");
+    const match = await require("../db/repositories/tournament-matches").findById(client, candidate.sourceId);
+    if (!match || match.gameId !== candidate.id) throw new HttpError(409, "Tournament game link is invalid");
+    await tournaments.saveMatchResultAdmin({
+      client,
+      user,
+      params: { ...params, id: match.tournamentId, matchId: match.id },
+      body
+    });
+    return { game: await games.viewOf(client, await gamesRepo.findById(client, candidate.id)) };
+  }
   const game = await games.lockGame(client, params.id);
   if (!EDITABLE_GAME_STATUSES.includes(game.status)) {
     throw new HttpError(409, "Only active, pending, or completed games can be edited");

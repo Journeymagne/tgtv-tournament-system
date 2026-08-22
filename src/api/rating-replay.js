@@ -63,20 +63,6 @@ function replayGame(game, ratings) {
   };
 }
 
-function unlinkedTournamentRatingGame(item) {
-  return {
-    id: `tournament-match-${item.match.id}`,
-    sourceType: "tournament_match",
-    playerIds: [item.participantA?.userId, item.participantB?.userId].filter(Number.isInteger),
-    result: item.match.result,
-    elo: item.match.elo,
-    submittedAt: item.match.completedAt,
-    createdAt: item.match.createdAt,
-    tournament: item.tournament,
-    ratingReplayMatchId: item.match.id
-  };
-}
-
 function ratingReplayOrder(a, b) {
   const timestamp = String(a.submittedAt || a.createdAt || "").localeCompare(
     String(b.submittedAt || b.createdAt || "")
@@ -88,9 +74,7 @@ function ratingReplayOrder(a, b) {
 async function recalculateCompletedGameRatings(client) {
   const users = await usersRepo.listForRatingReplay(client);
   const games = await gamesRepo.listCompletedForRatingReplay(client);
-  const unlinkedTournamentGames = (await tournamentMatchesRepo.listCompletedUnlinked(client))
-    .map(unlinkedTournamentRatingGame);
-  const replayGames = [...games, ...unlinkedTournamentGames].sort(ratingReplayOrder);
+  const replayGames = games.sort(ratingReplayOrder);
   const tournamentGameIds = games
     .filter((game) => game.sourceType === "tournament_match")
     .map((game) => game.id);
@@ -99,11 +83,7 @@ async function recalculateCompletedGameRatings(client) {
 
   for (const game of replayGames) {
     const elo = isRankedGame(game, tournamentPolicies) ? replayGame(game, ratings) : null;
-    if (game.ratingReplayMatchId) {
-      await tournamentMatchesRepo.update(client, game.ratingReplayMatchId, { elo });
-    } else {
-      await gamesRepo.updateElo(client, game.id, elo);
-    }
+    await gamesRepo.updateElo(client, game.id, elo);
   }
 
   for (const user of users) {

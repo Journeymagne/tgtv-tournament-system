@@ -87,12 +87,12 @@ function challengeProgressView(games, user) {
   return { ...classified, tracks: { classified, allKillTeam } };
 }
 
-function userSummary({ user, hasAdmin, challenges, games, tournamentGames = [], people }) {
+function userSummary({ user, hasAdmin, challenges, games, people }) {
   return {
     user: publicUser(user),
     hasAdmin,
     challenges: challenges.map((challenge) => challengeView(challenge, people)),
-    games: [...games.map((game) => gameView(game, people)), ...tournamentGames]
+    games: games.map((game) => gameView(game, people))
   };
 }
 
@@ -225,49 +225,6 @@ function tournamentSummaryView(tournament) {
   };
 }
 
-function tournamentParticipantPlayer(participant) {
-  if (!participant) return null;
-  const user = participant.user || null;
-  return {
-    id: participant.userId || -participant.id,
-    name: participant.displayName || user?.name || "Player",
-    rating: user?.rating || null,
-    faction: participant.faction || "",
-    tournamentParticipantId: participant.id,
-    hasProfile: Boolean(participant.userId)
-  };
-}
-
-function tournamentMatchGameView({ tournament, match, participantA, participantB, people = [] }) {
-  const participantViews = [participantA, participantB].map((participant) =>
-    tournamentParticipantView(participant, people)
-  );
-  const participantById = new Map(participantViews.map((participant) => [participant.id, participant]));
-  const matchView = tournamentMatchView(match, participantById);
-  const players = participantViews.map(tournamentParticipantPlayer).filter(Boolean);
-
-  return {
-    id: `tournament-match-${match.id}`,
-    sourceType: "tournament_match",
-    sourceId: match.id,
-    status: match.status === "completed"
-      ? "completed"
-      : match.status === "pending_confirmation"
-        ? "pending_confirmation"
-        : "open",
-    createdAt: match.createdAt,
-    submittedBy: match.submittedByUserId,
-    submittedAt: match.pendingResult?.submittedAt || match.completedAt || null,
-    pendingResult: match.pendingResult,
-    result: match.result,
-    elo: match.elo,
-    playerIds: players.filter((player) => player.hasProfile).map((player) => player.id),
-    players,
-    tournament: tournamentSummaryView(tournament),
-    tournamentMatch: matchView
-  };
-}
-
 function tournamentTableView(table) {
   return {
     id: table.id,
@@ -340,7 +297,6 @@ module.exports = {
   tournamentDetailView,
   tournamentParticipantView,
   tournamentTableView,
-  tournamentMatchGameView,
   tournamentMatchView,
   tournamentRoundView
 };

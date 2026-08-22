@@ -11,9 +11,10 @@ const { requirePositiveIntId } = require("./params");
 const {
   tournamentDetailView,
   tournamentSummaryView,
-  tournamentMatchGameView,
+  gameView,
   tournamentTableView
 } = require("./views");
+const { attachTournamentGameDetails } = require("./tournament-game-details");
 const { buildTournamentPreview } = require("../domain/tournaments/preview");
 const { buildStandings } = require("../domain/tournaments/standings");
 const { calculateSubmittedResult, matchScoreFor, parseKillzone } = require("../domain/scoring");
@@ -323,18 +324,12 @@ async function fullView(client, tournament, user, { includeAudit = false } = {})
   const standings = buildStandings(participants, matches, tournament.tiebreakerOrder);
   const auditEvents = includeAudit ? await auditRepo.listByTournament(client, tournament.id) : [];
   const visibleParticipants = participants.filter(isListedParticipant);
-  const participantById = new Map(participants.map((participant) => [participant.id, participant]));
-  const tournamentGames = matches
-    .filter((match) => match.status === MATCH_STATUSES.COMPLETED && !match.isBye && match.result)
-    .map((match) =>
-      tournamentMatchGameView({
-        tournament,
-        match,
-        participantA: participantById.get(match.participantAId),
-        participantB: participantById.get(match.participantBId),
-        people
-      })
-    );
+  const completedGameIds = matches
+    .filter((match) => match.status === MATCH_STATUSES.COMPLETED && !match.isBye && match.result && match.gameId)
+    .map((match) => match.gameId);
+  const tournamentGames = (
+    await attachTournamentGameDetails(client, await gamesRepo.listByIds(client, completedGameIds))
+  ).map((game) => gameView(game, people));
 
   return tournamentDetailView({
     tournament,
@@ -954,6 +949,7 @@ async function persistPreview(client, tournament, preview) {
   const matchIdByKey = new Map();
   const createdRounds = [];
   const createdMatches = [];
+  const participants = await participantsRepo.listByTournament(client, tournament.id);
   for (const roundBlueprint of preview.rounds) {
     const matchPairingCount = roundBlueprint.matches.filter(
       (match) => !match.isBye && matchParticipantIds(match).length === 2
@@ -984,6 +980,10 @@ async function persistPreview(client, tournament, preview) {
       });
       matchIdByKey.set(matchBlueprint.key, match.id);
       createdMatches.push(match);
+      if (match.status === MATCH_STATUSES.ACTIVE && !match.isBye) {
+        const { participantA, participantB } = requireMatchParticipants(match, participants);
+        await ensureTournamentGame(client, match, participantA, participantB);
+      }
     }
   }
   return { rounds: createdRounds, matches: createdMatches };
@@ -1093,14 +1093,23 @@ function assertCompletableResult(tournament, result, winnerParticipantId) {
 }
 
 async function ensureTournamentGame(client, match, participantA, participantB) {
-  if (!participantA.userId || !participantB.userId) return null;
   if (match.gameId) return gamesRepo.lockById(client, match.gameId);
-  return gamesRepo.insert(client, {
+  const game = await gamesRepo.insert(client, {
     challengeId: null,
-    playerIds: [participantA.userId, participantB.userId],
+    playerIds: [participantA.userId, participantB.userId].filter(Number.isInteger),
     sourceType: "tournament_match",
-    sourceId: match.id
+    sourceId: match.id,
+    participants: [participantA, participantB].map((participant) => ({
+      userId: participant.userId || null,
+      tournamentParticipantId: participant.id,
+      resultKey: participantResultKey(participant),
+      displayNameSnapshot: participant.displayName || "Player",
+      factionSnapshot: participant.faction || ""
+    }))
   });
+  await matchesRepo.update(client, match.id, { gameId: game.id });
+  match.gameId = game.id;
+  return game;
 }
 
 async function applyTournamentElo(client, tournament, participantA, participantB, result) {
@@ -1206,6 +1215,10 @@ async function syncSingleElimination(client, tournament, user, match, winnerPart
       await matchesRepo.update(client, child.id, {
         status: MATCH_STATUSES.ACTIVE
       });
+      const activatedChild = await matchesRepo.findById(client, child.id);
+      const participants = await participantsRepo.listByTournament(client, tournament.id);
+      const { participantA, participantB } = requireMatchParticipants(activatedChild, participants);
+      await ensureTournamentGame(client, activatedChild, participantA, participantB);
     }
   }
 
@@ -1247,15 +1260,19 @@ async function persistSwissRound(client, tournament, roundBlueprint) {
     startedAt: nowIso()
   });
   const matches = [];
+  const participants = await participantsRepo.listByTournament(client, tournament.id);
   for (const matchBlueprint of roundBlueprint.matches) {
-    matches.push(
-      await matchesRepo.insert(client, {
+    const match = await matchesRepo.insert(client, {
         ...matchBlueprint,
         tournamentId: tournament.id,
         roundId: round.id,
         completedAt: matchBlueprint.status === MATCH_STATUSES.COMPLETED ? nowIso() : null
-      })
-    );
+      });
+    matches.push(match);
+    if (match.status === MATCH_STATUSES.ACTIVE && !match.isBye) {
+      const { participantA, participantB } = requireMatchParticipants(match, participants);
+      await ensureTournamentGame(client, match, participantA, participantB);
+    }
   }
   return { round, matches };
 }
@@ -1423,16 +1440,13 @@ async function completeMatch(
   if (replaceCompleted) await reverseMatchElo(client, match);
   const game = await ensureTournamentGame(client, match, participantA, participantB);
   const elo = await applyTournamentElo(client, tournament, participantA, participantB, finalResult);
-  let gameId = match.gameId || null;
-  if (game) {
-    const updatedGame = await gamesRepo.saveFinalResult(client, game.id, {
-      result: finalResult,
-      elo,
-      submittedBy: submittedByUserId,
-      newSubmission: !replaceCompleted
-    });
-    gameId = updatedGame.id;
-  }
+  const updatedGame = await gamesRepo.saveFinalResult(client, game.id, {
+    result: finalResult,
+    elo,
+    submittedBy: submittedByUserId,
+    newSubmission: !replaceCompleted
+  });
+  const gameId = updatedGame.id;
 
   const completed = await matchesRepo.update(client, match.id, {
     status: MATCH_STATUSES.COMPLETED,
@@ -1451,11 +1465,8 @@ async function completeMatch(
   } else {
     await syncSwiss(client, tournament, user, completed, participants);
   }
-  if (gameId) {
-    await recalculateCompletedGameRatings(client);
-    return matchesRepo.findById(client, match.id);
-  }
-  return completed;
+  await recalculateCompletedGameRatings(client);
+  return matchesRepo.findById(client, match.id);
 }
 
 async function submitResult({ client, user, params, body }) {
@@ -1485,17 +1496,15 @@ async function submitResult({ client, user, params, body }) {
   assertCompletableResult(tournament, result, winnerParticipantId);
   const submittedAt = nowIso();
   const game = await ensureTournamentGame(client, match, participantA, participantB);
-  if (game) {
-    await gamesRepo.savePendingResult(client, game.id, {
-      submittedBy: user.id,
-      pendingResult: { submittedBy: user.id, submittedAt, result }
-    });
-  }
+  await gamesRepo.savePendingResult(client, game.id, {
+    submittedBy: user.id,
+    pendingResult: { submittedBy: user.id, submittedAt, result }
+  });
   const updated = await matchesRepo.update(client, match.id, {
     status: MATCH_STATUSES.PENDING_CONFIRMATION,
     pendingResult: { submittedBy: user.id, submittedAt, result },
     submittedByUserId: user.id,
-    gameId: game?.id || match.gameId || null
+    gameId: game.id
   });
   await audit(client, tournament, user, "match_result_submit", {
     entityType: "match",

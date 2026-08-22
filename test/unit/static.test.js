@@ -90,7 +90,7 @@ test("sendStatic отдаёт существующий файл: статус 20
   assert.equal(res.headers["Content-Type"], "application/javascript; charset=utf-8");
   assert.equal(res.headers["X-Content-Type-Options"], "nosniff");
   assert.equal(res.headers["X-Frame-Options"], "DENY");
-  assert.equal(res.headers["Referrer-Policy"], "same-origin");
+  assert.equal(res.headers["Referrer-Policy"], "no-referrer");
   assert.ok(res.headers["Content-Security-Policy"].includes("script-src 'self'"));
 });
 

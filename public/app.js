@@ -623,6 +623,13 @@ function appRouteFromHash() {
   }
   if (section === "games") {
     if (subroute === "game") return { view: "gameDetail", selectedGameId: Number(id) };
+    if (subroute === "tournament-match") {
+      const matchId = Number(id);
+      return {
+        view: "gameDetail",
+        selectedGameId: Number.isSafeInteger(matchId) && matchId > 0 ? `tournament-match-${matchId}` : null
+      };
+    }
     return { view: "games", gamesTab: subroute === "sessions" ? "sessions" : "history" };
   }
   if (section === "tournaments") {
@@ -679,8 +686,10 @@ async function applyAppRoute(route) {
     if (state.gamesTab === "sessions") await loadAdminGames();
     else await loadGames();
   } else if (route.view === "gameDetail") {
-    state.selectedGameId = Number.isInteger(route.selectedGameId) && route.selectedGameId > 0 ? route.selectedGameId : null;
+    state.selectedGameId = normalizedGameDetailId(route.selectedGameId);
     await loadGames();
+    const legacyMatchId = tournamentMatchIdFromGameId(state.selectedGameId);
+    if (legacyMatchId) state.selectedGameId = getKnownTournamentGame(legacyMatchId)?.id || null;
   } else if (route.view === "tournaments") {
     state.tournamentsTab = state.me?.isAdmin ? route.tournamentsTab || "public" : "public";
     if (state.tournamentsTab === "admin") {
@@ -721,7 +730,12 @@ function appHashForState() {
   if (state.view === "play") return "#/matchmaking";
   if (state.view === "top") return state.leaderboardTab === "users" ? "#/leaderboard/users" : "#/leaderboard";
   if (state.view === "games") return state.gamesTab === "sessions" ? "#/games/sessions" : "#/games";
-  if (state.view === "gameDetail" && state.selectedGameId) return `#/games/game/${encodeURIComponent(state.selectedGameId)}`;
+  if (state.view === "gameDetail" && state.selectedGameId) {
+    const tournamentMatchId = tournamentMatchIdFromGameId(state.selectedGameId);
+    return tournamentMatchId
+      ? `#/games/tournament-match/${encodeURIComponent(tournamentMatchId)}`
+      : `#/games/game/${encodeURIComponent(state.selectedGameId)}`;
+  }
   if (state.view === "tournaments") {
     if (state.tournamentsTab === "admin") {
       if (state.adminTournamentMode === "create") return "#/tournaments/admin/create";
@@ -798,6 +812,7 @@ function tournamentSlugFromLocation() {
 
 function navigateToPublicTournament(slug) {
   if (!slug) return;
+  state.tournamentInfoTab = "standings";
   window.history.pushState(null, "", tournamentPublicPath(slug));
   renderPublicTournamentRoute(slug);
 }
@@ -1950,15 +1965,11 @@ async function copyText(text) {
 }
 
 function gameCard(game) {
-  if (game.sourceType === "tournament_match") {
-    return game.status === "completed"
-      ? completedTournamentGameCard(game)
-      : tournamentMatchGameCard(game);
-  }
-
   const players = game.players || [];
-  const title = players.map((player) => player.id === state.me.id ? "You" : player.name).join(" vs ");
-  const isParticipant = players.some((player) => player.id === state.me.id);
+  const isTournamentGame = game.sourceType === "tournament_match";
+  const playerUserId = (player) => Number(player.userId || (player.hasProfile === false ? 0 : player.id));
+  const title = players.map((player) => playerUserId(player) === state.me.id ? "You" : player.name).join(" vs ");
+  const isParticipant = players.some((player) => playerUserId(player) === state.me.id);
   const isPending = game.status === "pending_confirmation";
   const status = game.status === "completed" ? "completed" : isPending ? "pending" : "open";
   const result = game.status === "completed"
@@ -1973,23 +1984,32 @@ function gameCard(game) {
       : isParticipant && isPending
         ? `<button class="primary-button" data-game-review="${game.id}">Review result</button>`
         : "";
-  const canExit = isParticipant && (game.status === "open" || (isPending && game.pendingResult?.submittedBy === state.me.id));
+  const adminResultAction = state.me?.isAdmin && !isParticipant && game.status !== "completed"
+    ? `<button class="primary-button" data-game-admin-result="${game.id}">Enter result</button>`
+    : "";
+  const canExit = !isTournamentGame && isParticipant && (game.status === "open" || (isPending && game.pendingResult?.submittedBy === state.me.id));
   const exitAction = canExit
     ? `<button class="danger-button" data-game-exit="${game.id}">${isPending ? "Delete pending" : "Exit game"}</button>`
     : "";
-  const detailsAction = game.status === "open"
-    ? ""
-    : `<button class="small-button" data-game-open="${game.id}">Details</button>`;
+  const detailsAction = `<button class="small-button" data-game-open="${game.id}">Details</button>`;
+  const tournamentAction = isTournamentGame && game.tournament?.slug
+    ? `<button class="small-button" data-tournament-game-open="${escapeHtml(game.tournament.slug)}">Open tournament</button>`
+    : "";
+  const meta = isTournamentGame
+    ? `Tournament: ${tournamentMatchLabel(game)} / ${result}`
+    : result;
   return `
     <div class="row-card">
       <div class="row-main">
         <div class="row-title">${escapeHtml(title)}</div>
-        <div class="row-meta">${escapeHtml(result)}</div>
+        <div class="row-meta">${escapeHtml(meta)}</div>
       </div>
       <div class="row-actions">
         <span class="status ${status}">${game.status === "completed" ? "completed" : isPending ? "pending" : "active"}</span>
         ${detailsAction}
+        ${tournamentAction}
         ${mainAction}
+        ${adminResultAction}
         ${exitAction}
       </div>
     </div>
@@ -2016,89 +2036,14 @@ function tournamentMatchSourceId(game) {
 function getKnownTournamentGame(matchId) {
   const id = Number(matchId);
   if (!Number.isInteger(id) || id <= 0) return null;
-  return [...(state.games || []), ...(state.allGames || [])].find((game) =>
+  return [
+    ...(state.games || []),
+    ...(state.allGames || []),
+    ...(state.playerProfile?.recentGames || []),
+    ...(state.playerProfile?.pendingGames || [])
+  ].find((game) =>
     game.sourceType === "tournament_match" && tournamentMatchSourceId(game) === id
   ) || null;
-}
-
-function tournamentMatchDataFromGame(game) {
-  const match = game?.tournamentMatch || {};
-  return {
-    tournament: game?.tournament || {},
-    participants: [match.participantA, match.participantB].filter(Boolean),
-    rounds: [{ roundNumber: match.roundNumber, matches: [match] }]
-  };
-}
-
-function completedTournamentGameCard(game) {
-  const matchId = tournamentMatchSourceId(game);
-  const players = game.players || [];
-  const title = players.map((player) => Number(player.id) === state.me.id ? "You" : player.name).join(" vs ") || "Tournament match";
-  const result = resultSummary(game);
-  const openAction = game.tournament?.slug
-    ? `<button class="small-button" data-tournament-game-open="${matchId}">Open tournament</button>`
-    : "";
-
-  return `
-    <div class="row-card">
-      <div class="row-main">
-        <div class="row-title">${escapeHtml(title)}</div>
-        <div class="row-meta">Tournament: ${escapeHtml(tournamentMatchLabel(game))} / ${escapeHtml(result)}</div>
-      </div>
-      <div class="row-actions">
-        <span class="status completed">completed</span>
-        ${openAction}
-      </div>
-    </div>
-  `;
-}
-
-function tournamentMatchGameCard(game) {
-  const match = game.tournamentMatch || {};
-  const tournament = game.tournament || {};
-  const matchId = tournamentMatchSourceId(game);
-  const players = game.players || [];
-  const title = players.map((player) => Number(player.id) === state.me.id ? "You" : player.name).join(" vs ") || "Tournament match";
-  const isParticipant = players.some((player) => Number(player.id) === state.me.id);
-  const canPlayerReport = isParticipant && players.length === 2;
-  const canPeerReview = canPlayerReport && players.every((player) => player.hasProfile !== false && Number(player.id) > 0);
-  const canAdminReport = Boolean(state.me?.isAdmin);
-  const requiresAdminResult = players.some((player) => player.hasProfile === false || Number(player.id) < 0);
-  const isPending = game.status === "pending_confirmation";
-  const status = isPending ? "pending" : "open";
-  const result = isPending
-    ? pendingResultSummary(game)
-    : canPlayerReport || canAdminReport
-      ? "Waiting for Approved Ops result"
-      : "Administrator result entry required";
-  const openAction = tournament.slug
-    ? `<button class="small-button" data-tournament-game-open="${matchId}">Open tournament</button>`
-    : "";
-  const mainAction = canAdminReport && requiresAdminResult
-    ? `<button class="primary-button" data-tournament-game-result="${matchId}" data-tournament-game-admin-result="1">Enter Results</button>`
-    : canPlayerReport && !isPending
-      ? `<button class="primary-button" data-tournament-game-result="${matchId}">Enter Results</button>`
-      : canPlayerReport && isPending && game.pendingResult?.submittedBy === state.me.id
-        ? `<button class="primary-button" data-tournament-game-result="${matchId}">Edit Results</button>`
-        : canPeerReview && isPending
-          ? `<button class="primary-button" data-tournament-game-review="${matchId}">Review Results</button>`
-          : canAdminReport
-            ? `<button class="primary-button" data-tournament-game-result="${matchId}" data-tournament-game-admin-result="1">Enter Results</button>`
-            : "";
-
-  return `
-    <div class="row-card">
-      <div class="row-main">
-        <div class="row-title">${escapeHtml(title)}</div>
-        <div class="row-meta">Tournament: ${escapeHtml(tournamentMatchLabel(game))} / ${escapeHtml(result)}</div>
-      </div>
-      <div class="row-actions">
-        <span class="status ${status}">${isPending ? "pending" : "active"}</span>
-        ${mainAction}
-        ${openAction}
-      </div>
-    </div>
-  `;
 }
 
 function pendingResultSummary(game) {
@@ -2983,19 +2928,37 @@ async function loadGames() {
 }
 
 function getKnownGame(gameId) {
-  const id = Number(gameId);
-  return (state.allGames || []).find((game) => game.id === id) ||
-    (state.adminGames || []).find((game) => game.id === id) ||
-    (state.games || []).find((game) => game.id === id) ||
-    (state.playerProfile?.pendingGames || []).find((game) => game.id === id) ||
-    (state.playerProfile?.activeMatchup?.game?.id === id ? state.playerProfile.activeMatchup.game : null) ||
-    (state.playerProfile?.recentGames || []).find((game) => game.id === id) ||
+  const tournamentMatchId = tournamentMatchIdFromGameId(gameId);
+  if (tournamentMatchId) return getKnownTournamentGame(tournamentMatchId);
+  const id = normalizedGameDetailId(gameId);
+  if (!id) return null;
+  const sameId = (game) => String(game?.id) === String(id);
+  return (state.allGames || []).find(sameId) ||
+    (state.adminGames || []).find(sameId) ||
+    (state.games || []).find(sameId) ||
+    (state.playerProfile?.pendingGames || []).find(sameId) ||
+    (sameId(state.playerProfile?.activeMatchup?.game) ? state.playerProfile.activeMatchup.game : null) ||
+    (state.playerProfile?.recentGames || []).find(sameId) ||
     null;
+}
+
+function tournamentMatchIdFromGameId(gameId) {
+  const match = String(gameId || "").match(/^tournament-match-(\d+)$/);
+  if (!match) return 0;
+  const matchId = Number(match[1]);
+  return Number.isSafeInteger(matchId) && matchId > 0 ? matchId : 0;
+}
+
+function normalizedGameDetailId(gameId) {
+  const tournamentMatchId = tournamentMatchIdFromGameId(gameId);
+  if (tournamentMatchId) return getKnownTournamentGame(tournamentMatchId)?.id || `tournament-match-${tournamentMatchId}`;
+  const numericId = Number(gameId);
+  return Number.isSafeInteger(numericId) && numericId > 0 ? numericId : null;
 }
 
 async function openGameDetail(gameId) {
   await loadGames();
-  state.selectedGameId = Number(gameId);
+  state.selectedGameId = normalizedGameDetailId(gameId);
   state.view = "gameDetail";
   syncAppHash();
   renderShell();
@@ -4123,36 +4086,58 @@ function renderGameDetail() {
   }
 
   const result = game.result || game.pendingResult?.result || null;
+  const isTournamentGame = game.sourceType === "tournament_match";
+  const tournament = game.tournament || {};
+  const match = game.tournamentMatch || {};
   const statusLabel = game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "active";
   const submitter = game.players?.find((player) => player.id === game.pendingResult?.submittedBy || player.id === game.submittedBy);
-  const isParticipant = game.players?.some((player) => player.id === state.me.id);
+  const isParticipant = game.players?.some((player) => Number(player.userId || player.id) === state.me.id);
   const canDeletePending = isParticipant && game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id;
   const playerAction = isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>
-       <button class="danger-button" data-exit-game="${game.id}">Exit game</button>`
+       ${isTournamentGame ? "" : `<button class="danger-button" data-exit-game="${game.id}">Exit game</button>`}`
     : canDeletePending
-      ? `<button class="danger-button" data-exit-game="${game.id}">Delete pending</button>`
-    : "";
+      ? `<button class="small-button" data-game-result="${game.id}">Edit result</button>
+         ${isTournamentGame ? "" : `<button class="danger-button" data-exit-game="${game.id}">Delete pending</button>`}`
+      : isParticipant && game.status === "pending_confirmation"
+        ? `<button class="primary-button" data-game-review="${game.id}">Review result</button>`
+        : "";
   const adminAction = state.me.isAdmin
     ? `<button class="primary-button" data-admin-edit-game="${game.id}">${result ? "Edit result" : "Enter result"}</button>
-       ${game.status === "pending_confirmation" && game.pendingResult?.result ? `<button class="small-button" data-admin-confirm-game="${game.id}">Force confirm</button>` : ""}
-       ${["open", "pending_confirmation"].includes(game.status) ? `<button class="danger-button" data-admin-delete-game="${game.id}">Delete game</button>` : ""}`
+       ${!isTournamentGame && game.status === "pending_confirmation" && game.pendingResult?.result ? `<button class="small-button" data-admin-confirm-game="${game.id}">Force confirm</button>` : ""}
+       ${!isTournamentGame && ["open", "pending_confirmation"].includes(game.status) ? `<button class="danger-button" data-admin-delete-game="${game.id}">Delete game</button>` : ""}`
     : "";
+  const tournamentAction = isTournamentGame && tournament.slug
+    ? `<button class="small-button" data-detail-tournament-open="${escapeHtml(tournament.slug)}">Open tournament</button>`
+    : "";
+  const detailTitle = isTournamentGame ? "Tournament match details" : `Game #${game.id}`;
+  const detailMeta = isTournamentGame
+    ? `${gamePlayerLinks(game)} &middot; ${escapeHtml(tournamentMatchLabel(game))} &middot; ${fmtDate(game.createdAt)}`
+    : `${gamePlayerLinks(game)} &middot; ${fmtDate(game.createdAt)}`;
 
   content.innerHTML = `
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Game #${game.id}</h2>
-          <p class="muted">${gamePlayerLinks(game)} &middot; ${fmtDate(game.createdAt)}</p>
+          <h2>${detailTitle}</h2>
+          <p class="muted">${detailMeta}</p>
         </div>
         <div class="row-actions">
           <span class="status ${game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "open"}">${statusLabel}</span>
           <button class="ghost-button" data-back-games>Back to Games</button>
+          ${tournamentAction}
           ${playerAction}
           ${adminAction}
         </div>
       </div>
+      ${isTournamentGame ? `
+        <section class="profile-grid">
+          ${metricCard("Tournament", tournament.name || "Tournament")}
+          ${metricCard("Round", match.roundNumber ? String(match.roundNumber) : "Not assigned")}
+          ${metricCard("Match", match.bracketPosition ? String(match.bracketPosition) : "Not assigned")}
+          ${metricCard("Table", match.table?.tableNumber ? String(match.table.tableNumber) : "Not assigned")}
+        </section>
+      ` : ""}
       ${result ? `
         <div class="result-headline">${escapeHtml(resultHeadline(game, result))}</div>
         ${submitter ? `<p class="muted">Submitted by ${escapeHtml(submitter.name)}${game.submittedAt ? ` &middot; ${fmtDate(game.submittedAt)}` : ""}</p>` : ""}
@@ -4191,6 +4176,12 @@ function renderGameDetail() {
   document.querySelector("[data-game-result]")?.addEventListener("click", (event) => {
     renderResultForm(Number(event.currentTarget.dataset.gameResult));
   });
+  document.querySelector("[data-game-review]")?.addEventListener("click", (event) => {
+    renderResultReview(Number(event.currentTarget.dataset.gameReview));
+  });
+  document.querySelector("[data-detail-tournament-open]")?.addEventListener("click", (event) => {
+    navigateToPublicTournament(event.currentTarget.dataset.detailTournamentOpen);
+  });
   wireLeaderboardProfiles();
 }
 
@@ -4205,7 +4196,9 @@ function gamePlayerLinks(game) {
 }
 
 function playerProfileLink(player) {
-  return `<button class="text-link-button inline-profile-link" type="button" data-profile-user="${player.id}">${escapeHtml(player.name)}</button>`;
+  const userId = Number(player?.userId || (player?.hasProfile === false ? 0 : player?.id));
+  if (!state.me || !Number.isSafeInteger(userId) || userId <= 0) return escapeHtml(player?.name || "Player");
+  return `<button class="text-link-button inline-profile-link" type="button" data-profile-user="${userId}">${escapeHtml(player.name)}</button>`;
 }
 
 function tournamentParticipantProfileLink(participant, fallbackName = "TBD") {
@@ -4356,24 +4349,7 @@ function wireChallengeButtons() {
 function wireGameButtons() {
   document.querySelectorAll("[data-tournament-game-open]").forEach((button) => {
     button.addEventListener("click", () => {
-      const game = getKnownTournamentGame(Number(button.dataset.tournamentGameOpen));
-      const slug = game?.tournament?.slug;
-      navigateToPublicTournament(slug);
-    });
-  });
-  document.querySelectorAll("[data-tournament-game-result]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const game = getKnownTournamentGame(Number(button.dataset.tournamentGameResult));
-      const match = game?.tournamentMatch;
-      const admin = button.dataset.tournamentGameAdminResult === "1";
-      if (match) renderTournamentResultForm(tournamentMatchDataFromGame(game), match, { admin, returnTo: "play" });
-    });
-  });
-  document.querySelectorAll("[data-tournament-game-review]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const game = getKnownTournamentGame(Number(button.dataset.tournamentGameReview));
-      const match = game?.tournamentMatch;
-      if (match) renderTournamentResultReview(tournamentMatchDataFromGame(game), match, { returnTo: "play" });
+      navigateToPublicTournament(button.dataset.tournamentGameOpen);
     });
   });
   document.querySelectorAll("[data-game-open]").forEach((button) => {
@@ -4383,6 +4359,9 @@ function wireGameButtons() {
   });
   document.querySelectorAll("[data-game-result]").forEach((button) => {
     button.addEventListener("click", () => renderResultForm(Number(button.dataset.gameResult)));
+  });
+  document.querySelectorAll("[data-game-admin-result]").forEach((button) => {
+    button.addEventListener("click", () => renderResultForm(Number(button.dataset.gameAdminResult), { adminEdit: true }));
   });
   document.querySelectorAll("[data-game-review]").forEach((button) => {
     button.addEventListener("click", () => renderResultReview(Number(button.dataset.gameReview)));
@@ -4468,7 +4447,7 @@ function renderResultForm(gameId, options = {}) {
   const existingResult = adminEdit
     ? game.result || game.pendingResult?.result || null
     : game.pendingResult?.submittedBy === state.me.id ? game.pendingResult.result : null;
-  const canExitFromForm = !adminEdit && (game.status === "open" || (game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id));
+  const canExitFromForm = game.sourceType !== "tournament_match" && !adminEdit && (game.status === "open" || (game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id));
   content.innerHTML = `
     <section class="card panel">
       <div class="panel-header">

@@ -7,7 +7,8 @@ const MIGRATIONS = [
   require("./migrations/004_tournament_creation_settings"),
   require("./migrations/005_tournament_tiebreakers"),
   require("./migrations/006_tournament_game_backfill"),
-  require("./migrations/007_tournament_venue_tables")
+  require("./migrations/007_tournament_venue_tables"),
+  require("./migrations/010_canonical_tournament_games")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
@@ -18,58 +19,57 @@ const JOURNAL = `
   )
 `;
 
+// A session-level lock serializes app instances during rolling production
+// deploys. Without it two freshly started processes can both observe the same
+// migration as missing and race to apply it.
+const MIGRATION_LOCK_ID = 844_710_026;
+
 async function appliedVersions(client) {
   const { rows } = await client.query("SELECT version FROM schema_migrations");
   return new Set(rows.map((row) => row.version));
 }
 
 async function migrate(pool) {
-  const setup = await pool.connect();
+  const guard = await pool.connect();
   try {
-    await setup.query(JOURNAL);
+    await guard.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_ID]);
+    await guard.query(JOURNAL);
+    const done = await appliedVersions(guard);
+    const applied = [];
+    for (const migration of MIGRATIONS) {
+      if (done.has(migration.version)) continue;
+      try {
+        await guard.query("BEGIN");
+        await migration.up(guard);
+        await guard.query(
+          "INSERT INTO schema_migrations (version, name) VALUES ($1, $2)",
+          [migration.version, migration.name]
+        );
+        await guard.query("COMMIT");
+        applied.push(migration.version);
+        console.log(
+          JSON.stringify({
+            level: "info",
+            time: new Date().toISOString(),
+            msg: "migration applied",
+            version: migration.version,
+            name: migration.name
+          })
+        );
+      } catch (err) {
+        await guard.query("ROLLBACK");
+        logError(`migration ${migration.version} (${migration.name}) failed`, err);
+        throw err;
+      }
+    }
+    return applied;
   } finally {
-    setup.release();
-  }
-
-  const listClient = await pool.connect();
-  let done;
-  try {
-    done = await appliedVersions(listClient);
-  } finally {
-    listClient.release();
-  }
-
-  const applied = [];
-  for (const migration of MIGRATIONS) {
-    if (done.has(migration.version)) continue;
-    const client = await pool.connect();
     try {
-      await client.query("BEGIN");
-      await migration.up(client);
-      await client.query(
-        "INSERT INTO schema_migrations (version, name) VALUES ($1, $2)",
-        [migration.version, migration.name]
-      );
-      await client.query("COMMIT");
-      applied.push(migration.version);
-      console.log(
-        JSON.stringify({
-          level: "info",
-          time: new Date().toISOString(),
-          msg: "migration applied",
-          version: migration.version,
-          name: migration.name
-        })
-      );
-    } catch (err) {
-      await client.query("ROLLBACK");
-      logError(`migration ${migration.version} (${migration.name}) failed`, err);
-      throw err;
+      await guard.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_ID]);
     } finally {
-      client.release();
+      guard.release();
     }
   }
-  return applied;
 }
 
 module.exports = { migrate, MIGRATIONS };

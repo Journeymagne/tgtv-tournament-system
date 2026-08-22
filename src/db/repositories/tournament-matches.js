@@ -2,10 +2,12 @@ const {
   TOURNAMENT_COLUMNS,
   TOURNAMENT_PARTICIPANT_COLUMNS,
   TOURNAMENT_MATCH_COLUMNS: COLUMNS,
+  TOURNAMENT_TABLE_COLUMNS,
   aliasColumns,
   mapTournament,
   mapTournamentParticipant,
-  mapTournamentMatch
+  mapTournamentMatch,
+  mapTournamentTable
 } = require("../rows");
 
 async function insert(client, match) {
@@ -86,15 +88,18 @@ async function listActiveForUser(client, userId) {
         row_to_json(tournament_row) AS tournament,
         row_to_json(match_row) AS match,
         row_to_json(participant_a_row) AS participant_a,
-        row_to_json(participant_b_row) AS participant_b
+        row_to_json(participant_b_row) AS participant_b,
+        row_to_json(table_row) AS tournament_table
      FROM tournament_matches tm
      JOIN tournaments t ON t.id = tm.tournament_id
      JOIN tournament_participants pa ON pa.id = tm.participant_a_id
      JOIN tournament_participants pb ON pb.id = tm.participant_b_id
+     LEFT JOIN tournament_tables tt ON tt.id = tm.table_id
      CROSS JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_COLUMNS, "t")}) tournament_row
      CROSS JOIN LATERAL (SELECT ${aliasColumns(COLUMNS, "tm")}) match_row
      CROSS JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_PARTICIPANT_COLUMNS, "pa")}) participant_a_row
      CROSS JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_PARTICIPANT_COLUMNS, "pb")}) participant_b_row
+     LEFT JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_TABLE_COLUMNS, "tt")}) table_row ON tt.id IS NOT NULL
      WHERE t.status = 'in_progress'
        AND tm.status = ANY($2::text[])
        AND tm.is_bye = FALSE
@@ -102,21 +107,20 @@ async function listActiveForUser(client, userId) {
      ORDER BY t.started_at DESC NULLS LAST, t.id DESC, tm.round_number, COALESCE(tm.bracket_position, tm.id), tm.id`,
     [userId, ["active", "pending_confirmation"]]
   );
-  return rows.map((row) => ({
-    tournament: mapTournament(row.tournament),
-    match: mapTournamentMatch(row.match),
-    participantA: mapTournamentParticipant(row.participant_a),
-    participantB: mapTournamentParticipant(row.participant_b)
-  }));
+  return mapMatchLinks(rows);
 }
 
 function mapMatchLinks(rows) {
-  return rows.map((row) => ({
-    tournament: mapTournament(row.tournament),
-    match: mapTournamentMatch(row.match),
-    participantA: mapTournamentParticipant(row.participant_a),
-    participantB: mapTournamentParticipant(row.participant_b)
-  }));
+  return rows.map((row) => {
+    const match = mapTournamentMatch(row.match);
+    if (match) match.table = mapTournamentTable(row.tournament_table);
+    return {
+      tournament: mapTournament(row.tournament),
+      match,
+      participantA: mapTournamentParticipant(row.participant_a),
+      participantB: mapTournamentParticipant(row.participant_b)
+    };
+  });
 }
 
 async function listByGameIds(client, gameIds) {
@@ -127,11 +131,13 @@ async function listByGameIds(client, gameIds) {
         row_to_json(t) AS tournament,
         row_to_json(tm) AS match,
         row_to_json(pa) AS participant_a,
-        row_to_json(pb) AS participant_b
+        row_to_json(pb) AS participant_b,
+        row_to_json(tt) AS tournament_table
      FROM tournament_matches tm
      JOIN tournaments t ON t.id = tm.tournament_id
      LEFT JOIN tournament_participants pa ON pa.id = tm.participant_a_id
      LEFT JOIN tournament_participants pb ON pb.id = tm.participant_b_id
+     LEFT JOIN tournament_tables tt ON tt.id = tm.table_id
      WHERE tm.game_id = ANY($1::int[])`,
     [ids]
   );
@@ -144,11 +150,13 @@ async function listCompletedUnlinked(client) {
         row_to_json(t) AS tournament,
         row_to_json(tm) AS match,
         row_to_json(pa) AS participant_a,
-        row_to_json(pb) AS participant_b
+        row_to_json(pb) AS participant_b,
+        row_to_json(tt) AS tournament_table
      FROM tournament_matches tm
      JOIN tournaments t ON t.id = tm.tournament_id
      LEFT JOIN tournament_participants pa ON pa.id = tm.participant_a_id
      LEFT JOIN tournament_participants pb ON pb.id = tm.participant_b_id
+     LEFT JOIN tournament_tables tt ON tt.id = tm.table_id
      WHERE tm.status = 'completed'
        AND tm.is_bye = FALSE
        AND tm.result IS NOT NULL
@@ -164,11 +172,13 @@ async function listCompletedUnlinkedForUser(client, userId) {
         row_to_json(t) AS tournament,
         row_to_json(tm) AS match,
         row_to_json(pa) AS participant_a,
-        row_to_json(pb) AS participant_b
+        row_to_json(pb) AS participant_b,
+        row_to_json(tt) AS tournament_table
      FROM tournament_matches tm
      JOIN tournaments t ON t.id = tm.tournament_id
      LEFT JOIN tournament_participants pa ON pa.id = tm.participant_a_id
      LEFT JOIN tournament_participants pb ON pb.id = tm.participant_b_id
+     LEFT JOIN tournament_tables tt ON tt.id = tm.table_id
      WHERE tm.status = 'completed'
        AND tm.is_bye = FALSE
        AND tm.result IS NOT NULL
