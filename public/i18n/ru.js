@@ -444,7 +444,28 @@ const TGTV_I18N_RU = {
   "profile.admin.copied": "Скопировано",
   "profile.admin.pendingGamesTitle": "Игры на подтверждении",
   "profile.admin.pendingGamesSubtitle": "Инструменты администратора для неподтверждённых результатов.",
-  "profile.admin.pendingGamesEmpty": "Нет игр на подтверждении."
+  "profile.admin.pendingGamesEmpty": "Нет игр на подтверждении.",
+
+  // -- feedback ---------------------------------------------------------------
+  "feedback.title": "Обратная связь",
+  "feedback.hint": "Напишите коротко об экране, ошибке или улучшении.",
+  "feedback.mode.form": "Форма",
+  "feedback.mode.inbox": "Входящие админа",
+  "feedback.form.screenLabel": "Экран",
+  "feedback.form.screenPlaceholder": "Например: Мэтчмейкинг",
+  "feedback.form.descriptionLabel": "Описание",
+  "feedback.form.descriptionPlaceholder": "Что произошло или что нужно улучшить?",
+  "feedback.form.submit": "Отправить отзыв",
+  "feedback.form.successMessage": "Отзыв отправлен. Спасибо.",
+  "feedback.inbox.loadError": "Не удалось загрузить отзывы: {error}",
+  "feedback.inbox.empty": "Пока нет отзывов.",
+  "feedback.inbox.deletedPlayer": "Удалённый игрок",
+  "feedback.inbox.resolvedLabel": "Решено",
+  "feedback.inbox.resolvedBy": "Решено пользователем {name}",
+  "feedback.inbox.resolve": "Решить",
+  "feedback.inbox.reopen": "Переоткрыть",
+  "feedback.status.open": "открыто",
+  "feedback.status.resolved": "решено"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_RU;

@@ -2119,13 +2119,13 @@ function renderFeedback() {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Feedback</h2>
-          <p class="muted">Send a short note about a screen, bug, or improvement.</p>
+          <h2>${t("feedback.title")}</h2>
+          <p class="muted">${t("feedback.hint")}</p>
         </div>
         ${state.me.isAdmin ? `
           <div class="row-actions">
-            <button class="${adminInbox ? "ghost-button" : "primary-button"}" data-feedback-mode="form">Form</button>
-            <button class="${adminInbox ? "primary-button" : "ghost-button"}" data-feedback-mode="inbox">Admin inbox</button>
+            <button class="${adminInbox ? "ghost-button" : "primary-button"}" data-feedback-mode="form">${t("feedback.mode.form")}</button>
+            <button class="${adminInbox ? "primary-button" : "ghost-button"}" data-feedback-mode="inbox">${t("feedback.mode.inbox")}</button>
           </div>
         ` : ""}
       </div>
@@ -2149,37 +2149,37 @@ function feedbackFormMarkup() {
   return `
     <form class="feedback-form" data-feedback-form>
       <div class="field">
-        <label>Screen</label>
-        <input name="screen" maxlength="80" placeholder="Example: Matchmaking" required>
+        <label>${t("feedback.form.screenLabel")}</label>
+        <input name="screen" maxlength="80" placeholder="${t("feedback.form.screenPlaceholder")}" required>
       </div>
       <div class="field">
-        <label>Description</label>
-        <textarea name="description" maxlength="1200" rows="6" placeholder="What happened or what should be improved?" required></textarea>
+        <label>${t("feedback.form.descriptionLabel")}</label>
+        <textarea name="description" maxlength="1200" rows="6" placeholder="${t("feedback.form.descriptionPlaceholder")}" required></textarea>
       </div>
-      <button class="primary-button" type="submit">Send feedback</button>
+      <button class="primary-button" type="submit">${t("feedback.form.submit")}</button>
     </form>
   `;
 }
 
 function feedbackInboxMarkup() {
   if (state.feedbackError) {
-    return `<div class="empty">Could not load feedback: ${escapeHtml(state.feedbackError)}</div>`;
+    return `<div class="empty">${t("feedback.inbox.loadError", { error: escapeHtml(state.feedbackError) })}</div>`;
   }
-  if (!state.feedback.length) return `<div class="empty">No feedback yet.</div>`;
+  if (!state.feedback.length) return `<div class="empty">${t("feedback.inbox.empty")}</div>`;
   return `
     <div class="list">
       ${state.feedback.map((item) => `
         <div class="row-card feedback-card">
           <div class="row-main">
             <div class="row-title">${escapeHtml(item.screen)}</div>
-            <div class="row-meta">${escapeHtml(item.user?.name || "Deleted player")} &middot; ${fmtDate(item.createdAt)}</div>
-            ${item.status === "resolved" ? `<div class="row-meta">Resolved${item.resolvedByUser?.name ? ` by ${escapeHtml(item.resolvedByUser.name)}` : ""}${item.resolvedAt ? ` &middot; ${fmtDate(item.resolvedAt)}` : ""}</div>` : ""}
+            <div class="row-meta">${escapeHtml(item.user?.name || t("feedback.inbox.deletedPlayer"))} &middot; ${fmtDate(item.createdAt)}</div>
+            ${item.status === "resolved" ? `<div class="row-meta">${item.resolvedByUser?.name ? t("feedback.inbox.resolvedBy", { name: escapeHtml(item.resolvedByUser.name) }) : t("feedback.inbox.resolvedLabel")}${item.resolvedAt ? ` &middot; ${fmtDate(item.resolvedAt)}` : ""}</div>` : ""}
             <p class="feedback-description">${escapeHtml(item.description)}</p>
           </div>
           <div class="row-actions">
-            <span class="status ${item.status === "resolved" ? "completed" : "open"}">${escapeHtml(item.status || "open")}</span>
-            <button class="small-button" data-feedback-status="${item.id}" data-status="${item.status === "resolved" ? "open" : "resolved"}">${item.status === "resolved" ? "Reopen" : "Resolve"}</button>
-            <button class="danger-button" data-feedback-delete="${item.id}">Delete</button>
+            <span class="status ${item.status === "resolved" ? "completed" : "open"}">${item.status === "resolved" ? t("feedback.status.resolved") : t("feedback.status.open")}</span>
+            <button class="small-button" data-feedback-status="${item.id}" data-status="${item.status === "resolved" ? "open" : "resolved"}">${item.status === "resolved" ? t("feedback.inbox.reopen") : t("feedback.inbox.resolve")}</button>
+            <button class="danger-button" data-feedback-delete="${item.id}">${t("common.delete")}</button>
           </div>
         </div>
       `).join("")}
@@ -2229,7 +2229,7 @@ async function submitFeedback(event) {
       }
     });
     formElement?.reset();
-    setMessage("Feedback sent. Thank you.");
+    setMessage(t("feedback.form.successMessage"));
   } catch (err) {
     setMessage(err.message, true);
   }

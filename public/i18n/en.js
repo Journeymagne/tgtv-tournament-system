@@ -435,7 +435,28 @@ const TGTV_I18N_EN = {
   "profile.admin.copied": "Copied",
   "profile.admin.pendingGamesTitle": "Pending games",
   "profile.admin.pendingGamesSubtitle": "Admin tools for unconfirmed submitted results.",
-  "profile.admin.pendingGamesEmpty": "No pending games."
+  "profile.admin.pendingGamesEmpty": "No pending games.",
+
+  // -- feedback ---------------------------------------------------------------
+  "feedback.title": "Feedback",
+  "feedback.hint": "Send a short note about a screen, bug, or improvement.",
+  "feedback.mode.form": "Form",
+  "feedback.mode.inbox": "Admin inbox",
+  "feedback.form.screenLabel": "Screen",
+  "feedback.form.screenPlaceholder": "Example: Matchmaking",
+  "feedback.form.descriptionLabel": "Description",
+  "feedback.form.descriptionPlaceholder": "What happened or what should be improved?",
+  "feedback.form.submit": "Send feedback",
+  "feedback.form.successMessage": "Feedback sent. Thank you.",
+  "feedback.inbox.loadError": "Could not load feedback: {error}",
+  "feedback.inbox.empty": "No feedback yet.",
+  "feedback.inbox.deletedPlayer": "Deleted player",
+  "feedback.inbox.resolvedLabel": "Resolved",
+  "feedback.inbox.resolvedBy": "Resolved by {name}",
+  "feedback.inbox.resolve": "Resolve",
+  "feedback.inbox.reopen": "Reopen",
+  "feedback.status.open": "open",
+  "feedback.status.resolved": "resolved"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_EN;
