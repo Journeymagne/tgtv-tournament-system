@@ -100,7 +100,11 @@ const TGTV_I18N_RU = {
   "play.game.you": "Вы",
   "play.action.enterResult": "Ввести результат",
   "play.action.editResult": "Изменить результат",
-  "play.action.reviewResult": "Проверить результат"
+  "play.action.reviewResult": "Проверить результат",
+  "play.action.deletePending": "Удалить игру",
+  "play.action.exitGame": "Выйти из игры",
+  "play.action.details": "Подробнее",
+  "play.search.searching": "Идёт поиск..."
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_RU;

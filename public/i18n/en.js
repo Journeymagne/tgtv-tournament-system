@@ -100,7 +100,11 @@ const TGTV_I18N_EN = {
   "play.game.you": "You",
   "play.action.enterResult": "Enter result",
   "play.action.editResult": "Edit result",
-  "play.action.reviewResult": "Review result"
+  "play.action.reviewResult": "Review result",
+  "play.action.deletePending": "Delete pending",
+  "play.action.exitGame": "Exit game",
+  "play.action.details": "Details",
+  "play.search.searching": "Searching for matches..."
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_EN;

@@ -1916,11 +1916,11 @@ function gameCard(game) {
         : "";
   const canExit = isParticipant && (game.status === "open" || (isPending && game.pendingResult?.submittedBy === state.me.id));
   const exitAction = canExit
-    ? `<button class="danger-button" data-game-exit="${game.id}">${isPending ? "Delete pending" : "Exit game"}</button>`
+    ? `<button class="danger-button" data-game-exit="${game.id}">${isPending ? t("play.action.deletePending") : t("play.action.exitGame")}</button>`
     : "";
   const detailsAction = game.status === "open"
     ? ""
-    : `<button class="small-button" data-game-open="${game.id}">Details</button>`;
+    : `<button class="small-button" data-game-open="${game.id}">${t("play.action.details")}</button>`;
   return `
     <div class="row-card">
       <div class="row-main">
@@ -4207,7 +4207,7 @@ function handleSearchInput(event) {
     return;
   }
 
-  box.innerHTML = `<div class="empty">Searching for matches...</div>`;
+  box.innerHTML = `<div class="empty">${t("play.search.searching")}</div>`;
   searchDebounce = setTimeout(() => searchUsers(), 220);
 }
 
