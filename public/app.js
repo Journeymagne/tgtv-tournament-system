@@ -761,7 +761,7 @@ function clearTournamentRoute() {
 
 async function renderPublicTournamentRoute(slug) {
   const requestId = ++publicTournamentRequestId;
-  publicTournamentContainer().innerHTML = `<div class="loading">Loading tournament...</div>`;
+  publicTournamentContainer().innerHTML = `<div class="loading">${t("tournaments.loading")}</div>`;
   try {
     const data = await api(`/api/tournaments/${encodeURIComponent(slug)}`);
     if (requestId !== publicTournamentRequestId) return;
@@ -774,12 +774,12 @@ async function renderPublicTournamentRoute(slug) {
         <section class="card panel public-tournament-shell">
           <div class="panel-header">
             <div>
-              <h2>Tournament not found</h2>
+              <h2>${t("tournaments.notFound.title")}</h2>
               <p class="muted">${escapeHtml(err.message)}</p>
             </div>
             ${state.me ? "" : `
               <div class="row-actions">
-                <button class="small-button" data-public-login>Sign in</button>
+                <button class="small-button" data-public-login>${t("auth.tab.signIn")}</button>
               </div>
             `}
           </div>
@@ -813,26 +813,26 @@ function renderPublicTournament(data) {
         <div class="panel-header public-tournament-header">
           <div>
             <p class="profile-label">${escapeHtml(formatLabel(tournament.format))}</p>
-            <h2>${escapeHtml(tournament.name || "Tournament")}</h2>
+            <h2>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</h2>
             <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}${tournament.startsAt ? ` · ${fmtDate(tournament.startsAt)}` : ""}</p>
           </div>
           <div class="row-actions">
             ${state.me ? `
               ${publicTournamentViewerActions(data)}
             ` : `
-              <button class="small-button" data-public-login>Sign in</button>
-              <button class="primary-button" data-public-register>Register</button>
+              <button class="small-button" data-public-login>${t("auth.tab.signIn")}</button>
+              <button class="primary-button" data-public-register>${t("auth.tab.register")}</button>
             `}
           </div>
         </div>
         ${tournament.description ? `<div class="public-tournament-description markdown-content">${markdownToHtml(tournament.description)}</div>` : ""}
         ${tournamentRulesLinkMarkup(tournament)}
         <section class="profile-grid">
-          ${metricCard("Date", tournamentDateLabel(tournament))}
-          ${metricCard("Participants", String(listedParticipants.length))}
-          ${metricCard("Rounds", tournamentRoundsLabel(tournament, data))}
-          ${metricCard("Venue", venueModeLabel(tournament.venueMode))}
-          ${metricCard("Season", seasonLabel(tournament.seasonId))}
+          ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
+          ${metricCard(t("tournaments.field.participants"), String(listedParticipants.length))}
+          ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
+          ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
+          ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
         </section>
       </section>
       ${tournamentInfoPanel(data, { publicRoute: true })}
@@ -846,10 +846,10 @@ function publicTournamentViewerActions(data) {
   const viewer = tournament.viewer || {};
   if (!state.me) return "";
   if (!viewer.participantId && tournament.status === "registration_open") {
-    return `<button class="primary-button" data-public-tournament-join="${tournament.id}">Join</button>`;
+    return `<button class="primary-button" data-public-tournament-join="${tournament.id}">${t("tournaments.action.join")}</button>`;
   }
   if (viewer.participantId && ["draft", "registration_open", "registration_closed"].includes(tournament.status)) {
-    return `<button class="danger-button" data-public-tournament-withdraw="${tournament.id}">Withdraw</button>`;
+    return `<button class="danger-button" data-public-tournament-withdraw="${tournament.id}">${t("tournaments.action.withdraw")}</button>`;
   }
   return "";
 }
@@ -862,28 +862,28 @@ function renderTournamentJoinForm(data) {
       <section class="card panel public-tournament-shell tournament-registration-shell">
         <div class="panel-header public-tournament-header">
           <div>
-            <p class="profile-label">Registration</p>
-            <h2>Join ${escapeHtml(tournament.name || "Tournament")}</h2>
-            <p class="muted">Enter your contact link and choose your Kill Team.</p>
+            <p class="profile-label">${t("tournaments.registration.title")}</p>
+            <h2>${t("tournaments.registration.heading", { name: escapeHtml(tournament.name || t("tournaments.fallbackName")) })}</h2>
+            <p class="muted">${t("tournaments.registration.hint")}</p>
           </div>
           <div class="row-actions">
-            <button class="small-button" type="button" data-tournament-registration-cancel>Cancel</button>
+            <button class="small-button" type="button" data-tournament-registration-cancel>${t("common.cancel")}</button>
           </div>
         </div>
         <form class="tournament-registration-form" data-public-tournament-registration>
           <div class="field">
-            <label for="tournament-telegram-contact">Telegram</label>
+            <label for="tournament-telegram-contact">${t("tournaments.field.telegram")}</label>
             <input
               id="tournament-telegram-contact"
               name="telegramContact"
               value="${escapeHtml(telegramContact)}"
-              placeholder="https://t.me/username"
+              placeholder="${t("tournaments.registration.telegramPlaceholder")}"
               maxlength="80"
               required
             >
           </div>
-          ${comboField("Faction", "faction", "faction", "", "Choose Kill Team")}
-          <button class="primary-button" type="submit">Join tournament</button>
+          ${comboField(t("tournaments.field.faction"), "faction", "faction", "", t("tournaments.registration.factionPlaceholder"))}
+          <button class="primary-button" type="submit">${t("tournaments.registration.submit")}</button>
           <div class="message" data-message></div>
         </form>
       </section>
@@ -901,11 +901,11 @@ function renderTournamentJoinForm(data) {
     const telegram = String(formData.get("telegramContact") || "").trim();
     const faction = validKillTeamName(formData.get("faction"));
     if (!telegram) {
-      setMessage("Telegram link is required", true);
+      setMessage(t("tournaments.registration.telegramRequired"), true);
       return;
     }
     if (!faction) {
-      setMessage("Choose a Kill Team from the list", true);
+      setMessage(t("tournaments.registration.factionRequired"), true);
       return;
     }
 
@@ -972,18 +972,41 @@ function wirePublicTournamentNav(data) {
 
 function tournamentStatusLabel(status) {
   const labels = {
-    draft: "Draft",
-    registration_open: "Registration open",
-    registration_closed: "Registration closed",
-    in_progress: "In progress",
-    completed: "Completed",
-    cancelled: "Cancelled"
+    draft: "tournaments.status.draft",
+    registration_open: "tournaments.status.registrationOpen",
+    registration_closed: "tournaments.status.registrationClosed",
+    in_progress: "tournaments.status.inProgress",
+    completed: "tournaments.status.completed",
+    cancelled: "tournaments.status.cancelled"
   };
-  return labels[status] || status || "";
+  return labels[status] ? t(labels[status]) : status || "";
 }
 
 function formatLabel(format) {
-  return format === "swiss" ? "Swiss" : "Single elimination";
+  return t(format === "swiss" ? "tournaments.format.swiss" : "tournaments.format.singleElimination");
+}
+
+function tournamentMatchStatusLabel(status) {
+  const labels = {
+    not_ready: "tournaments.status.notReady",
+    active: "tournaments.status.active",
+    pending_confirmation: "tournaments.status.pendingConfirmation",
+    completed: "tournaments.status.completed"
+  };
+  return labels[status] ? t(labels[status]) : status || "";
+}
+
+function tournamentParticipantStatusLabel(status) {
+  const labels = {
+    joined: "tournaments.participant.status.joined",
+    active: "tournaments.status.active",
+    pending_placement: "tournaments.participant.status.pendingPlacement",
+    withdrawn: "tournaments.participant.status.withdrawn",
+    removed: "tournaments.participant.status.removed",
+    eliminated: "tournaments.participant.status.eliminated",
+    finished: "tournaments.participant.status.finished"
+  };
+  return labels[status] ? t(labels[status]) : status || "";
 }
 
 function latestSeason() {
@@ -999,7 +1022,7 @@ function venueModeLabel(mode) {
 }
 
 function tournamentDateLabel(tournament = {}) {
-  return tournament.startsAt ? fmtDate(tournament.startsAt) : "No date";
+  return tournament.startsAt ? fmtDate(tournament.startsAt) : t("tournaments.date.none");
 }
 
 function tournamentRoundsLabel(tournament = {}, data = {}) {
@@ -1011,14 +1034,16 @@ function tournamentRoundsLabel(tournament = {}, data = {}) {
 
 function standingsSubtitle(tournament) {
   const tiebreakers = tournament.tiebreakerOrder || [];
-  return tiebreakers.length ? `Tiebreakers: ${tiebreakers.map(tiebreakerLabelForStandings).join(", ")}` : "No standings tiebreakers enabled.";
+  return tiebreakers.length
+    ? t("tournaments.standings.tiebreakersLabel", { list: tiebreakers.map(tiebreakerLabelForStandings).join(", ") })
+    : t("tournaments.standings.noTiebreakers");
 }
 
 function tournamentRulesLinkMarkup(tournament) {
   const link = tournament?.rulesLink || "";
   if (!link) return "";
   const isPdf = isTournamentRulesPdf(link);
-  const label = isPdf ? "Open tournament rules PDF" : "Open tournament rules";
+  const label = t(isPdf ? "tournaments.rules.openPdf" : "tournaments.rules.open");
   const download = isPdf ? ` download="${escapeHtml(`${tournament?.slug || "tournament"}-rules.pdf`)}"` : "";
   return `
     <p class="tournament-rules-link">
@@ -1040,7 +1065,9 @@ function participantStatusSummary(participants) {
   const listed = listedTournamentParticipants(participants);
   const active = listed.filter((item) => ["joined", "active"].includes(item.status)).length;
   const pending = listed.filter((item) => item.status === "pending_placement").length;
-  return pending ? `${active} active, ${pending} pending next round` : `${active} active`;
+  return pending
+    ? t("tournaments.participants.summaryWithPending", { active, pending })
+    : t("tournaments.participants.summaryActiveOnly", { active });
 }
 
 function isListedTournamentParticipant(participant) {
@@ -1063,20 +1090,20 @@ function tournamentInfoPanel(data, options = {}) {
   const wrapperTag = options.admin ? "section" : "div";
   const wrapperClass = options.admin ? "admin-subpanel wide-panel" : "card panel wide-panel";
   const titleByTab = {
-    settings: "Settings",
-    standings: "Standings",
-    matches: "Matches",
-    stats: "Stats",
-    participants: "Participants",
-    tables: "Tables"
+    settings: t("tournaments.tab.settings"),
+    standings: t("tournaments.tab.standings"),
+    matches: t("tournaments.tab.matches"),
+    stats: t("tournaments.tab.stats"),
+    participants: t("tournaments.field.participants"),
+    tables: t("tournaments.tab.tables")
   };
   const subtitleByTab = {
-    settings: "Tournament setup and rules.",
+    settings: t("tournaments.info.settingsSubtitle"),
     standings: standingsSubtitle(tournament),
-    matches: "Match result totals are shown when results are complete.",
-    stats: `${tournament.name || "Tournament"} games only.`,
+    matches: t("tournaments.info.matchesSubtitle"),
+    stats: t("tournaments.info.statsSubtitle", { name: tournament.name || t("tournaments.fallbackName") }),
     participants: participantStatusSummary(data.participants || []),
-    tables: "IRL table numbers stay fixed for the whole tournament."
+    tables: t("tournaments.info.tablesSubtitle")
   };
   return `
     <${wrapperTag} class="${wrapperClass}">
@@ -1095,14 +1122,14 @@ function tournamentInfoPanel(data, options = {}) {
 
 function tournamentInfoTabDefinitions(data, options = {}) {
   const tabs = [
-    { id: "standings", label: "Standings" },
-    { id: "matches", label: "Matches" },
-    { id: "stats", label: "Stats" }
+    { id: "standings", label: t("tournaments.tab.standings") },
+    { id: "matches", label: t("tournaments.tab.matches") },
+    { id: "stats", label: t("tournaments.tab.stats") }
   ];
-  if (options.admin) tabs.unshift({ id: "settings", label: "Settings" });
+  if (options.admin) tabs.unshift({ id: "settings", label: t("tournaments.tab.settings") });
   if (options.admin && canManageTournamentParticipants(data)) {
-    tabs.push({ id: "participants", label: "Participants" });
-    if (data?.tournament?.venueMode === "irl") tabs.push({ id: "tables", label: "Tables" });
+    tabs.push({ id: "participants", label: t("tournaments.field.participants") });
+    if (data?.tournament?.venueMode === "irl") tabs.push({ id: "tables", label: t("tournaments.tab.tables") });
   }
   return tabs;
 }
@@ -1158,25 +1185,25 @@ function publicStandingsTable(data) {
     .filter((key, index, order) => order.indexOf(key) === index)
     .map((key) => {
       if (key === "strength_of_schedule") {
-        return { label: "Strength of Schedule", value: (row) => row.strengthOfSchedule ?? 0 };
+        return { label: t("tiebreaker.strengthOfSchedule.label"), value: (row) => row.strengthOfSchedule ?? 0 };
       }
-      if (key === "buchholz") return { label: "Buchholz", value: (row) => row.buchholz ?? 0 };
+      if (key === "buchholz") return { label: t("tiebreaker.buchholz.label"), value: (row) => row.buchholz ?? 0 };
       return null;
     })
     .filter(Boolean);
-  if (!standings.length) return `<div class="empty">No standings yet.</div>`;
+  if (!standings.length) return `<div class="empty">${t("tournaments.standings.empty")}</div>`;
   return `
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th class="rank">#</th>
-            <th>Player</th>
-            <th>Kill Team</th>
-            <th>TP</th>
-            <th>W-D-L</th>
-            <th>Total VP</th>
-            <th>VP Diff</th>
+            <th>${t("tournaments.player.fallback")}</th>
+            <th>${t("games.filter.teamLabel")}</th>
+            <th>${t("tournaments.standings.column.tp")}</th>
+            <th>${t("tournaments.standings.column.wdl")}</th>
+            <th>${t("tournaments.standings.totalVp")}</th>
+            <th>${t("tournaments.standings.vpDiff")}</th>
             ${extraColumns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}
           </tr>
         </thead>
@@ -1186,8 +1213,8 @@ function publicStandingsTable(data) {
             return `
               <tr>
                 <td class="rank">${row.rank}</td>
-                <td>${tournamentParticipantProfileLink(participant, "Player")}</td>
-                <td>${escapeHtml(participant?.faction || "Faction TBD")}</td>
+                <td>${tournamentParticipantProfileLink(participant, t("tournaments.player.fallback"))}</td>
+                <td>${escapeHtml(participant?.faction || t("tournaments.participant.factionMissing"))}</td>
                 <td>${row.matchPoints}</td>
                 <td>${row.wins}-${row.draws}-${row.losses}</td>
                 <td>${row.totalVp}</td>
@@ -1203,16 +1230,16 @@ function publicStandingsTable(data) {
 }
 
 function publicParticipantsList(participants) {
-  if (!participants.length) return `<div class="empty">No participants yet.</div>`;
+  if (!participants.length) return `<div class="empty">${t("tournaments.participants.empty")}</div>`;
   return `
     <div class="list">
       ${participants.map((participant) => `
         <div class="row-card compact-row-card">
           <div class="row-main">
             <div class="row-title">${tournamentParticipantProfileLink(participant)}</div>
-            <div class="row-meta">${escapeHtml(participant.faction || "Faction TBD")}</div>
+            <div class="row-meta">${escapeHtml(participant.faction || t("tournaments.participant.factionMissing"))}</div>
           </div>
-          <span class="status ${participant.status === "active" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(participant.status)}</span>
+          <span class="status ${participant.status === "active" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(tournamentParticipantStatusLabel(participant.status))}</span>
         </div>
       `).join("")}
     </div>
@@ -1220,14 +1247,14 @@ function publicParticipantsList(participants) {
 }
 
 function publicRoundsMarkup(rounds, tournament = {}) {
-  if (!rounds.length) return `<div class="empty">Matches are not generated yet.</div>`;
+  if (!rounds.length) return `<div class="empty">${t("tournaments.matches.empty")}</div>`;
   return `
     <div class="public-rounds">
       ${rounds.map((round) => `
         <section class="public-round">
           <div class="public-round-title">
-            <strong>Round ${round.roundNumber}</strong>
-            <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(round.status)}</span>
+            <strong>${t("tournaments.round.title", { number: round.roundNumber })}</strong>
+            <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(round.status))}</span>
           </div>
           <div class="list">
             ${(round.matches || []).map((match) => publicMatchMarkup(match, tournament)).join("")}
@@ -1244,11 +1271,11 @@ function publicMatchMarkup(match, tournament = {}) {
   return `
     <div class="row-card compact-row-card">
       <div class="row-main">
-          <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? "BYE" : tournamentParticipantProfileLink(match.participantB)}</div>
+          <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
           <div class="row-meta">${escapeHtml(meta)}</div>
         </div>
       <div class="row-actions">
-        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(match.status)}</span>
+        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
         ${publicMatchActions(match, tournament)}
       </div>
     </div>
@@ -1261,23 +1288,23 @@ function publicMatchActions(match, tournament = {}) {
   if (!participantId) return "";
   if (![match.participantAId, match.participantBId].includes(participantId)) return "";
   if (match.status === "active") {
-    return `<button class="small-button" data-public-tournament-result="${match.id}">Enter result</button>`;
+    return `<button class="small-button" data-public-tournament-result="${match.id}">${t("play.action.enterResult")}</button>`;
   }
   if (match.status === "pending_confirmation" && match.pendingResult?.result) {
     if (match.pendingResult.submittedBy === state.me.id) {
-      return `<button class="small-button" data-public-tournament-result="${match.id}">Edit result</button>`;
+      return `<button class="small-button" data-public-tournament-result="${match.id}">${t("play.action.editResult")}</button>`;
     }
-    return `<button class="primary-button" data-public-tournament-review="${match.id}">Review</button>`;
+    return `<button class="primary-button" data-public-tournament-review="${match.id}">${t("tournaments.action.review")}</button>`;
   }
   return "";
 }
 
 function publicMatchScore(match) {
-  if (match.isBye) return "Bye";
+  if (match.isBye) return t("tournaments.match.bye");
   const result = match.result || match.pendingResult?.result;
   const a = match.participantA;
   const b = match.participantB;
-  if (!result || !a || !b) return "Waiting for result";
+  if (!result || !a || !b) return t("tournaments.match.waitingForResult");
   const scoreA = result.scores?.[a.userId] || result.scores?.[-a.id] || {};
   const scoreB = result.scores?.[b.userId] || result.scores?.[-b.id] || {};
   const totalA = Number(scoreA.total || 0);
@@ -1285,16 +1312,18 @@ function publicMatchScore(match) {
   const winner = match.winnerParticipantId
     ? [a, b].find((participant) => participant.id === match.winnerParticipantId)
     : null;
-  return winner ? `${totalA}-${totalB}, ${winner.displayName} won` : `${totalA}-${totalB}`;
+  return winner
+    ? t("tournaments.match.wonSuffix", { score: `${totalA}-${totalB}`, name: winner.displayName })
+    : `${totalA}-${totalB}`;
 }
 
 function matchSetupMeta(match) {
   const mission = match.mission || match.result?.killzone || match.pendingResult?.result?.killzone || {};
   const parts = [];
-  if (match.table?.tableNumber) parts.push(`Table ${match.table.tableNumber}`);
-  if (mission.killzone) parts.push(`Killzone: ${mission.killzone}`);
-  if (mission.critOp) parts.push(`Crit Op: ${mission.critOp}`);
-  if (mission.layout) parts.push(`Deployment ${mission.layout}`);
+  if (match.table?.tableNumber) parts.push(t("tournaments.match.table", { number: match.table.tableNumber }));
+  if (mission.killzone) parts.push(t("tournaments.mission.killzone", { name: mission.killzone }));
+  if (mission.critOp) parts.push(t("tournaments.mission.critOp", { name: mission.critOp }));
+  if (mission.layout) parts.push(t("tournaments.mission.deployment", { layout: mission.layout }));
   return parts.join(" / ");
 }
 
@@ -1365,15 +1394,15 @@ function renderTournaments() {
   if (state.tournamentsTab !== activeTab) state.tournamentsTab = activeTab;
   content.innerHTML = `
     ${pageTabs("tournaments", [
-      { id: "public", label: "Public Tournaments" },
-      { id: "admin", label: "Tournament Administration" }
+      { id: "public", label: t("tournaments.tab.publicList") },
+      { id: "admin", label: t("tournaments.tab.adminList") }
     ], activeTab)}
     ${activeTab === "admin" ? adminTournamentAdminView() : `
       <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Tournaments</h2>
-          <p class="muted">Published TGTV tournaments and public standings.</p>
+          <h2>${t("nav.tournaments")}</h2>
+          <p class="muted">${t("tournaments.page.hint")}</p>
         </div>
       </div>
       ${state.tournamentsError ? `<div class="empty">${escapeHtml(state.tournamentsError)}</div>` : `
@@ -1395,17 +1424,17 @@ function renderTournaments() {
 }
 
 function publicTournamentSections(tournaments) {
-  if (!tournaments.length) return `<div class="empty">No published tournaments yet.</div>`;
+  if (!tournaments.length) return `<div class="empty">${t("tournaments.list.empty")}</div>`;
   const sections = [
-    { title: "Ongoing", items: tournaments.filter((tournament) => tournament.status === "in_progress") },
+    { title: t("tournaments.section.ongoing"), items: tournaments.filter((tournament) => tournament.status === "in_progress") },
     {
-      title: "Future",
+      title: t("tournaments.section.future"),
       items: tournaments.filter((tournament) =>
         ["registration_open", "registration_closed"].includes(tournament.status)
       )
     },
     {
-      title: "Ended",
+      title: t("tournaments.section.ended"),
       items: tournaments.filter((tournament) => ["completed", "cancelled"].includes(tournament.status))
     }
   ];
@@ -1418,7 +1447,7 @@ function publicTournamentSections(tournaments) {
             <span>${section.items.length}</span>
           </div>
           <div class="list tournament-card-list">
-            ${section.items.length ? section.items.map(publicTournamentCard).join("") : `<div class="empty compact-empty">No tournaments.</div>`}
+            ${section.items.length ? section.items.map(publicTournamentCard).join("") : `<div class="empty compact-empty">${t("tournaments.section.empty")}</div>`}
           </div>
         </section>
       `).join("")}
@@ -1431,19 +1460,19 @@ function publicTournamentCard(tournament) {
     <div class="row-card tournament-card">
       <div class="row-main tournament-card-main">
         <div>
-          <div class="row-title">${escapeHtml(tournament.name || "Untitled tournament")}</div>
+          <div class="row-title">${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</div>
           <div class="row-meta">${escapeHtml(formatLabel(tournament.format))} / ${escapeHtml(tournamentStatusLabel(tournament.status))}</div>
         </div>
         <dl class="tournament-card-facts">
-          ${tournamentCardFact("Participants", tournamentParticipantCountLabel(tournament))}
-          ${tournamentCardFact("Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked")}
-          ${tournamentCardFact("Starts", tournament.startsAt ? fmtDate(tournament.startsAt) : "No date")}
-          ${tournamentCardFact("Rounds", tournamentRoundCountLabel(tournament))}
+          ${tournamentCardFact(t("tournaments.field.participants"), tournamentParticipantCountLabel(tournament))}
+          ${tournamentCardFact(t("tournaments.card.rating"), tournament.ratingPolicy === "ranked" ? t("tournaments.card.ranked") : t("tournaments.card.unranked"))}
+          ${tournamentCardFact(t("tournaments.card.starts"), tournament.startsAt ? fmtDate(tournament.startsAt) : t("tournaments.date.none"))}
+          ${tournamentCardFact(t("tournaments.field.rounds"), tournamentRoundCountLabel(tournament))}
         </dl>
       </div>
       <div class="row-actions">
         <span class="status ${tournamentStatusClass(tournament.status)}">${escapeHtml(tournamentStatusLabel(tournament.status))}</span>
-        <button class="primary-button" data-tournament-open="${escapeHtml(tournament.slug)}">Open</button>
+        <button class="primary-button" data-tournament-open="${escapeHtml(tournament.slug)}">${t("tournaments.card.open")}</button>
       </div>
     </div>
   `;
@@ -4135,7 +4164,7 @@ function renderGameDetail() {
 }
 
 function gameTitle(game) {
-  return (game.players || []).map((player) => player.name).join(" vs ") || "Deleted players";
+  return (game.players || []).map((player) => player.name).join(" vs ") || t("games.detail.deletedPlayers");
 }
 
 function gamePlayerLinks(game) {
@@ -4148,7 +4177,7 @@ function playerProfileLink(player) {
   return `<button class="text-link-button inline-profile-link" type="button" data-profile-user="${player.id}">${escapeHtml(player.name)}</button>`;
 }
 
-function tournamentParticipantProfileLink(participant, fallbackName = "TBD") {
+function tournamentParticipantProfileLink(participant, fallbackName = t("tournaments.participant.fallback")) {
   const displayName = participant?.displayName || fallbackName;
   if (!state.me || !participant?.userId) return escapeHtml(displayName);
   return playerProfileLink({ id: participant.userId, name: displayName });
@@ -4659,40 +4688,40 @@ function renderTournamentResultForm(data, match, options = {}) {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Match Result</h2>
-          <p class="muted">${escapeHtml(tournament.name || "Tournament")} / Round ${match.roundNumber}, Match ${match.bracketPosition}</p>
+          <h2>${t("tournaments.result.title")}</h2>
+          <p class="muted">${escapeHtml(tournament.name || t("tournaments.fallbackName"))} / ${t("tournaments.result.roundMatch", { round: match.roundNumber, match: match.bracketPosition })}</p>
         </div>
-        <button class="ghost-button" type="button" data-tournament-result-back>Back</button>
+        <button class="ghost-button" type="button" data-tournament-result-back>${t("games.result.back")}</button>
       </div>
       <form class="result-form" data-tournament-result-form>
         <div class="score-grid">
           ${game.players.map((player) => scoreCard(player, tournamentScoreForPlayer(existingResult, player))).join("")}
         </div>
         <section class="killzone-panel">
-          <h3>Mission</h3>
+          <h3>${t("games.result.missionTitle")}</h3>
           <div class="killzone-grid">
             <div class="field">
-              <label>Killzone</label>
+              <label>${t("games.result.killzoneLabel")}</label>
               <select name="killzone">
-                <option value="">Not selected</option>
+                <option value="">${t("games.result.notSelected")}</option>
                 ${killzoneOptions.map((option) => `
                   <option value="${escapeHtml(option)}" ${missionDefaults.killzone === option ? "selected" : ""}>${escapeHtml(option)}</option>
                 `).join("")}
               </select>
             </div>
             <div class="field">
-              <label>Crit Op</label>
+              <label>${t("games.result.critOp")}</label>
               <select name="critOp">
-                <option value="">Not selected</option>
+                <option value="">${t("games.result.notSelected")}</option>
                 ${critOpOptions.map((option) => `
                   <option value="${escapeHtml(option)}" ${missionDefaults.critOp === option ? "selected" : ""}>${escapeHtml(option)}</option>
                 `).join("")}
               </select>
             </div>
             <div class="field">
-              <label>Layout</label>
+              <label>${t("games.result.layoutLabel")}</label>
               <select name="killzoneLayout">
-                <option value="">Not selected</option>
+                <option value="">${t("games.result.notSelected")}</option>
                 ${[1, 2, 3, 4, 5, 6].map((layout) => `
                   <option value="${layout}" ${Number(missionDefaults.layout) === layout ? "selected" : ""}>${layout}</option>
                 `).join("")}
@@ -4703,26 +4732,26 @@ function renderTournamentResultForm(data, match, options = {}) {
         <section class="tiebreaker-panel">
           <label class="checkbox-line">
             <input type="checkbox" data-tiebreaker-enabled ${existingResult?.tiebreakers?.enabled ? "checked" : ""}>
-            <span>Enable Tie-Breakers</span>
+            <span>${t("games.result.tiebreaker.enable")}</span>
           </label>
           <div class="tiebreaker-menu" data-tiebreaker-menu ${existingResult?.tiebreakers?.enabled ? "" : "hidden"}>
             <ol class="tiebreaker-list">
-              <li>Primary</li>
-              <li>Tac Op + Crit Op</li>
-              <li>APL on table</li>
-              <li>Roll-off</li>
+              <li>${t("games.result.tiebreaker.primary")}</li>
+              <li>${t("games.result.tiebreaker.tacCrit")}</li>
+              <li>${t("games.result.tiebreaker.apl")}</li>
+              <li>${t("games.result.tiebreaker.rollOff")}</li>
             </ol>
             <div class="tiebreaker-grid">
               ${game.players.map((player) => `
                 <div class="field">
-                  <label>APL on table: ${escapeHtml(player.name)}</label>
+                  <label>${t("games.result.tiebreaker.aplPlayerLabel", { name: escapeHtml(player.name) })}</label>
                   <input data-tiebreaker-input name="apl-${player.id}" type="number" min="0" max="99" value="${existingResult?.tiebreakers?.apl?.[player.id] ?? 0}">
                 </div>
               `).join("")}
               <div class="field">
-                <label>Roll-off winner</label>
+                <label>${t("games.result.tiebreaker.rollOffWinnerLabel")}</label>
                 <select data-tiebreaker-input name="rollOffWinnerId">
-                  <option value="">Select if still tied</option>
+                  <option value="">${t("games.result.tiebreaker.selectIfTied")}</option>
                   ${game.players.map((player) => `<option value="${player.id}" ${Number(existingResult?.tiebreakers?.rollOffWinnerId) === player.id ? "selected" : ""}>${escapeHtml(player.name)}</option>`).join("")}
                 </select>
               </div>
@@ -4731,7 +4760,7 @@ function renderTournamentResultForm(data, match, options = {}) {
           <div class="tiebreaker-live" data-result-preview></div>
         </section>
         ${debugRandomResultButtonMarkup()}
-        <button class="primary-button" type="submit">${admin ? "Complete match" : "Submit result"}</button>
+        <button class="primary-button" type="submit">${admin ? t("tournaments.result.completeMatch") : t("games.result.submitAction")}</button>
         <div class="message" data-message></div>
       </form>
     </section>
@@ -4787,10 +4816,10 @@ function renderTournamentResultReview(data, match, options = {}) {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Confirm tournament result</h2>
-          <p class="muted">Submitted by ${escapeHtml(submitter?.name || "opponent")}.</p>
+          <h2>${t("tournaments.review.title")}</h2>
+          <p class="muted">${t("games.review.submittedBy", { name: escapeHtml(submitter?.name || t("games.review.opponentFallback")) })}</p>
         </div>
-        <button class="ghost-button" data-tournament-review-back>Back</button>
+        <button class="ghost-button" data-tournament-review-back>${t("games.result.back")}</button>
       </div>
       <div class="result-headline">${escapeHtml(resultHeadline(game, result))}</div>
       ${killzoneReview(result)}
@@ -4799,8 +4828,8 @@ function renderTournamentResultReview(data, match, options = {}) {
       </div>
       ${result.tiebreakers?.enabled ? tieBreakerReview(game, result) : ""}
       <div class="review-actions">
-        <button class="primary-button" data-tournament-confirm-result="${match.id}">Confirm result</button>
-        <button class="danger-button" data-tournament-reject-result="${match.id}">Reject</button>
+        <button class="primary-button" data-tournament-confirm-result="${match.id}">${t("games.review.action.confirm")}</button>
+        <button class="danger-button" data-tournament-reject-result="${match.id}">${t("games.review.action.reject")}</button>
       </div>
       <div class="message" data-message></div>
     </section>
@@ -4869,9 +4898,9 @@ function killzoneReview(result = {}) {
   const hasLayout = Boolean(killzone.layout);
   if (!hasKillzone && !hasCritOp && !hasLayout) return "";
   const text = [
-    hasKillzone ? `Killzone: ${killzone.killzone}` : "",
-    hasCritOp ? `Crit Op: ${killzone.critOp}` : "",
-    hasLayout ? `Layout ${killzone.layout}` : ""
+    hasKillzone ? t("tournaments.mission.killzone", { name: killzone.killzone }) : "",
+    hasCritOp ? t("tournaments.mission.critOp", { name: killzone.critOp }) : "",
+    hasLayout ? t("tournaments.mission.layout", { layout: killzone.layout }) : ""
   ].filter(Boolean).join(" / ");
   return `<div class="killzone-review">${escapeHtml(text)}</div>`;
 }
@@ -4881,16 +4910,16 @@ function reviewScoreCard(player, score = {}) {
     <div class="score-card review-score-card">
       <h4>${playerNameMarkup(player)}</h4>
       <div class="review-lines">
-        ${metricRow("Kill Team", score.faction ? canonicalKillTeamName(score.faction) : "-")}
-        ${metricRow("Tac Op", score.tacOp || "-")}
-        ${metricRow("Crit Op", score.crit ?? 0)}
-        ${metricRow("Tac Op VP", score.tac ?? 0)}
-        ${metricRow("Kill Op", score.kill ?? 0)}
-        ${metricRow("Primary", opLabels[score.primary] ? t(opLabels[score.primary]) : "Crit Op")}
-        ${metricRow("Primary bonus", score.primaryBonus ?? 0)}
+        ${metricRow(t("games.filter.teamLabel"), score.faction ? canonicalKillTeamName(score.faction) : "-")}
+        ${metricRow(t("op.tac"), score.tacOp || "-")}
+        ${metricRow(t("op.crit"), score.crit ?? 0)}
+        ${metricRow(t("tournaments.review.tacOpVp"), score.tac ?? 0)}
+        ${metricRow(t("op.kill"), score.kill ?? 0)}
+        ${metricRow(t("games.result.tiebreaker.primary"), opLabels[score.primary] ? t(opLabels[score.primary]) : t("op.crit"))}
+        ${metricRow(t("tournaments.review.primaryBonus"), score.primaryBonus ?? 0)}
       </div>
       <div class="total-line">
-        <span>Total</span>
+        <span>${t("tournaments.score.total")}</span>
         <span>${score.total ?? 0} VP</span>
       </div>
     </div>
@@ -4900,24 +4929,24 @@ function reviewScoreCard(player, score = {}) {
 function playerNameMarkup(player) {
   return player?.id > 0 && player.hasProfile !== false
     ? playerProfileLink(player)
-    : escapeHtml(player?.name || "Player");
+    : escapeHtml(player?.name || t("tournaments.player.fallback"));
 }
 
 function tieBreakerReview(game, result) {
   const summary = tieBreakerReviewSummary(game, result);
   const winner = game.players.find((player) => player.id === summary.winnerId);
   const winnerText = winner && summary.decidedBy
-    ? `${winner.name} by ${tieBreakerLabel(summary.decidedBy)}`
-    : winner?.name || "Draw";
+    ? t("tournaments.tiebreaker.winnerBy", { name: winner.name, reason: tieBreakerLabel(summary.decidedBy) })
+    : winner?.name || t("tournaments.tiebreaker.draw");
   return `
     <section class="tiebreaker-panel">
-      <h3>Tie-breakers</h3>
+      <h3>${t("tournaments.tiebreaker.title")}</h3>
       <div class="review-lines">
-        ${metricRow("Primary", tieValueLine(game, summary.primary))}
-        ${metricRow("Tac Op + Crit Op", tieValueLine(game, summary.critTac))}
-        ${metricRow("APL on table", tieValueLine(game, summary.apl))}
-        ${metricRow("Roll-off", game.players.find((player) => player.id === summary.rollOffWinnerId)?.name || "-")}
-        ${metricRow("Winner", winnerText)}
+        ${metricRow(t("games.result.tiebreaker.primary"), tieValueLine(game, summary.primary))}
+        ${metricRow(t("games.result.tiebreaker.tacCrit"), tieValueLine(game, summary.critTac))}
+        ${metricRow(t("games.result.tiebreaker.apl"), tieValueLine(game, summary.apl))}
+        ${metricRow(t("games.result.tiebreaker.rollOff"), game.players.find((player) => player.id === summary.rollOffWinnerId)?.name || "-")}
+        ${metricRow(t("tournaments.tiebreaker.winner"), winnerText)}
       </div>
     </section>
   `;
@@ -4984,8 +5013,8 @@ function scoreCard(player, score = {}) {
     <div class="score-card" data-score-card="${player.id}">
       <h4>${escapeHtml(player.name)}</h4>
       <div class="score-meta-grid">
-        ${comboField("Kill Team", `faction-${player.id}`, "faction", score.faction, "Search Kill Team")}
-        ${comboField("Tac Op", `tac-op-${player.id}`, "tacOp", score.tacOp, "Search Tac Op")}
+        ${comboField(t("games.filter.teamLabel"), `faction-${player.id}`, "faction", score.faction, t("tournaments.score.searchKillTeam"))}
+        ${comboField(t("op.tac"), `tac-op-${player.id}`, "tacOp", score.tacOp, t("tournaments.score.searchTacOp"))}
       </div>
       <div class="score-fields">
         ${["crit", "tac", "kill"].map((op) => `
@@ -4996,16 +5025,16 @@ function scoreCard(player, score = {}) {
         `).join("")}
       </div>
       <div class="field">
-        <label>Primary Op</label>
+        <label>${t("tournaments.score.primaryOp")}</label>
         <select data-primary-select name="primary-${player.id}">
-          <option value="" ${!score.primary ? "selected" : ""}>Select Primary Op</option>
-          <option value="crit" ${score.primary === "crit" ? "selected" : ""}>Crit Op</option>
-          <option value="tac" ${score.primary === "tac" ? "selected" : ""}>Tac Op</option>
-          <option value="kill" ${score.primary === "kill" ? "selected" : ""}>Kill Op</option>
+          <option value="" ${!score.primary ? "selected" : ""}>${t("tournaments.score.selectPrimaryOp")}</option>
+          <option value="crit" ${score.primary === "crit" ? "selected" : ""}>${t("op.crit")}</option>
+          <option value="tac" ${score.primary === "tac" ? "selected" : ""}>${t("op.tac")}</option>
+          <option value="kill" ${score.primary === "kill" ? "selected" : ""}>${t("op.kill")}</option>
         </select>
       </div>
       <div class="total-line">
-        <span>Total</span>
+        <span>${t("tournaments.score.total")}</span>
         <span data-total="${player.id}">0 VP</span>
       </div>
     </div>
@@ -5015,7 +5044,7 @@ function scoreCard(player, score = {}) {
 function debugRandomResultButtonMarkup() {
   return `
     <div class="row-actions">
-      <button class="small-button" type="button" data-debug-random-result>Debug: random scores</button>
+      <button class="small-button" type="button" data-debug-random-result>${t("tournaments.debug.randomResult")}</button>
     </div>
   `;
 }
@@ -5065,7 +5094,7 @@ function randomOption(options = []) {
   return options[randomInteger(0, options.length - 1)];
 }
 
-function comboField(label, name, optionsKey, selected = "", placeholder = "Search or select", options = {}) {
+function comboField(label, name, optionsKey, selected = "", placeholder = t("tournaments.combo.defaultPlaceholder"), options = {}) {
   const optional = Boolean(options.optional);
   const disabled = Boolean(options.disabled);
   const valueMode = options.valueMode || (options.items ? "value" : "label");
@@ -5097,7 +5126,7 @@ function comboField(label, name, optionsKey, selected = "", placeholder = "Searc
           data-combo-input
         >
         ${valueInput}
-        <button class="combo-toggle" type="button" data-combo-toggle aria-label="Show options" ${disabled ? "disabled" : ""}></button>
+        <button class="combo-toggle" type="button" data-combo-toggle aria-label="${t("tournaments.combo.showOptions")}" ${disabled ? "disabled" : ""}></button>
       </div>
       <div class="combo-menu" data-combo-menu hidden></div>
     </div>

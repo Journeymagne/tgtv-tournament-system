@@ -82,7 +82,13 @@ const SAME_IN_BOTH = {
   "games.result.killzoneLabel": "Rules term.",
   "games.result.critOp": "Rules term.",
   "games.result.tiebreaker.tacCrit": "Rules term.",
-  "games.result.withElo": "Rules term. (Elo, otherwise only placeholders and punctuation.)"
+  "games.result.withElo": "Rules term. (Elo, otherwise only placeholders and punctuation.)",
+  "tournaments.field.telegram": "Product name.",
+  "tournaments.registration.telegramPlaceholder": "Placeholder format example, not localized text.",
+  "tournaments.mission.killzone": "Rules term.",
+  "tournaments.mission.critOp": "Rules term.",
+  "tournaments.review.tacOpVp": "Rules term.",
+  "tournaments.score.primaryOp": "Rules term."
 };
 
 module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };
