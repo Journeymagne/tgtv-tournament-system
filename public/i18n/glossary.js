@@ -77,7 +77,12 @@ const SAME_IN_BOTH = {
   "venue.tts": "Product name.",
   "nav.challenge": "Feature name.",
   "auth.brand.title": "Product name.",
-  "auth.field.telegramContactPlaceholder": "Placeholder format example, not localized text."
+  "auth.field.telegramContactPlaceholder": "Placeholder format example, not localized text.",
+  "games.filter.teamLabel": "Rules term.",
+  "games.result.killzoneLabel": "Rules term.",
+  "games.result.critOp": "Rules term.",
+  "games.result.tiebreaker.tacCrit": "Rules term.",
+  "games.result.withElo": "Rules term. (Elo, otherwise only placeholders and punctuation.)"
 };
 
 module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };

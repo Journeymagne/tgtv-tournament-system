@@ -107,7 +107,72 @@ const TGTV_I18N_RU = {
   "play.game.status.completed": "завершена",
   "play.game.status.pending": "ожидает",
   "play.game.status.active": "активна",
-  "play.search.searching": "Идёт поиск..."
+  "play.search.searching": "Идёт поиск...",
+
+  // -- games ------------------------------------------------------------------
+  "games.tabs.completed": "Завершённые игры",
+  "games.tabs.sessions": "Администрирование сессий",
+  "games.title": "Игры",
+  "games.hint": "Последние завершённые игры всех игроков.",
+  "games.filter.playerLabel": "Игрок",
+  "games.filter.playerPlaceholder": "Имя игрока",
+  "games.filter.teamLabel": "Kill Team",
+  "games.filter.allTeams": "Все Kill Teams",
+  "games.filter.noPlayersFound": "Игроки не найдены",
+  "games.filter.playerFallback": "Игрок #{id}",
+  "games.filterSummary": {
+    one: "Показано {count} из {n} завершённой игры.",
+    few: "Показано {count} из {n} завершённых игр.",
+    many: "Показано {count} из {n} завершённых игр.",
+    other: "Показано {count} из {n} завершённых игр."
+  },
+  "games.list.loadError": "Не удалось загрузить игры: {error}. Перезапустите локальный сервер и обновите страницу.",
+  "games.list.empty": "Нет игр, соответствующих этим фильтрам.",
+  "games.count": { one: "{n} игра", few: "{n} игры", many: "{n} игр", other: "{n} игры" },
+
+  "games.detail.notFound": "Игра не найдена.",
+  "games.detail.title": "Игра №{id}",
+  "games.detail.backToGames": "Назад к играм",
+  "games.detail.submittedBy": "Отправитель: {name}",
+  "games.detail.noResult": "Результат ещё не отправлен.",
+  "games.detail.forceConfirm": "Принудительно подтвердить",
+  "games.detail.deleteGame": "Удалить игру",
+  "games.detail.deletedPlayers": "Удалённые игроки",
+  "games.detail.eloChanges": "Изменения Elo",
+
+  "games.result.title": "Результат Approved Ops",
+  "games.result.editTitle": "Изменить результат Approved Ops",
+  "games.result.hint": "За каждый op даётся 0-6 VP. Primary Op добавляет половину своих VP с округлением вверх.",
+  "games.result.back": "Назад",
+  "games.result.missionTitle": "Миссия",
+  "games.result.killzoneLabel": "Killzone",
+  "games.result.layoutLabel": "Раскладка",
+  "games.result.notSelected": "Не выбрано",
+  "games.result.critOp": "Crit Op",
+  "games.result.tiebreaker.enable": "Включить тай-брейки",
+  "games.result.tiebreaker.primary": "Основной",
+  "games.result.tiebreaker.tacCrit": "Tac Op + Crit Op",
+  "games.result.tiebreaker.apl": "APL на столе",
+  "games.result.tiebreaker.rollOff": "Переигровка",
+  "games.result.tiebreaker.aplPlayerLabel": "APL на столе: {name}",
+  "games.result.tiebreaker.rollOffWinnerLabel": "Победитель переигровки",
+  "games.result.tiebreaker.selectIfTied": "Выберите, если ничья",
+  "games.result.saveAction": "Сохранить результат",
+  "games.result.submitAction": "Отправить результат",
+  "games.result.savedFallback": "Результат сохранён",
+  "games.result.withElo": "{score} - Elo {elo}",
+
+  "games.review.title": "Подтверждение результата",
+  "games.review.submittedBy": "Отправитель: {name}.",
+  "games.review.opponentFallback": "оппонент",
+  "games.review.action.confirm": "Подтвердить результат",
+  "games.review.action.reject": "Отклонить",
+
+  "games.pendingResult.awaitingConfirmation": "Результат отправлен. Ожидание подтверждения.",
+  "games.pendingResult.opponentFallback": "Оппонент",
+  "games.pendingResult.waitingForAdmin": "Ожидание проверки администратором.",
+  "games.pendingResult.waitingForConfirmation": "Ожидание подтверждения.",
+  "games.pendingResult.summary": "Отправитель: {name}. Результат: {score}. {waiting}"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_RU;

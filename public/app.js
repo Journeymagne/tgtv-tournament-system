@@ -2047,24 +2047,24 @@ function pendingResultSummary(game) {
   const result = pending?.result;
   const players = game.players || [];
   const submitter = players.find((player) => player.id === pending?.submittedBy);
-  if (!result) return "Result submitted. Waiting for confirmation.";
+  if (!result) return t("games.pendingResult.awaitingConfirmation");
   const score = resultHeadline(game, result);
-  const prefix = pending?.submittedBy === state.me.id
-    ? "You submitted"
-    : `${submitter?.name || "Opponent"} submitted`;
+  const submitterName = pending?.submittedBy === state.me.id
+    ? t("play.game.you")
+    : submitter?.name || t("games.pendingResult.opponentFallback");
   const waiting = players.some((player) => player.hasProfile === false || Number(player.id) < 0)
-    ? "Waiting for administrator review."
-    : "Waiting for confirmation.";
-  return `${prefix}: ${score}. ${waiting}`;
+    ? t("games.pendingResult.waitingForAdmin")
+    : t("games.pendingResult.waitingForConfirmation");
+  return t("games.pendingResult.summary", { name: submitterName, score, waiting });
 }
 
 function resultSummary(game) {
   const players = game.players || [];
-  if (!game.result) return "Result saved";
+  if (!game.result) return t("games.result.savedFallback");
   const score = resultHeadline(game, game.result);
   if (!game.elo) return score;
   const eloParts = players.map((player) => `${player.name} ${signed(game.elo?.[player.id]?.delta ?? 0)}`);
-  return `${score} - Elo ${eloParts.join(", ")}`;
+  return t("games.result.withElo", { score, elo: eloParts.join(", ") });
 }
 
 async function loadFeedback() {
@@ -2950,29 +2950,29 @@ function renderGames() {
   if (state.gamesTab !== activeTab) state.gamesTab = activeTab;
   content.innerHTML = `
     ${pageTabs("games", [
-      { id: "history", label: "Completed Games" },
-      { id: "sessions", label: "Sessions Administration" }
+      { id: "history", label: t("games.tabs.completed") },
+      { id: "sessions", label: t("games.tabs.sessions") }
     ], activeTab)}
     ${activeTab === "sessions" ? adminActiveGamesPanel() : `
       <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Games</h2>
-          <p class="muted">Latest completed games from every player.</p>
+          <h2>${t("games.title")}</h2>
+          <p class="muted">${t("games.hint")}</p>
         </div>
       </div>
       <div class="filter-row games-filter-row">
         <div class="field compact-field">
-          <label>Player</label>
+          <label>${t("games.filter.playerLabel")}</label>
           <div class="filter-suggest-field">
-            <input type="search" data-games-player-filter value="${escapeHtml(state.gameFilters.playerQuery)}" placeholder="Player name" autocomplete="off">
+            <input type="search" data-games-player-filter value="${escapeHtml(state.gameFilters.playerQuery)}" placeholder="${t("games.filter.playerPlaceholder")}" autocomplete="off">
             <div class="filter-suggestions" data-games-player-suggestions hidden></div>
           </div>
         </div>
         <div class="field compact-field">
-          <label>Kill Team</label>
+          <label>${t("games.filter.teamLabel")}</label>
           <select data-games-team-filter>
-            <option value="">All Kill Teams</option>
+            <option value="">${t("games.filter.allTeams")}</option>
             ${killTeamOptions.map((team) => `<option value="${escapeHtml(team)}" ${state.gameFilters.team === team ? "selected" : ""}>${escapeHtml(team)}</option>`).join("")}
           </select>
         </div>
@@ -3014,7 +3014,7 @@ function gamePlayerFilterOptions(games) {
       if (!Number.isInteger(id) || id <= 0 || seenInGame.has(id)) continue;
       seenInGame.add(id);
       if (!players.has(id)) {
-        const name = String(player.name || "").trim() || `Player #${id}`;
+        const name = String(player.name || "").trim() || t("games.filter.playerFallback", { id });
         players.set(id, { id, name, games: 0 });
       }
       players.get(id).games += 1;
@@ -3036,15 +3036,14 @@ function gamePlayerSuggestionOptions(games, query) {
 }
 
 function gamesFilterSummary(count, total) {
-  const gameLabel = total === 1 ? "game" : "games";
-  return `Showing ${count} of ${total} completed ${gameLabel}.`;
+  return plural("games.filterSummary", total, { count });
 }
 
 function gamesListMarkup(games) {
   if (state.gamesError) {
-    return `<div class="empty">Could not load games: ${escapeHtml(state.gamesError)}. Restart the local server and refresh the page.</div>`;
+    return `<div class="empty">${t("games.list.loadError", { error: escapeHtml(state.gamesError) })}</div>`;
   }
-  return games.length ? games.map(gameCard).join("") : `<div class="empty">No games match these filters.</div>`;
+  return games.length ? games.map(gameCard).join("") : `<div class="empty">${t("games.list.empty")}</div>`;
 }
 
 function renderGamePlayerSuggestions() {
@@ -3057,10 +3056,10 @@ function renderGamePlayerSuggestions() {
     ? options.map((player) => `
       <button class="filter-suggestion" type="button" data-games-player-suggestion="${player.id}" data-games-player-name="${escapeHtml(player.name)}">
         <span>${escapeHtml(player.name)}</span>
-        <small>${player.games} ${player.games === 1 ? "game" : "games"}</small>
+        <small>${plural("games.count", player.games)}</small>
       </button>
     `).join("")
-    : `<div class="filter-suggestion-empty">No players found</div>`;
+    : `<div class="filter-suggestion-empty">${t("games.filter.noPlayersFound")}</div>`;
   box.hidden = false;
 }
 
@@ -4059,44 +4058,44 @@ function renderGameDetail() {
   const content = document.querySelector("[data-content]");
   const game = getKnownGame(state.selectedGameId);
   if (!game) {
-    content.innerHTML = `<section class="card panel"><div class="empty">Game not found.</div></section>`;
+    content.innerHTML = `<section class="card panel"><div class="empty">${t("games.detail.notFound")}</div></section>`;
     return;
   }
 
   const result = game.result || game.pendingResult?.result || null;
-  const statusLabel = game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "active";
+  const statusLabel = game.status === "completed" ? t("play.game.status.completed") : game.status === "pending_confirmation" ? t("play.game.status.pending") : t("play.game.status.active");
   const submitter = game.players?.find((player) => player.id === game.pendingResult?.submittedBy || player.id === game.submittedBy);
   const isParticipant = game.players?.some((player) => player.id === state.me.id);
   const canDeletePending = isParticipant && game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id;
   const playerAction = isParticipant && game.status === "open"
-    ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>
-       <button class="danger-button" data-exit-game="${game.id}">Exit game</button>`
+    ? `<button class="primary-button" data-game-result="${game.id}">${t("play.action.enterResult")}</button>
+       <button class="danger-button" data-exit-game="${game.id}">${t("play.action.exitGame")}</button>`
     : canDeletePending
-      ? `<button class="danger-button" data-exit-game="${game.id}">Delete pending</button>`
+      ? `<button class="danger-button" data-exit-game="${game.id}">${t("play.action.deletePending")}</button>`
     : "";
   const adminAction = state.me.isAdmin
-    ? `<button class="primary-button" data-admin-edit-game="${game.id}">${result ? "Edit result" : "Enter result"}</button>
-       ${game.status === "pending_confirmation" && game.pendingResult?.result ? `<button class="small-button" data-admin-confirm-game="${game.id}">Force confirm</button>` : ""}
-       ${["open", "pending_confirmation"].includes(game.status) ? `<button class="danger-button" data-admin-delete-game="${game.id}">Delete game</button>` : ""}`
+    ? `<button class="primary-button" data-admin-edit-game="${game.id}">${result ? t("play.action.editResult") : t("play.action.enterResult")}</button>
+       ${game.status === "pending_confirmation" && game.pendingResult?.result ? `<button class="small-button" data-admin-confirm-game="${game.id}">${t("games.detail.forceConfirm")}</button>` : ""}
+       ${["open", "pending_confirmation"].includes(game.status) ? `<button class="danger-button" data-admin-delete-game="${game.id}">${t("games.detail.deleteGame")}</button>` : ""}`
     : "";
 
   content.innerHTML = `
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Game #${game.id}</h2>
+          <h2>${t("games.detail.title", { id: game.id })}</h2>
           <p class="muted">${gamePlayerLinks(game)} &middot; ${fmtDate(game.createdAt)}</p>
         </div>
         <div class="row-actions">
           <span class="status ${game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "open"}">${statusLabel}</span>
-          <button class="ghost-button" data-back-games>Back to Games</button>
+          <button class="ghost-button" data-back-games>${t("games.detail.backToGames")}</button>
           ${playerAction}
           ${adminAction}
         </div>
       </div>
       ${result ? `
         <div class="result-headline">${escapeHtml(resultHeadline(game, result))}</div>
-        ${submitter ? `<p class="muted">Submitted by ${escapeHtml(submitter.name)}${game.submittedAt ? ` &middot; ${fmtDate(game.submittedAt)}` : ""}</p>` : ""}
+        ${submitter ? `<p class="muted">${t("games.detail.submittedBy", { name: escapeHtml(submitter.name) })}${game.submittedAt ? ` &middot; ${fmtDate(game.submittedAt)}` : ""}</p>` : ""}
         ${killzoneReview(result)}
         <div class="score-grid">
           ${game.players.map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
@@ -4104,7 +4103,7 @@ function renderGameDetail() {
         ${result.tiebreakers?.enabled ? tieBreakerReview(game, result) : ""}
         ${game.elo ? eloReview(game) : ""}
       ` : `
-        <div class="empty">No result has been submitted yet.</div>
+        <div class="empty">${t("games.detail.noResult")}</div>
       `}
       <div class="message" data-message></div>
     </section>
@@ -4141,7 +4140,7 @@ function gameTitle(game) {
 
 function gamePlayerLinks(game) {
   const players = game.players || [];
-  if (!players.length) return "Deleted players";
+  if (!players.length) return t("games.detail.deletedPlayers");
   return players.map((player) => playerProfileLink(player)).join(" vs ");
 }
 
@@ -4158,7 +4157,7 @@ function tournamentParticipantProfileLink(participant, fallbackName = "TBD") {
 function eloReview(game) {
   return `
     <section class="card metric-card elo-detail-card">
-      <span>Elo changes</span>
+      <span>${t("games.detail.eloChanges")}</span>
       <div class="review-lines">
         ${(game.players || []).map((player) => {
           const item = game.elo?.[player.id] || {};
@@ -4414,12 +4413,12 @@ function renderResultForm(gameId, options = {}) {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>${adminEdit ? "Edit Approved Ops result" : "Approved Ops result"}</h2>
-          <p class="muted">Each op scores 0-6 VP. Primary Op adds half of its VP, rounded up.</p>
+          <h2>${adminEdit ? t("games.result.editTitle") : t("games.result.title")}</h2>
+          <p class="muted">${t("games.result.hint")}</p>
         </div>
         <div class="row-actions">
-          ${canExitFromForm ? `<button class="danger-button" type="button" data-exit-game="${game.id}">${game.status === "pending_confirmation" ? "Delete pending" : "Exit game"}</button>` : ""}
-          <button class="ghost-button" type="button" data-back>Back</button>
+          ${canExitFromForm ? `<button class="danger-button" type="button" data-exit-game="${game.id}">${game.status === "pending_confirmation" ? t("play.action.deletePending") : t("play.action.exitGame")}</button>` : ""}
+          <button class="ghost-button" type="button" data-back>${t("games.result.back")}</button>
         </div>
       </div>
       <form class="result-form" data-result-form>
@@ -4427,30 +4426,30 @@ function renderResultForm(gameId, options = {}) {
           ${game.players.map((player) => scoreCard(player, existingResult?.scores?.[player.id])).join("")}
         </div>
         <section class="killzone-panel">
-          <h3>Mission</h3>
+          <h3>${t("games.result.missionTitle")}</h3>
           <div class="killzone-grid">
             <div class="field">
-              <label>Killzone</label>
+              <label>${t("games.result.killzoneLabel")}</label>
               <select name="killzone">
-                <option value="">Not selected</option>
+                <option value="">${t("games.result.notSelected")}</option>
                 ${killzoneOptions.map((option) => `
                   <option value="${escapeHtml(option)}" ${existingResult?.killzone?.killzone === option ? "selected" : ""}>${escapeHtml(option)}</option>
                 `).join("")}
               </select>
             </div>
             <div class="field">
-              <label>Crit Op</label>
+              <label>${t("games.result.critOp")}</label>
               <select name="critOp">
-                <option value="">Not selected</option>
+                <option value="">${t("games.result.notSelected")}</option>
                 ${critOpOptions.map((option) => `
                   <option value="${escapeHtml(option)}" ${existingResult?.killzone?.critOp === option ? "selected" : ""}>${escapeHtml(option)}</option>
                 `).join("")}
               </select>
             </div>
             <div class="field">
-              <label>Layout</label>
+              <label>${t("games.result.layoutLabel")}</label>
               <select name="killzoneLayout">
-                <option value="">Not selected</option>
+                <option value="">${t("games.result.notSelected")}</option>
                 ${[1, 2, 3, 4, 5, 6].map((layout) => `
                   <option value="${layout}" ${Number(existingResult?.killzone?.layout) === layout ? "selected" : ""}>${layout}</option>
                 `).join("")}
@@ -4461,26 +4460,26 @@ function renderResultForm(gameId, options = {}) {
         <section class="tiebreaker-panel">
           <label class="checkbox-line">
             <input type="checkbox" data-tiebreaker-enabled ${existingResult?.tiebreakers?.enabled ? "checked" : ""}>
-            <span>Enable Tie-Breakers</span>
+            <span>${t("games.result.tiebreaker.enable")}</span>
           </label>
           <div class="tiebreaker-menu" data-tiebreaker-menu ${existingResult?.tiebreakers?.enabled ? "" : "hidden"}>
             <ol class="tiebreaker-list">
-              <li>Primary</li>
-              <li>Tac Op + Crit Op</li>
-              <li>APL on table</li>
-              <li>Roll-off</li>
+              <li>${t("games.result.tiebreaker.primary")}</li>
+              <li>${t("games.result.tiebreaker.tacCrit")}</li>
+              <li>${t("games.result.tiebreaker.apl")}</li>
+              <li>${t("games.result.tiebreaker.rollOff")}</li>
             </ol>
             <div class="tiebreaker-grid">
               ${game.players.map((player) => `
                 <div class="field">
-                  <label>APL on table: ${escapeHtml(player.name)}</label>
+                  <label>${t("games.result.tiebreaker.aplPlayerLabel", { name: escapeHtml(player.name) })}</label>
                   <input data-tiebreaker-input name="apl-${player.id}" type="number" min="0" max="99" value="${existingResult?.tiebreakers?.apl?.[player.id] ?? 0}">
                 </div>
               `).join("")}
               <div class="field">
-                <label>Roll-off winner</label>
+                <label>${t("games.result.tiebreaker.rollOffWinnerLabel")}</label>
                 <select data-tiebreaker-input name="rollOffWinnerId">
-                  <option value="">Select if still tied</option>
+                  <option value="">${t("games.result.tiebreaker.selectIfTied")}</option>
                   ${game.players.map((player) => `<option value="${player.id}" ${existingResult?.tiebreakers?.rollOffWinnerId === player.id ? "selected" : ""}>${escapeHtml(player.name)}</option>`).join("")}
                 </select>
               </div>
@@ -4489,7 +4488,7 @@ function renderResultForm(gameId, options = {}) {
           <div class="tiebreaker-live" data-result-preview></div>
         </section>
         ${debugRandomResultButtonMarkup()}
-        <button class="primary-button" type="submit">${adminEdit ? "Save result" : "Submit result"}</button>
+        <button class="primary-button" type="submit">${adminEdit ? t("games.result.saveAction") : t("games.result.submitAction")}</button>
         <div class="message" data-message></div>
       </form>
     </section>
@@ -4562,10 +4561,10 @@ function renderResultReview(gameId) {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Confirm result</h2>
-          <p class="muted">Submitted by ${escapeHtml(submitter?.name || "opponent")}.</p>
+          <h2>${t("games.review.title")}</h2>
+          <p class="muted">${t("games.review.submittedBy", { name: escapeHtml(submitter?.name || t("games.review.opponentFallback")) })}</p>
         </div>
-        <button class="ghost-button" data-back>Back</button>
+        <button class="ghost-button" data-back>${t("games.result.back")}</button>
       </div>
       <div class="result-headline">${escapeHtml(reviewSummary)}</div>
       ${killzoneReview(result)}
@@ -4574,8 +4573,8 @@ function renderResultReview(gameId) {
       </div>
       ${result.tiebreakers?.enabled ? tieBreakerReview(game, result) : ""}
       <div class="review-actions">
-        <button class="primary-button" data-confirm-result="${game.id}">Confirm result</button>
-        <button class="danger-button" data-reject-result="${game.id}">Reject</button>
+        <button class="primary-button" data-confirm-result="${game.id}">${t("games.review.action.confirm")}</button>
+        <button class="danger-button" data-reject-result="${game.id}">${t("games.review.action.reject")}</button>
       </div>
       <div class="message" data-message></div>
     </section>
