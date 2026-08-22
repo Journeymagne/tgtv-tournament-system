@@ -79,6 +79,8 @@ const SAME_IN_BOTH = {
   "venue.tts": "Product name.",
   "nav.challenge": "Feature name.",
   "auth.brand.title": "Product name.",
+  "nav.brand.name": "Product name, matches auth.brand.title.",
+  "nav.brand.subtitle": "Product name, matches auth.brand.title.",
   "auth.field.telegramContactPlaceholder": "Placeholder format example, not localized text.",
   "games.filter.teamLabel": "Rules term.",
   "games.result.killzoneLabel": "Rules term.",

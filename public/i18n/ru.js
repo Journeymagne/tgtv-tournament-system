@@ -15,6 +15,11 @@ const TGTV_I18N_RU = {
   "common.empty": "Пока пусто.",
   "common.yes": "Да",
   "common.no": "Нет",
+  "common.requestFailed": "Запрос не выполнен",
+  "common.chooseFromList": "Выберите вариант из списка",
+  "common.noMatches": "Совпадений нет",
+  "common.themeToggle.toDark": "Переключить на тёмную тему",
+  "common.themeToggle.toLight": "Переключить на светлую тему",
 
   // -- nav ------------------------------------------------------------------
   "nav.leaderboard": "Таблица лидеров",
@@ -29,6 +34,8 @@ const TGTV_I18N_RU = {
   "nav.openNavigation": "Открыть меню",
   "nav.closeNavigation": "Закрыть меню",
   "nav.openProfile": "Открыть профиль",
+  "nav.brand.name": "TGTV Ranking",
+  "nav.brand.subtitle": "Tournament System",
 
   // -- tiebreakers ----------------------------------------------------------
   "tiebreaker.strengthOfSchedule.label": "Strength of Schedule",
@@ -79,6 +86,8 @@ const TGTV_I18N_RU = {
   "auth.field.registerNicknamePlaceholder": "Необязательно",
   "auth.field.telegramContact": "Telegram-контакт",
   "auth.field.telegramContactPlaceholder": "@username",
+  "auth.password.show": "Показать пароль",
+  "auth.password.hide": "Скрыть пароль",
 
   // -- play -----------------------------------------------------------------
   "play.newChallenge.title": "Новый челлендж",
@@ -108,6 +117,14 @@ const TGTV_I18N_RU = {
   "play.game.status.pending": "ожидает",
   "play.game.status.active": "активна",
   "play.search.searching": "Идёт поиск...",
+  "play.action.accept": "Принять",
+  "play.action.decline": "Отклонить",
+  "play.tournamentMatch.fallbackTitle": "Турнирный матч",
+  "play.tournamentMatch.meta": "Турнир: {label} / {result}",
+  "play.tournamentMatch.openAction": "Открыть турнир",
+  "play.tournamentMatch.adminReviewRequired": "Требуется ввод результата администратором",
+  "play.share.alreadyHandled": "Этот вызов уже обработан",
+  "play.share.wrongRecipient": "Эта ссылка на вызов предназначена другому игроку",
 
   // -- games ------------------------------------------------------------------
   "games.tabs.completed": "Завершённые игры",
@@ -154,13 +171,24 @@ const TGTV_I18N_RU = {
   "games.result.tiebreaker.tacCrit": "Tac Op + Crit Op",
   "games.result.tiebreaker.apl": "APL на столе",
   "games.result.tiebreaker.rollOff": "Переигровка",
+  "games.result.tiebreaker.critTacReason": "Crit Op + Tac Op",
   "games.result.tiebreaker.aplPlayerLabel": "APL на столе: {name}",
   "games.result.tiebreaker.rollOffWinnerLabel": "Победитель переигровки",
   "games.result.tiebreaker.selectIfTied": "Выберите, если ничья",
   "games.result.saveAction": "Сохранить результат",
   "games.result.submitAction": "Отправить результат",
   "games.result.savedFallback": "Результат сохранён",
+  "games.result.submittedFallback": "Результат отправлен",
   "games.result.withElo": "{score} - Elo {elo}",
+  "games.result.selectPrimaryOpError": "Выберите Primary Op для {name}",
+  "games.result.playerWon": "Игрок {name} победил, {score}",
+  "games.result.draw": "Ничья, {score}",
+  "games.result.decidedBySuffix": "по {reason}",
+  "games.result.preview.compareLine": "{aName}: {aValue} / {bName}: {bValue}",
+  "games.result.preview.winsName": "{name} побеждает",
+  "games.result.preview.tied": "ничья",
+  "games.result.preview.notReached": "Не потребовалось",
+  "games.result.preview.selectRollOffWinner": "Выберите победителя переигровки",
 
   "games.review.title": "Подтверждение результата",
   "games.review.submittedBy": "Отправитель: {name}.",
@@ -278,6 +306,7 @@ const TGTV_I18N_RU = {
   "tournaments.match.waitingForResult": "Ожидание результата",
   "tournaments.match.wonSuffix": "{score}, {name} — победитель",
   "tournaments.match.table": "Стол {number}",
+  "tournaments.match.numberLabel": "Матч {number}",
 
   "tournaments.mission.killzone": "Killzone: {name}",
   "tournaments.mission.critOp": "Crit Op: {name}",
@@ -306,6 +335,14 @@ const TGTV_I18N_RU = {
   "tournaments.debug.randomResult": "Дебаг: случайные очки",
   "tournaments.combo.defaultPlaceholder": "Поиск или выбор",
   "tournaments.combo.showOptions": "Показать варианты",
+
+  "tournaments.stats.completedGames": "Завершённые игры",
+  "tournaments.stats.tacOpsCount": "Tac Ops",
+  "tournaments.stats.killTeamsCount": "Kill Teams",
+  "tournaments.stats.empty": "Пока нет завершённых турнирных игр.",
+  "tournaments.stats.killTeamTableTitle": "Статистика Kill Team",
+  "tournaments.stats.tacOpTableTitle": "Статистика Tac Op",
+  "tournaments.stats.tacOpEmpty": "Пока нет данных по Tac Op.",
 
   // -- stats ----------------------------------------------------------------
   "stats.title": "Статистика",

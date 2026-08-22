@@ -249,7 +249,7 @@ async function api(path, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || data.error || "Request failed");
+  if (!res.ok) throw new Error(data.message || data.error || t("common.requestFailed"));
   return data;
 }
 
@@ -1519,10 +1519,10 @@ async function handleSharedChallengeHash() {
     const data = await api(`/api/challenges/share/${encodeURIComponent(token)}`);
     const challenge = data.challenge;
     if (!challenge || challenge.status !== "pending") {
-      throw new Error("This challenge has already been handled");
+      throw new Error(t("play.share.alreadyHandled"));
     }
     if (challenge.toUserId !== state.me.id) {
-      throw new Error("This challenge link is for another player");
+      throw new Error(t("play.share.wrongRecipient"));
     }
     const opponentName = challenge.from?.name || t("games.review.opponentFallback");
     if (!window.confirm(t("dialog.play.acceptChallenge", { name: opponentName }))) {
@@ -1619,7 +1619,7 @@ function passwordFieldMarkup(label, name, id, autocomplete, minLength = 6) {
       <label for="${id}">${label}</label>
       <div class="password-control">
         <input id="${id}" name="${name}" type="password" autocomplete="${autocomplete}" required minlength="${minLength}">
-        <button class="password-toggle" type="button" data-password-toggle="${id}" aria-label="Show password" aria-pressed="false">
+        <button class="password-toggle" type="button" data-password-toggle="${id}" aria-label="${t("auth.password.show")}" aria-pressed="false">
           ${eyeIcon()}
         </button>
       </div>
@@ -1643,7 +1643,7 @@ function wirePasswordToggles() {
       if (!input) return;
       const show = input.type === "password";
       input.type = show ? "text" : "password";
-      button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      button.setAttribute("aria-label", show ? t("auth.password.hide") : t("auth.password.show"));
       button.setAttribute("aria-pressed", String(show));
     });
   });
@@ -1684,10 +1684,10 @@ function renderShell() {
     <header class="topbar">
       <div class="topbar-title">
         <div class="app-brand">
-          <img class="app-logo" src="/logo.png" alt="TGTV logo">
+          <img class="app-logo" src="/logo.png" alt="${t("auth.brand.logoAlt")}">
           <div>
-            <div class="app-brand-name">TGTV Ranking</div>
-            <div class="app-brand-subtitle">Tournament System</div>
+            <div class="app-brand-name">${t("nav.brand.name")}</div>
+            <div class="app-brand-subtitle">${t("nav.brand.subtitle")}</div>
           </div>
         </div>
         <div class="topbar-user-controls">
@@ -1701,7 +1701,7 @@ function renderShell() {
         <div class="topbar-player">
           <div class="topbar-name-row">
             <h1>${escapeHtml(state.me.name)}</h1>
-            <span class="rating-pill inline-rating">${state.me.rating} Elo</span>
+            <span class="rating-pill inline-rating">${escapeHtml(t("profile.matchmaking.ratingElo", { rating: state.me.rating }))}</span>
           </div>
         </div>
       </div>
@@ -1882,20 +1882,23 @@ function renderPlay() {
 
 function challengeCard(challenge) {
   const other = challenge.fromUserId === state.me.id ? challenge.to : challenge.from;
-  const direction = challenge.fromUserId === state.me.id ? "You challenged" : "Challenge from";
+  const otherName = other?.name || t("feedback.inbox.deletedPlayer");
+  const direction = challenge.fromUserId === state.me.id
+    ? t("profile.matchmaking.youChallenged", { name: otherName })
+    : t("profile.matchmaking.challengeFrom", { name: otherName });
   const shareUrl = challengeShareUrl(challenge);
   const shareAction = shareUrl
-    ? `<button class="small-button" data-challenge-share="${escapeHtml(shareUrl)}">Copy link</button>`
+    ? `<button class="small-button" data-challenge-share="${escapeHtml(shareUrl)}">${t("admin.tournament.detail.copyLink")}</button>`
     : "";
   const actions = challenge.toUserId === state.me.id
-    ? `<button class="small-button" data-challenge-action="accept" data-id="${challenge.id}">Accept</button>
-       <button class="small-button" data-challenge-action="decline" data-id="${challenge.id}">Decline</button>`
-    : `${shareAction}<button class="small-button" data-challenge-action="cancel" data-id="${challenge.id}">Cancel</button>`;
+    ? `<button class="small-button" data-challenge-action="accept" data-id="${challenge.id}">${t("play.action.accept")}</button>
+       <button class="small-button" data-challenge-action="decline" data-id="${challenge.id}">${t("play.action.decline")}</button>`
+    : `${shareAction}<button class="small-button" data-challenge-action="cancel" data-id="${challenge.id}">${t("common.cancel")}</button>`;
   return `
     <div class="row-card">
       <div class="row-main">
-        <div class="row-title">${direction}: ${escapeHtml(other?.name || "deleted player")}</div>
-        <div class="row-meta">${escapeHtml(other?.rating || "-")} Elo &middot; ${fmtDate(challenge.createdAt)}</div>
+        <div class="row-title">${escapeHtml(direction)}</div>
+        <div class="row-meta">${escapeHtml(t("profile.matchmaking.ratingElo", { rating: other?.rating || "-" }))} &middot; ${fmtDate(challenge.createdAt)}</div>
       </div>
       <div class="row-actions">${actions}</div>
     </div>
@@ -1974,9 +1977,9 @@ function tournamentMatchLabel(game) {
   const match = game.tournamentMatch || {};
   const tournament = game.tournament || {};
   return [
-    tournament.name || "Tournament",
-    match.roundNumber ? `Round ${match.roundNumber}` : "",
-    match.bracketPosition ? `Match ${match.bracketPosition}` : ""
+    tournament.name || t("tournaments.fallbackName"),
+    match.roundNumber ? t("tournaments.round.title", { number: match.roundNumber }) : "",
+    match.bracketPosition ? t("tournaments.match.numberLabel", { number: match.bracketPosition }) : ""
   ].filter(Boolean).join(" / ");
 }
 
@@ -2007,20 +2010,20 @@ function tournamentMatchDataFromGame(game) {
 function completedTournamentGameCard(game) {
   const matchId = tournamentMatchSourceId(game);
   const players = game.players || [];
-  const title = players.map((player) => Number(player.id) === state.me.id ? "You" : player.name).join(" vs ") || "Tournament match";
+  const title = players.map((player) => Number(player.id) === state.me.id ? t("play.game.you") : player.name).join(" vs ") || t("play.tournamentMatch.fallbackTitle");
   const result = resultSummary(game);
   const openAction = game.tournament?.slug
-    ? `<button class="small-button" data-tournament-game-open="${matchId}">Open tournament</button>`
+    ? `<button class="small-button" data-tournament-game-open="${matchId}">${t("play.tournamentMatch.openAction")}</button>`
     : "";
 
   return `
     <div class="row-card">
       <div class="row-main">
         <div class="row-title">${escapeHtml(title)}</div>
-        <div class="row-meta">Tournament: ${escapeHtml(tournamentMatchLabel(game))} / ${escapeHtml(result)}</div>
+        <div class="row-meta">${escapeHtml(t("play.tournamentMatch.meta", { label: tournamentMatchLabel(game), result }))}</div>
       </div>
       <div class="row-actions">
-        <span class="status completed">completed</span>
+        <span class="status completed">${t("play.game.status.completed")}</span>
         ${openAction}
       </div>
     </div>
@@ -2032,7 +2035,7 @@ function tournamentMatchGameCard(game) {
   const tournament = game.tournament || {};
   const matchId = tournamentMatchSourceId(game);
   const players = game.players || [];
-  const title = players.map((player) => Number(player.id) === state.me.id ? "You" : player.name).join(" vs ") || "Tournament match";
+  const title = players.map((player) => Number(player.id) === state.me.id ? t("play.game.you") : player.name).join(" vs ") || t("play.tournamentMatch.fallbackTitle");
   const isParticipant = players.some((player) => Number(player.id) === state.me.id);
   const canPlayerReport = isParticipant && players.length === 2;
   const canPeerReview = canPlayerReport && players.every((player) => player.hasProfile !== false && Number(player.id) > 0);
@@ -2044,30 +2047,30 @@ function tournamentMatchGameCard(game) {
     ? pendingResultSummary(game)
     : canPlayerReport || canAdminReport
       ? t("play.game.waitingForResult")
-      : "Administrator result entry required";
+      : t("play.tournamentMatch.adminReviewRequired");
   const openAction = tournament.slug
-    ? `<button class="small-button" data-tournament-game-open="${matchId}">Open tournament</button>`
+    ? `<button class="small-button" data-tournament-game-open="${matchId}">${t("play.tournamentMatch.openAction")}</button>`
     : "";
   const mainAction = canAdminReport && requiresAdminResult
-    ? `<button class="primary-button" data-tournament-game-result="${matchId}" data-tournament-game-admin-result="1">Enter Results</button>`
+    ? `<button class="primary-button" data-tournament-game-result="${matchId}" data-tournament-game-admin-result="1">${t("play.action.enterResult")}</button>`
     : canPlayerReport && !isPending
-      ? `<button class="primary-button" data-tournament-game-result="${matchId}">Enter Results</button>`
+      ? `<button class="primary-button" data-tournament-game-result="${matchId}">${t("play.action.enterResult")}</button>`
       : canPlayerReport && isPending && game.pendingResult?.submittedBy === state.me.id
-        ? `<button class="primary-button" data-tournament-game-result="${matchId}">Edit Results</button>`
+        ? `<button class="primary-button" data-tournament-game-result="${matchId}">${t("play.action.editResult")}</button>`
         : canPeerReview && isPending
-          ? `<button class="primary-button" data-tournament-game-review="${matchId}">Review Results</button>`
+          ? `<button class="primary-button" data-tournament-game-review="${matchId}">${t("play.action.reviewResult")}</button>`
           : canAdminReport
-            ? `<button class="primary-button" data-tournament-game-result="${matchId}" data-tournament-game-admin-result="1">Enter Results</button>`
+            ? `<button class="primary-button" data-tournament-game-result="${matchId}" data-tournament-game-admin-result="1">${t("play.action.enterResult")}</button>`
             : "";
 
   return `
     <div class="row-card">
       <div class="row-main">
         <div class="row-title">${escapeHtml(title)}</div>
-        <div class="row-meta">Tournament: ${escapeHtml(tournamentMatchLabel(game))} / ${escapeHtml(result)}</div>
+        <div class="row-meta">${escapeHtml(t("play.tournamentMatch.meta", { label: tournamentMatchLabel(game), result }))}</div>
       </div>
       <div class="row-actions">
-        <span class="status ${status}">${isPending ? "pending" : "active"}</span>
+        <span class="status ${status}">${isPending ? t("play.game.status.pending") : t("play.game.status.active")}</span>
         ${mainAction}
         ${openAction}
       </div>
@@ -2248,11 +2251,11 @@ function scoreSummary(result, players) {
 
 function tieBreakerLabel(value) {
   return {
-    primary: "Primary",
-    critTac: "Crit Op + Tac Op",
-    apl: "APL on table",
-    rollOff: "Roll-off"
-  }[value] || "Tie-breakers";
+    primary: t("games.result.tiebreaker.primary"),
+    critTac: t("games.result.tiebreaker.critTacReason"),
+    apl: t("games.result.tiebreaker.apl"),
+    rollOff: t("games.result.tiebreaker.rollOff")
+  }[value] || t("tournaments.tiebreaker.title");
 }
 
 function getProfileStats() {
@@ -4306,10 +4309,11 @@ function renderSearchResults(box) {
 
 function searchResultMeta(user) {
   const contacts = [
-    user.registerNickname ? `Register: ${user.registerNickname}` : "",
-    user.telegramContact ? `Telegram: ${user.telegramContact}` : ""
+    user.registerNickname ? t("leaderboard.users.contact.register", { value: user.registerNickname }) : "",
+    user.telegramContact ? t("leaderboard.users.contact.telegram", { value: user.telegramContact }) : ""
   ].filter(Boolean).join(" / ");
-  return contacts ? `${user.rating} Elo / ${contacts}` : `${user.rating} Elo`;
+  const rating = t("profile.matchmaking.ratingElo", { rating: user.rating });
+  return contacts ? `${rating} / ${contacts}` : rating;
 }
 
 function wireChallengeButtons() {
@@ -4318,7 +4322,7 @@ function wireChallengeButtons() {
       const originalText = button.textContent;
       try {
         await copyText(button.dataset.challengeShare);
-        button.textContent = "Copied";
+        button.textContent = t("profile.admin.copied");
         button.disabled = true;
         window.setTimeout(() => {
           button.textContent = originalText;
@@ -4674,7 +4678,7 @@ function participantResultPlayer(participant) {
   return {
     id: participant.userId || -participant.id,
     participantId: participant.id,
-    name: participant.displayName || participant.user?.name || "Player",
+    name: participant.displayName || participant.user?.name || t("tournaments.player.fallback"),
     faction: participant.faction || "",
     hasProfile: Boolean(participant.userId)
   };
@@ -5282,7 +5286,7 @@ function wireComboFields() {
           input.setCustomValidity("");
           return true;
         }
-        input.setCustomValidity("Choose an option from the list");
+        input.setCustomValidity(t("common.chooseFromList"));
         return false;
       }
       if (optionsKey !== "faction") return true;
@@ -5296,7 +5300,7 @@ function wireComboFields() {
         input.setCustomValidity("");
         return true;
       }
-      input.setCustomValidity("Choose a Kill Team from the list");
+      input.setCustomValidity(t("tournaments.registration.factionRequired"));
       return false;
     };
 
@@ -5326,7 +5330,7 @@ function wireComboFields() {
             ${escapeHtml(comboOptionLabel(option))}
           </button>
         `).join("")
-        : `<div class="combo-empty">No matches</div>`;
+        : `<div class="combo-empty">${t("common.noMatches")}</div>`;
       menu.hidden = false;
       combo.classList.add("open");
     };
@@ -5452,7 +5456,7 @@ function calculateResultPreview(game) {
     const winner = scoreA.total > scoreB.total ? a : b;
     return {
       winnerId: winner.id,
-      headline: `Player ${winner.name} Won, ${winnerScoreText(winner, a, b, scoreA, scoreB)}`,
+      headline: t("games.result.playerWon", { name: winner.name, score: winnerScoreText(winner, a, b, scoreA, scoreB) }),
       steps: []
     };
   }
@@ -5460,7 +5464,7 @@ function calculateResultPreview(game) {
   if (!tiebreakersEnabled) {
     return {
       winnerId: null,
-      headline: `Draw, ${scoreText}`,
+      headline: t("games.result.draw", { score: scoreText }),
       steps: []
     };
   }
@@ -5475,36 +5479,36 @@ function calculateResultPreview(game) {
   const rollOffWinnerId = Number(document.querySelector(`[name="rollOffWinnerId"]`)?.value || 0) || null;
 
   const winnerByPrimary = higherValueWinner(a, b, primary);
-  steps.push(previewStep("Primary", primary, a, b, winnerByPrimary));
+  steps.push(previewStep(t("games.result.tiebreaker.primary"), primary, a, b, winnerByPrimary));
   if (winnerByPrimary) {
-    appendSkippedSteps(steps, ["Tac Op + Crit Op", "APL on table", "Roll-off"]);
+    appendSkippedSteps(steps, [t("games.result.tiebreaker.tacCrit"), t("games.result.tiebreaker.apl"), t("games.result.tiebreaker.rollOff")]);
     return previewFromWinner(winnerByPrimary, scoreText, steps, "primary");
   }
 
   const winnerByCritTac = higherValueWinner(a, b, critTac);
-  steps.push(previewStep("Tac Op + Crit Op", critTac, a, b, winnerByCritTac));
+  steps.push(previewStep(t("games.result.tiebreaker.tacCrit"), critTac, a, b, winnerByCritTac));
   if (winnerByCritTac) {
-    appendSkippedSteps(steps, ["APL on table", "Roll-off"]);
+    appendSkippedSteps(steps, [t("games.result.tiebreaker.apl"), t("games.result.tiebreaker.rollOff")]);
     return previewFromWinner(winnerByCritTac, scoreText, steps, "critTac");
   }
 
   const winnerByApl = higherValueWinner(a, b, apl);
-  steps.push(previewStep("APL on table", apl, a, b, winnerByApl));
+  steps.push(previewStep(t("games.result.tiebreaker.apl"), apl, a, b, winnerByApl));
   if (winnerByApl) {
-    appendSkippedSteps(steps, ["Roll-off"]);
+    appendSkippedSteps(steps, [t("games.result.tiebreaker.rollOff")]);
     return previewFromWinner(winnerByApl, scoreText, steps, "apl");
   }
 
   const rollOffWinner = players.find((player) => player.id === rollOffWinnerId) || null;
   steps.push({
-    label: "Roll-off",
-    text: rollOffWinner ? `${rollOffWinner.name} wins` : "Select roll-off winner",
+    label: t("games.result.tiebreaker.rollOff"),
+    text: rollOffWinner ? t("games.result.preview.winsName", { name: rollOffWinner.name }) : t("games.result.preview.selectRollOffWinner"),
     state: rollOffWinner ? "winner" : "pending"
   });
 
   return rollOffWinner
     ? previewFromWinner(rollOffWinner, scoreText, steps, "rollOff")
-    : { winnerId: null, headline: `Draw, ${scoreText}. Select roll-off winner.`, steps };
+    : { winnerId: null, headline: `${t("games.result.draw", { score: scoreText })}. ${t("games.result.preview.selectRollOffWinner")}.`, steps };
 }
 
 function scoreFromForm(playerId) {
@@ -5529,7 +5533,7 @@ function approvedOpsPayloadFromForm(players = []) {
   players.forEach((player) => {
     const primary = document.querySelector(`[name="primary-${player.id}"]`)?.value || "";
     if (!Object.prototype.hasOwnProperty.call(opLabels, primary)) {
-      throw new Error(`Select Primary Op for ${player.name}`);
+      throw new Error(t("games.result.selectPrimaryOpError", { name: player.name }));
     }
     scores[player.id] = {
       faction: document.querySelector(`[name="faction-${player.id}"]`)?.value || "",
@@ -5564,24 +5568,26 @@ function higherValueWinner(a, b, values) {
 }
 
 function previewStep(label, values, a, b, winner) {
+  const compareLine = t("games.result.preview.compareLine", { aName: a.name, aValue: values[a.id], bName: b.name, bValue: values[b.id] });
+  const suffix = winner ? ` - ${t("games.result.preview.winsName", { name: winner.name })}` : ` - ${t("games.result.preview.tied")}`;
   return {
     label,
-    text: `${a.name}: ${values[a.id]} / ${b.name}: ${values[b.id]}${winner ? ` - ${winner.name} wins` : " - tied"}`,
+    text: `${compareLine}${suffix}`,
     state: winner ? "winner" : "tie"
   };
 }
 
 function appendSkippedSteps(steps, labels) {
   labels.forEach((label) => {
-    steps.push({ label, text: "Not reached", state: "skipped" });
+    steps.push({ label, text: t("games.result.preview.notReached"), state: "skipped" });
   });
 }
 
 function previewFromWinner(winner, scoreText, steps, decidedBy = null) {
-  const suffix = decidedBy ? ` by ${tieBreakerLabel(decidedBy)}` : "";
+  const suffix = decidedBy ? ` ${t("games.result.decidedBySuffix", { reason: tieBreakerLabel(decidedBy) })}` : "";
   return {
     winnerId: winner.id,
-    headline: `Player ${winner.name} Won, ${scoreText}${suffix}`,
+    headline: `${t("games.result.playerWon", { name: winner.name, score: scoreText })}${suffix}`,
     steps
   };
 }
@@ -5591,7 +5597,7 @@ function resultHeadline(game, result) {
   const [a, b] = players;
   const scoreA = result?.scores?.[a?.id];
   const scoreB = result?.scores?.[b?.id];
-  if (!a || !b || !scoreA || !scoreB) return "Result submitted";
+  if (!a || !b || !scoreA || !scoreB) return t("games.result.submittedFallback");
   const tiedByTotal = Number(scoreA.total) === Number(scoreB.total);
   const tiebreakerSummary = tiedByTotal && result.tiebreakers?.enabled
     ? tieBreakerReviewSummary(game, result)
@@ -5601,8 +5607,8 @@ function resultHeadline(game, result) {
   const scoreText = winner
     ? winnerScoreText(winner, a, b, scoreA, scoreB)
     : `${scoreA.total}-${scoreB.total}`;
-  const suffix = tiebreakerSummary?.decidedBy ? ` by ${tieBreakerLabel(tiebreakerSummary.decidedBy)}` : "";
-  return winner ? `Player ${winner.name} Won, ${scoreText}${suffix}` : `Draw, ${scoreText}`;
+  const suffix = tiebreakerSummary?.decidedBy ? ` ${t("games.result.decidedBySuffix", { reason: tieBreakerLabel(tiebreakerSummary.decidedBy) })}` : "";
+  return winner ? `${t("games.result.playerWon", { name: winner.name, score: scoreText })}${suffix}` : t("games.result.draw", { score: scoreText });
 }
 
 function winnerScoreText(winner, a, b, scoreA, scoreB) {
@@ -6149,20 +6155,20 @@ function adminTournamentParticipantsPanel(data) {
 
 function tournamentStatsContent(data) {
   const games = (data.tournamentGames || []).filter((game) => game.status === "completed" && game.result);
-  if (!games.length) return `<div class="empty">No completed tournament games yet.</div>`;
+  if (!games.length) return `<div class="empty">${t("tournaments.stats.empty")}</div>`;
   const teams = tournamentKillTeamStats(games);
   const tacOps = tournamentTacOpStats(games);
   return `
     <div class="tournament-stats">
       <section class="profile-grid">
-        ${metricCard("Completed games", games.length)}
-        ${metricCard("Tac Ops", tacOps.length)}
-        ${metricCard("Kill Teams", teams.length)}
-        ${metricCard("Season", seasonLabel(data.tournament?.seasonId))}
+        ${metricCard(t("tournaments.stats.completedGames"), games.length)}
+        ${metricCard(t("tournaments.stats.tacOpsCount"), tacOps.length)}
+        ${metricCard(t("tournaments.stats.killTeamsCount"), teams.length)}
+        ${metricCard(t("tournaments.field.season"), seasonLabel(data.tournament?.seasonId))}
       </section>
       <div class="grid-2 tournament-stats-grid">
         ${tournamentTacOpStatsTable(tacOps)}
-        ${tournamentStatsTable("Kill Team stats", teams, "team")}
+        ${tournamentStatsTable(t("tournaments.stats.killTeamTableTitle"), teams, "team")}
       </div>
     </div>
   `;
@@ -6178,7 +6184,7 @@ function tournamentKillTeamStats(games) {
     const [a, b] = game.players || [];
     if (!a || !b) continue;
     for (const player of [a, b]) {
-      const team = player.faction || "Faction TBD";
+      const team = player.faction || t("tournaments.participant.factionMissing");
       if (!byTeam.has(team)) {
         byTeam.set(team, {
           key: team,
@@ -6193,8 +6199,8 @@ function tournamentKillTeamStats(games) {
         });
       }
     }
-    addTournamentStatLine(byTeam.get(a.faction || "Faction TBD"), a, b, game);
-    addTournamentStatLine(byTeam.get(b.faction || "Faction TBD"), b, a, game);
+    addTournamentStatLine(byTeam.get(a.faction || t("tournaments.participant.factionMissing")), a, b, game);
+    addTournamentStatLine(byTeam.get(b.faction || t("tournaments.participant.factionMissing")), b, a, game);
   }
   return [...byTeam.values()].sort((a, b) =>
     b.wins * 3 + b.draws - (a.wins * 3 + a.draws) ||
@@ -6221,17 +6227,17 @@ function addTournamentStatLine(row, player, opponent, game) {
 function tournamentTacOpStatsTable(rows) {
   return `
     <section class="admin-subpanel tournament-stat-table">
-      <h4>Tac Op stats</h4>
+      <h4>${t("tournaments.stats.tacOpTableTitle")}</h4>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Tac Op</th>
-              <th>Games</th>
-              <th>Wins</th>
-              <th>Win rate</th>
-              <th>Avg VP</th>
-              <th>Avg VP as Primary</th>
+              <th>${t("op.tac")}</th>
+              <th>${t("stats.column.games")}</th>
+              <th>${t("stats.column.wins")}</th>
+              <th>${t("profile.metric.winRate")}</th>
+              <th>${t("stats.column.avgVp")}</th>
+              <th>${t("stats.column.avgVpAsPrimary")}</th>
             </tr>
           </thead>
           <tbody>
@@ -6244,7 +6250,7 @@ function tournamentTacOpStatsTable(rows) {
                 <td>${row.avgPoints}</td>
                 <td>${row.avgPrimaryPoints}</td>
               </tr>
-            `).join("") : `<tr><td colspan="6">No Tac Op data yet.</td></tr>`}
+            `).join("") : `<tr><td colspan="6">${t("tournaments.stats.tacOpEmpty")}</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -6260,13 +6266,13 @@ function tournamentStatsTable(title, rows, kind) {
         <table>
           <thead>
             <tr>
-              <th>${kind === "player" ? "Player" : "Kill Team"}</th>
-              ${kind === "player" ? "<th>Kill Team</th>" : ""}
-              <th>W-D-L</th>
-              <th>Win rate</th>
-              <th>Total VP</th>
-              <th>VP Diff</th>
-              <th>Elo</th>
+              <th>${kind === "player" ? t("tournaments.player.fallback") : t("games.filter.teamLabel")}</th>
+              ${kind === "player" ? `<th>${t("games.filter.teamLabel")}</th>` : ""}
+              <th>${t("tournaments.standings.column.wdl")}</th>
+              <th>${t("profile.metric.winRate")}</th>
+              <th>${t("tournaments.standings.totalVp")}</th>
+              <th>${t("tournaments.standings.vpDiff")}</th>
+              <th>${t("profile.hero.elo")}</th>
             </tr>
           </thead>
           <tbody>
@@ -7861,7 +7867,7 @@ function applyTheme(theme) {
   document.documentElement.dataset.theme = selected;
   const button = document.querySelector("[data-theme-toggle]");
   if (!button) return;
-  const nextLabel = selected === "light" ? "Switch to dark theme" : "Switch to light theme";
+  const nextLabel = selected === "light" ? t("common.themeToggle.toDark") : t("common.themeToggle.toLight");
   button.setAttribute("aria-label", nextLabel);
   button.setAttribute("title", nextLabel);
   button.innerHTML = selected === "light" ? "&#9790;" : "&#9728;";
@@ -7910,6 +7916,7 @@ function wireLocaleToggle() {
       // The language still applies to the current page when storage is blocked.
     }
     applyLocale(next);
+    applyTheme(document.documentElement.dataset.theme);
     render();
   });
 }

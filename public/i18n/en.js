@@ -15,6 +15,11 @@ const TGTV_I18N_EN = {
   "common.empty": "Nothing here yet.",
   "common.yes": "Yes",
   "common.no": "No",
+  "common.requestFailed": "Request failed",
+  "common.chooseFromList": "Choose an option from the list",
+  "common.noMatches": "No matches",
+  "common.themeToggle.toDark": "Switch to dark theme",
+  "common.themeToggle.toLight": "Switch to light theme",
 
   // -- nav ------------------------------------------------------------------
   "nav.leaderboard": "Leaderboard",
@@ -29,6 +34,8 @@ const TGTV_I18N_EN = {
   "nav.openNavigation": "Open navigation",
   "nav.closeNavigation": "Close navigation",
   "nav.openProfile": "Open profile",
+  "nav.brand.name": "TGTV Ranking",
+  "nav.brand.subtitle": "Tournament System",
 
   // -- tiebreakers ----------------------------------------------------------
   "tiebreaker.strengthOfSchedule.label": "Strength of Schedule",
@@ -79,6 +86,8 @@ const TGTV_I18N_EN = {
   "auth.field.registerNicknamePlaceholder": "Optional",
   "auth.field.telegramContact": "Telegram Contact",
   "auth.field.telegramContactPlaceholder": "@username",
+  "auth.password.show": "Show password",
+  "auth.password.hide": "Hide password",
 
   // -- play -----------------------------------------------------------------
   "play.newChallenge.title": "New challenge",
@@ -108,6 +117,14 @@ const TGTV_I18N_EN = {
   "play.game.status.pending": "pending",
   "play.game.status.active": "active",
   "play.search.searching": "Searching for matches...",
+  "play.action.accept": "Accept",
+  "play.action.decline": "Decline",
+  "play.tournamentMatch.fallbackTitle": "Tournament match",
+  "play.tournamentMatch.meta": "Tournament: {label} / {result}",
+  "play.tournamentMatch.openAction": "Open tournament",
+  "play.tournamentMatch.adminReviewRequired": "Administrator result entry required",
+  "play.share.alreadyHandled": "This challenge has already been handled",
+  "play.share.wrongRecipient": "This challenge link is for another player",
 
   // -- games ------------------------------------------------------------------
   "games.tabs.completed": "Completed Games",
@@ -149,13 +166,24 @@ const TGTV_I18N_EN = {
   "games.result.tiebreaker.tacCrit": "Tac Op + Crit Op",
   "games.result.tiebreaker.apl": "APL on table",
   "games.result.tiebreaker.rollOff": "Roll-off",
+  "games.result.tiebreaker.critTacReason": "Crit Op + Tac Op",
   "games.result.tiebreaker.aplPlayerLabel": "APL on table: {name}",
   "games.result.tiebreaker.rollOffWinnerLabel": "Roll-off winner",
   "games.result.tiebreaker.selectIfTied": "Select if still tied",
   "games.result.saveAction": "Save result",
   "games.result.submitAction": "Submit result",
   "games.result.savedFallback": "Result saved",
+  "games.result.submittedFallback": "Result submitted",
   "games.result.withElo": "{score} - Elo {elo}",
+  "games.result.selectPrimaryOpError": "Select Primary Op for {name}",
+  "games.result.playerWon": "Player {name} Won, {score}",
+  "games.result.draw": "Draw, {score}",
+  "games.result.decidedBySuffix": "by {reason}",
+  "games.result.preview.compareLine": "{aName}: {aValue} / {bName}: {bValue}",
+  "games.result.preview.winsName": "{name} wins",
+  "games.result.preview.tied": "tied",
+  "games.result.preview.notReached": "Not reached",
+  "games.result.preview.selectRollOffWinner": "Select roll-off winner",
 
   "games.review.title": "Confirm result",
   "games.review.submittedBy": "Submitted by {name}.",
@@ -269,6 +297,7 @@ const TGTV_I18N_EN = {
   "tournaments.match.waitingForResult": "Waiting for result",
   "tournaments.match.wonSuffix": "{score}, {name} won",
   "tournaments.match.table": "Table {number}",
+  "tournaments.match.numberLabel": "Match {number}",
 
   "tournaments.mission.killzone": "Killzone: {name}",
   "tournaments.mission.critOp": "Crit Op: {name}",
@@ -297,6 +326,14 @@ const TGTV_I18N_EN = {
   "tournaments.debug.randomResult": "Debug: random scores",
   "tournaments.combo.defaultPlaceholder": "Search or select",
   "tournaments.combo.showOptions": "Show options",
+
+  "tournaments.stats.completedGames": "Completed games",
+  "tournaments.stats.tacOpsCount": "Tac Ops",
+  "tournaments.stats.killTeamsCount": "Kill Teams",
+  "tournaments.stats.empty": "No completed tournament games yet.",
+  "tournaments.stats.killTeamTableTitle": "Kill Team stats",
+  "tournaments.stats.tacOpTableTitle": "Tac Op stats",
+  "tournaments.stats.tacOpEmpty": "No Tac Op data yet.",
 
   // -- stats ----------------------------------------------------------------
   "stats.title": "Stats",
