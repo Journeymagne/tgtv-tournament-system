@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { buildSingleElimination, seedSlotOrder } = require("../../src/domain/tournaments/single-elimination");
-const { buildSwissRoundOne } = require("../../src/domain/tournaments/swiss");
+const { buildSwissRoundOne, buildSwissNextRound } = require("../../src/domain/tournaments/swiss");
 const { buildTournamentPreview } = require("../../src/domain/tournaments/preview");
 const { buildStandings } = require("../../src/domain/tournaments/standings");
 
@@ -15,6 +15,40 @@ function participant(id, seed, overrides = {}) {
     status: "joined",
     ...overrides
   };
+}
+
+function completedSwissMatch(id, participantAId, participantBId, winnerParticipantId) {
+  return {
+    id,
+    status: "completed",
+    isBye: false,
+    participantAId,
+    participantBId,
+    winnerParticipantId,
+    result: {
+      winnerId: winnerParticipantId,
+      scores: {
+        [participantAId]: { total: winnerParticipantId === participantAId ? 12 : 8 },
+        [participantBId]: { total: winnerParticipantId === participantBId ? 12 : 8 }
+      }
+    }
+  };
+}
+
+function seededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
+function pairingSignature(round) {
+  return round.matches
+    .filter((match) => !match.isBye)
+    .map((match) => [match.participantAId, match.participantBId].sort((a, b) => a - b).join("-"))
+    .sort()
+    .join("|");
 }
 
 test("single elimination lays out seeds 1-8 into standard slots", () => {
@@ -89,6 +123,166 @@ test("Swiss round count has no product upper limit", () => {
 
   assert.equal(preview.swissRoundCount, 100);
   assert.equal(preview.rounds.length, 1);
+});
+
+test("Swiss next round randomizes within score brackets and floats one player down", () => {
+  const participants = Array.from({ length: 6 }, (_, index) =>
+    participant(index + 1, index + 1, { status: "active" })
+  );
+  const previousMatches = [
+    completedSwissMatch(1, 1, 4, 1),
+    completedSwissMatch(2, 2, 5, 2),
+    completedSwissMatch(3, 3, 6, 3)
+  ];
+
+  const round = buildSwissNextRound(
+    { swissRoundCount: 3, tiebreakerOrder: [] },
+    participants,
+    previousMatches,
+    2,
+    seededRandom(7)
+  );
+  const points = new Map([[1, 3], [2, 3], [3, 3], [4, 0], [5, 0], [6, 0]]);
+  const crossBracketMatches = round.matches.filter(
+    (match) => !match.isBye && points.get(match.participantAId) !== points.get(match.participantBId)
+  );
+
+  assert.equal(crossBracketMatches.length, 1);
+  assert.deepEqual(
+    round.matches.flatMap((match) => [match.participantAId, match.participantBId].filter(Boolean)).sort((a, b) => a - b),
+    [1, 2, 3, 4, 5, 6]
+  );
+});
+
+test("Swiss odd score brackets cascade floaters from the nearest lower bracket", () => {
+  const bracketSizes = [3, 4, 3, 4];
+  const bracketPoints = [9, 6, 3, 0];
+  const participants = [];
+  const previousMatches = [];
+  const pointsByParticipant = new Map();
+  let participantId = 1;
+  let matchId = 1;
+
+  bracketSizes.forEach((size, bracketIndex) => {
+    for (let index = 0; index < size; index += 1) {
+      participants.push(participant(participantId, participantId, { status: "active" }));
+      pointsByParticipant.set(participantId, bracketPoints[bracketIndex]);
+      for (let win = 0; win < bracketPoints[bracketIndex] / 3; win += 1) {
+        previousMatches.push({
+          id: matchId,
+          status: "completed",
+          isBye: true,
+          participantAId: participantId,
+          participantBId: null,
+          winnerParticipantId: participantId,
+          result: null
+        });
+        matchId += 1;
+      }
+      participantId += 1;
+    }
+  });
+
+  const round = buildSwissNextRound(
+    { swissRoundCount: 4, tiebreakerOrder: [] },
+    participants,
+    previousMatches,
+    4,
+    seededRandom(29)
+  );
+  const crossBracketScores = round.matches
+    .filter((match) => pointsByParticipant.get(match.participantAId) !== pointsByParticipant.get(match.participantBId))
+    .map((match) => [
+      pointsByParticipant.get(match.participantAId),
+      pointsByParticipant.get(match.participantBId)
+    ].sort((left, right) => right - left))
+    .sort((left, right) => right[0] - left[0]);
+
+  assert.deepEqual(crossBracketScores, [[9, 6], [6, 3]]);
+});
+
+test("Swiss score brackets produce different valid pairings for different random seeds", () => {
+  const participants = Array.from({ length: 8 }, (_, index) =>
+    participant(index + 1, index + 1, { status: "active" })
+  );
+  const previousMatches = [
+    completedSwissMatch(1, 1, 5, 1),
+    completedSwissMatch(2, 2, 6, 2),
+    completedSwissMatch(3, 3, 7, 3),
+    completedSwissMatch(4, 4, 8, 4)
+  ];
+  const signatures = new Set();
+
+  for (let seed = 1; seed <= 12; seed += 1) {
+    const round = buildSwissNextRound(
+      { swissRoundCount: 3, tiebreakerOrder: [] },
+      participants,
+      previousMatches,
+      2,
+      seededRandom(seed)
+    );
+    signatures.add(pairingSignature(round));
+    assert.equal(round.matches.every((match) => {
+      const bothWinners = match.participantAId <= 4 && match.participantBId <= 4;
+      const bothLosers = match.participantAId > 4 && match.participantBId > 4;
+      return bothWinners || bothLosers;
+    }), true);
+  }
+
+  assert.ok(signatures.size > 1);
+});
+
+test("Swiss pairing avoids rematches when a fresh perfect matching exists", () => {
+  const participants = Array.from({ length: 4 }, (_, index) =>
+    participant(index + 1, index + 1, { status: "active" })
+  );
+  const previousMatches = [
+    completedSwissMatch(1, 1, 2, 1),
+    completedSwissMatch(2, 3, 4, 3),
+    completedSwissMatch(3, 1, 4, 4),
+    completedSwissMatch(4, 2, 3, 2)
+  ];
+
+  const round = buildSwissNextRound(
+    { swissRoundCount: 3, tiebreakerOrder: [] },
+    participants,
+    previousMatches,
+    3,
+    seededRandom(11)
+  );
+
+  assert.equal(pairingSignature(round), "1-3|2-4");
+});
+
+test("Swiss bye is random in the lowest eligible score bracket and does not repeat while avoidable", () => {
+  const participants = Array.from({ length: 5 }, (_, index) =>
+    participant(index + 1, index + 1, { status: "active" })
+  );
+  const previousMatches = [
+    completedSwissMatch(1, 1, 3, 1),
+    completedSwissMatch(2, 2, 4, 2),
+    {
+      id: 3,
+      status: "completed",
+      isBye: true,
+      participantAId: 5,
+      participantBId: null,
+      winnerParticipantId: 5,
+      result: null
+    }
+  ];
+
+  const round = buildSwissNextRound(
+    { swissRoundCount: 3, tiebreakerOrder: [] },
+    participants,
+    previousMatches,
+    2,
+    seededRandom(17)
+  );
+  const bye = round.matches.find((match) => match.isBye);
+
+  assert.ok([3, 4].includes(bye.participantAId));
+  assert.notEqual(bye.participantAId, 5);
 });
 
 test("pending placement is excluded from the current Swiss round preview", () => {
