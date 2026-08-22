@@ -306,12 +306,17 @@ flex-строку с тем же фиксированным позиционир
 
 ## Приложение: полный список терминов
 
-### PROTECTED — остаются английскими (95 значений)
+### PROTECTED — остаются английскими (101 значение)
 
-**Термины правил и рейтинга (12).** Перечисляются в `glossary.js` явно:
+**Термины правил и рейтинга (18).** Перечисляются в `glossary.js` явно. Формы
+множественного числа заведены отдельными записями: проверка идёт по границам
+слова, поэтому `Tac Ops` и `Tac Op` — разные термины, и без обеих записей
+множественное число осталось бы без защиты.
 
-`Kill Team` · `Approved Ops` · `Crit Op` · `Kill Op` · `Tac Op` · `Primary Op` ·
-`VP` · `Killzone` · `Dataslate` · `Elo` · `Strength of Schedule` · `SoS`
+`Kill Team` · `Kill Teams` · `Approved Ops` · `Crit Op` · `Crit Ops` ·
+`Kill Op` · `Kill Ops` · `Tac Op` · `Tac Ops` · `Primary Op` · `Primary Ops` ·
+`VP` · `Killzone` · `Killzones` · `Dataslate` · `Elo` ·
+`Strength of Schedule` · `SoS`
 
 **Имена собственные (5).** Явно:
 
