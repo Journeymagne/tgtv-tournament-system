@@ -649,7 +649,7 @@ const TGTV_I18N_EN = {
   "dialog.admin.deleteUser": "Delete user {name}?",
   "dialog.admin.publishStandings": "Publish final standings and end this tournament?",
   "dialog.admin.startTournament": "Start this tournament? Seeds and setup will be locked.",
-  "dialog.admin.deleteTournament": "Delete tournament \"{name}\"? Linked tournament games will be deleted and ratings will be recalculated.",
+  "dialog.admin.deleteTournament": "Delete tournament “{name}”? Linked tournament games will be deleted and ratings will be recalculated.",
   "dialog.admin.deleteTable": "Delete Table {number}?",
   "dialog.admin.removeParticipant": "Remove {name}?",
   "dialog.admin.participantFallback": "participant",

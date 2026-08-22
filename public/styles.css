@@ -5094,3 +5094,17 @@ tr:last-child td {
       "name name";
   }
 }
+
+/* Reserve room for the floating theme and language toggles.
+   Must live at the end of the file: an earlier `.topbar { padding: … }`
+   shorthand in the duplicated legacy block would otherwise win on source
+   order at equal specificity and zero out the reservation. */
+.topbar {
+  padding-right: 114px;
+}
+
+@media (max-width: 560px) {
+  .topbar {
+    padding-right: 92px;
+  }
+}

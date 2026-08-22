@@ -7921,8 +7921,8 @@ function wireLocaleToggle() {
   });
 }
 
-applyTheme(savedThemePreference());
-wireThemeToggle();
 applyLocale(savedLocalePreference());
 wireLocaleToggle();
+applyTheme(savedThemePreference());
+wireThemeToggle();
 boot();

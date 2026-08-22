@@ -153,6 +153,10 @@ test("6. dictionary values survive HTML escaping", () => {
           null,
           `${locale}.${key} contains the HTML entity "${entity && entity[0]}" -- write the character itself instead`
         );
+        assert.ok(
+          !text.includes('"'),
+          `${locale}.${key} contains a straight double-quote -- several call sites interpolate t() into a double-quoted HTML attribute, so a literal '"' would break out of it; use typographic quotes (“” or «») instead`
+        );
       }
     }
   }
