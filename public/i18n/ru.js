@@ -607,7 +607,29 @@ const TGTV_I18N_RU = {
   "admin.roundSetup.emptySlot": "Пусто",
   "admin.roundSetup.tableLabel": "Стол",
   "admin.roundSetup.auto": "Авто",
-  "admin.roundSetup.deploymentAuto": "Раскладка автоматически по столу"
+  "admin.roundSetup.deploymentAuto": "Раскладка автоматически по столу",
+
+  // -- dialog -----------------------------------------------------------------
+  "dialog.tournaments.withdraw": "Выйти из этого турнира?",
+  "dialog.play.acceptChallenge": "Принять вызов от {name}?",
+  "dialog.feedback.delete": "Удалить этот отзыв?",
+  "dialog.admin.resetPassword": "Сбросить пароль этого игрока? Его активные сеансы будут завершены.",
+  "dialog.games.deletePendingGame": "Удалить эту игру, ожидающую подтверждения? Матч будет закрыт без изменений Elo.",
+  "dialog.games.exitGame": "Выйти из этой игры? Матч будет закрыт без изменений Elo.",
+  "dialog.games.deleteActiveGame": "Удалить эту активную игру? Матч будет закрыт без изменений Elo.",
+  "dialog.games.forceConfirmResult": "Принудительно подтвердить поданный результат? Изменения Elo будут применены.",
+  "dialog.admin.deleteUser": "Удалить пользователя {name}?",
+  "dialog.admin.publishStandings": "Опубликовать итоговую таблицу и завершить турнир?",
+  "dialog.admin.startTournament": "Начать этот турнир? Посев и настройки будут заблокированы.",
+  "dialog.admin.deleteTournament": "Удалить турнир «{name}»? Связанные игры турнира будут удалены, а рейтинги — пересчитаны.",
+  "dialog.admin.deleteTable": "Удалить стол {number}?",
+  "dialog.admin.removeParticipant": "Удалить {name}?",
+  "dialog.admin.participantFallback": "участник",
+
+  // -- message ------------------------------------------------------------------
+  "message.auth.passwordMismatch": "Пароли не совпадают",
+  "message.games.deleted": "Игра удалена.",
+  "message.games.forceConfirmed": "Результат принудительно подтверждён."
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_RU;

@@ -598,7 +598,29 @@ const TGTV_I18N_EN = {
   "admin.roundSetup.emptySlot": "Empty",
   "admin.roundSetup.tableLabel": "Table",
   "admin.roundSetup.auto": "Auto",
-  "admin.roundSetup.deploymentAuto": "Deployment auto from table"
+  "admin.roundSetup.deploymentAuto": "Deployment auto from table",
+
+  // -- dialog -----------------------------------------------------------------
+  "dialog.tournaments.withdraw": "Withdraw from this tournament?",
+  "dialog.play.acceptChallenge": "Accept challenge from {name}?",
+  "dialog.feedback.delete": "Delete this feedback item?",
+  "dialog.admin.resetPassword": "Reset this player's password? Their active sessions will be signed out.",
+  "dialog.games.deletePendingGame": "Delete this pending game? The match will be closed without Elo changes.",
+  "dialog.games.exitGame": "Exit this game? The match will be closed without Elo changes.",
+  "dialog.games.deleteActiveGame": "Delete this active game? The match will be closed without Elo changes.",
+  "dialog.games.forceConfirmResult": "Force confirm this submitted result? Elo changes will be applied.",
+  "dialog.admin.deleteUser": "Delete user {name}?",
+  "dialog.admin.publishStandings": "Publish final standings and end this tournament?",
+  "dialog.admin.startTournament": "Start this tournament? Seeds and setup will be locked.",
+  "dialog.admin.deleteTournament": "Delete tournament \"{name}\"? Linked tournament games will be deleted and ratings will be recalculated.",
+  "dialog.admin.deleteTable": "Delete Table {number}?",
+  "dialog.admin.removeParticipant": "Remove {name}?",
+  "dialog.admin.participantFallback": "participant",
+
+  // -- message ------------------------------------------------------------------
+  "message.auth.passwordMismatch": "Passwords do not match",
+  "message.games.deleted": "Game deleted.",
+  "message.games.forceConfirmed": "Result force confirmed."
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_EN;

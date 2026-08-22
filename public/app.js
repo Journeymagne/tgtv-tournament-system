@@ -951,7 +951,7 @@ function wirePublicTournamentNav(data) {
     renderTournamentJoinForm(data);
   });
   document.querySelector("[data-public-tournament-withdraw]")?.addEventListener("click", async () => {
-    if (!window.confirm("Withdraw from this tournament?")) return;
+    if (!window.confirm(t("dialog.tournaments.withdraw"))) return;
     try {
       await api(`/api/tournaments/${tournament.id}/withdraw`, { method: "POST" });
       await renderPublicTournamentRoute(tournament.slug);
@@ -1524,8 +1524,8 @@ async function handleSharedChallengeHash() {
     if (challenge.toUserId !== state.me.id) {
       throw new Error("This challenge link is for another player");
     }
-    const opponentName = challenge.from?.name || "your opponent";
-    if (!window.confirm(`Accept challenge from ${opponentName}?`)) {
+    const opponentName = challenge.from?.name || t("games.review.opponentFallback");
+    if (!window.confirm(t("dialog.play.acceptChallenge", { name: opponentName }))) {
       clearSharedChallengeHash();
       state.sharedChallengeTokenHandled = "";
       return;
@@ -1656,7 +1656,7 @@ async function submitAuth(event) {
   if (state.authMode !== "login") {
     body.confirmPassword = form.get("confirmPassword");
     if (body.password !== body.confirmPassword) {
-      setMessage("Passwords do not match", true);
+      setMessage(t("message.auth.passwordMismatch"), true);
       return;
     }
     body.registerNickname = form.get("registerNickname");
@@ -2204,7 +2204,7 @@ function wireFeedbackAdminActions() {
   });
   document.querySelectorAll("[data-feedback-delete]").forEach((button) => {
     button.addEventListener("click", async () => {
-      if (!window.confirm("Delete this feedback item?")) return;
+      if (!window.confirm(t("dialog.feedback.delete"))) return;
       try {
         await api(`/api/admin/feedback/${button.dataset.feedbackDelete}`, { method: "DELETE" });
         await loadFeedback();
@@ -2649,7 +2649,7 @@ function adminPlayerToolsCard(user) {
 
 function wireAdminPlayerTools(profileUserId) {
   document.querySelector("[data-admin-reset-password]")?.addEventListener("click", async () => {
-    const confirmed = window.confirm("Reset this player's password? Their active sessions will be signed out.");
+    const confirmed = window.confirm(t("dialog.admin.resetPassword"));
     if (!confirmed) return;
     try {
       const data = await api(`/api/admin/users/${profileUserId}/reset-password`, { method: "POST" });
@@ -4380,7 +4380,9 @@ function wireGameButtons() {
 
 async function exitOpenGame(gameId) {
   const game = getKnownGame(gameId);
-  const confirmed = window.confirm(`${game?.status === "pending_confirmation" ? "Delete this pending game" : "Exit this game"}? The match will be closed without Elo changes.`);
+  const confirmed = window.confirm(
+    game?.status === "pending_confirmation" ? t("dialog.games.deletePendingGame") : t("dialog.games.exitGame")
+  );
   if (!confirmed) return;
   try {
     await api(`/api/games/${gameId}/exit`, { method: "POST" });
@@ -4397,7 +4399,9 @@ async function exitOpenGame(gameId) {
 
 async function adminDeleteGame(gameId, profileUserId = null) {
   const game = getKnownGame(gameId);
-  const confirmed = window.confirm(`Delete this ${game?.status === "pending_confirmation" ? "pending" : "active"} game? The match will be closed without Elo changes.`);
+  const confirmed = window.confirm(
+    game?.status === "pending_confirmation" ? t("dialog.games.deletePendingGame") : t("dialog.games.deleteActiveGame")
+  );
   if (!confirmed) return;
   try {
     await api(`/api/admin/games/${gameId}`, { method: "DELETE" });
@@ -4407,7 +4411,7 @@ async function adminDeleteGame(gameId, profileUserId = null) {
     if (profileUserId) {
       await loadPlayerProfile(profileUserId);
       renderShell();
-      setPlayerProfileMessage("Game deleted.");
+      setPlayerProfileMessage(t("message.games.deleted"));
       return;
     }
     state.view = "games";
@@ -4422,7 +4426,7 @@ async function adminDeleteGame(gameId, profileUserId = null) {
 }
 
 async function adminForceConfirmGame(gameId, profileUserId = null) {
-  const confirmed = window.confirm("Force confirm this submitted result? Elo changes will be applied.");
+  const confirmed = window.confirm(t("dialog.games.forceConfirmResult"));
   if (!confirmed) return;
   try {
     await api(`/api/admin/games/${gameId}/confirm-result`, { method: "POST" });
@@ -4433,7 +4437,7 @@ async function adminForceConfirmGame(gameId, profileUserId = null) {
     if (profileUserId) {
       await loadPlayerProfile(profileUserId);
       renderShell();
-      setPlayerProfileMessage("Result force confirmed.");
+      setPlayerProfileMessage(t("message.games.forceConfirmed"));
       return;
     }
     if (state.view === "gameDetail") {
@@ -6779,7 +6783,7 @@ function wireAdminUserControls() {
   document.querySelectorAll("[data-delete-user]").forEach((button) => {
     button.addEventListener("click", async () => {
       const user = state.adminUsers.find((item) => item.id === Number(button.dataset.deleteUser));
-      if (!confirm(`Delete user ${user?.name || ""}?`)) return;
+      if (!confirm(t("dialog.admin.deleteUser", { name: user?.name || "" }))) return;
       try {
         await api(`/api/admin/users/${button.dataset.deleteUser}`, { method: "DELETE" });
         await refresh();
@@ -7103,7 +7107,7 @@ function wireFinalStandingsControls(data, options = {}) {
       setFinalMessage(t("admin.tournament.finalStandings.duplicateError"), true);
       return;
     }
-    if (!window.confirm("Publish final standings and end this tournament?")) return;
+    if (!window.confirm(t("dialog.admin.publishStandings"))) return;
     try {
       const updated = await api(`/api/admin/tournaments/${data.tournament.id}/standings/publish`, {
         method: "POST",
@@ -7405,13 +7409,13 @@ async function runAdminTournamentAction(action) {
     } else if (action === "reopen-registration") {
       await api(`/api/admin/tournaments/${tournament.id}/registration/reopen`, { method: "POST" });
     } else if (action === "start") {
-      if (!window.confirm("Start this tournament? Seeds and setup will be locked.")) return;
+      if (!window.confirm(t("dialog.admin.startTournament"))) return;
       await api(`/api/admin/tournaments/${tournament.id}/start`, { method: "POST" });
     } else if (action === "generate-next-round") {
       await openNextRoundSetupModal(tournament.id);
       return;
     } else if (action === "delete") {
-      if (!window.confirm(`Delete tournament "${tournament.name || "Untitled tournament"}"? Linked tournament games will be deleted and ratings will be recalculated.`)) return;
+      if (!window.confirm(t("dialog.admin.deleteTournament", { name: tournament.name || t("tournaments.list.untitled") }))) return;
       await api(`/api/admin/tournaments/${tournament.id}`, { method: "DELETE" });
       state.adminTournamentMode = "list";
       state.selectedTournamentId = null;
@@ -7680,7 +7684,7 @@ async function deleteAdminTournamentTable(tableId) {
   const tournament = state.adminTournamentDetail?.tournament;
   if (!tournament) return;
   const table = (state.adminTournamentDetail?.tables || []).find((item) => item.id === tableId);
-  if (!window.confirm(`Delete Table ${table?.tableNumber || ""}?`)) return;
+  if (!window.confirm(t("dialog.admin.deleteTable", { number: table?.tableNumber || "" }))) return;
   try {
     await api(`/api/admin/tournaments/${tournament.id}/tables/${tableId}`, { method: "DELETE" });
     await refreshAdminTournamentDetailView();
@@ -7754,7 +7758,7 @@ async function removeAdminTournamentParticipant(participantId) {
   const tournament = detail?.tournament;
   if (!tournament) return;
   const participant = (detail.participants || []).find((item) => item.id === participantId);
-  if (!window.confirm(`Remove ${participant?.displayName || "participant"}?`)) return;
+  if (!window.confirm(t("dialog.admin.removeParticipant", { name: participant?.displayName || t("dialog.admin.participantFallback") }))) return;
   try {
     await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, { method: "DELETE" });
     await refreshTournamentParticipantView(tournament);
