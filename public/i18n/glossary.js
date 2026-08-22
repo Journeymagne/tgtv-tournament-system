@@ -75,7 +75,9 @@ const SAME_IN_BOTH = {
   "op.kill": "Rules term.",
   "op.tac": "Rules term.",
   "venue.tts": "Product name.",
-  "nav.challenge": "Feature name."
+  "nav.challenge": "Feature name.",
+  "auth.brand.title": "Product name.",
+  "auth.field.telegramContactPlaceholder": "Placeholder format example, not localized text."
 };
 
 module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };

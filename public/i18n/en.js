@@ -54,7 +54,31 @@ const TGTV_I18N_EN = {
 
   // -- venue ----------------------------------------------------------------
   "venue.tts": "Tabletop Simulator",
-  "venue.irl": "In Real Life"
+  "venue.irl": "In Real Life",
+
+  // -- auth -----------------------------------------------------------------
+  "auth.brand.logoAlt": "TGTV logo",
+  "auth.brand.title": "TGTV Ranking Tournament System",
+  "auth.brand.tagline": "Kill Team challenges, Approved Ops results, and player ratings in one place.",
+  "auth.tab.signIn": "Sign in",
+  "auth.tab.register": "Register",
+  "auth.tab.admin": "Admin",
+  "auth.title.login": "Sign in",
+  "auth.title.register": "Create account",
+  "auth.title.setup": "First administrator",
+  "auth.subtitle.login": "Return to your challenges, matches, and rating.",
+  "auth.subtitle.register": "Your name will be visible in player search and the leaderboard.",
+  "auth.subtitle.setup": "Create the account that can manage players and ratings.",
+  "auth.action.login": "Sign in",
+  "auth.action.register": "Create account",
+  "auth.action.setup": "Create administrator",
+  "auth.field.name": "Name",
+  "auth.field.password": "Password",
+  "auth.field.confirmPassword": "Confirm password",
+  "auth.field.registerNickname": "Register Nickname",
+  "auth.field.registerNicknamePlaceholder": "Optional",
+  "auth.field.telegramContact": "Telegram Contact",
+  "auth.field.telegramContactPlaceholder": "@username"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_EN;

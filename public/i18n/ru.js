@@ -54,7 +54,31 @@ const TGTV_I18N_RU = {
 
   // -- venue ----------------------------------------------------------------
   "venue.tts": "Tabletop Simulator",
-  "venue.irl": "Вживую"
+  "venue.irl": "Вживую",
+
+  // -- auth -----------------------------------------------------------------
+  "auth.brand.logoAlt": "Логотип TGTV",
+  "auth.brand.title": "TGTV Ranking Tournament System",
+  "auth.brand.tagline": "Kill Team челленджи, результаты Approved Ops и рейтинги игроков в одном месте.",
+  "auth.tab.signIn": "Вход",
+  "auth.tab.register": "Регистрация",
+  "auth.tab.admin": "Админ",
+  "auth.title.login": "Вход",
+  "auth.title.register": "Создание аккаунта",
+  "auth.title.setup": "Первый администратор",
+  "auth.subtitle.login": "Вернитесь к своим челленджам, матчам и рейтингу.",
+  "auth.subtitle.register": "Ваше имя будет видно в поиске игроков и в таблице лидеров.",
+  "auth.subtitle.setup": "Создайте аккаунт, который сможет управлять игроками и рейтингами.",
+  "auth.action.login": "Войти",
+  "auth.action.register": "Создать аккаунт",
+  "auth.action.setup": "Создать администратора",
+  "auth.field.name": "Имя",
+  "auth.field.password": "Пароль",
+  "auth.field.confirmPassword": "Подтвердите пароль",
+  "auth.field.registerNickname": "Никнейм для регистрации",
+  "auth.field.registerNicknamePlaceholder": "Необязательно",
+  "auth.field.telegramContact": "Telegram-контакт",
+  "auth.field.telegramContactPlaceholder": "@username"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_RU;

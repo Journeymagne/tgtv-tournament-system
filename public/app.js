@@ -1511,55 +1511,55 @@ async function handleSharedChallengeHash() {
 function renderAuth() {
   const setupOpen = !state.hasAdmin;
   const title = state.authMode === "setup"
-    ? "First administrator"
+    ? t("auth.title.setup")
     : state.authMode === "register"
-      ? "Create account"
-      : "Sign in";
+      ? t("auth.title.register")
+      : t("auth.title.login");
   const subtitle = state.authMode === "setup"
-    ? "Create the account that can manage players and ratings."
+    ? t("auth.subtitle.setup")
     : state.authMode === "register"
-      ? "Your name will be visible in player search and the leaderboard."
-      : "Return to your challenges, matches, and rating.";
-  const action = state.authMode === "setup" ? "Create administrator" : state.authMode === "register" ? "Create account" : "Sign in";
+      ? t("auth.subtitle.register")
+      : t("auth.subtitle.login");
+  const action = state.authMode === "setup" ? t("auth.action.setup") : state.authMode === "register" ? t("auth.action.register") : t("auth.action.login");
   const profileFields = state.authMode !== "login" ? `
     <div class="field">
-      <label for="register-nickname">Register Nickname</label>
-      <input id="register-nickname" name="registerNickname" maxlength="40" placeholder="Optional">
+      <label for="register-nickname">${t("auth.field.registerNickname")}</label>
+      <input id="register-nickname" name="registerNickname" maxlength="40" placeholder="${t("auth.field.registerNicknamePlaceholder")}">
     </div>
     <div class="field">
-      <label for="telegram-contact">Telegram Contact</label>
-      <input id="telegram-contact" name="telegramContact" maxlength="80" placeholder="@username" required>
+      <label for="telegram-contact">${t("auth.field.telegramContact")}</label>
+      <input id="telegram-contact" name="telegramContact" maxlength="80" placeholder="${t("auth.field.telegramContactPlaceholder")}" required>
     </div>
   ` : "";
   const passwordMinLength = state.authMode === "login" ? 1 : 6;
   const confirmPasswordField = state.authMode !== "login"
-    ? passwordFieldMarkup("Confirm password", "confirmPassword", "confirm-password", "new-password", 6)
+    ? passwordFieldMarkup(t("auth.field.confirmPassword"), "confirmPassword", "confirm-password", "new-password", 6)
     : "";
 
   app.innerHTML = `
     <main class="auth-layout">
       <section class="brand-panel">
         <div>
-          <img class="brand-logo" src="/logo.png" alt="TGTV logo">
-          <h1>TGTV Ranking Tournament System</h1>
-          <p>Kill Team challenges, Approved Ops results, and player ratings in one place.</p>
+          <img class="brand-logo" src="/logo.png" alt="${t("auth.brand.logoAlt")}">
+          <h1>${t("auth.brand.title")}</h1>
+          <p>${t("auth.brand.tagline")}</p>
         </div>
       </section>
       <section class="auth-stack">
         <div class="card auth-card">
           <div class="tabs">
-            <button class="tab ${state.authMode === "login" ? "active" : ""}" data-auth-tab="login">Sign in</button>
-            <button class="tab ${state.authMode === "register" ? "active" : ""}" data-auth-tab="register">Register</button>
-            ${setupOpen ? `<button class="tab ${state.authMode === "setup" ? "active" : ""}" data-auth-tab="setup">Admin</button>` : ""}
+            <button class="tab ${state.authMode === "login" ? "active" : ""}" data-auth-tab="login">${t("auth.tab.signIn")}</button>
+            <button class="tab ${state.authMode === "register" ? "active" : ""}" data-auth-tab="register">${t("auth.tab.register")}</button>
+            ${setupOpen ? `<button class="tab ${state.authMode === "setup" ? "active" : ""}" data-auth-tab="setup">${t("auth.tab.admin")}</button>` : ""}
           </div>
           <h2 class="section-title">${title}</h2>
           <p class="section-subtitle">${subtitle}</p>
           <form data-auth-form>
             <div class="field">
-              <label for="name">Name</label>
+              <label for="name">${t("auth.field.name")}</label>
               <input id="name" name="name" autocomplete="username" required minlength="2" maxlength="24">
             </div>
-            ${passwordFieldMarkup("Password", "password", "password", state.authMode === "login" ? "current-password" : "new-password", passwordMinLength)}
+            ${passwordFieldMarkup(t("auth.field.password"), "password", "password", state.authMode === "login" ? "current-password" : "new-password", passwordMinLength)}
             ${confirmPasswordField}
             ${profileFields}
             <button class="primary-button" type="submit">${action}</button>
