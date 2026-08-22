@@ -336,7 +336,36 @@ const TGTV_I18N_EN = {
   "stats.result.draw": "Draw",
   "stats.result.status.win": "win",
   "stats.result.status.loss": "loss",
-  "stats.result.status.draw": "draw"
+  "stats.result.status.draw": "draw",
+
+  // -- challenge --------------------------------------------------------------
+  "challenge.title": "All Kill Team Challenge",
+  "challenge.subtitle": "{progress} Win with each Kill Team in order. Wildcards can be completed at any time.",
+  "challenge.subtitle.mine": "Your personal All Kill Team Challenge progress.",
+  "challenge.subtitle.other": "Challenge progress for {name}.",
+  "challenge.subtitle.otherPlayer": "this player",
+  "challenge.tab.classified": "Classified",
+  "challenge.tab.allKillTeam": "All Kill Team",
+  "challenge.error.load": "Could not load challenge progress: {reason}",
+  "challenge.loading": "Loading challenge progress...",
+  "challenge.detail.progress": "Progress {completed}/{total}",
+  "challenge.detail.next": "next: {team}",
+  "challenge.detail.complete": "challenge complete",
+  "challenge.wildcards.title": "Wildcards",
+  "challenge.wildcards.hint": "These can be completed at any time.",
+  "challenge.card.wildcard": "Wildcard",
+  "challenge.card.manualCredit": "Manual credit",
+  "challenge.card.currentTarget": "Current target",
+  "challenge.card.availableAnytime": "Available anytime",
+  "challenge.card.locked": "Locked",
+  "challenge.card.subtract": "Subtract",
+  "challenge.card.credit": "Credit",
+  "challenge.status.completed": "completed",
+  "challenge.status.current": "current",
+  "challenge.status.available": "available",
+  "challenge.status.locked": "locked",
+  "challenge.admin.creditNext": "Credit next",
+  "challenge.admin.creditTeam": "Credit {team}"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_EN;

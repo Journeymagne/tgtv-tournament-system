@@ -3843,23 +3843,23 @@ function renderChallenge() {
   const selected = selectedChallengeProgress();
   const activeProgress = selected ? challengeTrackProgress(selected) : null;
   const subtitle = selected?.user?.id === state.me.id
-    ? "Your personal All Kill Team Challenge progress."
-    : `Challenge progress for ${selected ? escapeHtml(selected.user.name) : "this player"}.`;
+    ? t("challenge.subtitle.mine")
+    : t("challenge.subtitle.other", { name: selected ? escapeHtml(selected.user.name) : t("challenge.subtitle.otherPlayer") });
   content.innerHTML = `
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>All Kill Team Challenge</h2>
-          <p class="muted">${subtitle} Win with each Kill Team in order. Wildcards can be completed at any time.</p>
+          <h2>${t("challenge.title")}</h2>
+          <p class="muted">${t("challenge.subtitle", { progress: subtitle })}</p>
         </div>
       </div>
       <div class="tabs stats-tabs">
-        <button class="tab ${state.challengeTab === "classified" ? "active" : ""}" data-challenge-tab="classified">Classified</button>
-        <button class="tab ${state.challengeTab === "allKillTeam" ? "active" : ""}" data-challenge-tab="allKillTeam">All Kill Team</button>
+        <button class="tab ${state.challengeTab === "classified" ? "active" : ""}" data-challenge-tab="classified">${t("challenge.tab.classified")}</button>
+        <button class="tab ${state.challengeTab === "allKillTeam" ? "active" : ""}" data-challenge-tab="allKillTeam">${t("challenge.tab.allKillTeam")}</button>
       </div>
-      ${state.challengeError ? `<div class="empty">Could not load challenge progress: ${escapeHtml(state.challengeError)}</div>` : ""}
+      ${state.challengeError ? `<div class="empty">${t("challenge.error.load", { reason: escapeHtml(state.challengeError) })}</div>` : ""}
     </section>
-    ${activeProgress ? challengeDetail(activeProgress) : `<section class="card panel"><div class="empty">Loading challenge progress...</div></section>`}
+    ${activeProgress ? challengeDetail(activeProgress) : `<section class="card panel"><div class="empty">${t("challenge.loading")}</div></section>`}
   `;
 
   document.querySelectorAll("[data-challenge-tab]").forEach((button) => {
@@ -3984,12 +3984,16 @@ function challengeUserCard(progress) {
 }
 
 function challengeDetail(progress) {
+  const progressLine = t("challenge.detail.progress", { completed: progress.completedCount, total: progress.total });
+  const progressTail = progress.nextTeam
+    ? t("challenge.detail.next", { team: escapeHtml(progress.nextTeam) })
+    : t("challenge.detail.complete");
   return `
     <section class="card panel">
       <div class="panel-header">
         <div>
           <h2>${escapeHtml(progress.user.name)}</h2>
-          <p class="muted">Progress ${progress.completedCount}/${progress.total}${progress.nextTeam ? ` &middot; next: ${escapeHtml(progress.nextTeam)}` : " &middot; challenge complete"}</p>
+          <p class="muted">${progressLine} &middot; ${progressTail}</p>
         </div>
         ${canEditChallengeProgress(progress) ? adminChallengeActions(progress) : ""}
       </div>
@@ -3998,8 +4002,8 @@ function challengeDetail(progress) {
       </div>
       ${progress.wildcards?.length ? `<div class="panel-header challenge-subheader">
         <div>
-          <h3>Wildcards</h3>
-          <p class="muted">These can be completed at any time.</p>
+          <h3>${t("challenge.wildcards.title")}</h3>
+          <p class="muted">${t("challenge.wildcards.hint")}</p>
         </div>
       </div>
       <div class="challenge-track wildcard-track">
@@ -4020,9 +4024,9 @@ function adminChallengeActions(progress) {
   const current = progress.teams.find((item) => item.status === "current");
   return `
     <div class="row-actions">
-      ${current ? `<button class="primary-button" data-credit-user="${progress.user.id}" data-credit-team="${escapeHtml(current.team)}">Credit next</button>` : ""}
+      ${current ? `<button class="primary-button" data-credit-user="${progress.user.id}" data-credit-team="${escapeHtml(current.team)}">${t("challenge.admin.creditNext")}</button>` : ""}
       ${progress.wildcards.filter((item) => item.status !== "completed").map((item) => `
-        <button class="small-button" data-credit-user="${progress.user.id}" data-credit-team="${escapeHtml(item.team)}">Credit ${escapeHtml(item.team)}</button>
+        <button class="small-button" data-credit-user="${progress.user.id}" data-credit-team="${escapeHtml(item.team)}">${t("challenge.admin.creditTeam", { team: escapeHtml(item.team) })}</button>
       `).join("")}
     </div>
   `;
@@ -4051,26 +4055,30 @@ function killTeamLogoSrc(team) {
 function challengeTeamCard(item, wildcard = false, userId = null) {
   const credit = item.credit;
   const meta = credit
-    ? `${credit.source === "manual" ? "Manual credit" : `Game #${credit.gameId}`} - ${fmtDate(credit.at)}`
-    : item.status === "current" ? "Current target" : item.status === "available" ? "Available anytime" : "Locked";
+    ? `${credit.source === "manual" ? t("challenge.card.manualCredit") : t("games.detail.title", { id: credit.gameId })} - ${fmtDate(credit.at)}`
+    : item.status === "current" ? t("challenge.card.currentTarget") : item.status === "available" ? t("challenge.card.availableAnytime") : t("challenge.card.locked");
   const canEdit = userId && canEditChallengeProgress({ user: { id: userId } });
   const adminAction = canEdit
     ? item.status === "completed"
-      ? `<button class="small-button" data-remove-credit-user="${userId}" data-remove-credit-team="${escapeHtml(item.team)}">Subtract</button>`
-      : `<button class="small-button" data-credit-user="${userId}" data-credit-team="${escapeHtml(item.team)}">Credit</button>`
+      ? `<button class="small-button" data-remove-credit-user="${userId}" data-remove-credit-team="${escapeHtml(item.team)}">${t("challenge.card.subtract")}</button>`
+      : `<button class="small-button" data-credit-user="${userId}" data-credit-team="${escapeHtml(item.team)}">${t("challenge.card.credit")}</button>`
     : "";
+  const statusKey = item.status === "completed" ? "challenge.status.completed"
+    : item.status === "current" ? "challenge.status.current"
+    : item.status === "available" ? "challenge.status.available"
+    : "challenge.status.locked";
   return `
     <div class="challenge-team-card ${item.status}">
       <div class="challenge-team-main">
         <img class="challenge-team-logo" src="${killTeamLogoSrc(item.team)}" alt="">
         <div>
-          <span>${wildcard ? "Wildcard" : `#${item.order}`}</span>
+          <span>${wildcard ? t("challenge.card.wildcard") : `#${item.order}`}</span>
           <strong>${escapeHtml(item.team)}</strong>
           <small>${escapeHtml(meta)}</small>
         </div>
       </div>
       <div class="row-actions">
-        <span class="status ${item.status === "completed" ? "completed" : item.status === "current" || item.status === "available" ? "open" : ""}">${item.status}</span>
+        <span class="status ${item.status === "completed" ? "completed" : item.status === "current" || item.status === "available" ? "open" : ""}">${t(statusKey)}</span>
         ${adminAction}
       </div>
     </div>

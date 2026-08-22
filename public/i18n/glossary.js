@@ -90,7 +90,12 @@ const SAME_IN_BOTH = {
   "tournaments.review.tacOpVp": "Rules term.",
   "tournaments.score.primaryOp": "Rules term.",
   "stats.classification.classified": "Challenge classification, a feature name.",
-  "stats.classification.nonClassified": "Challenge classification, a feature name."
+  "stats.classification.nonClassified": "Challenge classification, a feature name.",
+  "challenge.title": "Feature name.",
+  "challenge.tab.classified": "Challenge classification, a feature name.",
+  "challenge.tab.allKillTeam": "Feature and classification names.",
+  "challenge.wildcards.title": "Game term kept English, per the challenge.subtitle worked translation.",
+  "challenge.card.wildcard": "Game term kept English, per the challenge.subtitle worked translation."
 };
 
 module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };

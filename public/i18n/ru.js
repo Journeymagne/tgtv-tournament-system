@@ -345,7 +345,36 @@ const TGTV_I18N_RU = {
   "stats.result.draw": "Ничья",
   "stats.result.status.win": "победа",
   "stats.result.status.loss": "поражение",
-  "stats.result.status.draw": "ничья"
+  "stats.result.status.draw": "ничья",
+
+  // -- challenge --------------------------------------------------------------
+  "challenge.title": "All Kill Team Challenge",
+  "challenge.subtitle": "{progress} Побеждайте каждым Kill Team по порядку. Wildcards можно закрыть в любой момент.",
+  "challenge.subtitle.mine": "Ваш личный прогресс All Kill Team Challenge.",
+  "challenge.subtitle.other": "Прогресс челленджа для {name}.",
+  "challenge.subtitle.otherPlayer": "этого игрока",
+  "challenge.tab.classified": "Classified",
+  "challenge.tab.allKillTeam": "All Kill Team",
+  "challenge.error.load": "Не удалось загрузить прогресс челленджа: {reason}",
+  "challenge.loading": "Загрузка прогресса челленджа...",
+  "challenge.detail.progress": "Прогресс {completed}/{total}",
+  "challenge.detail.next": "далее: {team}",
+  "challenge.detail.complete": "челлендж завершён",
+  "challenge.wildcards.title": "Wildcards",
+  "challenge.wildcards.hint": "Их можно выполнить в любой момент.",
+  "challenge.card.wildcard": "Wildcard",
+  "challenge.card.manualCredit": "Начислено вручную",
+  "challenge.card.currentTarget": "Текущая цель",
+  "challenge.card.availableAnytime": "Доступно в любой момент",
+  "challenge.card.locked": "Заблокировано",
+  "challenge.card.subtract": "Отменить",
+  "challenge.card.credit": "Зачесть",
+  "challenge.status.completed": "завершено",
+  "challenge.status.current": "текущий",
+  "challenge.status.available": "доступно",
+  "challenge.status.locked": "заблокировано",
+  "challenge.admin.creditNext": "Зачесть следующий",
+  "challenge.admin.creditTeam": "Зачесть {team}"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_RU;
