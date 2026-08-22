@@ -7834,6 +7834,43 @@ function wireThemeToggle() {
   });
 }
 
+function savedLocalePreference() {
+  try {
+    const saved = window.localStorage.getItem(I18N_LOCALE_STORAGE_KEY);
+    if (I18N_SUPPORTED_LOCALES.includes(saved)) return saved;
+  } catch {
+    // Local storage can be unavailable in privacy-restricted browsers.
+  }
+  const preferred = window.navigator?.languages?.[0] || window.navigator?.language || "";
+  return String(preferred).toLowerCase().startsWith("ru") ? "ru" : "en";
+}
+
+function applyLocale(locale) {
+  const selected = i18n.setLocale(locale);
+  document.documentElement.lang = selected;
+  const button = document.querySelector("[data-lang-toggle]");
+  if (!button) return;
+  button.textContent = selected === "ru" ? "EN" : "RU";
+  const label = t("common.langToggle");
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", label);
+}
+
+function wireLocaleToggle() {
+  document.querySelector("[data-lang-toggle]")?.addEventListener("click", () => {
+    const next = i18n.getLocale() === "ru" ? "en" : "ru";
+    try {
+      window.localStorage.setItem(I18N_LOCALE_STORAGE_KEY, next);
+    } catch {
+      // The language still applies to the current page when storage is blocked.
+    }
+    applyLocale(next);
+    render();
+  });
+}
+
 applyTheme(savedThemePreference());
 wireThemeToggle();
+applyLocale(savedLocalePreference());
+wireLocaleToggle();
 boot();
