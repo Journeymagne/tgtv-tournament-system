@@ -135,15 +135,23 @@ test("5. placeholders match between locales", () => {
   }
 });
 
-test("6. dictionary values are HTML-safe", () => {
+// Values must survive being run through escapeHtml() unchanged in meaning.
+// Several call sites legitimately escape a whole `dataValue || t(fallback)`
+// expression -- the escaping is there for the data, and the fallback rides
+// along. That is only safe while values carry no markup and no entities: an
+// entity like `&mdash;` would come back out as `&amp;mdash;` and render
+// literally. So write the real character instead; the files are UTF-8.
+// A lone `&` is fine -- escapeHtml turns it into `&amp;`, which renders as `&`.
+test("6. dictionary values survive HTML escaping", () => {
   for (const [locale, dict] of Object.entries(LOCALES)) {
     for (const [key, value] of Object.entries(dict)) {
       for (const text of leafValues(value)) {
         assert.ok(!text.includes("<"), `${locale}.${key} contains a raw "<"`);
-        const stripped = text.replace(HTML_ENTITY, "").replace(/&(?=\s|$)/g, "");
-        assert.ok(
-          !stripped.includes("&"),
-          `${locale}.${key} contains a bare "&" that is not an HTML entity`
+        const entity = text.match(HTML_ENTITY);
+        assert.equal(
+          entity,
+          null,
+          `${locale}.${key} contains the HTML entity "${entity && entity[0]}" -- write the character itself instead`
         );
       }
     }

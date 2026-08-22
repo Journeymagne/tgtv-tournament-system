@@ -450,7 +450,7 @@ const TGTV_I18N_RU = {
   "feedback.title": "Обратная связь",
   "feedback.hint": "Напишите коротко об экране, ошибке или улучшении.",
   "feedback.mode.form": "Форма",
-  "feedback.mode.inbox": "Входящие админа",
+  "feedback.mode.inbox": "Входящие администратора",
   "feedback.form.screenLabel": "Экран",
   "feedback.form.screenPlaceholder": "Например: Мэтчмейкинг",
   "feedback.form.descriptionLabel": "Описание",
