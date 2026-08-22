@@ -104,6 +104,9 @@ const TGTV_I18N_RU = {
   "play.action.deletePending": "Удалить игру",
   "play.action.exitGame": "Выйти из игры",
   "play.action.details": "Подробнее",
+  "play.game.status.completed": "завершена",
+  "play.game.status.pending": "ожидает",
+  "play.game.status.active": "активна",
   "play.search.searching": "Идёт поиск..."
 };
 

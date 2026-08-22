@@ -1928,7 +1928,7 @@ function gameCard(game) {
         <div class="row-meta">${escapeHtml(result)}</div>
       </div>
       <div class="row-actions">
-        <span class="status ${status}">${game.status === "completed" ? "completed" : isPending ? "pending" : "active"}</span>
+        <span class="status ${status}">${game.status === "completed" ? t("play.game.status.completed") : isPending ? t("play.game.status.pending") : t("play.game.status.active")}</span>
         ${detailsAction}
         ${mainAction}
         ${exitAction}

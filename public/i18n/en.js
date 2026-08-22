@@ -104,6 +104,9 @@ const TGTV_I18N_EN = {
   "play.action.deletePending": "Delete pending",
   "play.action.exitGame": "Exit game",
   "play.action.details": "Details",
+  "play.game.status.completed": "completed",
+  "play.game.status.pending": "pending",
+  "play.game.status.active": "active",
   "play.search.searching": "Searching for matches..."
 };
 
