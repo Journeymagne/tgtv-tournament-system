@@ -8,6 +8,7 @@ work/
 outputs/
 
 .agents/
+.claude/
 .codex/
 
 *.log
