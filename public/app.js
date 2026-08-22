@@ -393,8 +393,12 @@ function safeMarkdownUrl(value) {
 
 function fmtDate(value) {
   if (!value) return "";
-  return new Intl.DateTimeFormat("ru", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
-    .format(new Date(value));
+  return i18n.formatDate(new Date(value), {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function approvedTotal(score) {
@@ -455,8 +459,8 @@ function crossedSwordsIcon() {
 
 function profileInfoMarkup(user) {
   const rows = [
-    ["Register Nickname", user?.registerNickname],
-    ["Telegram", user?.telegramContact]
+    [t("auth.field.registerNickname"), user?.registerNickname],
+    [t("tournaments.field.telegram"), user?.telegramContact]
   ].filter(([, value]) => String(value || "").trim());
 
   if (!rows.length) return "";
@@ -474,22 +478,22 @@ function profileInfoMarkup(user) {
 
 function profileContactsCard(user) {
   const rows = [
-    ["Register Nickname", user?.registerNickname],
-    ["Telegram Contact", user?.telegramContact]
+    [t("auth.field.registerNickname"), user?.registerNickname],
+    [t("auth.field.telegramContact"), user?.telegramContact]
   ];
   return `
     <div class="card panel">
       <div class="panel-header">
         <div>
-          <h3>Contacts</h3>
-          <p class="muted">Player contact details.</p>
+          <h3>${t("profile.contacts.title")}</h3>
+          <p class="muted">${t("profile.contacts.subtitle")}</p>
         </div>
       </div>
       <div class="contact-list">
         ${rows.map(([label, value]) => `
           <div class="contact-row">
             <span>${escapeHtml(label)}</span>
-            <strong>${value ? escapeHtml(value) : "Not filled"}</strong>
+            <strong>${value ? escapeHtml(value) : t("profile.contacts.notFilled")}</strong>
           </div>
         `).join("")}
       </div>
@@ -2274,78 +2278,78 @@ function renderProfile() {
     <section class="card panel profile-hero">
       <div class="profile-avatar">${avatarMarkup(state.me)}</div>
       <div class="profile-main">
-        <p class="profile-label">Player profile</p>
+        <p class="profile-label">${t("profile.hero.label")}</p>
         <h2>${escapeHtml(state.me.name)}</h2>
-        <p class="muted">${state.me.isAdmin ? "Administrator" : "Player"} &middot; joined ${fmtDate(state.me.createdAt)}</p>
+        <p class="muted">${state.me.isAdmin ? t("profile.hero.role.admin") : t("profile.hero.role.player")} &middot; ${t("profile.hero.joined", { date: fmtDate(state.me.createdAt) })}</p>
         ${profileInfoMarkup(state.me)}
       </div>
       <div class="profile-rating">
         <span>${state.me.rating}</span>
-        <small>Elo</small>
+        <small>${t("profile.hero.elo")}</small>
       </div>
     </section>
 
     <section class="profile-grid">
-      ${metricCard("Matches", stats.completedGames.length)}
-      ${metricCard("Wins", stats.wins)}
-      ${metricCard("Draws", stats.draws)}
-      ${metricCard("Losses", stats.losses)}
-      ${metricCard("Elo change", signed(stats.eloDelta))}
-      ${metricCard("Win rate", `${stats.winRate}%`)}
+      ${metricCard(t("profile.metric.matches"), stats.completedGames.length)}
+      ${metricCard(t("stats.column.wins"), stats.wins)}
+      ${metricCard(t("stats.column.draws"), stats.draws)}
+      ${metricCard(t("stats.column.losses"), stats.losses)}
+      ${metricCard(t("profile.metric.eloChange"), signed(stats.eloDelta))}
+      ${metricCard(t("profile.metric.winRate"), `${stats.winRate}%`)}
     </section>
 
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Profile settings</h2>
-          <p class="muted">Update your avatar, nickname, or password.</p>
+          <h2>${t("profile.settings.title")}</h2>
+          <p class="muted">${t("profile.settings.subtitle")}</p>
         </div>
       </div>
       <div class="settings-grid">
         <div class="settings-block">
-          <h3>Avatar</h3>
+          <h3>${t("profile.settings.avatarTitle")}</h3>
           <div class="avatar-settings-row">
             <div class="profile-avatar compact-avatar" data-avatar-preview>${avatarMarkup(state.me)}</div>
             <div>
               <input class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-avatar-input>
-              <p class="muted small-note">PNG, JPG, WebP or GIF. Max 1 MB.</p>
+              <p class="muted small-note">${t("profile.settings.avatarHint")}</p>
               <div class="row-actions">
-                <button class="small-button" data-remove-avatar type="button">Remove avatar</button>
+                <button class="small-button" data-remove-avatar type="button">${t("profile.settings.removeAvatar")}</button>
               </div>
             </div>
           </div>
         </div>
         <form class="settings-block" data-profile-name-form>
-          <h3>Nickname</h3>
+          <h3>${t("profile.settings.nicknameTitle")}</h3>
           <div class="field">
-            <label for="profile-name">Name</label>
+            <label for="profile-name">${t("auth.field.name")}</label>
             <input id="profile-name" name="name" value="${escapeHtml(state.me.name)}" required minlength="2" maxlength="24">
           </div>
-          <button class="primary-button" type="submit">Save nickname</button>
+          <button class="primary-button" type="submit">${t("profile.settings.saveNickname")}</button>
         </form>
         <form class="settings-block" data-profile-contact-form>
-          <h3>Contacts</h3>
+          <h3>${t("profile.contacts.title")}</h3>
           <div class="field">
-            <label for="profile-register-nickname">Register Nickname</label>
-            <input id="profile-register-nickname" name="registerNickname" value="${escapeHtml(state.me.registerNickname || "")}" maxlength="40" placeholder="Optional">
+            <label for="profile-register-nickname">${t("auth.field.registerNickname")}</label>
+            <input id="profile-register-nickname" name="registerNickname" value="${escapeHtml(state.me.registerNickname || "")}" maxlength="40" placeholder="${t("auth.field.registerNicknamePlaceholder")}">
           </div>
           <div class="field">
-            <label for="profile-telegram-contact">Telegram Contact</label>
-            <input id="profile-telegram-contact" name="telegramContact" value="${escapeHtml(state.me.telegramContact || "")}" maxlength="80" placeholder="@username" required>
+            <label for="profile-telegram-contact">${t("auth.field.telegramContact")}</label>
+            <input id="profile-telegram-contact" name="telegramContact" value="${escapeHtml(state.me.telegramContact || "")}" maxlength="80" placeholder="${t("auth.field.telegramContactPlaceholder")}" required>
           </div>
-          <button class="primary-button" type="submit">Save contacts</button>
+          <button class="primary-button" type="submit">${t("profile.settings.saveContacts")}</button>
         </form>
         <form class="settings-block" data-profile-password-form>
-          <h3>Password</h3>
+          <h3>${t("auth.field.password")}</h3>
           <div class="field">
-            <label for="current-password">Current password</label>
+            <label for="current-password">${t("profile.settings.currentPassword")}</label>
             <input id="current-password" name="currentPassword" type="password" autocomplete="current-password" required>
           </div>
           <div class="field">
-            <label for="new-password">New password</label>
+            <label for="new-password">${t("profile.settings.newPassword")}</label>
             <input id="new-password" name="newPassword" type="password" autocomplete="new-password" minlength="6" required>
           </div>
-          <button class="primary-button" type="submit">Change password</button>
+          <button class="primary-button" type="submit">${t("profile.settings.changePassword")}</button>
         </form>
       </div>
       <div class="message" data-profile-message></div>
@@ -2355,25 +2359,25 @@ function renderProfile() {
       <div class="card panel">
         <div class="panel-header">
           <div>
-            <h3>Active matchmaking</h3>
-            <p class="muted">${latestActiveMatchmaking ? "Latest active game or challenge." : "No active games or pending challenges."}</p>
+            <h3>${t("profile.matchmaking.title")}</h3>
+            <p class="muted">${latestActiveMatchmaking ? t("profile.matchmaking.subtitleLatest") : t("profile.matchmaking.subtitleEmpty")}</p>
           </div>
         </div>
-        ${latestActiveMatchmaking ? activeMatchmakingPreview(latestActiveMatchmaking) : `<div class="empty">No active game or challenge.</div>`}
+        ${latestActiveMatchmaking ? activeMatchmakingPreview(latestActiveMatchmaking) : `<div class="empty">${t("profile.matchmaking.empty")}</div>`}
       </div>
       <div class="card panel">
         <div class="panel-header">
           <div>
-            <h3>All Kill Team Challenge</h3>
-            <p class="muted">Your ordered Kill Team win tracker.</p>
+            <h3>${t("challenge.title")}</h3>
+            <p class="muted">${t("profile.challenge.subtitle")}</p>
           </div>
         </div>
         ${profileChallengeNextCard(challengeProgress)}
       </div>
       <div class="card panel wide-panel">
-        <div class="panel-header"><h3>Recent matches</h3></div>
+        <div class="panel-header"><h3>${t("profile.recent.title")}</h3></div>
         <div class="list">
-          ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">No completed matches yet.</div>`}
+          ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`}
         </div>
       </div>
     </section>
@@ -2392,9 +2396,9 @@ function ownChallengeProgress() {
 function profileChallengeNextCard(progress) {
   if (!progress) {
     return `
-      <div class="empty">Challenge progress is loading.</div>
+      <div class="empty">${t("profile.challenge.loading")}</div>
       <div class="row-actions profile-challenge-actions">
-        <button class="small-button" data-profile-challenge-progress="${state.me.id}">Open challenge</button>
+        <button class="small-button" data-profile-challenge-progress="${state.me.id}">${t("profile.challenge.openAction")}</button>
       </div>
     `;
   }
@@ -2404,12 +2408,12 @@ function profileChallengeNextCard(progress) {
     return `
       <div class="row-card profile-challenge-next-card">
         <div class="row-main">
-          <p class="profile-label">Challenge complete</p>
-          <div class="row-title">All ordered Kill Teams completed</div>
-          <div class="row-meta">Progress ${progress.completedCount}/${progress.total}</div>
+          <p class="profile-label">${t("profile.challenge.complete")}</p>
+          <div class="row-title">${t("profile.challenge.allCompleted")}</div>
+          <div class="row-meta">${t("challenge.detail.progress", { completed: progress.completedCount, total: progress.total })}</div>
         </div>
         <div class="row-actions">
-          <button class="small-button" data-profile-challenge-progress="${progress.user.id}">Open challenge</button>
+          <button class="small-button" data-profile-challenge-progress="${progress.user.id}">${t("profile.challenge.openAction")}</button>
         </div>
       </div>
     `;
@@ -2418,15 +2422,15 @@ function profileChallengeNextCard(progress) {
   return `
     <div class="row-card profile-challenge-next-card">
       <div class="profile-challenge-next-main">
-        <img class="profile-challenge-logo" src="${killTeamLogoSrc(current.team)}" alt="${escapeHtml(current.team)} logo">
+        <img class="profile-challenge-logo" src="${killTeamLogoSrc(current.team)}" alt="${escapeHtml(t("profile.challenge.teamLogoAlt", { team: current.team }))}">
         <div class="row-main">
-          <p class="profile-label">Next Kill Team</p>
+          <p class="profile-label">${t("profile.challenge.nextLabel")}</p>
           <div class="row-title">${escapeHtml(current.team)}</div>
-          <div class="row-meta">Progress ${progress.completedCount}/${progress.total}</div>
+          <div class="row-meta">${t("challenge.detail.progress", { completed: progress.completedCount, total: progress.total })}</div>
         </div>
       </div>
       <div class="row-actions">
-        <button class="small-button" data-profile-challenge-progress="${progress.user.id}">Open challenge</button>
+        <button class="small-button" data-profile-challenge-progress="${progress.user.id}">${t("profile.challenge.openAction")}</button>
       </div>
     </div>
   `;
@@ -2464,19 +2468,19 @@ function latestActiveMatchmakingItem(stats) {
       type: "game",
       id: game.id,
       title: gameTitle(game),
-      meta: game.status === "pending_confirmation" ? pendingResultSummary(game) : `Accepted match · ${fmtDate(game.createdAt)}`,
+      meta: game.status === "pending_confirmation" ? pendingResultSummary(game) : `${t("profile.matchmaking.acceptedMatch")} · ${fmtDate(game.createdAt)}`,
       at: game.submittedAt || game.updatedAt || game.createdAt
     })),
     ...stats.pendingIncoming.map((challenge) => ({
       type: "challenge",
-      title: `Challenge from ${challenge.from?.name || "Player"}`,
-      meta: `${challenge.from?.rating || "-"} Elo · ${fmtDate(challenge.createdAt)}`,
+      title: t("profile.matchmaking.challengeFrom", { name: challenge.from?.name || t("tournaments.player.fallback") }),
+      meta: `${t("profile.matchmaking.ratingElo", { rating: challenge.from?.rating || "-" })} · ${fmtDate(challenge.createdAt)}`,
       at: challenge.updatedAt || challenge.createdAt
     })),
     ...stats.pendingOutgoing.map((challenge) => ({
       type: "challenge",
-      title: `You challenged ${challenge.to?.name || "Player"}`,
-      meta: `${challenge.to?.rating || "-"} Elo · ${fmtDate(challenge.createdAt)}`,
+      title: t("profile.matchmaking.youChallenged", { name: challenge.to?.name || t("tournaments.player.fallback") }),
+      meta: `${t("profile.matchmaking.ratingElo", { rating: challenge.to?.rating || "-" })} · ${fmtDate(challenge.createdAt)}`,
       at: challenge.updatedAt || challenge.createdAt
     }))
   ];
@@ -2491,8 +2495,8 @@ function activeMatchmakingPreview(item) {
         <div class="row-meta">${escapeHtml(item.meta)}</div>
       </div>
       <div class="row-actions">
-        <span class="status ${item.type === "game" ? "open" : "pending"}">${item.type === "game" ? "active" : "pending"}</span>
-        <button class="primary-button" data-open-matchmaking ${item.type === "game" ? `data-game-id="${item.id}"` : ""}>Open</button>
+        <span class="status ${item.type === "game" ? "open" : "pending"}">${item.type === "game" ? t("play.game.status.active") : t("play.game.status.pending")}</span>
+        <button class="primary-button" data-open-matchmaking ${item.type === "game" ? `data-game-id="${item.id}"` : ""}>${t("tournaments.card.open")}</button>
       </div>
     </div>
   `;
@@ -2502,7 +2506,7 @@ function renderPlayerProfile() {
   const content = document.querySelector("[data-content]");
   const profile = state.playerProfile;
   if (!profile?.user) {
-    content.innerHTML = `<section class="card panel"><div class="empty">Player profile is loading.</div></section>`;
+    content.innerHTML = `<section class="card panel"><div class="empty">${t("profile.playerProfile.loading")}</div></section>`;
     return;
   }
 
@@ -2516,31 +2520,31 @@ function renderPlayerProfile() {
   const challengeButton = user.id === state.me.id
     ? ""
     : activeGame
-      ? `<button class="primary-button game-challenge-button" data-profile-game="${activeGame.id}">Open game</button>`
-      : `<button class="primary-button game-challenge-button" data-profile-challenge="${user.id}" ${pendingChallenge ? "disabled" : ""}>${pendingChallenge ? "Challenge pending" : "Challenge to Play"}</button>`;
+      ? `<button class="primary-button game-challenge-button" data-profile-game="${activeGame.id}">${t("profile.playerProfile.openGame")}</button>`
+      : `<button class="primary-button game-challenge-button" data-profile-challenge="${user.id}" ${pendingChallenge ? "disabled" : ""}>${pendingChallenge ? t("profile.playerProfile.challengePending") : t("profile.playerProfile.challengeToPlay")}</button>`;
 
   content.innerHTML = `
     <section class="card panel profile-hero">
       <div class="profile-avatar">${avatarMarkup(user)}</div>
       <div class="profile-main">
-        <p class="profile-label">Player profile</p>
+        <p class="profile-label">${t("profile.hero.label")}</p>
         <h2>${escapeHtml(user.name)}</h2>
-        <p class="muted">Player &middot; joined ${fmtDate(user.createdAt)}</p>
+        <p class="muted">${t("profile.hero.role.player")} &middot; ${t("profile.hero.joined", { date: fmtDate(user.createdAt) })}</p>
         ${profileInfoMarkup(user)}
       </div>
       <div class="profile-rating">
         <span>${user.rating}</span>
-        <small>Elo</small>
+        <small>${t("profile.hero.elo")}</small>
       </div>
     </section>
 
     <section class="profile-grid">
-      ${metricCard("Matches", stats.matches || 0)}
-      ${metricCard("Wins", stats.wins || 0)}
-      ${metricCard("Draws", stats.draws || 0)}
-      ${metricCard("Losses", stats.losses || 0)}
-      ${metricCard("Elo change", signed(stats.eloDelta || 0))}
-      ${metricCard("Win rate", `${stats.winRate || 0}%`)}
+      ${metricCard(t("profile.metric.matches"), stats.matches || 0)}
+      ${metricCard(t("stats.column.wins"), stats.wins || 0)}
+      ${metricCard(t("stats.column.draws"), stats.draws || 0)}
+      ${metricCard(t("stats.column.losses"), stats.losses || 0)}
+      ${metricCard(t("profile.metric.eloChange"), signed(stats.eloDelta || 0))}
+      ${metricCard(t("profile.metric.winRate"), `${stats.winRate || 0}%`)}
     </section>
 
     <section class="grid-2">
@@ -2548,10 +2552,10 @@ function renderPlayerProfile() {
       ${state.me.isAdmin && user.id !== state.me.id ? adminPlayerToolsCard(user) : ""}
       <div class="card panel">
         <div class="panel-header">
-          <h3 class="icon-heading">${crossedSwordsIcon()}<span>Game challenges</span></h3>
+          <h3 class="icon-heading">${crossedSwordsIcon()}<span>${t("profile.playerProfile.gameChallengesTitle")}</span></h3>
         </div>
         <div class="game-challenge-card-body">
-          <img class="game-challenge-logo" src="/game-challenge-logo.png?v=20260706-large-logo-1" alt="Game challenge logo">
+          <img class="game-challenge-logo" src="/game-challenge-logo.png?v=20260706-large-logo-1" alt="${t("profile.playerProfile.gameChallengeLogoAlt")}">
           <div class="row-actions game-challenge-actions">
             ${challengeButton}
           </div>
@@ -2562,8 +2566,8 @@ function renderPlayerProfile() {
       <div class="card panel">
         <div class="panel-header">
           <div>
-            <h3>All Kill Team Challenge</h3>
-            <p class="muted">Ordered Kill Team win tracker.</p>
+            <h3>${t("challenge.title")}</h3>
+            <p class="muted">${t("profile.playerProfile.challengeSubtitle")}</p>
           </div>
         </div>
         ${profileChallengeNextCard(challengeProgress)}
@@ -2571,13 +2575,13 @@ function renderPlayerProfile() {
       <div class="card panel wide-panel">
         <div class="panel-header">
           <div>
-            <h3>Recent matches</h3>
-            <p class="muted">Completed matches for this player.</p>
+            <h3>${t("profile.recent.title")}</h3>
+            <p class="muted">${t("profile.playerProfile.recentSubtitle")}</p>
           </div>
-          <button class="ghost-button" data-back-leaderboard>Leaderboard</button>
+          <button class="ghost-button" data-back-leaderboard>${t("nav.leaderboard")}</button>
         </div>
         <div class="list">
-          ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">No completed matches yet.</div>`}
+          ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`}
         </div>
       </div>
     </section>
@@ -2599,7 +2603,7 @@ function renderPlayerProfile() {
       await sendChallengeToUser(Number(button.dataset.profileChallenge));
       await loadPlayerProfile(user.id);
       renderShell();
-      setPlayerProfileMessage("Challenge sent.");
+      setPlayerProfileMessage(t("profile.playerProfile.challengeSent"));
     } catch (err) {
       button.disabled = false;
       setPlayerProfileMessage(err.message, true);
@@ -2620,22 +2624,22 @@ function adminPlayerToolsCard(user) {
     <div class="card panel">
       <div class="panel-header">
         <div>
-          <h3>Admin account tools</h3>
-          <p class="muted">Reset this player's password and share the temporary value.</p>
+          <h3>${t("profile.admin.toolsTitle")}</h3>
+          <p class="muted">${t("profile.admin.toolsSubtitle")}</p>
         </div>
       </div>
       <div class="row-actions">
-        <button class="danger-button" data-admin-reset-password="${user.id}">Reset password</button>
+        <button class="danger-button" data-admin-reset-password="${user.id}">${t("profile.admin.resetPassword")}</button>
       </div>
       ${reset ? `
         <div class="row-card admin-password-card">
           <div class="row-main">
-            <div class="row-title">Temporary password</div>
-            <div class="row-meta">Visible here until you leave this profile.</div>
+            <div class="row-title">${t("profile.admin.tempPasswordTitle")}</div>
+            <div class="row-meta">${t("profile.admin.tempPasswordHint")}</div>
           </div>
           <div class="row-actions">
             <code class="admin-password-value">${escapeHtml(reset.password)}</code>
-            <button class="small-button" data-admin-copy-password="${escapeHtml(reset.password)}">Copy</button>
+            <button class="small-button" data-admin-copy-password="${escapeHtml(reset.password)}">${t("profile.admin.copy")}</button>
           </div>
         </div>
       ` : ""}
@@ -2660,7 +2664,7 @@ function wireAdminPlayerTools(profileUserId) {
     const originalText = button.textContent;
     try {
       await copyText(button.dataset.adminCopyPassword);
-      button.textContent = "Copied";
+      button.textContent = t("profile.admin.copied");
       button.disabled = true;
       window.setTimeout(() => {
         button.textContent = originalText;
@@ -2678,8 +2682,8 @@ function adminPendingGamesCard(profile) {
     <div class="card panel">
       <div class="panel-header">
         <div>
-          <h3>Pending games</h3>
-          <p class="muted">Admin tools for unconfirmed submitted results.</p>
+          <h3>${t("profile.admin.pendingGamesTitle")}</h3>
+          <p class="muted">${t("profile.admin.pendingGamesSubtitle")}</p>
         </div>
       </div>
       <div class="list">
@@ -2690,12 +2694,12 @@ function adminPendingGamesCard(profile) {
               <div class="row-meta">${escapeHtml(pendingResultSummary(game))}</div>
             </div>
             <div class="row-actions">
-              <button class="small-button" data-admin-pending-open="${game.id}">Open</button>
-              <button class="small-button" data-admin-pending-confirm="${game.id}">Force confirm</button>
-              <button class="danger-button" data-admin-pending-delete="${game.id}">Delete</button>
+              <button class="small-button" data-admin-pending-open="${game.id}">${t("tournaments.card.open")}</button>
+              <button class="small-button" data-admin-pending-confirm="${game.id}">${t("games.detail.forceConfirm")}</button>
+              <button class="danger-button" data-admin-pending-delete="${game.id}">${t("common.delete")}</button>
             </div>
           </div>
-        `).join("") : `<div class="empty">No pending games.</div>`}
+        `).join("") : `<div class="empty">${t("profile.admin.pendingGamesEmpty")}</div>`}
       </div>
     </div>
   `;
@@ -2730,9 +2734,9 @@ function wireProfileSettings() {
     const file = avatarInput.files?.[0];
     if (!file) return;
     try {
-      setProfileMessage("Preparing avatar...");
+      setProfileMessage(t("profile.settings.preparingAvatar"));
       const avatarData = await compressAvatar(file);
-      await updateProfile({ avatarData }, "Avatar updated.");
+      await updateProfile({ avatarData }, t("profile.settings.avatarUpdated"));
     } catch (err) {
       setProfileMessage(err.message, true);
     } finally {
@@ -2741,13 +2745,13 @@ function wireProfileSettings() {
   });
 
   removeAvatar?.addEventListener("click", async () => {
-    await updateProfile({ avatarData: null }, "Avatar removed.");
+    await updateProfile({ avatarData: null }, t("profile.settings.avatarRemoved"));
   });
 
   nameForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(nameForm);
-    await updateProfile({ name: form.get("name") }, "Nickname updated.");
+    await updateProfile({ name: form.get("name") }, t("profile.settings.nicknameUpdated"));
   });
 
   contactForm?.addEventListener("submit", async (event) => {
@@ -2756,7 +2760,7 @@ function wireProfileSettings() {
     await updateProfile({
       registerNickname: form.get("registerNickname"),
       telegramContact: form.get("telegramContact")
-    }, "Contacts updated.");
+    }, t("profile.settings.contactsUpdated"));
   });
 
   passwordForm?.addEventListener("submit", async (event) => {
@@ -2765,17 +2769,17 @@ function wireProfileSettings() {
     await updateProfile({
       currentPassword: form.get("currentPassword"),
       newPassword: form.get("newPassword")
-    }, "Password changed.");
+    }, t("profile.settings.passwordChanged"));
   });
 }
 
 async function compressAvatar(file) {
   const allowedTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
   if (!allowedTypes.includes(file.type)) {
-    throw new Error("Use PNG, JPG, WebP, or GIF.");
+    throw new Error(t("profile.settings.avatarTypeError"));
   }
   if (file.size > 1024 * 1024) {
-    throw new Error("Avatar image must be 1 MB or smaller.");
+    throw new Error(t("profile.settings.avatarSizeError"));
   }
 
   const image = await loadImage(file);
@@ -2787,7 +2791,7 @@ async function compressAvatar(file) {
   const sourceWidth = image.naturalWidth || image.width;
   const sourceHeight = image.naturalHeight || image.height;
   if (!sourceWidth || !sourceHeight) {
-    throw new Error("Could not read image file.");
+    throw new Error(t("profile.settings.avatarReadError"));
   }
 
   const cropSize = Math.min(sourceWidth, sourceHeight);
@@ -2814,7 +2818,7 @@ function loadImage(file) {
     };
     image.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("Could not read image file."));
+      reject(new Error(t("profile.settings.avatarReadError")));
     };
     image.src = url;
   });
@@ -2824,7 +2828,7 @@ function canvasToBlob(canvas, type, quality) {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob) {
-        reject(new Error("Could not prepare avatar image."));
+        reject(new Error(t("profile.settings.avatarPrepareError")));
         return;
       }
       resolve(blob);
@@ -2836,7 +2840,7 @@ function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Could not prepare avatar image."));
+    reader.onerror = () => reject(new Error(t("profile.settings.avatarPrepareError")));
     reader.readAsDataURL(blob);
   });
 }
