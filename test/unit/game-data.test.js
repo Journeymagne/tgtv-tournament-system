@@ -51,6 +51,9 @@ test("game systems and seasons carry the protected product names", () => {
   );
 });
 
-test("venue modes cover both keys", () => {
-  assert.deepEqual(gameData.venueModeOptions.map((item) => item.key), ["tts", "irl"]);
+test("venue modes cover both keys and reference dictionary labels", () => {
+  assert.deepEqual(gameData.venueModeOptions, [
+    { key: "tts", labelKey: "venue.tts" },
+    { key: "irl", labelKey: "venue.irl" }
+  ]);
 });

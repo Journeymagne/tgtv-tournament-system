@@ -54,8 +54,8 @@ const seasons = [
 ];
 
 const venueModeOptions = [
-  { key: "tts", label: "Tabletop Simulator" },
-  { key: "irl", label: "In Real Life" }
+  { key: "tts", labelKey: "venue.tts" },
+  { key: "irl", labelKey: "venue.irl" }
 ];
 
 if (typeof module !== "undefined") {

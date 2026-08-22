@@ -4,7 +4,33 @@
 
 const TGTV_I18N_EN = {
   // -- common ---------------------------------------------------------------
-  "common.langToggle": "Switch to Russian"
+  "common.langToggle": "Switch to Russian",
+
+  // -- tiebreakers ----------------------------------------------------------
+  "tiebreaker.strengthOfSchedule.label": "Strength of Schedule",
+  "tiebreaker.strengthOfSchedule.description":
+    "Sum of the Tournament Points earned by every opponent the player faced.",
+  "tiebreaker.buchholz.label": "Buchholz",
+  "tiebreaker.buchholz.description":
+    "Sum of opponents' Tournament Points after excluding the highest and lowest opponent totals. It is 0 until the player has faced at least three opponents.",
+  "tiebreaker.headToHead.label": "Head-to-head",
+  "tiebreaker.headToHead.description":
+    "If the tied players faced each other, the winner of their direct match ranks higher. A draw or no direct match does not break the tie.",
+  "tiebreaker.totalVp.label": "Total VP",
+  "tiebreaker.totalVp.description":
+    "Total Victory Points scored by the player across all completed tournament matches.",
+  "tiebreaker.vpDiff.label": "VP Diff",
+  "tiebreaker.vpDiff.description":
+    "The player's total VP minus their opponents' total VP across all completed tournament matches.",
+
+  // -- ops ------------------------------------------------------------------
+  "op.crit": "Crit Op",
+  "op.kill": "Kill Op",
+  "op.tac": "Tac Op",
+
+  // -- venue ----------------------------------------------------------------
+  "venue.tts": "Tabletop Simulator",
+  "venue.irl": "In Real Life"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_EN;

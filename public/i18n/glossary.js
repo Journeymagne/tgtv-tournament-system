@@ -69,6 +69,12 @@ const FORBIDDEN = [
 // Keys whose Russian value is intentionally identical to the English one, with
 // the reason. Anything not listed here and not made purely of protected terms
 // fails check 7.
-const SAME_IN_BOTH = {};
+const SAME_IN_BOTH = {
+  "tiebreaker.strengthOfSchedule.label": "Strength of Schedule stays English by decision.",
+  "op.crit": "Rules term.",
+  "op.kill": "Rules term.",
+  "op.tac": "Rules term.",
+  "venue.tts": "Product name."
+};
 
 module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };

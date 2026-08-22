@@ -55,28 +55,28 @@ const THEME_STORAGE_KEY = "tgtv-theme";
 const standingsTiebreakerOptions = [
   {
     key: "strength_of_schedule",
-    label: "Strength of Schedule",
-    description: "Sum of the Tournament Points earned by every opponent the player faced."
+    labelKey: "tiebreaker.strengthOfSchedule.label",
+    descriptionKey: "tiebreaker.strengthOfSchedule.description"
   },
   {
     key: "buchholz",
-    label: "Buchholz",
-    description: "Sum of opponents' Tournament Points after excluding the highest and lowest opponent totals. It is 0 until the player has faced at least three opponents."
+    labelKey: "tiebreaker.buchholz.label",
+    descriptionKey: "tiebreaker.buchholz.description"
   },
   {
     key: "head_to_head",
-    label: "Head-to-head",
-    description: "If the tied players faced each other, the winner of their direct match ranks higher. A draw or no direct match does not break the tie."
+    labelKey: "tiebreaker.headToHead.label",
+    descriptionKey: "tiebreaker.headToHead.description"
   },
   {
     key: "total_vp",
-    label: "Total VP",
-    description: "Total Victory Points scored by the player across all completed tournament matches."
+    labelKey: "tiebreaker.totalVp.label",
+    descriptionKey: "tiebreaker.totalVp.description"
   },
   {
     key: "vp_diff",
-    label: "VP Diff",
-    description: "The player's total VP minus their opponents' total VP across all completed tournament matches."
+    labelKey: "tiebreaker.vpDiff.label",
+    descriptionKey: "tiebreaker.vpDiff.description"
   }
 ];
 
@@ -86,9 +86,9 @@ const TOURNAMENT_AUTOSAVE_TEXT_DELAY_MS = 900;
 const TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS = 180;
 
 const opLabels = {
-  crit: "Crit Op",
-  kill: "Kill Op",
-  tac: "Tac Op"
+  crit: "op.crit",
+  kill: "op.kill",
+  tac: "op.tac"
 };
 
 const killTeamOptions = [
@@ -995,7 +995,7 @@ function seasonLabel(seasonId) {
 }
 
 function venueModeLabel(mode) {
-  return venueModeOptions.find((item) => item.key === mode)?.label || "Tabletop Simulator";
+  return t(venueModeOptions.find((item) => item.key === mode)?.labelKey || "venue.tts");
 }
 
 function tournamentDateLabel(tournament = {}) {
@@ -1036,8 +1036,8 @@ function tiebreakerLabelForStandings(key) {
     strength_of_schedule: "Strength of Schedule",
     buchholz: "Buchholz",
     head_to_head: "Head-to-head",
-    total_vp: "Total VP",
-    vp_diff: "VP Diff"
+    total_vp: t("tiebreaker.totalVp.label"),
+    vp_diff: t("tiebreaker.vpDiff.label")
   };
   return labels[key] || key;
 }
@@ -4893,7 +4893,7 @@ function reviewScoreCard(player, score = {}) {
         ${metricRow("Crit Op", score.crit ?? 0)}
         ${metricRow("Tac Op VP", score.tac ?? 0)}
         ${metricRow("Kill Op", score.kill ?? 0)}
-        ${metricRow("Primary", opLabels[score.primary] || "Crit Op")}
+        ${metricRow("Primary", opLabels[score.primary] ? t(opLabels[score.primary]) : "Crit Op")}
         ${metricRow("Primary bonus", score.primaryBonus ?? 0)}
       </div>
       <div class="total-line">
@@ -4997,7 +4997,7 @@ function scoreCard(player, score = {}) {
       <div class="score-fields">
         ${["crit", "tac", "kill"].map((op) => `
           <div class="field">
-            <label>${opLabels[op]}</label>
+            <label>${t(opLabels[op])}</label>
             <input data-score-input name="${op}-${player.id}" type="number" min="0" max="6" value="${score[op] ?? 0}">
           </div>
         `).join("")}
@@ -5865,7 +5865,7 @@ function adminTournamentCreatePanel() {
           <div class="field">
             <label>Venue</label>
             <select name="venueMode">
-              ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}">${escapeHtml(option.label)}</option>`).join("")}
+              ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}">${escapeHtml(t(option.labelKey))}</option>`).join("")}
             </select>
           </div>
         </div>
@@ -6066,7 +6066,7 @@ function adminTournamentEditForm(tournament) {
         <div class="field">
           <label>Venue</label>
           <select name="venueMode" ${lockAttrs}>
-            ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}" ${(tournament.venueMode || "tts") === option.key ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
+            ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}" ${(tournament.venueMode || "tts") === option.key ? "selected" : ""}>${escapeHtml(t(option.labelKey))}</option>`).join("")}
           </select>
         </div>
       </div>
@@ -6572,7 +6572,7 @@ function tournamentTiebreakerSelects(selected = [], disabled = "") {
             <select data-tournament-tiebreaker-select ${disabled}>
               <option value="">None</option>
               ${standingsTiebreakerOptions.map((item) => `
-                <option value="${item.key}" ${item.key === value ? "selected" : ""}>${escapeHtml(item.label)}</option>
+                <option value="${item.key}" ${item.key === value ? "selected" : ""}>${escapeHtml(t(item.labelKey))}</option>
               `).join("")}
             </select>
           </label>
@@ -6600,8 +6600,8 @@ function tournamentTiebreakerHeading() {
         <dl class="tiebreaker-help-list">
           ${standingsTiebreakerOptions.map((item) => `
             <div>
-              <dt>${escapeHtml(item.label)}</dt>
-              <dd>${escapeHtml(item.description)}</dd>
+              <dt>${escapeHtml(t(item.labelKey))}</dt>
+              <dd>${escapeHtml(t(item.descriptionKey))}</dd>
             </div>
           `).join("")}
         </dl>
