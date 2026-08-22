@@ -38,7 +38,9 @@ const PROPER_NAMES = [
   "Tabletop Simulator",
   "All Kill Team Challenge",
   "Classified",
-  "Non-Classified"
+  "Non-Classified",
+  "Wildcard",
+  "Wildcards"
 ];
 
 const PROTECTED = [
