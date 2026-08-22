@@ -5178,10 +5178,10 @@ function adminFinalStandingsEditor(data) {
     <form class="final-standings-editor" data-admin-final-standings>
       <div class="final-standings-header">
         <div>
-          <h4>Final standings preview</h4>
-          <p class="muted">Review and adjust placements before publishing the tournament result.</p>
+          <h4>${t("admin.tournament.finalStandings.title")}</h4>
+          <p class="muted">${t("admin.tournament.finalStandings.hint")}</p>
         </div>
-        <button class="primary-button final-standings-publish" type="submit">Publish standings</button>
+        <button class="primary-button final-standings-publish" type="submit">${t("admin.tournament.finalStandings.publish")}</button>
       </div>
       <div class="final-standing-list">
         ${standings.map((row, index) => {
@@ -5189,7 +5189,7 @@ function adminFinalStandingsEditor(data) {
           return `
             <div class="final-standing-row">
               <div class="final-standing-rank">#${index + 1}</div>
-              <select data-final-standing-select aria-label="Final standing ${index + 1}">
+              <select data-final-standing-select aria-label="${t("admin.tournament.finalStandings.rankAria", { index: index + 1 })}">
                 ${optionMarkup(selectedParticipant.id)}
               </select>
               <div class="final-standing-stats">${escapeHtml(finalStandingStatsText(standingsByParticipantId.get(selectedParticipant.id) || row))}</div>
@@ -5644,18 +5644,18 @@ function paginate(items, page, pageSize = LEADERBOARD_PAGE_SIZE) {
   };
 }
 
-function paginationMarkup(target, pageData, itemLabel = "players") {
+function paginationMarkup(target, pageData, itemLabelKey = "leaderboard.pagination.players") {
   if (pageData.total <= LEADERBOARD_PAGE_SIZE) return "";
   const first = pageData.total ? pageData.start + 1 : 0;
   return `
     <div class="pagination-row">
       <div class="pagination-summary">
-        Showing ${first}-${pageData.end} of ${pageData.total} ${escapeHtml(itemLabel)}.
-        <span class="pagination-current">Page ${pageData.currentPage} of ${pageData.totalPages}</span>
+        ${t("leaderboard.pagination.showing", { first, end: pageData.end, total: pageData.total, label: plural(itemLabelKey, pageData.total) })}
+        <span class="pagination-current">${t("leaderboard.pagination.page", { current: pageData.currentPage, total: pageData.totalPages })}</span>
       </div>
       <div class="pagination-actions">
-        <button class="small-button" data-pagination-target="${escapeHtml(target)}" data-pagination-page="${pageData.currentPage - 1}" ${pageData.currentPage <= 1 ? "disabled" : ""}>Previous</button>
-        <button class="small-button" data-pagination-target="${escapeHtml(target)}" data-pagination-page="${pageData.currentPage + 1}" ${pageData.currentPage >= pageData.totalPages ? "disabled" : ""}>Next</button>
+        <button class="small-button" data-pagination-target="${escapeHtml(target)}" data-pagination-page="${pageData.currentPage - 1}" ${pageData.currentPage <= 1 ? "disabled" : ""}>${t("leaderboard.pagination.previous")}</button>
+        <button class="small-button" data-pagination-target="${escapeHtml(target)}" data-pagination-page="${pageData.currentPage + 1}" ${pageData.currentPage >= pageData.totalPages ? "disabled" : ""}>${t("leaderboard.pagination.next")}</button>
       </div>
     </div>
   `;
@@ -5678,15 +5678,15 @@ function renderTop() {
   if (state.leaderboardTab !== activeTab) state.leaderboardTab = activeTab;
   content.innerHTML = `
     ${pageTabs("leaderboard", [
-      { id: "leaderboard", label: "Leaderboard" },
-      { id: "users", label: "User Administration" }
+      { id: "leaderboard", label: t("nav.leaderboard") },
+      { id: "users", label: t("leaderboard.tab.users") }
     ], activeTab)}
     ${activeTab === "users" ? adminUsersPanel() : `
       <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Leaderboard</h2>
-          <p class="muted">Sorted by current Elo.</p>
+          <h2>${t("leaderboard.title")}</h2>
+          <p class="muted">${t("leaderboard.hint")}</p>
         </div>
       </div>
       ${usersTable(state.users)}
@@ -5703,11 +5703,11 @@ function renderTop() {
 function usersTable(users) {
   const pageData = paginate(users, state.leaderboardPage);
   state.leaderboardPage = pageData.currentPage;
-  if (!pageData.total) return `<div class="empty">No users yet.</div>`;
+  if (!pageData.total) return `<div class="empty">${t("leaderboard.empty")}</div>`;
   return `
     <div class="table-wrap">
       <table>
-        <thead><tr><th class="rank">#</th><th>Player</th><th>Rating</th></tr></thead>
+        <thead><tr><th class="rank">#</th><th>${t("games.filter.playerLabel")}</th><th>${t("tournaments.card.rating")}</th></tr></thead>
         <tbody>
           ${pageData.items.map((user, index) => `
             <tr>
@@ -5724,7 +5724,7 @@ function usersTable(users) {
         </tbody>
       </table>
     </div>
-    ${paginationMarkup("leaderboard", pageData, "players")}
+    ${paginationMarkup("leaderboard", pageData, "leaderboard.pagination.players")}
   `;
 }
 
@@ -5821,13 +5821,13 @@ function adminTournamentsPanel() {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Tournament Administration</h2>
-          <p class="muted">Current tournaments.</p>
+          <h2>${t("tournaments.tab.adminList")}</h2>
+          <p class="muted">${t("admin.tournament.list.hint")}</p>
         </div>
-        <button class="primary-button" data-admin-tournament-new>Create</button>
+        <button class="primary-button" data-admin-tournament-new>${t("admin.tournament.list.create")}</button>
       </div>
       <div class="list admin-tournament-list">
-        ${tournaments.length ? tournaments.map(adminTournamentRow).join("") : `<div class="empty">No tournaments yet.</div>`}
+        ${tournaments.length ? tournaments.map(adminTournamentRow).join("") : `<div class="empty">${t("admin.tournament.list.empty")}</div>`}
       </div>
       <div class="message" data-message></div>
     </section>
@@ -5839,93 +5839,93 @@ function adminTournamentCreatePanel() {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Create tournament</h2>
-          <p class="muted">Configure tournament settings before opening the tournament page.</p>
+          <h2>${t("admin.tournament.create.title")}</h2>
+          <p class="muted">${t("admin.tournament.create.hint")}</p>
         </div>
-        <button class="ghost-button" data-admin-tournament-create-cancel>Back</button>
+        <button class="ghost-button" data-admin-tournament-create-cancel>${t("games.result.back")}</button>
       </div>
       <form class="admin-tournament-form" data-admin-tournament-create>
         <div class="grid-2">
           <div class="field">
-            <label>Name</label>
-            <input name="name" maxlength="120" required placeholder="TGTV Open">
+            <label>${t("admin.tournament.field.name")}</label>
+            <input name="name" maxlength="120" required placeholder="${t("admin.tournament.field.namePlaceholder")}">
           </div>
           <div class="field">
-            <label>Short URL</label>
-            <input name="slug" maxlength="120" placeholder="Optional">
+            <label>${t("admin.tournament.field.slug")}</label>
+            <input name="slug" maxlength="120" placeholder="${t("admin.tournament.optionalPlaceholder")}">
           </div>
           <div class="field">
-            <label>Format</label>
+            <label>${t("admin.tournament.field.format")}</label>
             <select name="format" data-admin-tournament-format>
-              <option value="single_elimination">Single elimination</option>
-              <option value="swiss">Swiss</option>
+              <option value="single_elimination">${t("tournaments.format.singleElimination")}</option>
+              <option value="swiss">${t("tournaments.format.swiss")}</option>
             </select>
           </div>
           <div class="field" data-format-field="single_elimination">
-            <label>Bracket size</label>
+            <label>${t("admin.tournament.field.bracketSize")}</label>
             <select name="singleEliminationSize">
-              ${singleEliminationSizes.map((size) => `<option value="${size}">${size} players</option>`).join("")}
+              ${singleEliminationSizes.map((size) => `<option value="${size}">${plural("admin.tournament.playerCount", size)}</option>`).join("")}
             </select>
           </div>
           <div class="field" data-format-field="swiss">
-            <label>Swiss rounds</label>
+            <label>${t("admin.tournament.field.swissRounds")}</label>
             <input name="swissRoundCount" type="number" min="1" value="3">
           </div>
           <div class="field">
-            <label>Starts at</label>
+            <label>${t("admin.tournament.field.startsAt")}</label>
             <input name="startsAt" type="datetime-local">
           </div>
           <div class="field">
-            <label>Rating policy</label>
+            <label>${t("admin.tournament.field.ratingPolicy")}</label>
             <select name="ratingPolicy">
-              <option value="ranked">Ranked</option>
-              <option value="unranked">Unranked</option>
+              <option value="ranked">${t("tournaments.card.ranked")}</option>
+              <option value="unranked">${t("tournaments.card.unranked")}</option>
             </select>
           </div>
           <div class="field">
-            <label>All Kill Team Challenge</label>
+            <label>${t("nav.challenge")}</label>
             <select name="challengeCreditPolicy">
-              <option value="count">Enabled</option>
-              <option value="none">Disabled</option>
+              <option value="count">${t("admin.tournament.field.enabled")}</option>
+              <option value="none">${t("admin.tournament.field.disabled")}</option>
             </select>
           </div>
           <div class="field">
-            <label>Game system</label>
+            <label>${t("admin.tournament.field.gameSystem")}</label>
             <select name="gameSystem">
               ${gameSystemOptions.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("")}
             </select>
           </div>
           <div class="field">
-            <label>Season</label>
+            <label>${t("tournaments.field.season")}</label>
             <select name="seasonId">
               ${seasons.map((season) => `<option value="${escapeHtml(season.id)}" ${season.id === latestSeason().id ? "selected" : ""}>${escapeHtml(season.name)}</option>`).join("")}
             </select>
           </div>
           <div class="field">
-            <label>Venue</label>
+            <label>${t("tournaments.field.venue")}</label>
             <select name="venueMode">
               ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}">${escapeHtml(t(option.labelKey))}</option>`).join("")}
             </select>
           </div>
         </div>
         <div class="field">
-          <label>Tournament Rules</label>
-          <textarea name="tournamentRules" maxlength="6000" placeholder="Optional: event format, result reporting, scoring, and admin decisions."></textarea>
+          <label>${t("admin.tournament.field.rules")}</label>
+          <textarea name="tournamentRules" maxlength="6000" placeholder="${t("admin.tournament.field.rulesPlaceholder")}"></textarea>
         </div>
         <div class="field tournament-rules-upload">
-          <label>Tournament Rules Link</label>
-          <input name="rulesLink" maxlength="2048" placeholder="https://...">
+          <label>${t("admin.tournament.field.rulesLink")}</label>
+          <input name="rulesLink" maxlength="2048" placeholder="${t("admin.tournament.field.rulesLinkPlaceholder")}">
           <div class="rules-file-row">
             <input type="file" accept="application/pdf,.pdf" data-tournament-rules-file>
             <input type="hidden" name="rulesFileData">
-            <span class="field-help" data-tournament-rules-file-status>No PDF selected</span>
+            <span class="field-help" data-tournament-rules-file-status>${t("admin.tournament.field.noPdfSelected")}</span>
           </div>
         </div>
         <div class="tournament-tiebreakers">
           ${tournamentTiebreakerHeading()}
           ${tournamentTiebreakerSelects([])}
         </div>
-        <button class="primary-button" type="submit">Create</button>
+        <button class="primary-button" type="submit">${t("admin.tournament.list.create")}</button>
         <div class="message" data-message></div>
       </form>
     </section>
@@ -5936,12 +5936,12 @@ function adminTournamentRow(tournament) {
   return `
     <div class="row-card">
       <div class="row-main">
-        <button class="text-button row-title" data-admin-tournament-open="${tournament.id}">${escapeHtml(tournament.name || "Untitled tournament")}</button>
-        <div class="row-meta">${escapeHtml(formatLabel(tournament.format))} / ${escapeHtml(tournament.slug)} / ${tournament.startsAt ? fmtDate(tournament.startsAt) : "No date"}</div>
+        <button class="text-button row-title" data-admin-tournament-open="${tournament.id}">${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</button>
+        <div class="row-meta">${escapeHtml(formatLabel(tournament.format))} / ${escapeHtml(tournament.slug)} / ${tournament.startsAt ? fmtDate(tournament.startsAt) : t("tournaments.date.none")}</div>
       </div>
       <div class="row-actions">
         <span class="status ${tournamentStatusClass(tournament.status)}">${escapeHtml(tournamentStatusLabel(tournament.status))}</span>
-        <button class="small-button" data-admin-tournament-open="${tournament.id}">Open</button>
+        <button class="small-button" data-admin-tournament-open="${tournament.id}">${t("admin.action.open")}</button>
       </div>
     </div>
   `;
@@ -5955,22 +5955,22 @@ function adminTournamentDetailPanel(data) {
       <div class="panel-header">
         <div>
           <p class="profile-label">${escapeHtml(formatLabel(tournament.format))}</p>
-          <h2>${escapeHtml(tournament.name || "Untitled tournament")}</h2>
+          <h2>${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</h2>
           <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}${tournament.startsAt ? ` / ${fmtDate(tournament.startsAt)}` : ""}</p>
         </div>
         <div class="row-actions admin-tournament-header-actions">
-          <button class="small-button" data-admin-tournament-public="${tournament.slug}">View public</button>
-          <button class="small-button" data-admin-tournament-copy="${escapeHtml(publicUrl)}">Copy link</button>
-          <button class="danger-button" data-admin-tournament-action="delete">Delete tournament</button>
-          <button class="ghost-button" data-admin-tournament-close>Back to list</button>
+          <button class="small-button" data-admin-tournament-public="${tournament.slug}">${t("admin.tournament.detail.viewPublic")}</button>
+          <button class="small-button" data-admin-tournament-copy="${escapeHtml(publicUrl)}">${t("admin.tournament.detail.copyLink")}</button>
+          <button class="danger-button" data-admin-tournament-action="delete">${t("admin.tournament.detail.delete")}</button>
+          <button class="ghost-button" data-admin-tournament-close>${t("admin.tournament.detail.backToList")}</button>
         </div>
       </div>
       <section class="profile-grid">
-        ${metricCard("Date", tournamentDateLabel(tournament))}
-        ${metricCard("Participants", String(listedTournamentParticipants(data.participants || []).length))}
-        ${metricCard("Rounds", tournamentRoundsLabel(tournament, data))}
-        ${metricCard("Venue", venueModeLabel(tournament.venueMode))}
-        ${metricCard("Season", seasonLabel(tournament.seasonId))}
+        ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
+        ${metricCard(t("tournaments.field.participants"), String(listedTournamentParticipants(data.participants || []).length))}
+        ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
+        ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
+        ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
       </section>
       <div class="admin-tournament-actions">
         ${adminTournamentActionButtons(data)}
@@ -5985,59 +5985,59 @@ function adminTournamentActionButtons(data) {
   const tournament = data.tournament || {};
   const buttons = [];
   if (tournament.status === "draft") {
-    buttons.push(`<button class="primary-button" data-admin-tournament-action="publish-open">Publish and open</button>`);
-    buttons.push(`<button class="small-button" data-admin-tournament-action="publish-closed">Publish closed</button>`);
+    buttons.push(`<button class="primary-button" data-admin-tournament-action="publish-open">${t("admin.tournament.action.publishOpen")}</button>`);
+    buttons.push(`<button class="small-button" data-admin-tournament-action="publish-closed">${t("admin.tournament.action.publishClosed")}</button>`);
   }
   if (tournament.status === "registration_open") {
-    buttons.push(`<button class="small-button" data-admin-tournament-action="close-registration">Close registration</button>`);
+    buttons.push(`<button class="small-button" data-admin-tournament-action="close-registration">${t("admin.tournament.action.closeRegistration")}</button>`);
   }
   if (tournament.status === "registration_closed") {
-    buttons.push(`<button class="small-button" data-admin-tournament-action="reopen-registration">Reopen registration</button>`);
-    buttons.push(`<button class="primary-button" data-admin-tournament-action="start">Start tournament</button>`);
+    buttons.push(`<button class="small-button" data-admin-tournament-action="reopen-registration">${t("admin.tournament.action.reopenRegistration")}</button>`);
+    buttons.push(`<button class="primary-button" data-admin-tournament-action="start">${t("admin.tournament.action.start")}</button>`);
   }
   if (["draft", "registration_open", "registration_closed"].includes(tournament.status)) {
-    buttons.push(`<button class="small-button" data-admin-tournament-action="preview">Preview pairings</button>`);
+    buttons.push(`<button class="small-button" data-admin-tournament-action="preview">${t("admin.tournament.action.preview")}</button>`);
   }
   if (tournament.status === "in_progress") {
     const nextRoundState = nextRoundActionState(data);
     if (nextRoundState.canGenerate) {
-      const label = (data.rounds || []).length ? "Generate next round" : "Generate first round";
+      const label = (data.rounds || []).length ? t("admin.tournament.action.generateNext") : t("admin.tournament.action.generateFirst");
       buttons.push(`<button class="primary-button" data-admin-tournament-action="generate-next-round">${label}</button>`);
     } else {
       buttons.push(`<span class="muted">${escapeHtml(nextRoundState.message)}</span>`);
     }
   }
-  return buttons.length ? buttons.join("") : `<span class="muted">Setup is locked while the tournament is running.</span>`;
+  return buttons.length ? buttons.join("") : `<span class="muted">${t("admin.tournament.action.locked")}</span>`;
 }
 
 function nextRoundActionState(data) {
   const tournament = data.tournament || {};
   const rounds = data.rounds || [];
-  if (tournament.status !== "in_progress") return { canGenerate: false, message: "Tournament is not running." };
+  if (tournament.status !== "in_progress") return { canGenerate: false, message: t("admin.tournament.round.notRunning") };
   if (!rounds.length) return { canGenerate: true, message: "" };
 
   if (tournament.format === "swiss") {
     const currentRound = rounds[rounds.length - 1];
     const complete = (currentRound.matches || []).length > 0 &&
       (currentRound.matches || []).every((match) => match.status === "completed");
-    if (!complete) return { canGenerate: false, message: "Finish all matches in the current Swiss round before generating the next round." };
+    if (!complete) return { canGenerate: false, message: t("admin.tournament.round.finishSwiss") };
     if (currentRound.roundNumber >= Number(tournament.swissRoundCount || 0)) {
-      return { canGenerate: false, message: "All Swiss rounds have been generated." };
+      return { canGenerate: false, message: t("admin.tournament.round.allSwissGenerated") };
     }
     return { canGenerate: true, message: "" };
   }
 
   const nextRound = rounds.find((round) => round.status === "not_ready");
-  if (!nextRound) return { canGenerate: false, message: "No next bracket round to activate." };
+  if (!nextRound) return { canGenerate: false, message: t("admin.tournament.round.noNextBracket") };
   const previousRound = rounds.find((round) => round.roundNumber === nextRound.roundNumber - 1);
   const previousComplete = previousRound &&
     (previousRound.matches || []).length > 0 &&
     (previousRound.matches || []).every((match) => match.status === "completed");
-  if (!previousComplete) return { canGenerate: false, message: "Finish the current bracket round before generating the next round." };
+  if (!previousComplete) return { canGenerate: false, message: t("admin.tournament.round.finishBracket") };
   const nextReady = (nextRound.matches || []).every((match) =>
     match.isBye || (match.participantAId && match.participantBId)
   );
-  if (!nextReady) return { canGenerate: false, message: "The next bracket round is waiting for winners." };
+  if (!nextReady) return { canGenerate: false, message: t("admin.tournament.round.waitingForWinners") };
   return { canGenerate: true, message: "" };
 }
 
@@ -6052,74 +6052,74 @@ function adminTournamentEditForm(tournament) {
     <form class="admin-tournament-form compact-admin-form tournament-settings-form" data-admin-tournament-update data-existing-rules-link-type="${existingRulesLinkType}">
       <div class="grid-2">
         <div class="field">
-          <label>Name</label>
+          <label>${t("admin.tournament.field.name")}</label>
           <input name="name" maxlength="120" value="${escapeHtml(tournament.name || "")}" ${lockAttrs}>
         </div>
         <div class="field">
-          <label>Starts at</label>
+          <label>${t("admin.tournament.field.startsAt")}</label>
           <input name="startsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(tournament.startsAt))}" ${textLockAttrs}>
         </div>
         <div class="field">
-          <label>Format</label>
+          <label>${t("admin.tournament.field.format")}</label>
           <select name="format" data-admin-tournament-format ${lockAttrs}>
-            <option value="single_elimination" ${tournament.format === "single_elimination" ? "selected" : ""}>Single elimination</option>
-            <option value="swiss" ${tournament.format === "swiss" ? "selected" : ""}>Swiss</option>
+            <option value="single_elimination" ${tournament.format === "single_elimination" ? "selected" : ""}>${t("tournaments.format.singleElimination")}</option>
+            <option value="swiss" ${tournament.format === "swiss" ? "selected" : ""}>${t("tournaments.format.swiss")}</option>
           </select>
         </div>
         <div class="field" data-format-field="single_elimination">
-          <label>Bracket size</label>
+          <label>${t("admin.tournament.field.bracketSize")}</label>
           <select name="singleEliminationSize" ${lockAttrs}>
-            ${singleEliminationSizes.map((size) => `<option value="${size}" ${Number(tournament.singleEliminationSize || 8) === size ? "selected" : ""}>${size} players</option>`).join("")}
+            ${singleEliminationSizes.map((size) => `<option value="${size}" ${Number(tournament.singleEliminationSize || 8) === size ? "selected" : ""}>${plural("admin.tournament.playerCount", size)}</option>`).join("")}
           </select>
         </div>
         <div class="field" data-format-field="swiss">
-          <label>Swiss rounds</label>
+          <label>${t("admin.tournament.field.swissRounds")}</label>
           <input name="swissRoundCount" type="number" min="1" value="${tournament.swissRoundCount || 3}" ${lockAttrs}>
         </div>
         <div class="field">
-          <label>Rating policy</label>
+          <label>${t("admin.tournament.field.ratingPolicy")}</label>
           <select name="ratingPolicy" ${lockAttrs}>
-            <option value="ranked" ${tournament.ratingPolicy === "ranked" ? "selected" : ""}>Ranked</option>
-            <option value="unranked" ${tournament.ratingPolicy === "unranked" ? "selected" : ""}>Unranked</option>
+            <option value="ranked" ${tournament.ratingPolicy === "ranked" ? "selected" : ""}>${t("tournaments.card.ranked")}</option>
+            <option value="unranked" ${tournament.ratingPolicy === "unranked" ? "selected" : ""}>${t("tournaments.card.unranked")}</option>
           </select>
         </div>
         <div class="field">
-          <label>All Kill Team Challenge</label>
+          <label>${t("nav.challenge")}</label>
           <select name="challengeCreditPolicy" ${lockAttrs}>
-            <option value="count" ${tournament.challengeCreditPolicy === "count" ? "selected" : ""}>Enabled</option>
-            <option value="none" ${tournament.challengeCreditPolicy === "none" ? "selected" : ""}>Disabled</option>
+            <option value="count" ${tournament.challengeCreditPolicy === "count" ? "selected" : ""}>${t("admin.tournament.field.enabled")}</option>
+            <option value="none" ${tournament.challengeCreditPolicy === "none" ? "selected" : ""}>${t("admin.tournament.field.disabled")}</option>
           </select>
         </div>
         <div class="field">
-          <label>Game system</label>
+          <label>${t("admin.tournament.field.gameSystem")}</label>
           <select name="gameSystem" ${lockAttrs}>
             ${gameSystemOptions.map((option) => `<option value="${escapeHtml(option)}" ${(tournament.gameSystem || gameSystemOptions[0]) === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
           </select>
         </div>
         <div class="field">
-          <label>Season</label>
+          <label>${t("tournaments.field.season")}</label>
           <select name="seasonId" ${lockAttrs}>
             ${seasons.map((season) => `<option value="${escapeHtml(season.id)}" ${(tournament.seasonId || latestSeason().id) === season.id ? "selected" : ""}>${escapeHtml(season.name)}</option>`).join("")}
           </select>
         </div>
         <div class="field">
-          <label>Venue</label>
+          <label>${t("tournaments.field.venue")}</label>
           <select name="venueMode" ${lockAttrs}>
             ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}" ${(tournament.venueMode || "tts") === option.key ? "selected" : ""}>${escapeHtml(t(option.labelKey))}</option>`).join("")}
           </select>
         </div>
       </div>
       <div class="field">
-        <label>Tournament Rules</label>
+        <label>${t("admin.tournament.field.rules")}</label>
         <textarea name="tournamentRules" maxlength="6000" ${textLockAttrs}>${escapeHtml(tournamentRulesValue(tournament))}</textarea>
       </div>
       <div class="field tournament-rules-upload">
-        <label>Tournament Rules Link</label>
-        <input name="rulesLink" maxlength="2048" value="${escapeHtml(rulesLinkValue)}" placeholder="https://..." ${textLockAttrs}>
+        <label>${t("admin.tournament.field.rulesLink")}</label>
+        <input name="rulesLink" maxlength="2048" value="${escapeHtml(rulesLinkValue)}" placeholder="${t("admin.tournament.field.rulesLinkPlaceholder")}" ${textLockAttrs}>
         <div class="rules-file-row">
           <input type="file" accept="application/pdf,.pdf" data-tournament-rules-file ${textLockAttrs}>
           <input type="hidden" name="rulesFileData">
-          <span class="field-help" data-tournament-rules-file-status>${existingRulesLinkType === "pdf" ? "Existing PDF attached" : "No PDF selected"}</span>
+          <span class="field-help" data-tournament-rules-file-status>${existingRulesLinkType === "pdf" ? t("admin.tournament.field.existingPdf") : t("admin.tournament.field.noPdfSelected")}</span>
         </div>
         ${tournament.rulesLink ? tournamentRulesLinkMarkup(tournament) : ""}
       </div>
@@ -6128,7 +6128,7 @@ function adminTournamentEditForm(tournament) {
         ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], lockAttrs)}
       </div>
       <div class="admin-save-row">
-        <button class="primary-button admin-save-button" type="submit" data-admin-tournament-save-button ${readOnly ? "disabled" : ""}>Save tournament</button>
+        <button class="primary-button admin-save-button" type="submit" data-admin-tournament-save-button ${readOnly ? "disabled" : ""}>${t("admin.tournament.edit.save")}</button>
         <span class="autosave-status" data-admin-tournament-autosave-status aria-live="polite"></span>
       </div>
     </form>
@@ -6288,34 +6288,34 @@ function adminTournamentTablesContent(data) {
   const tournament = data.tournament || {};
   const tables = data.tables || [];
   const readOnly = ["completed", "cancelled"].includes(tournament.status);
-  if (tournament.venueMode !== "irl") return `<div class="empty">Tables are available only for In Real Life tournaments.</div>`;
+  if (tournament.venueMode !== "irl") return `<div class="empty">${t("admin.tournament.tables.irlOnly", { venue: t("venue.irl") })}</div>`;
   return `
     <div class="tournament-table-admin">
       <form class="admin-table-form" data-admin-tournament-table-add>
         <div class="grid-3">
           <div class="field">
-            <label>Table number</label>
-            <input name="tableNumber" type="number" min="1" placeholder="Next" ${readOnly ? "disabled" : ""}>
+            <label>${t("admin.tournament.tables.field.number")}</label>
+            <input name="tableNumber" type="number" min="1" placeholder="${t("admin.tournament.tables.field.numberPlaceholder")}" ${readOnly ? "disabled" : ""}>
           </div>
           <div class="field">
-            <label>Killzone</label>
+            <label>${t("games.result.killzoneLabel")}</label>
             <select name="killzone" ${readOnly ? "disabled" : ""}>
-              <option value="">Not selected</option>
+              <option value="">${t("games.result.notSelected")}</option>
               ${optionsHtml(killzoneOptions, "")}
             </select>
           </div>
           <div class="field">
-            <label>Deployment</label>
+            <label>${t("admin.tournament.tables.field.deployment")}</label>
             <select name="deployment" ${readOnly ? "disabled" : ""}>
-              <option value="">Not selected</option>
+              <option value="">${t("games.result.notSelected")}</option>
               ${[1, 2, 3, 4, 5, 6].map((item) => `<option value="${item}">${item}</option>`).join("")}
             </select>
           </div>
         </div>
-        <button class="small-button" type="submit" ${readOnly ? "disabled" : ""}>Add table</button>
+        <button class="small-button" type="submit" ${readOnly ? "disabled" : ""}>${t("admin.tournament.tables.add")}</button>
       </form>
       <div class="list">
-        ${tables.length ? tables.map((table) => adminTournamentTableRow(table, readOnly)).join("") : `<div class="empty">No tables yet.</div>`}
+        ${tables.length ? tables.map((table) => adminTournamentTableRow(table, readOnly)).join("") : `<div class="empty">${t("admin.tournament.tables.empty")}</div>`}
       </div>
     </div>
   `;
@@ -6325,28 +6325,28 @@ function adminTournamentTableRow(table, readOnly) {
   return `
     <div class="row-card compact-row-card tournament-table-row">
       <div class="row-main">
-        <div class="row-title">Table ${table.tableNumber}</div>
-        <div class="row-meta">${escapeHtml(table.killzone || "No Killzone")} / Deployment ${table.deployment || "-"}</div>
+        <div class="row-title">${t("tournaments.match.table", { number: table.tableNumber })}</div>
+        <div class="row-meta">${escapeHtml(table.killzone || t("admin.tournament.tables.noKillzone"))} / ${t("tournaments.mission.deployment", { layout: table.deployment || "-" })}</div>
         <div class="table-admin-controls">
           <div class="field">
-            <label>Killzone</label>
+            <label>${t("games.result.killzoneLabel")}</label>
             <select name="table-killzone-${table.id}" ${readOnly ? "disabled" : ""}>
-              <option value="">Not selected</option>
+              <option value="">${t("games.result.notSelected")}</option>
               ${optionsHtml(killzoneOptions, table.killzone || "")}
             </select>
           </div>
           <div class="field">
-            <label>Deployment</label>
+            <label>${t("admin.tournament.tables.field.deployment")}</label>
             <select name="table-deployment-${table.id}" ${readOnly ? "disabled" : ""}>
-              <option value="">Not selected</option>
+              <option value="">${t("games.result.notSelected")}</option>
               ${[1, 2, 3, 4, 5, 6].map((item) => `<option value="${item}" ${Number(table.deployment) === item ? "selected" : ""}>${item}</option>`).join("")}
             </select>
           </div>
         </div>
       </div>
       <div class="row-actions">
-        <button class="small-button" data-admin-table-save="${table.id}" ${readOnly ? "disabled" : ""}>Save</button>
-        <button class="danger-button" data-admin-table-delete="${table.id}" ${readOnly ? "disabled" : ""}>Delete</button>
+        <button class="small-button" data-admin-table-save="${table.id}" ${readOnly ? "disabled" : ""}>${t("common.save")}</button>
+        <button class="danger-button" data-admin-table-delete="${table.id}" ${readOnly ? "disabled" : ""}>${t("common.delete")}</button>
       </div>
     </div>
   `;
@@ -6364,30 +6364,30 @@ function adminTournamentParticipantsContent(data) {
   return `
     <div class="tournament-participant-admin">
       <div class="participant-admin-note muted">
-        ${tournament.format === "swiss" && tournament.status === "in_progress" ? "Late adds enter only the next generated Swiss round." : "Linked users or unregistered participants."}
+        ${tournament.format === "swiss" && tournament.status === "in_progress" ? t("admin.tournament.participants.lateAddsNote") : t("admin.tournament.participants.hint")}
       </div>
       <form class="admin-participant-form" data-admin-tournament-add-participant>
         <div class="grid-2">
-          ${comboField("TGTV user", "userId", "users", "", "Unregistered participant", {
+          ${comboField(t("admin.tournament.participants.tgtvUserLabel"), "userId", "users", "", t("admin.tournament.participants.unregisteredPlaceholder"), {
             optional: true,
             valueMode: "value",
             items: userComboItems(availableUsers)
           })}
           <div class="field">
-            <label>Display name</label>
-            <input name="displayName" maxlength="80" placeholder="Required for unregistered">
+            <label>${t("admin.tournament.participants.displayNameLabel")}</label>
+            <input name="displayName" maxlength="80" placeholder="${t("admin.tournament.participants.displayNamePlaceholder")}">
           </div>
         </div>
-        ${comboField("Faction", "faction", "faction", "", "Optional", { optional: true })}
-        <button class="small-button" type="submit">Add participant</button>
+        ${comboField(t("tournaments.field.faction"), "faction", "faction", "", t("admin.tournament.optionalPlaceholder"), { optional: true })}
+        <button class="small-button" type="submit">${t("admin.tournament.participants.add")}</button>
       </form>
       ${canBulkAdd ? `
         <form class="admin-participant-form" data-admin-tournament-bulk>
           <div class="field">
-            <label>Bulk unregistered participants</label>
-            <textarea name="names" placeholder="One display name per line"></textarea>
+            <label>${t("admin.tournament.participants.bulkLabel")}</label>
+            <textarea name="names" placeholder="${t("admin.tournament.participants.bulkPlaceholder")}"></textarea>
           </div>
-          <button class="small-button" type="submit">Bulk add</button>
+          <button class="small-button" type="submit">${t("admin.tournament.participants.bulkAdd")}</button>
         </form>
       ` : ""}
       <div class="list">
@@ -6395,9 +6395,9 @@ function adminTournamentParticipantsContent(data) {
           canRemove,
           readOnly,
           seedLocked
-        })).join("") : `<div class="empty">No participants yet.</div>`}
+        })).join("") : `<div class="empty">${t("tournaments.participants.empty")}</div>`}
       </div>
-      <button class="small-button" data-admin-tournament-save-seeds ${seedLocked ? "disabled" : ""}>Save seed order</button>
+      <button class="small-button" data-admin-tournament-save-seeds ${seedLocked ? "disabled" : ""}>${t("admin.tournament.participants.saveSeeds")}</button>
     </div>
   `;
 }
@@ -6410,23 +6410,23 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
   const canRemove = options.canRemove && canRemoveTournamentParticipant(data, participant);
   const replacementUsers = availableTournamentUsers(participants, participant.id)
     .filter((user) => user.id !== participant.userId);
-  const replaceLabel = participant.userId ? "Replace" : "Link user";
-  const replacePlaceholder = participant.userId ? "Replace with registered user" : "Link registered user";
+  const replaceLabel = participant.userId ? t("admin.tournament.participants.replace") : t("admin.tournament.participants.linkUser");
+  const replacePlaceholder = participant.userId ? t("admin.tournament.participants.replacePlaceholder") : t("admin.tournament.participants.linkPlaceholder");
   const replaceLockedAfterStart = tournament.status === "in_progress" && participant.userId;
   const replaceDisabled = locked || replaceLockedAfterStart || !replacementUsers.length;
   return `
     <div class="row-card compact-row-card participant-admin-row">
       <div class="row-main">
         <div class="row-title">${tournamentParticipantProfileLink(participant)}</div>
-        <div class="row-meta">Seed ${participant.seed || "-"} / ${escapeHtml(participantUserLabel(participant))} / ${escapeHtml(participant.faction || "Faction TBD")}</div>
+        <div class="row-meta">${t("admin.tournament.participants.seedLabel", { seed: participant.seed || "-" })} / ${escapeHtml(participantUserLabel(participant))} / ${escapeHtml(participant.faction || t("tournaments.participant.factionMissing"))}</div>
         <div class="participant-admin-controls">
           <div class="participant-faction-control">
-            ${comboField("Kill Team", `participant-faction-${participant.id}`, "faction", participant.faction || "", "Optional", { optional: true })}
-            <button class="small-button" data-admin-participant-save-faction="${participant.id}" ${locked ? "disabled" : ""}>Save faction</button>
+            ${comboField(t("games.filter.teamLabel"), `participant-faction-${participant.id}`, "faction", participant.faction || "", t("admin.tournament.optionalPlaceholder"), { optional: true })}
+            <button class="small-button" data-admin-participant-save-faction="${participant.id}" ${locked ? "disabled" : ""}>${t("admin.tournament.participants.saveFaction")}</button>
           </div>
           <div class="participant-replace-control">
             <div class="participant-replace-row">
-              ${comboField("Registered user", `replacement-user-${participant.id}`, "users", "", replacePlaceholder, {
+              ${comboField(t("admin.tournament.participants.registeredUserLabel"), `replacement-user-${participant.id}`, "users", "", replacePlaceholder, {
                 optional: true,
                 valueMode: "value",
                 items: userComboItems(replacementUsers),
@@ -6440,8 +6440,8 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
       </div>
       <div class="row-actions">
         <input class="seed-input" type="number" min="1" value="${participant.seed || 1}" data-participant-seed="${participant.id}" ${options.seedLocked || !["joined", "active"].includes(participant.status) ? "disabled" : ""}>
-        <span class="status ${participant.status === "active" || participant.status === "joined" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(participant.status)}</span>
-        ${canRemove ? `<button class="danger-button" data-admin-participant-remove="${participant.id}">Remove</button>` : ""}
+        <span class="status ${participant.status === "active" || participant.status === "joined" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(tournamentParticipantStatusLabel(participant.status))}</span>
+        ${canRemove ? `<button class="danger-button" data-admin-participant-remove="${participant.id}">${t("admin.tournament.participants.remove")}</button>` : ""}
       </div>
     </div>
   `;
@@ -6475,8 +6475,10 @@ function availableTournamentUsers(participants, exceptParticipantId = null) {
 }
 
 function participantUserLabel(participant) {
-  if (!participant.userId) return "unregistered";
-  return participant.user?.name ? `TGTV: ${participant.user.name}` : `TGTV user #${participant.userId}`;
+  if (!participant.userId) return t("admin.tournament.participants.unregistered");
+  return participant.user?.name
+    ? t("admin.tournament.participants.tgtvUser", { name: participant.user.name })
+    : t("admin.tournament.participants.tgtvUserId", { id: participant.userId });
 }
 
 function allowParticipantLink(tournament, participant, availableUsers) {
@@ -6491,7 +6493,7 @@ function adminTournamentStandingsPanel(data) {
     <section class="admin-subpanel">
       <div class="panel-header">
         <div>
-          <h3>Standings</h3>
+          <h3>${t("tournaments.tab.standings")}</h3>
           <p class="muted">${standingsSubtitle(data.tournament || {})}</p>
         </div>
       </div>
@@ -6508,8 +6510,8 @@ function adminTournamentPreviewPanel(data) {
     <section class="admin-subpanel wide-panel">
       <div class="panel-header">
         <div>
-          <h3>Preview</h3>
-          <p class="muted">${escapeHtml(formatLabel(preview.format))} pairings before start.</p>
+          <h3>${t("admin.tournament.preview.title")}</h3>
+          <p class="muted">${t("admin.tournament.preview.hint", { format: formatLabel(preview.format) })}</p>
         </div>
       </div>
       ${previewRoundsMarkup(preview.rounds || [], names)}
@@ -6520,22 +6522,22 @@ function adminTournamentPreviewPanel(data) {
 function adminTournamentRoundsPanel(data) {
   const rounds = data.rounds || [];
   if (!rounds.length) {
-    return `<section class="admin-subpanel wide-panel"><div class="empty">Matches are not generated yet.</div></section>`;
+    return `<section class="admin-subpanel wide-panel"><div class="empty">${t("tournaments.matches.empty")}</div></section>`;
   }
   return `
     <section class="admin-subpanel wide-panel">
       <div class="panel-header">
         <div>
-          <h3>Rounds and matches</h3>
-          <p class="muted">Admin result entry completes active tournament matches immediately.</p>
+          <h3>${t("admin.tournament.rounds.title")}</h3>
+          <p class="muted">${t("admin.tournament.rounds.hint")}</p>
         </div>
       </div>
       <div class="public-rounds">
         ${rounds.map((round) => `
           <section class="public-round">
             <div class="public-round-title">
-              <strong>Round ${round.roundNumber}</strong>
-              <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(round.status)}</span>
+              <strong>${t("tournaments.round.title", { number: round.roundNumber })}</strong>
+              <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(round.status))}</span>
             </div>
             <div class="list">
               ${(round.matches || []).map((match) => adminTournamentMatchMarkup(match)).join("")}
@@ -6549,16 +6551,16 @@ function adminTournamentRoundsPanel(data) {
 
 function adminTournamentMatchMarkup(match) {
   const canResult = ["active", "pending_confirmation", "completed"].includes(match.status) && !match.isBye;
-  const actionLabel = match.status === "completed" ? "Edit result" : "Enter result";
+  const actionLabel = match.status === "completed" ? t("play.action.editResult") : t("play.action.enterResult");
   const meta = [publicMatchScore(match), matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
     <div class="row-card compact-row-card">
       <div class="row-main">
-        <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? "BYE" : tournamentParticipantProfileLink(match.participantB)}</div>
+        <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
         <div class="row-meta">${escapeHtml(meta)}</div>
       </div>
       <div class="row-actions">
-        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(match.status)}</span>
+        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
         ${canResult ? `<button class="small-button" data-admin-tournament-match-result="${match.id}">${actionLabel}</button>` : ""}
       </div>
     </div>
@@ -6571,17 +6573,17 @@ function previewRoundsMarkup(rounds, names) {
       ${rounds.map((round) => `
         <section class="public-round">
           <div class="public-round-title">
-            <strong>Round ${round.roundNumber}</strong>
-            <span class="status ${round.status === "active" ? "pending" : ""}">${escapeHtml(round.status)}</span>
+            <strong>${t("tournaments.round.title", { number: round.roundNumber })}</strong>
+            <span class="status ${round.status === "active" ? "pending" : ""}">${escapeHtml(tournamentMatchStatusLabel(round.status))}</span>
           </div>
           <div class="list">
             ${(round.matches || []).map((match) => `
               <div class="row-card compact-row-card">
                 <div class="row-main">
-                  <div class="row-title">${escapeHtml(names.get(match.participantAId) || "TBD")} vs ${escapeHtml(match.isBye ? "BYE" : names.get(match.participantBId) || "TBD")}</div>
-                  <div class="row-meta">${match.isBye ? "Bye" : "Pending result"}</div>
+                  <div class="row-title">${escapeHtml(names.get(match.participantAId) || t("tournaments.participant.fallback"))} vs ${match.isBye ? t("tournaments.match.byeUpper") : escapeHtml(names.get(match.participantBId) || t("tournaments.participant.fallback"))}</div>
+                  <div class="row-meta">${match.isBye ? t("tournaments.match.bye") : t("admin.tournament.preview.pendingResult")}</div>
                 </div>
-                <span class="status ${match.status === "active" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(match.status)}</span>
+                <span class="status ${match.status === "active" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
               </div>
             `).join("")}
           </div>
@@ -6607,9 +6609,9 @@ function tournamentTiebreakerSelects(selected = [], disabled = "") {
         const value = order[index] || "";
         return `
           <label class="tiebreaker-rank-field">
-            <span>Priority ${index + 1}</span>
+            <span>${t("admin.tournament.tiebreaker.priority", { index: index + 1 })}</span>
             <select data-tournament-tiebreaker-select ${disabled}>
-              <option value="">None</option>
+              <option value="">${t("admin.tournament.tiebreaker.none")}</option>
               ${standingsTiebreakerOptions.map((item) => `
                 <option value="${item.key}" ${item.key === value ? "selected" : ""}>${escapeHtml(t(item.labelKey))}</option>
               `).join("")}
@@ -6624,17 +6626,17 @@ function tournamentTiebreakerSelects(selected = [], disabled = "") {
 function tournamentTiebreakerHeading() {
   return `
     <div class="tournament-tiebreaker-heading">
-      <span class="muted">Standings tiebreakers</span>
-      <button class="info-icon-button" type="button" data-tournament-tiebreaker-help-open aria-label="Explain standings tiebreakers" title="How standings tiebreakers work">!</button>
+      <span class="muted">${t("admin.tournament.tiebreaker.heading")}</span>
+      <button class="info-icon-button" type="button" data-tournament-tiebreaker-help-open aria-label="${t("admin.tournament.tiebreaker.explainAria")}" title="${t("admin.tournament.tiebreaker.explainTitle")}">!</button>
     </div>
     <dialog class="tiebreaker-help-dialog" data-tournament-tiebreaker-help>
       <div class="tiebreaker-help-content">
         <div class="tiebreaker-help-header">
           <div>
-            <h3>Standings tiebreakers</h3>
-            <p>TP is compared first. Selected tiebreakers are then applied from Priority 1 to Priority 4.</p>
+            <h3>${t("admin.tournament.tiebreaker.heading")}</h3>
+            <p>${t("admin.tournament.tiebreaker.explainBody")}</p>
           </div>
-          <button class="dialog-close-button" type="button" data-tournament-tiebreaker-help-close aria-label="Close">&times;</button>
+          <button class="dialog-close-button" type="button" data-tournament-tiebreaker-help-close aria-label="${t("common.close")}">&times;</button>
         </div>
         <dl class="tiebreaker-help-list">
           ${standingsTiebreakerOptions.map((item) => `
@@ -6682,8 +6684,8 @@ function adminActiveGamesPanel() {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Sessions Administration</h2>
-          <p class="muted">Open games and submitted results waiting for player confirmation.</p>
+          <h2>${t("games.tabs.sessions")}</h2>
+          <p class="muted">${t("admin.games.hint")}</p>
         </div>
       </div>
       <div class="list">
@@ -6693,17 +6695,17 @@ function adminActiveGamesPanel() {
             <div class="row-card">
               <div class="row-main">
                 <div class="row-title">${escapeHtml(gameTitle(game))}</div>
-                <div class="row-meta">${escapeHtml(pending ? pendingResultSummary(game) : `Accepted match · ${fmtDate(game.createdAt)}`)}</div>
+                <div class="row-meta">${escapeHtml(pending ? pendingResultSummary(game) : t("admin.games.acceptedMatch", { date: fmtDate(game.createdAt) }))}</div>
               </div>
               <div class="row-actions">
-                <span class="status ${pending ? "pending" : "open"}">${pending ? "pending" : "open"}</span>
-                <button class="small-button" data-admin-game-open="${game.id}">Open</button>
-                ${pending && game.pendingResult?.result ? `<button class="small-button" data-admin-game-confirm="${game.id}">Force confirm</button>` : ""}
-                <button class="danger-button" data-admin-game-delete="${game.id}">Delete</button>
+                <span class="status ${pending ? "pending" : "open"}">${pending ? t("play.game.status.pending") : t("admin.games.status.open")}</span>
+                <button class="small-button" data-admin-game-open="${game.id}">${t("admin.action.open")}</button>
+                ${pending && game.pendingResult?.result ? `<button class="small-button" data-admin-game-confirm="${game.id}">${t("games.detail.forceConfirm")}</button>` : ""}
+                <button class="danger-button" data-admin-game-delete="${game.id}">${t("common.delete")}</button>
               </div>
             </div>
           `;
-        }).join("") : `<div class="empty">No active games.</div>`}
+        }).join("") : `<div class="empty">${t("admin.games.empty")}</div>`}
       </div>
     </section>
   `;
@@ -6716,14 +6718,14 @@ function adminUsersPanel() {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>User Administration</h2>
-          <p class="muted">Ratings, administrator rights, and account removal.</p>
+          <h2>${t("leaderboard.tab.users")}</h2>
+          <p class="muted">${t("leaderboard.users.hint")}</p>
         </div>
       </div>
       <div class="table-wrap">
         ${pageData.total ? `<table>
           <thead>
-            <tr><th>Name</th><th>Contacts</th><th>Rating</th><th>Matches</th><th>Admin</th><th></th></tr>
+            <tr><th>${t("leaderboard.users.column.name")}</th><th>${t("leaderboard.users.column.contacts")}</th><th>${t("tournaments.card.rating")}</th><th>${t("profile.metric.matches")}</th><th>${t("leaderboard.users.column.admin")}</th><th></th></tr>
           </thead>
           <tbody>
             ${pageData.items.map((user) => `
@@ -6731,25 +6733,25 @@ function adminUsersPanel() {
                 <td><button class="text-link-button inline-profile-link" data-profile-user="${user.id}">${escapeHtml(user.name)}</button></td>
                 <td>
                   <div class="admin-contact-cell">
-                    <span>Register: ${escapeHtml(user.registerNickname || "-")}</span>
-                    <span>Telegram: ${escapeHtml(user.telegramContact || "-")}</span>
+                    <span>${t("leaderboard.users.contact.register", { value: escapeHtml(user.registerNickname || "-") })}</span>
+                    <span>${t("leaderboard.users.contact.telegram", { value: escapeHtml(user.telegramContact || "-") })}</span>
                   </div>
                 </td>
                 <td>
                   <div class="admin-controls">
                     <input class="rating-input" type="number" min="0" max="5000" value="${user.rating}" data-rating="${user.id}">
-                    <button class="small-button" data-save-rating="${user.id}">Save</button>
+                    <button class="small-button" data-save-rating="${user.id}">${t("common.save")}</button>
                   </div>
                 </td>
                 <td>${user.gamesPlayed}</td>
                 <td><input type="checkbox" ${user.isAdmin ? "checked" : ""} ${user.id === state.me.id ? "disabled" : ""} data-admin-toggle="${user.id}"></td>
-                <td><button class="danger-button" ${user.id === state.me.id ? "disabled" : ""} data-delete-user="${user.id}">Delete</button></td>
+                <td><button class="danger-button" ${user.id === state.me.id ? "disabled" : ""} data-delete-user="${user.id}">${t("common.delete")}</button></td>
               </tr>
             `).join("")}
           </tbody>
-        </table>` : `<div class="empty">No users yet.</div>`}
+        </table>` : `<div class="empty">${t("leaderboard.empty")}</div>`}
       </div>
-      ${paginationMarkup("admin-users", pageData, "users")}
+      ${paginationMarkup("admin-users", pageData, "leaderboard.users.pagination.users")}
       <div class="message" data-message></div>
     </section>
   `;
@@ -6831,7 +6833,7 @@ function wireAdminTournamentFormBehavior() {
         if (form.elements.rulesFileData) form.elements.rulesFileData.value = "";
         if (rulesFile) rulesFile.value = "";
         const status = form.querySelector("[data-tournament-rules-file-status]");
-        if (status) status.textContent = "No PDF selected";
+        if (status) status.textContent = t("admin.tournament.field.noPdfSelected");
       });
     }
 
@@ -6877,7 +6879,7 @@ function wireAdminTournamentAutosave(form) {
     }
     const snapshot = adminTournamentAutosaveSnapshot(form);
     if (!snapshot) {
-      setStatus("Not saved", "error");
+      setStatus(t("admin.tournament.autosave.notSaved"), "error");
       return;
     }
     if (snapshot === lastSnapshot) {
@@ -6886,13 +6888,13 @@ function wireAdminTournamentAutosave(form) {
     }
 
     saving = true;
-    setStatus("Saving...", "saving");
+    setStatus(t("admin.tournament.autosave.saving"), "saving");
     try {
       await saveAdminTournamentUpdate(form, { renderAfterSave: false });
       lastSnapshot = snapshot;
-      setStatus("Saved", "saved");
+      setStatus(t("admin.tournament.autosave.saved"), "saved");
     } catch (err) {
-      setStatus("Save failed", "error");
+      setStatus(t("admin.tournament.autosave.saveFailed"), "error");
       setMessage(err.message, true);
     } finally {
       saving = false;
@@ -6905,10 +6907,10 @@ function wireAdminTournamentAutosave(form) {
 
   const schedule = (delay) => {
     if (!adminTournamentCanAutosave(form)) {
-      setStatus("Not saved", "error");
+      setStatus(t("admin.tournament.autosave.notSaved"), "error");
       return;
     }
-    setStatus("Unsaved changes", "pending");
+    setStatus(t("admin.tournament.autosave.unsaved"), "pending");
     window.clearTimeout(timer);
     timer = window.setTimeout(runSave, delay);
   };
@@ -6967,7 +6969,7 @@ function handleTournamentRulesFile(input) {
   if (!file) {
     hidden.value = "";
     form.dataset.rulesFileLoading = "";
-    if (status) status.textContent = form.dataset.existingRulesLinkType === "pdf" ? "Existing PDF attached" : "No PDF selected";
+    if (status) status.textContent = form.dataset.existingRulesLinkType === "pdf" ? t("admin.tournament.field.existingPdf") : t("admin.tournament.field.noPdfSelected");
     return;
   }
   const looksLikePdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -6975,20 +6977,20 @@ function handleTournamentRulesFile(input) {
     input.value = "";
     hidden.value = "";
     form.dataset.rulesFileLoading = "";
-    if (status) status.textContent = "Choose a PDF file";
-    setMessage("Tournament rules file must be a PDF", true);
+    if (status) status.textContent = t("admin.tournament.rulesFile.choosePdf");
+    setMessage(t("admin.tournament.rulesFile.mustBePdf"), true);
     return;
   }
   if (file.size > MAX_TOURNAMENT_RULES_PDF_SIZE) {
     input.value = "";
     hidden.value = "";
     form.dataset.rulesFileLoading = "";
-    if (status) status.textContent = "PDF is too large";
-    setMessage("Tournament rules PDF must be 2 MB or smaller", true);
+    if (status) status.textContent = t("admin.tournament.rulesFile.tooLarge");
+    setMessage(t("admin.tournament.rulesFile.tooLargeMessage"), true);
     return;
   }
   form.dataset.rulesFileLoading = "1";
-  if (status) status.textContent = "Loading PDF...";
+  if (status) status.textContent = t("admin.tournament.rulesFile.loading");
   const reader = new FileReader();
   reader.onload = () => {
     hidden.value = String(reader.result || "");
@@ -7001,8 +7003,8 @@ function handleTournamentRulesFile(input) {
     input.value = "";
     hidden.value = "";
     form.dataset.rulesFileLoading = "";
-    if (status) status.textContent = "Could not read PDF";
-    setMessage("Could not read tournament rules PDF", true);
+    if (status) status.textContent = t("admin.tournament.rulesFile.readError");
+    setMessage(t("admin.tournament.rulesFile.readErrorMessage"), true);
   };
   reader.readAsDataURL(file);
 }
@@ -7098,7 +7100,7 @@ function wireFinalStandingsControls(data, options = {}) {
     event.preventDefault();
     const participantIds = selects.map((select) => Number(select.value));
     if (participantIds.some((id) => !Number.isSafeInteger(id)) || new Set(participantIds).size !== participantIds.length) {
-      setFinalMessage("Each final position must use a different player", true);
+      setFinalMessage(t("admin.tournament.finalStandings.duplicateError"), true);
       return;
     }
     if (!window.confirm("Publish final standings and end this tournament?")) return;
@@ -7268,9 +7270,9 @@ function wireAdminTournamentControls() {
     const button = event.currentTarget;
     try {
       await copyText(button.dataset.adminTournamentCopy);
-      button.textContent = "Copied";
+      button.textContent = t("admin.tournament.detail.copied");
       window.setTimeout(() => {
-        button.textContent = "Copy link";
+        button.textContent = t("admin.tournament.detail.copyLink");
       }, 1400);
     } catch (err) {
       setMessage(err.message, true);
@@ -7315,7 +7317,7 @@ async function saveAdminTournamentUpdate(form, options = {}) {
 function adminTournamentBodyFromForm(form, options = {}) {
   const { includeSlug = false } = options;
   if (form.dataset.rulesFileLoading === "1") {
-    throw new Error("Wait until the tournament rules PDF finishes loading");
+    throw new Error(t("admin.tournament.rulesFile.stillLoading"));
   }
   const body = {};
   setFormValue(body, form, "name");
@@ -7451,10 +7453,10 @@ function renderRoundSetupModal(preview) {
         <div class="panel-header">
           <div>
             <p class="profile-label">${escapeHtml(venueModeLabel(tournament.venueMode))}</p>
-            <h2>Generate Round ${round.roundNumber || ""}</h2>
-            <p class="muted">Review pairings before saving the round.</p>
+            <h2>${t("admin.roundSetup.title", { number: round.roundNumber || "" })}</h2>
+            <p class="muted">${t("admin.roundSetup.hint")}</p>
           </div>
-          <button class="ghost-button" type="button" data-round-setup-close>Cancel</button>
+          <button class="ghost-button" type="button" data-round-setup-close>${t("common.cancel")}</button>
         </div>
         <form class="round-setup-form" data-round-setup-form>
           ${roundMissionFields(tournament, round)}
@@ -7464,8 +7466,8 @@ function renderRoundSetupModal(preview) {
             ).join("")}
           </div>
           <div class="row-actions">
-            ${tournament.format === "swiss" ? `<button class="small-button" type="button" data-round-setup-add-empty>Create empty pairing</button>` : ""}
-            <button class="primary-button" type="submit">Generate round</button>
+            ${tournament.format === "swiss" ? `<button class="small-button" type="button" data-round-setup-add-empty>${t("admin.roundSetup.addEmpty")}</button>` : ""}
+            <button class="primary-button" type="submit">${t("admin.roundSetup.submit")}</button>
           </div>
           <div class="message" data-round-setup-message></div>
         </form>
@@ -7479,9 +7481,9 @@ function roundMissionFields(tournament, round) {
   const mission = round.mission || {};
   const killzoneField = tournament.venueMode === "tts" ? `
     <div class="field">
-      <label>Killzone</label>
+      <label>${t("games.result.killzoneLabel")}</label>
       <select name="roundKillzone">
-        <option value="">Not selected</option>
+        <option value="">${t("games.result.notSelected")}</option>
         ${optionsHtml(killzoneOptions, mission.killzone || "")}
       </select>
     </div>
@@ -7491,9 +7493,9 @@ function roundMissionFields(tournament, round) {
       <div class="grid-2">
         ${killzoneField}
         <div class="field">
-          <label>Crit Op</label>
+          <label>${t("op.crit")}</label>
           <select name="roundCritOp">
-            <option value="">Not selected</option>
+            <option value="">${t("games.result.notSelected")}</option>
             ${optionsHtml(critOpOptions, mission.critOp || "")}
           </select>
         </div>
@@ -7513,7 +7515,7 @@ function roundSetupMatchRow(match = {}, tournament = {}, tables = []) {
         </div>
       </div>
       <div class="row-actions">
-        <button class="small-button" type="button" data-round-setup-clear>Clear</button>
+        <button class="small-button" type="button" data-round-setup-clear>${t("admin.roundSetup.clear")}</button>
       </div>
     </div>
   `;
@@ -7524,9 +7526,9 @@ function roundSetupPlayerSelect(name, selectedId = "") {
     .filter((participant) => ["joined", "active", "pending_placement"].includes(participant.status));
   return `
     <div class="field">
-      <label>${name === "participantAId" ? "Player A" : "Player B"}</label>
+      <label>${name === "participantAId" ? t("admin.roundSetup.playerA") : t("admin.roundSetup.playerB")}</label>
       <select name="${name}">
-        <option value="">Empty</option>
+        <option value="">${t("admin.roundSetup.emptySlot")}</option>
         ${participants.map((participant) => `
           <option value="${participant.id}" ${Number(selectedId) === participant.id ? "selected" : ""}>
             ${escapeHtml(participant.displayName)}${participant.faction ? ` / ${escapeHtml(participant.faction)}` : ""}
@@ -7541,25 +7543,25 @@ function roundSetupTableSelect(selectedId, tables = []) {
   const selectedTable = tables.find((table) => Number(selectedId) === table.id);
   return `
     <div class="field">
-      <label>Table</label>
+      <label>${t("admin.roundSetup.tableLabel")}</label>
       <select name="tableId">
-        <option value="">Auto</option>
+        <option value="">${t("admin.roundSetup.auto")}</option>
         ${tables.map((table) => `
           <option value="${table.id}" data-deployment="${escapeHtml(table.deployment || "")}" ${Number(selectedId) === table.id ? "selected" : ""}>
             ${escapeHtml(tableLabel(table))}
           </option>
         `).join("")}
       </select>
-      <span class="field-help" data-round-table-deployment>${selectedTable?.deployment ? `Deployment ${selectedTable.deployment}` : "Deployment auto from table"}</span>
+      <span class="field-help" data-round-table-deployment>${selectedTable?.deployment ? t("tournaments.mission.deployment", { layout: selectedTable.deployment }) : t("admin.roundSetup.deploymentAuto")}</span>
     </div>
   `;
 }
 
 function tableLabel(table = {}) {
   return [
-    `Table ${table.tableNumber}`,
+    t("tournaments.match.table", { number: table.tableNumber }),
     table.killzone || "",
-    table.deployment ? `Deployment ${table.deployment}` : ""
+    table.deployment ? t("tournaments.mission.deployment", { layout: table.deployment }) : ""
   ].filter(Boolean).join(" / ");
 }
 
@@ -7611,7 +7613,7 @@ function updateRoundSetupTableDeployment(select) {
   const help = select.closest(".field")?.querySelector("[data-round-table-deployment]");
   if (!help) return;
   const deployment = select.selectedOptions[0]?.dataset.deployment || "";
-  help.textContent = deployment ? `Deployment ${deployment}` : "Deployment auto from table";
+  help.textContent = deployment ? t("tournaments.mission.deployment", { layout: deployment }) : t("admin.roundSetup.deploymentAuto");
 }
 
 function roundSetupPayload(form, tournament) {
@@ -7768,7 +7770,7 @@ async function linkAdminTournamentParticipant(participantId) {
   const select = document.querySelector(`[data-admin-participant-link-user="${participantId}"]`);
   const userId = Number(select?.value || 0);
   if (!userId) {
-    setMessage("Choose a TGTV user to link", true);
+    setMessage(t("admin.tournament.participants.chooseUser"), true);
     return;
   }
   try {
@@ -7805,13 +7807,13 @@ async function replaceAdminTournamentParticipant(participantId) {
   if (!tournament) return;
   const participant = (detail.participants || []).find((item) => item.id === participantId);
   if (tournament.status === "in_progress" && participant?.userId) {
-    setMessage("Registered player replacement is locked after start; add a late participant instead.", true);
+    setMessage(t("admin.tournament.participants.replaceLocked"), true);
     return;
   }
   const select = document.querySelector(`[data-admin-participant-replace-user="${participantId}"]`);
   const userId = Number(select?.value || 0);
   if (!userId) {
-    setMessage("Choose a registered user", true);
+    setMessage(t("admin.tournament.participants.chooseRegisteredUser"), true);
     return;
   }
   const user = (state.adminUsers || []).find((item) => item.id === userId);

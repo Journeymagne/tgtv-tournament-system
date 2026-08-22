@@ -97,7 +97,11 @@ const SAME_IN_BOTH = {
   "challenge.tab.classified": "Challenge classification, a feature name.",
   "challenge.tab.allKillTeam": "Feature and classification names.",
   "challenge.wildcards.title": "Game term kept English, per the challenge.subtitle worked translation.",
-  "challenge.card.wildcard": "Game term kept English, per the challenge.subtitle worked translation."
+  "challenge.card.wildcard": "Game term kept English, per the challenge.subtitle worked translation.",
+  "admin.tournament.field.namePlaceholder": "Placeholder example tournament name, not localized text.",
+  "admin.tournament.field.rulesLinkPlaceholder": "Placeholder format example, not localized text.",
+  "admin.tournament.participants.tgtvUser": "Product/brand abbreviation, no other words to translate.",
+  "leaderboard.users.contact.telegram": "Product name."
 };
 
 module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };
