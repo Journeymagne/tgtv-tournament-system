@@ -81,7 +81,6 @@ const standingsTiebreakerOptions = [
 ];
 
 const singleEliminationSizes = [8, 16, 32, 64];
-const gameSystemOptions = ["Warhammer 40k Kill Team"];
 const MAX_TOURNAMENT_RULES_PDF_SIZE = 2 * 1024 * 1024;
 const TOURNAMENT_AUTOSAVE_TEXT_DELAY_MS = 900;
 const TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS = 180;
@@ -185,58 +184,6 @@ const classifiedChallengeExtraTeams = [
 const challengeWildcardTeams = [
   "Navy Breachers",
   "XV26 Stealth Suits"
-];
-
-const tacOpOptions = [
-  "Plant Devices",
-  "Steal Intelligence",
-  "Track Enemy",
-  "Flank",
-  "Retrieval",
-  "Scout Enemy Movement",
-  "Plant Banner",
-  "Martyrs",
-  "Envoy",
-  "Rout",
-  "Sweep & Clear",
-  "Dominate"
-];
-
-const critOpOptions = [
-  "Secure",
-  "Loot",
-  "Transmission",
-  "Orb",
-  "Stake Claim",
-  "Energy Cells",
-  "Download",
-  "Data",
-  "Reboot"
-];
-
-const killzoneOptions = [
-  "Volkus",
-  "Gallowdark",
-  "Bheta-Decima",
-  "Octarius",
-  "Tomb World",
-  "WTC ITD",
-  "WTC Open",
-  "Non-specific"
-];
-
-const seasons = [
-  {
-    id: "2026-q2-dataslate",
-    name: "2026 Q2 Dataslate",
-    startsAt: null,
-    endsAt: null
-  }
-];
-
-const venueModeOptions = [
-  { key: "tts", label: "Tabletop Simulator" },
-  { key: "irl", label: "In Real Life" }
 ];
 
 const killTeamAliases = new Map([
