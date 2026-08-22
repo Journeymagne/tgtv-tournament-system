@@ -1032,14 +1032,8 @@ function isTournamentRulesPdf(link) {
 }
 
 function tiebreakerLabelForStandings(key) {
-  const labels = {
-    strength_of_schedule: "Strength of Schedule",
-    buchholz: "Buchholz",
-    head_to_head: "Head-to-head",
-    total_vp: t("tiebreaker.totalVp.label"),
-    vp_diff: t("tiebreaker.vpDiff.label")
-  };
-  return labels[key] || key;
+  const option = standingsTiebreakerOptions.find((item) => item.key === key);
+  return option ? t(option.labelKey) : key;
 }
 
 function participantStatusSummary(participants) {
