@@ -123,8 +123,8 @@ const TGTV_I18N_RU = {
   "play.tournamentMatch.meta": "Турнир: {label} / {result}",
   "play.tournamentMatch.openAction": "Открыть турнир",
   "play.tournamentMatch.adminReviewRequired": "Требуется ввод результата администратором",
-  "play.share.alreadyHandled": "Этот вызов уже обработан",
-  "play.share.wrongRecipient": "Эта ссылка на вызов предназначена другому игроку",
+  "play.share.alreadyHandled": "Этот челлендж уже обработан",
+  "play.share.wrongRecipient": "Эта ссылка на челлендж предназначена другому игроку",
 
   // -- games ------------------------------------------------------------------
   "games.tabs.completed": "Завершённые игры",
@@ -648,7 +648,7 @@ const TGTV_I18N_RU = {
 
   // -- dialog -----------------------------------------------------------------
   "dialog.tournaments.withdraw": "Выйти из этого турнира?",
-  "dialog.play.acceptChallenge": "Принять вызов от {name}?",
+  "dialog.play.acceptChallenge": "Принять челлендж от {name}?",
   "dialog.feedback.delete": "Удалить этот отзыв?",
   "dialog.admin.resetPassword": "Сбросить пароль этого игрока? Его активные сеансы будут завершены.",
   "dialog.games.deletePendingGame": "Удалить эту игру, ожидающую подтверждения? Матч будет закрыт без изменений Elo.",
