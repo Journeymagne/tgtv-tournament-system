@@ -7901,7 +7901,8 @@ function applyLocale(locale) {
   document.documentElement.lang = selected;
   const button = document.querySelector("[data-lang-toggle]");
   if (!button) return;
-  button.textContent = selected === "ru" ? "EN" : "RU";
+  // The label states the CURRENT language; the tooltip states the action.
+  button.textContent = selected === "ru" ? "RU" : "EN";
   const label = t("common.langToggle");
   button.setAttribute("aria-label", label);
   button.setAttribute("title", label);
