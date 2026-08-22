@@ -454,8 +454,9 @@ function approvedTotal(score) {
   const crit = Number(score?.crit || 0);
   const kill = Number(score?.kill || 0);
   const tac = Number(score?.tac || 0);
-  const primary = score?.primary || "crit";
-  return crit + kill + tac + Math.ceil(Number(score?.[primary] || 0) / 2);
+  const primary = ["crit", "kill", "tac"].includes(score?.primary) ? score.primary : "";
+  const primaryBonus = primary ? Math.ceil(Number(score?.[primary] || 0) / 2) : 0;
+  return crit + kill + tac + primaryBonus;
 }
 
 function setMessage(text, isError = false) {
@@ -895,7 +896,7 @@ function renderPublicTournament(data) {
         </div>
         ${tournament.description ? `<div class="public-tournament-description markdown-content">${markdownToHtml(tournament.description)}</div>` : ""}
         ${tournamentRulesLinkMarkup(tournament)}
-        <section class="profile-grid">
+        <section class="profile-grid tournament-metrics">
           ${metricCard("Date", tournamentDateLabel(tournament))}
           ${metricCard("Participants", String(listedParticipants.length))}
           ${metricCard("Rounds", tournamentRoundsLabel(tournament, data))}
@@ -1295,19 +1296,44 @@ function publicParticipantsList(participants) {
 
 function publicRoundsMarkup(rounds, tournament = {}) {
   if (!rounds.length) return `<div class="empty">Matches are not generated yet.</div>`;
+  return tournamentRoundsTabbedMarkup(rounds, (match) => publicMatchMarkup(match, tournament));
+}
+
+function defaultTournamentRoundNumber(rounds = []) {
+  const ordered = [...rounds].sort((a, b) => Number(a.roundNumber) - Number(b.roundNumber));
+  const active = ordered.filter((round) => round.status === "active");
+  return Number((active.at(-1) || ordered.at(-1))?.roundNumber || 0);
+}
+
+function tournamentRoundsTabbedMarkup(rounds, matchMarkup) {
+  const ordered = [...rounds].sort((a, b) => Number(a.roundNumber) - Number(b.roundNumber));
+  const selectedRoundNumber = defaultTournamentRoundNumber(ordered);
   return `
-    <div class="public-rounds">
-      ${rounds.map((round) => `
-        <section class="public-round">
+    <div class="tournament-round-switcher" data-tournament-round-switcher>
+      <div class="tabs tournament-round-tabs" role="tablist" aria-label="Tournament rounds">
+        ${ordered.map((round) => `
+          <button
+            class="tab ${Number(round.roundNumber) === selectedRoundNumber ? "active" : ""}"
+            type="button"
+            role="tab"
+            aria-selected="${Number(round.roundNumber) === selectedRoundNumber ? "true" : "false"}"
+            data-tournament-round-tab="${round.roundNumber}"
+          >Round ${round.roundNumber}</button>
+        `).join("")}
+      </div>
+      <div class="public-rounds">
+        ${ordered.map((round) => `
+        <section class="public-round" data-tournament-round-panel="${round.roundNumber}" ${Number(round.roundNumber) === selectedRoundNumber ? "" : "hidden"}>
           <div class="public-round-title">
             <strong>Round ${round.roundNumber}</strong>
             <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(round.status)}</span>
           </div>
           <div class="list">
-            ${(round.matches || []).map((match) => publicMatchMarkup(match, tournament)).join("")}
+            ${(round.matches || []).map(matchMarkup).join("")}
           </div>
         </section>
-      `).join("")}
+        `).join("")}
+      </div>
     </div>
   `;
 }
@@ -1338,10 +1364,7 @@ function publicMatchActions(match, tournament = {}) {
     return `<button class="small-button" data-public-tournament-result="${match.id}">Enter result</button>`;
   }
   if (match.status === "pending_confirmation" && match.pendingResult?.result) {
-    if (match.pendingResult.submittedBy === state.me.id) {
-      return `<button class="small-button" data-public-tournament-result="${match.id}">Edit result</button>`;
-    }
-    return `<button class="primary-button" data-public-tournament-review="${match.id}">Review</button>`;
+    return `<button class="primary-button" data-public-tournament-result="${match.id}">Enter result</button>`;
   }
   return "";
 }
@@ -1979,6 +2002,8 @@ function gameCard(game) {
       : "Waiting for Approved Ops result";
   const mainAction = isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>`
+    : isTournamentGame && isParticipant && isPending
+      ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>`
     : isParticipant && isPending && game.pendingResult?.submittedBy === state.me.id
       ? `<button class="small-button" data-game-result="${game.id}">Edit result</button>`
       : isParticipant && isPending
@@ -4096,6 +4121,8 @@ function renderGameDetail() {
   const playerAction = isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>
        ${isTournamentGame ? "" : `<button class="danger-button" data-exit-game="${game.id}">Exit game</button>`}`
+    : isTournamentGame && isParticipant && game.status === "pending_confirmation"
+      ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>`
     : canDeletePending
       ? `<button class="small-button" data-game-result="${game.id}">Edit result</button>
          ${isTournamentGame ? "" : `<button class="danger-button" data-exit-game="${game.id}">Delete pending</button>`}`
@@ -4572,6 +4599,13 @@ function renderResultForm(gameId, options = {}) {
     try {
       const path = adminEdit ? `/api/admin/games/${game.id}/result` : `/api/games/${game.id}/result`;
       await api(path, { method: "POST", body: approvedOpsPayloadFromForm(game.players) });
+      if (!adminEdit) {
+        window.alert(
+          game.sourceType === "tournament_match"
+            ? "Tournament match submitted successfully."
+            : "Result submitted successfully. Waiting for opponent confirmation."
+        );
+      }
       await refresh();
       await loadTop();
       await loadGames();
@@ -4803,6 +4837,7 @@ function renderTournamentResultForm(data, match, options = {}) {
         ? `/api/admin/tournaments/${tournament.id}/matches/${match.id}/result`
         : `/api/tournaments/${tournament.id}/matches/${match.id}/result`;
       await api(path, { method: "POST", body: approvedOpsPayloadFromForm(game.players) });
+      window.alert(admin ? "Match result saved successfully." : "Tournament match submitted successfully.");
       await refresh();
       await loadTop();
       await loadGames();
@@ -5945,7 +5980,7 @@ function adminTournamentDetailPanel(data) {
   const publicUrl = tournamentPublicUrl(tournament);
   return `
     <section class="card panel admin-tournament-detail">
-      <div class="panel-header">
+      <div class="panel-header admin-tournament-header">
         <div>
           <p class="profile-label">${escapeHtml(formatLabel(tournament.format))}</p>
           <h2>${escapeHtml(tournament.name || "Untitled tournament")}</h2>
@@ -5958,7 +5993,7 @@ function adminTournamentDetailPanel(data) {
           <button class="ghost-button" data-admin-tournament-close>Back to list</button>
         </div>
       </div>
-      <section class="profile-grid">
+      <section class="profile-grid tournament-metrics">
         ${metricCard("Date", tournamentDateLabel(tournament))}
         ${metricCard("Participants", String(listedTournamentParticipants(data.participants || []).length))}
         ${metricCard("Rounds", tournamentRoundsLabel(tournament, data))}
@@ -5992,6 +6027,10 @@ function adminTournamentActionButtons(data) {
     buttons.push(`<button class="small-button" data-admin-tournament-action="preview">Preview pairings</button>`);
   }
   if (tournament.status === "in_progress") {
+    const rollbackState = rollbackRoundActionState(data);
+    if (rollbackState.canRollback) {
+      buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round">Undo current round</button>`);
+    }
     const nextRoundState = nextRoundActionState(data);
     if (nextRoundState.canGenerate) {
       const label = (data.rounds || []).length ? "Generate next round" : "Generate first round";
@@ -6001,6 +6040,21 @@ function adminTournamentActionButtons(data) {
     }
   }
   return buttons.length ? buttons.join("") : `<span class="muted">Setup is locked while the tournament is running.</span>`;
+}
+
+function rollbackRoundActionState(data) {
+  const rounds = (data.rounds || []).filter((round) => round.status !== "not_ready");
+  const round = rounds[rounds.length - 1];
+  if (!round) return { canRollback: false };
+  const canRollback = (round.matches || []).length > 0 && (round.matches || []).every((match) =>
+    match.isBye || (
+      !["pending_confirmation", "completed"].includes(match.status) &&
+      !match.pendingResult &&
+      !match.result &&
+      !match.elo
+    )
+  );
+  return { canRollback, roundNumber: round.roundNumber };
 }
 
 function nextRoundActionState(data) {
@@ -6353,6 +6407,9 @@ function adminTournamentParticipantsContent(data) {
   const canBulkAdd = !["in_progress", "completed", "cancelled"].includes(tournament.status);
   const readOnly = ["completed", "cancelled"].includes(tournament.status);
   const seedLocked = ["in_progress", "completed", "cancelled"].includes(tournament.status);
+  const hasCompetitiveParticipants = participants.some((participant) =>
+    ["joined", "active"].includes(participant.status)
+  );
   const availableUsers = availableTournamentUsers(participants);
   return `
     <div class="tournament-participant-admin">
@@ -6390,7 +6447,10 @@ function adminTournamentParticipantsContent(data) {
           seedLocked
         })).join("") : `<div class="empty">No participants yet.</div>`}
       </div>
-      <button class="small-button" data-admin-tournament-save-seeds ${seedLocked ? "disabled" : ""}>Save seed order</button>
+      <div class="row-actions">
+        <button class="small-button" data-admin-tournament-regenerate-seeds ${seedLocked || !hasCompetitiveParticipants ? "disabled" : ""}>Regenerate seeds</button>
+        <button class="small-button" data-admin-tournament-save-seeds ${seedLocked ? "disabled" : ""}>Save seed order</button>
+      </div>
     </div>
   `;
 }
@@ -6523,19 +6583,7 @@ function adminTournamentRoundsPanel(data) {
           <p class="muted">Admin result entry completes active tournament matches immediately.</p>
         </div>
       </div>
-      <div class="public-rounds">
-        ${rounds.map((round) => `
-          <section class="public-round">
-            <div class="public-round-title">
-              <strong>Round ${round.roundNumber}</strong>
-              <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(round.status)}</span>
-            </div>
-            <div class="list">
-              ${(round.matches || []).map((match) => adminTournamentMatchMarkup(match)).join("")}
-            </div>
-          </section>
-        `).join("")}
-      </div>
+      ${tournamentRoundsTabbedMarkup(rounds, adminTournamentMatchMarkup)}
     </section>
   `;
 }
@@ -7026,6 +7074,7 @@ async function refreshTournamentParticipantView(tournament) {
 
 function wireTournamentInfoControls(data, options = {}) {
   wireLeaderboardProfiles();
+  wireTournamentRoundTabs();
   document.querySelectorAll("[data-tournament-info-tab]").forEach((button) => {
     button.addEventListener("click", async () => {
       state.tournamentInfoTab = button.dataset.tournamentInfoTab || "standings";
@@ -7050,6 +7099,24 @@ function wireTournamentInfoControls(data, options = {}) {
     wireComboFields();
     wireTournamentParticipantAdminControls();
   }
+}
+
+function wireTournamentRoundTabs() {
+  document.querySelectorAll("[data-tournament-round-switcher]").forEach((switcher) => {
+    switcher.querySelectorAll("[data-tournament-round-tab]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const roundNumber = button.dataset.tournamentRoundTab;
+        switcher.querySelectorAll("[data-tournament-round-tab]").forEach((tab) => {
+          const selected = tab.dataset.tournamentRoundTab === roundNumber;
+          tab.classList.toggle("active", selected);
+          tab.setAttribute("aria-selected", selected ? "true" : "false");
+        });
+        switcher.querySelectorAll("[data-tournament-round-panel]").forEach((panel) => {
+          panel.hidden = panel.dataset.tournamentRoundPanel !== roundNumber;
+        });
+      });
+    });
+  });
 }
 
 function updateFinalStandingsSelects() {
@@ -7147,6 +7214,11 @@ function wireTournamentParticipantAdminControls() {
   document.querySelector("[data-admin-tournament-save-seeds]")?.addEventListener("click", async (event) => {
     event.preventDefault();
     await saveAdminTournamentSeeds();
+  });
+
+  document.querySelector("[data-admin-tournament-regenerate-seeds]")?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await regenerateAdminTournamentSeeds();
   });
 
   document.querySelectorAll("[data-admin-participant-remove]").forEach((button) => {
@@ -7401,6 +7473,16 @@ async function runAdminTournamentAction(action) {
     } else if (action === "generate-next-round") {
       await openNextRoundSetupModal(tournament.id);
       return;
+    } else if (action === "rollback-latest-round") {
+      const rollbackState = rollbackRoundActionState(state.adminTournamentDetail || {});
+      if (!window.confirm(
+        `Undo Round ${rollbackState.roundNumber || ""}? The round and its active games will be removed; pairings and tables will reopen as a draft.`
+      )) return;
+      await api(`/api/admin/tournaments/${tournament.id}/rounds/latest`, { method: "DELETE" });
+      await loadTournamentAdmin();
+      renderTournaments();
+      await openNextRoundSetupModal(tournament.id);
+      return;
     } else if (action === "delete") {
       if (!window.confirm(`Delete tournament "${tournament.name || "Untitled tournament"}"? Linked tournament games will be deleted and ratings will be recalculated.`)) return;
       await api(`/api/admin/tournaments/${tournament.id}`, { method: "DELETE" });
@@ -7444,8 +7526,8 @@ function renderRoundSetupModal(preview) {
         <div class="panel-header">
           <div>
             <p class="profile-label">${escapeHtml(venueModeLabel(tournament.venueMode))}</p>
-            <h2>Generate Round ${round.roundNumber || ""}</h2>
-            <p class="muted">Review pairings before saving the round.</p>
+            <h2>${preview.restoredDraft ? "Regenerate" : "Generate"} Round ${round.roundNumber || ""}</h2>
+            <p class="muted">${preview.restoredDraft ? "The previous pairings and tables were restored. Review them before saving." : "Review pairings before saving the round."}</p>
           </div>
           <button class="ghost-button" type="button" data-round-setup-close>Cancel</button>
         </div>
@@ -7458,7 +7540,7 @@ function renderRoundSetupModal(preview) {
           </div>
           <div class="row-actions">
             ${tournament.format === "swiss" ? `<button class="small-button" type="button" data-round-setup-add-empty>Create empty pairing</button>` : ""}
-            <button class="primary-button" type="submit">Generate round</button>
+            <button class="primary-button" type="submit">${preview.restoredDraft ? "Regenerate round" : "Generate round"}</button>
           </div>
           <div class="message" data-round-setup-message></div>
         </form>
@@ -7563,6 +7645,7 @@ function wireRoundSetupModal(tournament, tables) {
       "beforeend",
       roundSetupMatchRow({}, tournament, tables)
     );
+    updateRoundSetupPlayerSelects();
   });
   document.querySelector("[data-round-setup-list]")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-round-setup-clear]");
@@ -7572,11 +7655,16 @@ function wireRoundSetupModal(tournament, tables) {
       select.value = "";
       if (select.name === "tableId") updateRoundSetupTableDeployment(select);
     });
+    updateRoundSetupPlayerSelects();
   });
   document.querySelector("[data-round-setup-list]")?.addEventListener("change", (event) => {
-    if (event.target?.name !== "tableId") return;
-    updateRoundSetupTableDeployment(event.target);
+    if (["participantAId", "participantBId"].includes(event.target?.name)) {
+      updateRoundSetupPlayerSelects();
+      return;
+    }
+    if (event.target?.name === "tableId") updateRoundSetupTableDeployment(event.target);
   });
+  updateRoundSetupPlayerSelects();
   document.querySelectorAll('[name="tableId"]').forEach(updateRoundSetupTableDeployment);
   document.querySelector("[data-round-setup-form]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -7597,6 +7685,18 @@ function wireRoundSetupModal(tournament, tables) {
         setMessage(err.message, true);
       }
     }
+  });
+}
+
+function updateRoundSetupPlayerSelects() {
+  const selects = Array.from(
+    document.querySelectorAll('.round-setup-match-row select[name="participantAId"], .round-setup-match-row select[name="participantBId"]')
+  );
+  const assigned = new Set(selects.map((select) => select.value).filter(Boolean));
+  selects.forEach((select) => {
+    select.querySelectorAll("option").forEach((option) => {
+      option.disabled = Boolean(option.value && option.value !== select.value && assigned.has(option.value));
+    });
   });
 }
 
@@ -7734,6 +7834,19 @@ async function saveAdminTournamentSeeds() {
       method: "POST",
       body: { participantIds }
     });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function regenerateAdminTournamentSeeds() {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  if (!window.confirm("Regenerate seeds as a contiguous sequence while preserving their current order?")) return;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/seeds/regenerate`, { method: "POST" });
     await refreshTournamentParticipantView(tournament);
   } catch (err) {
     setMessage(err.message, true);

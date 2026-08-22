@@ -55,4 +55,12 @@ async function update(client, id, patch) {
   return mapTournamentRound(rows[0]);
 }
 
-module.exports = { insert, listByTournament, update };
+async function remove(client, id) {
+  const { rows } = await client.query(
+    `DELETE FROM tournament_rounds WHERE id = $1 RETURNING ${COLUMNS}`,
+    [id]
+  );
+  return mapTournamentRound(rows[0]);
+}
+
+module.exports = { insert, listByTournament, update, remove };

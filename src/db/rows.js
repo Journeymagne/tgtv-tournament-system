@@ -20,7 +20,8 @@ const TOURNAMENT_COLUMNS = `
   id, owner_user_id, slug, name, description, game_system, starts_at,
   rules_summary, rules_link, status, format, swiss_round_count,
   single_elimination_size, tiebreaker_order, rating_policy,
-  challenge_credit_policy, season_id, venue_mode, final_results, published_at, started_at,
+  challenge_credit_policy, season_id, venue_mode, final_results, round_draft,
+  published_at, started_at,
   completed_at, cancelled_at, created_at, updated_at
 `;
 
@@ -158,6 +159,7 @@ function mapTournament(row) {
     seasonId: row.season_id || "2026-q2-dataslate",
     venueMode: row.venue_mode || "tts",
     finalResults: row.final_results || null,
+    roundDraft: row.round_draft || null,
     participantCount: row.participant_count === undefined ? undefined : Number(row.participant_count || 0),
     roundCount: row.round_count === undefined ? undefined : Number(row.round_count || 0),
     publishedAt: toIso(row.published_at),

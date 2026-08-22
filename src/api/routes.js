@@ -255,6 +255,13 @@ module.exports = [
     tx: true
   },
   {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/seeds/regenerate",
+    handler: tournaments.regenerateSeeds,
+    auth: "admin",
+    tx: true
+  },
+  {
     method: "GET",
     path: "/api/admin/tournaments/:id/preview",
     handler: tournaments.previewAdmin,
@@ -277,6 +284,13 @@ module.exports = [
     method: "POST",
     path: "/api/admin/tournaments/:id/rounds/next",
     handler: tournaments.generateNextRoundAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "DELETE",
+    path: "/api/admin/tournaments/:id/rounds/latest",
+    handler: tournaments.rollbackLatestRoundAdmin,
     auth: "admin",
     tx: true
   },

@@ -27,6 +27,7 @@ const FIELD_COLUMNS = {
   seasonId: "season_id",
   venueMode: "venue_mode",
   finalResults: "final_results",
+  roundDraft: "round_draft",
   publishedAt: "published_at",
   startedAt: "started_at",
   completedAt: "completed_at",
@@ -35,7 +36,7 @@ const FIELD_COLUMNS = {
 
 function valueFor(field, value) {
   if (["tiebreakerOrder"].includes(field)) return value || [];
-  if (["finalResults"].includes(field)) return value === undefined ? null : JSON.stringify(value);
+  if (["finalResults", "roundDraft"].includes(field)) return value === undefined ? null : JSON.stringify(value);
   return value === undefined ? null : value;
 }
 
@@ -152,7 +153,11 @@ async function update(client, id, patch) {
   for (const [field, column] of Object.entries(FIELD_COLUMNS)) {
     if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
     values.push(valueFor(field, patch[field]));
-    const cast = field === "tiebreakerOrder" ? "::text[]" : field === "finalResults" ? "::jsonb" : "";
+    const cast = field === "tiebreakerOrder"
+      ? "::text[]"
+      : ["finalResults", "roundDraft"].includes(field)
+        ? "::jsonb"
+        : "";
     assignments.push(`${column} = $${values.length}${cast}`);
   }
   if (!assignments.length) return findById(client, id);

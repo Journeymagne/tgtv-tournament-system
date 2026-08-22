@@ -1098,6 +1098,21 @@ button:disabled {
   gap: 16px;
 }
 
+.tournament-round-switcher {
+  min-width: 0;
+}
+
+.tournament-round-tabs {
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+.tournament-round-tabs .tab {
+  flex: 0 0 auto;
+  min-width: 112px;
+  white-space: nowrap;
+}
+
 .public-round {
   display: grid;
   gap: 10px;
@@ -2823,6 +2838,7 @@ tr:last-child td {
       "name name";
   }
 }
+
 
 /* Keep the fixed theme control clear of the duplicated legacy topbar rules above. */
 .topbar {
@@ -4987,7 +5003,96 @@ tr:last-child td {
   }
 }
 
+/* Tournament summary needs unequal tracks: labels like Season carry names, not counters. */
+.profile-grid.tournament-metrics {
+  grid-template-columns:
+    minmax(0, 1.05fr)
+    minmax(0, 0.9fr)
+    minmax(0, 0.75fr)
+    minmax(0, 1.15fr)
+    minmax(220px, 1.75fr);
+}
+
+.tournament-metrics .metric-card {
+  min-width: 0;
+}
+
+.tournament-metrics .metric-card strong {
+  overflow-wrap: anywhere;
+  font-size: clamp(22px, 2.4vw, 28px);
+}
+
+.admin-tournament-detail {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-tournament-detail .admin-subpanel {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .profile-grid.tournament-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tournament-metrics .metric-card:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .layout > .content {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-tournament-detail,
+  .page-tabs .tab {
+    min-width: 0;
+  }
+
+  .admin-tournament-detail .tournament-info-tabs {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .admin-tournament-detail .tournament-info-tabs .tab {
+    flex: 0 0 auto;
+    min-width: 108px;
+  }
+
+  .admin-tournament-detail > .admin-tournament-header {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-tournament-header > .admin-tournament-header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .admin-tournament-detail .admin-tournament-header-actions > button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 10px;
+    white-space: normal;
+  }
+}
+
 @media (max-width: 560px) {
+  .profile-grid.tournament-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .tournament-metrics .metric-card:last-child {
+    grid-column: auto;
+  }
+
   .search-row,
   .profile-grid,
   .challenge-list,
