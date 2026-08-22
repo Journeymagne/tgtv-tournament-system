@@ -1066,8 +1066,8 @@ function participantStatusSummary(participants) {
   const active = listed.filter((item) => ["joined", "active"].includes(item.status)).length;
   const pending = listed.filter((item) => item.status === "pending_placement").length;
   return pending
-    ? t("tournaments.participants.summaryWithPending", { active, pending })
-    : t("tournaments.participants.summaryActiveOnly", { active });
+    ? plural("tournaments.participants.summaryWithPending", active, { pending })
+    : plural("tournaments.participants.summaryActiveOnly", active);
 }
 
 function isListedTournamentParticipant(participant) {

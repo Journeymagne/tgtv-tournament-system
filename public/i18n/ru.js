@@ -224,8 +224,18 @@ const TGTV_I18N_RU = {
   "tournaments.rules.openPdf": "Открыть PDF с правилами турнира",
   "tournaments.rules.open": "Открыть правила турнира",
 
-  "tournaments.participants.summaryWithPending": "{active} активных, {pending} ожидают следующий раунд",
-  "tournaments.participants.summaryActiveOnly": "{active} активных",
+  "tournaments.participants.summaryWithPending": {
+    one: "{n} активный, {pending} в очереди на следующий раунд",
+    few: "{n} активных, {pending} в очереди на следующий раунд",
+    many: "{n} активных, {pending} в очереди на следующий раунд",
+    other: "{n} активных, {pending} в очереди на следующий раунд"
+  },
+  "tournaments.participants.summaryActiveOnly": {
+    one: "{n} активный",
+    few: "{n} активных",
+    many: "{n} активных",
+    other: "{n} активных"
+  },
   "tournaments.participant.status.joined": "Присоединился",
   "tournaments.participant.status.pendingPlacement": "Ожидает распределения",
   "tournaments.participant.status.withdrawn": "Вышел",

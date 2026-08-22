@@ -219,8 +219,14 @@ const TGTV_I18N_EN = {
   "tournaments.rules.openPdf": "Open tournament rules PDF",
   "tournaments.rules.open": "Open tournament rules",
 
-  "tournaments.participants.summaryWithPending": "{active} active, {pending} pending next round",
-  "tournaments.participants.summaryActiveOnly": "{active} active",
+  "tournaments.participants.summaryWithPending": {
+    one: "{n} active, {pending} pending next round",
+    other: "{n} active, {pending} pending next round"
+  },
+  "tournaments.participants.summaryActiveOnly": {
+    one: "{n} active",
+    other: "{n} active"
+  },
   "tournaments.participant.status.joined": "Joined",
   "tournaments.participant.status.pendingPlacement": "Pending placement",
   "tournaments.participant.status.withdrawn": "Withdrawn",
@@ -275,7 +281,7 @@ const TGTV_I18N_EN = {
 
   "tournaments.review.title": "Confirm tournament result",
   "tournaments.review.tacOpVp": "Tac Op VP",
-  "tournaments.review.primaryBonus": "Primary bonus",
+  "tournaments.review.primaryBonus": "Primary Op bonus",
 
   "tournaments.tiebreaker.title": "Tie-breakers",
   "tournaments.tiebreaker.winner": "Winner",
