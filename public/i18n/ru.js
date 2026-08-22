@@ -305,7 +305,47 @@ const TGTV_I18N_RU = {
 
   "tournaments.debug.randomResult": "Дебаг: случайные очки",
   "tournaments.combo.defaultPlaceholder": "Поиск или выбор",
-  "tournaments.combo.showOptions": "Показать варианты"
+  "tournaments.combo.showOptions": "Показать варианты",
+
+  // -- stats ----------------------------------------------------------------
+  "stats.title": "Статистика",
+  "stats.hint": "Сводные турнирные данные по завершённым играм.",
+  "stats.tab.killTeamWinrates": "Винрейт Kill Team",
+  "stats.tab.tacOpWinrates": "Винрейт Tac Ops",
+  "stats.tab.teams": "Команды",
+  "stats.error.loadFailed": "Не удалось загрузить статистику: {error}. Перезапустите локальный сервер и обновите страницу.",
+  "stats.filter.classificationLabel": "Классификация",
+  "stats.filter.all": "Все",
+  "stats.classification.classified": "Classified",
+  "stats.classification.nonClassified": "Non-Classified",
+  "stats.column.games": "Игры",
+  "stats.column.wins": "Победы",
+  "stats.column.losses": "Поражения",
+  "stats.column.draws": "Ничьи",
+  "stats.column.winrate": "Винрейт",
+  "stats.column.tacOp": "Tac Op",
+  "stats.column.avgVp": "Средние VP",
+  "stats.column.avgVpAsPrimary": "Средние VP как Primary Op",
+  "stats.column.opponent": "Соперник",
+  "stats.empty.killTeam": "Пока нет завершённых не зеркальных игр с данными по Kill Team.",
+  "stats.empty.tacOp": "Пока нет завершённых игр с данными по Tac Op.",
+  "stats.empty.teamGames": "Пока нет завершённых игр за этот Kill Team.",
+  "stats.empty.players": "Пока нет данных об игроках.",
+  "stats.empty.matchups": "Пока нет данных о не зеркальных встречах.",
+  "stats.card.noGames": "Нет игр",
+  "stats.count.wins": { one: "{n} победа", few: "{n} победы", many: "{n} побед", other: "{n} победы" },
+  "stats.count.losses": { one: "{n} поражение", few: "{n} поражения", many: "{n} поражений", other: "{n} поражения" },
+  "stats.count.draws": { one: "{n} ничья", few: "{n} ничьи", many: "{n} ничьих", other: "{n} ничьи" },
+  "stats.team.rules": "Правила",
+  "stats.team.recentGames.title": "Последние игры",
+  "stats.team.bestPlayers.title": "Лучшие игроки",
+  "stats.team.matchups.title": "Встречи с соперниками",
+  "stats.result.won": "Победа",
+  "stats.result.lost": "Поражение",
+  "stats.result.draw": "Ничья",
+  "stats.result.status.win": "победа",
+  "stats.result.status.loss": "поражение",
+  "stats.result.status.draw": "ничья"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_RU;

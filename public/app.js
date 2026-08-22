@@ -3168,19 +3168,19 @@ function renderStatistics() {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>Stats</h2>
-          <p class="muted">Aggregated tournament data from completed games.</p>
+          <h2>${t("stats.title")}</h2>
+          <p class="muted">${t("stats.hint")}</p>
         </div>
       </div>
       <div class="tabs stats-tabs">
-        <button class="tab ${state.statisticsTab === "killTeamWinrates" ? "active" : ""}" data-statistics-tab="killTeamWinrates">Kill Team Winrates</button>
-        <button class="tab ${state.statisticsTab === "tacOpWinrates" ? "active" : ""}" data-statistics-tab="tacOpWinrates">Tac Ops Winrates</button>
-        <button class="tab ${state.statisticsTab === "teams" ? "active" : ""}" data-statistics-tab="teams">Teams</button>
+        <button class="tab ${state.statisticsTab === "killTeamWinrates" ? "active" : ""}" data-statistics-tab="killTeamWinrates">${t("stats.tab.killTeamWinrates")}</button>
+        <button class="tab ${state.statisticsTab === "tacOpWinrates" ? "active" : ""}" data-statistics-tab="tacOpWinrates">${t("stats.tab.tacOpWinrates")}</button>
+        <button class="tab ${state.statisticsTab === "teams" ? "active" : ""}" data-statistics-tab="teams">${t("stats.tab.teams")}</button>
       </div>
       ${showSeasonSelector ? seasonSelectorMarkup() : ""}
       ${["killTeamWinrates", "tacOpWinrates"].includes(state.statisticsTab) ? statsFiltersMarkup() : ""}
       ${state.gamesError
-        ? `<div class="empty">Could not load stats: ${escapeHtml(state.gamesError)}. Restart the local server and refresh the page.</div>`
+        ? `<div class="empty">${t("stats.error.loadFailed", { error: escapeHtml(state.gamesError) })}</div>`
         : statisticsContent}
     </section>
   `;
@@ -3208,7 +3208,7 @@ function activeSeason() {
 function seasonSelectorMarkup() {
   return `
     <div class="stats-season-row">
-      <label for="stats-season">Season</label>
+      <label for="stats-season">${t("tournaments.field.season")}</label>
       <select id="stats-season" data-season-select>
         ${seasons.map((season) => `
           <option value="${escapeHtml(season.id)}" ${season.id === state.selectedSeasonId ? "selected" : ""}>${escapeHtml(season.name)}</option>
@@ -3222,17 +3222,17 @@ function statsFiltersMarkup() {
   return `
     <div class="filter-row stats-filter-row">
       <div class="field compact-field">
-        <label>Classification</label>
+        <label>${t("stats.filter.classificationLabel")}</label>
         <select data-stats-classification-filter>
-          <option value="all" ${state.statisticsFilters.classification === "all" ? "selected" : ""}>All</option>
-          <option value="classified" ${state.statisticsFilters.classification === "classified" ? "selected" : ""}>Classified</option>
-          <option value="non-classified" ${state.statisticsFilters.classification === "non-classified" ? "selected" : ""}>Non-Classified</option>
+          <option value="all" ${state.statisticsFilters.classification === "all" ? "selected" : ""}>${t("stats.filter.all")}</option>
+          <option value="classified" ${state.statisticsFilters.classification === "classified" ? "selected" : ""}>${t("stats.classification.classified")}</option>
+          <option value="non-classified" ${state.statisticsFilters.classification === "non-classified" ? "selected" : ""}>${t("stats.classification.nonClassified")}</option>
         </select>
       </div>
       <div class="field compact-field">
-        <label>Kill Team</label>
+        <label>${t("games.filter.teamLabel")}</label>
         <select data-stats-team-filter>
-          <option value="">All Kill Teams</option>
+          <option value="">${t("games.filter.allTeams")}</option>
           ${killTeamOptions.map((team) => `<option value="${escapeHtml(team)}" ${state.statisticsFilters.team === team ? "selected" : ""}>${escapeHtml(team)}</option>`).join("")}
         </select>
       </div>
@@ -3289,12 +3289,12 @@ function renderKillTeamWinrates(summary) {
       <table>
         <thead>
           <tr>
-            ${sortableHeader("Kill Team", "team")}
-            ${sortableHeader("Games", "games")}
-            ${sortableHeader("Wins", "wins")}
-            ${sortableHeader("Losses", "losses")}
-            ${sortableHeader("Draws", "draws")}
-            ${sortableHeader("Winrate", "winRate")}
+            ${sortableHeader(t("games.filter.teamLabel"), "team")}
+            ${sortableHeader(t("stats.column.games"), "games")}
+            ${sortableHeader(t("stats.column.wins"), "wins")}
+            ${sortableHeader(t("stats.column.losses"), "losses")}
+            ${sortableHeader(t("stats.column.draws"), "draws")}
+            ${sortableHeader(t("stats.column.winrate"), "winRate")}
           </tr>
         </thead>
         <tbody>
@@ -3309,7 +3309,7 @@ function renderKillTeamWinrates(summary) {
                 <td><span class="rating-pill stat-rate">${row.winRate}%</span></td>
               </tr>
             `).join("")
-            : `<tr><td colspan="6">No completed non-mirror games with Kill Team data yet.</td></tr>`}
+            : `<tr><td colspan="6">${t("stats.empty.killTeam")}</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -3323,12 +3323,12 @@ function renderTacOpWinrates(summary) {
       <table>
         <thead>
           <tr>
-            ${sortableHeader("Tac Op", "tacOp")}
-            ${sortableHeader("Games", "games")}
-            ${sortableHeader("Wins", "wins")}
-            ${sortableHeader("Winrate", "winRate")}
-            ${sortableHeader("Avg VP", "avgPoints")}
-            ${sortableHeader("Avg VP as Primary", "avgPrimaryPoints")}
+            ${sortableHeader(t("stats.column.tacOp"), "tacOp")}
+            ${sortableHeader(t("stats.column.games"), "games")}
+            ${sortableHeader(t("stats.column.wins"), "wins")}
+            ${sortableHeader(t("stats.column.winrate"), "winRate")}
+            ${sortableHeader(t("stats.column.avgVp"), "avgPoints")}
+            ${sortableHeader(t("stats.column.avgVpAsPrimary"), "avgPrimaryPoints")}
           </tr>
         </thead>
         <tbody>
@@ -3343,7 +3343,7 @@ function renderTacOpWinrates(summary) {
                 <td>${row.avgPrimaryPoints}</td>
               </tr>
             `).join("")
-            : `<tr><td colspan="6">No completed games with Tac Op data yet.</td></tr>`}
+            : `<tr><td colspan="6">${t("stats.empty.tacOp")}</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -3391,12 +3391,12 @@ function renderTeamCards(summary) {
         ? rows.map((row) => `
           <button class="team-stat-card" data-stat-team="${escapeHtml(row.team)}">
             <img class="team-stat-logo" src="${killTeamLogoSrc(row.team)}" alt="">
-            <span>${row.games ? `${row.games} games` : "No games"}</span>
+            <span>${row.games ? plural("games.count", row.games) : t("stats.card.noGames")}</span>
             <strong>${escapeHtml(row.team)}</strong>
             <div class="team-stat-rate">${row.winRate}%</div>
           </button>
         `).join("")
-        : `<div class="empty">No completed non-mirror games with Kill Team data yet.</div>`}
+        : `<div class="empty">${t("stats.empty.killTeam")}</div>`}
     </div>
   `;
 }
@@ -3415,35 +3415,39 @@ function renderTeamDetail(detail) {
   return `
     <div class="team-detail">
       <div class="team-detail-hero">
-        <button class="small-button" data-team-back>Teams</button>
+        <button class="small-button" data-team-back>${t("stats.tab.teams")}</button>
         <img class="team-detail-logo" src="${killTeamLogoSrc(detail.team)}" alt="">
         <div class="team-detail-main">
-          <p class="profile-label">Kill Team</p>
+          <p class="profile-label">${t("games.filter.teamLabel")}</p>
           <h3>${escapeHtml(detail.team)}</h3>
-          <span class="team-classification ${classification === "Non-Classified" ? "non-classified" : "classified"}">${classification}</span>
-          <p class="muted">${detail.games} games · ${detail.wins} wins · ${detail.losses} losses · ${detail.draws} draws</p>
+          <span class="team-classification ${classification === "Non-Classified" ? "non-classified" : "classified"}">${t(
+            classification === "Non-Classified"
+              ? "stats.classification.nonClassified"
+              : "stats.classification.classified"
+          )}</span>
+          <p class="muted">${plural("games.count", detail.games)} · ${plural("stats.count.wins", detail.wins)} · ${plural("stats.count.losses", detail.losses)} · ${plural("stats.count.draws", detail.draws)}</p>
         </div>
         <div class="profile-rating team-detail-rate">
           <span>${detail.winRate}%</span>
-          <small>Winrate</small>
+          <small>${t("stats.column.winrate")}</small>
         </div>
-        <a class="small-button" href="${killTeamRulesUrl(detail.team)}" target="_blank" rel="noreferrer">Rules</a>
+        <a class="small-button" href="${killTeamRulesUrl(detail.team)}" target="_blank" rel="noreferrer">${t("stats.team.rules")}</a>
       </div>
 
       <section class="grid-2 team-detail-grid">
         <div class="team-detail-section">
-          <div class="panel-header"><h3>Recent games</h3></div>
+          <div class="panel-header"><h3>${t("stats.team.recentGames.title")}</h3></div>
           <div class="list">
             ${detail.recentGames.length
               ? detail.recentGames.map((item) => teamRecentGameCard(item)).join("")
-              : `<div class="empty">No completed games on this Kill Team yet.</div>`}
+              : `<div class="empty">${t("stats.empty.teamGames")}</div>`}
           </div>
         </div>
         <div class="team-detail-section">
-          <div class="panel-header"><h3>Best players</h3></div>
+          <div class="panel-header"><h3>${t("stats.team.bestPlayers.title")}</h3></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Player</th><th>Games</th><th>Wins</th><th>Winrate</th></tr></thead>
+              <thead><tr><th>${t("games.filter.playerLabel")}</th><th>${t("stats.column.games")}</th><th>${t("stats.column.wins")}</th><th>${t("stats.column.winrate")}</th></tr></thead>
               <tbody>
                 ${detail.players.length
                   ? detail.players.map((row) => `
@@ -3454,7 +3458,7 @@ function renderTeamDetail(detail) {
                       <td><span class="rating-pill stat-rate">${row.winRate}%</span></td>
                     </tr>
                   `).join("")
-                  : `<tr><td colspan="4">No player data yet.</td></tr>`}
+                  : `<tr><td colspan="4">${t("stats.empty.players")}</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -3462,10 +3466,10 @@ function renderTeamDetail(detail) {
       </section>
 
       <section class="team-detail-section">
-        <div class="panel-header"><h3>Matchups</h3></div>
+        <div class="panel-header"><h3>${t("stats.team.matchups.title")}</h3></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Opponent</th><th>Games</th><th>Wins</th><th>Losses</th><th>Draws</th><th>Winrate</th></tr></thead>
+            <thead><tr><th>${t("stats.column.opponent")}</th><th>${t("stats.column.games")}</th><th>${t("stats.column.wins")}</th><th>${t("stats.column.losses")}</th><th>${t("stats.column.draws")}</th><th>${t("stats.column.winrate")}</th></tr></thead>
             <tbody>
               ${detail.matchups.length
                 ? detail.matchups.map((row) => `
@@ -3478,7 +3482,7 @@ function renderTeamDetail(detail) {
                     <td><span class="rating-pill stat-rate">${row.winRate}%</span></td>
                   </tr>
                 `).join("")
-                : `<tr><td colspan="6">No non-mirror matchup data yet.</td></tr>`}
+                : `<tr><td colspan="6">${t("stats.empty.matchups")}</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -3695,7 +3699,8 @@ function statRowSort(a, b) {
 function teamRecentGameCard(item) {
   const score = approvedTotal(item.score);
   const opponentScore = approvedTotal(item.opponentScore);
-  const resultLabel = item.result === "win" ? "Won" : item.result === "loss" ? "Lost" : "Draw";
+  const resultLabel = item.result === "win" ? t("stats.result.won") : item.result === "loss" ? t("stats.result.lost") : t("stats.result.draw");
+  const resultStatus = item.result === "win" ? t("stats.result.status.win") : item.result === "loss" ? t("stats.result.status.loss") : t("stats.result.status.draw");
   return `
     <div class="row-card">
       <div class="row-main">
@@ -3703,8 +3708,8 @@ function teamRecentGameCard(item) {
         <div class="row-meta">${resultLabel}, ${score}-${opponentScore} · vs ${escapeHtml(item.opponentTeam)} · ${fmtDate(item.game.submittedAt || item.game.createdAt)}</div>
       </div>
       <div class="row-actions">
-        <span class="status ${item.result === "win" ? "completed" : item.result === "loss" ? "pending" : "open"}">${item.result}</span>
-        <button class="small-button" data-game-open="${item.game.id}">Details</button>
+        <span class="status ${item.result === "win" ? "completed" : item.result === "loss" ? "pending" : "open"}">${resultStatus}</span>
+        <button class="small-button" data-game-open="${item.game.id}">${t("play.action.details")}</button>
       </div>
     </div>
   `;

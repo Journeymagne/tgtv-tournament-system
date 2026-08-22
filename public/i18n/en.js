@@ -296,7 +296,47 @@ const TGTV_I18N_EN = {
 
   "tournaments.debug.randomResult": "Debug: random scores",
   "tournaments.combo.defaultPlaceholder": "Search or select",
-  "tournaments.combo.showOptions": "Show options"
+  "tournaments.combo.showOptions": "Show options",
+
+  // -- stats ----------------------------------------------------------------
+  "stats.title": "Stats",
+  "stats.hint": "Aggregated tournament data from completed games.",
+  "stats.tab.killTeamWinrates": "Kill Team Winrates",
+  "stats.tab.tacOpWinrates": "Tac Ops Winrates",
+  "stats.tab.teams": "Teams",
+  "stats.error.loadFailed": "Could not load stats: {error}. Restart the local server and refresh the page.",
+  "stats.filter.classificationLabel": "Classification",
+  "stats.filter.all": "All",
+  "stats.classification.classified": "Classified",
+  "stats.classification.nonClassified": "Non-Classified",
+  "stats.column.games": "Games",
+  "stats.column.wins": "Wins",
+  "stats.column.losses": "Losses",
+  "stats.column.draws": "Draws",
+  "stats.column.winrate": "Winrate",
+  "stats.column.tacOp": "Tac Op",
+  "stats.column.avgVp": "Avg VP",
+  "stats.column.avgVpAsPrimary": "Avg VP as Primary",
+  "stats.column.opponent": "Opponent",
+  "stats.empty.killTeam": "No completed non-mirror games with Kill Team data yet.",
+  "stats.empty.tacOp": "No completed games with Tac Op data yet.",
+  "stats.empty.teamGames": "No completed games on this Kill Team yet.",
+  "stats.empty.players": "No player data yet.",
+  "stats.empty.matchups": "No non-mirror matchup data yet.",
+  "stats.card.noGames": "No games",
+  "stats.count.wins": { one: "{n} win", other: "{n} wins" },
+  "stats.count.losses": { one: "{n} loss", other: "{n} losses" },
+  "stats.count.draws": { one: "{n} draw", other: "{n} draws" },
+  "stats.team.rules": "Rules",
+  "stats.team.recentGames.title": "Recent games",
+  "stats.team.bestPlayers.title": "Best players",
+  "stats.team.matchups.title": "Matchups",
+  "stats.result.won": "Won",
+  "stats.result.lost": "Lost",
+  "stats.result.draw": "Draw",
+  "stats.result.status.win": "win",
+  "stats.result.status.loss": "loss",
+  "stats.result.status.draw": "draw"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_EN;

@@ -88,7 +88,9 @@ const SAME_IN_BOTH = {
   "tournaments.mission.killzone": "Rules term.",
   "tournaments.mission.critOp": "Rules term.",
   "tournaments.review.tacOpVp": "Rules term.",
-  "tournaments.score.primaryOp": "Rules term."
+  "tournaments.score.primaryOp": "Rules term.",
+  "stats.classification.classified": "Challenge classification, a feature name.",
+  "stats.classification.nonClassified": "Challenge classification, a feature name."
 };
 
 module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };
