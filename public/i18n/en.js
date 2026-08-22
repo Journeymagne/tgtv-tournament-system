@@ -95,8 +95,12 @@ const TGTV_I18N_EN = {
   "play.recent.empty": "Completed matches will appear here.",
   "play.search.challengeAction": "Challenge",
   "play.search.empty": "No players found.",
+  "play.search.hint": "Start typing a player name or contact.",
   "play.game.waitingForResult": "Waiting for Approved Ops result",
-  "play.game.you": "You"
+  "play.game.you": "You",
+  "play.action.enterResult": "Enter result",
+  "play.action.editResult": "Edit result",
+  "play.action.reviewResult": "Review result"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_EN;

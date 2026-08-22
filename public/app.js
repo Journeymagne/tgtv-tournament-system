@@ -1908,11 +1908,11 @@ function gameCard(game) {
       ? pendingResultSummary(game)
       : t("play.game.waitingForResult");
   const mainAction = isParticipant && game.status === "open"
-    ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>`
+    ? `<button class="primary-button" data-game-result="${game.id}">${t("play.action.enterResult")}</button>`
     : isParticipant && isPending && game.pendingResult?.submittedBy === state.me.id
-      ? `<button class="small-button" data-game-result="${game.id}">Edit result</button>`
+      ? `<button class="small-button" data-game-result="${game.id}">${t("play.action.editResult")}</button>`
       : isParticipant && isPending
-        ? `<button class="primary-button" data-game-review="${game.id}">Review result</button>`
+        ? `<button class="primary-button" data-game-review="${game.id}">${t("play.action.reviewResult")}</button>`
         : "";
   const canExit = isParticipant && (game.status === "open" || (isPending && game.pendingResult?.submittedBy === state.me.id));
   const exitAction = canExit
@@ -4203,7 +4203,7 @@ function handleSearchInput(event) {
 
   if (!value) {
     state.searchResults = [];
-    box.innerHTML = `<div class="empty">Start typing a player name or contact.</div>`;
+    box.innerHTML = `<div class="empty">${t("play.search.hint")}</div>`;
     return;
   }
 
@@ -4218,7 +4218,7 @@ async function searchUsers(options = {}) {
   const raw = input.value.trim();
   if (!raw && !allowEmpty) {
     state.searchResults = [];
-    box.innerHTML = `<div class="empty">Start typing a player name or contact.</div>`;
+    box.innerHTML = `<div class="empty">${t("play.search.hint")}</div>`;
     return;
   }
 

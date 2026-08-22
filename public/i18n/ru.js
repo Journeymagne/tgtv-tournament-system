@@ -95,8 +95,12 @@ const TGTV_I18N_RU = {
   "play.recent.empty": "Здесь появятся завершённые матчи.",
   "play.search.challengeAction": "Вызвать",
   "play.search.empty": "Игроки не найдены.",
+  "play.search.hint": "Начните вводить имя игрока или контакт.",
   "play.game.waitingForResult": "Ожидание результата Approved Ops",
-  "play.game.you": "Вы"
+  "play.game.you": "Вы",
+  "play.action.enterResult": "Ввести результат",
+  "play.action.editResult": "Изменить результат",
+  "play.action.reviewResult": "Проверить результат"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_RU;
