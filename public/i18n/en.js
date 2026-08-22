@@ -5,6 +5,30 @@
 const TGTV_I18N_EN = {
   // -- common ---------------------------------------------------------------
   "common.langToggle": "Switch to Russian",
+  "common.save": "Save",
+  "common.cancel": "Cancel",
+  "common.delete": "Delete",
+  "common.edit": "Edit",
+  "common.close": "Close",
+  "common.confirm": "Confirm",
+  "common.loading": "Loading...",
+  "common.empty": "Nothing here yet.",
+  "common.yes": "Yes",
+  "common.no": "No",
+
+  // -- nav ------------------------------------------------------------------
+  "nav.leaderboard": "Leaderboard",
+  "nav.matchmaking": "Matchmaking",
+  "nav.games": "Games",
+  "nav.tournaments": "Tournaments",
+  "nav.stats": "Stats",
+  "nav.profile": "Profile",
+  "nav.challenge": "All Kill Team Challenge",
+  "nav.feedback": "Feedback",
+  "nav.signOut": "Sign out",
+  "nav.openNavigation": "Open navigation",
+  "nav.closeNavigation": "Close navigation",
+  "nav.openProfile": "Open profile",
 
   // -- tiebreakers ----------------------------------------------------------
   "tiebreaker.strengthOfSchedule.label": "Strength of Schedule",

@@ -5,6 +5,30 @@
 const TGTV_I18N_RU = {
   // -- common ---------------------------------------------------------------
   "common.langToggle": "Переключить на английский",
+  "common.save": "Сохранить",
+  "common.cancel": "Отмена",
+  "common.delete": "Удалить",
+  "common.edit": "Изменить",
+  "common.close": "Закрыть",
+  "common.confirm": "Подтвердить",
+  "common.loading": "Загрузка...",
+  "common.empty": "Пока пусто.",
+  "common.yes": "Да",
+  "common.no": "Нет",
+
+  // -- nav ------------------------------------------------------------------
+  "nav.leaderboard": "Таблица лидеров",
+  "nav.matchmaking": "Подбор соперника",
+  "nav.games": "Игры",
+  "nav.tournaments": "Турниры",
+  "nav.stats": "Статистика",
+  "nav.profile": "Профиль",
+  "nav.challenge": "All Kill Team Challenge",
+  "nav.feedback": "Обратная связь",
+  "nav.signOut": "Выйти",
+  "nav.openNavigation": "Открыть меню",
+  "nav.closeNavigation": "Закрыть меню",
+  "nav.openProfile": "Открыть профиль",
 
   // -- tiebreakers ----------------------------------------------------------
   "tiebreaker.strengthOfSchedule.label": "Strength of Schedule",

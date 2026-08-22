@@ -1658,12 +1658,12 @@ function renderShell() {
           </div>
         </div>
         <div class="topbar-user-controls">
-          <button class="menu-toggle" data-sidebar-toggle aria-label="Open navigation" aria-expanded="false">
+          <button class="menu-toggle" data-sidebar-toggle aria-label="${t("nav.openNavigation")}" aria-expanded="false">
             <span></span>
             <span></span>
             <span></span>
           </button>
-          <button class="mark avatar-button" data-header-profile aria-label="Open profile">${avatarMarkup(state.me)}</button>
+          <button class="mark avatar-button" data-header-profile aria-label="${t("nav.openProfile")}">${avatarMarkup(state.me)}</button>
         </div>
         <div class="topbar-player">
           <div class="topbar-name-row">
@@ -1673,18 +1673,18 @@ function renderShell() {
         </div>
       </div>
     </header>
-    <button class="sidebar-backdrop" data-sidebar-close aria-label="Close navigation"></button>
+    <button class="sidebar-backdrop" data-sidebar-close aria-label="${t("nav.closeNavigation")}"></button>
     <main class="layout">
       <aside class="card sidebar">
-        ${navButton("top", "Leaderboard")}
-        ${navButton("play", "Matchmaking")}
-        ${navButton("games", "Games")}
-        ${navButton("tournaments", "Tournaments")}
-        ${navButton("statistics", "Stats")}
-        ${navButton("profile", "Profile")}
-        ${navButton("challenge", "All Kill Team Challenge")}
-        ${navButton("feedback", "Feedback")}
-        <button class="nav-button sidebar-logout" data-logout>Sign out</button>
+        ${navButton("top", t("nav.leaderboard"))}
+        ${navButton("play", t("nav.matchmaking"))}
+        ${navButton("games", t("nav.games"))}
+        ${navButton("tournaments", t("nav.tournaments"))}
+        ${navButton("statistics", t("nav.stats"))}
+        ${navButton("profile", t("nav.profile"))}
+        ${navButton("challenge", t("nav.challenge"))}
+        ${navButton("feedback", t("nav.feedback"))}
+        <button class="nav-button sidebar-logout" data-logout>${t("nav.signOut")}</button>
       </aside>
       <section class="content" data-content></section>
     </main>

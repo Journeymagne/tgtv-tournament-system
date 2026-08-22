@@ -74,7 +74,8 @@ const SAME_IN_BOTH = {
   "op.crit": "Rules term.",
   "op.kill": "Rules term.",
   "op.tac": "Rules term.",
-  "venue.tts": "Product name."
+  "venue.tts": "Product name.",
+  "nav.challenge": "Feature name."
 };
 
 module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };
