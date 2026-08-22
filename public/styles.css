@@ -910,11 +910,17 @@ button:disabled {
     var(--bg);
 }
 
-.theme-toggle {
+.floating-controls {
   position: fixed;
   top: 14px;
   right: 18px;
   z-index: 60;
+  display: flex;
+  gap: 8px;
+}
+
+.theme-toggle,
+.lang-toggle {
   display: grid;
   place-items: center;
   width: 44px;
@@ -925,12 +931,23 @@ button:disabled {
   color: var(--ink);
   background: var(--panel-2);
   box-shadow: var(--shadow);
-  font-size: 22px;
   line-height: 1;
 }
 
+.theme-toggle {
+  font-size: 22px;
+}
+
+.lang-toggle {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 .theme-toggle:hover,
-.theme-toggle:focus-visible {
+.theme-toggle:focus-visible,
+.lang-toggle:hover,
+.lang-toggle:focus-visible {
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -2971,13 +2988,28 @@ tr:last-child td {
 }
 
 @media (max-width: 560px) {
-  .theme-toggle {
+  .floating-controls {
     top: 10px;
     right: 10px;
+    gap: 6px;
+  }
+
+  .theme-toggle,
+  .lang-toggle {
+    width: 38px;
+    height: 38px;
+  }
+
+  .theme-toggle {
+    font-size: 19px;
+  }
+
+  .lang-toggle {
+    font-size: 12px;
   }
 
   .topbar {
-    padding-right: 64px;
+    padding-right: 92px;
   }
 }
 :root {
@@ -5060,5 +5092,19 @@ tr:last-child td {
       "meta rate"
       "logo logo"
       "name name";
+  }
+}
+
+/* Reserve room for the floating theme and language toggles.
+   Must live at the end of the file: an earlier `.topbar { padding: … }`
+   shorthand in the duplicated legacy block would otherwise win on source
+   order at equal specificity and zero out the reservation. */
+.topbar {
+  padding-right: 114px;
+}
+
+@media (max-width: 560px) {
+  .topbar {
+    padding-right: 92px;
   }
 }

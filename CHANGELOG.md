@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a Russian localization of the client interface, with a language toggle beside the theme toggle that remembers the visitor's choice and defaults to the browser language, plus a protected-terminology glossary with automated checks so Kill Team rules terms are never translated.
 - Updated Dragon Masters logo to a transparent 256x256 asset and placed Dragon Masters last in challenge tracks.
 - Added Dragon Masters as a selectable Kill Team, challenge team, and stats team with logo.
 - Added admin tools to view active games, force-confirm submitted results, and delete active/pending games.
