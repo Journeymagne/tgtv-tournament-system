@@ -78,7 +78,25 @@ const TGTV_I18N_EN = {
   "auth.field.registerNickname": "Register Nickname",
   "auth.field.registerNicknamePlaceholder": "Optional",
   "auth.field.telegramContact": "Telegram Contact",
-  "auth.field.telegramContactPlaceholder": "@username"
+  "auth.field.telegramContactPlaceholder": "@username",
+
+  // -- play -----------------------------------------------------------------
+  "play.newChallenge.title": "New challenge",
+  "play.newChallenge.hint": "Find a player by name or contacts and send a challenge.",
+  "play.newChallenge.searchPlaceholder": "Player name or contacts",
+  "play.newChallenge.searchAction": "Search",
+  "play.incoming.title": "Incoming challenges",
+  "play.incoming.empty": "No new challenges.",
+  "play.outgoing.title": "Sent challenges",
+  "play.outgoing.empty": "No pending challenges.",
+  "play.active.title": "Active matches",
+  "play.active.empty": "No accepted matches yet.",
+  "play.recent.title": "Recent results",
+  "play.recent.empty": "Completed matches will appear here.",
+  "play.search.challengeAction": "Challenge",
+  "play.search.empty": "No players found.",
+  "play.game.waitingForResult": "Waiting for Approved Ops result",
+  "play.game.you": "You"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_EN;

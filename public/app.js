@@ -1802,38 +1802,38 @@ function renderPlay() {
     <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>New challenge</h2>
-          <p class="muted">Find a player by name or contacts and send a challenge.</p>
+          <h2>${t("play.newChallenge.title")}</h2>
+          <p class="muted">${t("play.newChallenge.hint")}</p>
         </div>
       </div>
       <div class="search-row">
         <div class="field" style="margin:0">
-          <input data-search-input placeholder="Player name or contacts">
+          <input data-search-input placeholder="${t("play.newChallenge.searchPlaceholder")}">
         </div>
-        <button class="primary-button" data-search>Search</button>
+        <button class="primary-button" data-search>${t("play.newChallenge.searchAction")}</button>
       </div>
       <div class="list search-results" data-search-results style="margin-top:14px"></div>
     </section>
 
     <section class="grid-2">
       <div class="card panel">
-        <div class="panel-header"><h3>Incoming challenges</h3></div>
-        <div class="list">${incoming.length ? incoming.map(challengeCard).join("") : `<div class="empty">No new challenges.</div>`}</div>
+        <div class="panel-header"><h3>${t("play.incoming.title")}</h3></div>
+        <div class="list">${incoming.length ? incoming.map(challengeCard).join("") : `<div class="empty">${t("play.incoming.empty")}</div>`}</div>
       </div>
       <div class="card panel">
-        <div class="panel-header"><h3>Sent challenges</h3></div>
-        <div class="list">${outgoing.length ? outgoing.map(challengeCard).join("") : `<div class="empty">No pending challenges.</div>`}</div>
+        <div class="panel-header"><h3>${t("play.outgoing.title")}</h3></div>
+        <div class="list">${outgoing.length ? outgoing.map(challengeCard).join("") : `<div class="empty">${t("play.outgoing.empty")}</div>`}</div>
       </div>
     </section>
 
     <section class="card panel">
-      <div class="panel-header"><h2>Active matches</h2></div>
-      <div class="list">${openGames.length ? openGames.map(gameCard).join("") : `<div class="empty">No accepted matches yet.</div>`}</div>
+      <div class="panel-header"><h2>${t("play.active.title")}</h2></div>
+      <div class="list">${openGames.length ? openGames.map(gameCard).join("") : `<div class="empty">${t("play.active.empty")}</div>`}</div>
     </section>
 
     <section class="card panel">
-      <div class="panel-header"><h2>Recent results</h2></div>
-      <div class="list">${completedGames.length ? completedGames.map(gameCard).join("") : `<div class="empty">Completed matches will appear here.</div>`}</div>
+      <div class="panel-header"><h2>${t("play.recent.title")}</h2></div>
+      <div class="list">${completedGames.length ? completedGames.map(gameCard).join("") : `<div class="empty">${t("play.recent.empty")}</div>`}</div>
     </section>
   `;
 
@@ -1898,7 +1898,7 @@ function gameCard(game) {
   }
 
   const players = game.players || [];
-  const title = players.map((player) => player.id === state.me.id ? "You" : player.name).join(" vs ");
+  const title = players.map((player) => player.id === state.me.id ? t("play.game.you") : player.name).join(" vs ");
   const isParticipant = players.some((player) => player.id === state.me.id);
   const isPending = game.status === "pending_confirmation";
   const status = game.status === "completed" ? "completed" : isPending ? "pending" : "open";
@@ -1906,7 +1906,7 @@ function gameCard(game) {
     ? resultSummary(game)
     : isPending
       ? pendingResultSummary(game)
-      : "Waiting for Approved Ops result";
+      : t("play.game.waitingForResult");
   const mainAction = isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">Enter result</button>`
     : isParticipant && isPending && game.pendingResult?.submittedBy === state.me.id
@@ -2010,7 +2010,7 @@ function tournamentMatchGameCard(game) {
   const result = isPending
     ? pendingResultSummary(game)
     : canPlayerReport || canAdminReport
-      ? "Waiting for Approved Ops result"
+      ? t("play.game.waitingForResult")
       : "Administrator result entry required";
   const openAction = tournament.slug
     ? `<button class="small-button" data-tournament-game-open="${matchId}">Open tournament</button>`
@@ -4242,10 +4242,10 @@ function renderSearchResults(box) {
         <div class="row-meta">${escapeHtml(searchResultMeta(user))}</div>
       </div>
       <div class="row-actions">
-        <button class="primary-button" data-challenge-user="${user.id}">Challenge</button>
+        <button class="primary-button" data-challenge-user="${user.id}">${t("play.search.challengeAction")}</button>
       </div>
     </div>
-  `).join("") : `<div class="empty">No players found.</div>`;
+  `).join("") : `<div class="empty">${t("play.search.empty")}</div>`;
 
   document.querySelectorAll("[data-challenge-user]").forEach((button) => {
     button.addEventListener("click", async () => {

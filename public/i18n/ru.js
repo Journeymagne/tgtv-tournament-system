@@ -78,7 +78,25 @@ const TGTV_I18N_RU = {
   "auth.field.registerNickname": "Никнейм для регистрации",
   "auth.field.registerNicknamePlaceholder": "Необязательно",
   "auth.field.telegramContact": "Telegram-контакт",
-  "auth.field.telegramContactPlaceholder": "@username"
+  "auth.field.telegramContactPlaceholder": "@username",
+
+  // -- play -----------------------------------------------------------------
+  "play.newChallenge.title": "Новый челлендж",
+  "play.newChallenge.hint": "Найдите игрока по имени или контактам и отправьте ему челлендж.",
+  "play.newChallenge.searchPlaceholder": "Имя игрока или контакты",
+  "play.newChallenge.searchAction": "Найти",
+  "play.incoming.title": "Входящие челленджи",
+  "play.incoming.empty": "Нет новых челленджей.",
+  "play.outgoing.title": "Отправленные челленджи",
+  "play.outgoing.empty": "Нет ожидающих челленджей.",
+  "play.active.title": "Активные матчи",
+  "play.active.empty": "Пока нет принятых матчей.",
+  "play.recent.title": "Последние результаты",
+  "play.recent.empty": "Здесь появятся завершённые матчи.",
+  "play.search.challengeAction": "Вызвать",
+  "play.search.empty": "Игроки не найдены.",
+  "play.game.waitingForResult": "Ожидание результата Approved Ops",
+  "play.game.you": "Вы"
 };
 
 if (typeof module !== "undefined") module.exports = TGTV_I18N_RU;
