@@ -2508,7 +2508,7 @@ tr:last-child td {
 }
 
 .tournament-rules-link {
-  margin: 8px 0 0;
+  margin: 8px 0 16px;
   font-size: 13px;
   font-weight: 900;
 }
