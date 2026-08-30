@@ -132,15 +132,97 @@ async function cancelGame(client, game) {
 }
 
 async function listCompleted({ client, query = new URLSearchParams() }) {
-  const venue = ["tts", "irl"].includes(query.get("venue")) ? query.get("venue") : null;
-  const completed = await attachTournamentGameDetails(client, await gamesRepo.listCompleted(client, venue));
-  const peopleIds = new Set();
-  for (const game of completed) {
-    for (const id of game.playerIds) peopleIds.add(id);
+  const venue = ["tts", "irl"].includes(query.get("venue"))
+    ? query.get("venue")
+    : null;
+
+  const pageParam = query.get("page");
+  const limitParam = query.get("limit");
+
+  const page = Number(pageParam);
+  const limit = Number(limitParam);
+
+  const usePagination =
+    pageParam !== null &&
+    Number.isInteger(page) &&
+    page > 0;
+
+  // Если page не передан — сохраняем старое поведение.
+  // Это пока нужно Statistics и другим частям приложения.
+  if (!usePagination) {
+    const completed = await attachTournamentGameDetails(
+      client,
+      await gamesRepo.listCompleted(client, venue)
+    );
+
+    const peopleIds = new Set();
+
+    for (const game of completed) {
+      for (const id of game.playerIds) {
+        peopleIds.add(id);
+      }
+    }
+
+    const people = await usersRepo.findByIds(
+      client,
+      [...peopleIds]
+    );
+
+    return {
+      games: sortGameViews(
+        completed.map((game) =>
+          gameView(game, people)
+        )
+      )
+    };
   }
-  const people = await usersRepo.findByIds(client, [...peopleIds]);
+
+  // Новое поведение для:
+  // /api/games?page=1&limit=10
+  const pageData = await gamesRepo.listCompletedPage(
+    client,
+    {
+      venueMode: venue,
+      page,
+      limit:
+        Number.isInteger(limit) && limit > 0
+          ? limit
+          : 10
+    }
+  );
+
+  const completed = await attachTournamentGameDetails(
+    client,
+    pageData.games
+  );
+
+  const peopleIds = new Set();
+
+  for (const game of completed) {
+    for (const id of game.playerIds) {
+      peopleIds.add(id);
+    }
+  }
+
+  const people = await usersRepo.findByIds(
+    client,
+    [...peopleIds]
+  );
+
   return {
-    games: sortGameViews(completed.map((game) => gameView(game, people)))
+    games: sortGameViews(
+      completed.map((game) =>
+        gameView(game, people)
+      )
+    ),
+
+    pagination: {
+      page: pageData.page,
+      limit: pageData.limit,
+      total: pageData.total,
+      totalPages: pageData.totalPages,
+      hasMore: pageData.hasMore
+    }
   };
 }
 

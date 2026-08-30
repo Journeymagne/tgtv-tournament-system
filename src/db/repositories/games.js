@@ -28,6 +28,64 @@ async function listCompleted(client, venueMode = null) {
   return rows.map(mapGame);
 }
 
+async function listCompletedPage(
+  client,
+  {
+    venueMode = null,
+    page = 1,
+    limit = 10
+  } = {}
+) {
+  const venue = ["tts", "irl"].includes(venueMode)
+    ? venueMode
+    : null;
+
+  const safePage =
+    Number.isInteger(page) && page > 0
+      ? page
+      : 1;
+
+  const safeLimit =
+    Number.isInteger(limit) && limit > 0
+      ? Math.min(limit, 100)
+      : 10;
+
+  const offset =
+    (safePage - 1) * safeLimit;
+
+  const { rows } = await client.query(
+    `SELECT ${COLUMNS}
+     FROM games
+     WHERE status = 'completed'
+       AND ($1::text IS NULL OR venue_mode = $1)
+     ORDER BY COALESCE(submitted_at, created_at) DESC, id DESC
+     LIMIT $2
+     OFFSET $3`,
+    [venue, safeLimit, offset]
+  );
+
+  const countResult = await client.query(
+    `SELECT COUNT(*)::int AS total
+     FROM games
+     WHERE status = 'completed'
+       AND ($1::text IS NULL OR venue_mode = $1)`,
+    [venue]
+  );
+
+  const total =
+    Number(countResult.rows[0]?.total || 0);
+
+  return {
+    games: rows.map(mapGame),
+    page: safePage,
+    limit: safeLimit,
+    total,
+    totalPages: Math.ceil(total / safeLimit),
+    hasMore:
+      offset + rows.length < total
+  };
+}
+
 async function listCompletedForUser(client, userId, venueMode = null) {
   const venue = ["tts", "irl"].includes(venueMode) ? venueMode : null;
   const { rows } = await client.query(
@@ -200,6 +258,7 @@ module.exports = {
   listByIds,
   lockById,
   listCompleted,
+  listCompletedPage,
   listCompletedForUser,
   listCompletedForRatingReplay,
   listForUser,

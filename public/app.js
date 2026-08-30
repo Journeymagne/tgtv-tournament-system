@@ -6,7 +6,21 @@ const state = {
   view: "play",
   authMode: "login",
   users: [],
+  leaderboardUsers: {
+    tts: null,
+    irl: null
+  },
   allGames: [],
+  gamesHistory: [],
+  gamesHistoryPage: 1,
+  gamesHistoryTotalPages: 1,
+  gamesHistoryTotal: 0,
+  gamesHistoryLoading: false,
+  gamesHistoryFullyLoaded: false,
+  gamesHistoryLoadId: 0,
+  gamesHistoryLoadingPages: new Set(),
+  gamesHistoryLoaded: false,
+  adminGamesLoaded: false,
   gamesError: "",
   selectedGameId: null,
   tournaments: [],
@@ -44,6 +58,11 @@ const state = {
   feedback: [],
   feedbackError: "",
   feedbackMode: "form",
+  feedbackPage: 1,
+  feedbackTotalPages: 1,
+  feedbackTotal: 0,
+  feedbackLoaded: false,
+  feedbackLoading: false,
   sharedChallengeTokenHandled: ""
 };
 
@@ -52,6 +71,7 @@ let searchRequestId = 0;
 let publicTournamentRequestId = 0;
 
 const LEADERBOARD_PAGE_SIZE = 50;
+const FEEDBACK_PAGE_SIZE = 5;
 const THEME_STORAGE_KEY = "tgtv-theme";
 
 const standingsTiebreakerOptions = [
@@ -515,7 +535,6 @@ async function refresh() {
 async function boot() {
   try {
     await refresh();
-    await loadTop();
     if (state.me) await applyAppRouteFromHash();
     render();
   } catch (err) {
@@ -645,7 +664,7 @@ async function applyAppRoute(route) {
   } else if (route.view === "games") {
     state.gamesTab = state.me?.isAdmin ? route.gamesTab || "history" : "history";
     if (state.gamesTab === "sessions") await loadAdminGames();
-    else await loadGames();
+    else await loadGamesHistory();
   } else if (route.view === "gameDetail") {
     state.selectedGameId = normalizedGameDetailId(route.selectedGameId);
     await loadGames();
@@ -1447,8 +1466,16 @@ function wirePageTabs() {
           else await loadTop();
         } else if (section === "games") {
           state.gamesTab = value;
-          if (value === "sessions") await loadAdminGames();
-          else await loadGames();
+        
+          if (value === "sessions") {
+            if (!state.adminGamesLoaded) {
+              await loadAdminGames();
+            }
+          } else {
+            if (!state.gamesHistoryLoaded) {
+              await loadGamesHistory();
+            }
+          }
         } else if (section === "tournaments") {
           state.tournamentsTab = value;
           if (value === "admin") {
@@ -1848,7 +1875,7 @@ function renderShell() {
       syncAppHash();
       renderShell();
       try {
-        if (targetView === "games") await loadGames();
+        if (targetView === "games") await loadGamesHistory();
         if (targetView === "tournaments") await loadTournaments();
         if (targetView === "statistics") await loadGames();
         if (targetView === "profile") await loadChallengeProgress(state.me.id);
@@ -2049,14 +2076,25 @@ function gameCard(game) {
         <div class="row-title">${escapeHtml(title)}</div>
         <div class="row-meta">${escapeHtml(meta)}</div>
       </div>
-      <div class="row-actions">
-        <span class="status ${status}">${game.status === "completed" ? t("play.game.status.completed") : isPending ? t("play.game.status.pending") : t("play.game.status.active")}</span>
-        ${detailsAction}
-        ${tournamentAction}
-        ${mainAction}
-        ${adminResultAction}
-        ${exitAction}
-      </div>
+      <div class="row-actions game-row-actions">
+        <div class="game-status-row">
+          <span class="status ${status}">
+          ${game.status === "completed"
+          ? t("play.game.status.completed")
+          : isPending
+          ? t("play.game.status.pending")
+          : t("play.game.status.active")}
+    </span>
+  </div>
+
+  <div class="game-button-row">
+    ${detailsAction}
+    ${tournamentAction}
+    ${mainAction}
+    ${adminResultAction}
+    ${exitAction}
+  </div>
+</div>
     </div>
   `;
 }
@@ -2116,14 +2154,48 @@ function resultSummary(game) {
   return t("games.result.withElo", { score, elo: eloParts.join(", ") });
 }
 
-async function loadFeedback() {
+async function loadFeedback({
+  page = 1,
+  force = false
+} = {}) {
   if (!state.me?.isAdmin) return;
+
+  if (
+    !force &&
+    state.feedbackLoaded &&
+    page === state.feedbackPage
+  ) {
+    return;
+  }
+
+  state.feedbackLoading = true;
+
   try {
-    const data = await api("/api/admin/feedback");
-    state.feedback = data.feedback || [];
+    const data = await api(
+      `/api/admin/feedback?page=${page}&limit=${FEEDBACK_PAGE_SIZE}`
+    );
+
+    state.feedback =
+      data.feedback || [];
+
+    state.feedbackPage =
+      data.pagination?.page || page;
+
+    state.feedbackTotalPages =
+      data.pagination?.totalPages || 1;
+
+    state.feedbackTotal =
+      data.pagination?.total ??
+      state.feedback.length;
+
+    state.feedbackLoaded = true;
+    state.feedbackLoading = false;
     state.feedbackError = "";
+
   } catch (err) {
     state.feedback = [];
+    state.feedbackLoading = false;
+    state.feedbackLoaded = false;
     state.feedbackError = err.message;
   }
 }
@@ -2152,13 +2224,22 @@ function renderFeedback() {
 
   document.querySelectorAll("[data-feedback-mode]").forEach((button) => {
     button.addEventListener("click", async () => {
-      state.feedbackMode = button.dataset.feedbackMode;
-      if (state.feedbackMode === "inbox") await loadFeedback();
-      renderFeedback();
+      state.feedbackMode =
+      button.dataset.feedbackMode;
+    
+    if (
+      state.feedbackMode === "inbox" &&
+      !state.feedbackLoaded
+    ) {
+      await loadFeedback({ page: 1 });
+    }
+    
+    renderFeedback();
     });
   });
   document.querySelector("[data-feedback-form]")?.addEventListener("submit", submitFeedback);
   wireFeedbackAdminActions();
+  wireFeedbackPagination();
 }
 
 function feedbackFormMarkup() {
@@ -2175,6 +2256,65 @@ function feedbackFormMarkup() {
       <button class="primary-button" type="submit">${t("feedback.form.submit")}</button>
     </form>
   `;
+}
+
+function feedbackPaginationMarkup() {
+  if (state.feedbackTotalPages <= 1) {
+    return "";
+  }
+
+  return `
+    <button
+      type="button"
+      class="ghost-button"
+      data-feedback-page="${state.feedbackPage - 1}"
+      ${state.feedbackPage <= 1 ? "disabled" : ""}
+    >
+      ←
+    </button>
+
+    <span class="feedback-pagination-label">
+      ${state.feedbackPage} / ${state.feedbackTotalPages}
+    </span>
+
+    <button
+      type="button"
+      class="ghost-button"
+      data-feedback-page="${state.feedbackPage + 1}"
+      ${state.feedbackPage >= state.feedbackTotalPages ? "disabled" : ""}
+    >
+      →
+    </button>
+  `;
+}
+
+function wireFeedbackPagination() {
+  document
+    .querySelectorAll("[data-feedback-page]")
+    .forEach((button) => {
+      button.addEventListener(
+        "click",
+        async () => {
+          const page =
+            Number(button.dataset.feedbackPage);
+
+          if (
+            !Number.isInteger(page) ||
+            page < 1 ||
+            page > state.feedbackTotalPages
+          ) {
+            return;
+          }
+
+          await loadFeedback({
+            page,
+            force: true
+          });
+
+          renderFeedback();
+        }
+      );
+    });
 }
 
 function feedbackInboxMarkup() {
@@ -2200,6 +2340,12 @@ function feedbackInboxMarkup() {
         </div>
       `).join("")}
     </div>
+    <div
+      class="feedback-pagination"
+      data-feedback-pagination
+    >
+      ${feedbackPaginationMarkup()}
+    </div>
   `;
 }
 
@@ -2211,8 +2357,14 @@ function wireFeedbackAdminActions() {
           method: "PATCH",
           body: { status: button.dataset.status }
         });
-        await loadFeedback();
-        renderFeedback();
+        state.feedbackLoaded = false;
+
+        await loadFeedback({
+          page: state.feedbackPage,
+          force: true
+        });
+
+renderFeedback();
       } catch (err) {
         setMessage(err.message, true);
       }
@@ -2223,7 +2375,11 @@ function wireFeedbackAdminActions() {
       if (!window.confirm(t("dialog.feedback.delete"))) return;
       try {
         await api(`/api/admin/feedback/${button.dataset.feedbackDelete}`, { method: "DELETE" });
-        await loadFeedback();
+        state.feedbackLoaded = false;
+        await loadFeedback({
+          page: state.feedbackPage,
+          force: true
+        });
         renderFeedback();
       } catch (err) {
         setMessage(err.message, true);
@@ -2337,15 +2493,38 @@ function renderProfile() {
         <div class="settings-block">
           <h3>${t("profile.settings.avatarTitle")}</h3>
           <div class="avatar-settings-row">
-            <div class="profile-avatar compact-avatar" data-avatar-preview>${avatarMarkup(state.me)}</div>
-            <div>
-              <input class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-avatar-input>
-              <p class="muted small-note">${t("profile.settings.avatarHint")}</p>
-              <div class="row-actions">
-                <button class="small-button" data-remove-avatar type="button">${t("profile.settings.removeAvatar")}</button>
-              </div>
-            </div>
-          </div>
+  <div class="profile-avatar compact-avatar" data-avatar-preview>
+    ${avatarMarkup(state.me)}
+  </div>
+
+  <div class="avatar-upload-controls">
+    <label class="avatar-file-button" for="profile-avatar-file">
+      ${t("profile.settings.chooseAvatarFile") || "Выберите файл"}
+    </label>
+
+    <input
+      id="profile-avatar-file"
+      class="avatar-file-input"
+      type="file"
+      accept="image/png,image/jpeg,image/webp,image/gif"
+      data-avatar-input
+    >
+
+    <p class="muted small-note">
+      ${t("profile.settings.avatarHint")}
+    </p>
+
+    <div class="row-actions">
+      <button
+        class="small-button"
+        data-remove-avatar
+        type="button"
+      >
+        ${t("profile.settings.removeAvatar")}
+      </button>
+    </div>
+  </div>
+</div>
         </div>
         <form class="settings-block" data-profile-name-form>
           <h3>${t("profile.settings.nicknameTitle")}</h3>
@@ -2750,6 +2929,7 @@ function wireAdminPendingGameButtons(profileUserId) {
 
 function wireProfileSettings() {
   const avatarInput = document.querySelector("[data-avatar-input]");
+  const avatarFileName = document.querySelector("[data-avatar-file-name]");
   const removeAvatar = document.querySelector("[data-remove-avatar]");
   const nameForm = document.querySelector("[data-profile-name-form]");
   const contactForm = document.querySelector("[data-profile-contact-form]");
@@ -2758,6 +2938,9 @@ function wireProfileSettings() {
   avatarInput?.addEventListener("change", async () => {
     const file = avatarInput.files?.[0];
     if (!file) return;
+    if (avatarFileName) {
+      avatarFileName.textContent = file.name;
+    }
     try {
       setProfileMessage(t("profile.settings.preparingAvatar"));
       const avatarData = await compressAvatar(file);
@@ -2981,6 +3164,159 @@ async function loadGames() {
   }
 }
 
+const GAMES_HISTORY_PAGE_SIZE = 10;
+
+async function loadGamesHistory() {
+  const loadId = ++state.gamesHistoryLoadId;
+
+  state.gamesHistoryLoadingPages.clear();
+  state.gamesHistory = [];
+  state.gamesHistoryPage = 1;
+  state.gamesHistoryTotalPages = 1;
+  state.gamesHistoryTotal = 0;
+
+  state.gamesHistoryLoading = true;
+  state.gamesHistoryLoaded = false;
+  state.gamesHistoryFullyLoaded = false;
+
+  try {
+    const data = await api(
+      `/api/games?page=1&limit=${GAMES_HISTORY_PAGE_SIZE}`
+    );
+
+    if (loadId !== state.gamesHistoryLoadId) return;
+
+    state.gamesHistory = data.games || [];
+
+    state.gamesHistoryPage =
+      data.pagination?.page || 1;
+
+    state.gamesHistoryTotalPages =
+      data.pagination?.totalPages || 1;
+
+    state.gamesHistoryTotal =
+      data.pagination?.total ??
+      state.gamesHistory.length;
+
+    state.gamesHistoryFullyLoaded =
+      !data.pagination?.hasMore;
+
+    state.gamesError = "";
+
+    state.gamesHistoryLoading = false;
+    state.gamesHistoryLoaded = true;
+
+    loadRemainingGameHistoryPages(loadId);
+
+  } catch (err) {
+    if (loadId !== state.gamesHistoryLoadId) return;
+
+    state.gamesHistory = [];
+    state.gamesHistoryLoading = false;
+    state.gamesHistoryLoaded = false;
+    state.gamesHistoryFullyLoaded = true;
+    state.gamesError = err.message;
+  }
+}
+
+async function loadGamesHistoryPage(page, loadId) {
+  if (
+    state.gamesHistoryLoadingPages.has(page) ||
+    loadId !== state.gamesHistoryLoadId
+  ) {
+    return;
+  }
+
+  state.gamesHistoryLoadingPages.add(page);
+
+  try {
+    const data = await api(
+      `/api/games?page=${page}&limit=${GAMES_HISTORY_PAGE_SIZE}`
+    );
+
+    if (loadId !== state.gamesHistoryLoadId) {
+      return;
+    }
+
+    const existingIds = new Set(
+      state.gamesHistory.map((game) => String(game.id))
+    );
+
+    for (const game of data.games || []) {
+      if (!existingIds.has(String(game.id))) {
+        state.gamesHistory.push(game);
+        existingIds.add(String(game.id));
+      }
+    }
+
+    state.gamesHistoryTotal =
+      data.pagination?.total ??
+      state.gamesHistoryTotal;
+
+    state.gamesHistoryTotalPages =
+      data.pagination?.totalPages ??
+      state.gamesHistoryTotalPages;
+
+    state.gamesHistoryFullyLoaded =
+      !data.pagination?.hasMore;
+
+  } finally {
+    state.gamesHistoryLoadingPages.delete(page);
+  }
+}
+
+async function loadRemainingGameHistoryPages(loadId) {
+  let nextPage = 2;
+
+  while (
+    loadId === state.gamesHistoryLoadId &&
+    nextPage <= state.gamesHistoryTotalPages
+  ) {
+    try {
+      await loadGamesHistoryPage(
+        nextPage,
+        loadId
+      );
+
+      nextPage += 1;
+
+      if (
+        state.view === "games" &&
+        state.gamesTab === "history" &&
+        (
+          state.gameFilters.playerQuery ||
+          state.gameFilters.playerId ||
+          state.gameFilters.team
+        )
+      ) {
+        refreshGamesList();
+      }
+
+    } catch (err) {
+      console.error(
+        "Failed to preload games history page",
+        nextPage,
+        err
+      );
+
+      break;
+    }
+  }
+
+  if (loadId !== state.gamesHistoryLoadId) {
+    return;
+  }
+
+  state.gamesHistoryFullyLoaded = true;
+
+  if (
+    state.view === "games" &&
+    state.gamesTab === "history"
+  ) {
+    refreshGamesList();
+  }
+}
+
 function getKnownGame(gameId) {
   const tournamentMatchId = tournamentMatchIdFromGameId(gameId);
   if (tournamentMatchId) return getKnownTournamentGame(tournamentMatchId);
@@ -3018,10 +3354,156 @@ async function openGameDetail(gameId) {
   renderShell();
 }
 
+function getGamesHistoryPage() {
+  const completedGames = state.gamesHistory.filter(
+    (game) => game.status === "completed"
+  );
+
+  const filteredGames = filterGames(completedGames);
+
+  const hasFilters =
+  Boolean(state.gameFilters.playerQuery) ||
+  Boolean(state.gameFilters.playerId) ||
+  Boolean(state.gameFilters.team);
+
+  const totalPages = hasFilters
+    ? Math.max(
+        1,
+        Math.ceil(filteredGames.length / GAMES_HISTORY_PAGE_SIZE)
+      )
+    : Math.max(
+        1,
+        state.gamesHistoryTotalPages
+      );
+
+  const page = Math.min(
+    Math.max(1, state.gamesHistoryPage),
+    totalPages
+  );
+
+  const start = (page - 1) * GAMES_HISTORY_PAGE_SIZE;
+
+  return {
+    games: filteredGames.slice(
+      start,
+      start + GAMES_HISTORY_PAGE_SIZE
+    ),
+    filteredGames,
+    completedGames,
+    page,
+    totalPages
+  };
+}
+
+function gamesPaginationMarkup({ page, totalPages }) {
+  if (totalPages <= 1) return "";
+
+  return `
+    <button
+      type="button"
+      class="ghost-button"
+      data-games-page="${page - 1}"
+      ${page <= 1 ? "disabled" : ""}
+    >
+      ←
+    </button>
+
+    <span class="games-pagination-label">
+      ${page} / ${totalPages}
+    </span>
+
+    <button
+      type="button"
+      class="ghost-button"
+      data-games-page="${page + 1}"
+      ${page >= totalPages ? "disabled" : ""}
+    >
+      →
+    </button>
+  `;
+}
+
+function wireGamesPagination() {
+  document
+    .querySelectorAll("[data-games-page]")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        const page = Number(button.dataset.gamesPage);
+
+        if (
+          !Number.isInteger(page) ||
+          page < 1 ||
+          page > state.gamesHistoryTotalPages
+        ) {
+          return;
+        }
+
+        const requiredGamesCount =
+          page * GAMES_HISTORY_PAGE_SIZE;
+
+        const pageAlreadyLoaded =
+          state.gamesHistory.length >= requiredGamesCount ||
+          state.gamesHistoryFullyLoaded;
+
+        if (!pageAlreadyLoaded) {
+          button.disabled = true;
+
+          try {
+            await ensureGamesHistoryPageLoaded(page);
+          } finally {
+            button.disabled = false;
+          }
+        }
+
+        state.gamesHistoryPage = page;
+        refreshGamesList();
+      });
+    });
+}
+
+async function ensureGamesHistoryPageLoaded(targetPage) {
+  if (targetPage <= 1) return;
+
+  const loadId = state.gamesHistoryLoadId;
+
+  while (
+    loadId === state.gamesHistoryLoadId &&
+    Math.ceil(
+      state.gamesHistory.length /
+        GAMES_HISTORY_PAGE_SIZE
+    ) < targetPage &&
+    !state.gamesHistoryFullyLoaded
+  ) {
+    const nextPage =
+      Math.floor(
+        state.gamesHistory.length /
+          GAMES_HISTORY_PAGE_SIZE
+      ) + 1;
+
+    await loadGamesHistoryPage(
+      nextPage,
+      loadId
+    );
+
+    // Если эта страница уже грузилась фоном,
+    // даём ей закончить и пересчитываем состояние.
+    if (
+      state.gamesHistoryLoadingPages.has(nextPage)
+    ) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, 20)
+      );
+    }
+  }
+}
+
 function renderGames() {
   const content = document.querySelector("[data-content]");
-  const completedGames = state.allGames.filter((game) => game.status === "completed");
-  const filteredGames = filterGames(completedGames);
+  if (!content) return;
+  const historyPage = getGamesHistoryPage();
+  const completedGames = historyPage.completedGames;
+  const filteredGames = historyPage.filteredGames;
+  const pageGames = historyPage.games;
   const activeTab = state.me?.isAdmin ? state.gamesTab : "history";
   if (state.gamesTab !== activeTab) state.gamesTab = activeTab;
   content.innerHTML = `
@@ -3054,7 +3536,8 @@ function renderGames() {
         </div>
       </div>
       <div class="filter-summary" data-games-filter-summary>${gamesFilterSummary(filteredGames.length, completedGames.length)}</div>
-      <div class="list" data-games-list>${gamesListMarkup(filteredGames)}</div>
+      <div class="list" data-games-list>${gamesListMarkup(pageGames)}</div>
+      <div class="games-pagination" data-games-pagination>${gamesPaginationMarkup(historyPage)}</div>
       </section>
     `}
   `;
@@ -3064,6 +3547,7 @@ function renderGames() {
   } else {
     wireGameFilters();
     wireGameButtons();
+    wireGamesPagination();
   }
 }
 
@@ -3126,7 +3610,9 @@ function renderGamePlayerSuggestions() {
   const box = document.querySelector("[data-games-player-suggestions]");
   const input = document.querySelector("[data-games-player-filter]");
   if (!box || !input) return;
-  const completedGames = state.allGames.filter((game) => game.status === "completed");
+  const completedGames = state.gamesHistory.filter(
+    (game) => game.status === "completed"
+  );
   const options = gamePlayerSuggestionOptions(completedGames, input.value);
   box.innerHTML = options.length
     ? options.map((player) => `
@@ -3145,14 +3631,43 @@ function closeGamePlayerSuggestions() {
 }
 
 function refreshGamesList() {
-  const list = document.querySelector("[data-games-list]");
+  const list = document.querySelector(
+    "[data-games-list]"
+  );
+
   if (!list) return;
-  const completedGames = state.allGames.filter((game) => game.status === "completed");
-  const filteredGames = filterGames(completedGames);
-  list.innerHTML = gamesListMarkup(filteredGames);
-  const summary = document.querySelector("[data-games-filter-summary]");
-  if (summary) summary.textContent = gamesFilterSummary(filteredGames.length, completedGames.length);
+
+  const historyPage = getGamesHistoryPage();
+
+  state.gamesHistoryPage = historyPage.page;
+
+  list.innerHTML = gamesListMarkup(
+    historyPage.games
+  );
+
+  const summary = document.querySelector(
+    "[data-games-filter-summary]"
+  );
+
+  if (summary) {
+    summary.textContent = gamesFilterSummary(
+      historyPage.filteredGames.length,
+      state.gamesHistoryTotal ||
+        historyPage.completedGames.length
+    );
+  }
+
+  const pagination = document.querySelector(
+    "[data-games-pagination]"
+  );
+
+  if (pagination) {
+    pagination.innerHTML =
+      gamesPaginationMarkup(historyPage);
+  }
+
   wireGameButtons();
+  wireGamesPagination();
 }
 
 function wireGameFilters() {
@@ -3161,6 +3676,7 @@ function wireGameFilters() {
   playerInput?.addEventListener("input", (event) => {
     state.gameFilters.playerQuery = event.target.value;
     state.gameFilters.playerId = "";
+    state.gamesHistoryPage = 1;
     refreshGamesList();
     renderGamePlayerSuggestions();
   });
@@ -3184,6 +3700,7 @@ function wireGameFilters() {
   });
   document.querySelector("[data-games-team-filter]")?.addEventListener("change", (event) => {
     state.gameFilters.team = event.target.value;
+    state.gamesHistoryPage = 1;
     refreshGamesList();
   });
 }
@@ -3192,6 +3709,7 @@ function chooseGamePlayerSuggestion(button) {
   const input = document.querySelector("[data-games-player-filter]");
   state.gameFilters.playerId = button.dataset.gamesPlayerSuggestion;
   state.gameFilters.playerQuery = button.dataset.gamesPlayerName || "";
+  state.gamesHistoryPage = 1;
   if (input) input.value = state.gameFilters.playerQuery;
   closeGamePlayerSuggestions();
   refreshGamesList();
@@ -4450,6 +4968,7 @@ async function exitOpenGame(gameId) {
   if (!confirmed) return;
   try {
     await api(`/api/games/${gameId}/exit`, { method: "POST" });
+    state.adminGamesLoaded = false;
     await refresh();
     await loadGames();
     state.view = "play";
@@ -4469,6 +4988,8 @@ async function adminDeleteGame(gameId, profileUserId = null) {
   if (!confirmed) return;
   try {
     await api(`/api/admin/games/${gameId}`, { method: "DELETE" });
+    state.adminGamesLoaded = false;
+    state.gamesHistoryLoaded = false;
     await refresh();
     if (state.me?.isAdmin) await loadAdminGames();
     await loadGames();
@@ -4494,9 +5015,14 @@ async function adminForceConfirmGame(gameId, profileUserId = null) {
   if (!confirmed) return;
   try {
     await api(`/api/admin/games/${gameId}/confirm-result`, { method: "POST" });
+    state.adminGamesLoaded = false;
+    state.gamesHistoryLoaded = false;
     await refresh();
     if (state.me?.isAdmin) await loadAdminGames();
+    
+    invalidateLeaderboardCache();
     await loadTop();
+    
     await loadGames();
     if (profileUserId) {
       await loadPlayerProfile(profileUserId);
@@ -4647,6 +5173,10 @@ function renderResultForm(gameId, options = {}) {
     try {
       const path = adminEdit ? `/api/admin/games/${game.id}/result` : `/api/games/${game.id}/result`;
       await api(path, { method: "POST", body: approvedOpsPayloadFromForm(game.players) });
+      state.adminGamesLoaded = false;
+      if (adminEdit) {
+        state.gamesHistoryLoaded = false;
+      }
       if (!adminEdit) {
         window.alert(t(game.sourceType === "tournament_match"
           ? "message.games.tournamentMatchSubmitted"
@@ -4709,8 +5239,13 @@ function renderResultReview(gameId) {
   document.querySelector("[data-confirm-result]").addEventListener("click", async () => {
     try {
       await api(`/api/games/${game.id}/confirm-result`, { method: "POST" });
+      state.adminGamesLoaded = false;
+      state.gamesHistoryLoaded = false;
       await refresh();
+      
+      invalidateLeaderboardCache();
       await loadTop();
+      
       await loadGames();
       renderShell();
     } catch (err) {
@@ -4720,6 +5255,7 @@ function renderResultReview(gameId) {
   document.querySelector("[data-reject-result]").addEventListener("click", async () => {
     try {
       await api(`/api/games/${game.id}/reject-result`, { method: "POST" });
+      state.adminGamesLoaded = false;
       await refresh();
       await loadGames();
       renderShell();
@@ -4932,8 +5468,13 @@ function renderTournamentResultReview(data, match, options = {}) {
   document.querySelector("[data-tournament-confirm-result]").addEventListener("click", async () => {
     try {
       await api(`/api/tournaments/${tournament.id}/matches/${match.id}/confirm-result`, { method: "POST" });
+      state.adminGamesLoaded = false;
+      state.gamesHistoryLoaded = false;
       await refresh();
+      
+      invalidateLeaderboardCache();
       await loadTop();
+      
       await loadGames();
       await returnFromTournamentResult(tournament, publicRoute, returnTo);
     } catch (err) {
@@ -5656,8 +6197,26 @@ function updateTotals() {
 }
 
 async function loadTop() {
-  const data = await api(`/api/users?venue=${encodeURIComponent(state.leaderboardVenue)}`);
-  state.users = data.users || [];
+  const venue = state.leaderboardVenue;
+
+  if (Array.isArray(state.leaderboardUsers[venue])) {
+    state.users = state.leaderboardUsers[venue];
+    return;
+  }
+
+  const data = await api(
+    `/api/users?venue=${encodeURIComponent(venue)}`
+  );
+
+  const users = data.users || [];
+
+  state.leaderboardUsers[venue] = users;
+  state.users = users;
+}
+
+function invalidateLeaderboardCache() {
+  state.leaderboardUsers.tts = null;
+  state.leaderboardUsers.irl = null;
 }
 
 function paginate(items, page, pageSize = LEADERBOARD_PAGE_SIZE) {
@@ -5802,8 +6361,14 @@ async function loadAdminUsers() {
 }
 
 async function loadAdminGames() {
-  const data = await api("/api/admin/games");
-  state.adminGames = data.games || [];
+  try {
+    const data = await api("/api/admin/games");
+    state.adminGames = data.games || [];
+    state.adminGamesLoaded = true;
+  } catch (err) {
+    state.adminGamesLoaded = false;
+    throw err;
+  }
 }
 
 async function loadTournamentAdmin() {
@@ -6837,7 +7402,10 @@ function wireAdminUserControls() {
         await api(`/api/admin/users/${button.dataset.deleteUser}`, { method: "DELETE" });
         await refresh();
         await loadAdminUsers();
+        
+        invalidateLeaderboardCache();
         await loadTop();
+        
         renderShell();
       } catch (err) {
         setMessage(err.message, true);
@@ -7894,7 +8462,10 @@ async function adminPatch(id, body) {
     await api(`/api/admin/users/${id}`, { method: "PATCH", body });
     await refresh();
     await loadAdminUsers();
+
+    invalidateLeaderboardCache();
     await loadTop();
+
     renderShell();
   } catch (err) {
     setMessage(err.message, true);

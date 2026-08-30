@@ -15,15 +15,75 @@ async function create({ client, user, body }) {
   return { status: 201, body: { feedback: feedbackView(item, people) } };
 }
 
-async function list({ client }) {
-  const items = await feedbackRepo.listAll(client);
+async function list({
+  client,
+  query = new URLSearchParams()
+}) {
+  const pageParam = query.get("page");
+  const limitParam = query.get("limit");
+
+  const page = Number(pageParam);
+  const limit = Number(limitParam);
+
+  const usePagination =
+    pageParam !== null &&
+    Number.isInteger(page) &&
+    page > 0;
+
+  // Старое поведение без page сохраняем.
+  if (!usePagination) {
+    const items =
+      await feedbackRepo.listAll(client);
+
+    const ids = new Set();
+
+    for (const item of items) {
+      if (item.userId) ids.add(item.userId);
+      if (item.resolvedBy) ids.add(item.resolvedBy);
+    }
+
+    const people =
+      await usersRepo.findByIds(client, [...ids]);
+
+    return {
+      feedback: items.map((item) =>
+        feedbackView(item, people)
+      )
+    };
+  }
+
+  const pageData =
+    await feedbackRepo.listPage(client, {
+      page,
+      limit:
+        Number.isInteger(limit) && limit > 0
+          ? limit
+          : 5
+    });
+
   const ids = new Set();
-  for (const item of items) {
+
+  for (const item of pageData.feedback) {
     if (item.userId) ids.add(item.userId);
     if (item.resolvedBy) ids.add(item.resolvedBy);
   }
-  const people = await usersRepo.findByIds(client, [...ids]);
-  return { feedback: items.map((item) => feedbackView(item, people)) };
+
+  const people =
+    await usersRepo.findByIds(client, [...ids]);
+
+  return {
+    feedback: pageData.feedback.map((item) =>
+      feedbackView(item, people)
+    ),
+
+    pagination: {
+      page: pageData.page,
+      limit: pageData.limit,
+      total: pageData.total,
+      totalPages: pageData.totalPages,
+      hasMore: pageData.hasMore
+    }
+  };
 }
 
 async function requireItem(client, id) {

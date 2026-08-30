@@ -429,6 +429,8 @@ const TGTV_I18N_EN = {
   "profile.settings.avatarTitle": "Avatar",
   "profile.settings.avatarHint": "PNG, JPG, WebP or GIF. Max 1 MB.",
   "profile.settings.removeAvatar": "Remove avatar",
+  "profile.settings.chooseAvatarFile": "Choose file",
+  "profile.settings.noFileSelected": "No file selected",
   "profile.settings.nicknameTitle": "Nickname",
   "profile.settings.saveNickname": "Save nickname",
   "profile.settings.saveContacts": "Save contacts",

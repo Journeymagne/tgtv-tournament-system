@@ -438,6 +438,8 @@ const TGTV_I18N_RU = {
   "profile.settings.avatarTitle": "Аватар",
   "profile.settings.avatarHint": "PNG, JPG, WebP или GIF. Максимум 1 МБ.",
   "profile.settings.removeAvatar": "Удалить аватар",
+  "profile.settings.chooseAvatarFile": "Выберите файл",
+  "profile.settings.noFileSelected": "Файл не выбран",
   "profile.settings.nicknameTitle": "Никнейм",
   "profile.settings.saveNickname": "Сохранить никнейм",
   "profile.settings.saveContacts": "Сохранить контакты",
