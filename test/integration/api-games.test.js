@@ -51,6 +51,30 @@ async function openGame() {
   return gamesRepo.insert(client, { challengeId: null, playerIds: [alpha.id, bravo.id] });
 }
 
+test("игра загружается отдельно по id", async () => {
+  const game = await openGame();
+
+  const result = await api.getOne({
+    client, user: alpha, params: { id: String(game.id) }
+  });
+
+  assert.equal(result.game.id, game.id);
+  assert.deepEqual(result.game.players.map((player) => player.id), [alpha.id, bravo.id]);
+});
+
+test("посторонний не может открыть незавершённую игру по id", async () => {
+  const game = await openGame();
+  const charlie = await usersRepo.insert(client, {
+    name: "Charlie", passwordHash: "s:h", registerNickname: "", telegramContact: "@c",
+    rating: 1000, isAdmin: false
+  });
+
+  await assert.rejects(
+    () => api.getOne({ client, user: charlie, params: { id: String(game.id) } }),
+    (err) => err.status === 403
+  );
+});
+
 async function withOwnTransaction(fn) {
   const own = await pool.connect();
   try {

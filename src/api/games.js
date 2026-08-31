@@ -61,8 +61,13 @@ async function lockPlayers(client, game) {
 }
 
 async function viewOf(client, game) {
-  const [detailed] = await attachTournamentGameDetails(client, [game]);
-  const people = await usersRepo.findByIds(client, detailed.playerIds);
+  let detailed = game;
+  if (game.sourceType === "tournament_match") {
+    [detailed] = await attachTournamentGameDetails(client, [game]);
+  }
+  const people = Array.isArray(detailed.players) && detailed.players.length
+    ? []
+    : await usersRepo.findByIds(client, detailed.playerIds);
   return gameView(detailed, people);
 }
 
@@ -144,6 +149,22 @@ async function listCompleted({ client, query = new URLSearchParams() }) {
   };
 }
 
+async function getOne({ client, user, params }) {
+  const game = await findGame(client, params.id);
+  const isParticipant = game.playerIds.includes(user.id);
+  if (game.status !== "completed" && !user.isAdmin && !isParticipant) {
+    throw new HttpError(403, "You cannot view this game");
+  }
+  return { game: await viewOf(client, game) };
+}
+
+async function getByTournamentMatch({ client, user, params }) {
+  const matchId = requirePositiveIntId(params.matchId, 404, "Route not found");
+  const match = await tournamentMatchesRepo.findById(client, matchId);
+  if (!match?.gameId) throw new HttpError(404, "Game not found");
+  return getOne({ client, user, params: { id: match.gameId } });
+}
+
 async function submitResult({ client, user, params, body }) {
   const candidate = await findGame(client, params.id);
   if (candidate.sourceType === "tournament_match") {
@@ -219,6 +240,8 @@ async function respondToResult({ client, user, params }) {
 
 module.exports = {
   listCompleted,
+  getOne,
+  getByTournamentMatch,
   submitResult,
   exitGame,
   respondToResult,

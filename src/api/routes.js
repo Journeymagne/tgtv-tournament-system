@@ -24,6 +24,13 @@ module.exports = [
   { method: "GET", path: "/api/challenge-progress", handler: users.challengeProgress, auth: "user" },
 
   { method: "GET", path: "/api/games", handler: games.listCompleted, auth: "user" },
+  {
+    method: "GET",
+    path: "/api/games/tournament-match/:matchId",
+    handler: games.getByTournamentMatch,
+    auth: "user"
+  },
+  { method: "GET", path: "/api/games/:id", handler: games.getOne, auth: "user" },
   { method: "POST", path: "/api/games/:id/result", handler: games.submitResult, auth: "user", tx: true },
   { method: "POST", path: "/api/games/:id/exit", handler: games.exitGame, auth: "user", tx: true },
   {

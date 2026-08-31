@@ -206,6 +206,14 @@ test("single elimination: результат игрока сразу завер�
   assert.equal(completedGame.tournamentMatch.id, match.id);
   assert.equal(completedGame.tournamentMatch.status, "completed");
 
+  const resolvedLegacyGame = await gamesApi.getByTournamentMatch({
+    client,
+    user: alpha,
+    params: { matchId: String(match.id) }
+  });
+  assert.equal(resolvedLegacyGame.game.id, linkedGame.id);
+  assert.equal(resolvedLegacyGame.game.tournamentMatch.id, match.id);
+
   const alphaProfile = await usersApi.profile({
     client,
     user: alpha,

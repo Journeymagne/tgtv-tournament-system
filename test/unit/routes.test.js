@@ -32,6 +32,8 @@ const REQUIRES_AUTHENTICATED_USER = [
   ["GET", "/api/users/:id"],
   ["GET", "/api/challenge-progress"],
   ["GET", "/api/games"],
+  ["GET", "/api/games/tournament-match/:matchId"],
+  ["GET", "/api/games/:id"],
   ["POST", "/api/games/:id/result"],
   ["POST", "/api/games/:id/exit"],
   ["POST", "/api/games/:id/confirm-result"],

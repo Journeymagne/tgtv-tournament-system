@@ -606,7 +606,15 @@ function appRouteFromHash() {
   }
   if (section === "profile") return { view: "profile" };
   if (section === "players") return { view: "player", selectedPlayerId: Number(subroute) };
-  if (section === "challenge") return { view: "challenge" };
+  if (section === "challenge") {
+    const selectedChallengeUserId = Number(subroute);
+    return {
+      view: "challenge",
+      selectedChallengeUserId: Number.isSafeInteger(selectedChallengeUserId) && selectedChallengeUserId > 0
+        ? selectedChallengeUserId
+        : null
+    };
+  }
   if (section === "feedback") return { view: "feedback" };
   return null;
 }
@@ -630,8 +638,11 @@ async function applyAppRoute(route) {
     state.adminTournamentPreview = null;
   }
   if (route.view === "challenge") {
-    state.challengeOpenedFromProfile = false;
-    state.selectedChallengeUserId = state.me.id;
+    const selectedChallengeUserId = Number(route.selectedChallengeUserId);
+    state.selectedChallengeUserId = Number.isSafeInteger(selectedChallengeUserId) && selectedChallengeUserId > 0
+      ? selectedChallengeUserId
+      : state.me.id;
+    state.challengeOpenedFromProfile = state.selectedChallengeUserId !== state.me.id;
   } else {
     state.selectedChallengeUserId = null;
     state.challengeOpenedFromProfile = false;
@@ -648,9 +659,10 @@ async function applyAppRoute(route) {
     else await loadGames();
   } else if (route.view === "gameDetail") {
     state.selectedGameId = normalizedGameDetailId(route.selectedGameId);
-    await loadGames();
-    const legacyMatchId = tournamentMatchIdFromGameId(state.selectedGameId);
-    if (legacyMatchId) state.selectedGameId = getKnownTournamentGame(legacyMatchId)?.id || null;
+    if (state.selectedGameId && !getKnownGame(state.selectedGameId)) {
+      const game = await loadGame(state.selectedGameId);
+      state.selectedGameId = game?.id || state.selectedGameId;
+    }
   } else if (route.view === "tournaments") {
     state.tournamentsTab = state.me?.isAdmin ? route.tournamentsTab || "public" : "public";
     if (state.tournamentsTab === "admin") {
@@ -684,7 +696,8 @@ async function applyAppRoute(route) {
       await loadPlayerProfile(selectedPlayerId);
     }
   } else if (route.view === "challenge") {
-    await loadChallengeProgress(state.selectedChallengeUserId || state.me.id);
+    const userId = state.selectedChallengeUserId || state.me.id;
+    if (!getKnownChallengeProgress(userId)) await loadChallengeProgress(userId);
   }
 }
 
@@ -712,7 +725,11 @@ function appHashForState() {
   if (state.view === "statistics") return state.statisticsVenue === "irl" ? "#/stats/irl" : "#/stats";
   if (state.view === "profile") return "#/profile";
   if (state.view === "player" && state.playerProfile?.user?.id) return `#/players/${encodeURIComponent(state.playerProfile.user.id)}`;
-  if (state.view === "challenge") return "#/challenge";
+  if (state.view === "challenge") {
+    return state.selectedChallengeUserId && state.selectedChallengeUserId !== state.me.id
+      ? `#/challenge/${encodeURIComponent(state.selectedChallengeUserId)}`
+      : "#/challenge";
+  }
   if (state.view === "feedback") return "#/feedback";
   return "";
 }
@@ -792,11 +809,34 @@ function clearTournamentRoute() {
   window.history.replaceState(null, "", `/${window.location.search}`);
 }
 
-async function renderPublicTournamentRoute(slug) {
+function getKnownPublicTournament(slug) {
+  return state.publicTournamentDetail?.tournament?.slug === String(slug || "")
+    ? state.publicTournamentDetail
+    : null;
+}
+
+async function loadPublicTournament(slug, options = {}) {
+  const { force = false } = options;
+  if (!force) {
+    const cached = getKnownPublicTournament(slug);
+    if (cached) return cached;
+  }
+  const data = await api(`/api/tournaments/${encodeURIComponent(slug)}`);
+  state.publicTournamentDetail = data;
+  return data;
+}
+
+async function renderPublicTournamentRoute(slug, options = {}) {
+  const { force = false } = options;
   const requestId = ++publicTournamentRequestId;
+  const cached = force ? null : getKnownPublicTournament(slug);
+  if (cached) {
+    renderPublicTournament(cached);
+    return;
+  }
   publicTournamentContainer().innerHTML = `<div class="loading">${t("tournaments.loading")}</div>`;
   try {
-    const data = await api(`/api/tournaments/${encodeURIComponent(slug)}`);
+    const data = await loadPublicTournament(slug, { force });
     if (requestId !== publicTournamentRequestId) return;
     renderPublicTournament(data);
   } catch (err) {
@@ -952,7 +992,7 @@ function renderTournamentJoinForm(data) {
         method: "POST",
         body: { faction }
       });
-      await renderPublicTournamentRoute(tournament.slug);
+      await renderPublicTournamentRoute(tournament.slug, { force: true });
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -983,7 +1023,7 @@ function wirePublicTournamentNav(data) {
     if (!window.confirm(t("dialog.tournaments.withdraw"))) return;
     try {
       await api(`/api/tournaments/${tournament.id}/withdraw`, { method: "POST" });
-      await renderPublicTournamentRoute(tournament.slug);
+      await renderPublicTournamentRoute(tournament.slug, { force: true });
     } catch (err) {
       window.alert(err.message);
     }
@@ -2468,8 +2508,7 @@ function wireOpenMatchmakingButton() {
   document.querySelector("[data-open-matchmaking]")?.addEventListener("click", async (event) => {
     const gameId = Number(event.currentTarget.dataset.gameId || 0);
     if (gameId) {
-      await loadGames();
-      const game = getKnownGame(gameId);
+      const game = getKnownGame(gameId) || await loadGame(gameId);
       if (game?.status === "open") {
         renderResultForm(gameId);
         return;
@@ -2902,6 +2941,8 @@ function activeGameWith(userId) {
 async function loadPlayerProfile(userId) {
   if (state.adminPasswordReset?.userId !== Number(userId)) state.adminPasswordReset = null;
   state.playerProfile = await api(`/api/users/${Number(userId)}`);
+  if (state.playerProfile?.challengeProgress) upsertChallengeProgress(state.playerProfile.challengeProgress);
+  return state.playerProfile;
 }
 
 async function openPlayerProfile(userId) {
@@ -2932,6 +2973,11 @@ function upsertChallengeProgress(progress) {
   else state.challengeProgress[index] = progress;
 }
 
+function getKnownChallengeProgress(userId) {
+  const id = Number(userId);
+  return state.challengeProgress.find((item) => item.user.id === id) || null;
+}
+
 async function loadChallengeProgress(userId = null) {
   try {
     const targetUserId = Number(userId || state.selectedChallengeUserId || state.me.id);
@@ -2945,17 +2991,17 @@ async function loadChallengeProgress(userId = null) {
 }
 
 function selectedChallengeProgress() {
-  return state.challengeProgress.find((item) => item.user.id === Number(state.selectedChallengeUserId)) ||
-    state.challengeProgress.find((item) => item.user.id === state.me.id) ||
-    state.challengeProgress[0] ||
-    null;
+  return getKnownChallengeProgress(state.selectedChallengeUserId || state.me.id);
 }
 
 async function openChallengeProgress(userId) {
   state.selectedChallengeUserId = Number(userId);
   state.challengeOpenedFromProfile = true;
   state.view = "challenge";
+  syncAppHash();
+  const needsLoad = !getKnownChallengeProgress(userId);
   renderShell();
+  if (!needsLoad) return;
   await loadChallengeProgress(userId);
   if (state.view === "challenge" && Number(state.selectedChallengeUserId) === Number(userId)) {
     renderShell();
@@ -2978,6 +3024,28 @@ async function loadGames() {
   } catch (err) {
     state.allGames = [];
     state.gamesError = err.message;
+  }
+}
+
+async function loadGame(gameId) {
+  const tournamentMatchId = tournamentMatchIdFromGameId(gameId);
+  const id = normalizedGameDetailId(gameId);
+  if (!tournamentMatchId && (!Number.isSafeInteger(id) || id <= 0)) return null;
+  try {
+    const path = tournamentMatchId
+      ? `/api/games/tournament-match/${tournamentMatchId}`
+      : `/api/games/${id}`;
+    const data = await api(path);
+    const game = data.game || null;
+    if (!game) return null;
+    const knownIndex = state.allGames.findIndex((item) => String(item?.id) === String(game.id));
+    if (knownIndex === -1) state.allGames.push(game);
+    else state.allGames[knownIndex] = game;
+    state.gamesError = "";
+    return game;
+  } catch (err) {
+    state.gamesError = err.message;
+    return null;
   }
 }
 
@@ -3011,8 +3079,12 @@ function normalizedGameDetailId(gameId) {
 }
 
 async function openGameDetail(gameId) {
-  await loadGames();
-  state.selectedGameId = normalizedGameDetailId(gameId);
+  let id = normalizedGameDetailId(gameId);
+  if (!getKnownGame(id)) {
+    const game = await loadGame(id);
+    id = normalizedGameDetailId(game?.id || gameId);
+  }
+  state.selectedGameId = id;
   state.view = "gameDetail";
   syncAppHash();
   renderShell();
@@ -4971,7 +5043,7 @@ async function returnFromTournamentResult(tournament, publicRoute, returnTo = ""
     return;
   }
   if (publicRoute) {
-    await renderPublicTournamentRoute(tournament.slug);
+    await renderPublicTournamentRoute(tournament.slug, { force: true });
     return;
   }
   state.view = "tournaments";
@@ -5774,28 +5846,6 @@ function wireLeaderboardProfiles() {
   });
 }
 
-async function loadAdmin() {
-  const [usersData, gamesData, tournamentsData] = await Promise.all([
-    api("/api/admin/users"),
-    api("/api/admin/games"),
-    api("/api/admin/tournaments")
-  ]);
-  state.adminUsers = usersData.users || [];
-  state.adminGames = gamesData.games || [];
-  state.adminTournaments = tournamentsData.tournaments || [];
-  if (state.selectedTournamentId) {
-    const selectedExists = state.adminTournaments.some((tournament) => tournament.id === state.selectedTournamentId);
-    if (selectedExists) {
-      await loadAdminTournamentDetail(state.selectedTournamentId, { preservePreview: true });
-    } else {
-      state.adminTournamentMode = "list";
-      state.selectedTournamentId = null;
-      state.adminTournamentDetail = null;
-      state.adminTournamentPreview = null;
-    }
-  }
-}
-
 async function loadAdminUsers() {
   const data = await api("/api/admin/users");
   state.adminUsers = data.users || [];
@@ -5806,24 +5856,27 @@ async function loadAdminGames() {
   state.adminGames = data.games || [];
 }
 
+async function loadAdminTournaments() {
+  const data = await api("/api/admin/tournaments");
+  state.adminTournaments = data.tournaments || [];
+}
+
+async function openAdminTournamentList() {
+  await loadAdminTournaments();
+  state.adminTournamentMode = "list";
+  state.selectedTournamentId = null;
+  state.adminTournamentDetail = null;
+  state.adminTournamentPreview = null;
+  syncAppHash();
+  renderTournaments();
+}
+
 async function loadTournamentAdmin() {
-  const [usersData, tournamentsData] = await Promise.all([
-    api("/api/admin/users"),
-    api("/api/admin/tournaments")
-  ]);
-  state.adminUsers = usersData.users || [];
-  state.adminTournaments = tournamentsData.tournaments || [];
   if (state.selectedTournamentId) {
-    const selectedExists = state.adminTournaments.some((tournament) => tournament.id === state.selectedTournamentId);
-    if (selectedExists) {
-      await loadAdminTournamentDetail(state.selectedTournamentId, { preservePreview: true });
-    } else {
-      state.adminTournamentMode = "list";
-      state.selectedTournamentId = null;
-      state.adminTournamentDetail = null;
-      state.adminTournamentPreview = null;
-    }
+    await loadAdminTournamentDetail(state.selectedTournamentId, { preservePreview: true });
+    return;
   }
+  if (state.adminTournamentMode !== "create") await loadAdminTournaments();
 }
 
 async function loadAdminTournamentDetail(id, options = {}) {
@@ -7079,7 +7132,7 @@ function currentTournamentDetail() {
 async function refreshTournamentParticipantView(tournament) {
   state.adminTournamentPreview = null;
   if (tournamentSlugFromLocation() && tournament?.slug) {
-    await renderPublicTournamentRoute(tournament.slug);
+    await renderPublicTournamentRoute(tournament.slug, { force: true });
     return;
   }
   await loadTournamentAdmin();
@@ -7094,7 +7147,7 @@ function wireTournamentInfoControls(data, options = {}) {
       state.tournamentInfoTab = button.dataset.tournamentInfoTab || "standings";
       try {
         if (state.tournamentInfoTab === "participants" && canManageTournamentParticipants(data)) {
-          await loadAdminUsers();
+          if (!state.adminUsers.length) await loadAdminUsers();
         }
         if (options.publicRoute) renderPublicTournament(data);
         else renderTournaments();
@@ -7209,13 +7262,12 @@ function wireAdminTournamentControls() {
     renderTournaments();
   });
 
-  document.querySelector("[data-admin-tournament-create-cancel]")?.addEventListener("click", () => {
-    state.adminTournamentMode = "list";
-    state.selectedTournamentId = null;
-    state.adminTournamentDetail = null;
-    state.adminTournamentPreview = null;
-    syncAppHash();
-    renderTournaments();
+  document.querySelector("[data-admin-tournament-create-cancel]")?.addEventListener("click", async () => {
+    try {
+      await openAdminTournamentList();
+    } catch (err) {
+      setMessage(err.message, true);
+    }
   });
 
   document.querySelector("[data-admin-tournament-create]")?.addEventListener("submit", async (event) => {
@@ -7249,13 +7301,12 @@ function wireAdminTournamentControls() {
     });
   });
 
-  document.querySelector("[data-admin-tournament-close]")?.addEventListener("click", () => {
-    state.adminTournamentMode = "list";
-    state.selectedTournamentId = null;
-    state.adminTournamentDetail = null;
-    state.adminTournamentPreview = null;
-    syncAppHash();
-    renderTournaments();
+  document.querySelector("[data-admin-tournament-close]")?.addEventListener("click", async () => {
+    try {
+      await openAdminTournamentList();
+    } catch (err) {
+      setMessage(err.message, true);
+    }
   });
 
   document.querySelector("[data-admin-tournament-update]")?.addEventListener("submit", async (event) => {
@@ -7441,13 +7492,7 @@ async function runAdminTournamentAction(action) {
     } else if (action === "delete") {
       if (!window.confirm(t("dialog.admin.deleteTournament", { name: tournament.name || t("tournaments.list.untitled") }))) return;
       await api(`/api/admin/tournaments/${tournament.id}`, { method: "DELETE" });
-      state.adminTournamentMode = "list";
-      state.selectedTournamentId = null;
-      state.adminTournamentDetail = null;
-      state.adminTournamentPreview = null;
-      await loadTournamentAdmin();
-      syncAppHash();
-      renderTournaments();
+      await openAdminTournamentList();
       return;
     }
     await loadTournamentAdmin();
