@@ -85,8 +85,10 @@ test("game systems and seasons carry the protected product names", () => {
   assert.deepEqual(gameData.gameSystemOptions, ["Warhammer 40k Kill Team"]);
   assert.deepEqual(
     gameData.seasons.map((season) => season.name),
-    ["2026 Q2 Dataslate"]
+    ["2026 Q2 Dataslate", "2026 Q3 Dataslate"]
   );
+  assert.equal(gameData.seasons[0].endsAt, "2026-09-26T00:00:00+04:00");
+  assert.equal(gameData.seasons[1].startsAt, "2026-09-26T00:00:00+04:00");
 });
 
 test("venue modes cover both keys and reference dictionary labels", () => {

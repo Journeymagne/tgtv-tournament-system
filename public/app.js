@@ -19,7 +19,7 @@ const state = {
   statisticsTab: "killTeamWinrates",
   statisticsVenue: "tts",
   selectedStatisticsTeam: null,
-  selectedSeasonId: "2026-q2-dataslate",
+  selectedSeasonId: "",
   statisticsFilters: { classification: "all", team: "" },
   statisticsSort: { key: "winRate", dir: "desc" },
   gameFilters: { playerQuery: "", playerId: "", team: "" },
@@ -27,6 +27,7 @@ const state = {
   leaderboardVenue: "tts",
   leaderboardPage: 1,
   adminUsersPage: 1,
+  adminUsersQuery: "",
   gamesTab: "history",
   tournamentsTab: "public",
   searchResults: [],
@@ -1083,7 +1084,12 @@ function tournamentParticipantStatusLabel(status) {
 }
 
 function latestSeason() {
-  return seasons[seasons.length - 1] || { id: "2026-q2-dataslate", name: "2026 Q2 Dataslate" };
+  const now = Date.now();
+  return seasons.find((season) => {
+    const startsAt = season.startsAt ? Date.parse(season.startsAt) : Number.NEGATIVE_INFINITY;
+    const endsAt = season.endsAt ? Date.parse(season.endsAt) : Number.POSITIVE_INFINITY;
+    return now >= startsAt && now < endsAt;
+  }) || seasons[seasons.length - 1] || { id: "2026-q2-dataslate", name: "2026 Q2 Dataslate" };
 }
 
 function seasonLabel(seasonId) {
@@ -3323,7 +3329,9 @@ function renderStatistics() {
 }
 
 function activeSeason() {
-  return seasons.find((season) => season.id === state.selectedSeasonId) || seasons[0];
+  const season = seasons.find((item) => item.id === state.selectedSeasonId) || latestSeason();
+  state.selectedSeasonId = season.id;
+  return season;
 }
 
 function seasonSelectorMarkup() {
@@ -6091,7 +6099,7 @@ function adminTournamentActionButtons(data) {
       buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round">${t("admin.tournament.action.rollbackLatestRound")}</button>`);
     }
     if (tournamentFinalStandingsReady(data)) {
-      buttons.push(`<button class="primary-button" data-admin-tournament-action="publish-standings">${t("admin.tournament.finalStandings.publish")}</button>`);
+      buttons.push(`<button class="primary-button" data-admin-tournament-action="close-tournament">${t("admin.tournament.action.closeTournament")}</button>`);
     } else {
       const nextRoundState = nextRoundActionState(data);
       if (nextRoundState.canGenerate) {
@@ -6815,9 +6823,14 @@ function adminActiveGamesPanel() {
   `;
 }
 
+function filterAdminUsers(users, query) {
+  const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
+  if (!normalizedQuery) return users;
+  return users.filter((user) => String(user.name || "").toLocaleLowerCase().includes(normalizedQuery));
+}
+
 function adminUsersPanel() {
-  const pageData = paginate(state.adminUsers, state.adminUsersPage);
-  state.adminUsersPage = pageData.currentPage;
+  const filteredUsers = filterAdminUsers(state.adminUsers, state.adminUsersQuery);
   return `
     <section class="card panel">
       <div class="panel-header">
@@ -6826,8 +6839,27 @@ function adminUsersPanel() {
           <p class="muted">${t("leaderboard.users.hint")}</p>
         </div>
       </div>
-      <div class="table-wrap">
-        ${pageData.total ? `<table>
+      <div class="filter-row">
+        <div class="field compact-field">
+          <label for="admin-users-search">${t("leaderboard.users.searchLabel")}</label>
+          <input id="admin-users-search" type="search" value="${escapeHtml(state.adminUsersQuery)}" placeholder="${t("leaderboard.users.searchPlaceholder")}" autocomplete="off" data-admin-users-search>
+          <span class="field-help">${t("leaderboard.users.searchHint")}</span>
+        </div>
+      </div>
+      <div data-admin-users-results>
+        ${adminUsersResultsMarkup(filteredUsers)}
+      </div>
+      <div class="message" data-message></div>
+    </section>
+  `;
+}
+
+function adminUsersResultsMarkup(users) {
+  const pageData = paginate(users, state.adminUsersPage);
+  state.adminUsersPage = pageData.currentPage;
+  return `
+    <div class="table-wrap">
+      ${pageData.total ? `<table>
           <thead>
             <tr><th>${t("leaderboard.users.column.name")}</th><th>${t("leaderboard.users.column.contacts")}</th><th>${t("leaderboard.users.column.venueRatings")}</th><th>${t("profile.metric.matches")}</th><th>${t("leaderboard.users.column.admin")}</th><th></th></tr>
           </thead>
@@ -6854,11 +6886,9 @@ function adminUsersPanel() {
               </tr>
             `).join("")}
           </tbody>
-        </table>` : `<div class="empty">${t("leaderboard.empty")}</div>`}
-      </div>
-      ${paginationMarkup("admin-users", pageData, "leaderboard.users.pagination.users")}
-      <div class="message" data-message></div>
-    </section>
+        </table>` : `<div class="empty">${t(state.adminUsersQuery ? "leaderboard.users.searchEmpty" : "leaderboard.empty")}</div>`}
+    </div>
+    ${paginationMarkup("admin-users", pageData, "leaderboard.users.pagination.users")}
   `;
 }
 
@@ -6869,6 +6899,19 @@ function renderAdmin() {
 }
 
 function wireAdminUserControls() {
+  document.querySelector("[data-admin-users-search]")?.addEventListener("input", (event) => {
+    state.adminUsersQuery = event.currentTarget.value;
+    state.adminUsersPage = 1;
+    const results = document.querySelector("[data-admin-users-results]");
+    if (!results) return;
+    results.innerHTML = adminUsersResultsMarkup(filterAdminUsers(state.adminUsers, state.adminUsersQuery));
+    wirePaginationControls();
+    wireAdminUserRowControls();
+  });
+  wireAdminUserRowControls();
+}
+
+function wireAdminUserRowControls() {
   document.querySelectorAll("[data-save-rating]").forEach((button) => {
     button.addEventListener("click", async () => {
       const id = button.dataset.saveRating;
@@ -7474,8 +7517,8 @@ async function runAdminTournamentAction(action) {
     } else if (action === "generate-next-round") {
       await openNextRoundSetupModal(tournament.id);
       return;
-    } else if (action === "publish-standings") {
-      if (!window.confirm(t("dialog.admin.publishStandings"))) return;
+    } else if (action === "close-tournament") {
+      if (!window.confirm(t("dialog.admin.closeTournament"))) return;
       const participantIds = (state.adminTournamentDetail?.standings || []).map((row) => row.participantId);
       await api(`/api/admin/tournaments/${tournament.id}/standings/publish`, {
         method: "POST",

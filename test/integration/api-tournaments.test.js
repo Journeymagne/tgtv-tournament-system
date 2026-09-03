@@ -302,7 +302,7 @@ test("admin can delete a tournament with linked games and replay ratings", async
   assert.equal((await tournamentsApi.listAdmin({ client })).tournaments.length, 0);
 });
 
-test("single elimination activates child matches and publishes editable final standings", async () => {
+test("single elimination activates child matches and closes with the computed standings", async () => {
   const tournament = await createPublishedTournament({
     tiebreakerOrder: ["total_vp", "vp_diff"]
   });
@@ -347,18 +347,19 @@ test("single elimination activates child matches and publishes editable final st
   );
 
   const computedOrder = view.standings.map((row) => row.participantId);
-  const manualOrder = [computedOrder[1], computedOrder[0], ...computedOrder.slice(2)];
   const published = await tournamentsApi.publishFinalStandingsAdmin({
     client,
     user: root,
     params: { id: String(tournament.id) },
-    body: { participantIds: manualOrder }
+    body: { participantIds: computedOrder }
   });
 
   assert.equal(published.tournament.status, "completed");
   assert.equal(published.tournament.finalResults.length, 8);
-  assert.equal(published.tournament.finalResults[0].participantId, manualOrder[0]);
-  assert.equal(published.tournament.finalResults[1].participantId, manualOrder[1]);
+  assert.deepEqual(
+    published.tournament.finalResults.map((row) => row.participantId),
+    computedOrder
+  );
 });
 
 test("unranked tournament сохраняет Approved Ops результат без Elo и challenge-credit", async () => {
