@@ -18,7 +18,7 @@ async function attachTournamentGameDetails(client, games) {
     tournamentMatchesRepo.listByGameIds(client, gameIds),
     gameParticipantsRepo.listByGameIds(client, gameIds)
   ]);
-  if (!links.length) return games;
+  if (!links.length) return require("./team-tournaments").attachTeamGameDetails(client, games);
 
   const byGameId = new Map(
     links
@@ -31,7 +31,7 @@ async function attachTournamentGameDetails(client, games) {
     participantsByGameId.get(participant.gameId).push(participant);
   }
 
-  return games.map((game) => {
+  const detailedGames = games.map((game) => {
     const link = byGameId.get(game.id);
     if (!link) return game;
 
@@ -61,6 +61,7 @@ async function attachTournamentGameDetails(client, games) {
       tournamentMatch: tournamentMatchView(link.match, participantById)
     };
   });
+  return require("./team-tournaments").attachTeamGameDetails(client, detailedGames);
 }
 
 function sortGameViews(games) {

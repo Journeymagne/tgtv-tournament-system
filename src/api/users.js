@@ -2,6 +2,7 @@ const { HttpError } = require("../http/io");
 const usersRepo = require("../db/repositories/users");
 const gamesRepo = require("../db/repositories/games");
 const challengesRepo = require("../db/repositories/challenges");
+const playerTeamsRepo = require("../db/repositories/player-teams");
 const {
   leaderboardUser,
   publicUserSummary,
@@ -62,6 +63,7 @@ async function profile({ client, user, params }) {
   const adminPendingGames = user.isAdmin
     ? await attachTournamentGameDetails(client, await gamesRepo.listPendingForUser(client, target.id))
     : [];
+  const playerTeams = await playerTeamsRepo.listForUser(client, target.id);
 
   const peopleIds = new Set([target.id, user.id]);
   for (const game of [...completedGames, ...adminPendingGames]) {
@@ -75,7 +77,8 @@ async function profile({ client, user, params }) {
   const people = await usersRepo.findByIds(client, [...peopleIds]);
   const allCompletedGames = sortGameViews(completedGames);
 
-  return publicProfileSummary({
+  return {
+    ...publicProfileSummary({
     user: target,
     completedGames: allCompletedGames,
     people,
@@ -83,7 +86,15 @@ async function profile({ client, user, params }) {
     pendingChallenge,
     adminPendingGames,
     allGamesForProgress: allCompletedGames
-  });
+    }),
+    playerTeams: playerTeams.map((team) => ({
+      id: team.id,
+      slug: team.slug,
+      name: team.name,
+      logoData: team.logoData,
+      archivedAt: team.archivedAt
+    }))
+  };
 }
 
 async function challengeProgress({ client, user, query }) {

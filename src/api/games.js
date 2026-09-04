@@ -46,6 +46,10 @@ async function tournamentRequest(client, game, context, action) {
   return viewOf(client, await gamesRepo.findById(client, game.id));
 }
 
+async function teamTournamentRequest(client, game, context, action) {
+  return require("./team-tournaments").handleGameRequest(context, action);
+}
+
 function requireParticipant(game, user, message) {
   if (!game.playerIds.includes(user.id)) throw new HttpError(403, message);
 }
@@ -62,7 +66,7 @@ async function lockPlayers(client, game) {
 
 async function viewOf(client, game) {
   let detailed = game;
-  if (game.sourceType === "tournament_match") {
+  if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
     [detailed] = await attachTournamentGameDetails(client, [game]);
   }
   const people = Array.isArray(detailed.players) && detailed.players.length
@@ -170,6 +174,9 @@ async function submitResult({ client, user, params, body }) {
   if (candidate.sourceType === "tournament_match") {
     return { game: await tournamentRequest(client, candidate, { client, user, params, body }, "submitResult") };
   }
+  if (candidate.sourceType === "team_match_game") {
+    return { game: await teamTournamentRequest(client, candidate, { client, user, params, body }, "submit") };
+  }
   const game = await lockGame(client, params.id);
   requireParticipant(game, user, "Only a game participant can submit the result");
 
@@ -197,7 +204,7 @@ async function submitResult({ client, user, params, body }) {
 
 async function exitGame({ client, user, params }) {
   const game = await lockGame(client, params.id);
-  if (game.sourceType === "tournament_match") {
+  if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
     throw new HttpError(409, "Tournament games cannot be exited independently from their tournament");
   }
   requireParticipant(game, user, "Only a game participant can exit this game");
@@ -218,6 +225,10 @@ async function respondToResult({ client, user, params }) {
   if (candidate.sourceType === "tournament_match") {
     const action = params.action === "reject-result" ? "rejectResult" : "confirmResult";
     return { game: await tournamentRequest(client, candidate, { client, user, params }, action) };
+  }
+  if (candidate.sourceType === "team_match_game") {
+    const action = params.action === "reject-result" ? "reject" : "confirm";
+    return { game: await teamTournamentRequest(client, candidate, { client, user, params }, action) };
   }
   const game = await lockGame(client, params.id);
   requireParticipant(game, user, "Only a game participant can confirm the result");
@@ -252,6 +263,7 @@ module.exports = {
   findGame,
   viewOf,
   tournamentRequest,
+  teamTournamentRequest,
   lockGame,
   lockPlayers
 };

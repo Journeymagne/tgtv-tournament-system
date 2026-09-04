@@ -5173,6 +5173,138 @@ tr:last-child td {
   }
 }
 
+.teams-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.teams-layout > .message {
+  grid-column: 1 / -1;
+}
+
+.teams-search,
+.team-roster-member-grid,
+.team-roster-members,
+.team-pairings-list,
+.team-match-games {
+  display: grid;
+  gap: 10px;
+}
+
+.teams-search {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.team-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.team-logo {
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.team-roster-player-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.team-roster-members span,
+.team-pairings-list > div,
+.team-match-game {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+}
+
+.team-match-card {
+  align-items: flex-start;
+}
+
+.team-pairings-list,
+.team-match-games,
+.team-captain-control {
+  margin-top: 10px;
+}
+
+.team-match-game,
+.team-pairing-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.team-pairing-control label {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.team-pairing-override {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.team-pairing-override-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.team-match-admin-actions,
+.team-match-admin-actions label {
+  display: grid;
+  gap: 6px;
+}
+
+.team-roster-editor-dialog {
+  width: min(680px, calc(100% - 24px));
+}
+
+.team-roster-admin-row.is-muted {
+  opacity: 0.65;
+}
+
+@media (max-width: 760px) {
+  .teams-layout,
+  .team-roster-player-row,
+  .teams-search {
+    grid-template-columns: 1fr;
+  }
+
+  .team-match-game,
+  .team-pairing-control,
+  .team-pairing-override-row {
+    align-items: stretch;
+  }
+
+  .team-match-game,
+  .team-pairing-control {
+    flex-direction: column;
+  }
+
+  .team-pairing-override-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Reserve room for the floating theme and language toggles.
    Must live at the end of the file: an earlier `.topbar { padding: … }`
    shorthand in the duplicated legacy block would otherwise win on source

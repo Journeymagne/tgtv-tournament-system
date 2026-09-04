@@ -12,6 +12,15 @@ const TOURNAMENT_FORMATS = {
   SWISS: "swiss"
 };
 
+const PARTICIPANT_MODES = {
+  INDIVIDUAL: "individual",
+  TEAM: "team"
+};
+
+const TEAM_PAIRING_TYPES = {
+  SHIELD_SWORD: "shield_sword"
+};
+
 const PARTICIPANT_STATUSES = {
   JOINED: "joined",
   ACTIVE: "active",
@@ -50,6 +59,8 @@ const STANDINGS_TIEBREAKERS = [
 module.exports = {
   TOURNAMENT_STATUSES,
   TOURNAMENT_FORMATS,
+  PARTICIPANT_MODES,
+  TEAM_PAIRING_TYPES,
   PARTICIPANT_STATUSES,
   ROUND_STATUSES,
   MATCH_STATUSES,

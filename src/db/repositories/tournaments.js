@@ -28,6 +28,9 @@ const FIELD_COLUMNS = {
   venueMode: "venue_mode",
   finalResults: "final_results",
   roundDraft: "round_draft",
+  participantMode: "participant_mode",
+  teamSize: "team_size",
+  pairingType: "pairing_type",
   publishedAt: "published_at",
   startedAt: "started_at",
   completedAt: "completed_at",
@@ -55,8 +58,8 @@ async function insert(client, tournament) {
        (owner_user_id, slug, name, description, game_system, starts_at,
         rules_summary, rules_link, status, format, swiss_round_count,
         single_elimination_size, tiebreaker_order, rating_policy,
-        challenge_credit_policy, season_id, venue_mode)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16)
+         challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19)
      RETURNING ${COLUMNS}`,
     [
       tournament.ownerUserId || null,
@@ -74,7 +77,10 @@ async function insert(client, tournament) {
       tournament.ratingPolicy || "ranked",
       tournament.challengeCreditPolicy || "count",
       tournament.seasonId || "2026-q2-dataslate",
-      tournament.venueMode || "tts"
+      tournament.venueMode || "tts",
+      tournament.participantMode || "individual",
+      tournament.teamSize || null,
+      tournament.pairingType || null
     ]
   );
   return mapTournament(rows[0]);
@@ -102,8 +108,11 @@ async function findBySlug(client, slug) {
 
 async function listPublished(client) {
   const { rows } = await client.query(
-    `SELECT t.*,
-            COALESCE(pc.participant_count, 0)::int AS participant_count,
+     `SELECT t.*,
+             CASE WHEN t.participant_mode = 'team'
+               THEN COALESCE(trc.roster_count, 0)
+               ELSE COALESCE(pc.participant_count, 0)
+             END::int AS participant_count,
             COALESCE(rc.round_count, 0)::int AS round_count
      FROM tournaments t
      LEFT JOIN (
@@ -111,7 +120,13 @@ async function listPublished(client) {
        FROM tournament_participants
        WHERE status NOT IN ('withdrawn', 'removed')
        GROUP BY tournament_id
-     ) pc ON pc.tournament_id = t.id
+      ) pc ON pc.tournament_id = t.id
+      LEFT JOIN (
+        SELECT tournament_id, COUNT(*)::int AS roster_count
+        FROM tournament_team_rosters
+        WHERE status <> 'withdrawn'
+        GROUP BY tournament_id
+      ) trc ON trc.tournament_id = t.id
      LEFT JOIN (
        SELECT tournament_id, COUNT(*)::int AS round_count
        FROM tournament_rounds
@@ -126,8 +141,11 @@ async function listPublished(client) {
 
 async function listAdmin(client) {
   const { rows } = await client.query(
-    `SELECT t.*,
-            COALESCE(pc.participant_count, 0)::int AS participant_count,
+     `SELECT t.*,
+             CASE WHEN t.participant_mode = 'team'
+               THEN COALESCE(trc.roster_count, 0)
+               ELSE COALESCE(pc.participant_count, 0)
+             END::int AS participant_count,
             COALESCE(rc.round_count, 0)::int AS round_count
      FROM tournaments t
      LEFT JOIN (
@@ -135,7 +153,13 @@ async function listAdmin(client) {
        FROM tournament_participants
        WHERE status NOT IN ('withdrawn', 'removed')
        GROUP BY tournament_id
-     ) pc ON pc.tournament_id = t.id
+      ) pc ON pc.tournament_id = t.id
+      LEFT JOIN (
+        SELECT tournament_id, COUNT(*)::int AS roster_count
+        FROM tournament_team_rosters
+        WHERE status <> 'withdrawn'
+        GROUP BY tournament_id
+      ) trc ON trc.tournament_id = t.id
      LEFT JOIN (
        SELECT tournament_id, COUNT(*)::int AS round_count
        FROM tournament_rounds

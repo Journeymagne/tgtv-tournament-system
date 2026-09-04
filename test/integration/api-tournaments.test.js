@@ -8,8 +8,11 @@ const authApi = require("../../src/api/auth");
 const tournamentsApi = require("../../src/api/tournaments");
 const gamesApi = require("../../src/api/games");
 const usersApi = require("../../src/api/users");
+const playerTeamsApi = require("../../src/api/player-teams");
+const teamTournamentsApi = require("../../src/api/team-tournaments");
 const usersRepo = require("../../src/db/repositories/users");
 const gamesRepo = require("../../src/db/repositories/games");
+const { CRIT_OPS } = require("../../src/domain/kill-teams");
 
 let pool;
 let client;
@@ -1327,4 +1330,201 @@ test("single-elimination round can be returned to draft and activated again", as
     ]),
     originalPairings
   );
+});
+
+async function createThreePlayerTeam(name, players) {
+  const created = await playerTeamsApi.create({
+    client,
+    user: players[0],
+    body: { name, description: `${name} integration-test team` }
+  });
+  const team = created.body.team;
+  for (const player of players.slice(1)) {
+    const invited = await playerTeamsApi.invite({
+      client,
+      user: players[0],
+      params: { id: String(team.id) },
+      body: { userId: player.id }
+    });
+    await playerTeamsApi.acceptInvitation({
+      client,
+      user: player,
+      params: { id: String(invited.body.invitation.id) }
+    });
+  }
+  return team;
+}
+
+test("team Swiss completes a full Shield-Sword round without byes", async () => {
+  const usersById = new Map();
+  const teamFixtures = [];
+  for (let teamIndex = 1; teamIndex <= 4; teamIndex += 1) {
+    const players = [];
+    for (let playerIndex = 1; playerIndex <= 3; playerIndex += 1) {
+      const player = await createUser(`Team ${teamIndex} Player ${playerIndex}`);
+      usersById.set(player.id, player);
+      players.push(player);
+    }
+    const team = await createThreePlayerTeam(`Integration Team ${teamIndex}`, players);
+    teamFixtures.push({ team, players });
+  }
+
+  const tournament = await createPublishedTournament({
+    name: "Shield-Sword Team Cup",
+    format: "swiss",
+    participantMode: "team",
+    teamSize: 3,
+    pairingType: "shield_sword",
+    swissRoundCount: 1,
+    singleEliminationSize: null,
+    venueMode: "tts"
+  });
+  assert.equal(tournament.participantMode, "team");
+  assert.equal(tournament.pairingType, "shield_sword");
+  assert.equal(tournament.teamSize, 3);
+
+  const factions = ["Kasrkin", "Legionaries", "Novitiates"];
+  for (const { team, players } of teamFixtures) {
+    const registered = await teamTournamentsApi.registerRoster({
+      client,
+      user: players[0],
+      params: { id: String(tournament.id) },
+      body: {
+        teamId: team.id,
+        name: `${team.name} Roster`,
+        captainUserId: players[0].id,
+        members: players.map((player, index) => ({ userId: player.id, faction: factions[index] }))
+      }
+    });
+    assert.equal(registered.body.roster.members.length, 3);
+  }
+
+  await tournamentsApi.closeRegistration({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  const started = await tournamentsApi.startAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  assert.equal(started.tournament.status, "in_progress");
+  assert.equal(started.rosters.filter((roster) => roster.status === "active").length, 4);
+
+  let view = await tournamentsApi.generateNextRoundAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) },
+    body: { missions: CRIT_OPS.slice(0, 3) }
+  });
+  assert.equal(view.rounds.length, 1);
+  assert.equal(view.rounds[0].matches.length, 2);
+  assert.equal(view.rounds[0].matches.some((match) => match.isBye), false);
+
+  for (const originalMatch of view.rounds[0].matches) {
+    const captainA = usersById.get(originalMatch.rosterA.captainUserId);
+    const captainB = usersById.get(originalMatch.rosterB.captainUserId);
+    const membersA = originalMatch.rosterA.members.filter((member) => !member.endedAt);
+    const membersB = originalMatch.rosterB.members.filter((member) => !member.endedAt);
+
+    await teamTournamentsApi.roll({
+      client,
+      user: captainA,
+      params: { id: String(tournament.id), matchId: String(originalMatch.id) }
+    });
+    await teamTournamentsApi.selectShield({
+      client,
+      user: captainA,
+      params: { id: String(tournament.id), matchId: String(originalMatch.id) },
+      body: { memberId: membersA[0].id }
+    });
+
+    const hiddenFromOpponent = await tournamentsApi.getPublic({
+      client,
+      user: captainB,
+      params: { slug: tournament.slug }
+    });
+    const hiddenMatch = hiddenFromOpponent.teamMatches.find((match) => match.id === originalMatch.id);
+    assert.equal(hiddenMatch.shieldAMemberId, null);
+
+    await teamTournamentsApi.selectShield({
+      client,
+      user: captainB,
+      params: { id: String(tournament.id), matchId: String(originalMatch.id) },
+      body: { memberId: membersB[0].id }
+    });
+    await teamTournamentsApi.selectSword({
+      client,
+      user: captainA,
+      params: { id: String(tournament.id), matchId: String(originalMatch.id) },
+      body: { memberId: membersB[1].id }
+    });
+    const paired = await teamTournamentsApi.selectSword({
+      client,
+      user: captainB,
+      params: { id: String(tournament.id), matchId: String(originalMatch.id) },
+      body: { memberId: membersA[1].id }
+    });
+    assert.equal(paired.teamMatch.phase, "environment_selection");
+    assert.equal(new Set(paired.teamMatch.pairings.map((pairing) => pairing.rosterAMemberId)).size, 3);
+    assert.equal(new Set(paired.teamMatch.pairings.map((pairing) => pairing.rosterBMemberId)).size, 3);
+
+    const attacker = paired.teamMatch.attackerRosterId === paired.teamMatch.rosterAId ? captainA : captainB;
+    const defender = attacker.id === captainA.id ? captainB : captainA;
+    await teamTournamentsApi.selectEnvironment({
+      client,
+      user: attacker,
+      params: { id: String(tournament.id), matchId: String(originalMatch.id) },
+      body: { mission: CRIT_OPS[0] }
+    });
+    const ready = await teamTournamentsApi.selectEnvironment({
+      client,
+      user: defender,
+      params: { id: String(tournament.id), matchId: String(originalMatch.id) },
+      body: { mission: CRIT_OPS[1] }
+    });
+    assert.equal(ready.teamMatch.phase, "in_progress");
+    assert.equal(ready.teamMatch.games.length, 3);
+    assert.equal(new Set(ready.teamMatch.games.map((link) => link.mission.critOp)).size, 3);
+
+    for (const link of ready.teamMatch.games) {
+      const [playerAId, playerBId] = link.game.playerIds;
+      await gamesApi.submitResult({
+        client,
+        user: usersById.get(playerAId),
+        params: { id: String(link.gameId) },
+        body: { scores: scores(playerAId, playerBId) }
+      });
+      const confirmed = await gamesApi.respondToResult({
+        client,
+        user: usersById.get(playerBId),
+        params: { id: String(link.gameId), action: "confirm-result" }
+      });
+      assert.equal(confirmed.game.status, "completed");
+    }
+  }
+
+  view = await tournamentsApi.getAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) }
+  });
+  assert.equal(view.rounds[0].status, "completed");
+  assert.equal(view.teamMatches.every((match) => match.phase === "completed"), true);
+  assert.equal(view.teamMatches.every((match) => match.games.length === 3), true);
+  assert.equal(view.teamMatches.every((match) => match.teamGamePointsA === 60), true);
+  assert.equal(view.teamMatches.every((match) => match.teamTournamentPointsA === 2), true);
+  assert.equal(view.tournamentGames.length, 6);
+  assert.equal(view.tournamentGames.every((game) => game.sourceType === "team_match_game"), true);
+
+  const published = await tournamentsApi.publishFinalStandingsAdmin({
+    client,
+    user: root,
+    params: { id: String(tournament.id) },
+    body: {}
+  });
+  assert.equal(published.tournament.status, "completed");
+  assert.equal(published.finalResults.length, 4);
+  assert.deepEqual(published.finalResults.map((row) => row.rank), [1, 2, 3, 4]);
 });

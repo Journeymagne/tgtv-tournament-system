@@ -41,6 +41,9 @@ async function listActiveGames({ client }) {
 
 async function confirmGameResult({ client, user, params }) {
   const game = await games.lockGame(client, params.id);
+  if (game.sourceType === "team_match_game") {
+    return { game: await require("./team-tournaments").handleGameRequest({ client, user, params }, "confirm") };
+  }
   if (game.sourceType === "tournament_match") {
     throw new HttpError(409, "Use the tournament game result editor to confirm this result");
   }
@@ -51,7 +54,7 @@ async function confirmGameResult({ client, user, params }) {
 
 async function deleteGame({ client, params }) {
   const game = await games.lockGame(client, params.id);
-  if (game.sourceType === "tournament_match") {
+  if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
     throw new HttpError(409, "Tournament games cannot be deleted independently from their tournament");
   }
   if (!["open", "pending_confirmation"].includes(game.status)) {
@@ -75,6 +78,14 @@ async function saveGameResult({ client, user, params, body }) {
       body
     });
     return { game: await games.viewOf(client, await gamesRepo.findById(client, candidate.id)) };
+  }
+  if (candidate.sourceType === "team_match_game") {
+    return {
+      game: await require("./team-tournaments").handleGameRequest(
+        { client, user, params, body },
+        "admin-save"
+      )
+    };
   }
   const game = await games.lockGame(client, params.id);
   if (!EDITABLE_GAME_STATUSES.includes(game.status)) {

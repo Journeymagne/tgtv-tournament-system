@@ -10,7 +10,8 @@ const MIGRATIONS = [
   require("./migrations/007_tournament_venue_tables"),
   require("./migrations/010_canonical_tournament_games"),
   require("./migrations/011_tournament_round_draft"),
-  require("./migrations/012_venue_ratings")
+  require("./migrations/012_venue_ratings"),
+  require("./migrations/013_player_teams")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

@@ -323,6 +323,9 @@ function finalStandingsOrderFromBody(body, standings) {
 }
 
 async function fullView(client, tournament, user, { includeAudit = false } = {}) {
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").tournamentData(client, tournament, user, { includeAudit });
+  }
   const participants = await participantsRepo.listByTournament(client, tournament.id);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await matchesRepo.listByTournament(client, tournament.id);
@@ -400,7 +403,7 @@ async function updateAdmin({ client, user, params, body }) {
       if (!allowed.has(key)) throw new HttpError(409, "Tournament setup is locked after start");
     }
   }
-  const patch = normalizeTournamentPatch(body);
+  const patch = normalizeTournamentPatch(body, tournament);
   const updated = await tournamentsRepo.update(client, tournament.id, patch);
   await audit(client, updated, user, "update", { before: tournament, after: updated });
   return { tournament: tournamentSummaryView(updated) };
@@ -408,6 +411,15 @@ async function updateAdmin({ client, user, params, body }) {
 
 async function deleteAdmin({ client, params }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
+  if (tournament.participantMode === "team") {
+    const teamTournaments = require("./team-tournaments");
+    const deletedGames = await teamTournaments.deleteTournamentGames(client, tournament.id);
+    await revertGameEloDeltas(client, deletedGames);
+    const removed = await tournamentsRepo.remove(client, tournament.id);
+    await recalculateCompletedGameRatings(client);
+    await teamTournaments.recalculateTeamRatings(client);
+    return { ok: true, tournament: tournamentSummaryView(removed), deletedGames: deletedGames.length };
+  }
   const matches = await matchesRepo.listByTournament(client, tournament.id);
   const deletedGames = await gamesRepo.removeBySourceIds(
     client,
@@ -441,7 +453,11 @@ async function publishAdmin({ client, user, params, body }) {
   });
   await audit(client, updated, user, "publish", { before: tournament, after: updated });
   if (status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED) {
-    await regenerateTournamentSeeds(client, updated, user, "seeds_regenerate_on_registration_close");
+    if (updated.participantMode === "team") {
+      await require("./team-tournaments").reseedRosters(client, updated, user, "roster_seeds_regenerate_on_registration_close");
+    } else {
+      await regenerateTournamentSeeds(client, updated, user, "seeds_regenerate_on_registration_close");
+    }
   }
   return { tournament: tournamentSummaryView(updated) };
 }
@@ -461,7 +477,11 @@ async function setRegistration({ client, user, params, status }) {
     status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED &&
     tournament.status !== TOURNAMENT_STATUSES.REGISTRATION_CLOSED
   ) {
-    await regenerateTournamentSeeds(client, updated, user, "seeds_regenerate_on_registration_close");
+    if (updated.participantMode === "team") {
+      await require("./team-tournaments").reseedRosters(client, updated, user, "roster_seeds_regenerate_on_registration_close");
+    } else {
+      await regenerateTournamentSeeds(client, updated, user, "seeds_regenerate_on_registration_close");
+    }
   }
   return { tournament: tournamentSummaryView(updated) };
 }
@@ -471,6 +491,9 @@ function withRegistrationStatus(handlerStatus) {
 }
 
 async function assertParticipantAddAllowed(client, tournament, source) {
+  if (tournament.participantMode === "team") {
+    throw new HttpError(409, "Register a roster for this team tournament");
+  }
   if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) return;
   if (source === "self_join") throw new HttpError(409, "Registration is closed after tournament start");
   if (tournament.format !== TOURNAMENT_FORMATS.SWISS) {
@@ -837,6 +860,9 @@ async function deleteTableAdmin({ client, user, params }) {
 
 async function previewAdmin({ client, params }) {
   const tournament = await requireTournament(client, params.id);
+  if (tournament.participantMode === "team") {
+    return { preview: await require("./team-tournaments").previewTournament(client, tournament) };
+  }
   const participants = await participantsRepo.listCompetitive(client, tournament.id);
   return { preview: buildTournamentPreview(tournament, participants) };
 }
@@ -1067,6 +1093,9 @@ async function previewNextRoundAdmin({ client, user, params }) {
   if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) {
     throw new HttpError(409, "Tournament is not in progress");
   }
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").previewNextRound(client, tournament, user);
+  }
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await matchesRepo.listByTournament(client, tournament.id);
   const participants = await participantsRepo.listByTournament(client, tournament.id);
@@ -1135,6 +1164,9 @@ async function startAdmin({ client, user, params }) {
     throw new HttpError(409, "Registration must be closed before start");
   }
   validatePublishable(tournament);
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").startTournament(client, tournament, user);
+  }
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
   const competitive = participants.filter((item) => item.status === PARTICIPANT_STATUSES.JOINED);
   buildTournamentPreview(tournament, competitive);
@@ -1299,6 +1331,9 @@ async function applyTournamentElo(client, tournament, participantA, participantB
 
 async function publishFinalStandingsAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").publishFinalStandings(client, tournament, user, body);
+  }
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await matchesRepo.listByTournament(client, tournament.id);
@@ -1553,6 +1588,9 @@ async function generateNextRoundAdmin({ client, user, params, body }) {
   if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) {
     throw new HttpError(409, "Tournament is not in progress");
   }
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").generateRound(client, tournament, user, body);
+  }
 
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await matchesRepo.listByTournament(client, tournament.id);
@@ -1623,6 +1661,9 @@ async function rollbackLatestRoundAdmin({ client, user, params }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) {
     throw new HttpError(409, "Tournament is not in progress");
+  }
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").rollbackLatestRound(client, tournament, user);
   }
   if (tournament.roundDraft) {
     throw new HttpError(409, "The latest round has already been rolled back");

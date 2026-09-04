@@ -7,6 +7,8 @@ const {
 } = require("../validation");
 const {
   TOURNAMENT_FORMATS,
+  PARTICIPANT_MODES,
+  TEAM_PAIRING_TYPES,
   RATING_POLICIES,
   CHALLENGE_CREDIT_POLICIES,
   VENUE_MODES,
@@ -99,6 +101,23 @@ function normalizeGameSystem(value) {
   return gameSystem;
 }
 
+function normalizeParticipantMode(value) {
+  const mode = String(value || PARTICIPANT_MODES.INDIVIDUAL);
+  if (!Object.values(PARTICIPANT_MODES).includes(mode)) {
+    throw new ValidationError("Choose individual or team participants");
+  }
+  return mode;
+}
+
+function normalizeTeamPairingType(value, participantMode) {
+  if (participantMode !== PARTICIPANT_MODES.TEAM) return null;
+  const pairingType = String(value || TEAM_PAIRING_TYPES.SHIELD_SWORD);
+  if (pairingType !== TEAM_PAIRING_TYPES.SHIELD_SWORD) {
+    throw new ValidationError("Shield-Sword is the only available team pairing type");
+  }
+  return pairingType;
+}
+
 function normalizeSeasonId(value) {
   const seasonId = optionalTournamentText(value, "Season", SEASON_ID_MAX) || "2026-q2-dataslate";
   if (!/^[a-z0-9][a-z0-9._-]*$/i.test(seasonId)) {
@@ -118,8 +137,11 @@ function normalizeRulesLink(value) {
   throw new ValidationError("Tournament rules link must be an http(s) URL or a PDF file");
 }
 
-function normalizeTournamentPatch(body = {}) {
+function normalizeTournamentPatch(body = {}, current = {}) {
   const patch = {};
+  if (Object.prototype.hasOwnProperty.call(body, "participantMode")) {
+    patch.participantMode = normalizeParticipantMode(body.participantMode);
+  }
   if (Object.prototype.hasOwnProperty.call(body, "tournamentRules")) {
     const tournamentRules = optionalTournamentText(body.tournamentRules, "Tournament rules", RULES_MAX);
     patch.description = tournamentRules;
@@ -142,6 +164,20 @@ function normalizeTournamentPatch(body = {}) {
   }
   if (Object.prototype.hasOwnProperty.call(body, "format")) {
     patch.format = normalizeFormat(body.format);
+  }
+
+  const participantMode = patch.participantMode || current.participantMode || PARTICIPANT_MODES.INDIVIDUAL;
+  const selectedFormat = patch.format || current.format || body.format || TOURNAMENT_FORMATS.SINGLE_ELIMINATION;
+  if (participantMode === PARTICIPANT_MODES.TEAM && selectedFormat !== TOURNAMENT_FORMATS.SWISS) {
+    throw new ValidationError("Team tournaments support Swiss only");
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(body, "pairingType") ||
+    Object.prototype.hasOwnProperty.call(body, "teamSize") ||
+    Object.prototype.hasOwnProperty.call(body, "participantMode")
+  ) {
+    patch.teamSize = participantMode === PARTICIPANT_MODES.TEAM ? 3 : null;
+    patch.pairingType = normalizeTeamPairingType(body.pairingType, participantMode);
   }
 
   const format = patch.format || body.format;
@@ -196,6 +232,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     singleEliminationSize: 8,
     ratingPolicy: "ranked",
     challengeCreditPolicy: "count",
+    participantMode: PARTICIPANT_MODES.INDIVIDUAL,
     ...body
   });
   return {
@@ -208,6 +245,11 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     rulesSummary: patch.rulesSummary || "",
     rulesLink: patch.rulesLink || "",
     format: patch.format || TOURNAMENT_FORMATS.SINGLE_ELIMINATION,
+    participantMode: patch.participantMode || PARTICIPANT_MODES.INDIVIDUAL,
+    teamSize: patch.participantMode === PARTICIPANT_MODES.TEAM ? 3 : null,
+    pairingType: patch.participantMode === PARTICIPANT_MODES.TEAM
+      ? TEAM_PAIRING_TYPES.SHIELD_SWORD
+      : null,
     swissRoundCount: patch.swissRoundCount || null,
     singleEliminationSize: patch.singleEliminationSize || null,
     tiebreakerOrder: patch.tiebreakerOrder || [],
@@ -223,6 +265,13 @@ function validatePublishable(tournament) {
   requiredTournamentText(tournament.gameSystem, "Game system", GAME_SYSTEM_MAX);
   if (!tournament.startsAt) throw new ValidationError("Start date is required");
   normalizeFormat(tournament.format);
+  const participantMode = normalizeParticipantMode(tournament.participantMode);
+  if (participantMode === PARTICIPANT_MODES.TEAM) {
+    if (tournament.format !== TOURNAMENT_FORMATS.SWISS || Number(tournament.teamSize) !== 3) {
+      throw new ValidationError("Team tournaments require Swiss and teams of three");
+    }
+    normalizeTeamPairingType(tournament.pairingType, participantMode);
+  }
   if (tournament.format === TOURNAMENT_FORMATS.SWISS && !tournament.swissRoundCount) {
     throw new ValidationError("Swiss round count is required");
   }
@@ -261,5 +310,7 @@ module.exports = {
   normalizeFormat,
   normalizeTiebreakerOrder,
   normalizeSingleEliminationSize,
-  normalizeRulesLink
+  normalizeRulesLink,
+  normalizeParticipantMode,
+  normalizeTeamPairingType
 };
