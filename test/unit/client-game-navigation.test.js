@@ -16,6 +16,18 @@ const getKnownPublicTournamentSource = appSource.match(
 const loadPublicTournamentSource = appSource.match(
   /async function loadPublicTournament\(slug, options = \{\}\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nasync function renderPublicTournamentRoute)/
 )?.[0];
+const renderPublicTournamentRouteSource = appSource.match(
+  /async function renderPublicTournamentRoute\(slug, options = \{\}\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction publicTournamentContainer)/
+)?.[0];
+const stopTeamPairingPollSource = appSource.match(
+  /function stopTeamPairingPoll\(\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction leavePublicTournamentRoute)/
+)?.[0];
+const scheduleTeamPairingPollSource = appSource.match(
+  /function scheduleTeamPairingPoll\(slug\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction teamPairingSubmissionPending)/
+)?.[0];
+const navigateToPlayerTeamSource = appSource.match(
+  /function navigateToPlayerTeam\(slug\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction clearPlayerTeamRoute)/
+)?.[0];
 const loadTournamentAdminSource = appSource.match(
   /async function loadTournamentAdmin\(\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nasync function loadAdminTournamentDetail)/
 )?.[0];
@@ -163,6 +175,150 @@ test("public tournament loader reuses a complete cached aggregate and otherwise 
   assert.equal(state.publicTournamentDetail, loaded);
 });
 
+test("team tournament polling cannot redraw a tournament after its route is left", async () => {
+  assert.ok(stopTeamPairingPollSource, "could not find stopTeamPairingPoll in public/app.js");
+  assert.ok(scheduleTeamPairingPollSource, "could not find scheduleTeamPairingPoll in public/app.js");
+  const timers = [];
+  const cleared = [];
+  const renders = [];
+  let currentSlug = "summer-cup";
+  const factory = new Function(
+    "window",
+    "isCurrentPublicTournamentRoute",
+    "api",
+    "renderPublicTournament",
+    "teamPairingSubmissionPending",
+    "preserveTeamPairingDrafts",
+    `let teamPairingPollTimer = null; let publicTournamentRequestId = 0; const state = {}; ${stopTeamPairingPollSource}; ${scheduleTeamPairingPollSource}; return scheduleTeamPairingPoll;`
+  );
+  const scheduleTeamPairingPoll = factory(
+    {
+      clearTimeout: (timer) => { cleared.push(timer); },
+      setTimeout: (callback, delay) => {
+        const timer = { id: timers.length + 1, callback, delay };
+        timers.push(timer);
+        return timer.id;
+      }
+    },
+    (slug) => currentSlug === slug,
+    async (path) => path,
+    (data) => { renders.push(data); },
+    () => false,
+    () => () => {}
+  );
+
+  scheduleTeamPairingPoll("summer-cup");
+  scheduleTeamPairingPoll("summer-cup");
+  assert.deepEqual(cleared, [1]);
+  assert.equal(timers[1].delay, 5000);
+
+  currentSlug = "";
+  await timers[1].callback();
+  assert.deepEqual(renders, []);
+
+  currentSlug = "summer-cup";
+  scheduleTeamPairingPoll("summer-cup");
+  await timers[2].callback();
+  assert.deepEqual(renders, ["/api/tournaments/summer-cup"]);
+});
+
+test("pairing refresh preserves a draft only for the same match, action and step", () => {
+  const source = appSource.match(/function preserveTeamPairingDrafts\(\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction isCurrentTeamPairingRoute)/)?.[0];
+  assert.ok(source);
+  const makeForm = (step, value, options = ["Orb", "Data"]) => {
+    const select = { name: "mission", value, options: options.map((value) => ({ value })) };
+    return { dataset: { teamMatchId: "7", teamPairingForm: "environment", step },
+      querySelectorAll: () => [select], elements: { namedItem: () => select }, select };
+  };
+  let forms = [makeForm("3", "Data")];
+  const preserve = new Function("document", `${source}; return preserveTeamPairingDrafts;`)({ querySelectorAll: () => forms });
+  const restore = preserve();
+  forms = [makeForm("3", "Orb")];
+  restore();
+  assert.equal(forms[0].select.value, "Data");
+  forms = [makeForm("4", "Orb")];
+  restore();
+  assert.equal(forms[0].select.value, "Orb");
+  forms = [makeForm("3", "Orb", ["Orb"])];
+  restore();
+  assert.equal(forms[0].select.value, "Orb");
+});
+
+test("table labels never come from another cached tournament", () => {
+  const source = appSource.match(/function teamTournamentTables\(tournamentId\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction teamEnvironmentAssignmentsMarkup)/)?.[0];
+  assert.ok(source);
+  const tables = new Function("state", `${source}; return teamTournamentTables;`)({
+    teamPairingDetail: { tournament: { id: 1 }, tables: [{ id: 11, killzone: "Volkus" }] },
+    publicTournamentDetail: { tournament: { id: 2 }, tables: [{ id: 22, killzone: "Gallowdark" }] }
+  });
+  assert.deepEqual(tables(2), [{ id: 22, killzone: "Gallowdark" }]);
+  assert.deepEqual(tables(3), []);
+});
+
+test("an in-flight tournament refresh is ignored after navigation", async () => {
+  assert.ok(renderPublicTournamentRouteSource, "could not find renderPublicTournamentRoute in public/app.js");
+  let currentRoute = true;
+  let resolveLoad;
+  const rendered = [];
+  const container = { innerHTML: "" };
+  const factory = new Function(
+    "state",
+    "isCurrentPublicTournamentRoute",
+    "getKnownPublicTournament",
+    "publicTournamentContainer",
+    "t",
+    "loadPublicTournament",
+    "renderPublicTournament",
+    "wirePublicTournamentNav",
+    "escapeHtml",
+    `let publicTournamentRequestId = 0; ${renderPublicTournamentRouteSource}; return renderPublicTournamentRoute;`
+  );
+  const renderPublicTournamentRoute = factory(
+    { publicTournamentDetail: null, me: { id: 1 } },
+    () => currentRoute,
+    () => null,
+    () => container,
+    (key) => key,
+    () => new Promise((resolve) => { resolveLoad = resolve; }),
+    (data) => { rendered.push(data); },
+    () => {},
+    String
+  );
+
+  const refresh = renderPublicTournamentRoute("summer-cup", { force: true });
+  currentRoute = false;
+  resolveLoad({ tournament: { slug: "summer-cup" } });
+  await refresh;
+
+  assert.deepEqual(rendered, []);
+});
+
+test("opening a team explicitly leaves the tournament polling route", () => {
+  assert.ok(navigateToPlayerTeamSource, "could not find navigateToPlayerTeam in public/app.js");
+  const calls = [];
+  const factory = new Function(
+    "window",
+    "playerTeamPublicPath",
+    "leavePublicTournamentRoute",
+    "renderPlayerTeamRoute",
+    `${navigateToPlayerTeamSource}; return navigateToPlayerTeam;`
+  );
+  const navigateToPlayerTeam = factory(
+    { history: { pushState: (_state, _title, url) => { calls.push(["push", url]); } } },
+    (slug) => `/teams/${slug}`,
+    () => { calls.push(["leave"]); },
+    (slug, options) => { calls.push(["render", slug, options]); }
+  );
+
+  navigateToPlayerTeam("amber-ravens");
+
+  assert.deepEqual(calls, [
+    ["push", "/teams/amber-ravens"],
+    ["leave"],
+    ["render", "amber-ravens", { force: true }]
+  ]);
+});
+
 test("admin tournament loader opens a selected tournament directly without loading catalogs", async () => {
   assert.ok(loadTournamentAdminSource, "could not find loadTournamentAdmin in public/app.js");
   const state = { selectedTournamentId: 7, adminTournamentMode: "detail" };
@@ -206,6 +362,40 @@ test("challenge progress routes retain the selected user id", () => {
 
   assert.deepEqual(appRouteFromHash(), { view: "challenge", selectedChallengeUserId: 17 });
   assert.equal(appHashForState(), "#/challenge/17");
+});
+
+test("notification routes retain challenge and team invitation targets", () => {
+  assert.ok(appRouteFromHashSource, "could not find appRouteFromHash in public/app.js");
+  assert.ok(appHashForStateSource, "could not find appHashForState in public/app.js");
+  const routeFactory = (segments) => new Function(
+    "tournamentSlugFromLocation",
+    "sharedChallengeTokenFromHash",
+    "hashSegments",
+    `${appRouteFromHashSource}; return appRouteFromHash;`
+  )(() => "", () => "", () => segments);
+  const hashFactory = new Function(
+    "state",
+    "tournamentMatchIdFromGameId",
+    `${appHashForStateSource}; return appHashForState;`
+  );
+
+  assert.deepEqual(routeFactory(["matchmaking", "challenge", "41"])(), {
+    view: "play",
+    focusChallengeId: 41
+  });
+  assert.deepEqual(routeFactory(["teams", "invitation", "73"])(), {
+    view: "teams",
+    teamSlug: "",
+    focusInvitationId: 73
+  });
+  assert.equal(
+    hashFactory({ view: "play", focusChallengeId: 41 }, () => 0)(),
+    "#/matchmaking/challenge/41"
+  );
+  assert.equal(
+    hashFactory({ view: "teams", focusInvitationId: 73, teamProfile: null }, () => 0)(),
+    "#/teams/invitation/73"
+  );
 });
 
 test("player profile loader requests one user and caches its challenge subentity", async () => {

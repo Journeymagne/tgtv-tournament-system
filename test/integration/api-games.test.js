@@ -143,8 +143,14 @@ test("подтверждение начисляет Elo обоим игрока�
   assert.equal(confirmed.game.status, "completed");
   assert.equal(confirmed.game.elo[alpha.id].delta, 16);
   assert.equal(confirmed.game.elo[bravo.id].delta, -16);
-  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1016);
-  assert.equal((await usersRepo.findById(client, bravo.id)).rating, 984);
+  assert.equal(confirmed.game.elo.combined[alpha.id].delta, 16);
+  assert.equal(confirmed.game.elo.combined[bravo.id].delta, -16);
+  const updatedAlpha = await usersRepo.findById(client, alpha.id);
+  const updatedBravo = await usersRepo.findById(client, bravo.id);
+  assert.equal(updatedAlpha.rating, 1016);
+  assert.equal(updatedBravo.rating, 984);
+  assert.equal(updatedAlpha.ratings.combined, 1016);
+  assert.equal(updatedBravo.ratings.combined, 984);
 });
 
 test("отправитель не может подтвердить свой же результат", async () => {

@@ -6,7 +6,7 @@ const { SECURITY_HEADERS } = require("./io");
 const SITE_NAME = "TGTV Ranking Tournament System";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "20260808-seo";
+const ASSET_VERSION = "20260906-tournament-buttons";
 
 function requestOrigin(req) {
   const configured = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
@@ -73,6 +73,16 @@ function tournamentStatusLabel(status) {
 
 function formatLabel(format) {
   return format === "single_elimination" ? "Single elimination" : format === "swiss" ? "Swiss" : format || "";
+}
+
+function tournamentFormatLabel(tournament) {
+  return tournament?.participantMode === "team" ? "Teams" : formatLabel(tournament?.format);
+}
+
+function tournamentFormatSummary(tournament) {
+  return tournament?.participantMode === "team"
+    ? "Teams · Teams Of Three · WTC"
+    : formatLabel(tournament?.format);
 }
 
 function eventStatusUrl(status) {
@@ -155,6 +165,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
   return `
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/theme-boot.js?v=${ASSET_VERSION}"></script>
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}">
     <meta name="robots" content="${escapeHtml(robots)}">
@@ -174,8 +185,11 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <link rel="stylesheet" href="/styles.css?v=${ASSET_VERSION}">`;
 }
 
+// No locale dictionaries here: theme-boot.js in baseHead() writes a tag for the
+// one the visitor is in, and app.js fetches the other only if they switch.
 function appScript() {
-  return `<script src="/app.js?v=${ASSET_VERSION}" defer></script>`;
+  return ["game-data.js", "i18n.js", "app.js"]
+    .map((file) => `<script src="/${file}?v=${ASSET_VERSION}" defer></script>`).join("\n");
 }
 
 function tournamentHtml(origin, tournament) {
@@ -185,7 +199,7 @@ function tournamentHtml(origin, tournament) {
   const description = metaDescription(tournament.description || tournament.rulesSummary);
   const imageUrl = `${origin}/logo.png`;
   const facts = [
-    ["Format", formatLabel(tournament.format)],
+    ["Format", tournamentFormatLabel(tournament)],
     ["Status", tournamentStatusLabel(tournament.status)],
     ["Game system", tournament.gameSystem || "Warhammer 40k Kill Team"],
     ["Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked"]
@@ -203,7 +217,7 @@ function tournamentHtml(origin, tournament) {
         <section class="card panel public-tournament-shell">
           <div class="panel-header public-tournament-header">
             <div>
-              <p class="profile-label">${escapeHtml(formatLabel(tournament.format))}</p>
+              <p class="profile-label">${escapeHtml(tournamentFormatSummary(tournament))}</p>
               <h1>${escapeHtml(tournament.name || "Kill Team tournament")}</h1>
               <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}</p>
             </div>

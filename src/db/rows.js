@@ -1,6 +1,6 @@
 const USER_COLUMNS = `
   id, name, name_key, password_hash, avatar_data, register_nickname,
-  telegram_contact, challenge_credits, rating, rating_tts, rating_irl,
+  telegram_contact, challenge_credits, rating, rating_tts, rating_irl, rating_combined,
   is_admin, created_at, updated_at
 `;
 
@@ -22,7 +22,7 @@ const TOURNAMENT_COLUMNS = `
   rules_summary, rules_link, status, format, swiss_round_count,
   single_elimination_size, tiebreaker_order, rating_policy,
   challenge_credit_policy, season_id, venue_mode, final_results, round_draft,
-  participant_mode, team_size, pairing_type,
+  participant_mode, team_size, pairing_type, team_tables_locked,
   published_at, started_at,
   completed_at, cancelled_at, created_at, updated_at
 `;
@@ -88,7 +88,8 @@ function mapUser(row) {
     rating: row.rating_tts ?? row.rating,
     ratings: {
       tts: row.rating_tts ?? row.rating,
-      irl: row.rating_irl ?? row.rating
+      irl: row.rating_irl ?? row.rating,
+      combined: row.rating_combined ?? row.rating
     },
     isAdmin: row.is_admin,
     createdAt: toIso(row.created_at),
@@ -163,13 +164,14 @@ function mapTournament(row) {
     tiebreakerOrder: row.tiebreaker_order || [],
     ratingPolicy: row.rating_policy || "ranked",
     challengeCreditPolicy: row.challenge_credit_policy || "count",
-    seasonId: row.season_id || "2026-q2-dataslate",
+    seasonId: row.season_id || "2026-q3-dataslate",
     venueMode: row.venue_mode || "tts",
     finalResults: row.final_results || null,
     roundDraft: row.round_draft || null,
     participantMode: row.participant_mode || "individual",
     teamSize: row.team_size || null,
     pairingType: row.pairing_type || null,
+    teamTablesLocked: Boolean(row.team_tables_locked),
     participantCount: row.participant_count === undefined ? undefined : Number(row.participant_count || 0),
     roundCount: row.round_count === undefined ? undefined : Number(row.round_count || 0),
     publishedAt: toIso(row.published_at),

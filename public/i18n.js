@@ -70,10 +70,18 @@ function warnMissingKey(key) {
   console.warn(`[i18n] missing key: ${key}`);
 }
 
+// Getters, not values: index.html now ships only the locale the visitor is
+// actually in, and theme-boot.js pulls the other one in asynchronously behind
+// the first paint. Reading the global on every lookup means a dictionary that
+// arrives late is picked up without rebuilding anything.
 const i18n = createI18n(
   {
-    en: typeof TGTV_I18N_EN !== "undefined" ? TGTV_I18N_EN : {},
-    ru: typeof TGTV_I18N_RU !== "undefined" ? TGTV_I18N_RU : {}
+    get en() {
+      return typeof TGTV_I18N_EN !== "undefined" ? TGTV_I18N_EN : {};
+    },
+    get ru() {
+      return typeof TGTV_I18N_RU !== "undefined" ? TGTV_I18N_RU : {};
+    }
   },
   { warn: warnMissingKey }
 );

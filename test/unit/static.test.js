@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
+const zlib = require("node:zlib");
 
 const { PUBLIC_DIR } = require("../../src/config");
 const { resolveStaticPath, sendStatic } = require("../../src/http/static");
@@ -133,4 +134,76 @@ test("sendStatic отвечает чистым 403 на NUL-байт в пути
   assert.equal(res.statusCode, 403);
   assert.equal(res.payload, "Forbidden");
   assert.equal(res.headers["X-Content-Type-Options"], "nosniff");
+});
+
+// --- conditional requests and content negotiation ----------------------
+//
+// The client bundle is ~430 KB of uncompressed JavaScript fetched on every
+// cold load, so these two paths carry most of the app's transfer cost.
+
+async function runSendStaticWith(url, headers) {
+  const res = fakeResponse();
+  sendStatic({ url, headers: { host: "localhost", ...headers } }, res);
+  await res.whenDone;
+  return res;
+}
+
+test("sendStatic отдаёт ETag и отвечает 304 на совпадающий If-None-Match", async () => {
+  const first = await runSendStatic("/styles.css");
+  assert.equal(first.statusCode, 200);
+  assert.match(first.headers.ETag, /^"[0-9a-f]+-[0-9a-f]+"$/);
+
+  const second = await runSendStaticWith("/styles.css", { "if-none-match": first.headers.ETag });
+  assert.equal(second.statusCode, 304);
+  assert.equal(second.payload, undefined);
+  assert.equal(second.headers.ETag, first.headers.ETag);
+});
+
+test("sendStatic не отвечает 304 на устаревший If-None-Match", async () => {
+  const res = await runSendStaticWith("/styles.css", { "if-none-match": '"deadbeef-1"' });
+  assert.equal(res.statusCode, 200);
+  assert.ok(res.payload.length > 0);
+});
+
+test("sendStatic сжимает текстовые файлы gzip, когда клиент это заявил", async () => {
+  const plain = await runSendStatic("/styles.css");
+  const gzipped = await runSendStaticWith("/styles.css", { "accept-encoding": "gzip" });
+  assert.equal(gzipped.headers["Content-Encoding"], "gzip");
+  assert.equal(gzipped.headers.Vary, "Accept-Encoding");
+  assert.equal(gzipped.headers["Content-Length"], gzipped.payload.length);
+  assert.ok(gzipped.payload.length < plain.payload.length);
+  assert.deepEqual(zlib.gunzipSync(gzipped.payload), plain.payload);
+});
+
+test("sendStatic предпочитает brotli, когда клиент принимает оба", async () => {
+  const plain = await runSendStatic("/styles.css");
+  const res = await runSendStaticWith("/styles.css", { "accept-encoding": "gzip, deflate, br" });
+  assert.equal(res.headers["Content-Encoding"], "br");
+  assert.deepEqual(zlib.brotliDecompressSync(res.payload), plain.payload);
+});
+
+test("sendStatic не сжимает, когда клиент не прислал Accept-Encoding", async () => {
+  const res = await runSendStatic("/styles.css");
+  assert.equal(res.headers["Content-Encoding"], undefined);
+});
+
+test("sendStatic не сжимает уже сжатые форматы вроде .png", async () => {
+  const res = await runSendStaticWith("/logo.png", { "accept-encoding": "gzip, br" });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.headers["Content-Encoding"], undefined);
+  // Without negotiation there is nothing for a cache to vary on.
+  assert.equal(res.headers.Vary, undefined);
+});
+
+test("sendStatic помечает immutable только версионированные запросы", async () => {
+  const versioned = await runSendStatic("/styles.css?v=20260905-pairing-rules");
+  assert.equal(versioned.headers["Cache-Control"], "public, max-age=604800, immutable");
+
+  const bare = await runSendStatic("/styles.css");
+  assert.equal(bare.headers["Cache-Control"], "public, max-age=604800");
+});
+
+test("sendStatic никогда не кэширует index.html, даже с ?v=", async () => {
+  const res = await runSendStatic("/?v=20260905-pairing-rules");
+  assert.equal(res.headers["Cache-Control"], "no-store, max-age=0");
 });

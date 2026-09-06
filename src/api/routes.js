@@ -7,6 +7,7 @@ const admin = require("./admin");
 const tournaments = require("./tournaments");
 const playerTeams = require("./player-teams");
 const teamTournaments = require("./team-tournaments");
+const notifications = require("./notifications");
 
 function withAction(handler, action) {
   return (ctx) => handler({ ...ctx, params: { ...ctx.params, action } });
@@ -24,6 +25,8 @@ module.exports = [
   { method: "GET", path: "/api/users/search", handler: users.search, auth: "user" },
   { method: "GET", path: "/api/users/:id", handler: users.profile, auth: "user" },
   { method: "GET", path: "/api/challenge-progress", handler: users.challengeProgress, auth: "user" },
+  { method: "GET", path: "/api/notifications", handler: notifications.list, auth: "user", tx: true },
+  { method: "POST", path: "/api/notifications/read", handler: notifications.markRead, auth: "user", tx: true },
 
   { method: "GET", path: "/api/teams", handler: playerTeams.list, auth: "none" },
   { method: "GET", path: "/api/teams/dashboard", handler: playerTeams.dashboard, auth: "user" },
@@ -127,7 +130,9 @@ module.exports = [
   { method: "POST", path: "/api/tournaments/:id/rosters", handler: teamTournaments.registerRoster, auth: "user", tx: true },
   { method: "PATCH", path: "/api/tournaments/:id/rosters/:rosterId", handler: teamTournaments.updateRoster, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/rosters/:rosterId/withdraw", handler: teamTournaments.withdrawRoster, auth: "user", tx: true },
+  { method: "GET", path: "/api/team-matches/:matchId", handler: teamTournaments.getPairingMatch, auth: "none", loadUser: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/roll", handler: teamTournaments.roll, auth: "user", tx: true },
+  { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/ban", handler: teamTournaments.banMission, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/shield", handler: teamTournaments.selectShield, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/sword", handler: teamTournaments.selectSword, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/environment", handler: teamTournaments.selectEnvironment, auth: "user", tx: true },
@@ -202,6 +207,7 @@ module.exports = [
   { method: "GET", path: "/api/admin/users", handler: admin.listUsers, auth: "admin" },
   { method: "GET", path: "/api/admin/tournaments", handler: tournaments.listAdmin, auth: "admin" },
   { method: "POST", path: "/api/admin/teams/:id/restore", handler: playerTeams.restore, auth: "admin", tx: true },
+  { method: "POST", path: "/api/admin/tournaments/:id/rosters", handler: teamTournaments.registerRoster, auth: "admin", tx: true },
   { method: "POST", path: "/api/admin/tournaments/:id/rosters/seeds", handler: teamTournaments.updateRosterSeedsAdmin, auth: "admin", tx: true },
   { method: "POST", path: "/api/admin/tournaments/:id/team-matches/:matchId/reset", handler: teamTournaments.resetMatchAdmin, auth: "admin", tx: true },
   { method: "PATCH", path: "/api/admin/tournaments/:id/team-matches/:matchId/pairings", handler: teamTournaments.overridePairingsAdmin, auth: "admin", tx: true },

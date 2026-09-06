@@ -15,6 +15,7 @@ function testPool() {
 }
 
 const TABLES = [
+  "notification_inbox_state",
   "tournament_audit_events",
   "tournament_matches",
   "tournament_rounds",

@@ -6,7 +6,12 @@ const {
   buildFirstTeamRound,
   buildNextTeamRound,
   teamStandings,
+  teamMatchProgress,
   normalizeRoundMissions,
+  validateTeamTables,
+  teamEnvironmentPlan,
+  teamNextAction,
+  teamRollRound,
   buildShieldSwordPairings,
   gamePointsForTotals,
   teamTournamentPoints
@@ -54,9 +59,52 @@ function pairKeyForTest(a, b) {
   return [a, b].sort((left, right) => left - right).join(":");
 }
 
-test("team rounds require three distinct canonical Crit Ops", () => {
+test("legacy team rounds require three distinct canonical Crit Ops", () => {
   assert.deepEqual(normalizeRoundMissions(CRIT_OPS.slice(0, 3)), CRIT_OPS.slice(0, 3).map((critOp) => ({ critOp })));
   assert.throws(() => normalizeRoundMissions([CRIT_OPS[0], CRIT_OPS[0], CRIT_OPS[1]]), ValidationError);
+});
+
+test("shared team tables require three different Killzones and layouts 1-6", () => {
+  const tables = ["Volkus", "Gallowdark", "Tomb World"].map((killzone, index) => ({ killzone, deployment: index + 1 }));
+  assert.doesNotThrow(() => validateTeamTables(tables));
+  for (const invalid of [null, tables.slice(0, 2), [...tables, tables[0]], [null, ...tables.slice(1)],
+    [tables[0], tables[0], tables[2]], ...[0, 7, 1.5, true, null, ""].map((deployment) => [{ ...tables[0], deployment }, ...tables.slice(1)])]) {
+    assert.throws(() => validateTeamTables(invalid), ValidationError);
+  }
+});
+
+test("Defender and Attacker each ban once; table chooser attacks each Shield", () => {
+  for (const attacker of ["a", "b"]) {
+    const defender = attacker === "a" ? "b" : "a";
+    const match = { pairingVersion: 2, phase: "mission_ban", rosterAId: 1, rosterBId: 2,
+      attackerRosterId: attacker === "a" ? 1 : 2, missionBans: [],
+      pairings: [{ slot: 1, shieldOwner: "a" }, { slot: 2, shieldOwner: "b" }, { slot: 3, shieldOwner: null }] };
+    assert.deepEqual(teamNextAction(match), { kind: "ban", side: defender });
+    assert.deepEqual(teamNextAction({ ...match, missionBans: [{ side: defender, mission: CRIT_OPS[0] }] }), { kind: "ban", side: attacker });
+    const defenderSlot = defender === "a" ? 1 : 2;
+    const attackerSlot = attacker === "a" ? 1 : 2;
+    const plan = [
+      { side: attacker, kind: "table", slot: defenderSlot },
+      { side: defender, kind: "mission", slot: defenderSlot },
+      { side: defender, kind: "table", slot: attackerSlot },
+      { side: attacker, kind: "mission", slot: attackerSlot },
+      { side: defender, kind: "mission", slot: 3 }
+    ];
+    assert.deepEqual(teamEnvironmentPlan(match), plan);
+    for (let step = 0; step < plan.length; step += 1) {
+      assert.deepEqual(teamNextAction({ ...match, phase: "environment_selection", environment: { step } }), plan[step]);
+    }
+    assert.equal(teamNextAction({ ...match, phase: "in_progress" }), null);
+    assert.equal(teamNextAction({ ...match, pairingVersion: 1 }), null);
+  }
+});
+
+test("roll rounds advance only after both dice are recorded", () => {
+  assert.equal(teamRollRound({}), 1);
+  assert.equal(teamRollRound({ rollHistory: [{ a: 3, b: null }] }), 1);
+  assert.equal(teamRollRound({ rollHistory: [{ a: null, b: 3 }] }), 1);
+  assert.equal(teamRollRound({ rollHistory: [{ a: 3, b: 3 }] }), 2);
+  assert.equal(teamRollRound({ rollHistory: [{ a: 3, b: 3 }, { a: 6, b: null }] }), 2);
 });
 
 test("Shield-Sword produces exactly three unique player pairings", () => {
@@ -95,27 +143,56 @@ test("game points are clamped to 0-20 and always sum to 20", () => {
   assert.deepEqual(gamePointsForTotals(12, 9), { a: 13, b: 7 });
 });
 
-test("team points use the 26-34 draw band", () => {
-  assert.deepEqual(teamTournamentPoints(25), { a: 0, b: 2 });
-  assert.deepEqual(teamTournamentPoints(26), { a: 1, b: 1 });
-  assert.deepEqual(teamTournamentPoints(34), { a: 1, b: 1 });
-  assert.deepEqual(teamTournamentPoints(35), { a: 2, b: 0 });
+test("team points use the 28-32 draw band symmetrically", () => {
+  assert.deepEqual(teamTournamentPoints(27), { a: 0, b: 2 });
+  assert.deepEqual(teamTournamentPoints(28), { a: 1, b: 1 });
+  assert.deepEqual(teamTournamentPoints(32), { a: 1, b: 1 });
+  assert.deepEqual(teamTournamentPoints(33), { a: 2, b: 0 });
+  for (let gp = 0; gp <= 60; gp += 1) {
+    const points = teamTournamentPoints(gp);
+    const opposite = teamTournamentPoints(60 - gp);
+    assert.equal(points.a, opposite.b);
+    assert.equal(points.a + points.b, 2);
+  }
 });
 
-test("team standings use points, GP, game wins, Tac Ops, then seed", () => {
-  const matches = [{
-    phase: "completed", rosterAId: 1, rosterBId: 2,
-    teamTournamentPointsA: 1, teamTournamentPointsB: 1,
-    teamGamePointsA: 31, teamGamePointsB: 29,
-    gamePoints: [
-      { winnerSide: "b", tacA: 2, tacB: 1 },
-      { winnerSide: "a", tacA: 3, tacB: 2 },
-      { winnerSide: null, tacA: 1, tacB: 4 }
-    ]
-  }];
-  const standings = teamStandings(rosters.slice(0, 2), matches);
-  assert.equal(standings[0].roster.id, 1);
-  assert.equal(standings[0].teamGamePoints, 31);
-  assert.equal(standings[0].individualWins, 1);
-  assert.equal(standings[0].tacOpPoints, 6);
+test("team standings use team points, individual wins, VP, Tac Op VP, then seed; never GP", () => {
+  const match = { phase: "completed", rosterAId: 1, rosterBId: 2,
+    teamTournamentPointsA: 1, teamTournamentPointsB: 1, teamGamePointsA: 34, teamGamePointsB: 26 };
+  const rank = (details, overrides = {}) => teamStandings(rosters.slice(0, 2), [{ ...match, ...overrides, gamePoints: details }]);
+  assert.equal(rank([{ winnerSide: "b", vpA: 50, vpB: 1, tacA: 6, tacB: 0 }])[0].roster.id, 2);
+  assert.equal(rank([{ winnerSide: null, vpA: 30, vpB: 31, tacA: 6, tacB: 0 }])[0].roster.id, 2);
+  assert.equal(rank([{ winnerSide: null, vpA: 30, vpB: 30, tacA: 5, tacB: 6 }])[0].roster.id, 2);
+  assert.equal(rank([{ winnerSide: "a", vpA: 50, vpB: 1, tacA: 6, tacB: 0 }], { teamTournamentPointsA: 0, teamTournamentPointsB: 2 })[0].roster.id, 2);
+  assert.equal(rank([{ winnerSide: null, vpA: 30, vpB: 30, tacA: 6, tacB: 6 }])[0].roster.id, 1);
+});
+
+test("live GP, wins, VP and raw Tac Op VP include only finished games, even before the team match finishes", () => {
+  const scores = { 11: { total: 18, tac: 6, primaryBonus: 3 }, 21: { total: 14, tac: 4, primaryBonus: 2 } };
+  const finished = { slot: 1, game: { status: "completed", playerIds: [11, 21], result: { scores, winnerId: 11 } } };
+  const pending = { slot: 2, game: { status: "pending_confirmation", playerIds: [12, 22], pendingResult: { result: { scores } } } };
+  const open = { slot: 3, game: { status: "open", playerIds: [13, 23] } };
+  const match = { phase: "in_progress", rosterAId: 1, rosterBId: 2, games: [finished, pending, open] };
+  const progress = teamMatchProgress(match);
+  assert.equal(progress.completed, 1);
+  assert.equal(progress.gpA, 14);
+  assert.equal(progress.gpB, 6);
+  const [a, b] = teamStandings(rosters.slice(0, 2), [match]);
+  assert.equal(a.teamTournamentPoints, 0);
+  assert.equal(a.played, 0);
+  assert.equal(a.individualWins, 1);
+  assert.equal(a.totalVp, 18);
+  assert.equal(a.tacOpPoints, 6);
+  assert.equal(b.tacOpPoints, 4);
+  const secondPlayer = { slot: 2, game: { status: "completed", playerIds: [12, 22], result: {
+    scores: { 12: { total: 16, tac: 5, primaryBonus: 3 }, 22: { total: 14, tac: 4 } }
+  } } };
+  const next = { ...match, games: [finished, secondPlayer, open] };
+  const cumulative = teamStandings(rosters.slice(0, 2), [match, next]);
+  assert.equal(cumulative[0].tacOpPoints, 17, "sum raw Tac Op VP across players and rounds, excluding Primary bonus");
+  assert.equal(cumulative[0].totalVp, 52);
+  assert.equal(cumulative[0].individualWins, 3);
+  const tied = structuredClone(match);
+  tied.games[0].game.result.scores[21].total = 18;
+  assert.equal(teamMatchProgress(tied).details[0].winnerSide, null, "equal VP cannot count a historical personal tiebreaker win");
 });

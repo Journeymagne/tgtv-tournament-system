@@ -5,6 +5,17 @@ const routes = require("../../src/api/routes");
 
 const MUTATING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 
+test("team pairing is public read-only, while captain actions still require authentication", () => {
+  const read = routes.find((route) => route.method === "GET" && route.path === "/api/team-matches/:matchId");
+  assert.equal(read.auth, "none");
+  assert.equal(read.loadUser, true);
+  for (const action of ["roll", "ban", "shield", "sword", "environment"]) {
+    const write = routes.find((route) => route.method === "POST" && route.path === `/api/tournaments/:id/team-matches/:matchId/${action}`);
+    assert.equal(write.auth, "user");
+    assert.equal(write.tx, true);
+  }
+});
+
 test("MEDIUM 3: каждый маршрут /api/admin/* требует auth: admin", () => {
   const adminRoutes = routes.filter((route) => route.path.startsWith("/api/admin/"));
   assert.ok(adminRoutes.length > 0, "sanity: there should be admin routes to check");
@@ -31,6 +42,8 @@ const REQUIRES_AUTHENTICATED_USER = [
   ["GET", "/api/users/search"],
   ["GET", "/api/users/:id"],
   ["GET", "/api/challenge-progress"],
+  ["GET", "/api/notifications"],
+  ["POST", "/api/notifications/read"],
   ["GET", "/api/games"],
   ["GET", "/api/games/tournament-match/:matchId"],
   ["GET", "/api/games/:id"],

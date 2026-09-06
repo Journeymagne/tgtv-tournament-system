@@ -60,6 +60,13 @@ async function revertGameEloDeltas(client, games) {
       const key = `${venue}:${id}`;
       deltas.set(key, { id, venue, delta: (deltas.get(key)?.delta || 0) - delta });
     }
+    for (const [userId, entry] of Object.entries(game.elo?.combined || {})) {
+      const id = Number(userId);
+      const delta = Number(entry?.delta || 0);
+      if (!Number.isInteger(id) || !delta) continue;
+      const key = `combined:${id}`;
+      deltas.set(key, { id, venue: "combined", delta: (deltas.get(key)?.delta || 0) - delta });
+    }
   }
   for (const { id, venue, delta } of deltas.values()) {
     await usersRepo.addRating(client, id, delta, venue);
@@ -790,8 +797,11 @@ async function regenerateSeeds({ client, user, params }) {
 }
 
 function assertTablesAvailable(tournament) {
-  if (tournament.venueMode !== "irl") {
+  if (tournament.venueMode !== "irl" && tournament.participantMode !== "team") {
     throw new HttpError(409, "Tables are available only for In Real Life tournaments");
+  }
+  if (tournament.participantMode === "team" && tournament.teamTablesLocked) {
+    throw new HttpError(409, "Team tables are locked for this tournament");
   }
 }
 
@@ -807,6 +817,9 @@ async function addTableAdmin({ client, user, params, body }) {
   assertEditableSetup(tournament);
   assertTablesAvailable(tournament);
   const payload = normalizeTablePayload(body);
+  if (tournament.participantMode === "team" && (await tablesRepo.listByTournament(client, tournament.id)).length >= 3) {
+    throw new ValidationError("Team tournaments use exactly three shared tables");
+  }
   try {
     const table = await tablesRepo.insert(client, {
       tournamentId: tournament.id,
@@ -1158,14 +1171,14 @@ async function persistPreview(client, tournament, preview) {
   return { rounds: createdRounds, matches: createdMatches };
 }
 
-async function startAdmin({ client, user, params }) {
+async function startAdmin({ client, user, params, body = {} }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   if (tournament.status !== TOURNAMENT_STATUSES.REGISTRATION_CLOSED) {
     throw new HttpError(409, "Registration must be closed before start");
   }
   validatePublishable(tournament);
   if (tournament.participantMode === "team") {
-    return require("./team-tournaments").startTournament(client, tournament, user);
+    return require("./team-tournaments").startTournament(client, tournament, user, body);
   }
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
   const competitive = participants.filter((item) => item.status === PARTICIPANT_STATUSES.JOINED);
@@ -1294,18 +1307,28 @@ async function applyTournamentElo(client, tournament, participantA, participantB
     const [player] = await usersRepo.lockByIds(client, userIds);
     if (!player) throw new HttpError(409, "The registered tournament player has been deleted");
     const before = usersRepo.ratingForVenue(player, tournament.venueMode);
+    const combinedBefore = usersRepo.ratingForVenue(player, "combined");
     const updated = await usersRepo.addRating(
       client,
       player.id,
       UNREGISTERED_OPPONENT_RATING_BONUS,
       tournament.venueMode
     );
+    await usersRepo.addRating(client, player.id, UNREGISTERED_OPPONENT_RATING_BONUS, "combined");
     return {
       flat: UNREGISTERED_OPPONENT_RATING_BONUS,
       [player.id]: {
         before,
         after: usersRepo.ratingForVenue(updated, tournament.venueMode),
         delta: UNREGISTERED_OPPONENT_RATING_BONUS
+      },
+      combined: {
+        flat: UNREGISTERED_OPPONENT_RATING_BONUS,
+        [player.id]: {
+          before: combinedBefore,
+          after: combinedBefore + UNREGISTERED_OPPONENT_RATING_BONUS,
+          delta: UNREGISTERED_OPPONENT_RATING_BONUS
+        }
       }
     };
   }
@@ -1317,15 +1340,37 @@ async function applyTournamentElo(client, tournament, participantA, participantB
 
   const ratingA = usersRepo.ratingForVenue(playerA, tournament.venueMode);
   const ratingB = usersRepo.ratingForVenue(playerB, tournament.venueMode);
+  const combinedRatingA = usersRepo.ratingForVenue(playerA, "combined");
+  const combinedRatingB = usersRepo.ratingForVenue(playerB, "combined");
   const matchScoreA = matchScoreFor(result, playerA.id, playerB.id);
   const { deltaA, deltaB } = calculateElo(ratingA, ratingB, matchScoreA);
+  const { deltaA: combinedDeltaA, deltaB: combinedDeltaB } = calculateElo(
+    combinedRatingA,
+    combinedRatingB,
+    matchScoreA
+  );
   const updatedA = await usersRepo.addRating(client, playerA.id, deltaA, tournament.venueMode);
   const updatedB = await usersRepo.addRating(client, playerB.id, deltaB, tournament.venueMode);
+  await usersRepo.addRating(client, playerA.id, combinedDeltaA, "combined");
+  await usersRepo.addRating(client, playerB.id, combinedDeltaB, "combined");
 
   return {
     k: ELO_K,
     [playerA.id]: { before: ratingA, after: usersRepo.ratingForVenue(updatedA, tournament.venueMode), delta: deltaA },
-    [playerB.id]: { before: ratingB, after: usersRepo.ratingForVenue(updatedB, tournament.venueMode), delta: deltaB }
+    [playerB.id]: { before: ratingB, after: usersRepo.ratingForVenue(updatedB, tournament.venueMode), delta: deltaB },
+    combined: {
+      k: ELO_K,
+      [playerA.id]: {
+        before: combinedRatingA,
+        after: combinedRatingA + combinedDeltaA,
+        delta: combinedDeltaA
+      },
+      [playerB.id]: {
+        before: combinedRatingB,
+        after: combinedRatingB + combinedDeltaB,
+        delta: combinedDeltaB
+      }
+    }
   };
 }
 
@@ -1735,6 +1780,13 @@ async function reverseMatchElo(client, tournament, match) {
     const delta = Number(entry?.delta || 0);
     if (Number.isInteger(id) && delta) {
       await usersRepo.addRating(client, id, -delta, tournament.venueMode);
+    }
+  }
+  for (const [playerId, entry] of Object.entries(match.elo.combined || {})) {
+    const id = Number(playerId);
+    const delta = Number(entry?.delta || 0);
+    if (Number.isInteger(id) && delta) {
+      await usersRepo.addRating(client, id, -delta, "combined");
     }
   }
 }

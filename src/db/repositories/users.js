@@ -8,12 +8,19 @@ function normalizeVenueMode(value) {
   return value === "irl" ? "irl" : "tts";
 }
 
+function normalizeRatingMode(value) {
+  if (value === "combined") return "combined";
+  return normalizeVenueMode(value);
+}
+
 function ratingColumn(value) {
-  return normalizeVenueMode(value) === "irl" ? "rating_irl" : "rating_tts";
+  const mode = normalizeRatingMode(value);
+  if (mode === "combined") return "rating_combined";
+  return mode === "irl" ? "rating_irl" : "rating_tts";
 }
 
 function ratingForVenue(user, venueMode) {
-  return Number(user?.ratings?.[normalizeVenueMode(venueMode)] ?? user?.rating ?? 1000);
+  return Number(user?.ratings?.[normalizeRatingMode(venueMode)] ?? user?.rating ?? 1000);
 }
 
 async function findById(client, id) {
@@ -57,11 +64,12 @@ async function isNameTaken(client, name, excludeId = null) {
   return rows.length > 0;
 }
 
-async function listLeaderboard(client, venueMode = "tts") {
-  const venue = normalizeVenueMode(venueMode);
-  const column = ratingColumn(venue);
+async function listLeaderboard(client, venueMode = "combined") {
+  const mode = normalizeRatingMode(venueMode);
+  const column = ratingColumn(mode);
   const { rows } = await client.query(
-    `SELECT id, name, avatar_data, rating_tts, rating_irl, ${column} AS selected_rating, is_admin
+    `SELECT id, name, avatar_data, rating_tts, rating_irl, rating_combined,
+            ${column} AS selected_rating, is_admin
      FROM users ORDER BY ${column} DESC, name ASC`
   );
   return rows.map((row) => ({
@@ -69,8 +77,8 @@ async function listLeaderboard(client, venueMode = "tts") {
     name: row.name,
     avatarData: row.avatar_data || null,
     rating: row.selected_rating,
-    ratings: { tts: row.rating_tts, irl: row.rating_irl },
-    venueMode: venue,
+    ratings: { tts: row.rating_tts, irl: row.rating_irl, combined: row.rating_combined },
+    venueMode: mode,
     isAdmin: row.is_admin
   }));
 }
@@ -85,12 +93,13 @@ async function listWithGameCounts(client) {
   return rows.map((row) => ({ ...mapUser(row), gamesPlayed: row.games_played }));
 }
 
-async function listForRatingReplay(client) {
+async function listForRatingReplay(client, { includeCombined = true } = {}) {
   // Keep the migration/replay query intentionally minimal. Migration 012 calls
   // this immediately after adding the venue rating columns, so selecting the
   // evolving public USER_COLUMNS list would make it depend on future schema.
+  const combinedColumn = includeCombined ? ", rating_combined" : "";
   const { rows } = await client.query(
-    `SELECT id, rating, rating_tts, rating_irl FROM users ORDER BY id FOR UPDATE`
+    `SELECT id, rating, rating_tts, rating_irl${combinedColumn} FROM users ORDER BY id FOR UPDATE`
   );
   return rows.map(mapUser);
 }
@@ -121,8 +130,8 @@ async function insert(client, user) {
   const { rows } = await client.query(
     `INSERT INTO users
        (name, name_key, password_hash, avatar_data, register_nickname,
-        telegram_contact, challenge_credits, rating, rating_tts, rating_irl, is_admin)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $8, $8, $9)
+        telegram_contact, challenge_credits, rating, rating_tts, rating_irl, rating_combined, is_admin)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $8, $8, $8, $9)
      RETURNING ${COLUMNS}`,
     [
       user.name,
@@ -179,9 +188,9 @@ async function setPasswordHash(client, id, passwordHash) {
 }
 
 async function addRating(client, id, delta, venueMode = "tts") {
-  const venue = normalizeVenueMode(venueMode);
-  const column = ratingColumn(venue);
-  const legacyAssignment = venue === "tts" ? ", rating = rating + $2" : "";
+  const mode = normalizeRatingMode(venueMode);
+  const column = ratingColumn(mode);
+  const legacyAssignment = mode === "tts" ? ", rating = rating + $2" : "";
   const { rows } = await client.query(
     `UPDATE users SET ${column} = ${column} + $2${legacyAssignment}, updated_at = NOW()
      WHERE id = $1 RETURNING ${COLUMNS}`,
@@ -191,9 +200,9 @@ async function addRating(client, id, delta, venueMode = "tts") {
 }
 
 async function setRating(client, id, rating, venueMode = "tts") {
-  const venue = normalizeVenueMode(venueMode);
-  const column = ratingColumn(venue);
-  const legacyAssignment = venue === "tts" ? ", rating = $2" : "";
+  const mode = normalizeRatingMode(venueMode);
+  const column = ratingColumn(mode);
+  const legacyAssignment = mode === "tts" ? ", rating = $2" : "";
   const { rows } = await client.query(
     `UPDATE users SET ${column} = $2${legacyAssignment}, updated_at = NOW()
      WHERE id = $1 RETURNING ${COLUMNS}`,
@@ -203,6 +212,15 @@ async function setRating(client, id, rating, venueMode = "tts") {
 }
 
 async function setRatings(client, id, ratings) {
+  if (Number.isInteger(ratings.combined)) {
+    await client.query(
+      `UPDATE users
+       SET rating = $2, rating_tts = $2, rating_irl = $3, rating_combined = $4, updated_at = NOW()
+       WHERE id = $1`,
+      [id, ratings.tts, ratings.irl, ratings.combined]
+    );
+    return;
+  }
   await client.query(
     `UPDATE users
      SET rating = $2, rating_tts = $2, rating_irl = $3, updated_at = NOW()
@@ -259,6 +277,7 @@ module.exports = {
   updateProfile,
   setPasswordHash,
   normalizeVenueMode,
+  normalizeRatingMode,
   ratingForVenue,
   addRating,
   setRating,

@@ -86,17 +86,39 @@ async function applyElo(client, game, playerA, playerB, result, confirmedBy, opt
   const venue = usersRepo.normalizeVenueMode(game.venueMode);
   const ratingA = usersRepo.ratingForVenue(playerA, venue);
   const ratingB = usersRepo.ratingForVenue(playerB, venue);
+  const combinedRatingA = usersRepo.ratingForVenue(playerA, "combined");
+  const combinedRatingB = usersRepo.ratingForVenue(playerB, "combined");
 
   const matchScoreA = matchScoreFor(result, playerA.id, playerB.id);
   const { deltaA, deltaB } = calculateElo(ratingA, ratingB, matchScoreA);
+  const { deltaA: combinedDeltaA, deltaB: combinedDeltaB } = calculateElo(
+    combinedRatingA,
+    combinedRatingB,
+    matchScoreA
+  );
 
   const updatedA = await usersRepo.addRating(client, playerA.id, deltaA, venue);
   const updatedB = await usersRepo.addRating(client, playerB.id, deltaB, venue);
+  await usersRepo.addRating(client, playerA.id, combinedDeltaA, "combined");
+  await usersRepo.addRating(client, playerB.id, combinedDeltaB, "combined");
 
   const elo = {
     k: ELO_K,
     [playerA.id]: { before: ratingA, after: usersRepo.ratingForVenue(updatedA, venue), delta: deltaA },
-    [playerB.id]: { before: ratingB, after: usersRepo.ratingForVenue(updatedB, venue), delta: deltaB }
+    [playerB.id]: { before: ratingB, after: usersRepo.ratingForVenue(updatedB, venue), delta: deltaB },
+    combined: {
+      k: ELO_K,
+      [playerA.id]: {
+        before: combinedRatingA,
+        after: combinedRatingA + combinedDeltaA,
+        delta: combinedDeltaA
+      },
+      [playerB.id]: {
+        before: combinedRatingB,
+        after: combinedRatingB + combinedDeltaB,
+        delta: combinedDeltaB
+      }
+    }
   };
 
   return gamesRepo.saveFinalResult(client, game.id, {
@@ -112,6 +134,8 @@ async function reverseElo(client, game) {
   for (const playerId of game.playerIds) {
     const delta = Number(game.elo?.[playerId]?.delta || 0);
     if (delta) await usersRepo.addRating(client, playerId, -delta, game.venueMode);
+    const combinedDelta = Number(game.elo?.combined?.[playerId]?.delta || 0);
+    if (combinedDelta) await usersRepo.addRating(client, playerId, -combinedDelta, "combined");
   }
 }
 

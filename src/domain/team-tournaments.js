@@ -1,5 +1,52 @@
 const { ValidationError } = require("../http/io");
-const { CRIT_OPS } = require("./kill-teams");
+const { CRIT_OPS, KILLZONES } = require("./kill-teams");
+
+function validateTeamTables(tables) {
+  if (!Array.isArray(tables) || tables.length !== 3 ||
+      tables.some((table) => !table || !KILLZONES.includes(table.killzone) ||
+        !["number", "string"].includes(typeof table.deployment) ||
+        !Number.isInteger(Number(table.deployment)) || Number(table.deployment) < 1 || Number(table.deployment) > 6)) {
+    throw new ValidationError("Configure three Killzones, each with a deployment from 1 to 6");
+  }
+  if (new Set(tables.map((table) => table.killzone)).size !== 3) {
+    throw new ValidationError("Choose three different Killzones");
+  }
+  return tables;
+}
+
+function teamEnvironmentPlan(match) {
+  const attacker = match.attackerRosterId === match.rosterAId ? "a" : "b";
+  const defender = attacker === "a" ? "b" : "a";
+  // Manual pairings retain slot ownership even when the players are overridden.
+  const defenderSlot = match.pairings?.find((pair) => pair.shieldOwner === defender)?.slot;
+  const attackerSlot = match.pairings?.find((pair) => pair.shieldOwner === attacker)?.slot;
+  if (!defenderSlot || !attackerSlot) return [];
+  return [
+    { side: attacker, kind: "table", slot: defenderSlot },
+    { side: defender, kind: "mission", slot: defenderSlot },
+    { side: defender, kind: "table", slot: attackerSlot },
+    { side: attacker, kind: "mission", slot: attackerSlot },
+    { side: defender, kind: "mission", slot: 3 }
+  ];
+}
+
+function teamRollRound(match) {
+  const history = match.rollHistory || [];
+  const last = history[history.length - 1];
+  return !last || (last.a && last.b) ? history.length + 1 : history.length;
+}
+
+function teamNextAction(match) {
+  if (match.pairingVersion !== 2) return null;
+  if (match.phase === "mission_ban") {
+    const attacker = match.attackerRosterId === match.rosterAId ? "a" : "b";
+    return { kind: "ban", side: match.missionBans?.length ? attacker : attacker === "a" ? "b" : "a" };
+  }
+  if (match.phase === "environment_selection") {
+    return teamEnvironmentPlan(match)[Number(match.environment?.step || 0)] || null;
+  }
+  return null;
+}
 
 function validateTeamTournament(tournament, rosters) {
   if (tournament.participantMode !== "team" || tournament.format !== "swiss" || tournament.teamSize !== 3) {
@@ -36,6 +83,28 @@ function pairKey(aId, bId) {
   return [Number(aId), Number(bId)].sort((a, b) => a - b).join(":");
 }
 
+function teamMatchProgress(match) {
+  const details = Array.isArray(match.games)
+    ? match.games.filter((link) => link.game?.status === "completed" && link.game.result).map((link) => {
+      const [playerAId, playerBId] = link.game.playerIds;
+      const scoreA = link.game.result.scores?.[playerAId] || {};
+      const scoreB = link.game.result.scores?.[playerBId] || {};
+      const vpA = Number(scoreA.total || 0);
+      const vpB = Number(scoreB.total || 0);
+      return {
+        slot: link.slot, ...gamePointsForTotals(vpA, vpB), vpA, vpB,
+        winnerSide: vpA === vpB ? null : vpA > vpB ? "a" : "b",
+        tacA: Number(scoreA.tac || 0), tacB: Number(scoreB.tac || 0)
+      };
+    })
+    : (match.gamePoints || []);
+  return {
+    completed: details.length, total: 3, details,
+    gpA: details.reduce((sum, game) => sum + Number(game.a || 0), 0),
+    gpB: details.reduce((sum, game) => sum + Number(game.b || 0), 0)
+  };
+}
+
 function teamStandings(rosters, matches) {
   const rows = sortedRosters(rosters).map((roster) => ({
     roster,
@@ -46,26 +115,29 @@ function teamStandings(rosters, matches) {
     teamTournamentPoints: 0,
     teamGamePoints: 0,
     individualWins: 0,
+    totalVp: 0,
     tacOpPoints: 0
   }));
   const byId = new Map(rows.map((row) => [row.roster.id, row]));
   for (const match of matches) {
-    if (match.phase !== "completed") continue;
     const a = byId.get(match.rosterAId);
     const b = byId.get(match.rosterBId);
     if (!a || !b) continue;
     const pointsA = Number(match.teamTournamentPointsA || 0);
     const pointsB = Number(match.teamTournamentPointsB || 0);
-    const details = Array.isArray(match.gamePoints) ? match.gamePoints : [];
+    const progress = teamMatchProgress(match);
+    const details = progress.details;
     for (const [row, points, gamePoints, side] of [
-      [a, pointsA, match.teamGamePointsA, "a"],
-      [b, pointsB, match.teamGamePointsB, "b"]
+      [a, pointsA, details.length ? progress.gpA : match.teamGamePointsA, "a"],
+      [b, pointsB, details.length ? progress.gpB : match.teamGamePointsB, "b"]
     ]) {
-      row.played += 1;
-      row.teamTournamentPoints += points;
       row.teamGamePoints += Number(gamePoints || 0);
       row.individualWins += details.filter((item) => item.winnerSide === side).length;
+      row.totalVp += details.reduce((sum, item) => sum + Number(side === "a" ? item.vpA || 0 : item.vpB || 0), 0);
       row.tacOpPoints += details.reduce((sum, item) => sum + Number(side === "a" ? item.tacA : item.tacB), 0);
+      if (match.phase !== "completed") continue;
+      row.played += 1;
+      row.teamTournamentPoints += points;
       if (points === 2) row.wins += 1;
       else if (points === 1) row.draws += 1;
       else row.losses += 1;
@@ -73,8 +145,8 @@ function teamStandings(rosters, matches) {
   }
   rows.sort((left, right) =>
     right.teamTournamentPoints - left.teamTournamentPoints ||
-    right.teamGamePoints - left.teamGamePoints ||
     right.individualWins - left.individualWins ||
+    right.totalVp - left.totalVp ||
     right.tacOpPoints - left.tacOpPoints ||
     Number(left.roster.seed || 0) - Number(right.roster.seed || 0) ||
     left.roster.id - right.roster.id
@@ -184,14 +256,14 @@ function buildShieldSwordPairings(membersA, membersB, selections) {
   const swordA = Number(selections.swordA);
   const swordB = Number(selections.swordB);
   if (!aIds.has(shieldA) || !bIds.has(shieldB) || !bIds.has(swordA) || !aIds.has(swordB)) {
-    throw new ValidationError("Shield-Sword selections must use current roster members");
+    throw new ValidationError("WTC selections must use current roster members");
   }
   if (shieldA === swordB || shieldB === swordA) {
     throw new ValidationError("A player can appear in only one pairing");
   }
   const remainingA = membersA.find((member) => ![shieldA, swordB].includes(member.id));
   const remainingB = membersB.find((member) => ![shieldB, swordA].includes(member.id));
-  if (!remainingA || !remainingB) throw new ValidationError("Shield-Sword pairing could not be completed");
+  if (!remainingA || !remainingB) throw new ValidationError("WTC pairing could not be completed");
   return [
     { slot: 1, rosterAMemberId: shieldA, rosterBMemberId: swordA, shieldOwner: "a" },
     { slot: 2, rosterAMemberId: swordB, rosterBMemberId: shieldB, shieldOwner: "b" },
@@ -207,12 +279,17 @@ function gamePointsForTotals(totalA, totalB) {
 
 function teamTournamentPoints(teamGamePointsA) {
   const points = Number(teamGamePointsA || 0);
-  if (points < 26) return { a: 0, b: 2 };
-  if (points > 34) return { a: 2, b: 0 };
+  if (points < 28) return { a: 0, b: 2 };
+  if (points > 32) return { a: 2, b: 0 };
   return { a: 1, b: 1 };
 }
 
 module.exports = {
+  teamMatchProgress,
+  validateTeamTables,
+  teamEnvironmentPlan,
+  teamRollRound,
+  teamNextAction,
   validateTeamTournament,
   buildFirstTeamRound,
   buildNextTeamRound,

@@ -220,7 +220,9 @@ async function listInvitationsForUser(client, userId) {
      JOIN player_teams pt ON pt.id = i.team_id
      JOIN users invitee ON invitee.id = i.invitee_user_id
      LEFT JOIN users inviter ON inviter.id = i.invited_by_user_id
-     WHERE (i.invitee_user_id = $1 OR i.invited_by_user_id = $1) AND i.status = 'pending'
+     WHERE (i.invitee_user_id = $1 OR i.invited_by_user_id = $1)
+       AND i.status = 'pending'
+       AND pt.archived_at IS NULL
      ORDER BY i.created_at DESC, i.id DESC`,
     [userId]
   );

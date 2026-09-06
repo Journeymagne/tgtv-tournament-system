@@ -6,15 +6,21 @@ const { matchScoreFor } = require("../domain/scoring");
 
 const UNREGISTERED_OPPONENT_RATING_BONUS = 15;
 
-function eloDeltaFor(game, userId) {
-  return Number(game.elo?.[userId]?.delta || 0);
+function eloDeltaFor(game, userId, mode) {
+  const track = mode === "combined" ? game.elo?.combined : game.elo;
+  return Number(track?.[userId]?.delta || 0);
 }
 
-function inferBaseRatings(users, games, { splitFromLegacyRating = false } = {}) {
+function inferBaseRatings(
+  users,
+  games,
+  { splitFromLegacyRating = false, includeCombined = true, resetCombined = false } = {}
+) {
   const ratings = {
     tts: new Map(),
     irl: new Map()
   };
+  if (includeCombined) ratings.combined = new Map();
   for (const user of users) {
     if (splitFromLegacyRating) {
       ratings.tts.set(user.id, Number(user.rating || 0));
@@ -23,15 +29,27 @@ function inferBaseRatings(users, games, { splitFromLegacyRating = false } = {}) 
       ratings.tts.set(user.id, usersRepo.ratingForVenue(user, "tts"));
       ratings.irl.set(user.id, usersRepo.ratingForVenue(user, "irl"));
     }
+    if (includeCombined) {
+      ratings.combined.set(
+        user.id,
+        resetCombined ? 1000 : usersRepo.ratingForVenue(user, "combined")
+      );
+    }
   }
   for (const game of games) {
     const venue = splitFromLegacyRating ? null : usersRepo.normalizeVenueMode(game.venueMode);
     for (const userId of game.playerIds || []) {
-      const delta = eloDeltaFor(game, userId);
+      const delta = eloDeltaFor(game, userId, venue);
       const tracks = venue ? [ratings[venue]] : [ratings.tts, ratings.irl];
       for (const track of tracks) {
         if (!track.has(userId)) continue;
         track.set(userId, track.get(userId) - delta);
+      }
+      if (includeCombined && !resetCombined && ratings.combined.has(userId)) {
+        ratings.combined.set(
+          userId,
+          ratings.combined.get(userId) - eloDeltaFor(game, userId, "combined")
+        );
       }
     }
   }
@@ -89,7 +107,8 @@ function ratingReplayOrder(a, b) {
 }
 
 async function recalculateCompletedGameRatings(client, options = {}) {
-  const users = await usersRepo.listForRatingReplay(client);
+  const includeCombined = options.includeCombined !== false;
+  const users = await usersRepo.listForRatingReplay(client, { includeCombined });
   const games = await gamesRepo.listCompletedForRatingReplay(client);
   const replayGames = games.sort(ratingReplayOrder);
   const tournamentGameIds = games
@@ -100,19 +119,28 @@ async function recalculateCompletedGameRatings(client, options = {}) {
 
   for (const game of replayGames) {
     const venue = usersRepo.normalizeVenueMode(game.venueMode);
-    const elo = isRankedGame(game, tournamentPolicies) ? replayGame(game, ratings[venue]) : null;
+    const ranked = isRankedGame(game, tournamentPolicies);
+    const venueElo = ranked ? replayGame(game, ratings[venue]) : null;
+    const combinedElo = includeCombined && ranked ? replayGame(game, ratings.combined) : null;
+    const elo = venueElo && includeCombined ? { ...venueElo, combined: combinedElo } : venueElo;
     await gamesRepo.updateElo(client, game.id, elo);
   }
 
   for (const user of users) {
     const next = {
       tts: ratings.tts.get(user.id),
-      irl: ratings.irl.get(user.id)
+      irl: ratings.irl.get(user.id),
+      ...(includeCombined ? { combined: ratings.combined.get(user.id) } : {})
     };
     if (
       Number.isInteger(next.tts) &&
       Number.isInteger(next.irl) &&
-      (next.tts !== usersRepo.ratingForVenue(user, "tts") || next.irl !== usersRepo.ratingForVenue(user, "irl"))
+      (!includeCombined || Number.isInteger(next.combined)) &&
+      (
+        next.tts !== usersRepo.ratingForVenue(user, "tts") ||
+        next.irl !== usersRepo.ratingForVenue(user, "irl") ||
+        (includeCombined && next.combined !== usersRepo.ratingForVenue(user, "combined"))
+      )
     ) {
       await usersRepo.setRatings(client, user.id, next);
     }

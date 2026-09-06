@@ -43,6 +43,9 @@ module.exports = {
   name: "venue_ratings",
   async up(client) {
     await client.query(SCHEMA);
-    await recalculateCompletedGameRatings(client, { splitFromLegacyRating: true });
+    await recalculateCompletedGameRatings(client, {
+      splitFromLegacyRating: true,
+      includeCombined: false
+    });
   }
 };

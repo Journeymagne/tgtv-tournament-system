@@ -6,6 +6,7 @@ const users = require("../db/repositories/users");
 const sessions = require("../db/repositories/sessions");
 const challenges = require("../db/repositories/challenges");
 const games = require("../db/repositories/games");
+const teamMatches = require("../db/repositories/team-matches");
 const { hashPassword, verifyPassword } = require("../domain/passwords");
 const { requireName, normalizeName, profileText, requiredProfileText, validateAvatarData } = require("../domain/validation");
 const { userSummary } = require("./views");
@@ -30,10 +31,11 @@ async function startSession(client, userId) {
 }
 
 async function buildUserSummary(client, user) {
-  const [userChallenges, userGames] = await Promise.all([
-    challenges.listForUser(client, user.id),
-    games.listForUser(client, user.id)
-  ]);
+  // A route-scoped pg Client executes one query at a time. Keep these reads
+  // sequential so a busy dashboard refresh never overlaps operations on it.
+  const userChallenges = await challenges.listForUser(client, user.id);
+  const userGames = await games.listForUser(client, user.id);
+  const teamPairings = await teamMatches.listActivePairingsForCaptain(client, user.id);
 
   const detailedGames = await attachTournamentGameDetails(client, userGames);
 
@@ -53,6 +55,7 @@ async function buildUserSummary(client, user) {
     hasAdmin,
     challenges: userChallenges,
     games: sortGameViews(detailedGames),
+    teamPairings,
     people
   });
 }

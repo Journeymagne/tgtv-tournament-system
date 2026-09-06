@@ -23,8 +23,9 @@ const {
 const SEARCH_LIMIT = 10;
 
 async function list({ client, query = new URLSearchParams() }) {
-  const venue = query.get("venue") === "irl" ? "irl" : "tts";
-  const rows = await usersRepo.listLeaderboard(client, venue);
+  const requestedMode = query.get("venue");
+  const ratingMode = ["combined", "tts", "irl"].includes(requestedMode) ? requestedMode : "combined";
+  const rows = await usersRepo.listLeaderboard(client, ratingMode);
   return { users: rows.map(leaderboardUser) };
 }
 

@@ -113,13 +113,13 @@ function normalizeTeamPairingType(value, participantMode) {
   if (participantMode !== PARTICIPANT_MODES.TEAM) return null;
   const pairingType = String(value || TEAM_PAIRING_TYPES.SHIELD_SWORD);
   if (pairingType !== TEAM_PAIRING_TYPES.SHIELD_SWORD) {
-    throw new ValidationError("Shield-Sword is the only available team pairing type");
+    throw new ValidationError("WTC is the only available team pairing type");
   }
   return pairingType;
 }
 
 function normalizeSeasonId(value) {
-  const seasonId = optionalTournamentText(value, "Season", SEASON_ID_MAX) || "2026-q2-dataslate";
+  const seasonId = optionalTournamentText(value, "Season", SEASON_ID_MAX) || "2026-q3-dataslate";
   if (!/^[a-z0-9][a-z0-9._-]*$/i.test(seasonId)) {
     throw new ValidationError("Choose a valid season");
   }
@@ -227,7 +227,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
   const patch = normalizeTournamentPatch({
     format: TOURNAMENT_FORMATS.SINGLE_ELIMINATION,
     gameSystem: "Warhammer 40k Kill Team",
-    seasonId: "2026-q2-dataslate",
+    seasonId: "2026-q3-dataslate",
     venueMode: "tts",
     singleEliminationSize: 8,
     ratingPolicy: "ranked",
@@ -255,7 +255,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     tiebreakerOrder: patch.tiebreakerOrder || [],
     ratingPolicy: patch.ratingPolicy || "ranked",
     challengeCreditPolicy: patch.challengeCreditPolicy || "count",
-    seasonId: patch.seasonId || "2026-q2-dataslate",
+    seasonId: patch.seasonId || "2026-q3-dataslate",
     venueMode: patch.venueMode || "tts"
   };
 }

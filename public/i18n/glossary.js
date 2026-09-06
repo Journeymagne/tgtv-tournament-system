@@ -39,6 +39,11 @@ const PROPER_NAMES = [
   "Warhammer 40k Kill Team",
   "Tabletop Simulator",
   "TTS",
+  "Combined MMR",
+  // What the profile shows. The value behind it is the combined rating, but
+  // players read it as their one rating number, so the label drops the word.
+  "MMR",
+  "WTC",
   "All Kill Team Challenge",
   "Classified",
   "Non-Classified",
@@ -106,7 +111,8 @@ const SAME_IN_BOTH = {
   "admin.tournament.field.namePlaceholder": "Placeholder example tournament name, not localized text.",
   "admin.tournament.field.rulesLinkPlaceholder": "Placeholder format example, not localized text.",
   "admin.tournament.participants.tgtvUser": "Product/brand abbreviation, no other words to translate.",
-  "leaderboard.users.contact.telegram": "Product name."
+  "leaderboard.users.contact.telegram": "Product name.",
+  "stats.tab.teams": "Requested feature label is Killteams in both locales."
 };
 
 module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };

@@ -2,12 +2,34 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  handleSeoRequest,
   metaDescription,
   robotsTxt,
   sitemapXml,
   tournamentPublicUrl,
   tournamentSlugFromPath
 } = require("../../src/http/seo");
+
+test("direct public tournament pages load data and translations before the app", async () => {
+  let html = "";
+  let status;
+  const handled = await handleSeoRequest(
+    { method: "GET", url: "/tournaments/team-cup", headers: { host: "127.0.0.1:3000" } },
+    { writeHead: (value) => { status = value; }, end: (value) => { html = value; } },
+    { withClient: (fn) => fn({ query: async () => ({ rows: [{ id: 1, slug: "team-cup", status: "in_progress", name: "Team Cup" }] }) }) }
+  );
+  assert.equal(handled, true);
+  assert.equal(status, 200);
+  const scripts = [...html.matchAll(/<script src="\/([^?]+)\?[^\"]+" defer><\/script>/g)].map((match) => match[1]);
+  assert.deepEqual(scripts, ["game-data.js", "i18n.js", "app.js"]);
+
+  // The dictionaries are no longer in this list: theme-boot.js runs first,
+  // parser-blocking, and writes a tag for the one locale the visitor is in.
+  // Losing it here would mean the app renders raw translation keys.
+  assert.match(html, /<script src="\/theme-boot\.js\?[^"]+"><\/script>/);
+  assert.ok(html.indexOf("theme-boot.js") < html.indexOf("app.js"));
+  assert.doesNotMatch(html, /i18n\/(en|ru)\.js/);
+});
 
 test("tournamentSlugFromPath accepts clean public tournament URLs", () => {
   assert.equal(tournamentSlugFromPath("/tournaments/tgtv-open"), "tgtv-open");

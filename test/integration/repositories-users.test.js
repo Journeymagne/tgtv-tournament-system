@@ -47,6 +47,7 @@ test("insert выдаёт идентификатор через RETURNING", asyn
   assert.ok(Number.isInteger(created.id));
   assert.equal(created.name, "Alpha");
   assert.equal(created.rating, 1000);
+  assert.deepEqual(created.ratings, { tts: 1000, irl: 1000, combined: 1000 });
   assert.deepEqual(created.challengeCredits, []);
 });
 

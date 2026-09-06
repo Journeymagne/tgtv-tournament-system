@@ -5,6 +5,7 @@ const { buildSingleElimination, seedSlotOrder } = require("../../src/domain/tour
 const { buildSwissRoundOne, buildSwissNextRound } = require("../../src/domain/tournaments/swiss");
 const { buildTournamentPreview } = require("../../src/domain/tournaments/preview");
 const { buildStandings } = require("../../src/domain/tournaments/standings");
+const { normalizeNewTournament } = require("../../src/domain/tournaments/input");
 
 function participant(id, seed, overrides = {}) {
   return {
@@ -50,6 +51,11 @@ function pairingSignature(round) {
     .sort()
     .join("|");
 }
+
+test("new tournaments default to the latest configured Q3 Dataslate", () => {
+  const tournament = normalizeNewTournament({}, 1, "q3-default");
+  assert.equal(tournament.seasonId, "2026-q3-dataslate");
+});
 
 test("single elimination lays out seeds 1-8 into standard slots", () => {
   assert.deepEqual(seedSlotOrder(8), [1, 8, 4, 5, 2, 7, 3, 6]);

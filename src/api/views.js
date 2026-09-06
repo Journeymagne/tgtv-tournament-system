@@ -9,7 +9,8 @@ function safeAvatar(value) {
 function publicRatings(user) {
   return {
     tts: Number(user?.ratings?.tts ?? user?.rating ?? 1000),
-    irl: Number(user?.ratings?.irl ?? user?.rating ?? 1000)
+    irl: Number(user?.ratings?.irl ?? user?.rating ?? 1000),
+    combined: Number(user?.ratings?.combined ?? user?.rating ?? 1000)
   };
 }
 
@@ -97,12 +98,13 @@ function challengeProgressView(games, user) {
   return { ...classified, tracks: { classified, allKillTeam } };
 }
 
-function userSummary({ user, hasAdmin, challenges, games, people }) {
+function userSummary({ user, hasAdmin, challenges, games, teamPairings = [], people }) {
   return {
     user: publicUser(user),
     hasAdmin,
     challenges: challenges.map((challenge) => challengeView(challenge, people)),
-    games: games.map((game) => gameView(game, people))
+    games: games.map((game) => gameView(game, people)),
+    teamPairings
   };
 }
 
@@ -220,6 +222,7 @@ function tournamentSummaryView(tournament) {
     participantMode: tournament.participantMode || "individual",
     teamSize: tournament.teamSize || null,
     pairingType: tournament.pairingType || null,
+    teamTablesLocked: Boolean(tournament.teamTablesLocked),
     swissRoundCount: tournament.swissRoundCount,
     singleEliminationSize: tournament.singleEliminationSize,
     tiebreakerOrder: tournament.tiebreakerOrder,

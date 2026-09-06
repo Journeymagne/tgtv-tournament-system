@@ -1,4 +1,4 @@
-const { randomInt } = require("node:crypto");
+const crypto = require("node:crypto");
 const { HttpError, ValidationError } = require("../http/io");
 const { requirePositiveIntId } = require("./params");
 const tournamentsRepo = require("../db/repositories/tournaments");
@@ -14,16 +14,19 @@ const { tournamentSummaryView, tournamentTableView, gameView } = require("./view
 const { recalculateCompletedGameRatings } = require("./rating-replay");
 const { calculateSubmittedResult, matchScoreFor } = require("../domain/scoring");
 const { calculateElo, ELO_K } = require("../domain/elo");
-const { requireKillTeam } = require("../domain/kill-teams");
+const { requireKillTeam, CRIT_OPS } = require("../domain/kill-teams");
 const { normalizeRosterName, teamNameKey } = require("../domain/player-teams");
 const {
   validateTeamTournament,
   buildFirstTeamRound,
   buildNextTeamRound,
   teamStandings,
-  normalizeRoundMissions,
+  teamMatchProgress,
+  validateTeamTables,
+  teamEnvironmentPlan,
+  teamRollRound,
+  teamNextAction,
   buildShieldSwordPairings,
-  gamePointsForTotals,
   teamTournamentPoints
 } = require("../domain/team-tournaments");
 
@@ -94,7 +97,10 @@ async function normalizeRosterMembers(client, team, values) {
 
 async function registerRoster({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, true);
-  if (tournament.status !== "registration_open") throw new HttpError(409, "Team registration is not open");
+  const registrationStatuses = user.isAdmin
+    ? ["draft", "registration_open", "registration_closed"]
+    : ["registration_open"];
+  if (!registrationStatuses.includes(tournament.status)) throw new HttpError(409, "Team registration is not open");
   const teamId = requirePositiveIntId(body.teamId, 400, "Choose a team");
   const team = await teamsRepo.findById(client, teamId, true);
   if (!team) throw new HttpError(404, "Team not found");
@@ -253,13 +259,60 @@ async function updateRosterSeedsAdmin({ client, user, params, body }) {
   return tournamentData(client, tournament, user, { includeAudit: true });
 }
 
-async function startTournament(client, tournament, user) {
+async function configureTeamTables(client, tournament, values) {
+  if (values !== undefined) {
+    if (tournament.teamTablesLocked) throw new HttpError(409, "Team tables are locked for this tournament");
+    validateTeamTables(values);
+    const existing = await tablesRepo.listByTournament(client, tournament.id);
+    if (existing.length > 3) throw new ValidationError("Configure exactly three team tables before continuing");
+    for (let i = 0; i < 3; i += 1) {
+      const data = { killzone: values[i].killzone, deployment: Number(values[i].deployment) };
+      if (existing[i]) await tablesRepo.update(client, existing[i].id, data);
+      else await tablesRepo.insert(client, { tournamentId: tournament.id, ...data });
+    }
+  }
+  const tables = validateTeamTables(await tablesRepo.listByTournament(client, tournament.id));
+  await tournamentsRepo.update(client, tournament.id, { teamTablesLocked: true });
+  return tables;
+}
+
+// Table IDs identify the three shared slots. Their terrain is snapshotted per
+// round, so generating a new round never rewrites an earlier round's tables.
+function tablesForRound(round, defaults) {
+  return round?.metadata?.tables || defaults;
+}
+
+async function tablesForTeamMatch(client, match) {
+  const rounds = await roundsRepo.listByTournament(client, match.tournamentId);
+  const round = rounds.find((item) => item.id === match.roundId);
+  if (round?.metadata?.tables) return round.metadata.tables;
+  return tablesRepo.listByTournament(client, match.tournamentId);
+}
+
+async function nextTeamRoundTables(client, tournament, values) {
+  const defaults = tournament.teamTablesLocked
+    ? await tablesRepo.listByTournament(client, tournament.id)
+    : await configureTeamTables(client, tournament, values);
+  validateTeamTables(defaults);
+  const rounds = await roundsRepo.listByTournament(client, tournament.id);
+  const selected = validateTeamTables(values === undefined ? tablesForRound(rounds.at(-1), defaults) : values);
+  return defaults.map((table, index) => ({
+    id: table.id,
+    tournamentId: tournament.id,
+    tableNumber: index + 1,
+    killzone: selected[index].killzone,
+    deployment: Number(selected[index].deployment)
+  }));
+}
+
+async function startTournament(client, tournament, user, body = {}) {
   const rosters = await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: false });
   const competitive = rosters.filter((roster) => roster.status === "registered");
   if (rosters.some((roster) => roster.status === "incomplete")) {
     throw new ValidationError("Incomplete rosters must be completed or withdrawn before start");
   }
   validateTeamTournament(tournament, competitive);
+  const tables = await configureTeamTables(client, tournament, body.tables);
   for (const roster of competitive) {
     if (activeRosterMembers(roster).length !== 3) throw new ValidationError("Every active roster must contain exactly three players");
     await rostersRepo.update(client, roster.id, {
@@ -270,7 +323,7 @@ async function startTournament(client, tournament, user) {
     });
   }
   const updated = await tournamentsRepo.update(client, tournament.id, { status: "in_progress", startedAt: nowIso() });
-  await audit(client, updated, user, "team_tournament_start", { metadata: { rosterCount: competitive.length, byeSupported: false } });
+  await audit(client, updated, user, "team_tournament_start", { metadata: { rosterCount: competitive.length, byeSupported: false, tables } });
   return tournamentData(client, updated, user, { includeAudit: true });
 }
 
@@ -317,35 +370,31 @@ async function previewTournament(client, tournament) {
 
 async function previewNextRound(client, tournament) {
   const { blueprint } = await buildRoundPreview(client, tournament);
+  const rounds = await roundsRepo.listByTournament(client, tournament.id);
+  const defaults = await tablesRepo.listByTournament(client, tournament.id);
   return {
     tournament: tournamentSummaryView(tournament),
     round: { ...blueprint, matches: blueprint.pairings },
+    tables: tablesForRound(rounds.at(-1), defaults).map(tournamentTableView),
     teamRound: true
   };
 }
 
-async function ensureRoundTables(client, tournament, count) {
-  if (tournament.venueMode !== "irl") return [];
-  const tables = await tablesRepo.listByTournament(client, tournament.id);
-  while (tables.length < count) tables.push(await tablesRepo.insert(client, { tournamentId: tournament.id }));
-  return tables;
-}
-
 async function generateRound(client, tournament, user, body = {}) {
-  const missions = normalizeRoundMissions(body.missions);
+  const missions = CRIT_OPS.map((critOp) => ({ critOp }));
   const { blueprint, rosters } = await buildRoundPreview(client, tournament, body);
-  const tables = await ensureRoundTables(client, tournament, blueprint.pairings.length * 3);
+  const tables = await nextTeamRoundTables(client, tournament, body.tables);
   const round = await roundsRepo.insert(client, {
     tournamentId: tournament.id,
     roundNumber: blueprint.roundNumber,
     status: "active",
     generatedBy: "admin",
-    metadata: { participantMode: "team", pairingType: "shield_sword", missions },
+    metadata: { participantMode: "team", pairingType: "shield_sword", missions, tables },
     startedAt: nowIso()
   });
   for (const pairing of blueprint.pairings) {
-    const offset = (pairing.bracketPosition - 1) * 3;
     await teamMatchesRepo.insert(client, {
+      pairingVersion: 2,
       tournamentId: tournament.id,
       roundId: round.id,
       roundNumber: round.roundNumber,
@@ -353,11 +402,11 @@ async function generateRound(client, tournament, user, body = {}) {
       rosterAId: pairing.rosterAId,
       rosterBId: pairing.rosterBId,
       missions,
-      tableIds: tournament.venueMode === "irl" ? tables.slice(offset, offset + 3).map((table) => table.id) : []
+      tableIds: tables.map((table) => table.id)
     });
   }
-  await audit(client, tournament, user, "team_round_generate", { entityType: "round", entityId: round.id, metadata: { blueprint, missions } });
-  return tournamentData(client, tournament, user, { includeAudit: true });
+  await audit(client, tournament, user, "team_round_generate", { entityType: "round", entityId: round.id, metadata: { blueprint, missions, tables } });
+  return tournamentData(client, { ...tournament, teamTablesLocked: true }, user, { includeAudit: true });
 }
 
 async function requireMatchContext(client, params, user, phase = null) {
@@ -369,22 +418,77 @@ async function requireMatchContext(client, params, user, phase = null) {
   const rosters = await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: true, includeHistory: true });
   const rosterA = rosterById(rosters, match.rosterAId);
   const rosterB = rosterById(rosters, match.rosterBId);
-  const side = user.isAdmin
-    ? null
-    : rosterA?.captainUserId === user.id ? "a" : rosterB?.captainUserId === user.id ? "b" : null;
+  const side = rosterA?.captainUserId === user.id ? "a" : rosterB?.captainUserId === user.id ? "b" : null;
   if (!user.isAdmin && !side) throw new HttpError(403, "Only a roster captain can perform this pairing action");
   return { tournament, match, rosterA, rosterB, side };
 }
 
-function actionSide(user, body, captainSide) {
-  if (!user.isAdmin) return captainSide;
-  if (!["a", "b"].includes(body.side)) throw new ValidationError("Administrator actions must specify side a or b");
-  return body.side;
+async function getPairingMatch({ client, user, params }) {
+  const match = await teamMatchesRepo.findById(
+    client,
+    requirePositiveIntId(params.matchId, 404, "Team match not found")
+  );
+  if (!match) throw new HttpError(404, "Team match not found");
+  const tournament = await requireTournament(client, match.tournamentId);
+  if (!user?.isAdmin && !tournamentsRepo.PUBLISHED_STATUSES.includes(tournament.status)) {
+    throw new HttpError(404, "Team match not found");
+  }
+  const rosters = await rostersRepo.listByTournament(client, tournament.id, {
+    includeWithdrawn: true,
+    includeHistory: true
+  });
+  const rosterA = rosterById(rosters, match.rosterAId);
+  const rosterB = rosterById(rosters, match.rosterBId);
+  if (!rosterA || !rosterB) throw new HttpError(409, "Team match rosters are unavailable");
+  const tables = (await tablesForTeamMatch(client, match))
+    .filter((table) => !match.tableIds.length || match.tableIds.includes(table.id))
+    .map(tournamentTableView);
+  return {
+    tournament: {
+      ...tournamentSummaryView(tournament),
+      viewer: {
+        role: user?.isAdmin ? "admin" : user ? "player" : "spectator",
+        canAdmin: Boolean(user?.isAdmin),
+        captainRosterIds: [rosterA, rosterB]
+          .filter((roster) => roster.captainUserId === user?.id)
+          .map((roster) => roster.id)
+      }
+    },
+    teamMatch: redactTeamMatch({ ...match, tables }, rosterA, rosterB, user),
+    tables
+  };
 }
 
-async function roll({ client, user, params }) {
+function actionSide(user, body, captainSide) {
+  if (!user.isAdmin) return captainSide;
+  const side = body.side || captainSide;
+  if (!["a", "b"].includes(side)) throw new ValidationError("Administrator actions must specify side a or b");
+  return side;
+}
+
+async function roll({ client, user, params, body = {} }) {
   const context = await requireMatchContext(client, params, user, "awaiting_roll");
-  const result = randomInt(1, 7);
+  if (context.match.pairingVersion === 2) {
+    const side = actionSide(user, body, context.side);
+    const round = teamRollRound(context.match);
+    if (Number(body.rollRound) !== round) throw new HttpError(409, "Refresh the pairing before rolling again");
+    const history = (context.match.rollHistory || []).map((item) => ({ ...item }));
+    if (history.length < round) history.push({ a: null, b: null });
+    const current = history[round - 1];
+    if (current[side]) throw new HttpError(409, "You have already rolled; waiting for the other captain");
+    current[side] = crypto.randomInt(1, 7);
+    const patch = { rollHistory: history };
+    if (current.a && current.b && current.a !== current.b) {
+      patch.attackerRosterId = current.a > current.b ? context.match.rosterAId : context.match.rosterBId;
+      patch.defenderRosterId = current.a > current.b ? context.match.rosterBId : context.match.rosterAId;
+      patch.rollResult = Math.max(current.a, current.b);
+      patch.phase = "mission_ban";
+    }
+    const updated = await teamMatchesRepo.update(client, context.match.id, patch);
+    await audit(client, context.tournament, user, "team_match_roll", { entityType: "team_match", entityId: updated.id, metadata: { side, round, result: current[side] } });
+    return { teamMatch: redactTeamMatch(updated, context.rosterA, context.rosterB, user) };
+  }
+  const result = crypto.randomInt(1, 7);
   const attackerRosterId = result >= 4 ? context.match.rosterAId : context.match.rosterBId;
   const defenderRosterId = attackerRosterId === context.match.rosterAId ? context.match.rosterBId : context.match.rosterAId;
   const updated = await teamMatchesRepo.update(client, context.match.id, {
@@ -395,6 +499,23 @@ async function roll({ client, user, params }) {
   });
   await audit(client, context.tournament, user, "team_match_roll", { entityType: "team_match", entityId: context.match.id, after: { rollResult: result, attackerRosterId, defenderRosterId } });
   return { teamMatch: updated };
+}
+
+async function banMission({ client, user, params, body = {} }) {
+  const context = await requireMatchContext(client, params, user, "mission_ban");
+  const side = actionSide(user, body, context.side);
+  if (teamNextAction(context.match)?.side !== side) throw new HttpError(403, "Waiting for the other captain's ban");
+  const mission = String(body.mission || "");
+  if (!context.match.missions.some((item) => item.critOp === mission) ||
+      context.match.missionBans.some((item) => item.mission === mission)) {
+    throw new ValidationError("Choose an available Crit Op to ban");
+  }
+  const bans = [...context.match.missionBans, { side, mission }];
+  const updated = await teamMatchesRepo.update(client, context.match.id, {
+    missionBans: bans, phase: bans.length === 2 ? "shield_selection" : "mission_ban"
+  });
+  await audit(client, context.tournament, user, "mission_ban", { entityType: "team_match", entityId: updated.id, metadata: { side, mission } });
+  return { teamMatch: redactTeamMatch(updated, context.rosterA, context.rosterB, user) };
 }
 
 async function selectShield({ client, user, params, body }) {
@@ -448,6 +569,7 @@ async function selectSword({ client, user, params, body }) {
 }
 
 function environmentPlan(context) {
+  if (context.match.pairingVersion === 2) return teamEnvironmentPlan(context.match);
   const attackerSide = context.match.attackerRosterId === context.match.rosterAId ? "a" : "b";
   const defenderSide = attackerSide === "a" ? "b" : "a";
   const attackerShieldSlot = context.match.pairings.find((pairing) => pairing.shieldOwner === attackerSide)?.slot;
@@ -493,6 +615,7 @@ function validateDirectAssignments(context, assignments) {
 
 async function selectEnvironment({ client, user, params, body }) {
   const context = await requireMatchContext(client, params, user, "environment_selection");
+  if (context.match.pairingVersion === 2) return selectTeamEnvironment(client, context, user, body);
   let assignments;
   if (user.isAdmin && Array.isArray(body.assignments)) {
     assignments = validateDirectAssignments(context, body.assignments);
@@ -544,6 +667,56 @@ async function selectEnvironment({ client, user, params, body }) {
   return { teamMatch: updated };
 }
 
+async function selectTeamEnvironment(client, context, user, body) {
+  const { match } = context;
+  const state = match.environment || { step: 0, assignments: [] };
+  const step = teamNextAction(match);
+  if (!step) throw new HttpError(409, "Environment selection is already complete");
+  if (actionSide(user, body, context.side) !== step.side) throw new HttpError(403, "Waiting for the other captain's environment choice");
+  if (Number(body.step) !== Number(state.step)) throw new HttpError(409, "Refresh the pairing before making this choice");
+  const assignments = (state.assignments || []).map((item) => ({ ...item, mission: { ...item.mission } }));
+  let assignment = assignments.find((item) => item.slot === step.slot);
+  if (!assignment) {
+    assignment = { slot: step.slot, mission: {}, tableId: null };
+    assignments.push(assignment);
+  }
+  const tables = await tablesForTeamMatch(client, match);
+  if (step.kind === "table") {
+    const tableId = requirePositiveIntId(body.tableId, 400, "Choose a table");
+    const table = tables.find((item) => item.id === tableId);
+    if (!table || !match.tableIds.includes(tableId) || assignments.some((item) => item.tableId === tableId)) {
+      throw new ValidationError("Choose an unused table assigned to this team match");
+    }
+    assignment.tableId = tableId;
+    assignment.mission = { ...assignment.mission, killzone: table.killzone, layout: table.deployment };
+  } else {
+    const mission = String(body.mission || "");
+    if (!match.missions.some((item) => item.critOp === mission) || match.missionBans.some((item) => item.mission === mission) ||
+        assignments.some((item) => item.mission.critOp === mission)) {
+      throw new ValidationError("Choose an unused, unbanned Crit Op");
+    }
+    assignment.mission.critOp = mission;
+  }
+  // As soon as the second table is chosen, the last table is public too.
+  if (Number(state.step) === 2) {
+    const table = tables.find((item) => match.tableIds.includes(item.id) && !assignments.some((a) => a.tableId === item.id));
+    if (!table) throw new HttpError(409, "The third team table is unavailable");
+    assignments.push({ slot: 3, tableId: table.id, mission: { killzone: table.killzone, layout: table.deployment } });
+  }
+  assignments.sort((a, b) => a.slot - b.slot);
+  await audit(client, context.tournament, user, "environment_select", { entityType: "team_match", entityId: match.id, metadata: { step, assignment } });
+  if (Number(state.step) + 1 === teamEnvironmentPlan(match).length) {
+    if (assignments.length !== 3 || assignments.some((item) => !item.tableId || !item.mission.critOp || !item.mission.killzone || !item.mission.layout)) {
+      throw new HttpError(409, "Complete all three game assignments first");
+    }
+    await createPersonalGames(client, context, assignments, user);
+  } else {
+    await teamMatchesRepo.update(client, match.id, { environment: { step: Number(state.step) + 1, assignments } });
+  }
+  const updated = await teamMatchesRepo.findById(client, match.id);
+  return { teamMatch: redactTeamMatch(updated, context.rosterA, context.rosterB, user) };
+}
+
 async function createPersonalGames(client, context, assignments, user) {
   const existing = context.match.games || await teamMatchesRepo.listGameLinks(client, context.match.id);
   if (existing.length === 3) {
@@ -587,8 +760,17 @@ function redactTeamMatch(match, rosterA, rosterB, user) {
   const side = rosterA?.captainUserId === user?.id ? "a" : rosterB?.captainUserId === user?.id ? "b" : null;
   const shieldsRevealed = match.shieldAConfirmed && match.shieldBConfirmed;
   const swordsRevealed = match.swordAConfirmed && match.swordBConfirmed;
+  const progress = teamMatchProgress(match);
   return {
     ...match,
+    progress,
+    games: (match.games || []).map((link) => {
+      const score = progress.details.find((item) => item.slot === link.slot);
+      return { ...link, table: match.tables?.find((table) => table.id === link.tableId) || link.table,
+        gamePointsA: score?.a ?? null, gamePointsB: score?.b ?? null };
+    }),
+    nextAction: teamNextAction(match),
+    rollRound: teamRollRound(match),
     shieldAMemberId: admin || shieldsRevealed || side === "a" ? match.shieldAMemberId : null,
     shieldBMemberId: admin || shieldsRevealed || side === "b" ? match.shieldBMemberId : null,
     swordAMemberId: admin || swordsRevealed || side === "a" ? match.swordAMemberId : null,
@@ -607,7 +789,11 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
   const rawMatches = await teamMatchesRepo.listByTournament(client, tournament.id);
   const tables = await tablesRepo.listByTournament(client, tournament.id);
   const activeRosters = rosters.filter((roster) => roster.status !== "withdrawn");
-  const matches = rawMatches.map((match) => redactTeamMatch(match, rosterById(rosters, match.rosterAId), rosterById(rosters, match.rosterBId), user));
+  const matches = rawMatches.map((match) => redactTeamMatch({
+    ...match,
+    tables: tablesForRound(rounds.find((round) => round.id === match.roundId), tables)
+      .filter((table) => !match.tableIds.length || match.tableIds.includes(table.id)).map(tournamentTableView)
+  }, rosterById(rosters, match.rosterAId), rosterById(rosters, match.rosterBId), user));
   const tournamentGames = matches.flatMap((match) => match.games || []).filter((link) => link.game).map((link) => {
     const playerMembers = [
       rosters.flatMap((roster) => roster.members).find((member) => member.id === link.rosterAMemberId),
@@ -618,7 +804,7 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
       sourceType: "team_match_game",
       sourceId: matchIdForLink(matches, link),
       players: playerMembers.map((member) => ({ id: member?.userId, userId: member?.userId, name: member?.displayNameSnapshot || "Player", faction: member?.factionSnapshot || "", hasProfile: Boolean(member?.userId) })),
-      teamTournamentGame: link
+      teamTournamentGame: { ...link, missionLocked: matches.find((match) => match.id === link.teamMatchId)?.pairingVersion === 2 }
     });
   });
   const myTeams = user ? await teamsRepo.listForUser(client, user.id) : [];
@@ -656,8 +842,9 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
     },
     participants: [],
     rosters,
-    tables: tables.map(tournamentTableView),
-    rounds: rounds.map((round) => ({ ...round, matches: matches.filter((match) => match.roundId === round.id) })),
+    tables: tablesForRound(rounds.at(-1), tables).map(tournamentTableView),
+    rounds: rounds.map((round) => ({ ...round, tables: tablesForRound(round, tables).map(tournamentTableView),
+      matches: matches.filter((match) => match.roundId === round.id) })),
     teamMatches: matches,
     standings: teamStandings(activeRosters, rawMatches).map((row) => ({ ...row, rosterId: row.roster.id, roster: undefined })),
     tournamentGames,
@@ -673,7 +860,7 @@ async function attachTeamGameDetails(client, games) {
     .map((game) => game.id);
   if (!ids.length) return games;
   const { rows } = await client.query(
-    `SELECT l.*, tm.tournament_id, tm.round_number, tm.phase, tm.roster_a_id, tm.roster_b_id,
+    `SELECT l.*, tm.tournament_id, tm.round_number, tm.phase, tm.roster_a_id, tm.roster_b_id, tm.pairing_version,
             ra.name AS roster_a_name, ra.team_id AS team_a_id, ra.team_name_snapshot AS team_a_name,
             rb.name AS roster_b_name, rb.team_id AS team_b_id, rb.team_name_snapshot AS team_b_name,
             t.slug AS tournament_slug, t.name AS tournament_name, t.venue_mode
@@ -720,6 +907,7 @@ async function attachTeamGameDetails(client, games) {
         rosterB: { id: link.roster_b_id, name: link.roster_b_name, teamId: link.team_b_id, teamName: link.team_b_name }
       },
       teamTournamentGame: {
+        missionLocked: link.pairing_version === 2,
         id: link.id,
         slot: link.slot,
         mission: link.mission || {},
@@ -740,7 +928,10 @@ async function resetMatchAdmin({ client, user, params, body }) {
   if (!user.isAdmin) throw new HttpError(403, "Administrator rights required");
   const targetPhase = String(body.phase || "awaiting_roll");
   const allowed = ["awaiting_roll", "shield_selection", "sword_selection", "environment_selection"];
+  if (context.match.pairingVersion === 2) allowed.push("mission_ban");
   if (!allowed.includes(targetPhase)) throw new ValidationError("Choose a valid reset phase");
+  const phases = ["awaiting_roll", "mission_ban", "shield_selection", "sword_selection", "environment_selection", "in_progress", "completed"];
+  if (phases.indexOf(targetPhase) > phases.indexOf(context.match.phase)) throw new HttpError(409, "Reset cannot skip pairing steps");
   if ((context.match.games || []).some((link) => link.game?.status === "completed") && !body.confirmResultsReset) {
     throw new HttpError(409, "Confirm removal of existing personal results before resetting pairing");
   }
@@ -750,6 +941,8 @@ async function resetMatchAdmin({ client, user, params, body }) {
       for (const playerId of game.playerIds) {
         const delta = Number(game.elo?.[playerId]?.delta || 0);
         if (delta) await usersRepo.addRating(client, playerId, -delta, context.tournament.venueMode);
+        const combinedDelta = Number(game.elo?.combined?.[playerId]?.delta || 0);
+        if (combinedDelta) await usersRepo.addRating(client, playerId, -combinedDelta, "combined");
       }
     }
   }
@@ -767,9 +960,13 @@ async function resetMatchAdmin({ client, user, params, body }) {
   };
   if (targetPhase !== "environment_selection") clear.pairings = null;
   if (targetPhase === "awaiting_roll") Object.assign(clear, { rollResult: null, attackerRosterId: null, defenderRosterId: null });
+  if (targetPhase === "awaiting_roll") clear.rollHistory = [];
+  if (["awaiting_roll", "mission_ban"].includes(targetPhase)) clear.missionBans = [];
+  if (targetPhase === "mission_ban") Object.assign(clear, { shieldAMemberId: null, shieldBMemberId: null, shieldAConfirmed: false, shieldBConfirmed: false, swordAMemberId: null, swordBMemberId: null, swordAConfirmed: false, swordBConfirmed: false });
   if (["awaiting_roll", "shield_selection"].includes(targetPhase)) Object.assign(clear, { shieldAMemberId: null, shieldBMemberId: null, shieldAConfirmed: false, shieldBConfirmed: false });
   if (["awaiting_roll", "shield_selection", "sword_selection"].includes(targetPhase)) Object.assign(clear, { swordAMemberId: null, swordBMemberId: null, swordAConfirmed: false, swordBConfirmed: false });
   const updated = await teamMatchesRepo.update(client, context.match.id, clear);
+  await roundsRepo.update(client, context.match.roundId, { status: "active", completedAt: null });
   await recalculateCompletedGameRatings(client);
   await recalculateTeamRatings(client);
   await audit(client, context.tournament, user, "team_match_reset", { entityType: "team_match", entityId: context.match.id, before: context.match, after: updated });
@@ -785,7 +982,7 @@ async function overridePairingsAdmin({ client, user, params, body }) {
     slot: index + 1,
     rosterAMemberId: Number(pairing.rosterAMemberId),
     rosterBMemberId: Number(pairing.rosterBMemberId),
-    shieldOwner: null
+    shieldOwner: context.match.pairingVersion === 2 ? (index === 0 ? "a" : index === 1 ? "b" : null) : null
   })) : [];
   const a = new Set(pairings.map((pairing) => pairing.rosterAMemberId));
   const b = new Set(pairings.map((pairing) => pairing.rosterBMemberId));
@@ -827,9 +1024,14 @@ async function handleGameRequest(context, action) {
   const tournament = await tournamentsRepo.lockById(client, match.tournamentId);
   const isParticipant = game.playerIds.includes(user.id);
   if (!user.isAdmin && !isParticipant) throw new HttpError(403, "Only a game participant can change this result");
+  const link = match.games.find((item) => item.gameId === game.id);
+  if (body.tiebreakers?.enabled && ["submit", "admin-save"].includes(action)) {
+    throw new ValidationError("Individual tiebreakers are not allowed in team tournaments");
+  }
+  const resultBody = { ...body, tiebreakers: { enabled: false }, ...(match.pairingVersion === 2 ? { killzone: link.mission } : {}) };
   if (action === "submit") {
     if (game.status === "completed") throw new HttpError(409, "This game result has already been saved");
-    const result = calculateSubmittedResult(body, game.playerIds[0], game.playerIds[1]);
+    const result = calculateSubmittedResult(resultBody, game.playerIds[0], game.playerIds[1]);
     if (tournament.venueMode === "irl") {
       await applyFinalGameResult(client, tournament, game, result, user.id);
       await recomputeTeamMatch(client, match.id);
@@ -839,7 +1041,8 @@ async function handleGameRequest(context, action) {
   } else if (action === "confirm") {
     if (game.status !== "pending_confirmation" || !game.pendingResult?.result) throw new HttpError(409, "There is no submitted result to confirm");
     if (!user.isAdmin && game.pendingResult.submittedBy === user.id) throw new HttpError(403, "The other player must confirm this result");
-    await applyFinalGameResult(client, tournament, game, game.pendingResult.result, user.id);
+    const pendingResult = calculateSubmittedResult({ ...game.pendingResult.result, tiebreakers: { enabled: false } }, game.playerIds[0], game.playerIds[1]);
+    await applyFinalGameResult(client, tournament, game, pendingResult, user.id);
     await recomputeTeamMatch(client, match.id);
   } else if (action === "reject") {
     if (game.status !== "pending_confirmation" || !game.pendingResult?.result) throw new HttpError(409, "There is no submitted result to reject");
@@ -848,7 +1051,7 @@ async function handleGameRequest(context, action) {
   } else if (action === "admin-save") {
     if (!user.isAdmin) throw new HttpError(403, "Administrator rights required");
     if (!["open", "pending_confirmation", "completed"].includes(game.status)) throw new HttpError(409, "This game result cannot be edited");
-    const result = calculateSubmittedResult(body, game.playerIds[0], game.playerIds[1]);
+    const result = calculateSubmittedResult(resultBody, game.playerIds[0], game.playerIds[1]);
     await applyFinalGameResult(client, tournament, game, result, user.id, game.status === "completed");
     await recalculateCompletedGameRatings(client);
     await recomputeTeamMatch(client, match.id);
@@ -860,40 +1063,28 @@ async function handleGameRequest(context, action) {
 async function recomputeTeamMatch(client, matchId) {
   const match = await teamMatchesRepo.findById(client, matchId, true);
   const links = match.games || [];
-  if (links.length !== 3 || links.some((link) => link.game?.status !== "completed" || !link.game.result)) return match;
-  const details = [];
-  let totalA = 0;
+  if (!links.length) return match;
+  const progress = teamMatchProgress(match);
+  const complete = links.length === 3 && progress.completed === 3;
   for (const link of links) {
-    const [playerAId, playerBId] = link.game.playerIds;
-    const scoreA = link.game.result.scores?.[playerAId] || {};
-    const scoreB = link.game.result.scores?.[playerBId] || {};
-    const points = gamePointsForTotals(scoreA.total, scoreB.total);
-    totalA += points.a;
-    await teamMatchesRepo.updateGamePoints(client, link.id, points.a, points.b);
-    details.push({
-      slot: link.slot,
-      a: points.a,
-      b: points.b,
-      winnerSide: Number(link.game.result.winnerId) === Number(playerAId) ? "a" : Number(link.game.result.winnerId) === Number(playerBId) ? "b" : null,
-      tacA: Number(scoreA.tac || 0),
-      tacB: Number(scoreB.tac || 0)
-    });
+    const score = progress.details.find((item) => item.slot === link.slot);
+    await teamMatchesRepo.updateGamePoints(client, link.id, score?.a ?? null, score?.b ?? null);
   }
-  const teamPoints = teamTournamentPoints(totalA);
+  const teamPoints = complete ? teamTournamentPoints(progress.gpA) : null;
   const updated = await teamMatchesRepo.update(client, match.id, {
-    phase: "completed",
-    gamePoints: details,
-    teamGamePointsA: totalA,
-    teamGamePointsB: 60 - totalA,
-    teamTournamentPointsA: teamPoints.a,
-    teamTournamentPointsB: teamPoints.b,
-    completedAt: match.completedAt || nowIso()
+    phase: complete ? "completed" : "in_progress",
+    gamePoints: progress.details,
+    teamGamePointsA: progress.gpA,
+    teamGamePointsB: progress.gpB,
+    teamTournamentPointsA: teamPoints?.a ?? null,
+    teamTournamentPointsB: teamPoints?.b ?? null,
+    completedAt: complete ? match.completedAt || nowIso() : null
   });
   const roundMatches = await teamMatchesRepo.listByRound(client, match.roundId);
-  if (roundMatches.every((item) => item.id === match.id || item.phase === "completed")) {
+  if (complete && roundMatches.every((item) => item.id === match.id || item.phase === "completed")) {
     await roundsRepo.update(client, match.roundId, { status: "completed", completedAt: nowIso() });
   }
-  await recalculateTeamRatings(client);
+  if (complete || match.phase === "completed") await recalculateTeamRatings(client);
   return updated;
 }
 
@@ -946,6 +1137,7 @@ async function publishFinalStandings(client, tournament, user) {
     draws: row.draws,
     losses: row.losses,
     individualWins: row.individualWins,
+    totalVp: row.totalVp,
     tacOpPoints: row.tacOpPoints
   }));
   for (const row of standings) await rostersRepo.update(client, row.roster.id, { status: "finished", finalPlace: row.rank, finishedAt: nowIso() });
@@ -986,7 +1178,9 @@ module.exports = {
   previewTournament,
   previewNextRound,
   generateRound,
+  getPairingMatch,
   roll,
+  banMission,
   selectShield,
   selectSword,
   selectEnvironment,

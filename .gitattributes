@@ -1,0 +1,23 @@
+# The tree grew a mix of CRLF and LF inside individual files - styles.css alone
+# had ~3100 CRLF lines and ~470 LF ones - which makes diffs noisy and hides real
+# changes. Normalise to LF in the repository; the working tree still follows the
+# platform (core.autocrlf), so nothing changes for editors on Windows.
+#
+# Existing files convert the next time each one is committed. To do the whole
+# tree in one commit instead: `git add --renormalize .`
+* text=auto
+
+*.js    text
+*.json  text
+*.css   text
+*.html  text
+*.md    text
+*.sh    text eol=lf
+*.yml   text
+*.cmd   text eol=crlf
+
+*.png   binary
+*.ico   binary
+*.jpg   binary
+*.webp  binary
+*.woff2 binary

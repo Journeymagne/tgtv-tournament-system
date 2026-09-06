@@ -54,8 +54,21 @@ test("лидерборды независимо сортируются по TTS 
 
   assert.deepEqual(tts.users.map((user) => user.name), ["Alpha", "Bravo"]);
   assert.deepEqual(irl.users.map((user) => user.name), ["Bravo", "Alpha"]);
-  assert.deepEqual(irl.users[0].ratings, { tts: 900, irl: 1300 });
+  assert.deepEqual(irl.users[0].ratings, { tts: 900, irl: 1300, combined: 900 });
   assert.equal(irl.users[0].rating, 1300);
+});
+
+test("Combined MMR сортируется независимо и используется по умолчанию", async () => {
+  await usersRepo.setRating(client, alpha.id, 750, "combined");
+  await usersRepo.setRating(client, bravo.id, 1400, "combined");
+
+  const combined = await api.list({ client, query: new URLSearchParams("venue=combined") });
+  const defaultList = await api.list({ client });
+
+  assert.deepEqual(combined.users.map((user) => user.name), ["Bravo", "Alpha"]);
+  assert.deepEqual(defaultList.users.map((user) => user.name), ["Bravo", "Alpha"]);
+  assert.equal(combined.users[0].rating, 1400);
+  assert.equal(combined.users[0].ratings.combined, 1400);
 });
 
 test("РЕГРЕСС B1: список не содержит контактов", async () => {

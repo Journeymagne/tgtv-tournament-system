@@ -143,6 +143,14 @@ async function updateUser({ client, user, params, body }) {
       message: "IRL rating must be an integer between 0 and 5000"
     });
   }
+  let ratingCombined = null;
+  if (body.ratingCombined !== undefined) {
+    ratingCombined = requireInteger(body.ratingCombined, {
+      min: 0,
+      max: 5000,
+      message: "Combined rating must be an integer between 0 and 5000"
+    });
+  }
 
   let isAdmin = null;
   if (body.isAdmin !== undefined) {
@@ -155,6 +163,7 @@ async function updateUser({ client, user, params, body }) {
   let updated = target;
   if (ratingTts !== null) updated = await usersRepo.setRating(client, target.id, ratingTts, "tts");
   if (ratingIrl !== null) updated = await usersRepo.setRating(client, target.id, ratingIrl, "irl");
+  if (ratingCombined !== null) updated = await usersRepo.setRating(client, target.id, ratingCombined, "combined");
   if (isAdmin !== null) updated = await usersRepo.setAdmin(client, target.id, isAdmin);
 
   return { user: publicUser(updated) };
