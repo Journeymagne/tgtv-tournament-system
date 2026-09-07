@@ -1044,7 +1044,7 @@ function appRouteFromHash() {
   if (!segments.length) return null;
   const [section, subroute, id] = segments;
   if (section === "documentation") return { view: "documentation", documentationPage: subroute || "" };
-  if (section === "matchmaking" || section === "play") {
+  if (section === "mygames" || section === "matchmaking" || section === "play") {
     const challengeId = subroute === "challenge" ? Number(id) : null;
     return {
       view: "play",
@@ -1220,8 +1220,8 @@ async function applyAppRoute(route) {
 function appHashForState() {
   if (state.view === "play") {
     return state.focusChallengeId
-      ? `#/matchmaking/challenge/${encodeURIComponent(state.focusChallengeId)}`
-      : "#/matchmaking";
+      ? `#/mygames/challenge/${encodeURIComponent(state.focusChallengeId)}`
+      : "#/mygames";
   }
   if (state.view === "teamPairing" && state.selectedTeamMatchId) {
     return `#/team-matches/${encodeURIComponent(state.selectedTeamMatchId)}`;

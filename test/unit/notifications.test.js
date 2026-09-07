@@ -87,7 +87,7 @@ test("notification inbox maps every supported source and deep link", async () =>
     inbox.items.map((item) => item.type).sort(),
     ["game_challenge", "team_invitation", "team_tournament_pairing", "tournament_pairing"]
   );
-  assert.equal(inbox.items.find((item) => item.type === "game_challenge").href, "#/matchmaking/challenge/7");
+  assert.equal(inbox.items.find((item) => item.type === "game_challenge").href, "#/mygames/challenge/7");
   assert.equal(inbox.items.find((item) => item.type === "team_invitation").href, "#/teams/invitation/8");
   assert.equal(inbox.items.find((item) => item.type === "tournament_pairing").href, "#/games/tournament-match/11");
   assert.equal(inbox.items.find((item) => item.type === "team_tournament_pairing").href, "#/games/game/10");

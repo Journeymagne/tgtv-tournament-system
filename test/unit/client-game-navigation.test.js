@@ -395,7 +395,7 @@ test("notification routes retain challenge and team invitation targets", () => {
   });
   assert.equal(
     hashFactory({ view: "play", focusChallengeId: 41 }, () => 0)(),
-    "#/matchmaking/challenge/41"
+    "#/mygames/challenge/41"
   );
   assert.equal(
     hashFactory({ view: "teams", focusInvitationId: 73, teamProfile: null }, () => 0)(),

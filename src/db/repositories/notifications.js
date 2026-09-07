@@ -44,7 +44,7 @@ async function listChallenges(client, userId) {
     sourceId: row.id,
     createdAt: toIso(row.created_at),
     actor: person(row.actor_id, row.actor_name, row.actor_avatar),
-    href: `#/matchmaking/challenge/${row.id}`
+    href: `#/mygames/challenge/${row.id}`
   }));
 }
 

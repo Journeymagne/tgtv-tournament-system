@@ -1,47 +1,51 @@
-These are the app's team rules adapted for 3×3, not a literal reproduction of official WTC 5×5 rules.
+In the 3×3 team format, two teams of three players face each other. Before the games begin, their captains determine the individual opponents, tables and missions. This process is called pairing. The format adapts WTC pairings for three players per team, so its sequence differs from the official 5×5 format.
 
-## 1. The organizer creates a round
+## Who your team faces
 
-Each roster has three players, one of them captain. A tournament needs an even number of 4–128 rosters; team byes are not supported. Round one pairs the top seeded half against the bottom half. Later rounds use team standings and avoid rematches when a valid solution is found; the organizer can edit the proposed matchups.
+One of each team's three players serves as captain and represents the team during pairings. Tournaments have an even number of teams, from 4 to 128, so every team has an opponent in every round.
 
-For every round, the organizer chooses three different Killzones and deployment 1–6 for each. All team matches in that round share these tables. The form offers the previous set, which can be kept or changed. Earlier rounds and games remain unchanged.
+In the first round, teams from the top half of the seed list face teams from the bottom half. Later opponents are determined by the current team standings. Repeat matchups are avoided where possible, and the organizer confirms the final pairings.
 
-The organizer does not choose Crit Ops. Every team match gets its own pool of nine: Secure, Loot, Transmission, Orb, Stake Claim, Energy Cells, Download, Data, Reboot.
+Each round has three prepared tables: three different Killzones, each with a deployment numbered 1–6. Every team match in that round uses the same set of tables. The set may change for the next round.
 
-## 2. Roll-off and two bans
+## The roll-off and mission bans
 
-1. Each captain clicks Roll D6. Both values are public.
-2. Ties are rerolled and the history is kept. The winner automatically becomes Attacker; the loser becomes Defender. There is no role choice.
-3. Defender bans one Crit Op, then Attacker bans a different one. Two bans total: seven missions remain.
+Pairing begins with each captain rolling a D6. Ties are rerolled. The winner becomes the **Attacker**, and the loser becomes the **Defender**. These roles determine the order of choices during the following stages.
 
-## 3. Hidden Shield and Sword
+All three individual pairings in a team match share one pool of nine Crit Ops: Secure, Loot, Transmission, Orb, Stake Claim, Energy Cells, Download, Data and Reboot. The Defender bans one mission first, then the Attacker bans another. Captains choose one mission for each pairing from the seven that remain. Once chosen, a mission leaves the shared pool and cannot be assigned to another pairing in the same team match.
 
-1. Both captains independently select their own Shield. The opponent cannot see it until both confirm.
-2. After Shields are revealed, each captain chooses a Sword target: one of the opponent's two non-Shield players. Both targets are revealed only after both captains confirm.
-3. The pairings are Shield A against captain A's selected target from B, Shield B against captain B's selected target from A, and the two remaining players.
+## How opponents are chosen: Shield and Sword
 
-## 4. Table, then mission
+Each captain first secretly selects one player from their own team as the **Shield**. Both choices are revealed together once both captains have confirmed them.
 
-The order is the same for TTS and IRL. Attacker and Defender below are the roles from the initial roll-off.
+The other two players on each team are the **Swords**. Once the Shields are revealed, the captain whose team owns a Shield chooses one of the opposing team's two Swords to face that Shield. Both choices remain hidden until both captains have confirmed them.
 
-| Step | Who chooses | Assignment |
+This produces three pairings:
+
+- Team A's Shield faces one of team B's Swords, selected by captain A.
+- Team B's Shield faces one of team A's Swords, selected by captain B.
+- The two remaining Swords face each other.
+
+## How tables and missions are assigned
+
+Once the opponents are known, the captains assign the three prepared tables and choose missions. The sequence is the same for TTS and in-person games. Attacker and Defender remain the roles established by the opening roll-off.
+
+| Step | Who chooses | What the pairing receives |
 | --- | --- | --- |
-| 1 | Attacker | Table for the original Defender's Shield game |
-| 2 | Defender | Mission for that game |
-| 3 | Defender | One of the two remaining tables for the original Attacker's Shield game |
-| 4 | Attacker | A different available mission for that game |
-| 5 | Defender | A third distinct mission for the remaining players |
+| 1 | Attacker | A table for the Defender team's Shield game |
+| 2 | Defender | A mission for that game |
+| 3 | Defender | One of the two remaining tables for the Attacker team's Shield game |
+| 4 | Attacker | One of the remaining available missions for that game |
+| 5 | Defender | One of the remaining available missions for the third pairing |
 
-> After step 3, the remaining players automatically receive the third table. Three different tables and three distinct unbanned missions are used; four missions remain unused. Deployment comes from the table, not a separate captain choice.
+After the second table is chosen, the third pairing automatically receives the remaining table. Deployment is already attached to each table. Each mission can be used only once: the three pairings end up on three different tables with three different missions, leaving four missions unused.
 
-## 5. Games, results and the next round
+## After pairing
 
-Three individual games are created after all assignments. Their Killzone, deployment and Crit Op are fixed. TTS results need the other player's confirmation; IRL results are saved immediately. An administrator can save or correct a result.
+Every player now has an opponent, Killzone, deployment and Crit Op, and the games can begin. In TTS, a submitted result becomes final once the other player confirms it. In-person results are saved immediately. An administrator can help correct a result if needed.
 
-Completed games immediately contribute live GP and statistics. Team tournament points are awarded only after all three games finish. Once every team match finishes, the round completes; the organizer generates the next round manually. After the last configured round, the organizer publishes results using Close tournament.
+Team tournament points are awarded once all three games in the match have finished. After every team match in the round is complete, the organizer opens the next round. Final standings are published after the last round.
 
-## Visibility and permissions
+## Following a match
 
-Captains and spectators see rolls, roles, bans, assignments and results. Live scores and game statuses are accessible without signing in through the pairing link. Pairing screens refresh about every five seconds. Only Shield/Sword choices stay hidden until both confirm.
-
-An administrator can act for either side while following turn order, edit pairings and reset phases. Actions are logged under the administrator's account. Resetting a played pairing requires confirmation to remove its individual games/results and recalculate ratings.
+Players and spectators can follow rolls, bans, pairings and results through the pairing link without signing in. The page refreshes automatically. Shield and Sword choices become visible only after both captains have confirmed them.
