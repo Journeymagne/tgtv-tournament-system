@@ -1,5 +1,5 @@
 const { ValidationError } = require("../http/io");
-const { normalizeName, profileText } = require("./validation");
+const { normalizeName, markdownText } = require("./validation");
 
 const TEAM_NAME_MIN = 2;
 const TEAM_NAME_MAX = 80;
@@ -20,7 +20,7 @@ function teamNameKey(value) {
 }
 
 function normalizeTeamDescription(value) {
-  return profileText(value, "Team description", TEAM_DESCRIPTION_MAX);
+  return markdownText(value, "Team description", TEAM_DESCRIPTION_MAX);
 }
 
 function normalizeTeamLogo(value) {

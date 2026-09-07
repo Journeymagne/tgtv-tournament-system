@@ -1139,6 +1139,100 @@ button:disabled {
   background: rgb(var(--accent-rgb) / 0.08);
 }
 
+/* ======================================================================
+   Markdown editor
+   ====================================================================== */
+.markdown-field {
+  gap: 0;
+}
+
+.markdown-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+
+.markdown-view-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.markdown-view-tab {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.markdown-view-tab.is-active {
+  border-color: var(--accent);
+  background: rgb(var(--accent-rgb) / 0.12);
+  color: var(--ink);
+}
+
+.markdown-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  background: var(--surface-well);
+}
+
+.markdown-tool {
+  min-width: 30px;
+  height: 26px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.markdown-tool:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.markdown-tool:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.markdown-field textarea[data-markdown-input] {
+  border-radius: 0 0 7px 7px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  tab-size: 2;
+}
+
+.markdown-preview {
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface-input);
+  color: var(--ink);
+  overflow-y: auto;
+}
+
+.markdown-field .field-help {
+  margin-top: 7px;
+}
+
 .tournament-registration-shell {
   width: min(620px, 100%);
   margin: 0 auto;

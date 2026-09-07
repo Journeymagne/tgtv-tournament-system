@@ -424,6 +424,158 @@ function safeMarkdownUrl(value) {
   return text;
 }
 
+const MARKDOWN_TOOLBAR_ACTIONS = [
+  { action: "bold", label: "B", titleKey: "markdown.tool.bold", wrap: "**" },
+  { action: "italic", label: "I", titleKey: "markdown.tool.italic", wrap: "*" },
+  { action: "heading", label: "H", titleKey: "markdown.tool.heading", prefix: "## " },
+  { action: "ul", label: "•", titleKey: "markdown.tool.bulletList", prefix: "- " },
+  { action: "ol", label: "1.", titleKey: "markdown.tool.numberList", prefix: "1. ", prefixPattern: /^\d+[.)]\s/ },
+  { action: "quote", label: "❝", titleKey: "markdown.tool.quote", prefix: "> " },
+  { action: "code", label: "</>", titleKey: "markdown.tool.code", wrap: "`" },
+  { action: "link", label: "🔗", titleKey: "markdown.tool.link", link: true }
+];
+
+function markdownEditorField(options = {}) {
+  const {
+    name,
+    value = "",
+    label = "",
+    maxlength = 6000,
+    rows = 14,
+    placeholder = "",
+    disabledAttrs = "",
+    fieldClass = "",
+    helpText = t("markdown.editor.help")
+  } = options;
+  const editorId = `markdown-editor-${name}-${(markdownEditorField.counter = (markdownEditorField.counter || 0) + 1)}`;
+  const tools = MARKDOWN_TOOLBAR_ACTIONS.map((tool) => `
+    <button type="button" class="markdown-tool" data-markdown-action="${tool.action}" title="${escapeHtml(t(tool.titleKey))}" aria-label="${escapeHtml(t(tool.titleKey))}" ${disabledAttrs}>${escapeHtml(tool.label)}</button>
+  `).join("");
+  return `
+    <div class="field markdown-field ${fieldClass}" data-markdown-editor>
+      <div class="markdown-field-head">
+        <label for="${editorId}">${label}</label>
+        <div class="markdown-view-tabs" role="group">
+          <button type="button" class="markdown-view-tab is-active" data-markdown-view="edit">${escapeHtml(t("markdown.editor.write"))}</button>
+          <button type="button" class="markdown-view-tab" data-markdown-view="preview">${escapeHtml(t("markdown.editor.preview"))}</button>
+        </div>
+      </div>
+      <div class="markdown-toolbar">${tools}</div>
+      <textarea id="${editorId}" name="${name}" rows="${rows}" maxlength="${maxlength}" placeholder="${escapeHtml(placeholder)}" data-markdown-input spellcheck="true" ${disabledAttrs}>${escapeHtml(value)}</textarea>
+      <div class="markdown-preview markdown-content" data-markdown-preview hidden></div>
+      <p class="field-help">${escapeHtml(helpText)}</p>
+    </div>
+  `;
+}
+
+function applyMarkdownTool(textarea, tool) {
+  const value = textarea.value;
+  const start = textarea.selectionStart ?? value.length;
+  const end = textarea.selectionEnd ?? start;
+  const selected = value.slice(start, end);
+
+  if (tool.wrap) {
+    const marker = tool.wrap;
+    const before = value.slice(start - marker.length, start);
+    const after = value.slice(end, end + marker.length);
+    if (selected && before === marker && after === marker) {
+      // Toggle off when the selection is already wrapped.
+      textarea.value = value.slice(0, start - marker.length) + selected + value.slice(end + marker.length);
+      textarea.setSelectionRange(start - marker.length, end - marker.length);
+    } else {
+      const body = selected || t("markdown.editor.sampleText");
+      textarea.value = `${value.slice(0, start)}${marker}${body}${marker}${value.slice(end)}`;
+      textarea.setSelectionRange(start + marker.length, start + marker.length + body.length);
+    }
+    return;
+  }
+
+  if (tool.link) {
+    const text = selected || t("markdown.editor.sampleLinkText");
+    const snippet = `[${text}](https://)`;
+    textarea.value = `${value.slice(0, start)}${snippet}${value.slice(end)}`;
+    const urlStart = start + text.length + 3;
+    textarea.setSelectionRange(urlStart, urlStart + 8);
+    return;
+  }
+
+  if (tool.prefix) {
+    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+    const lineEndIndex = value.indexOf("\n", end);
+    const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+    const block = value.slice(lineStart, lineEnd);
+    const lines = block.split("\n");
+    // Numbered lists renumber as they go, so matching them needs a pattern, not the literal prefix.
+    const matches = (line) => (tool.prefixPattern ? tool.prefixPattern.test(line) : line.startsWith(tool.prefix));
+    const allPrefixed = lines.every(matches);
+    const next = lines
+      .map((line, lineIndex) => {
+        if (allPrefixed) {
+          return tool.prefixPattern ? line.replace(tool.prefixPattern, "") : line.slice(tool.prefix.length);
+        }
+        const prefix = tool.action === "ol" ? `${lineIndex + 1}. ` : tool.prefix;
+        return `${prefix}${line}`;
+      })
+      .join("\n");
+    textarea.value = value.slice(0, lineStart) + next + value.slice(lineEnd);
+    textarea.setSelectionRange(lineStart, lineStart + next.length);
+  }
+}
+
+function setMarkdownEditorView(editor, view) {
+  const textarea = editor.querySelector("[data-markdown-input]");
+  const preview = editor.querySelector("[data-markdown-preview]");
+  const toolbar = editor.querySelector(".markdown-toolbar");
+  if (!textarea || !preview) return;
+  const showPreview = view === "preview";
+  if (showPreview) {
+    const rendered = markdownToHtml(textarea.value);
+    preview.innerHTML = rendered || `<p class="muted">${escapeHtml(t("markdown.editor.previewEmpty"))}</p>`;
+    preview.style.minHeight = `${textarea.offsetHeight}px`;
+  }
+  textarea.hidden = showPreview;
+  preview.hidden = !showPreview;
+  if (toolbar) toolbar.hidden = showPreview;
+  editor.querySelectorAll("[data-markdown-view]").forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.markdownView === view);
+  });
+}
+
+function wireMarkdownEditors(root = document) {
+  root.querySelectorAll("[data-markdown-editor]").forEach((editor) => {
+    if (editor.dataset.markdownWired === "1") return;
+    editor.dataset.markdownWired = "1";
+    const textarea = editor.querySelector("[data-markdown-input]");
+    if (!textarea) return;
+
+    editor.querySelectorAll("[data-markdown-view]").forEach((tab) => {
+      tab.addEventListener("click", () => setMarkdownEditorView(editor, tab.dataset.markdownView));
+    });
+
+    editor.querySelectorAll("[data-markdown-action]").forEach((button) => {
+      button.addEventListener("mousedown", (event) => event.preventDefault());
+      button.addEventListener("click", () => {
+        if (textarea.disabled || textarea.readOnly) return;
+        const tool = MARKDOWN_TOOLBAR_ACTIONS.find((item) => item.action === button.dataset.markdownAction);
+        if (!tool) return;
+        applyMarkdownTool(textarea, tool);
+        textarea.focus();
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    });
+
+    textarea.addEventListener("keydown", (event) => {
+      if (event.key !== "Tab" || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+      event.preventDefault();
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      textarea.value = `${textarea.value.slice(0, start)}  ${textarea.value.slice(end)}`;
+      textarea.setSelectionRange(start + 2, start + 2);
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  });
+}
+
 function fmtDate(value) {
   if (!value) return "";
   return i18n.formatDate(new Date(value), {
@@ -6985,10 +7137,11 @@ function adminTournamentCreatePanel() {
             </select>
           </div>
         </div>
-        <div class="field">
-          <label>${t("admin.tournament.field.rules")}</label>
-          <textarea name="tournamentRules" maxlength="6000" placeholder="${t("admin.tournament.field.rulesPlaceholder")}"></textarea>
-        </div>
+        ${markdownEditorField({
+          name: "tournamentRules",
+          label: t("admin.tournament.field.rules"),
+          placeholder: t("admin.tournament.field.rulesPlaceholder")
+        })}
         <div class="field tournament-rules-upload">
           <label>${t("admin.tournament.field.rulesLink")}</label>
           <input name="rulesLink" maxlength="2048" placeholder="${t("admin.tournament.field.rulesLinkPlaceholder")}">
@@ -7230,10 +7383,13 @@ function adminTournamentEditForm(tournament) {
           </select>
         </div>
       </div>
-      <div class="field">
-        <label>${t("admin.tournament.field.rules")}</label>
-        <textarea name="tournamentRules" maxlength="6000" ${textLockAttrs}>${escapeHtml(tournamentRulesValue(tournament))}</textarea>
-      </div>
+      ${markdownEditorField({
+        name: "tournamentRules",
+        label: t("admin.tournament.field.rules"),
+        placeholder: t("admin.tournament.field.rulesPlaceholder"),
+        value: tournamentRulesValue(tournament),
+        disabledAttrs: textLockAttrs
+      })}
       <div class="field tournament-rules-upload">
         <label>${t("admin.tournament.field.rulesLink")}</label>
         <input name="rulesLink" maxlength="2048" value="${escapeHtml(rulesLinkValue)}" placeholder="${t("admin.tournament.field.rulesLinkPlaceholder")}" ${textLockAttrs}>
@@ -8493,6 +8649,7 @@ function wireAdminTournamentFormBehavior() {
       if (event.target === tiebreakerHelp) tiebreakerHelp.close();
     });
     updateTournamentTiebreakerSelects(form);
+    wireMarkdownEditors(form);
     wireAdminTournamentAutosave(form);
   });
 }
@@ -9955,7 +10112,7 @@ function openTeamCreator() {
   dialog.innerHTML = `<form class="tiebreaker-help-content" data-team-create-dialog>
     <div class="tiebreaker-help-header"><div><h3>${t("teams.create.title")}</h3></div><button class="dialog-close-button" type="button" data-team-create-close aria-label="${t("common.close")}">&times;</button></div>
     <div class="field"><label>${t("teams.field.name")}</label><input name="name" minlength="2" maxlength="80" required></div>
-    <div class="field"><label>${t("teams.field.description")}</label><textarea name="description" maxlength="6000"></textarea></div>
+    ${markdownEditorField({ name: "description", label: t("teams.field.description"), rows: 10 })}
     <div class="field"><label>${t("teams.field.logo")}</label><input name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div>
     <div class="message" data-team-create-message></div>
     <div class="row-actions"><button class="small-button" type="button" data-team-create-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("teams.create.submit")}</button></div>
@@ -9966,6 +10123,7 @@ function openTeamCreator() {
   dialog.querySelector("[data-team-create-close]")?.addEventListener("click", close);
   dialog.querySelector("[data-team-create-cancel]")?.addEventListener("click", close);
   const form = dialog.querySelector("[data-team-create-dialog]");
+  wireMarkdownEditors(form);
   const message = form.querySelector("[data-team-create-message]");
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -10069,7 +10227,7 @@ function teamManagementPanel(data) {
   return `<section class="card panel"><h3>${t("teams.manage.title")}</h3>
     <form data-team-edit>
       <div class="field"><label for="team-edit-name">${t("teams.field.name")}</label><input id="team-edit-name" name="name" minlength="2" maxlength="80" value="${escapeHtml(team.name || "")}" required></div>
-      <div class="field"><label for="team-edit-description">${t("teams.field.description")}</label><textarea id="team-edit-description" name="description" maxlength="6000">${escapeHtml(team.description || "")}</textarea></div>
+      ${markdownEditorField({ name: "description", label: t("teams.field.description"), value: team.description || "", rows: 10 })}
       <div class="field"><label for="team-edit-logo">${t("teams.field.logo")}</label><input id="team-edit-logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div>
       ${team.logoData ? `<label class="checkbox-field"><input name="removeLogo" type="checkbox">${t("teams.field.removeLogo")}</label>` : ""}
       <button class="small-button" type="submit">${t("common.save")}</button>
@@ -10082,6 +10240,7 @@ function teamManagementPanel(data) {
 
 function wirePlayerTeamProfile(data) {
   const team = data.team;
+  wireMarkdownEditors();
   document.querySelector("[data-team-back]")?.addEventListener("click", async () => {
     clearPlayerTeamRoute();
     if (!state.me) return render();

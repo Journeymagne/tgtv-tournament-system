@@ -3,6 +3,7 @@ const {
   normalizeName,
   profileText,
   requiredProfileText,
+  markdownText,
   requireInteger
 } = require("../validation");
 const {
@@ -31,6 +32,11 @@ function optionalTournamentText(value, label, maxLength) {
 
 function requiredTournamentText(value, label, maxLength) {
   return requiredProfileText(value, label, maxLength);
+}
+
+// Description and rules are authored as markdown, so their line breaks must survive.
+function optionalTournamentMarkdown(value, label, maxLength) {
+  return markdownText(value, label, maxLength);
 }
 
 function normalizeFormat(value) {
@@ -143,7 +149,7 @@ function normalizeTournamentPatch(body = {}, current = {}) {
     patch.participantMode = normalizeParticipantMode(body.participantMode);
   }
   if (Object.prototype.hasOwnProperty.call(body, "tournamentRules")) {
-    const tournamentRules = optionalTournamentText(body.tournamentRules, "Tournament rules", RULES_MAX);
+    const tournamentRules = optionalTournamentMarkdown(body.tournamentRules, "Tournament rules", RULES_MAX);
     patch.description = tournamentRules;
     patch.rulesSummary = tournamentRules;
   }
@@ -151,7 +157,7 @@ function normalizeTournamentPatch(body = {}, current = {}) {
     patch.name = optionalTournamentText(body.name, "Tournament name", NAME_MAX);
   }
   if (Object.prototype.hasOwnProperty.call(body, "description")) {
-    patch.description = optionalTournamentText(body.description, "Description", DESCRIPTION_MAX);
+    patch.description = optionalTournamentMarkdown(body.description, "Description", DESCRIPTION_MAX);
   }
   if (Object.prototype.hasOwnProperty.call(body, "gameSystem")) {
     patch.gameSystem = normalizeGameSystem(body.gameSystem);
@@ -160,7 +166,7 @@ function normalizeTournamentPatch(body = {}, current = {}) {
     patch.startsAt = normalizeStartsAt(body.startsAt);
   }
   if (Object.prototype.hasOwnProperty.call(body, "rulesSummary")) {
-    patch.rulesSummary = optionalTournamentText(body.rulesSummary, "Rules summary", RULES_MAX);
+    patch.rulesSummary = optionalTournamentMarkdown(body.rulesSummary, "Rules summary", RULES_MAX);
   }
   if (Object.prototype.hasOwnProperty.call(body, "format")) {
     patch.format = normalizeFormat(body.format);

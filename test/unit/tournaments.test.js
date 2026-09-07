@@ -5,7 +5,7 @@ const { buildSingleElimination, seedSlotOrder } = require("../../src/domain/tour
 const { buildSwissRoundOne, buildSwissNextRound } = require("../../src/domain/tournaments/swiss");
 const { buildTournamentPreview } = require("../../src/domain/tournaments/preview");
 const { buildStandings } = require("../../src/domain/tournaments/standings");
-const { normalizeNewTournament } = require("../../src/domain/tournaments/input");
+const { normalizeNewTournament, normalizeTournamentPatch } = require("../../src/domain/tournaments/input");
 
 function participant(id, seed, overrides = {}) {
   return {
@@ -55,6 +55,19 @@ function pairingSignature(round) {
 test("new tournaments default to the latest configured Q3 Dataslate", () => {
   const tournament = normalizeNewTournament({}, 1, "q3-default");
   assert.equal(tournament.seasonId, "2026-q3-dataslate");
+});
+
+test("tournament description keeps its markdown line structure", () => {
+  const description = "## Формат\n\n- швейцарка, 5 раундов\n- 2 часа на раунд\n\n> Итоги публикуются в тот же день.";
+  const patch = normalizeTournamentPatch({ description }, {});
+  assert.equal(patch.description, description);
+});
+
+test("tournament rules keep their markdown line structure", () => {
+  const tournamentRules = "# Правила\n\n1. Первый пункт\n2. Второй пункт";
+  const patch = normalizeTournamentPatch({ tournamentRules }, {});
+  assert.equal(patch.description, tournamentRules);
+  assert.equal(patch.rulesSummary, tournamentRules);
 });
 
 test("single elimination lays out seeds 1-8 into standard slots", () => {

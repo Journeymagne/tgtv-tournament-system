@@ -34,6 +34,20 @@ function requiredProfileText(value, label, maxLength) {
   return text;
 }
 
+// Markdown fields keep their line structure: only line endings are normalized,
+// trailing spaces per line are dropped, and runs of blank lines are capped at one.
+function markdownText(value, label, maxLength) {
+  const text = String(value ?? "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[^\S\n]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (text.length > maxLength) {
+    throw new ValidationError(`${label} must be ${maxLength} characters or fewer`);
+  }
+  return text;
+}
+
 function validateAvatarData(value) {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value !== "string") {
@@ -90,6 +104,7 @@ module.exports = {
   requireName,
   profileText,
   requiredProfileText,
+  markdownText,
   validateAvatarData,
   requireInteger,
   scoreInput,
