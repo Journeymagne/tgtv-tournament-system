@@ -45,6 +45,8 @@ function resolveStaticPath(pathname) {
     return null;
   }
   if (requested.includes("\0")) return null;
+  // Team profiles use client-side rendering, including on direct visits/reloads.
+  if (/^\/teams\/[^/\\]+\/?$/.test(requested)) return path.join(PUBLIC_DIR, "index.html");
   const filePath = path.normalize(path.join(PUBLIC_DIR, requested));
   if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_PREFIX)) return null;
   return filePath;

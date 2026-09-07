@@ -19,6 +19,13 @@ const state = {
   selectedTeamMatchId: null,
   teamsError: "",
   teamsQuery: "",
+  teamsTab: "mine",
+  adminTeams: [],
+  adminTeamsQuery: "",
+  adminTeamsPage: 1,
+  teamLeaderboard: [],
+  teamLeaderboardPage: 1,
+  teamReturnHash: "",
   challengeProgress: [],
   challengeError: "",
   selectedChallengeUserId: null,
@@ -710,6 +717,7 @@ async function openNotificationItem(item) {
   }
   if (item.type === "team_invitation") {
     await loadTeamsDashboard();
+    state.teamsTab = "mine";
     state.focusChallengeId = null;
     state.focusInvitationId = Number(item.sourceId);
     state.teamProfile = null;
@@ -899,10 +907,11 @@ function appRouteFromHash() {
     };
   }
   if (section === "leaderboard" || section === "top") {
+    const venue = subroute === "teams" ? id : subroute;
     return {
       view: "top",
-      leaderboardTab: subroute === "users" ? "users" : "leaderboard",
-      leaderboardVenue: ["tts", "irl"].includes(subroute) ? subroute : "combined"
+      leaderboardTab: ["users", "teams"].includes(subroute) ? subroute : "leaderboard",
+      leaderboardVenue: ["tts", "irl"].includes(venue) ? venue : "combined"
     };
   }
   if (section === "games") {
@@ -931,7 +940,8 @@ function appRouteFromHash() {
     const invitationId = subroute === "invitation" ? Number(id) : null;
     return {
       view: "teams",
-      teamSlug: subroute === "invitation" ? "" : subroute || "",
+      teamsTab: subroute === "admin" ? "admin" : "mine",
+      teamSlug: ["invitation", "admin"].includes(subroute) ? "" : subroute || "",
       focusInvitationId: Number.isSafeInteger(invitationId) && invitationId > 0 ? invitationId : null
     };
   }
@@ -996,9 +1006,10 @@ async function applyAppRoute(route) {
     if (!state.selectedTeamMatchId) throw new Error(t("teams.pairing.notFound"));
     await loadTeamPairing(state.selectedTeamMatchId, { force: true });
   } else if (route.view === "top") {
-    state.leaderboardTab = state.me?.isAdmin ? route.leaderboardTab || "leaderboard" : "leaderboard";
+    state.leaderboardTab = route.leaderboardTab === "users" && !state.me?.isAdmin ? "leaderboard" : route.leaderboardTab || "leaderboard";
     state.leaderboardVenue = route.leaderboardVenue || "combined";
     if (state.leaderboardTab === "users") await loadAdminUsers();
+    else if (state.leaderboardTab === "teams") await loadTeamLeaderboard();
     else await loadTop();
   } else if (route.view === "games") {
     state.gamesTab = state.me?.isAdmin ? route.gamesTab || "history" : "history";
@@ -1029,7 +1040,10 @@ async function applyAppRoute(route) {
       await loadTournaments();
     }
   } else if (route.view === "teams") {
+    state.teamsTab = state.me?.isAdmin ? route.teamsTab || "mine" : "mine";
+    state.teamProfile = null;
     if (route.teamSlug) await loadPlayerTeam(route.teamSlug);
+    else if (state.teamsTab === "admin") await loadAdminTeams();
     else await loadTeamsDashboard();
   } else if (route.view === "statistics") {
     state.statisticsVenue = route.statisticsVenue || "combined";
@@ -1062,6 +1076,7 @@ function appHashForState() {
   }
   if (state.view === "top") {
     if (state.leaderboardTab === "users") return "#/leaderboard/users";
+    if (state.leaderboardTab === "teams") return state.leaderboardVenue === "combined" ? "#/leaderboard/teams" : `#/leaderboard/teams/${state.leaderboardVenue}`;
     return state.leaderboardVenue === "combined"
       ? "#/leaderboard"
       : `#/leaderboard/${state.leaderboardVenue}`;
@@ -1085,7 +1100,7 @@ function appHashForState() {
     if (state.focusInvitationId) return `#/teams/invitation/${encodeURIComponent(state.focusInvitationId)}`;
     return state.teamProfile?.team?.slug
       ? `#/teams/${encodeURIComponent(state.teamProfile.team.slug)}`
-      : "#/teams";
+      : state.teamsTab === "admin" && state.me?.isAdmin ? "#/teams/admin" : "#/teams";
   }
   if (state.view === "statistics") {
     return state.statisticsVenue === "combined" ? "#/stats" : `#/stats/${state.statisticsVenue}`;
@@ -1292,6 +1307,8 @@ async function openTeamPairing(matchId) {
 
 function navigateToPlayerTeam(slug) {
   if (!slug) return;
+  if (state.view === "top" || (state.view === "teams" && !state.teamProfile)) state.teamReturnHash = appHashForState();
+  else state.teamReturnHash = "";
   window.history.pushState(null, "", playerTeamPublicPath(slug));
   leavePublicTournamentRoute();
   renderPlayerTeamRoute(slug, { force: true });
@@ -2168,8 +2185,8 @@ async function loadTournaments() {
   }
 }
 
-function pageTabs(section, tabs, active) {
-  if (!state.me?.isAdmin) return "";
+function pageTabs(section, tabs, active, { publicTabs = false } = {}) {
+  if (!state.me?.isAdmin && !publicTabs) return "";
   return `
     <div class="tabs page-tabs">
       ${tabs.map((tab) => `
@@ -2198,7 +2215,9 @@ function wireVenueTabs() {
       if (button.dataset.venueTab === "leaderboard") {
         state.leaderboardVenue = venue;
         state.leaderboardPage = 1;
-        await loadTop();
+        state.teamLeaderboardPage = 1;
+        if (state.leaderboardTab === "teams") await loadTeamLeaderboard();
+        else await loadTop();
       } else {
         state.statisticsVenue = venue;
         state.selectedStatisticsTeam = null;
@@ -2218,7 +2237,13 @@ function wirePageTabs() {
         if (section === "leaderboard") {
           state.leaderboardTab = value;
           if (value === "users") await loadAdminUsers();
+          else if (value === "teams") await loadTeamLeaderboard();
           else await loadTop();
+        } else if (section === "teams") {
+          state.teamsTab = value === "admin" && state.me?.isAdmin ? "admin" : "mine";
+          state.teamProfile = null;
+          if (state.teamsTab === "admin") await loadAdminTeams();
+          else await loadTeamsDashboard();
         } else if (section === "games") {
           state.gamesTab = value;
           if (value === "sessions") await loadAdminGames();
@@ -2632,7 +2657,7 @@ function renderShell() {
         state.adminTournamentDetail = null;
         state.adminTournamentPreview = null;
       }
-      if (targetView === "teams") state.teamProfile = null;
+      if (targetView === "teams") { state.teamProfile = null; state.teamsTab = "mine"; }
       syncAppHash();
       renderShell();
       try {
@@ -2700,16 +2725,15 @@ async function renderDocumentation() {
   const target = state.me ? container : container.querySelector("[data-public-documentation]");
   target.innerHTML = `<section class="card panel" role="status">${t("common.loading")}</section>`;
   const current = () => requestId === documentationRequestId && target.isConnected &&
-    state.view === "documentation" && appRouteFromHash()?.view === "documentation";
+    state.view === "documentation" && (state.documentationPage || "") === page && i18n.getLocale() === locale &&
+    appRouteFromHash()?.view === "documentation";
   try {
     const documentation = await loadDocumentation();
     if (!current()) return;
-    target.innerHTML = documentation.render(locale, page, !state.me);
-    target.querySelectorAll("[data-documentation-section]").forEach((button) => {
-      button.addEventListener("click", () => {
-        document.getElementById(button.dataset.documentationSection)?.scrollIntoView({ block: "start" });
-      });
-    });
+    const data = await documentation.load(locale, page, api);
+    if (!current()) return;
+    target.innerHTML = documentation.render(locale, page, !state.me, data, Boolean(state.me?.isAdmin));
+    documentation.mount(target, { api, locale, page: data.page, userId: state.me?.isAdmin ? state.me.id : null, rerender: renderDocumentation });
   } catch (err) {
     if (!current()) return;
     target.innerHTML = `<section class="card panel"><h2>${t("nav.documentation")}</h2><p role="alert">${escapeHtml(err.message)}</p><button class="small-button" data-documentation-retry>${t("documentation.retry")}</button></section>`;
@@ -6619,6 +6643,16 @@ async function loadTop() {
   state.users = data.users || [];
 }
 
+async function loadTeamLeaderboard() {
+  const data = await api(`/api/leaderboards/teams?venue=${encodeURIComponent(state.leaderboardVenue)}`);
+  state.teamLeaderboard = data.teams || [];
+}
+
+async function loadAdminTeams() {
+  const data = await api("/api/admin/teams");
+  state.adminTeams = data.teams || [];
+}
+
 function paginate(items, page, pageSize = LEADERBOARD_PAGE_SIZE) {
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -6658,6 +6692,8 @@ function wirePaginationControls() {
       const page = Number(button.dataset.paginationPage || 1);
       if (button.dataset.paginationTarget === "leaderboard") state.leaderboardPage = page;
       if (button.dataset.paginationTarget === "admin-users") state.adminUsersPage = page;
+      if (button.dataset.paginationTarget === "team-leaderboard") state.teamLeaderboardPage = page;
+      if (button.dataset.paginationTarget === "admin-teams") state.adminTeamsPage = page;
       renderShell();
     });
   });
@@ -6665,25 +6701,26 @@ function wirePaginationControls() {
 
 function renderTop() {
   const content = document.querySelector("[data-content]");
-  const activeTab = state.me?.isAdmin ? state.leaderboardTab : "leaderboard";
+  const activeTab = state.leaderboardTab === "users" && !state.me?.isAdmin ? "leaderboard" : state.leaderboardTab;
   if (state.leaderboardTab !== activeTab) state.leaderboardTab = activeTab;
   content.innerHTML = `
     ${pageTabs("leaderboard", [
       { id: "leaderboard", label: t("nav.leaderboard") },
-      { id: "users", label: t("leaderboard.tab.users") }
-    ], activeTab)}
+      { id: "teams", label: t("nav.playerTeams") },
+      ...(state.me?.isAdmin ? [{ id: "users", label: t("leaderboard.tab.users") }] : [])
+    ], activeTab, { publicTabs: true })}
     ${activeTab === "users" ? adminUsersPanel() : `
       ${venueTabs("leaderboard", state.leaderboardVenue)}
       <section class="card panel">
       <div class="panel-header">
         <div>
-          <h2>${t("leaderboard.title")}</h2>
-          <p class="muted">${state.leaderboardVenue === "combined"
+          <h2>${t(activeTab === "teams" ? "teams.leaderboard.title" : "leaderboard.title")}</h2>
+          <p class="muted">${activeTab === "teams" ? t(state.leaderboardVenue === "combined" ? "teams.leaderboard.hintCombined" : "teams.leaderboard.hint") : state.leaderboardVenue === "combined"
             ? t("leaderboard.hintCombined")
             : t("leaderboard.hintWithVenue", { venue: state.leaderboardVenue === "irl" ? t("venue.irl") : "TTS" })}</p>
         </div>
       </div>
-      ${usersTable(state.users)}
+      ${activeTab === "teams" ? teamsTable(state.teamLeaderboard) : usersTable(state.users)}
       <div class="message" data-message></div>
       </section>
     `}
@@ -6692,7 +6729,56 @@ function renderTop() {
   wireVenueTabs();
   wirePaginationControls();
   if (activeTab === "users") wireAdminUserControls();
+  else if (activeTab === "teams") wireTeamLinks();
   else wireLeaderboardProfiles();
+}
+
+function filterAdminTeams(teams, query) {
+  const search = String(query || "").trim().toLocaleLowerCase();
+  return search ? teams.filter((team) => team.name.toLocaleLowerCase().includes(search)) : teams;
+}
+
+function teamsTable(teams, { admin = false } = {}) {
+  const pageData = paginate(teams, admin ? state.adminTeamsPage : state.teamLeaderboardPage);
+  if (admin) state.adminTeamsPage = pageData.currentPage;
+  else state.teamLeaderboardPage = pageData.currentPage;
+  if (!pageData.total) return `<div class="empty">${t("teams.list.empty")}</div>`;
+  return `<div class="table-wrap"><table>
+    <thead><tr>${admin ? "" : '<th class="rank">#</th>'}<th>${t("teams.field.name")}</th>${admin ? `<th>${t("teams.role.leader")}</th>` : ""}<th>${t("teams.members.count")}</th>${admin ? `<th>${t("teams.rating.tts")}</th><th>${t("teams.rating.irl")}</th>` : `<th>${t("tournaments.card.rating")}</th>`}</tr></thead>
+    <tbody>${pageData.items.map((team, index) => `<tr>
+      ${admin ? "" : `<td class="rank">${pageData.start + index + 1}</td>`}
+      <td><button class="text-button player-name-button leaderboard-player-button" data-team-open="${escapeHtml(team.slug)}">
+        <span class="leaderboard-avatar">${avatarMarkup({ name: team.name, avatarData: team.logoData })}</span><span>${escapeHtml(team.name)}</span>
+      </button>${team.archivedAt ? `<span class="status">${t("teams.status.archived")}</span>` : ""}</td>
+      ${admin ? `<td>${escapeHtml(team.leaderName || "—")}</td>` : ""}
+      <td>${team.memberCount ?? 0}</td>${admin ? `<td>${team.ratings.tts}</td><td>${team.ratings.irl}</td>` : `<td>${team.rating}</td>`}
+    </tr>`).join("")}</tbody>
+  </table></div>${paginationMarkup(admin ? "admin-teams" : "team-leaderboard", pageData, "teams.pagination.teams")}`;
+}
+
+function wireTeamLinks() {
+  document.querySelectorAll("[data-team-open]").forEach((button) => button.addEventListener("click", () => navigateToPlayerTeam(button.dataset.teamOpen)));
+}
+
+function adminTeamsPanel() {
+  return `<section class="card panel">
+    <div class="panel-header"><div><h2>${t("teams.admin.title")}</h2><p class="muted">${t("teams.admin.hint")}</p></div></div>
+    <div class="filter-row"><div class="field compact-field"><label for="admin-teams-search">${t("teams.search.label")}</label><input id="admin-teams-search" type="search" value="${escapeHtml(state.adminTeamsQuery)}" placeholder="${t("teams.search.placeholder")}" data-admin-teams-search></div></div>
+    <div data-admin-teams-results>${teamsTable(filterAdminTeams(state.adminTeams, state.adminTeamsQuery), { admin: true })}</div>
+    <div class="message" data-message></div>
+  </section>`;
+}
+
+function wireAdminTeams() {
+  wireTeamLinks();
+  wirePaginationControls();
+  document.querySelector("[data-admin-teams-search]")?.addEventListener("input", (event) => {
+    state.adminTeamsQuery = event.target.value;
+    state.adminTeamsPage = 1;
+    document.querySelector("[data-admin-teams-results]").innerHTML = teamsTable(filterAdminTeams(state.adminTeams, state.adminTeamsQuery), { admin: true });
+    wireTeamLinks();
+    wirePaginationControls();
+  });
 }
 
 function usersTable(users) {
@@ -9784,9 +9870,20 @@ function renderTeams() {
     renderPlayerTeamProfile(state.teamProfile);
     return;
   }
+  const tabs = pageTabs("teams", [
+    { id: "mine", label: t("nav.playerTeams") },
+    { id: "admin", label: t("teams.admin.tab") }
+  ], state.teamsTab);
+  if (state.teamsTab === "admin" && state.me?.isAdmin) {
+    content.innerHTML = tabs + adminTeamsPanel();
+    wirePageTabs();
+    wireAdminTeams();
+    return;
+  }
   const data = state.teamsDashboard || { myTeams: [], incomingInvitations: [], outgoingInvitations: [], teams: [] };
   const teamsQuery = String(state.teamsQuery || "").trim();
   content.innerHTML = `
+    ${tabs}
     <div class="teams-layout">
       <div class="teams-page-actions">
         <button class="primary-button" type="button" data-team-create-open>${t("teams.create.title")}</button>
@@ -9811,6 +9908,7 @@ function renderTeams() {
       <div class="message ${state.teamsError ? "error" : ""}" data-message>${escapeHtml(state.teamsError || "")}</div>
     </div>`;
   wireTeamsDashboard();
+  wirePageTabs();
   if (state.focusInvitationId) {
     focusNotificationTarget(`[data-invitation-card="${state.focusInvitationId}"]`);
   }
@@ -9846,6 +9944,7 @@ function teamInvitationCards(invitations, direction) {
 }
 
 async function teamLogoFromForm(form) {
+  if (form.elements.removeLogo?.checked) return null;
   const file = form.elements.logo?.files?.[0];
   return file ? compressAvatar(file) : undefined;
 }
@@ -9894,7 +9993,7 @@ function openTeamCreator() {
 }
 
 function wireTeamsDashboard() {
-  document.querySelectorAll("[data-team-open]").forEach((button) => button.addEventListener("click", () => navigateToPlayerTeam(button.dataset.teamOpen)));
+  wireTeamLinks();
   document.querySelector("[data-team-create-open]")?.addEventListener("click", openTeamCreator);
   document.querySelector("[data-teams-search]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -9920,7 +10019,7 @@ function renderPlayerTeamProfile(data) {
   const team = data.team || {};
   const current = data.currentMembers || [];
   const former = data.formerMembers || [];
-  const canManage = Boolean(state.me && (team.viewer?.isLeader || team.viewer?.canAdmin));
+  const canManage = Boolean(state.me && (team.viewer?.canAdmin || (team.viewer?.isLeader && !team.archivedAt)));
   const container = playerTeamContainer();
   container.innerHTML = `
     <div class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
@@ -9933,9 +10032,9 @@ function renderPlayerTeamProfile(data) {
         <div class="profile-grid">${metricCard(t("teams.rating.tts"), team.ratings?.tts ?? 1000)}${metricCard(t("teams.rating.irl"), team.ratings?.irl ?? 1000)}${metricCard(t("teams.metric.tournaments"), data.stats?.tournaments ?? 0)}${metricCard(t("teams.metric.rosters"), data.stats?.rosters ?? 0)}${metricCard(t("teams.metric.record"), `${data.stats?.wins ?? 0}-${data.stats?.draws ?? 0}-${Math.max(0, Number(data.stats?.team_matches || 0) - Number(data.stats?.wins || 0) - Number(data.stats?.draws || 0))}`)}</div>
       </section>
       <section class="card panel"><h3>${t("teams.members.current")}</h3><div class="list">${teamMemberCards(current, team, canManage)}</div><h3>${t("teams.members.former")}</h3><div class="list">${teamMemberCards(former, team, false)}</div></section>
+      ${canManage ? teamManagementPanel(data) : ""}
       <section class="card panel"><h3>${t("teams.history.tournaments")}</h3><div class="list">${teamRosterHistory(data.rosters || [])}</div></section>
       <section class="card panel"><h3>${t("teams.history.games")}</h3><div class="list">${teamGameHistory(data.recentGames || [])}</div></section>
-      ${canManage ? teamManagementPanel(data) : ""}
       ${state.me && team.viewer?.isMember ? `<section class="card panel"><button class="danger-button" data-team-leave="${team.id}">${t("teams.action.leave")}</button></section>` : ""}
       <div class="message" data-message></div>
     </div>`;
@@ -9945,7 +10044,7 @@ function renderPlayerTeamProfile(data) {
 function teamMemberCards(members, team, canManage) {
   if (!members.length) return `<div class="empty">${t("teams.members.empty")}</div>`;
   return members.map((membership) => `
-    <div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</div><div class="row-meta">${membership.role === "leader" ? t("teams.role.leader") : t("teams.role.member")} / ${fmtDate(membership.joinedAt)}${membership.endedAt ? ` - ${fmtDate(membership.endedAt)}` : ""}</div></div><div class="row-actions">${state.me && membership.userId ? `<button class="small-button" data-team-player="${membership.userId}">${t("common.open")}</button>` : ""}${canManage && membership.role !== "leader" && !membership.endedAt ? `<button class="danger-button" data-team-member-remove="${membership.id}">${t("teams.action.remove")}</button>` : ""}</div></div>`).join("");
+    <div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</div><div class="row-meta">${membership.role === "leader" ? t("teams.role.leader") : t("teams.role.member")} / ${fmtDate(membership.joinedAt)}${membership.endedAt ? ` - ${fmtDate(membership.endedAt)}` : ""}</div></div><div class="row-actions">${state.me && membership.userId ? `<button class="small-button" data-team-player="${membership.userId}">${t("common.open")}</button>` : ""}${canManage && (membership.role !== "leader" || team.viewer?.canAdmin) && !membership.endedAt ? `<button class="danger-button" data-team-member-remove="${membership.id}">${t("teams.action.remove")}</button>` : ""}</div></div>`).join("");
 }
 
 function teamRosterHistory(rosters) {
@@ -9968,9 +10067,15 @@ function teamManagementPanel(data) {
   const memberIds = new Set(current.map((membership) => membership.userId));
   const inviteCandidates = (state.users || []).filter((user) => !memberIds.has(user.id));
   return `<section class="card panel"><h3>${t("teams.manage.title")}</h3>
-    <form data-team-edit><div class="field"><label>${t("teams.field.name")}</label><input name="name" minlength="2" maxlength="80" value="${escapeHtml(team.name || "")}" required></div><div class="field"><label>${t("teams.field.description")}</label><textarea name="description" maxlength="6000">${escapeHtml(team.description || "")}</textarea></div><div class="field"><label>${t("teams.field.logo")}</label><input name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div><button class="small-button" type="submit">${t("common.save")}</button></form>
-    <form data-team-invite><div class="field"><label>${t("teams.invite.player")}</label><select name="userId" required><option value="">${t("teams.invite.choose")}</option>${inviteCandidates.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.invite.submit")}</button></form>
-    <form data-team-leadership><div class="field"><label>${t("teams.leadership.label")}</label><select name="userId" required><option value="">${t("teams.invite.choose")}</option>${current.filter((membership) => membership.role !== "leader").map((membership) => `<option value="${membership.userId}">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.leadership.submit")}</button></form>
+    <form data-team-edit>
+      <div class="field"><label for="team-edit-name">${t("teams.field.name")}</label><input id="team-edit-name" name="name" minlength="2" maxlength="80" value="${escapeHtml(team.name || "")}" required></div>
+      <div class="field"><label for="team-edit-description">${t("teams.field.description")}</label><textarea id="team-edit-description" name="description" maxlength="6000">${escapeHtml(team.description || "")}</textarea></div>
+      <div class="field"><label for="team-edit-logo">${t("teams.field.logo")}</label><input id="team-edit-logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div>
+      ${team.logoData ? `<label class="checkbox-field"><input name="removeLogo" type="checkbox">${t("teams.field.removeLogo")}</label>` : ""}
+      <button class="small-button" type="submit">${t("common.save")}</button>
+    </form>
+    ${!team.archivedAt ? `<form data-team-invite><div class="field"><label for="team-invite-user">${t("teams.invite.player")}</label><select id="team-invite-user" name="userId" required><option value="">${t("teams.invite.choose")}</option>${inviteCandidates.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.invite.submit")}</button></form>` : ""}
+    <form data-team-leadership><div class="field"><label for="team-leader-user">${t("teams.leadership.label")}</label><select id="team-leader-user" name="userId" required><option value="">${t("teams.invite.choose")}</option>${current.filter((membership) => membership.role !== "leader" && membership.userId).map((membership) => `<option value="${membership.userId}">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.leadership.submit")}</button></form>
     <div class="row-actions">${team.archivedAt && team.viewer?.canAdmin ? `<button class="small-button" data-team-restore="${team.id}">${t("teams.action.restore")}</button>` : !team.archivedAt ? `<button class="danger-button" data-team-archive="${team.id}">${t("teams.action.archive")}</button>` : ""}</div>
   </section>`;
 }
@@ -9981,6 +10086,14 @@ function wirePlayerTeamProfile(data) {
     clearPlayerTeamRoute();
     if (!state.me) return render();
     state.teamProfile = null;
+    if (state.teamReturnHash) {
+      window.history.replaceState(null, "", state.teamReturnHash);
+      state.teamReturnHash = "";
+      await applyAppRouteFromHash();
+      renderShell();
+      return;
+    }
+    state.teamsTab = "mine";
     await loadTeamsDashboard();
     syncAppHash({ replace: true });
     renderShell();
@@ -10008,6 +10121,8 @@ function wirePlayerTeamProfile(data) {
     catch (err) { setMessage(err.message, true); }
   });
   document.querySelectorAll("[data-team-member-remove]").forEach((button) => button.addEventListener("click", async () => {
+    const member = data.currentMembers.find((item) => item.id === Number(button.dataset.teamMemberRemove));
+    if (!window.confirm(t("teams.dialog.remove", { name: member?.user?.name || member?.displayNameSnapshot || "" }))) return;
     try { await api(`/api/teams/${team.id}/members/${button.dataset.teamMemberRemove}/remove`, { method: "POST" }); await renderPlayerTeamRoute(team.slug, { force: true }); }
     catch (err) { setMessage(err.message, true); }
   }));

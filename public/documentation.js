@@ -1,172 +1,240 @@
 (function (root) {
   "use strict";
-
-  const PAGE_IDS = ["wtc-pairings", "swiss-tiebreakers", "elimination-tiebreakers", "team-tiebreakers", "mmr"];
-  const eloExamples = [
-    { a: 1000, b: 1000, score: 1, delta: 16 },
-    { a: 1000, b: 1000, score: 0.5, delta: 0 },
-    { a: 1000, b: 1200, score: 1, delta: 24 },
-    { a: 1000, b: 1200, score: 0, delta: -8 },
-    { a: 1000, b: 1200, score: 0.5, delta: 8 }
-  ];
-  const standingsOrder = ["strength_of_schedule", "buchholz", "head_to_head", "total_vp", "vp_diff"];
-  const teamOrder = ["teamTournamentPoints", "individualWins", "totalVp", "tacOpPoints"];
-  const eloFormula = "E_A = 1 / (1 + 10^((R_B − R_A) / 400))\nΔ_A = Math.round(32 × (S_A − E_A))\nΔ_B = −Δ_A\nR′_A = R_A + Δ_A;  R′_B = R_B + Δ_B";
-
-  function individualSections(ru) {
-    return ru ? [
-      { id: "priority", title: "Как применяется порядок", paragraphs: ["Сначала сравниваются турнирные очки: победа — 3, ничья — 1, поражение — 0. Затем применяются только тайбрейки, выбранные организатором, в заданном им порядке. Следующий критерий сравнивает только участников, оставшихся равными после предыдущих. Все пять критериев работают по убыванию: больше — лучше.", "Организатор выбирает до четырёх разных критериев из пяти. Универсального обязательного порядка нет. Невыбранные критерии не влияют на места. Если все выбранные значения равны, список упорядочивается по исходному сиду, затем ID; до публикации итогов такие участники могут иметь одинаковый ранг."] },
-      { id: "strength_of_schedule", title: "Strength of Schedule (SoS) — сила соперников", paragraphs: ["Сумма текущих турнирных очков всех соперников из завершённых матчей. Это не средний MMR и не процент побед. Повторная встреча с тем же соперником добавляет его очки ещё раз.", "Пример: у соперников 9, 6 и 3 очка. SoS = 9 + 6 + 3 = 18. Значение меняется, когда эти соперники завершают новые матчи."] },
-      { id: "buchholz", title: "Buchholz — усечённый Бухгольц", paragraphs: ["В этой системе используется именно усечённый вариант: из очков соперников убираются одно максимальное и одно минимальное значение, остальные складываются. При двух соперниках или меньше результат равен 0.", "Пример: 9, 6, 3 → убираем 9 и 3 → Buchholz = 6. При одинаковых крайних значениях удаляется по одному вхождению, а не все одинаковые значения."] },
-      { id: "head_to_head", title: "Head-to-head — личные встречи", paragraphs: ["Считается количество побед в завершённых матчах между участниками той группы, которая всё ещё равна по очкам и более приоритетным тайбрейкам. Ничья победы не добавляет. Матчи с участниками вне этой группы не учитываются.", "Пример: после предыдущих критериев равны A, B и C. A победил B и C — у него 2; B победил C — у него 1; у C — 0. Если предыдущий критерий уже отделил C, результаты против C здесь не считаются."] },
-      { id: "total_vp", title: "Total VP — набранные очки", paragraphs: ["Сумма итоговых VP игрока во всех завершённых матчах. В итог входит бонус Primary: Crit Op + Kill Op + Tac Op + округлённая вверх половина очков выбранного Primary Op.", "Пример: итоговые счета игрока 14, 18 и 12 → Total VP = 44. Это не турнирные очки за победы."] },
-      { id: "vp_diff", title: "VP Diff — разница очков", paragraphs: ["Сумма разностей «мои итоговые VP − итоговые VP соперника» во всех завершённых матчах. Значение может быть отрицательным.", "Пример: 18:12, 10:15, 14:14 → VP Diff = 6 − 5 + 0 = 1. Если победитель игры определён личным тайбрейком при равных VP, разница этой игры всё равно равна 0."] },
-      { id: "accounting", title: "Незавершённые игры, bye и публикация", paragraphs: ["Неподтверждённые и незавершённые результаты не входят в расчёт. Bye даёт 3 турнирных очка и одну победу, но 0 VP, 0 VP Diff и не добавляет соперника для SoS/Buchholz или личных встреч.", "Снятые и удалённые участники исключаются из текущей таблицы. Если соперника больше нет в этой таблице, его вклад в SoS/Buchholz принимается равным 0. Итоговый порядок фиксируется организатором при публикации результатов."] }
-    ] : [
-      { id: "priority", title: "How priority works", paragraphs: ["Match points come first: win 3, draw 1, loss 0. Only the tiebreakers enabled by the organizer are applied, in the configured order. Each next criterion compares only players still tied after earlier criteria. Higher is better for all five criteria.", "The organizer selects up to four different criteria from five. There is no mandatory universal order. Disabled criteria do not affect places. If all enabled values are equal, the list uses initial seed, then ID; those players can share a displayed rank before final results are published."] },
-      { id: "strength_of_schedule", title: "Strength of Schedule (SoS)", paragraphs: ["The sum of the current match points of opponents from completed matches. It is not average MMR or win percentage. Playing the same opponent again adds their points again.", "Example: opponents have 9, 6 and 3 points. SoS = 9 + 6 + 3 = 18. It changes as those opponents finish more matches."] },
-      { id: "buchholz", title: "Buchholz — trimmed", paragraphs: ["This app uses trimmed Buchholz: remove one highest and one lowest opponent score, then sum the rest. With two opponents or fewer, the value is 0.", "Example: 9, 6, 3 → remove 9 and 3 → Buchholz = 6. Tied extreme values lose one occurrence each, not every occurrence."] },
-      { id: "head_to_head", title: "Head-to-head", paragraphs: ["Count wins in completed matches between the players still tied on match points and higher-priority criteria. Draws add no wins. Matches against players outside that tied group do not count.", "Example: A, B and C remain tied. A beat B and C: 2 wins. B beat C: 1 win. C: 0. If an earlier criterion already separated C, games against C are excluded here."] },
-      { id: "total_vp", title: "Total VP", paragraphs: ["The sum of a player's final VP in completed matches. Final VP includes Primary bonus: Crit Op + Kill Op + Tac Op + half the selected Primary Op score, rounded up.", "Example: final scores of 14, 18 and 12 give Total VP = 44. These are not match points awarded for wins."] },
-      { id: "vp_diff", title: "VP Diff", paragraphs: ["The sum of «my final VP − opponent's final VP» in completed matches. This can be negative.", "Example: 18:12, 10:15, 14:14 → VP Diff = 6 − 5 + 0 = 1. A game won by an individual tiebreaker at equal VP still contributes 0 VP Diff."] },
-      { id: "accounting", title: "Unfinished games, byes and publication", paragraphs: ["Unconfirmed and unfinished results do not count. A bye awards 3 match points and one win, but 0 VP, 0 VP Diff, and no opponent for SoS/Buchholz or head-to-head.", "Withdrawn and removed players are excluded from current standings. An opponent no longer in those standings contributes 0 to SoS/Buchholz. The organizer fixes the final order when publishing results."] }
-    ];
-  }
-
-  function gameTies(ru, elimination) {
-    return {
-      id: "game-ties", title: ru ? "Тайбрейки внутри отдельной игры" : "Tiebreakers within a game",
-      paragraphs: [ru
-        ? elimination ? "В Single Elimination обязательно нужен победитель. Если итоговые VP равны, включаются личные Approved Ops тайбрейки; без победителя сервер не завершит матч. Критерии проверяются последовательно до первого различия." : "В индивидуальной швейцарке ничья разрешена. При равных VP и выключенных личных тайбрейках оба получают по 1 турнирному очку. Если личные тайбрейки включены в форме результата, они определяют победителя по следующему порядку."
-        : elimination ? "Single Elimination requires a winner. At equal final VP, enable individual Approved Ops tiebreakers; the server will not complete a drawn bracket match. Compare the criteria in order until the first difference." : "Individual Swiss allows draws. Equal VP with game tiebreakers disabled gives each player 1 match point. If game tiebreakers are enabled in the result form, use the following order."],
-      ordered: ru ? [
-        "Primary bonus: больше бонусных очков Primary, то есть ceil(очки выбранного Op / 2). Сравнивается бонус, а не исходные очки выбранного Op.",
-        "Crit Op + Tac Op: больше сумма этих двух показателей без Primary bonus. Kill Op здесь не прибавляется.",
-        "APL на столе: больше введённое в одноимённое поле значение APL стороны. Его указывают игроки; приложение не вычисляет его по составу отряда или состоянию стола.",
-        "Roll-off: если всё равно равенство, в форме указывается победитель броска. Это не автоматический бросок выбора Attacker в командном паринге."
-      ] : [
-        "Primary bonus: compare the bonus points, ceil(selected Op score / 2), not the raw selected Op score.",
-        "Crit Op + Tac Op: compare their sum without Primary bonus. Kill Op is not added here.",
-        "APL on the table: compare each side's value entered in the APL on table field. Players supply it; the app does not derive it from the roster or board state.",
-        "Roll-off: if still tied, enter the roll-off winner. This is separate from the automatic Attacker roll in team pairings."
-      ],
-      note: ru ? "Эти критерии выбирают победителя игры и не меняют её VP. Они не заменяют тайбрейки мест в таблице." : "These criteria choose the game winner without changing VP. They are separate from standings tiebreakers."
-    };
-  }
-
-  function pages(ru) {
-    return [
-      { id: PAGE_IDS[0], category: ru ? "Паринги" : "Pairings", title: ru ? "Паринги WTC · 3×3" : "WTC pairings · 3×3",
-        summary: ru ? "От генерации раунда до трёх игр: столы, D6, баны, Shield и Sword." : "From round generation to three games: tables, D6, bans, Shield and Sword.",
-        intro: ru ? "Это правила командного формата приложения, адаптированные под 3×3. Они не являются буквальным регламентом официального WTC 5×5." : "These are the app's team rules adapted for 3×3, not a literal reproduction of official WTC 5×5 rules.",
-        sections: [
-          { id: "round", title: ru ? "1. Организатор создаёт раунд" : "1. The organizer creates a round",
-            paragraphs: ru ? ["В каждом составе три игрока и капитан из их числа. Для турнира требуется чётное число составов от 4 до 128; командного bye нет. Первый раунд соединяет верхнюю половину сидов с нижней. В следующих раундах пары строятся по текущей командной таблице с избеганием повторных встреч, если найден допустимый вариант; организатор может поправить пары в превью.", "При генерации каждого раунда организатор выбирает три разные Killzones и расстановку 1–6 для каждой. Эти три стола одинаковы для всех встреч только данного раунда. Форма предлагает предыдущий набор; его можно оставить или изменить. Ранее созданные раунды и игры не меняются.", "Crit Ops организатор не выбирает. Каждая командная встреча получает отдельный пул из девяти миссий: Secure, Loot, Transmission, Orb, Stake Claim, Energy Cells, Download, Data, Reboot."] : ["Each roster has three players, one of them captain. A tournament needs an even number of 4–128 rosters; team byes are not supported. Round one pairs the top seeded half against the bottom half. Later rounds use team standings and avoid rematches when a valid solution is found; the organizer can edit the proposed matchups.", "For every round, the organizer chooses three different Killzones and deployment 1–6 for each. All team matches in that round share these tables. The form offers the previous set, which can be kept or changed. Earlier rounds and games remain unchanged.", "The organizer does not choose Crit Ops. Every team match gets its own pool of nine: Secure, Loot, Transmission, Orb, Stake Claim, Energy Cells, Download, Data, Reboot."] },
-          { id: "roll-bans", title: ru ? "2. Ролл-офф и два бана" : "2. Roll-off and two bans",
-            ordered: ru ? ["Каждый капитан нажимает «Бросить D6». Оба значения видны всем.", "При равенстве броски повторяются, история сохраняется. Победитель автоматически становится Attacker, проигравший — Defender; выбора роли нет.", "Defender банит одну Crit Op, затем Attacker банит одну другую. Всего два бана: из девяти остаются семь миссий."] : ["Each captain clicks Roll D6. Both values are public.", "Ties are rerolled and the history is kept. The winner automatically becomes Attacker; the loser becomes Defender. There is no role choice.", "Defender bans one Crit Op, then Attacker bans a different one. Two bans total: seven missions remain."] },
-          { id: "shield-sword", title: ru ? "3. Скрытые Shield и Sword" : "3. Hidden Shield and Sword",
-            ordered: ru ? ["Оба капитана одновременно выбирают своего Shield. До подтверждения обоими противник не видит выбор.", "После раскрытия Shield каждый капитан выбирает Sword-цель: одного из двух игроков соперника, которые не являются его Shield. Оба выбора снова раскрываются только после подтверждения обеими сторонами.", "Получаются Shield A против выбранной капитаном A цели из B, Shield B против выбранной капитаном B цели из A и пара из двух оставшихся игроков."] : ["Both captains independently select their own Shield. The opponent cannot see it until both confirm.", "After Shields are revealed, each captain chooses a Sword target: one of the opponent's two non-Shield players. Both targets are revealed only after both captains confirm.", "The pairings are Shield A against captain A's selected target from B, Shield B against captain B's selected target from A, and the two remaining players."] },
-          { id: "environment", title: ru ? "4. Стол, затем миссия" : "4. Table, then mission",
-            paragraphs: [ru ? "Порядок одинаков для TTS и IRL. Attacker и Defender ниже — роли, полученные в исходном ролл-оффе." : "The order is the same for TTS and IRL. Attacker and Defender below are the roles from the initial roll-off."],
-            table: { headers: ru ? ["Шаг", "Кто выбирает", "Назначение"] : ["Step", "Who chooses", "Assignment"], rows: ru ? [
-              ["1", "Attacker", "Стол для игры Shield исходного Defender"], ["2", "Defender", "Миссия для этой игры"],
-              ["3", "Defender", "Один из двух оставшихся столов для игры Shield исходного Attacker"], ["4", "Attacker", "Другая доступная миссия для этой игры"],
-              ["5", "Defender", "Третья отличающаяся миссия для оставшейся пары"]
-            ] : [
-              ["1", "Attacker", "Table for the original Defender's Shield game"], ["2", "Defender", "Mission for that game"],
-              ["3", "Defender", "One of the two remaining tables for the original Attacker's Shield game"], ["4", "Attacker", "A different available mission for that game"],
-              ["5", "Defender", "A third distinct mission for the remaining players"]
-            ] },
-            note: ru ? "Сразу после шага 3 оставшаяся пара автоматически получает третий стол. Всего используются три разных стола и три разные незабаненные миссии; ещё четыре миссии не используются. Расстановка берётся со стола, отдельно капитан её не выбирает." : "After step 3, the remaining players automatically receive the third table. Three different tables and three distinct unbanned missions are used; four missions remain unused. Deployment comes from the table, not a separate captain choice." },
-          { id: "completion", title: ru ? "5. Игры, результаты и следующий раунд" : "5. Games, results and the next round",
-            paragraphs: ru ? ["После всех назначений создаются три индивидуальные игры. Их Killzone, расстановка и Crit Op зафиксированы. В TTS результат подтверждает второй игрок; в IRL он сохраняется сразу. Администратор может сохранить или исправить результат.", "Законченные игры сразу дают промежуточные GP и статистику. Командные турнирные очки начисляются после всех трёх игр. Когда завершены все встречи, раунд закрывается; следующий раунд организатор генерирует вручную. После последнего запланированного раунда он публикует итоги через «Закрыть турнир»."] : ["Three individual games are created after all assignments. Their Killzone, deployment and Crit Op are fixed. TTS results need the other player's confirmation; IRL results are saved immediately. An administrator can save or correct a result.", "Completed games immediately contribute live GP and statistics. Team tournament points are awarded only after all three games finish. Once every team match finishes, the round completes; the organizer generates the next round manually. After the last configured round, the organizer publishes results using Close tournament."] },
-          { id: "visibility", title: ru ? "Кто что видит и может менять" : "Visibility and permissions",
-            paragraphs: ru ? ["Капитаны и зрители видят броски, роли, баны, сделанные назначения и результаты. Промежуточный счёт и статусы игр доступны без входа по ссылке на паринг. Страницы парингов обновляются примерно раз в пять секунд. Скрыты только Shield/Sword до общего подтверждения.", "Администратор может действовать за любую сторону, соблюдая очерёдность, менять пары и сбрасывать этапы. Действия записываются от его имени. Сброс уже сыгранного паринга требует подтверждения удаления личных игр и результатов с пересчётом рейтинга."] : ["Captains and spectators see rolls, roles, bans, assignments and results. Live scores and game statuses are accessible without signing in through the pairing link. Pairing screens refresh about every five seconds. Only Shield/Sword choices stay hidden until both confirm.", "An administrator can act for either side while following turn order, edit pairings and reset phases. Actions are logged under the administrator's account. Resetting a played pairing requires confirmation to remove its individual games/results and recalculate ratings."] }
-        ] },
-      { id: PAGE_IDS[1], category: ru ? "Тайбрейки" : "Tiebreakers", title: ru ? "Индивидуальная швейцарка" : "Individual Swiss",
-        summary: ru ? "Пять критериев таблицы, их приоритет, ничьи и личные тайбрейки." : "Five standings criteria, priority, draws and game tiebreakers.",
-        intro: ru ? "Не путайте победителя одной игры с местом игрока в общем зачёте: это два независимых расчёта." : "A game's winner and a player's place in the standings are two separate calculations.",
-        sections: [...individualSections(ru), gameTies(ru, false)] },
-      { id: PAGE_IDS[2], category: ru ? "Тайбрейки" : "Tiebreakers", title: "Single Elimination",
-        summary: ru ? "Победитель при равных VP, продвижение по сетке и сводная таблица." : "Equal-VP winners, bracket progression and the standings table.",
-        intro: ru ? "Сетка на 8, 16, 32 или 64 участника: победитель проходит дальше, проигравший выбывает. Турнирный тайбрейк не может заменить победителя конкретного матча." : "An 8, 16, 32 or 64-player bracket: winners advance and losers are eliminated. A standings tiebreaker cannot replace the winner of a specific match.",
-        sections: [gameTies(ru, true), { id: "bracket", title: ru ? "Сетка и итоговый список — не одно и то же" : "Bracket progression versus the final list",
-          paragraphs: [ru ? "Продвижением управляет победитель матча. При этом текущая сводная таблица приложения считается тем же механизмом 3/1/0 и выбранных тайбрейков, что и индивидуальная швейцарка; она не сортируется исключительно по этапу выбывания. Итоговый список фиксируется при публикации организатором." : "The match winner controls bracket progression. The app's current standings table uses the same 3/1/0 points and configured tiebreakers as individual Swiss; it is not sorted solely by elimination stage. The organizer fixes the final list on publication."] }, ...individualSections(ru)] },
-      { id: PAGE_IDS[3], category: ru ? "Тайбрейки" : "Tiebreakers", title: ru ? "Командный WTC · очки и тайбрейки" : "Team WTC · points and tiebreakers",
-        summary: ru ? "GP каждой игры, ничья 28–32 и фиксированный порядок команд." : "Game GP, the 28–32 draw band and fixed team ranking order.",
-        intro: ru ? "В командном 3×3 личных тайбрейков нет. Равные итоговые VP означают ничью. GP определяют исход встречи, но не служат тайбрейком в командной таблице." : "Team 3×3 has no individual game tiebreakers. Equal final VP is a draw. GP determines the team match outcome but is not a standings tiebreaker.",
-        sections: [
-          { id: "gp", title: ru ? "От VP к GP" : "From VP to GP", formula: "GP_A = min(20, max(0, 10 + VP_A − VP_B))\nGP_B = 20 − GP_A",
-            paragraphs: [ru ? "Пример: 18:14 VP → 14:6 GP; равные VP → 10:10; преимущество 10 VP или больше → 20:0. В каждой игре суммарно 20 GP, в трёх играх встречи — 60 GP. Итоговые VP включают Primary bonus." : "Examples: 18:14 VP → 14:6 GP; equal VP → 10:10; a lead of 10 VP or more → 20:0. Each game totals 20 GP; a three-game team match totals 60. Final VP includes Primary bonus."] },
-          { id: "tp", title: ru ? "Турнирные очки команды (TP)" : "Team tournament points (TP)",
-            table: { headers: ru ? ["GP команды после 3 игр", "Исход", "TP"] : ["Team GP after 3 games", "Outcome", "TP"], rows: ru ? [["0–27", "Поражение", "0"], ["28–32 включительно", "Ничья", "1"], ["33–60", "Победа", "2"]] : [["0–27", "Loss", "0"], ["28–32 inclusive", "Draw", "1"], ["33–60", "Win", "2"]] },
-            note: ru ? "Две личные победы не гарантируют победу команды: например, GP 11 + 11 + 0 = 22 означают командное поражение." : "Two individual wins do not guarantee a team win: 11 + 11 + 0 = 22 GP is a team loss." },
-          { id: "ranking", title: ru ? "Фиксированный порядок команд" : "Fixed team ranking order",
-            ordered: ru ? ["Сумма TP за завершённые командные встречи — основной показатель.", "Total Game Wins: сумма личных побед всех игроков команды, а не количество побед командных встреч.", "Total VP Scored: сумма итоговых VP всех игроков команды во всех завершённых играх, включая Primary bonus.", "Total Tac Op: сумма исходных очков Tac Op всех игроков во всех завершённых играх, без отдельного Primary bonus."] : ["Total TP from completed team matches is the primary criterion.", "Total Game Wins: individual wins by all team members, not the number of team match wins.", "Total VP Scored: final VP scored by all team members in completed games, including Primary bonus.", "Total Tac Op: raw Tac Op points from all team members in completed games, excluding the separate Primary bonus."],
-            paragraphs: [ru ? "Каждый следующий критерий используется только при равенстве предыдущих; больше — лучше. При полном равенстве порядок задают исходный сид, затем ID. SoS, Buchholz, Head-to-head, VP Diff, суммарные GP и MMR не входят в тайбрейки этого формата; личный набор критериев здесь не настраивается." : "Each next criterion applies only when previous ones are equal; higher is better. Full ties use initial seed, then ID. SoS, Buchholz, Head-to-head, VP Diff, total GP and MMR are not tiebreakers for this format; individual tournament criteria are not configurable here."] },
-          { id: "tac", title: ru ? "Пример подсчёта Tac Op" : "Tac Op example",
-            paragraphs: [ru ? "Игрок набрал Crit 5, Kill 4, Tac 3 и выбрал Tac как Primary. Бонус Primary = ceil(3/2) = 2. В Total VP Scored добавляется 14, а в Total Tac Op — только 3, не 5." : "A player scores Crit 5, Kill 4, Tac 3 with Tac as Primary. Primary bonus = ceil(3/2) = 2. Add 14 to Total VP Scored, but only 3 to Total Tac Op, not 5."] },
-          { id: "live", title: ru ? "Промежуточные значения" : "Live values",
-            paragraphs: [ru ? "Личные победы, VP, Tac Op и GP учитываются сразу после завершения отдельной игры, даже если командная встреча ещё идёт. TP начисляются только после трёх завершённых игр. Открытые игры и результаты TTS, ожидающие подтверждения, не входят в расчёт. В паринге видны завершённые игры, их VP/GP и оставшиеся игры." : "Individual wins, VP, Tac Op and GP count as soon as a game completes, even while the team match is ongoing. TP is awarded only after all three games complete. Open games and TTS results awaiting confirmation do not count. The pairing shows completed games with VP/GP and the games still to play."] }
-        ] },
-      { id: PAGE_IDS[4], category: ru ? "Рейтинг" : "Rating", title: ru ? "Формула MMR" : "MMR formula",
-        summary: ru ? "Elo с K = 32, примеры, TTS / IRL / общий рейтинг и исключения." : "Elo with K = 32, examples, TTS / IRL / combined ratings and exceptions.",
-        intro: ru ? "MMR — рейтинг Elo, отдельный от турнирных очков, GP и тайбрейков. Обычный новый аккаунт начинает с 1000; администратор может корректировать стартовые значения." : "MMR is an Elo rating, separate from tournament points, GP and tiebreakers. A standard new account starts at 1000; administrators can adjust rating values.",
-        sections: [
-          { id: "formula", title: ru ? "Формула для двух зарегистрированных игроков" : "Formula for two registered players", formula: eloFormula,
-            paragraphs: ru ? ["R_A и R_B — рейтинги до игры в выбранном рейтинговом зачёте. E_A — ожидаемый результат A. S_A = 1 при победе, 0,5 при ничьей, 0 при поражении. Коэффициент K постоянный и равен 32.", "Сначала изменение A округляется до целого функцией Math.round. Изменение B берётся строго противоположным, а не округляется независимо. Поэтому сумма рейтингов двух игроков сохраняется. Размер разницы VP, GP, фракция, число раундов турнира и Primary bonus сами по себе не увеличивают изменение MMR."] : ["R_A and R_B are pre-game ratings in the selected rating track. E_A is A's expected result. S_A = 1 for a win, 0.5 for a draw and 0 for a loss. K is fixed at 32.", "A's change is rounded to an integer with Math.round. B receives exactly the opposite change, not a separately rounded value. The two ratings therefore retain their total. VP or GP margin, faction, tournament round count and Primary bonus do not directly increase the MMR change."] },
-          { id: "examples", title: ru ? "Примеры расчёта" : "Worked examples", table: {
-            headers: ["R_A", "R_B", "S_A", "Δ_A", "R′_A", "R′_B"],
-            rows: eloExamples.map(({ a, b, score, delta }) => [a, b, score, delta > 0 ? `+${delta}` : delta, a + delta, b - delta].map(String))
-          }, note: ru ? "Победа над более сильным соперником приносит больше очков. Ничья с более сильным соперником может поднять рейтинг, а с более слабым — снизить." : "Beating a stronger opponent earns more points. Drawing with a stronger opponent can raise your rating; drawing with a weaker one can lower it." },
-          { id: "tracks", title: ru ? "TTS, IRL и общий MMR" : "TTS, IRL and combined MMR",
-            paragraphs: ru ? ["Личный рейтинг ведётся в трёх независимых зачётах. Игра TTS меняет TTS и общий рейтинг, но не IRL. Игра IRL меняет IRL и общий, но не TTS.", "Общий MMR — не среднее и не сумма TTS/IRL. Это отдельная последовательность Elo по играм обоих форматов. Для неё используются собственные рейтинги до игры, поэтому её изменение может отличаться от изменения рейтинга TTS или IRL."] : ["Individual ratings have three independent tracks. A TTS game changes TTS and combined rating, not IRL. An IRL game changes IRL and combined, not TTS.", "Combined MMR is neither the average nor the sum of TTS/IRL. It is a separate Elo history covering both venues. It uses its own pre-game ratings, so its change can differ from the TTS or IRL change."] },
-          { id: "eligibility", title: ru ? "Когда начисляется личный MMR" : "When individual MMR changes",
-            paragraphs: ru ? ["Учитывается только завершённый результат. Для TTS требуется подтверждение соперника либо сохранение администратором; неподтверждённый результат рейтинг не меняет. Обычные игры matchmaking рейтинговые. В турнире личный MMR меняется при политике Ranked; Unranked отключает его, но не очки и таблицу турнира.", "При равных VP победа по включённому личному тайбрейку считается победой для Elo. В командном WTC личных тайбрейков нет: равные VP дают S = 0,5."] : ["Only completed results count. TTS needs opponent confirmation or an administrator's save; a pending result does not change rating. Regular matchmaking games are ranked. Tournament individual MMR changes under Ranked; Unranked disables it without disabling tournament points or standings.", "At equal VP, a win decided by enabled game tiebreakers counts as an Elo win. Team WTC has no individual tiebreakers: equal VP gives S = 0.5."] },
-          { id: "guests", title: ru ? "Исключение: соперник без аккаунта" : "Exception: an opponent without an account",
-            paragraphs: [ru ? "В рейтинговом индивидуальном турнире, если только у одного из двух участников есть аккаунт, зарегистрированный игрок получает фиксированные +15 MMR за завершённую игру — независимо от победы, ничьей или поражения. Это текущая специальная логика приложения, не формула Elo. +15 применяются к рейтингу площадки и общему рейтингу. Если аккаунтов нет у обоих, личный MMR не начисляется. Bye не создаёт сыгранную игру и MMR не даёт." : "In a ranked individual tournament, if only one of the two participants has an account, that registered player receives a fixed +15 MMR for the completed game, regardless of win, draw or loss. This is the app's current special rule, not Elo. +15 applies to the venue track and combined rating. If neither has an account, no individual MMR is awarded. A bye is not a played game and gives no MMR."] },
-          { id: "team-mmr", title: ru ? "Командный MMR" : "Team MMR",
-            paragraphs: ru ? ["Командный рейтинг принадлежит команде, а не равен среднему её игроков. Начальная база — 1000; отдельные зачёты TTS и IRL. Та же формула Elo с K = 32 применяется один раз за завершённую встречу 3×3: S = 1 при 2 TP, 0,5 при 1 TP и 0 при 0 TP. Результаты разных составов одной команды складываются в её рейтинг; встреча двух составов одной и той же команды его не меняет.", "Важно: в текущей реализации Unranked отключает личный MMR, но командный рейтинг пересчитывается по всем завершённым командным встречам, включая Unranked. Это отдельная особенность командного расчёта."] : ["Team rating belongs to the team; it is not the average of its players. Its initial base is 1000, with separate TTS and IRL tracks. The same K = 32 Elo formula is applied once per completed 3×3 match: S = 1 for 2 TP, 0.5 for 1 TP and 0 for 0 TP. Different rosters of one team contribute to that team's rating; a match between two rosters of the same team does not change it.", "Important: currently, Unranked disables individual MMR, but team rating is replayed from all completed team matches, including Unranked. This is a separate behavior of the team rating calculation."] },
-          { id: "corrections", title: ru ? "Исправление результатов" : "Result corrections",
-            paragraphs: [ru ? "При исправлении или удалении результата система пересчитывает рейтинговую историю. Изменения последующих игр тоже могут поменяться: их ожидаемый результат зависит от нового рейтинга до игры. Личный и командный MMR пересчитываются отдельно; они не прибавляются к TP и не участвуют в турнирных тайбрейках." : "Correcting or deleting a result replays rating history. Later game changes can change too, because their expected scores depend on new pre-game ratings. Individual and team MMR are recalculated separately; neither is added to TP or used as a standings tiebreaker."] }
-        ] }
-    ];
-  }
-
-  const content = {
-    ru: { title: "Документация", intro: "Правила, по которым работает система: паринги, турнирные места и рейтинг.", updated: "Актуально для версии от 6 сентября 2026", all: "Все разделы", contents: "На этой странице", read: "Открыть раздел", notFound: "Страница не найдена", signIn: "Войти", pages: pages(true) },
-    en: { title: "Documentation", intro: "How the system works: pairings, tournament standings and ratings.", updated: "Current as of 6 September 2026", all: "All sections", contents: "On this page", read: "Read section", notFound: "Page not found", signIn: "Sign in", pages: pages(false) }
+  const pageIds = ["wtc-pairings", "swiss-tiebreakers", "elimination-tiebreakers", "team-tiebreakers", "mmr"];
+  const labels = {
+    ru: {
+      title: "Документация", intro: "Правила, по которым работает система: паринги, турнирные места и рейтинг.",
+      all: "Все разделы", contents: "На этой странице", read: "Открыть раздел", notFound: "Страница не найдена", signIn: "Войти", updated: "Обновлено",
+      edit: "Редактировать", editor: "Редактор документации", language: "Язык документа", titleField: "Название страницы", summary: "Краткое описание",
+      source: "Текст в Markdown", preview: "Предпросмотр", save: "Сохранить", saving: "Сохранение…", saved: "Изменения сохранены и видны всем.", close: "Закрыть редактор",
+      hint: "Сохранение обновит эту страницу для всех читателей. Русская и английская версии редактируются отдельно.",
+      draft: "Есть несохранённые изменения. Черновик сохранён в этой вкладке.", draftMemory: "Есть несохранённые изменения. Оставьте вкладку открытой: браузер не разрешил сохранить черновик.",
+      discard: "Отменить изменения", discardConfirm: "Удалить черновик и загрузить сохранённую версию страницы?", loading: "Загрузка…",
+      previewPending: "Обновление предпросмотра…", previewFailed: "Предпросмотр не обновлён. Попробуйте изменить текст ещё раз.",
+      download: "Скачать .md", upload: "Открыть .md", fileTooLarge: "Выберите файл .md или .txt размером не более 100 000 символов.",
+      bold: "Жирный", heading: "Заголовок", list: "Список", link: "Ссылка", table: "Таблица", code: "Формула / код",
+      boldText: "выделенный текст", headingText: "Новый раздел", listText: "Пункт списка", linkText: "Название ссылки",
+      tableText: "| Разница VP | GP игрока | GP соперника |\n| --- | --- | --- |\n| 0 | 10 | 10 |\n",
+      help: "Шпаргалка Markdown", helpText: "## Заголовок раздела\n\n**Жирный текст** и *курсив*.\n\n- Пункт списка\n\n[Ссылка](https://example.com)\n\n> Примечание",
+      error: "Не удалось выполнить действие. Попробуйте ещё раз.",
+      "documentation.notFound": "Страница не найдена.", "documentation.invalidContent": "Заполните название, описание и текст. Максимум: 160, 400 и 100 000 символов соответственно.",
+      "documentation.conflict": "Страница уже изменена в другой вкладке или другим администратором. Ваш черновик сохранён. Скачайте его перед отменой изменений и загрузкой актуальной версии."
+    },
+    en: {
+      title: "Documentation", intro: "How the system works: pairings, tournament standings and ratings.",
+      all: "All sections", contents: "On this page", read: "Read section", notFound: "Page not found", signIn: "Sign in", updated: "Updated",
+      edit: "Edit", editor: "Documentation editor", language: "Document language", titleField: "Page title", summary: "Short description",
+      source: "Markdown text", preview: "Preview", save: "Save", saving: "Saving…", saved: "Changes saved and visible to everyone.", close: "Close editor",
+      hint: "Saving updates this page for all readers. Russian and English versions are edited separately.",
+      draft: "Unsaved changes. Your draft is saved in this tab.", draftMemory: "Unsaved changes. Keep this tab open: the browser could not store your draft.",
+      discard: "Discard changes", discardConfirm: "Discard this draft and load the saved page?", loading: "Loading…",
+      previewPending: "Updating preview…", previewFailed: "The preview could not be updated. Try editing the text again.",
+      download: "Download .md", upload: "Open .md", fileTooLarge: "Choose a .md or .txt file with no more than 100,000 characters.",
+      bold: "Bold", heading: "Heading", list: "List", link: "Link", table: "Table", code: "Formula / code",
+      boldText: "bold text", headingText: "New section", listText: "List item", linkText: "Link title",
+      tableText: "| VP lead | Player GP | Opponent GP |\n| --- | --- | --- |\n| 0 | 10 | 10 |\n",
+      help: "Markdown reference", helpText: "## Section heading\n\n**Bold text** and *italics*.\n\n- List item\n\n[Link](https://example.com)\n\n> Note",
+      error: "Could not complete this action. Please try again.",
+      "documentation.notFound": "Page not found.", "documentation.invalidContent": "Fill in the title, description and text. Limits: 160, 400 and 100,000 characters respectively.",
+      "documentation.conflict": "This page was changed in another tab or by another administrator. Your draft is preserved. Download it before discarding changes and loading the latest version."
+    }
   };
   const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
   const href = (id = "") => `/#/documentation${id ? `/${encodeURIComponent(id)}` : ""}`;
+  const copy = (page) => ({ title: page.title, summary: page.summary, markdown: page.markdown, version: page.version });
+  const same = (a, b) => ["title", "summary", "markdown"].every((key) => a[key] === b[key]);
+  const drafts = new Map();
+  const editing = new Map();
 
-  function sectionMarkup(section) {
-    const list = (items, ordered) => items?.length ? `<${ordered ? "ol" : "ul"}>${items.map((item) => `<li>${escape(item)}</li>`).join("")}</${ordered ? "ol" : "ul"}>` : "";
-    return `<section class="documentation-section" id="doc-${escape(section.id)}">
-      <h3>${escape(section.title)}</h3>
-      ${(section.paragraphs || []).map((text) => `<p>${escape(text)}</p>`).join("")}
-      ${section.formula ? `<pre class="documentation-formula"><code>${escape(section.formula)}</code></pre>` : ""}
-      ${list(section.ordered, true)}${list(section.list, false)}
-      ${section.table ? `<div class="documentation-table-scroll" tabindex="0"><table><thead><tr>${section.table.headers.map((label) => `<th scope="col">${escape(label)}</th>`).join("")}</tr></thead><tbody>${section.table.rows.map((row) => `<tr>${row.map((cell) => `<td>${escape(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : ""}
-      ${section.note ? `<p class="documentation-note">${escape(section.note)}</p>` : ""}
-    </section>`;
+  async function load(locale, pageId, api) {
+    const book = await api(`/api/documentation/${locale}`);
+    const detail = pageId && book.pages.some((page) => page.id === pageId)
+      ? await api(`/api/documentation/${locale}/${encodeURIComponent(pageId)}`) : { page: null };
+    return { ...book, ...detail };
   }
 
-  function render(locale, pageId = "", guest = false) {
-    const text = content[locale] || content.en;
-    const page = text.pages.find((item) => item.id === pageId);
-    const header = `<header class="card panel documentation-header"><div><p class="profile-label">TGTV · ${escape(text.updated)}</p><h2>${escape(text.title)}</h2><p class="muted">${escape(text.intro)}</p></div>${guest ? `<a class="small-button" href="/">${escape(text.signIn)}</a>` : ""}</header>`;
-    if (!pageId) return `<div class="documentation" data-documentation-page="index">${header}<nav class="documentation-cards" aria-label="${escape(text.all)}">${text.pages.map((item) => `<a class="card panel documentation-card" href="${href(item.id)}"><span class="profile-label">${escape(item.category)}</span><h3>${escape(item.title)}</h3><p>${escape(item.summary)}</p><span class="documentation-read">${escape(text.read)} →</span></a>`).join("")}</nav></div>`;
-    if (!page) return `<div class="documentation">${header}<section class="card panel"><h3>${escape(text.notFound)}</h3><a href="${href()}">${escape(text.all)}</a></section></div>`;
+  function render(locale, pageId = "", guest = false, data = { pages: [] }, admin = false) {
+    const text = labels[locale] || labels.en;
+    const page = data.page;
+    const header = `<header class="card panel documentation-header"><div><p class="profile-label">TGTV</p><h2>${text.title}</h2><p class="muted">${text.intro}</p></div>${guest ? `<a class="small-button" href="/">${text.signIn}</a>` : ""}</header>`;
+    if (!pageId) return `<div class="documentation" data-documentation-page="index">${header}<nav class="documentation-cards" aria-label="${text.all}">${data.pages.map((item) => `<a class="card panel documentation-card" href="${href(item.id)}"><span class="profile-label">${escape(item.category)}</span><h3>${escape(item.title)}</h3><p>${escape(item.summary)}</p><span class="documentation-read">${text.read} →</span></a>`).join("")}</nav></div>`;
+    if (!page) return `<div class="documentation">${header}<section class="card panel"><h3>${text.notFound}</h3><a href="${href()}">${text.all}</a></section></div>`;
     return `<div class="documentation" data-documentation-page="${escape(page.id)}">${header}<div class="documentation-layout">
-      <nav class="card panel documentation-nav" aria-label="${escape(text.all)}"><a href="${href()}">← ${escape(text.all)}</a>${text.pages.map((item) => `<a href="${href(item.id)}" ${item.id === page.id ? 'aria-current="page"' : ""}>${escape(item.title)}</a>`).join("")}</nav>
-      <article class="card panel documentation-article"><p class="profile-label">${escape(page.category)}</p><h2 tabindex="-1" data-documentation-title>${escape(page.title)}</h2><p class="documentation-intro">${escape(page.intro)}</p>
-        <details class="documentation-contents"><summary>${escape(text.contents)}</summary><ul>${page.sections.map((section) => `<li><button type="button" class="text-link-button" data-documentation-section="doc-${escape(section.id)}">${escape(section.title)}</button></li>`).join("")}</ul></details>
-        ${page.sections.map(sectionMarkup).join("")}
+      <nav class="card panel documentation-nav" aria-label="${text.all}"><a href="${href()}">← ${text.all}</a>${data.pages.map((item) => `<a href="${href(item.id)}" ${item.id === page.id ? 'aria-current="page"' : ""}>${escape(item.title)}</a>`).join("")}</nav>
+      <article class="card panel documentation-article" data-doc-article><div class="documentation-article-heading"><div><p class="profile-label">${escape(page.category)}</p><h2 tabindex="-1" data-documentation-title>${escape(page.title)}</h2><p class="muted">${text.updated}: <time datetime="${escape(page.updatedAt)}">${escape(new Date(page.updatedAt).toLocaleDateString(locale))}</time></p></div>${admin ? `<button class="small-button" type="button" data-doc-edit>${text.edit}</button>` : ""}</div>
+        ${page.headings.length ? `<details class="documentation-contents"><summary>${text.contents}</summary><ul>${page.headings.map((heading) => `<li><button type="button" class="text-link-button" data-documentation-section="${escape(heading.id)}">${escape(heading.title)}</button></li>`).join("")}</ul></details>` : ""}
+        <div class="documentation-markdown">${page.html}</div>
       </article></div></div>`;
   }
 
-  const documentation = { content, render, pageIds: PAGE_IDS, eloExamples, standingsOrder, teamOrder };
+  function draftKey(userId, id, locale) { return `tgtv-documentation-draft:${userId}:${id}:${locale}`; }
+  function getDraft(key, page) {
+    let draft = drafts.get(key);
+    if (!draft) {
+      try {
+        const saved = JSON.parse(root.sessionStorage.getItem(key));
+        if (saved && saved.value && saved.base && Number.isInteger(saved.base.version) &&
+            [saved.value, saved.base].every((item) => ["title", "summary", "markdown"].every((field) => typeof item[field] === "string"))) draft = saved;
+      } catch { /* A blocked storage area does not prevent editing. */ }
+    }
+    if (!draft || same(draft.value, draft.base) || same(draft.value, page)) draft = { base: copy(page), value: copy(page) };
+    drafts.set(key, draft);
+    return draft;
+  }
+  function storeDraft(key, draft) {
+    drafts.set(key, draft);
+    try {
+      if (same(draft.value, draft.base)) root.sessionStorage.removeItem(key);
+      else root.sessionStorage.setItem(key, JSON.stringify(draft));
+      return true;
+    } catch { return false; }
+  }
+  function removeDraft(key) {
+    drafts.delete(key);
+    try { root.sessionStorage.removeItem(key); } catch { /* Storage may be blocked. */ }
+  }
+
+  function mount(target, { api, locale, page, userId, rerender }) {
+    target.querySelectorAll("[data-documentation-section]").forEach((button) => {
+      button.addEventListener("click", () => root.document.getElementById(button.dataset.documentationSection)?.scrollIntoView({ block: "start" }));
+    });
+    if (!userId || !page) return;
+    const text = labels[locale] || labels.en;
+    const modeKey = `${userId}:${page.id}`;
+    const article = target.querySelector("[data-doc-article]");
+    let editorRequest = 0;
+    const errorText = (error) => text[error.message] || text.error;
+
+    async function openEditor(language, suppliedPage, notice = "") {
+      const request = ++editorRequest;
+      editing.set(modeKey, language);
+      article.classList.add("documentation-editing");
+      article.innerHTML = `<p role="status">${text.loading}</p>`;
+      try {
+        const savedPage = suppliedPage || (await api(`/api/documentation/${language}/${page.id}`)).page;
+        if (!article.isConnected || request !== editorRequest) return;
+        const key = draftKey(userId, page.id, language);
+        const draft = getDraft(key, savedPage);
+        article.innerHTML = `<form class="documentation-editor" data-doc-form>
+          <div class="documentation-editor-header"><h2>${text.editor}</h2><button type="button" class="small-button secondary" data-doc-close>${text.close}</button></div>
+          <p class="muted">${text.hint}</p>
+          <div class="documentation-editor-meta"><label>${text.language}<select data-doc-language><option value="ru" ${language === "ru" ? "selected" : ""}>Русский</option><option value="en" ${language === "en" ? "selected" : ""}>English</option></select></label><label>${text.titleField}<input name="title" maxlength="160" required value="${escape(draft.value.title)}"></label></div>
+          <label>${text.summary}<input name="summary" maxlength="400" required value="${escape(draft.value.summary)}"></label>
+          <div class="documentation-editor-tools">${["heading", "bold", "list", "link", "table", "code"].map((tool) => `<button type="button" class="small-button secondary" data-doc-insert="${tool}">${text[tool]}</button>`).join("")}<button type="button" class="small-button secondary" data-doc-upload>${text.upload}</button><button type="button" class="small-button secondary" data-doc-download>${text.download}</button><input type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" data-doc-file hidden></div>
+          <div class="documentation-editor-panes"><label class="documentation-editor-source">${text.source}<textarea name="markdown" maxlength="100000" required spellcheck="false"></textarea></label><section class="documentation-editor-preview"><h3>${text.preview}</h3><p class="muted" role="status" data-doc-preview-status></p><div class="documentation-markdown" data-doc-preview></div></section></div>
+          <details class="documentation-editor-help"><summary>${text.help}</summary><pre><code>${escape(text.helpText)}</code></pre></details>
+          <div class="documentation-editor-actions"><button type="submit" class="small-button" data-doc-save>${text.save}</button><button type="button" class="small-button secondary" data-doc-discard>${text.discard}</button><p role="status" aria-live="polite" data-doc-status></p></div>
+        </form>`;
+        const form = article.querySelector("[data-doc-form]");
+        const source = form.elements.markdown;
+        source.value = draft.value.markdown;
+        const status = form.querySelector("[data-doc-status]");
+        const preview = form.querySelector("[data-doc-preview]");
+        const previewStatus = form.querySelector("[data-doc-preview-status]");
+        let timer;
+        let previewRevision = 0;
+        let saving = false;
+        const current = () => article.isConnected && form.isConnected && request === editorRequest;
+        const setStatus = (message, error = false) => { status.textContent = message; status.classList.toggle("documentation-error", error); };
+        const capture = () => {
+          draft.value = { title: form.elements.title.value, summary: form.elements.summary.value, markdown: source.value, version: draft.base.version };
+          return storeDraft(key, draft);
+        };
+        const previewNow = async (revision) => {
+          if (!current()) return;
+          try {
+            const result = await api("/api/admin/documentation/preview", { method: "POST", body: { markdown: source.value } });
+            if (!current() || revision !== previewRevision) return;
+            preview.innerHTML = result.html;
+            previewStatus.textContent = "";
+          } catch {
+            if (current() && revision === previewRevision) previewStatus.textContent = text.previewFailed;
+          }
+        };
+        const changed = () => {
+          const stored = capture();
+          setStatus(same(draft.value, draft.base) ? "" : stored ? text.draft : text.draftMemory);
+          clearTimeout(timer);
+          const revision = ++previewRevision;
+          previewStatus.textContent = text.previewPending;
+          timer = setTimeout(() => previewNow(revision), 300);
+        };
+        form.addEventListener("input", changed);
+        if (same(draft.value, savedPage)) preview.innerHTML = savedPage.html;
+        else { previewStatus.textContent = text.previewPending; previewNow(++previewRevision); }
+        setStatus(notice || (same(draft.value, draft.base) ? "" : text.draft));
+        form.querySelector("[data-doc-language]").addEventListener("change", (event) => { capture(); clearTimeout(timer); openEditor(event.target.value); });
+        form.querySelector("[data-doc-close]").addEventListener("click", () => { capture(); clearTimeout(timer); editing.delete(modeKey); editorRequest++; rerender(); });
+        form.querySelector("[data-doc-discard]").addEventListener("click", () => {
+          if (!same(draft.value, draft.base) && !root.confirm(text.discardConfirm)) return;
+          clearTimeout(timer); removeDraft(key); openEditor(language);
+        });
+        form.querySelectorAll("[data-doc-insert]").forEach((button) => button.addEventListener("click", () => {
+          const selected = source.value.slice(source.selectionStart, source.selectionEnd);
+          const snippets = {
+            heading: `\n\n## ${selected || text.headingText}\n\n`, bold: `**${selected || text.boldText}**`,
+            list: `\n\n- ${selected || text.listText}\n`, link: `[${selected || text.linkText}](https://example.com)`,
+            table: `\n\n${text.tableText}\n`, code: `\n\n\`\`\`text\n${selected || "GP = 10 + VP_A − VP_B"}\n\`\`\`\n\n`
+          };
+          source.setRangeText(snippets[button.dataset.docInsert], source.selectionStart, source.selectionEnd, "end");
+          source.focus(); changed();
+        }));
+        form.querySelector("[data-doc-upload]").addEventListener("click", () => form.querySelector("[data-doc-file]").click());
+        form.querySelector("[data-doc-file]").addEventListener("change", async (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+          try {
+            if (file.size > 400000 || !/\.(md|markdown|txt)$/i.test(file.name)) throw new Error("fileTooLarge");
+            const value = (await file.text()).replace(/^\uFEFF/, "");
+            if (!current()) return;
+            if (value.length > 100000) throw new Error("fileTooLarge");
+            source.value = value; changed();
+          } catch (error) { if (current()) setStatus(errorText(error), true); }
+          event.target.value = "";
+        });
+        form.querySelector("[data-doc-download]").addEventListener("click", () => {
+          const url = root.URL.createObjectURL(new Blob([source.value], { type: "text/markdown;charset=utf-8" }));
+          const link = root.document.createElement("a");
+          link.href = url; link.download = `${page.id}.${language}.md`; link.click();
+          setTimeout(() => root.URL.revokeObjectURL(url), 1000);
+        });
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          if (saving || !form.reportValidity()) return;
+          capture(); clearTimeout(timer); saving = true;
+          form.querySelectorAll("input, select, textarea, button").forEach((control) => { control.disabled = true; });
+          setStatus(text.saving);
+          const submitted = { ...draft.value, version: draft.base.version };
+          try {
+            const result = await api(`/api/admin/documentation/${language}/${page.id}`, { method: "PATCH", body: submitted });
+            // A navigation can reopen this editor while the save is in flight.
+            // Keep any newer draft instead of deleting it with the saved snapshot.
+            const activeDraft = drafts.get(key);
+            const newerDraft = activeDraft && !same(activeDraft.value, submitted);
+            if (newerDraft) {
+              activeDraft.base = copy(result.page);
+              activeDraft.value.version = result.page.version;
+              storeDraft(key, activeDraft);
+            } else removeDraft(key);
+            if (current()) openEditor(language, result.page, newerDraft ? "" : text.saved);
+          } catch (error) {
+            if (current()) {
+              setStatus(errorText(error), true);
+              form.querySelectorAll("input, select, textarea, button").forEach((control) => { control.disabled = false; });
+            }
+          } finally { saving = false; }
+        });
+      } catch (error) {
+        if (!article.isConnected || request !== editorRequest) return;
+        article.innerHTML = `<p role="alert">${escape(errorText(error))}</p><button type="button" class="small-button" data-doc-close>${text.close}</button>`;
+        article.querySelector("[data-doc-close]").addEventListener("click", () => { editing.delete(modeKey); rerender(); });
+      }
+    }
+    target.querySelector("[data-doc-edit]")?.addEventListener("click", () => openEditor(locale, page));
+    const activeLanguage = editing.get(modeKey);
+    if (activeLanguage) openEditor(activeLanguage, activeLanguage === locale ? page : undefined);
+  }
+  const documentation = { load, render, mount, pageIds };
   if (typeof module !== "undefined" && module.exports) module.exports = documentation;
   else root.TGTV_DOCUMENTATION = documentation;
 })(typeof window === "undefined" ? globalThis : window);

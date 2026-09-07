@@ -15,7 +15,8 @@ const MIGRATIONS = [
   require("./migrations/014_tournament_default_season"),
   require("./migrations/015_combined_rating"),
   require("./migrations/016_notification_inbox"),
-  require("./migrations/017_team_pairing_rules")
+  require("./migrations/017_team_pairing_rules"),
+  require("./migrations/018_documentation")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

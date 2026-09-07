@@ -1,0 +1,66 @@
+{
+  "ru": [
+    {
+      "id": "wtc-pairings",
+      "category": "Паринги",
+      "title": "Паринги WTC · 3×3",
+      "summary": "От генерации раунда до трёх игр: столы, D6, баны, Shield и Sword."
+    },
+    {
+      "id": "swiss-tiebreakers",
+      "category": "Тайбрейки",
+      "title": "Индивидуальная швейцарка",
+      "summary": "Пять критериев таблицы, их приоритет, ничьи и личные тайбрейки."
+    },
+    {
+      "id": "elimination-tiebreakers",
+      "category": "Тайбрейки",
+      "title": "Single Elimination",
+      "summary": "Победитель при равных VP, продвижение по сетке и сводная таблица."
+    },
+    {
+      "id": "team-tiebreakers",
+      "category": "Тайбрейки",
+      "title": "Командный WTC · очки и тайбрейки",
+      "summary": "GP каждой игры, ничья 28–32 и фиксированный порядок команд."
+    },
+    {
+      "id": "mmr",
+      "category": "Рейтинг",
+      "title": "Формула MMR",
+      "summary": "Elo с K = 32, примеры, TTS / IRL / общий рейтинг и исключения."
+    }
+  ],
+  "en": [
+    {
+      "id": "wtc-pairings",
+      "category": "Pairings",
+      "title": "WTC pairings · 3×3",
+      "summary": "From round generation to three games: tables, D6, bans, Shield and Sword."
+    },
+    {
+      "id": "swiss-tiebreakers",
+      "category": "Tiebreakers",
+      "title": "Individual Swiss",
+      "summary": "Five standings criteria, priority, draws and game tiebreakers."
+    },
+    {
+      "id": "elimination-tiebreakers",
+      "category": "Tiebreakers",
+      "title": "Single Elimination",
+      "summary": "Equal-VP winners, bracket progression and the standings table."
+    },
+    {
+      "id": "team-tiebreakers",
+      "category": "Tiebreakers",
+      "title": "Team WTC · points and tiebreakers",
+      "summary": "Game GP, the 28–32 draw band and fixed team ranking order."
+    },
+    {
+      "id": "mmr",
+      "category": "Rating",
+      "title": "MMR formula",
+      "summary": "Elo with K = 32, examples, TTS / IRL / combined ratings and exceptions."
+    }
+  ]
+}

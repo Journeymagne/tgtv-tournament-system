@@ -90,6 +90,24 @@ repo at the path it names (`ENV_FILE`, `/app/tgtv-ts.env` by default) and
 copies it into place on every deploy -- create it once from `.env.example`
 and update it there, not in the repo checkout.
 
+## Editing documentation
+
+Sign in as an administrator, open **Documentation**, choose a page and click
+**Edit**. The editor supports Markdown headings, lists, links, tables and fenced
+code/formulas, with a live preview. Russian and English are edited separately.
+**Save** publishes the selected language immediately. **Open .md** imports text
+into the draft; **Download .md** exports the current text. Drafts are kept in the
+current browser tab across reloads. A conflicting edit in another tab cannot
+silently overwrite a saved revision.
+
+Migration `018_documentation` seeds all ten existing translations from
+`docs/documentation/{ru,en}/*.md` and `docs/documentation/pages.json`. Thereafter,
+published content lives in PostgreSQL's `documentation_pages` table; deploying
+new source files or rerunning the seed does not overwrite administrator edits.
+To publish changes to a local Markdown file, import it in the editor and save.
+Include this table in regular database backups. Raw HTML is displayed as text;
+preview and public pages use the same Markdown renderer.
+
 ## Tests
 
 Tests need a separate database:
@@ -119,4 +137,7 @@ node scripts/import-json-db.js
 - Approved Ops result entry: `Crit Op`, `Kill Op`, `Tac Op`, `Primary Op`;
 - automatic total and Elo calculation with `K=32`;
 - leaderboard;
+- team leaderboard with TTS, IRL, and combined ratings (TTS + IRL - 1000);
+- Teams Administration: search all teams, edit names, descriptions and logos,
+  remove members, transfer leadership, archive and restore teams;
 - admin panel: view users, delete users, edit ratings, assign administrators.

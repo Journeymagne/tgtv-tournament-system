@@ -68,6 +68,14 @@ async function list({ client, query }) {
   return { teams: teams.map(teamView) };
 }
 
+async function administration({ client }) {
+  return { teams: (await teamsRepo.listAdministration(client)).map(teamView) };
+}
+
+async function leaderboard({ client, query }) {
+  return { teams: (await teamsRepo.listLeaderboard(client, query?.get("venue"))).map(teamView) };
+}
+
 async function profileData(client, team, user) {
   const memberships = await teamsRepo.listMemberships(client, team.id);
   const rosters = await rostersRepo.listByTeam(client, team.id);
@@ -319,12 +327,12 @@ async function removeMember({ client, user, params }) {
 
 async function transferLeadership({ client, user, params, body }) {
   const team = await requireTeam(client, params.id, true);
-  const current = await requireMembership(client, team, user, { leader: true });
+  await requireMembership(client, team, user, { leader: true });
   const targetUserId = requirePositiveIntId(body.userId, 400, "Choose a current member");
   const target = await teamsRepo.activeMembership(client, team.id, targetUserId, true);
   if (!target) throw new ValidationError("Leadership can be transferred only to a current member");
   if (target.role === "leader") return { team: teamView(team) };
-  const oldLeader = current || await teamsRepo.activeMembership(client, team.id, team.leaderUserId, true);
+  const oldLeader = await teamsRepo.activeMembership(client, team.id, team.leaderUserId, true);
   if (oldLeader) await teamsRepo.setMembershipRole(client, oldLeader.id, "member");
   await teamsRepo.setMembershipRole(client, target.id, "leader");
   const updated = await teamsRepo.update(client, team.id, { leaderUserId: target.userId });
@@ -354,6 +362,8 @@ async function restore({ client, user, params }) {
 module.exports = {
   create,
   list,
+  administration,
+  leaderboard,
   get,
   dashboard,
   update,

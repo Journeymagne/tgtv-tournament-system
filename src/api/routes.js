@@ -8,12 +8,17 @@ const tournaments = require("./tournaments");
 const playerTeams = require("./player-teams");
 const teamTournaments = require("./team-tournaments");
 const notifications = require("./notifications");
+const documentation = require("./documentation");
 
 function withAction(handler, action) {
   return (ctx) => handler({ ...ctx, params: { ...ctx.params, action } });
 }
 
 module.exports = [
+  { method: "GET", path: "/api/documentation/:locale", handler: documentation.list, auth: "none" },
+  { method: "GET", path: "/api/documentation/:locale/:id", handler: documentation.get, auth: "none" },
+  { method: "POST", path: "/api/admin/documentation/preview", handler: documentation.preview, auth: "admin", tx: true },
+  { method: "PATCH", path: "/api/admin/documentation/:locale/:id", handler: documentation.update, auth: "admin", tx: true },
   { method: "GET", path: "/api/me", handler: auth.me, auth: "none", loadUser: true },
   { method: "PATCH", path: "/api/me", handler: auth.updateMe, auth: "user", tx: true },
   { method: "POST", path: "/api/register", handler: auth.register, auth: "none", tx: true, rateLimit: "auth" },
@@ -30,6 +35,8 @@ module.exports = [
 
   { method: "GET", path: "/api/teams", handler: playerTeams.list, auth: "none" },
   { method: "GET", path: "/api/teams/dashboard", handler: playerTeams.dashboard, auth: "user" },
+  { method: "GET", path: "/api/leaderboards/teams", handler: playerTeams.leaderboard, auth: "none" },
+  { method: "GET", path: "/api/admin/teams", handler: playerTeams.administration, auth: "admin" },
   { method: "GET", path: "/api/teams/:slug", handler: playerTeams.get, auth: "none", loadUser: true },
   { method: "POST", path: "/api/teams", handler: playerTeams.create, auth: "user", tx: true },
   { method: "PATCH", path: "/api/teams/:id", handler: playerTeams.update, auth: "user", tx: true },

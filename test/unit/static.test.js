@@ -14,6 +14,14 @@ test("обычный файл разрешается внутри public", () =>
   assert.equal(resolveStaticPath("/app.js"), path.join(PUBLIC_DIR, "app.js"));
 });
 
+test("direct team profile URLs and reloads serve the application shell", () => {
+  for (const url of ["/teams/amber-guard", "/teams/amber-guard/", "/teams/%D0%B3%D1%80%D0%BE%D0%BC"]) {
+    assert.equal(resolveStaticPath(url), path.join(PUBLIC_DIR, "index.html"));
+  }
+  assert.equal(resolveStaticPath("/teams/%00"), null);
+  assert.notEqual(resolveStaticPath("/teams/amber/extra"), path.join(PUBLIC_DIR, "index.html"));
+});
+
 test("подкаталог разрешается", () => {
   assert.equal(
     resolveStaticPath("/kill-team-logos/Kasrkin.png"),

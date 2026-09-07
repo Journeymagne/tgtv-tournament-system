@@ -297,6 +297,8 @@ test("opening a team explicitly leaves the tournament polling route", () => {
   assert.ok(navigateToPlayerTeamSource, "could not find navigateToPlayerTeam in public/app.js");
   const calls = [];
   const factory = new Function(
+    "state",
+    "appHashForState",
     "window",
     "playerTeamPublicPath",
     "leavePublicTournamentRoute",
@@ -304,6 +306,8 @@ test("opening a team explicitly leaves the tournament polling route", () => {
     `${navigateToPlayerTeamSource}; return navigateToPlayerTeam;`
   );
   const navigateToPlayerTeam = factory(
+    { view: "tournaments" },
+    () => "#/tournaments",
     { history: { pushState: (_state, _title, url) => { calls.push(["push", url]); } } },
     (slug) => `/teams/${slug}`,
     () => { calls.push(["leave"]); },
@@ -385,6 +389,7 @@ test("notification routes retain challenge and team invitation targets", () => {
   });
   assert.deepEqual(routeFactory(["teams", "invitation", "73"])(), {
     view: "teams",
+    teamsTab: "mine",
     teamSlug: "",
     focusInvitationId: 73
   });

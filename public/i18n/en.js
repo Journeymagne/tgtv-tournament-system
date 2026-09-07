@@ -3,6 +3,16 @@
 // Keys are flat and dotted, grouped by screen with comment separators.
 
 const TGTV_I18N_EN = {
+  "teams.field.removeLogo": "Remove current logo",
+  "teams.admin.tab": "Administration",
+  "teams.admin.title": "Team Administration",
+  "teams.admin.hint": "All teams, including archived teams. Open a team to edit its information, manage members, or change its leader.",
+  "teams.members.count": "Members",
+  "teams.leaderboard.title": "Team leaderboard",
+  "teams.leaderboard.hint": "All teams ranked by team Elo for the selected venue.",
+  "teams.leaderboard.hintCombined": "All teams ranked by combined rating: TTS + IRL − 1000. The starting rating is counted once.",
+  "teams.pagination.teams": {"one":"team","other":"teams"},
+  "teams.dialog.remove": "Remove {name} from this team? If this is the leader, leadership passes to the earliest remaining member. An empty team is archived.",
   // -- common ---------------------------------------------------------------
   "common.langToggle": "Switch to Russian",
   "common.save": "Save",

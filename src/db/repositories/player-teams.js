@@ -109,6 +109,32 @@ async function listForUser(client, userId) {
   return rows.map(mapTeam);
 }
 
+async function listAdministration(client) {
+  const { rows } = await client.query(
+    `SELECT pt.*, leader.name AS leader_name,
+            (SELECT COUNT(*)::int FROM player_team_memberships m
+             WHERE m.team_id = pt.id AND m.ended_at IS NULL) AS member_count
+     FROM player_teams pt
+     LEFT JOIN users leader ON leader.id = pt.leader_user_id
+     ORDER BY (pt.archived_at IS NOT NULL), pt.name_key, pt.id`
+  );
+  return rows.map((row) => ({ ...mapTeam(row), leaderName: row.leader_name || null }));
+}
+
+async function listLeaderboard(client, venueMode = "combined") {
+  const mode = ["tts", "irl"].includes(venueMode) ? venueMode : "combined";
+  // Count the initial 1000 points once, then add gains/losses from both venues.
+  const rating = mode === "combined" ? "pt.rating_tts + pt.rating_irl - 1000" : `pt.rating_${mode}`;
+  const { rows } = await client.query(
+    `SELECT pt.*, ${rating} AS selected_rating,
+            (SELECT COUNT(*)::int FROM player_team_memberships m
+             WHERE m.team_id = pt.id AND m.ended_at IS NULL) AS member_count
+     FROM player_teams pt
+     ORDER BY selected_rating DESC, pt.name_key, pt.id`
+  );
+  return rows.map((row) => ({ ...mapTeam(row), rating: Number(row.selected_rating), venueMode: mode }));
+}
+
 async function listMemberships(client, teamId) {
   const { rows } = await client.query(
     `SELECT m.*, u.name AS user_name, u.avatar_data
@@ -304,6 +330,8 @@ module.exports = {
   findBySlug,
   listPublic,
   listForUser,
+  listAdministration,
+  listLeaderboard,
   listMemberships,
   activeMembership,
   membershipById,

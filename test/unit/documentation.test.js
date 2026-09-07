@@ -4,52 +4,57 @@ const fs = require("node:fs");
 const path = require("node:path");
 const docs = require("../../public/documentation");
 const { calculateElo, ELO_K } = require("../../src/domain/elo");
-const { STANDINGS_TIEBREAKERS } = require("../../src/domain/tournaments/constants");
+const { defaultPages, renderMarkdown } = require("../../src/domain/documentation");
 const { gamePointsForTotals, teamTournamentPoints } = require("../../src/domain/team-tournaments");
 const { CRIT_OPS } = require("../../src/domain/kill-teams");
+const pages = defaultPages().map((page) => ({ ...page, ...renderMarkdown(page.markdown), version: 1, updatedAt: "2026-09-07T00:00:00.000Z" }));
+const book = (locale, id) => ({ pages: pages.filter((page) => page.locale === locale), page: pages.find((page) => page.locale === locale && page.id === id) });
 
 test("documentation has the same five complete, independently linkable pages in both languages", () => {
   for (const locale of ["ru", "en"]) {
-    const book = docs.content[locale];
-    assert.deepEqual(book.pages.map((page) => page.id), docs.pageIds);
-    const index = docs.render(locale);
+    const data = book(locale);
+    assert.deepEqual(data.pages.map((page) => page.id), docs.pageIds);
+    const index = docs.render(locale, "", false, data);
     assert.equal((index.match(/class="card panel documentation-card"/g) || []).length, 5);
-    for (const page of book.pages) {
-      assert.ok(page.title && page.summary && page.intro && page.sections.length >= 5);
+    for (const page of data.pages) {
+      assert.ok(page.title && page.summary && page.markdown && page.headings.length > 0);
       assert.match(index, new RegExp(`href="/#/documentation/${page.id}"`));
-      const html = docs.render(locale, page.id);
+      const html = docs.render(locale, page.id, false, book(locale, page.id));
       assert.ok(html.includes(page.title));
       assert.ok(html.includes(`data-documentation-page="${page.id}"`));
       assert.equal((html.match(/aria-current="page"/g) || []).length, 1);
-      assert.equal(new Set(page.sections.map((section) => section.id)).size, page.sections.length);
-      assert.equal((html.match(/class="documentation-section"/g) || []).length, page.sections.length);
+      assert.equal(new Set(page.headings.map((heading) => heading.id)).size, page.headings.length);
+      for (const heading of page.headings) assert.ok(html.includes(`id="${heading.id}"`));
     }
   }
 });
 
 test("both individual tournament pages explain every supported standings tiebreaker", () => {
-  assert.deepEqual(docs.standingsOrder, STANDINGS_TIEBREAKERS);
   for (const locale of ["ru", "en"]) for (const id of ["swiss-tiebreakers", "elimination-tiebreakers"]) {
-    const sections = docs.content[locale].pages.find((page) => page.id === id).sections;
-    for (const key of STANDINGS_TIEBREAKERS) {
-      assert.ok(sections.some((section) => section.id === key && section.paragraphs.length >= 2), `${locale}/${id}/${key}`);
+    const page = book(locale, id).page;
+    for (const name of ["Strength of Schedule", "Buchholz", "Head-to-head", "Total VP", "VP Diff"]) {
+      assert.ok(page.html.toLowerCase().includes(name.toLowerCase()), `${locale}/${id}/${name}`);
     }
-    assert.equal(sections.find((section) => section.id === "game-ties").ordered.length, 4);
+    for (const criterion of ["Primary bonus", "Crit Op + Tac Op", "APL", "Roll-off"]) assert.ok(page.html.includes(criterion));
   }
 });
 
 test("all published MMR examples match the production Elo function", () => {
   assert.equal(ELO_K, 32);
-  for (const { a, b, score, delta } of docs.eloExamples) {
-    const result = calculateElo(a, b, score);
-    assert.equal(result.deltaA, delta);
-    assert.equal(result.deltaA + result.deltaB, 0);
-  }
   for (const locale of ["ru", "en"]) {
-    const page = docs.content[locale].pages.find((page) => page.id === "mmr");
-    assert.match(page.sections.find((section) => section.id === "formula").formula, /Math\.round\(32/);
-    assert.ok(page.sections.some((section) => section.id === "guests" && section.paragraphs.join(" ").includes("+15")));
-    assert.ok(page.sections.find((section) => section.id === "team-mmr").paragraphs.join(" ").includes("Unranked"));
+    const page = book(locale, "mmr").page;
+    const rows = page.markdown.split(/\r?\n/).filter((line) => /^\| 1000 \|/.test(line));
+    assert.equal(rows.length, 5);
+    for (const line of rows) {
+      const [a, b, score, delta, nextA, nextB] = line.split("|").slice(1, -1).map(Number);
+      const result = calculateElo(a, b, score);
+      assert.equal(result.deltaA, delta);
+      assert.equal(result.deltaA + result.deltaB, 0);
+      assert.equal(a + delta, nextA); assert.equal(b - delta, nextB);
+    }
+    assert.match(page.markdown, /Math\.round\(32/);
+    assert.ok(page.markdown.includes("+15"));
+    assert.ok(page.markdown.includes("Unranked"));
   }
 });
 
@@ -59,10 +64,15 @@ test("documented WTC points and the nine-mission pool match the implementation",
   for (const gp of [28, 30, 32]) assert.deepEqual(teamTournamentPoints(gp), { a: 1, b: 1 });
   assert.deepEqual(teamTournamentPoints(27), { a: 0, b: 2 });
   assert.deepEqual(teamTournamentPoints(33), { a: 2, b: 0 });
-  assert.deepEqual(docs.teamOrder, ["teamTournamentPoints", "individualWins", "totalVp", "tacOpPoints"]);
   for (const locale of ["ru", "en"]) {
-    const html = docs.render(locale, "wtc-pairings");
+    const html = docs.render(locale, "wtc-pairings", false, book(locale, "wtc-pairings"));
     for (const mission of CRIT_OPS) assert.ok(html.includes(mission), mission);
+    const source = book(locale, "team-tiebreakers").page.markdown;
+    for (let difference = 0; difference <= 10; difference++) {
+      const { a, b } = gamePointsForTotals(10 + difference, 10);
+      assert.ok(source.includes(`| ${difference === 10 ? "10+" : difference} | ${a} | ${b} |`));
+    }
+    assert.doesNotMatch(source, /Live values|Промежуточные значения|11 \+ 11 \+ 0/);
   }
 });
 
