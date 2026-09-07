@@ -1,6 +1,6 @@
 const crypto = require("node:crypto");
 
-const { SESSION_TTL_MS, INITIAL_RATING, COOKIE_SECURE } = require("../config");
+const { SESSION_TTL_MS, SESSION_RENEW_AFTER_MS, INITIAL_RATING, COOKIE_SECURE } = require("../config");
 const { HttpError, ValidationError, parseCookies, sessionCookie, clearedSessionCookie } = require("../http/io");
 const users = require("../db/repositories/users");
 const sessions = require("../db/repositories/sessions");
@@ -19,7 +19,25 @@ const {
 async function loadUserFromRequest(client, req) {
   const token = parseCookies(req).sid;
   if (!token) return null;
-  return sessions.findActiveUser(client, token);
+  const session = await sessions.findActiveSession(client, token);
+  if (!session) return null;
+
+  // Sliding expiry. Without it a session dies exactly SESSION_TTL_MS after
+  // sign-in no matter how actively it is used, so a group that signed up
+  // together is signed out together on a fixed date. Renewing only once a
+  // session has burned through SESSION_RENEW_AFTER_MS keeps this off the hot
+  // path: one UPDATE per session per day, not one per request. The cookie is
+  // stashed on the request; the router turns it into a Set-Cookie header on
+  // responses it actually completes, so a rolled-back transaction never ships
+  // a renewal its UPDATE just lost.
+  const remainingMs = new Date(session.expiresAt).getTime() - Date.now();
+  if (remainingMs <= SESSION_TTL_MS - SESSION_RENEW_AFTER_MS) {
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
+    await sessions.extend(client, token, expiresAt);
+    req.renewedSessionCookie = sessionCookie(token, SESSION_TTL_MS, COOKIE_SECURE);
+  }
+
+  return session.user;
 }
 
 async function startSession(client, userId) {

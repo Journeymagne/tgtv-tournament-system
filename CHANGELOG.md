@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Sessions now slide: an authenticated request extends `expires_at` back out to the full session lifetime and re-issues the cookie, so an active user is no longer signed out on a fixed date fourteen days after signing in. The extension is skipped while a session is less than a day old, keeping it to one write per session per day.
 - Renamed the Matchmaking navigation tab to My Games, along with the team pairing screen's link back to it.
 - Tournament and team descriptions now keep their line breaks: they are stored as Markdown instead of being collapsed onto a single line, and the tournament and team edit forms use a Markdown editor with a formatting toolbar and a live preview.
 - Added a Russian localization of the client interface, with a language toggle beside the theme toggle that remembers the visitor's choice and defaults to the browser language, plus a protected-terminology glossary with automated checks so Kill Team rules terms are never translated.

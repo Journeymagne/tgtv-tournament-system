@@ -74,7 +74,11 @@ async function callRouter(routes, deps, method, path, body, headers = {}) {
   });
   const text = await res.text();
   await new Promise((resolve) => server.close(resolve));
-  return { status: res.status, body: text ? JSON.parse(text) : null };
+  return {
+    status: res.status,
+    body: text ? JSON.parse(text) : null,
+    setCookie: res.headers.get("set-cookie")
+  };
 }
 
 const noDbDeps = {
@@ -88,6 +92,50 @@ test("обработчик отдаёт 200 с телом", async () => {
   const res = await callRouter(routes, noDbDeps, "GET", "/api/ping");
   assert.equal(res.status, 200);
   assert.deepEqual(res.body, { pong: true });
+});
+
+// loadUser stashes a renewed session cookie on the request (see
+// loadUserFromRequest in src/api/auth.js); the router is what turns it into a
+// response header.
+const renewingLoadUser = async (client, req) => {
+  req.renewedSessionCookie = "sid=renewed; Path=/; Max-Age=1209600";
+  return { id: 1, isAdmin: false };
+};
+
+test("продлённая сессия уезжает клиенту как Set-Cookie", async () => {
+  const routes = [{ method: "GET", path: "/api/me", handler: async () => ({ ok: true }), auth: "user" }];
+  const res = await callRouter(routes, { ...noDbDeps, loadUser: renewingLoadUser }, "GET", "/api/me");
+  assert.equal(res.status, 200);
+  assert.match(res.setCookie, /sid=renewed/);
+});
+
+test("собственный Set-Cookie обработчика не затирается продлением", async () => {
+  const routes = [
+    {
+      method: "POST",
+      path: "/api/logout",
+      auth: "user",
+      handler: async () => ({ status: 200, body: { ok: true }, headers: { "Set-Cookie": "sid=; Max-Age=0" } })
+    }
+  ];
+  const res = await callRouter(routes, { ...noDbDeps, loadUser: renewingLoadUser }, "POST", "/api/logout");
+  assert.equal(res.setCookie, "sid=; Max-Age=0");
+});
+
+test("упавший обработчик не отправляет продление сессии", async () => {
+  const routes = [
+    {
+      method: "GET",
+      path: "/api/boom",
+      auth: "user",
+      handler: async () => {
+        throw new HttpError(409, "nope");
+      }
+    }
+  ];
+  const res = await callRouter(routes, { ...noDbDeps, loadUser: renewingLoadUser }, "GET", "/api/boom");
+  assert.equal(res.status, 409);
+  assert.equal(res.setCookie, null);
 });
 
 test("обработчик может задать статус и заголовки", async () => {

@@ -85,6 +85,15 @@ function matchRoute(routes, method, pathname) {
 
 const METHODS_WITH_BODY = new Set(["POST", "PATCH", "PUT"]);
 
+// A session renewal rides along on whatever the route already returns, but the
+// handler's own Set-Cookie always wins: sign-in, sign-up and sign-out set that
+// header deliberately, and a renewal must never overwrite a fresh or cleared
+// session cookie.
+function withRenewedSession(headers, cookie) {
+  if (!cookie || headers["Set-Cookie"]) return headers;
+  return { ...headers, "Set-Cookie": cookie };
+}
+
 function createRouter(routes, deps) {
   const {
     withClient,
@@ -161,19 +170,22 @@ function createRouter(routes, deps) {
       }
 
       const result = await runRoute(match.route, match.params, req, url);
+      // Only read once the route has completed: a handler that threw took its
+      // transaction - and any session extension inside it - down with it.
+      const renewal = req.renewedSessionCookie;
 
       if (result === undefined) {
         status = 204;
-        sendJson(res, 204, {});
+        sendJson(res, 204, {}, withRenewedSession({}, renewal));
         return;
       }
       if (result && typeof result === "object" && "body" in result) {
         status = result.status || 200;
-        sendJson(res, status, result.body, result.headers || {});
+        sendJson(res, status, result.body, withRenewedSession(result.headers || {}, renewal));
         return;
       }
       status = 200;
-      sendJson(res, 200, result);
+      sendJson(res, 200, result, withRenewedSession({}, renewal));
     } catch (err) {
       if (err instanceof HttpError) {
         status = err.status;

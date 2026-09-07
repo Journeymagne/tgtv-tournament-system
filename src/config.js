@@ -41,6 +41,12 @@ module.exports = {
   PGSSL: booleanEnv("PGSSL", false) || booleanEnv("DATABASE_SSL", false),
   COOKIE_SECURE: booleanEnv("COOKIE_SECURE", process.env.NODE_ENV === "production"),
   SESSION_TTL_MS: 1000 * 60 * 60 * 24 * 14,
+  // Sessions slide: an authenticated request pushes expires_at back out to a
+  // full SESSION_TTL_MS, so someone who keeps using the site is never signed
+  // out mid-use. Renewal is skipped while a session still has more than
+  // SESSION_TTL_MS - SESSION_RENEW_AFTER_MS left, which caps the extra write
+  // at one per session per day instead of one on every request.
+  SESSION_RENEW_AFTER_MS: 1000 * 60 * 60 * 24,
   INITIAL_RATING: 1000,
   MAX_REQUEST_BYTES: 2 * 1024 * 1024,
   MAX_AVATAR_DATA_URL_LENGTH: 1024 * 1024,
