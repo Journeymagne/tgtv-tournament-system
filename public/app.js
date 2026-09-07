@@ -2748,7 +2748,7 @@ function renderShell() {
     <main class="layout">
       <aside class="card sidebar">
         ${navButton("top", t("nav.leaderboard"))}
-        ${navButton("play", t("nav.matchmaking"))}
+        ${navButton("play", t("nav.myGames"))}
         ${navButton("games", t("nav.games"))}
         ${navButton("tournaments", t("nav.tournaments"))}
         ${navButton("teams", t("nav.playerTeams"))}
@@ -8465,7 +8465,7 @@ function renderTeamPairing() {
           <p class="muted">${t("teams.pairing.screenHint")}</p>
         </div>
         <div class="row-actions">
-          ${state.me ? `<button class="small-button" data-team-pairing-back>${t("teams.pairing.backToMatchmaking")}</button>` : ""}
+          ${state.me ? `<button class="small-button" data-team-pairing-back>${t("teams.pairing.backToMyGames")}</button>` : ""}
           ${tournament.slug ? `<button class="small-button" data-team-pairing-tournament="${escapeHtml(tournament.slug)}">${t("teams.pairing.openTournament")}</button>` : ""}
         </div>
       </div>

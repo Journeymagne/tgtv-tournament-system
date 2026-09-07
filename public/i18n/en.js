@@ -56,7 +56,7 @@ const TGTV_I18N_EN = {
 
   // -- nav ------------------------------------------------------------------
   "nav.leaderboard": "Leaderboard",
-  "nav.matchmaking": "Matchmaking",
+  "nav.myGames": "My Games",
   "nav.games": "Games",
   "nav.tournaments": "Tournaments",
   "nav.playerTeams": "Teams",
@@ -852,7 +852,7 @@ const TGTV_I18N_EN = {
   "teams.pairing.notFound": "Captain pairing not found.",
   "teams.pairing.screenTitle": "WTC captain pairing",
   "teams.pairing.screenHint": "Everyone can follow pairing and live results. Hidden choices are revealed only after both captains confirm.",
-  "teams.pairing.backToMatchmaking": "Back to Matchmaking",
+  "teams.pairing.backToMyGames": "Back to My Games",
   "teams.pairing.openTournament": "Open tournament",
   "teams.pairing.chooseShield": "Choose your shield",
   "teams.pairing.adminControls": "Captain controls for administrators",

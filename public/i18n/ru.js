@@ -56,7 +56,7 @@ const TGTV_I18N_RU = {
 
   // -- nav ------------------------------------------------------------------
   "nav.leaderboard": "Таблица лидеров",
-  "nav.matchmaking": "Подбор соперника",
+  "nav.myGames": "Мои игры",
   "nav.games": "Игры",
   "nav.tournaments": "Турниры",
   "nav.playerTeams": "Команды",
@@ -861,7 +861,7 @@ const TGTV_I18N_RU = {
   "teams.pairing.notFound": "Капитанский паринг не найден.",
   "teams.pairing.screenTitle": "Капитанский паринг WTC",
   "teams.pairing.screenHint": "Паринг и текущие результаты доступны всем. Скрытый выбор раскрывается только после подтверждения обоими капитанами.",
-  "teams.pairing.backToMatchmaking": "Назад в Матчмейкинг",
+  "teams.pairing.backToMyGames": "Назад в Мои игры",
   "teams.pairing.openTournament": "Открыть турнир",
   "teams.pairing.chooseShield": "Выберите свой щит",
   "teams.pairing.adminControls": "Управление за капитанов",
