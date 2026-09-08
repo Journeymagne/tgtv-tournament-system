@@ -62,6 +62,39 @@ rollback does not require a down migration. Restore the pre-deploy backup only
 if the integrity checks report damaged data; keep all writers stopped while
 doing so.
 
+## Stored files are served as files, not JSON
+
+Avatars, and an uploaded tournament rules PDF, are kept in PostgreSQL as base64
+`data:` URLs but are **not** sent inside API responses. They are served by
+`GET /api/users/:id/avatar` and `GET /api/tournaments/:slug/rules`, and the URL
+in the JSON carries a `?v=` fingerprint of the stored bytes. A request that
+includes that marker is answered with `Cache-Control: public, max-age=604800,
+immutable`; the bare URL stays revalidatable through its `ETag`.
+
+A proxy in front of the app must therefore not strip `ETag` or rewrite
+`Cache-Control` on `/api/`, or every avatar will be refetched on every page.
+
+JSON responses are compressed by the app itself (brotli, falling back to gzip)
+and carry `Content-Encoding` and `Vary: Accept-Encoding`. Nginx passes an
+already-encoded upstream response through untouched, so no extra configuration
+is needed -- but do not enable a module that re-compresses proxied responses.
+
+## Client bundles loaded on demand
+
+`public/app.js` is the only script `index.html` loads. Three more are fetched at
+runtime and must be deployed alongside it:
+
+- `admin.js` -- the administration UI, requested once `/api/me` reports
+  `isAdmin`. It is roughly a fifth of the client and nobody else downloads it.
+- `documentation.js` and `documentation.css` -- fetched when a reader opens
+  Documentation.
+- `i18n/en.js` / `i18n/ru.js` -- only the visitor's locale is loaded; the other
+  arrives if they use the language toggle.
+
+All of them are cache-busted by the `?v=` marker in `public/index.html`, which
+`src/http/seo.js` mirrors in `ASSET_VERSION` for the server-rendered tournament
+pages. **Bump both together** when releasing changed assets; a unit test fails
+if they drift.
 ## Deploying to production
 
 **`NODE_ENV=production` must be set on the running process.** `src/config.js`
@@ -89,6 +122,33 @@ that is genuinely not served over HTTPS.
 repo at the path it names (`ENV_FILE`, `/app/tgtv-ts.env` by default) and
 copies it into place on every deploy -- create it once from `.env.example`
 and update it there, not in the repo checkout.
+
+## Tournament rules uploads behind Nginx
+
+Tournament rules PDFs can be up to 2 MiB and logos up to 1 MiB. The browser
+encodes attachments as Base64 inside JSON, so a combined upload can exceed
+4 MiB. Tournament creation and editing accept up to 5 MiB; other application
+routes retain a 2 MiB limit.
+
+In the existing Nginx `server` block serving `rating.ktcompanion.ru` over
+HTTPS, set the following (remove or update any smaller override in its
+API `location` block):
+
+```nginx
+client_max_body_size 5m;
+```
+
+Validate the configuration and reload Nginx:
+
+```sh
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+This is a host configuration change: deploying the app with
+`update_tgtv-ts.sh` does not apply it. An HTML `413 Request Entity Too Large`
+response from Nginx means the request was rejected before reaching Node.
+After deployment, verify saving and reopening a tournament with a PDF near
+the 2 MiB file limit, through the public HTTPS site.
 
 ## Editing documentation
 

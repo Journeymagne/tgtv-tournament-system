@@ -11,6 +11,7 @@ function mapTeamMatch(row) {
     rosterAId: row.roster_a_id,
     rosterBId: row.roster_b_id,
     phase: row.phase,
+    resolution: row.resolution || null,
     rollResult: row.roll_result,
     pairingVersion: row.pairing_version || 1,
     rollHistory: row.roll_history || [],
@@ -75,10 +76,14 @@ async function insert(client, match) {
   const { rows } = await client.query(
     `INSERT INTO tournament_team_matches
        (tournament_id, round_id, round_number, bracket_position, roster_a_id, roster_b_id,
-        phase, missions, table_ids, pairing_version)
-     VALUES ($1, $2, $3, $4, $5, $6, 'awaiting_roll', $7::jsonb, $8::int[], $9) RETURNING *`,
+        phase, missions, table_ids, pairing_version, resolution,
+        team_game_points_a, team_game_points_b, team_tournament_points_a, team_tournament_points_b, completed_at)
+     VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $10 THEN 'completed' ELSE 'awaiting_roll' END,
+       $7::jsonb, $8::int[], $9, CASE WHEN $10 THEN 'bye' END,
+       CASE WHEN $10 THEN 60 END, CASE WHEN $10 THEN 0 END,
+       CASE WHEN $10 THEN 2 END, CASE WHEN $10 THEN 0 END, CASE WHEN $10 THEN NOW() END) RETURNING *`,
     [match.tournamentId, match.roundId, match.roundNumber, match.bracketPosition, match.rosterAId,
-      match.rosterBId, JSON.stringify(match.missions || null), match.tableIds || [], match.pairingVersion || 1]
+      match.rosterBId, JSON.stringify(match.missions || null), match.tableIds || [], match.pairingVersion || 1, match.rosterBId == null]
   );
   return mapTeamMatch(rows[0]);
 }
@@ -156,6 +161,7 @@ async function listActivePairingsForCaptain(client, userId) {
 
 async function update(client, id, patch) {
   const fields = {
+    resolution: "resolution",
     pairingVersion: "pairing_version", rollHistory: "roll_history", missionBans: "mission_bans",
     phase: "phase", rollResult: "roll_result", attackerRosterId: "attacker_roster_id",
     defenderRosterId: "defender_roster_id", shieldAMemberId: "shield_a_member_id",
@@ -247,7 +253,7 @@ async function listCompletedForRatingReplay(client) {
      JOIN tournaments t ON t.id = tm.tournament_id
      JOIN tournament_team_rosters ra ON ra.id = tm.roster_a_id
      JOIN tournament_team_rosters rb ON rb.id = tm.roster_b_id
-     WHERE tm.phase = 'completed'
+     WHERE tm.phase = 'completed' AND tm.resolution IS NULL
      ORDER BY tm.completed_at, tm.id FOR UPDATE OF tm`
   );
   return rows;

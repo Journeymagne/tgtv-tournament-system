@@ -21,6 +21,7 @@ const { calculateSubmittedResult, matchScoreFor, parseKillzone } = require("../d
 const { calculateElo, ELO_K } = require("../domain/elo");
 const { requireKillTeam } = require("../domain/kill-teams");
 const { uniqueSlug } = require("../domain/tournaments/slug");
+const { decodeDataUrl, contentVersion } = require("../domain/data-url");
 const { buildSwissNextRound } = require("../domain/tournaments/swiss");
 const { recalculateCompletedGameRatings } = require("./rating-replay");
 const {
@@ -373,6 +374,26 @@ async function getPublic({ client, user, params }) {
   return fullView(client, tournament, user);
 }
 
+// The uploaded rules PDF, served as a file. It used to travel inside every
+// JSON response that mentioned the tournament; now it is fetched once, on the
+// click that actually wants it, and cached by content hash.
+async function getRules({ client, params, req }) {
+  const tournament = await tournamentsRepo.findBySlug(client, params.slug);
+  if (!tournament || !publicStatuses(tournament)) throw new HttpError(404, "Tournament not found");
+  const file = decodeDataUrl(tournament.rulesLink);
+  if (!file) throw new HttpError(404, "This tournament has no rules file");
+  const etag = `"${contentVersion(tournament.rulesLink)}"`;
+  const headers = {
+    ETag: etag,
+    // Immutable only when the caller asked for this exact version: the
+    // unversioned URL must stay revalidatable so a replaced file is picked up.
+    "Cache-Control": req?.url && req.url.includes("v=") ? "public, max-age=604800, immutable" : "public, max-age=0, must-revalidate",
+    "Content-Disposition": `attachment; filename="${tournament.slug}-rules.pdf"`
+  };
+  if (req?.headers?.["if-none-match"] === etag) return { status: 304, buffer: null, headers };
+  return { buffer: file.bytes, contentType: file.contentType, headers };
+}
+
 async function listAdmin({ client }) {
   const tournaments = await tournamentsRepo.listAdmin(client);
   return { tournaments: tournaments.map(tournamentSummaryView) };
@@ -405,7 +426,7 @@ async function updateAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   assertEditableSetup(tournament);
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
-    const allowed = new Set(["description", "rulesSummary", "rulesLink", "startsAt", "tournamentRules"]);
+    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules"]);
     for (const key of Object.keys(body || {})) {
       if (!allowed.has(key)) throw new HttpError(409, "Tournament setup is locked after start");
     }
@@ -1975,6 +1996,7 @@ async function saveMatchResultAdmin({ client, user, params, body }) {
 module.exports = {
   listPublic,
   getPublic,
+  getRules,
   listAdmin,
   getAdmin,
   createAdmin,

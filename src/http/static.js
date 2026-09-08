@@ -1,9 +1,9 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const zlib = require("node:zlib");
 
 const { PUBLIC_DIR } = require("../config");
 const { SECURITY_HEADERS, sendText } = require("./io");
+const { MIN_COMPRESS_BYTES, negotiateEncoding, compressSync } = require("./compression");
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -25,9 +25,6 @@ const MIME = {
 // Only text-shaped payloads are worth compressing; png/ico/woff2 are already
 // compressed and re-encoding them costs CPU for a larger body.
 const COMPRESSIBLE = new Set([".html", ".css", ".js", ".json", ".svg", ".txt", ".map"]);
-
-// Below this, the framing overhead eats the saving.
-const MIN_COMPRESS_BYTES = 1024;
 
 const PUBLIC_PREFIX = PUBLIC_DIR.endsWith(path.sep) ? PUBLIC_DIR : PUBLIC_DIR + path.sep;
 
@@ -52,34 +49,12 @@ function resolveStaticPath(pathname) {
   return filePath;
 }
 
-// Picks the best encoding the client actually asked for. Quality values are
-// parsed only far enough to honour an explicit `q=0` refusal.
-function negotiateEncoding(acceptEncoding) {
-  if (!acceptEncoding) return null;
-  const offered = new Map();
-  for (const part of String(acceptEncoding).split(",")) {
-    const [name, ...params] = part.trim().split(";");
-    if (!name) continue;
-    const q = params
-      .map((p) => p.trim())
-      .filter((p) => p.startsWith("q="))
-      .map((p) => Number(p.slice(2)))[0];
-    offered.set(name.trim().toLowerCase(), Number.isFinite(q) ? q : 1);
-  }
-  if (offered.get("br") > 0) return "br";
-  if (offered.get("gzip") > 0) return "gzip";
-  return null;
-}
-
+// Static bodies are compressed synchronously and cached per file: unlike API
+// responses they are bounded in size and the result is reused across requests.
 function encodedBody(entry, encoding) {
   if (!encoding) return entry.raw;
   if (entry[encoding]) return entry[encoding];
-  const encoded =
-    encoding === "br"
-      ? zlib.brotliCompressSync(entry.raw, {
-          params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 }
-        })
-      : zlib.gzipSync(entry.raw, { level: 6 });
+  const encoded = compressSync(entry.raw, encoding);
   // A compressed body larger than the original is never worth sending.
   entry[encoding] = encoded.length < entry.raw.length ? encoded : entry.raw;
   return entry[encoding];

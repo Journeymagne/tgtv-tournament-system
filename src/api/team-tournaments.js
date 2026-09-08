@@ -15,7 +15,8 @@ const { recalculateCompletedGameRatings } = require("./rating-replay");
 const { calculateSubmittedResult, matchScoreFor } = require("../domain/scoring");
 const { calculateElo, ELO_K } = require("../domain/elo");
 const { requireKillTeam, CRIT_OPS } = require("../domain/kill-teams");
-const { normalizeRosterName, teamNameKey } = require("../domain/player-teams");
+const { normalizeRosterName, teamNameKey, defaultRosterName } = require("../domain/player-teams");
+const { rosterForViewer } = require("../domain/tournaments/privacy");
 const {
   validateTeamTournament,
   buildFirstTeamRound,
@@ -115,9 +116,9 @@ async function registerRoster({ client, user, params, body }) {
   if (!members.some((member) => member.userId === captainUserId)) {
     throw new ValidationError("The captain must be one of the three roster players");
   }
-  const existing = await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: false });
-  if (existing.length >= 128) throw new HttpError(409, "A team tournament is limited to 128 rosters");
-  const name = normalizeRosterName(body.name);
+  const existing = await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: true });
+  if (existing.filter((roster) => roster.status !== "withdrawn").length >= 128) throw new HttpError(409, "A team tournament is limited to 128 rosters");
+  const name = normalizeRosterName(String(body.name || "").trim() || defaultRosterName(team, existing));
   try {
     const roster = await rostersRepo.insert(client, {
       tournamentId: tournament.id,
@@ -222,6 +223,67 @@ async function withdrawRoster({ client, user, params }) {
   const updated = await rostersRepo.update(client, roster.id, { status: "withdrawn", withdrawnAt: nowIso(), seed: null });
   await audit(client, tournament, user, "roster_withdraw", { teamId: roster.teamId, entityType: "roster", entityId: roster.id, before: roster, after: updated });
   return { roster: updated };
+}
+
+async function deleteRoster({ client, user, params }) {
+  const tournament = await requireTournament(client, params.id, true);
+  const started = Boolean(tournament.startedAt) || ["in_progress", "completed"].includes(tournament.status);
+  if (started && !user.isAdmin) throw new HttpError(403, "Only an administrator can remove a roster after tournament start");
+  const roster = await rostersRepo.findById(client, requirePositiveIntId(params.rosterId, 404, "Roster not found"), true);
+  if (!roster || roster.tournamentId !== tournament.id) throw new HttpError(404, "Roster not found");
+  const membership = await teamsRepo.activeMembership(client, roster.teamId, user.id);
+  if (!canEditRoster(user, roster, membership)) throw new HttpError(403, "Captain, team leader, or administrator rights required");
+  if (started) {
+    if (roster.status === "withdrawn") return { deletedRosterId: roster.id, resultsPreserved: true };
+    const matches = (await teamMatchesRepo.listByTournament(client, tournament.id))
+      .filter((match) => match.rosterAId === roster.id || match.rosterBId === roster.id);
+    const forfeitedMatchIds = [];
+    for (const match of matches.filter((item) => item.phase !== "completed")) {
+      // Completed personal games remain available in history, including their Elo.
+      // Open games are removed so they no longer appear as unfinished obligations.
+      await client.query(
+        "DELETE FROM games WHERE source_type = 'team_match_game' AND source_id = $1 AND status <> 'completed'",
+        [match.id]
+      );
+      const removedA = match.rosterAId === roster.id;
+      await teamMatchesRepo.update(client, match.id, {
+        phase: "completed", resolution: "forfeit", completedAt: nowIso(), teamElo: null,
+        teamTournamentPointsA: removedA ? 0 : 2, teamTournamentPointsB: removedA ? 2 : 0,
+        teamGamePointsA: removedA ? 0 : 60, teamGamePointsB: removedA ? 60 : 0
+      });
+      forfeitedMatchIds.push(match.id);
+    }
+    const updated = await rostersRepo.update(client, roster.id, {
+      status: "withdrawn", withdrawnAt: nowIso(), seed: null, finalPlace: null
+    });
+    for (const roundId of new Set(matches.map((match) => match.roundId))) {
+      const remaining = await teamMatchesRepo.listByRound(client, roundId);
+      if (remaining.length && remaining.every((match) => match.phase === "completed")) {
+        const round = (await roundsRepo.listByTournament(client, tournament.id)).find((item) => item.id === roundId);
+        if (round?.status !== "completed") await roundsRepo.update(client, roundId, { status: "completed", completedAt: nowIso() });
+      }
+    }
+    await audit(client, tournament, user, "roster_remove_after_start", {
+      teamId: roster.teamId, entityType: "roster", entityId: roster.id, before: roster, after: updated,
+      metadata: { forfeitedMatchIds, resultsPreserved: true }
+    });
+    if (tournament.status === "completed") await publishFinalStandings(client, tournament, user);
+    return { deletedRosterId: roster.id, resultsPreserved: true };
+  }
+  // Pairings reference rosters with ON DELETE RESTRICT. Reject the delete with a
+  // readable error instead of letting PostgreSQL raise a foreign key violation.
+  if (await rostersRepo.countMatches(client, roster.id)) {
+    throw new HttpError(409, "This roster is already paired in a round and cannot be deleted");
+  }
+  await rostersRepo.remove(client, roster.id);
+  await audit(client, tournament, user, "roster_delete", {
+    teamId: roster.teamId,
+    entityType: "roster",
+    entityId: roster.id,
+    before: roster,
+    metadata: { memberUserIds: activeRosterMembers(roster).map((member) => member.userId) }
+  });
+  return { deletedRosterId: roster.id };
 }
 
 async function reseedRosters(client, tournament, user, eventType = "roster_seed_update") {
@@ -336,14 +398,17 @@ function applyManualMatchups(blueprint, rosters, body = {}) {
   const seen = new Set();
   const pairings = body.matchups.map((item, index) => {
     const rosterAId = Number(item.rosterAId);
-    const rosterBId = Number(item.rosterBId);
-    if (!allowed.has(rosterAId) || !allowed.has(rosterBId) || rosterAId === rosterBId || seen.has(rosterAId) || seen.has(rosterBId)) {
+    const rosterBId = item.rosterBId === null || item.rosterBId === "" ? null : Number(item.rosterBId);
+    if (!allowed.has(rosterAId) || (rosterBId !== null && !allowed.has(rosterBId)) || rosterAId === rosterBId || seen.has(rosterAId) || (rosterBId !== null && seen.has(rosterBId))) {
       throw new ValidationError("Each roster must appear exactly once in a team round");
     }
     seen.add(rosterAId);
-    seen.add(rosterBId);
+    if (rosterBId !== null) seen.add(rosterBId);
     return { bracketPosition: index + 1, rosterAId, rosterBId };
   });
+  if (seen.size !== allowed.size || pairings.filter((pairing) => pairing.rosterBId === null).length !== rosters.length % 2) {
+    throw new ValidationError("Manual team pairings must include every roster exactly once");
+  }
   return { ...blueprint, pairings };
 }
 
@@ -405,6 +470,9 @@ async function generateRound(client, tournament, user, body = {}) {
       tableIds: tables.map((table) => table.id)
     });
   }
+  if (blueprint.pairings.every((pairing) => pairing.rosterBId === null)) {
+    await roundsRepo.update(client, round.id, { status: "completed", completedAt: nowIso() });
+  }
   await audit(client, tournament, user, "team_round_generate", { entityType: "round", entityId: round.id, metadata: { blueprint, missions, tables } });
   return tournamentData(client, { ...tournament, teamTablesLocked: true }, user, { includeAudit: true });
 }
@@ -418,6 +486,9 @@ async function requireMatchContext(client, params, user, phase = null) {
   const rosters = await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: true, includeHistory: true });
   const rosterA = rosterById(rosters, match.rosterAId);
   const rosterB = rosterById(rosters, match.rosterBId);
+  if (match.resolution || rosterA?.status === "withdrawn" || rosterB?.status === "withdrawn") {
+    throw new HttpError(409, "Pairing is closed because a roster was removed or received a bye");
+  }
   const side = rosterA?.captainUserId === user.id ? "a" : rosterB?.captainUserId === user.id ? "b" : null;
   if (!user.isAdmin && !side) throw new HttpError(403, "Only a roster captain can perform this pairing action");
   return { tournament, match, rosterA, rosterB, side };
@@ -439,7 +510,7 @@ async function getPairingMatch({ client, user, params }) {
   });
   const rosterA = rosterById(rosters, match.rosterAId);
   const rosterB = rosterById(rosters, match.rosterBId);
-  if (!rosterA || !rosterB) throw new HttpError(409, "Team match rosters are unavailable");
+  if (!rosterA || (!rosterB && match.resolution !== "bye")) throw new HttpError(409, "Team match rosters are unavailable");
   const tables = (await tablesForTeamMatch(client, match))
     .filter((table) => !match.tableIds.length || match.tableIds.includes(table.id))
     .map(tournamentTableView);
@@ -450,7 +521,7 @@ async function getPairingMatch({ client, user, params }) {
         role: user?.isAdmin ? "admin" : user ? "player" : "spectator",
         canAdmin: Boolean(user?.isAdmin),
         captainRosterIds: [rosterA, rosterB]
-          .filter((roster) => roster.captainUserId === user?.id)
+          .filter((roster) => roster && roster.captainUserId === user?.id)
           .map((roster) => roster.id)
       }
     },
@@ -781,10 +852,14 @@ function redactTeamMatch(match, rosterA, rosterB, user) {
 }
 
 async function tournamentData(client, tournament, user, { includeAudit = false } = {}) {
-  const rosters = await rostersRepo.listByTournament(client, tournament.id, {
+  const storedRosters = await rostersRepo.listByTournament(client, tournament.id, {
     includeWithdrawn: true,
     includeHistory: includeAudit
   });
+  const myTeams = user ? await teamsRepo.listForUser(client, user.id) : [];
+  const rosters = storedRosters.map((roster) => rosterForViewer(roster, tournament, user, {
+    teamLeader: myTeams.some((team) => team.id === roster.teamId && team.leaderUserId === user?.id)
+  }));
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const rawMatches = await teamMatchesRepo.listByTournament(client, tournament.id);
   const tables = await tablesRepo.listByTournament(client, tournament.id);
@@ -807,11 +882,10 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
       teamTournamentGame: { ...link, missionLocked: matches.find((match) => match.id === link.teamMatchId)?.pairingVersion === 2 }
     });
   });
-  const myTeams = user ? await teamsRepo.listForUser(client, user.id) : [];
   const viewerTeams = [];
   for (const team of myTeams) {
     const memberships = await teamsRepo.listMemberships(client, team.id);
-    viewerTeams.push({ ...team, members: memberships.filter((membership) => !membership.endedAt) });
+    viewerTeams.push({ ...team, defaultRosterName: defaultRosterName(team, storedRosters), members: memberships.filter((membership) => !membership.endedAt) });
   }
   if (user?.isAdmin) {
     const membersByTeam = new Map();
@@ -889,7 +963,7 @@ async function attachTeamGameDetails(client, games) {
         userId: participant.userId,
         name: participant.displayNameSnapshot,
         faction: participant.factionSnapshot,
-        avatarData: participant.user?.avatarData || null,
+        avatarUrl: participant.user?.avatarUrl || null,
         hasProfile: Boolean(participant.userId)
       })),
       tournament: {
@@ -1022,6 +1096,11 @@ async function handleGameRequest(context, action) {
   const match = await teamMatchesRepo.findByGameId(client, game.id);
   if (!match) throw new HttpError(409, "Team tournament game link is invalid");
   const tournament = await tournamentsRepo.lockById(client, match.tournamentId);
+  const removed = await client.query(
+    "SELECT id FROM tournament_team_rosters WHERE id = ANY($1::int[]) AND status = 'withdrawn'",
+    [[match.rosterAId, match.rosterBId].filter(Boolean)]
+  );
+  if (match.resolution || removed.rowCount) throw new HttpError(409, "Results involving a removed roster are preserved and cannot be reopened");
   const isParticipant = game.playerIds.includes(user.id);
   if (!user.isAdmin && !isParticipant) throw new HttpError(403, "Only a game participant can change this result");
   const link = match.games.find((item) => item.gameId === game.id);
@@ -1062,6 +1141,7 @@ async function handleGameRequest(context, action) {
 
 async function recomputeTeamMatch(client, matchId) {
   const match = await teamMatchesRepo.findById(client, matchId, true);
+  if (match.resolution) return match;
   const links = match.games || [];
   if (!links.length) return match;
   const progress = teamMatchProgress(match);
@@ -1158,7 +1238,7 @@ async function rollbackLatestRound(client, tournament, user) {
   const matches = await teamMatchesRepo.listByRound(client, round.id);
   const fullMatches = await teamMatchesRepo.listByTournament(client, tournament.id);
   const latest = fullMatches.filter((match) => match.roundId === round.id);
-  if (latest.some((match) => match.phase === "completed" || match.games.some((link) => link.game?.status === "completed"))) {
+  if (latest.some((match) => (match.phase === "completed" && !match.resolution) || match.games.some((link) => link.game?.status === "completed"))) {
     throw new HttpError(409, "Reset completed team-match results before rolling back this round");
   }
   await gamesRepo.removeBySourceIds(client, "team_match_game", matches.map((match) => match.id));
@@ -1172,6 +1252,7 @@ module.exports = {
   registerRoster,
   updateRoster,
   withdrawRoster,
+  deleteRoster,
   reseedRosters,
   updateRosterSeedsAdmin,
   startTournament,

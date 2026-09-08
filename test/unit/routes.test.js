@@ -72,3 +72,15 @@ test("MEDIUM 3: маршруты, чей обработчик разыменов
     assert.equal(route.auth, "user", `${method} ${path} dereferences ctx.user but declares auth: ${route.auth}`);
   }
 });
+
+test("a team roster can be permanently deleted through an authenticated transaction", () => {
+  const remove = routes.find((route) =>
+    route.method === "DELETE" && route.path === "/api/tournaments/:id/rosters/:rosterId");
+  assert.ok(remove, "expected a DELETE route for a tournament team roster");
+  assert.equal(remove.auth, "user");
+  assert.equal(remove.tx, true);
+  // Deleting is the escape hatch withdrawing does not provide, so both stay.
+  const withdraw = routes.find((route) =>
+    route.method === "POST" && route.path === "/api/tournaments/:id/rosters/:rosterId/withdraw");
+  assert.ok(withdraw, "withdrawing a roster must remain available alongside deletion");
+});

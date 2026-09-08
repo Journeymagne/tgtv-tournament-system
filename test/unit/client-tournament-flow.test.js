@@ -3,17 +3,22 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const appSource = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf8");
+// The client is two files now: admin.js is fetched on demand and shares app.js
+// global scope, so anything extracted by name may live in either.
+const appSource = ["app.js", "admin.js"]
+  .map((file) => fs.readFileSync(path.join(__dirname, "../../public", file), "utf8"))
+  .join("\n");
 
-function functionSource(name, nextName) {
-  return appSource.match(
-    new RegExp(`(?:async )?function ${name}\\([^]*?\\r?\\n\\}(?=\\r?\\n\\r?\\n(?:async )?function ${nextName})`)
-  )?.[0];
+// Bounded by the first line that closes at column zero rather than by the name
+// of whatever follows: admin functions now live in admin.js, so neighbours are
+// no longer a stable anchor.
+function functionSource(name) {
+  return appSource.match(new RegExp(`(?:async )?function ${name}\\([^]*?\\r?\\n\\}`))?.[0];
 }
 
-const actionButtonsSource = functionSource("adminTournamentActionButtons", "rollbackRoundActionState");
-const tabContentSource = functionSource("tournamentInfoTabContent", "tournamentMatchesContent");
-const runActionSource = functionSource("runAdminTournamentAction", "openNextRoundSetupModal");
+const actionButtonsSource = functionSource("adminTournamentActionButtons");
+const tabContentSource = functionSource("tournamentInfoTabContent");
+const runActionSource = functionSource("runAdminTournamentAction");
 
 test("completed rounds replace Generate next round with Close tournament", () => {
   assert.ok(actionButtonsSource, "could not find adminTournamentActionButtons in public/app.js");
@@ -83,7 +88,8 @@ test("Close tournament confirms and publishes the displayed standings order", as
   const requests = [];
   const factory = new Function(
     "state",
-    "window",
+    "confirmAction",
+    "confirmDelete",
     "t",
     "api",
     "loadAdminTournamentPreview",
@@ -97,7 +103,8 @@ test("Close tournament confirms and publishes the displayed standings order", as
   );
   const runAction = factory(
     state,
-    { confirm: (message) => { confirmations.push(message); return true; } },
+    async ({ message }) => { confirmations.push(message); return true; },
+    async (message) => { confirmations.push(message); return true; },
     (key) => key,
     async (requestPath, options) => { requests.push([requestPath, options]); },
     async () => {},

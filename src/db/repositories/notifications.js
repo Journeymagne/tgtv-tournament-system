@@ -1,8 +1,9 @@
 const { toIso } = require("../rows");
+const { avatarUrl } = require("../../domain/avatars");
 
-function person(id, name, avatarData = null) {
+function person(id, name, avatarVersion = null) {
   if (!id && !name) return null;
-  return { id: id || null, name: name || "", avatarData: avatarData || null };
+  return { id: id || null, name: name || "", avatarUrl: avatarUrl(id, avatarVersion) };
 }
 
 async function getLastSeenAt(client, userId) {
@@ -32,7 +33,7 @@ async function markReadThrough(client, userId, through) {
 async function listChallenges(client, userId) {
   const { rows } = await client.query(
     `SELECT c.id, c.created_at, u.id AS actor_id, u.name AS actor_name,
-            u.avatar_data AS actor_avatar
+            u.avatar_version AS actor_avatar
      FROM challenges c
      LEFT JOIN users u ON u.id = c.from_user_id
      WHERE c.to_user_id = $1 AND c.status = 'pending'`,
@@ -53,7 +54,7 @@ async function listTeamInvitations(client, userId) {
     `SELECT invitation.id, invitation.created_at,
             team.id AS team_id, team.slug AS team_slug, team.name AS team_name,
             inviter.id AS actor_id, inviter.name AS actor_name,
-            inviter.avatar_data AS actor_avatar
+            inviter.avatar_version AS actor_avatar
      FROM player_team_invitations invitation
      JOIN player_teams team ON team.id = invitation.team_id
      LEFT JOIN users inviter ON inviter.id = invitation.invited_by_user_id
@@ -82,7 +83,7 @@ async function listTournamentPairings(client, userId) {
             opponent.user_id AS opponent_id,
             opponent.display_name_snapshot AS opponent_name,
             opponent.faction_snapshot AS opponent_faction,
-            opponent_user.avatar_data AS opponent_avatar,
+            opponent_user.avatar_version AS opponent_avatar,
             tournament_table.id AS table_id, tournament_table.table_number,
             tournament_table.killzone, tournament_table.deployment
      FROM games game
@@ -133,7 +134,7 @@ async function listTeamTournamentPairings(client, userId) {
             opponent.user_id AS opponent_id,
             opponent.display_name_snapshot AS opponent_name,
             opponent.faction_snapshot AS opponent_faction,
-            opponent_user.avatar_data AS opponent_avatar,
+            opponent_user.avatar_version AS opponent_avatar,
             roster_a.id AS roster_a_id, roster_a.name AS roster_a_name,
             roster_b.id AS roster_b_id, roster_b.name AS roster_b_name,
             member_a.user_id AS roster_a_user_id,

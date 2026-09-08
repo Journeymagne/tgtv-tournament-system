@@ -1,7 +1,17 @@
 # Changelog
 
-## Unreleased
+## 2.3 — 2026-09-08
 
+- Added tournament logos and editable roster names, with defaults based on the team name and roster number.
+- Hide player factions until registration closes, while preserving access for administrators and the people managing their own entries.
+- Show the current team name in tournament history after a team is renamed.
+- Administrators can remove rosters after tournament start without erasing played results or ratings. Unfinished matches become forfeits, withdrawn rosters do not enter later rounds, odd fields receive byes, and published places are updated after removals.
+- Improved PDF rules uploads and errors; tournament editing accepts combined PDF and logo payloads up to 5 MiB.
+- Serve avatars and PDF rules as cacheable files, compress responses, load administration and documentation assets on demand, and use WebP logos to reduce downloads.
+- Team tournament rosters can be deleted outright before the start, releasing the roster name and its players so a team that withdrew can register again.
+- Every button that deletes or removes something now opens an in-app confirmation dialog; permanent deletions are labelled irreversible and open with Cancel focused.
+- Fixed the server-rendered tournament pages serving a stale asset version: `src/http/seo.js` kept its own copy of the marker and had drifted behind `public/index.html`.
+- Fixed migration `020_team_roster_withdrawal` failing when the suite replays every migration against a live database.
 - Sessions now slide: an authenticated request extends `expires_at` back out to the full session lifetime and re-issues the cookie, so an active user is no longer signed out on a fixed date fourteen days after signing in. The extension is skipped while a session is less than a day old, keeping it to one write per session per day.
 - Renamed the Matchmaking navigation tab to My Games, along with the team pairing screen's link back to it.
 - Tournament and team descriptions now keep their line breaks: they are stored as Markdown instead of being collapsed onto a single line, and the tournament and team edit forms use a Markdown editor with a formatting toolbar and a live preview.

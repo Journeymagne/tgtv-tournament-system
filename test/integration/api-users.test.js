@@ -79,7 +79,7 @@ test("РЕГРЕСС B1: список не содержит контактов",
   assert.ok(!serialized.includes("AlphaNick"), "ник не должен уезжать анониму");
   assert.deepEqual(
     Object.keys(result.users[0]).sort(),
-    ["avatarData", "id", "isAdmin", "name", "rating", "ratings"]
+    ["avatarUrl", "id", "isAdmin", "name", "rating", "ratings"]
   );
 });
 
@@ -231,5 +231,61 @@ test("нечисловой userId в challengeProgress отдаёт 404, а не
   await assert.rejects(
     () => api.challengeProgress({ client, user: alpha, query: new URLSearchParams("userId=abc") }),
     (err) => err.status === 404
+  );
+});
+
+// A 1x1 PNG. Small, but the shape is what matters: a stored data URL comes back
+// out as bytes, and nothing but this route ever ships it.
+const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=";
+
+test("аватар отдаётся отдельным ресурсом, а не встраивается в JSON", async () => {
+  const stored = await usersRepo.updateProfile(client, alpha.id, { avatarData: PIXEL });
+  assert.match(stored.avatarUrl, /^\/api\/users\/\d+\/avatar\?v=[0-9a-f]{16}$/);
+
+  const listed = await api.list({ client });
+  const row = listed.users.find((item) => item.id === alpha.id);
+  assert.equal(row.avatarUrl, stored.avatarUrl);
+  // The point of the whole change: no response that mentions a player may carry
+  // the picture. It used to repeat once per mention.
+  assert.doesNotMatch(JSON.stringify(listed), /data:image/);
+
+  const version = new URL(stored.avatarUrl, "http://x").searchParams.get("v");
+  const served = await api.avatar({ client, params: { id: String(alpha.id) }, req: { url: stored.avatarUrl, headers: {} } });
+  assert.equal(served.contentType, "image/png");
+  assert.ok(served.buffer.equals(Buffer.from(PIXEL.split(",")[1], "base64")));
+  assert.equal(served.headers.ETag, `"${version}"`);
+  assert.equal(served.headers["Cache-Control"], "public, max-age=604800, immutable");
+
+  const revalidated = await api.avatar({
+    client,
+    params: { id: String(alpha.id) },
+    req: { url: stored.avatarUrl, headers: { "if-none-match": served.headers.ETag } }
+  });
+  assert.equal(revalidated.status, 304);
+  assert.equal(revalidated.buffer, null);
+});
+
+test("ссылка на аватар меняется при замене картинки и исчезает при удалении", async () => {
+  const first = (await usersRepo.updateProfile(client, alpha.id, { avatarData: PIXEL })).avatarUrl;
+  const other = `data:image/png;base64,${Buffer.from("second").toString("base64")}`;
+  const second = (await usersRepo.updateProfile(client, alpha.id, { avatarData: other })).avatarUrl;
+  assert.notEqual(second, first);
+
+  const cleared = await usersRepo.updateProfile(client, alpha.id, { avatarData: null });
+  assert.equal(cleared.avatarUrl, null);
+  await assert.rejects(
+    api.avatar({ client, params: { id: String(alpha.id) }, req: { url: "", headers: {} } }),
+    /no avatar/
+  );
+});
+
+test("аватар неизвестного игрока даёт 404, а не пустой ответ", async () => {
+  await assert.rejects(
+    api.avatar({ client, params: { id: "999999" }, req: { url: "", headers: {} } }),
+    /no avatar/
+  );
+  await assert.rejects(
+    api.avatar({ client, params: { id: "0" }, req: { url: "", headers: {} } }),
+    /not found/i
   );
 });

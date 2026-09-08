@@ -201,7 +201,7 @@ test("active inbox aggregates challenges and invitations and keeps read items ac
   const beforeRead = await listFor(alpha);
   assert.deepEqual(beforeRead.items.map((item) => item.type).sort(), ["game_challenge", "team_invitation"]);
   assert.equal(beforeRead.unreadCount, 2);
-  assert.match(beforeRead.items.find((item) => item.type === "game_challenge").href, /matchmaking\/challenge/);
+  assert.match(beforeRead.items.find((item) => item.type === "game_challenge").href, /^#\/mygames\/challenge\/\d+$/);
 
   await notificationsApi.markRead({ client, user: alpha, body: { through: beforeRead.generatedAt } });
   const afterRead = await listFor(alpha);

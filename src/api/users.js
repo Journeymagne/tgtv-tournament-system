@@ -15,6 +15,7 @@ const {
   WILDCARDS
 } = require("../domain/kill-teams");
 const { requirePositiveIntId } = require("./params");
+const { decodeDataUrl, contentVersion } = require("../domain/data-url");
 const {
   attachTournamentGameDetails,
   sortGameViews
@@ -27,6 +28,26 @@ async function list({ client, query = new URLSearchParams() }) {
   const ratingMode = ["combined", "tts", "irl"].includes(requestedMode) ? requestedMode : "combined";
   const rows = await usersRepo.listLeaderboard(client, ratingMode);
   return { users: rows.map(leaderboardUser) };
+}
+
+// The picture, served as a file. Public because the leaderboard is: the same
+// avatars are already visible to anyone who can load the player list.
+async function avatar({ client, params, req }) {
+  const id = requirePositiveIntId(params.id, 404, "Player not found");
+  const stored = await usersRepo.readAvatar(client, id);
+  const file = stored ? decodeDataUrl(stored) : null;
+  if (!file) throw new HttpError(404, "This player has no avatar");
+  const etag = `"${contentVersion(stored)}"`;
+  const headers = {
+    ETag: etag,
+    // A versioned request names one exact image, so it can be cached forever;
+    // the bare URL has to stay revalidatable.
+    "Cache-Control": req?.url?.includes("v=")
+      ? "public, max-age=604800, immutable"
+      : "public, max-age=0, must-revalidate"
+  };
+  if (req?.headers?.["if-none-match"] === etag) return { status: 304, buffer: null, headers };
+  return { buffer: file.bytes, contentType: file.contentType, headers };
 }
 
 async function search({ client, user, query }) {
@@ -122,4 +143,4 @@ async function challengeProgress({ client, user, query }) {
   };
 }
 
-module.exports = { list, search, profile, challengeProgress };
+module.exports = { list, avatar, search, profile, challengeProgress };

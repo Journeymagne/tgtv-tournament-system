@@ -1,4 +1,5 @@
 const { toIso } = require("../rows");
+const { avatarUrl } = require("../../domain/avatars");
 
 function mapRoster(row) {
   if (!row) return null;
@@ -37,7 +38,7 @@ function mapRosterMember(row) {
     joinedAt: toIso(row.joined_at),
     endedAt: toIso(row.ended_at),
     replacedByUserId: row.replaced_by_user_id,
-    user: row.user_id ? { id: row.user_id, name: row.user_name || row.display_name_snapshot, avatarData: row.avatar_data || null } : null
+    user: row.user_id ? { id: row.user_id, name: row.user_name || row.display_name_snapshot, avatarUrl: avatarUrl(row.user_id, row.avatar_version) } : null
   };
 }
 
@@ -72,7 +73,7 @@ async function insertMember(client, roster, member, actorUserId) {
 
 async function listMembers(client, rosterId, includeHistory = true) {
   const { rows } = await client.query(
-    `SELECT rm.*, u.name AS user_name, u.avatar_data
+    `SELECT rm.*, u.name AS user_name, u.avatar_version
      FROM tournament_team_roster_members rm
      LEFT JOIN users u ON u.id = rm.user_id
      WHERE rm.roster_id = $1 ${includeHistory ? "" : "AND rm.ended_at IS NULL"}
@@ -86,7 +87,7 @@ async function attachMembers(client, rosters, includeHistory = false) {
   if (!rosters.length) return rosters;
   const ids = rosters.map((roster) => roster.id);
   const { rows } = await client.query(
-    `SELECT rm.*, u.name AS user_name, u.avatar_data
+    `SELECT rm.*, u.name AS user_name, u.avatar_version
      FROM tournament_team_roster_members rm
      LEFT JOIN users u ON u.id = rm.user_id
      WHERE rm.roster_id = ANY($1::int[]) ${includeHistory ? "" : "AND rm.ended_at IS NULL"}
@@ -184,6 +185,23 @@ async function replaceMember(client, roster, slot, user, faction, actorUserId) {
   }, actorUserId);
 }
 
+async function countMatches(client, rosterId) {
+  const { rows } = await client.query(
+    `SELECT COUNT(*)::int AS value FROM tournament_team_matches
+     WHERE roster_a_id = $1 OR roster_b_id = $1`,
+    [rosterId]
+  );
+  return Number(rows[0]?.value || 0);
+}
+
+// Hard delete. Roster members cascade, which is the point: the tournament-wide
+// unique index on active members is what otherwise keeps a player who was once
+// registered here from joining any other roster in the same tournament.
+async function remove(client, id) {
+  const { rowCount } = await client.query("DELETE FROM tournament_team_rosters WHERE id = $1", [id]);
+  return rowCount > 0;
+}
+
 async function setAllStatus(client, tournamentId, fromStatus, status) {
   const { rows } = await client.query(
     `UPDATE tournament_team_rosters
@@ -207,5 +225,7 @@ module.exports = {
   maxSeed,
   update,
   replaceMember,
+  countMatches,
+  remove,
   setAllStatus
 };

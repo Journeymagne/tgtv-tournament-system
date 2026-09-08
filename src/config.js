@@ -49,6 +49,8 @@ module.exports = {
   SESSION_RENEW_AFTER_MS: 1000 * 60 * 60 * 24,
   INITIAL_RATING: 1000,
   MAX_REQUEST_BYTES: 2 * 1024 * 1024,
+  // Base64 expands a 2 MiB PDF + 1 MiB logo to ~4 MiB, plus tournament JSON.
+  MAX_TOURNAMENT_REQUEST_BYTES: 5 * 1024 * 1024,
   MAX_AVATAR_DATA_URL_LENGTH: 1024 * 1024,
   // max: 10 was one shared bucket for the whole site once every request
   // reports the same address (see TRUST_PROXY below) -- a tournament venue

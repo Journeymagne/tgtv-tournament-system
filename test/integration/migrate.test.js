@@ -154,6 +154,7 @@ test("схема users содержит ожидаемые колонки", asyn
   const columns = rows.map((row) => row.column_name);
   for (const column of [
     "avatar_data",
+    "avatar_version",
     "challenge_credits",
     "created_at",
     "id",

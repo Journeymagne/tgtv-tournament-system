@@ -212,7 +212,7 @@ test("КОНТРАКТ B1: лидерборд не отдаёт контакты
   assert.ok(!JSON.stringify(res.body).includes("@alpha"));
   assert.deepEqual(
     Object.keys(res.body.users[0]).sort(),
-    ["avatarData", "id", "isAdmin", "name", "rating", "ratings"]
+    ["avatarUrl", "id", "isAdmin", "name", "rating", "ratings"]
   );
 });
 

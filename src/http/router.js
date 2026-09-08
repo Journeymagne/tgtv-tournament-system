@@ -1,4 +1,4 @@
-const { HttpError, readBody, clientKey, sendJson } = require("./io");
+const { HttpError, readBody, clientKey, sendJson, sendBinary } = require("./io");
 const { logRequest, logError } = require("./logger");
 const { createRateLimiter } = require("./rate-limit");
 const { LOGIN_RATE_LIMIT, TRUST_PROXY } = require("../config");
@@ -120,7 +120,7 @@ function createRouter(routes, deps) {
     // stalled every other request, including plain GETs. readBody needs no
     // client, so it now runs first. Side effect: an unauthenticated caller
     // who also sends malformed JSON now sees 400 before 401 (was: reverse).
-    const body = METHODS_WITH_BODY.has(route.method) ? await readBody(req) : {};
+    const body = METHODS_WITH_BODY.has(route.method) ? await readBody(req, route.maxBodyBytes) : {};
 
     const runner = route.tx ? withTransaction : withClient;
     const execute = () =>
@@ -177,6 +177,14 @@ function createRouter(routes, deps) {
       if (result === undefined) {
         status = 204;
         sendJson(res, 204, {}, withRenewedSession({}, renewal));
+        return;
+      }
+      // Binary escape hatch: routes that serve a stored file (avatars,
+      // tournament rules PDFs) return bytes instead of a JSON body.
+      if (result && typeof result === "object" && "buffer" in result) {
+        status = result.status || 200;
+        sendBinary(res, status, result.buffer, result.contentType,
+          withRenewedSession(result.headers || {}, renewal));
         return;
       }
       if (result && typeof result === "object" && "body" in result) {

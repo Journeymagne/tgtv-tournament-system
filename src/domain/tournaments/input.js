@@ -1,4 +1,5 @@
 const { ValidationError } = require("../../http/io");
+const { normalizeTeamLogo } = require("../player-teams");
 const {
   normalizeName,
   profileText,
@@ -209,6 +210,9 @@ function normalizeTournamentPatch(body = {}, current = {}) {
   if (Object.prototype.hasOwnProperty.call(body, "rulesLink")) {
     patch.rulesLink = normalizeRulesLink(body.rulesLink);
   }
+  if (Object.prototype.hasOwnProperty.call(body, "logoData")) {
+    patch.logoData = normalizeTeamLogo(body.logoData, "Tournament logo");
+  }
   if (Object.prototype.hasOwnProperty.call(body, "ratingPolicy")) {
     patch.ratingPolicy = normalizePolicy(body.ratingPolicy, RATING_POLICIES, "ranked", "rating policy");
   }
@@ -250,6 +254,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     startsAt: patch.startsAt || null,
     rulesSummary: patch.rulesSummary || "",
     rulesLink: patch.rulesLink || "",
+    logoData: patch.logoData || null,
     format: patch.format || TOURNAMENT_FORMATS.SINGLE_ELIMINATION,
     participantMode: patch.participantMode || PARTICIPANT_MODES.INDIVIDUAL,
     teamSize: patch.participantMode === PARTICIPANT_MODES.TEAM ? 3 : null,

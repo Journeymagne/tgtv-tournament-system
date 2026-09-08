@@ -6,7 +6,7 @@ const { SECURITY_HEADERS } = require("./io");
 const SITE_NAME = "TGTV Ranking Tournament System";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "20260906-team-administration";
+const ASSET_VERSION = "20260908-payload-diet";
 
 function requestOrigin(req) {
   const configured = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
@@ -170,7 +170,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <meta name="description" content="${escapeHtml(description)}">
     <meta name="robots" content="${escapeHtml(robots)}">
     <link rel="canonical" href="${escapeHtml(canonical)}">
-    <link rel="icon" type="image/png" href="/logo.png?v=20260808-favicon">
+    <link rel="icon" type="image/webp" href="/logo.webp?v=20260908-webp-logo">
     <link rel="apple-touch-icon" href="/logo.png?v=20260808-favicon">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="${escapeHtml(SITE_NAME)}">

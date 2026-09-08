@@ -16,7 +16,7 @@ function user(overrides = {}) {
     id: 1,
     name: "Alpha",
     passwordHash: "salt:hash",
-    avatarData: "data:image/png;base64,AAA=",
+    avatarUrl: "/api/users/1/avatar?v=abc123",
     registerNickname: "Alpha",
     telegramContact: "@alpha",
     challengeCredits: [{ team: "Kasrkin", action: "credit" }],
@@ -35,15 +35,17 @@ test("publicUser не отдаёт challengeCredits", () => {
   assert.equal("challengeCredits" in publicUser(user()), false);
 });
 
-test("publicUser отбрасывает переросший аватар", () => {
-  const big = `data:image/png;base64,${"A".repeat(1024 * 1024 + 10)}`;
-  assert.equal(publicUser(user({ avatarData: big })).avatarData, null);
-  assert.ok(publicUser(user()).avatarData);
+test("publicUser отдаёт ссылку на аватар и никогда не встраивает картинку", () => {
+  assert.equal(publicUser(user()).avatarUrl, "/api/users/1/avatar?v=abc123");
+  assert.equal(publicUser(user({ avatarUrl: null })).avatarUrl, null);
+  // Ни одно представление больше не должно содержать base64: именно это
+  // раздувало каждый ответ, где упоминался игрок.
+  assert.doesNotMatch(JSON.stringify(publicUser(user())), /data:image/);
 });
 
 test("leaderboardUser не содержит контактов", () => {
   const row = leaderboardUser(user());
-  assert.deepEqual(Object.keys(row).sort(), ["avatarData", "id", "isAdmin", "name", "rating", "ratings"]);
+  assert.deepEqual(Object.keys(row).sort(), ["avatarUrl", "id", "isAdmin", "name", "rating", "ratings"]);
 });
 
 test("publicUserSummary сохраняет контакты для авторизованных представлений", () => {

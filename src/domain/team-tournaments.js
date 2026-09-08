@@ -52,10 +52,12 @@ function validateTeamTournament(tournament, rosters) {
   if (tournament.participantMode !== "team" || tournament.format !== "swiss" || tournament.teamSize !== 3) {
     throw new ValidationError("Team tournaments require Swiss and rosters of three");
   }
-  if (rosters.length < 4 || rosters.length > 128) {
+  const started = tournament.status === "in_progress" || Boolean(tournament.startedAt);
+  if (started && !rosters.length) throw new ValidationError("No active rosters remain in this tournament");
+  if (rosters.length < (started ? 1 : 4) || rosters.length > 128) {
     throw new ValidationError("Team Swiss requires 4-128 active rosters");
   }
-  if (rosters.length % 2 !== 0) {
+  if (!started && rosters.length % 2 !== 0) {
     throw new ValidationError("Team Swiss requires an even number of rosters; bye is not supported");
   }
 }
@@ -67,6 +69,7 @@ function sortedRosters(rosters) {
 function buildFirstTeamRound(tournament, rosters) {
   validateTeamTournament(tournament, rosters);
   const seeded = sortedRosters(rosters);
+  const bye = seeded.length % 2 ? seeded.pop() : null;
   const half = seeded.length / 2;
   return {
     roundNumber: 1,
@@ -75,7 +78,7 @@ function buildFirstTeamRound(tournament, rosters) {
       bracketPosition: index + 1,
       rosterAId: roster.id,
       rosterBId: seeded[index + half].id
-    }))
+    })).concat(bye ? [{ bracketPosition: half + 1, rosterAId: bye.id, rosterBId: null }] : [])
   };
 }
 
@@ -100,8 +103,8 @@ function teamMatchProgress(match) {
     : (match.gamePoints || []);
   return {
     completed: details.length, total: 3, details,
-    gpA: details.reduce((sum, game) => sum + Number(game.a || 0), 0),
-    gpB: details.reduce((sum, game) => sum + Number(game.b || 0), 0)
+    gpA: match.resolution ? Number(match.teamGamePointsA || 0) : details.reduce((sum, game) => sum + Number(game.a || 0), 0),
+    gpB: match.resolution ? Number(match.teamGamePointsB || 0) : details.reduce((sum, game) => sum + Number(game.b || 0), 0)
   };
 }
 
@@ -122,7 +125,7 @@ function teamStandings(rosters, matches) {
   for (const match of matches) {
     const a = byId.get(match.rosterAId);
     const b = byId.get(match.rosterBId);
-    if (!a || !b) continue;
+    if (!a && !b) continue;
     const pointsA = Number(match.teamTournamentPointsA || 0);
     const pointsB = Number(match.teamTournamentPointsB || 0);
     const progress = teamMatchProgress(match);
@@ -131,6 +134,7 @@ function teamStandings(rosters, matches) {
       [a, pointsA, details.length ? progress.gpA : match.teamGamePointsA, "a"],
       [b, pointsB, details.length ? progress.gpB : match.teamGamePointsB, "b"]
     ]) {
+      if (!row) continue;
       row.teamGamePoints += Number(gamePoints || 0);
       row.individualWins += details.filter((item) => item.winnerSide === side).length;
       row.totalVp += details.reduce((sum, item) => sum + Number(side === "a" ? item.vpA || 0 : item.vpB || 0), 0);
@@ -160,6 +164,17 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber) {
     throw new ValidationError("Team Swiss round number is out of range");
   }
   const standings = teamStandings(rosters, matches);
+  let bye = null;
+  if (standings.length % 2) {
+    const freeWins = (id) => matches.filter((match) => match.resolution &&
+      ((match.rosterAId === id && match.teamTournamentPointsA === 2) ||
+       (match.rosterBId === id && match.teamTournamentPointsB === 2))).length;
+    const candidates = [...standings].reverse().sort((a, b) => freeWins(a.roster.id) - freeWins(b.roster.id));
+    bye = candidates[0];
+    standings.splice(standings.indexOf(bye), 1);
+  }
+  const withBye = (pairings) => pairings.concat(bye
+    ? [{ bracketPosition: pairings.length + 1, rosterAId: bye.roster.id, rosterBId: null }] : []);
   const history = new Set(matches.map((match) => pairKey(match.rosterAId, match.rosterBId)));
   const standingsIndex = new Map(standings.map((row, index) => [row.roster.id, index]));
 
@@ -209,11 +224,11 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber) {
     return {
       roundNumber,
       status: "active",
-      pairings: freshPairs.map(([a, b], index) => ({
+      pairings: withBye(freshPairs.map(([a, b], index) => ({
         bracketPosition: index + 1,
         rosterAId: a.roster.id,
         rosterBId: b.roster.id
-      }))
+      })))
     };
   }
 
@@ -230,7 +245,7 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber) {
       rosterBId: b.roster.id
     });
   }
-  return { roundNumber, status: "active", pairings };
+  return { roundNumber, status: "active", pairings: withBye(pairings) };
 }
 
 function normalizeRoundMissions(values) {

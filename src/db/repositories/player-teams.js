@@ -1,4 +1,5 @@
 const { toIso } = require("../rows");
+const { avatarUrl } = require("../../domain/avatars");
 
 function mapTeam(row) {
   if (!row) return null;
@@ -31,7 +32,7 @@ function mapMembership(row) {
     endReason: row.end_reason || null,
     endedByUserId: row.ended_by_user_id,
     user: row.user_id
-      ? { id: row.user_id, name: row.user_name || row.display_name_snapshot, avatarData: row.avatar_data || null }
+      ? { id: row.user_id, name: row.user_name || row.display_name_snapshot, avatarUrl: avatarUrl(row.user_id, row.avatar_version) }
       : null
   };
 }
@@ -137,7 +138,7 @@ async function listLeaderboard(client, venueMode = "combined") {
 
 async function listMemberships(client, teamId) {
   const { rows } = await client.query(
-    `SELECT m.*, u.name AS user_name, u.avatar_data
+    `SELECT m.*, u.name AS user_name, u.avatar_version
      FROM player_team_memberships m
      LEFT JOIN users u ON u.id = m.user_id
      WHERE m.team_id = $1
@@ -150,7 +151,7 @@ async function listMemberships(client, teamId) {
 
 async function activeMembership(client, teamId, userId, forUpdate = false) {
   const { rows } = await client.query(
-    `SELECT m.*, u.name AS user_name, u.avatar_data
+    `SELECT m.*, u.name AS user_name, u.avatar_version
      FROM player_team_memberships m
      LEFT JOIN users u ON u.id = m.user_id
      WHERE m.team_id = $1 AND m.user_id = $2 AND m.ended_at IS NULL
@@ -162,7 +163,7 @@ async function activeMembership(client, teamId, userId, forUpdate = false) {
 
 async function membershipById(client, id, forUpdate = false) {
   const { rows } = await client.query(
-    `SELECT m.*, u.name AS user_name, u.avatar_data
+    `SELECT m.*, u.name AS user_name, u.avatar_version
      FROM player_team_memberships m
      LEFT JOIN users u ON u.id = m.user_id
      WHERE m.id = $1${forUpdate ? " FOR UPDATE OF m" : ""}`,

@@ -24,15 +24,15 @@ test("direct team profile URLs and reloads serve the application shell", () => {
 
 test("подкаталог разрешается", () => {
   assert.equal(
-    resolveStaticPath("/kill-team-logos/Kasrkin.png"),
-    path.join(PUBLIC_DIR, "kill-team-logos", "Kasrkin.png")
+    resolveStaticPath("/kill-team-logos/Kasrkin.webp"),
+    path.join(PUBLIC_DIR, "kill-team-logos", "Kasrkin.webp")
   );
 });
 
 test("percent-encoded имя декодируется", () => {
   assert.equal(
-    resolveStaticPath("/kill-team-logos/Death%20Korps.png"),
-    path.join(PUBLIC_DIR, "kill-team-logos", "Death Korps.png")
+    resolveStaticPath("/kill-team-logos/Death%20Korps.webp"),
+    path.join(PUBLIC_DIR, "kill-team-logos", "Death Korps.webp")
   );
 });
 

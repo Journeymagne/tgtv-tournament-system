@@ -1,4 +1,6 @@
 const { USER_COLUMNS: COLUMNS, mapUser } = require("../rows");
+const { avatarUrl } = require("../../domain/avatars");
+const { contentVersion } = require("../../domain/data-url");
 
 function nameKeyOf(name) {
   return String(name || "").toLowerCase();
@@ -68,14 +70,14 @@ async function listLeaderboard(client, venueMode = "combined") {
   const mode = normalizeRatingMode(venueMode);
   const column = ratingColumn(mode);
   const { rows } = await client.query(
-    `SELECT id, name, avatar_data, rating_tts, rating_irl, rating_combined,
+    `SELECT id, name, avatar_version, rating_tts, rating_irl, rating_combined,
             ${column} AS selected_rating, is_admin
      FROM users ORDER BY ${column} DESC, name ASC`
   );
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
-    avatarData: row.avatar_data || null,
+    avatarUrl: avatarUrl(row.id, row.avatar_version),
     rating: row.selected_rating,
     ratings: { tts: row.rating_tts, irl: row.rating_irl, combined: row.rating_combined },
     venueMode: mode,
@@ -129,15 +131,16 @@ async function search(client, { q, excludeId, limit = 10 }) {
 async function insert(client, user) {
   const { rows } = await client.query(
     `INSERT INTO users
-       (name, name_key, password_hash, avatar_data, register_nickname,
+       (name, name_key, password_hash, avatar_data, avatar_version, register_nickname,
         telegram_contact, challenge_credits, rating, rating_tts, rating_irl, rating_combined, is_admin)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $8, $8, $8, $9)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $9, $9, $9, $10)
      RETURNING ${COLUMNS}`,
     [
       user.name,
       nameKeyOf(user.name),
       user.passwordHash,
       user.avatarData || null,
+      contentVersion(user.avatarData),
       user.registerNickname || null,
       user.telegramContact || null,
       JSON.stringify(user.challengeCredits || []),
@@ -155,6 +158,13 @@ const PROFILE_COLUMNS = {
   telegramContact: "telegram_contact"
 };
 
+// The bytes are the only thing that ever writes avatar_data, and the
+// fingerprint has to move with them or a cached avatar URL would go stale.
+async function readAvatar(client, id) {
+  const { rows } = await client.query("SELECT avatar_data FROM users WHERE id = $1", [id]);
+  return rows[0]?.avatar_data || null;
+}
+
 async function updateProfile(client, id, patch) {
   const assignments = [];
   const values = [id];
@@ -166,6 +176,10 @@ async function updateProfile(client, id, patch) {
     if (field === "name") {
       values.push(nameKeyOf(patch.name));
       assignments.push(`name_key = $${values.length}`);
+    }
+    if (field === "avatarData") {
+      values.push(contentVersion(patch.avatarData));
+      assignments.push(`avatar_version = $${values.length}`);
     }
   }
   if (!assignments.length) return findById(client, id);
@@ -274,6 +288,7 @@ module.exports = {
   listForRatingReplay,
   search,
   insert,
+  readAvatar,
   updateProfile,
   setPasswordHash,
   normalizeVenueMode,

@@ -1,4 +1,5 @@
 const { MAX_REQUEST_BYTES } = require("../config");
+const { MIN_COMPRESS_BYTES, negotiateEncoding, compress } = require("./compression");
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -34,16 +35,22 @@ function readBody(req, maxBytes = MAX_REQUEST_BYTES) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let totalBytes = 0;
+    let tooLarge = false;
     req.on("data", (chunk) => {
+      if (tooLarge) return;
       totalBytes += chunk.length;
       if (totalBytes > maxBytes) {
+        tooLarge = true;
+        chunks.length = 0;
         reject(new HttpError(413, "Request body is too large"));
-        req.destroy();
+        // Discard remaining bytes without destroying the response socket:
+        // the router must still be able to deliver the JSON 413 error.
         return;
       }
       chunks.push(chunk);
     });
     req.on("end", () => {
+      if (tooLarge) return;
       const body = Buffer.concat(chunks).toString("utf8");
       if (!body) return resolve({});
       try {
@@ -94,16 +101,74 @@ function parseCookies(req) {
   );
 }
 
+// Marks a response whose body is being compressed. writeHead has not run yet at
+// that point, so headersSent alone cannot stop a second handler from also
+// writing to this response.
+const jsonBodyPending = new WeakSet();
+
 function sendJson(res, status, body, headers = {}) {
-  if (res.headersSent) return;
+  if (res.headersSent || jsonBodyPending.has(res)) return;
   const payload = JSON.stringify(body);
-  res.writeHead(status, {
+  const length = Buffer.byteLength(payload);
+  const base = {
     "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(payload),
+    // Set whether or not this particular response ended up compressed: the same
+    // URL answers differently per Accept-Encoding, and a shared cache must not
+    // hand a brotli body to a client that never asked for one.
+    Vary: "Accept-Encoding",
     ...SECURITY_HEADERS,
     ...headers
+  };
+
+  // res.req is the request Node itself attached. Reading it here keeps every
+  // existing call site unchanged, and a hand-built response object in a test
+  // simply has none and takes the uncompressed path.
+  const acceptEncoding = res.req?.headers?.["accept-encoding"];
+  const encoding = length >= MIN_COMPRESS_BYTES ? negotiateEncoding(acceptEncoding) : null;
+  if (!encoding) {
+    res.writeHead(status, { ...base, "Content-Length": length });
+    res.end(payload);
+    return;
+  }
+
+  jsonBodyPending.add(res);
+  compress(Buffer.from(payload), encoding, (err, encoded) => {
+    jsonBodyPending.delete(res);
+    if (res.headersSent) return;
+    // A failed or counter-productive compression still owes the client a body.
+    if (err || encoded.length >= length) {
+      res.writeHead(status, { ...base, "Content-Length": length });
+      res.end(payload);
+      return;
+    }
+    res.writeHead(status, {
+      ...base,
+      "Content-Length": encoded.length,
+      "Content-Encoding": encoding
+    });
+    res.end(encoded);
   });
-  res.end(payload);
+}
+
+// Stored files served from the database: never scripts, never framed, and not
+// worth re-compressing (PDF and JPEG payloads are already compressed).
+const ATTACHMENT_SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+  "Content-Security-Policy": "default-src 'none'"
+};
+
+function sendBinary(res, status, buffer, contentType, headers = {}) {
+  if (res.headersSent) return;
+  // 304 carries no body, and repeating Content-Type/Length on it is wrong.
+  const body = status === 304 ? null : buffer;
+  res.writeHead(status, {
+    ...(body ? { "Content-Type": contentType, "Content-Length": body.length } : {}),
+    ...ATTACHMENT_SECURITY_HEADERS,
+    ...headers
+  });
+  res.end(body ?? undefined);
 }
 
 function sendText(res, status, text, headers = {}) {
@@ -135,6 +200,8 @@ module.exports = {
   HttpError,
   ValidationError,
   SECURITY_HEADERS,
+  ATTACHMENT_SECURITY_HEADERS,
+  sendBinary,
   readBody,
   clientKey,
   parseCookies,

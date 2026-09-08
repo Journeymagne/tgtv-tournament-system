@@ -43,7 +43,7 @@ async function attachTournamentGameDetails(client, games) {
       id: participant.resultKey,
       userId: participant.userId || null,
       name: participant.user?.name || participant.displayNameSnapshot || "Player",
-      avatarData: participant.user?.avatarData || null,
+      avatarUrl: participant.user?.avatarUrl || null,
       registerNickname: participant.user?.registerNickname || "",
       telegramContact: participant.user?.telegramContact || "",
       rating: participant.user?.rating ?? null,

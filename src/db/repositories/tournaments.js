@@ -12,6 +12,7 @@ const FIELD_COLUMNS = {
   ownerUserId: "owner_user_id",
   slug: "slug",
   name: "name",
+  logoData: "logo_data",
   description: "description",
   gameSystem: "game_system",
   startsAt: "starts_at",
@@ -59,8 +60,8 @@ async function insert(client, tournament) {
        (owner_user_id, slug, name, description, game_system, starts_at,
         rules_summary, rules_link, status, format, swiss_round_count,
         single_elimination_size, tiebreaker_order, rating_policy,
-         challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19)
+         challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type, logo_data)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20)
      RETURNING ${COLUMNS}`,
     [
       tournament.ownerUserId || null,
@@ -81,7 +82,8 @@ async function insert(client, tournament) {
       tournament.venueMode || "tts",
       tournament.participantMode || "individual",
       tournament.teamSize || null,
-      tournament.pairingType || null
+      tournament.pairingType || null,
+      tournament.logoData || null
     ]
   );
   return mapTournament(rows[0]);

@@ -1,3 +1,4 @@
+const { avatarUrl } = require("../../domain/avatars");
 function mapParticipant(row) {
   if (!row) return null;
   return {
@@ -13,7 +14,7 @@ function mapParticipant(row) {
       ? {
           id: row.user_id,
           name: row.user_name || row.display_name_snapshot,
-          avatarData: row.avatar_data || null,
+          avatarUrl: avatarUrl(row.user_id, row.avatar_version),
           registerNickname: row.register_nickname || "",
           telegramContact: row.telegram_contact || "",
           rating: row.rating,
@@ -79,7 +80,7 @@ async function listByGameIds(client, gameIds) {
     `SELECT
        gp.*,
        u.name AS user_name,
-       u.avatar_data,
+       u.avatar_version,
        u.register_nickname,
        u.telegram_contact,
        u.rating,

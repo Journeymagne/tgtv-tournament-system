@@ -1,0 +1,85 @@
+/* Documentation pages and their editor.
+
+   Loaded on demand next to documentation.js: the reader for these styles is
+   the same person who triggers that script, and everybody else was paying
+   for 9 KB of rules they never render. Colors come from the tokens in
+   styles.css, which is always present by the time this file is fetched. */
+
+.public-documentation { max-width: 1360px; margin: 0 auto; padding: 76px 20px 32px; }
+.documentation { display: grid; gap: 18px; min-width: 0; }
+.documentation-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.documentation-header h2 { margin: 4px 0 10px; }
+.documentation-header .small-button { flex-shrink: 0; text-decoration: none; }
+.documentation-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.documentation-card { display: flex; flex-direction: column; gap: 12px; color: var(--ink); text-decoration: none; }
+.documentation-card h3, .documentation-card p { margin: 0; }
+.documentation-card p { color: var(--muted); line-height: 1.6; }
+.documentation-card:hover, .documentation-card:focus-visible { border-color: var(--accent); }
+.documentation-read { margin-top: auto; color: var(--ink); font-weight: 700; }
+.documentation-layout { display: grid; grid-template-columns: minmax(180px, 230px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.documentation-nav { display: grid; gap: 8px; padding: 14px; position: sticky; top: 94px; }
+.documentation-nav a { color: var(--ink); text-decoration: none; padding: 10px; border-radius: 6px; line-height: 1.4; }
+.documentation-nav a:hover { background: var(--panel-2); }
+.documentation-nav a[aria-current="page"] { background: var(--accent); color: #111; font-weight: 700; }
+.documentation-article { min-width: 0; line-height: 1.7; }
+.documentation-article h2 { margin-top: 4px; line-height: 1.25; }
+.documentation-intro { color: var(--muted); }
+.documentation-section { scroll-margin-top: 100px; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); }
+.documentation-section h3 { margin: 0 0 16px; line-height: 1.35; }
+.documentation-section p { margin: 12px 0; }
+.documentation-section ol, .documentation-section ul { padding-left: 24px; }
+.documentation-section li + li { margin-top: 12px; }
+.documentation-note { padding: 14px 16px; background: var(--panel-2); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; }
+.documentation-formula { padding: 18px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 0.95em; }
+.documentation-table-scroll { overflow-x: auto; max-width: 100%; }
+.documentation-table-scroll table { width: 100%; border-collapse: collapse; min-width: 360px; }
+.documentation-table-scroll th, .documentation-table-scroll td { padding: 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: normal; }
+.documentation-table-scroll th { color: var(--ink); }
+.documentation-contents { padding: 12px 16px; background: var(--panel-2); border-radius: 8px; }
+.documentation-contents summary { cursor: pointer; font-weight: 700; }
+.documentation-contents ul { margin-bottom: 0; padding-left: 20px; }
+.documentation-contents .text-link-button { white-space: normal; text-align: left; line-height: 1.5; }
+.documentation-auth-link { display: inline-block; margin-top: 18px; }
+.documentation-article-heading, .documentation-editor-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.documentation-article-heading > div { min-width: 0; }
+.documentation-article-heading button { flex-shrink: 0; }
+.documentation-markdown { min-width: 0; overflow-wrap: anywhere; line-height: 1.75; }
+.documentation-markdown > h3, .documentation-markdown > h4 { border-top: 1px solid var(--line); padding-top: 24px; margin-top: 28px; scroll-margin-top: 100px; }
+.documentation-markdown p { margin: 12px 0; }
+.documentation-markdown li + li { margin-top: 8px; }
+.documentation-markdown pre, .documentation-editor-help pre { padding: 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.documentation-markdown blockquote { margin: 16px 0; padding: 2px 16px; border-left: 3px solid var(--accent); background: var(--panel-2); }
+.documentation-markdown img { max-width: 100%; height: auto; }
+.documentation-editor { display: grid; gap: 16px; min-width: 0; }
+.documentation-editor label { display: grid; gap: 8px; min-width: 0; }
+.documentation-editor input:not([type="file"]), .documentation-editor select, .documentation-editor textarea { box-sizing: border-box; width: 100%; padding: 10px 12px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
+.documentation-editor [data-doc-save] { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 700; }
+.documentation-editor-meta { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 16px; }
+.documentation-editor-tools, .documentation-editor-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.documentation-editor-tools .small-button { font-size: 0.85rem; }
+.documentation-editor-actions { position: sticky; bottom: 0; background: var(--panel); padding: 14px 0; border-top: 1px solid var(--line); z-index: 1; }
+.documentation-editor-actions p { flex: 1 1 240px; margin: 0; }
+.documentation-editor-panes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.documentation-editor-source textarea { min-height: 520px; width: 100%; resize: vertical; font: 0.9rem/1.65 Consolas, monospace; tab-size: 2; }
+.documentation-editor-preview { min-width: 0; max-height: 760px; overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 8px; }
+.documentation-editor-preview > h3 { margin-top: 0; }
+.documentation-editor-help summary { cursor: pointer; }
+.documentation-error { color: var(--danger, #d84949); }
+.documentation-layout:has(.documentation-editing) { grid-template-columns: minmax(0, 1fr); }
+.documentation-layout:has(.documentation-editing) > .documentation-nav { display: none; }
+@media (max-width: 800px) {
+  .documentation-editor-panes, .documentation-editor-meta { grid-template-columns: minmax(0, 1fr); }
+  .documentation-editor-source textarea { min-height: 360px; }
+  .documentation-editor-preview { max-height: 520px; }
+  .documentation-editor-header { flex-wrap: wrap; }
+}
+@media (max-width: 1000px) {
+  .documentation-layout { grid-template-columns: minmax(0, 1fr); }
+  .documentation-nav { position: static; }
+}
+@media (max-width: 600px) {
+  .documentation-cards { grid-template-columns: minmax(0, 1fr); }
+  .public-documentation { padding: 76px 12px 20px; }
+  .documentation-header { align-items: flex-start; flex-direction: column; }
+  .documentation-table-scroll th, .documentation-table-scroll td { padding: 8px; }
+}

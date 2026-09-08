@@ -2,7 +2,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const source = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf8");
+// The client is two files now: admin.js is fetched on demand and shares app.js
+// global scope, so anything extracted by name may live in either.
+const source = ["app.js", "admin.js"]
+  .map((file) => fs.readFileSync(path.join(__dirname, "../../public", file), "utf8"))
+  .join("\n");
 
 function extract(name) {
   const match = source.match(new RegExp(`(?:async )?function ${name}\\([^]*?\\r?\\n\\}`));

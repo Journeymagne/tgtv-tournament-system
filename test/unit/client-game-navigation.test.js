@@ -4,6 +4,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const appSource = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf8");
+// Administration entry points were split into their own on-demand file.
+const adminSource = fs.readFileSync(path.join(__dirname, "../../public/admin.js"), "utf8");
 const openGameDetailSource = appSource.match(
   /async function openGameDetail\(gameId\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction renderGames)/
 )?.[0];
@@ -28,8 +30,8 @@ const scheduleTeamPairingPollSource = appSource.match(
 const navigateToPlayerTeamSource = appSource.match(
   /function navigateToPlayerTeam\(slug\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction clearPlayerTeamRoute)/
 )?.[0];
-const loadTournamentAdminSource = appSource.match(
-  /async function loadTournamentAdmin\(\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nasync function loadAdminTournamentDetail)/
+const loadTournamentAdminSource = adminSource.match(
+  /async function loadTournamentAdmin\(\) \{[\s\S]*?\r?\n\}/
 )?.[0];
 const appRouteFromHashSource = appSource.match(
   /function appRouteFromHash\(\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nasync function applyAppRouteFromHash)/

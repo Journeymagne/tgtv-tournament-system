@@ -1,5 +1,9 @@
+const { avatarUrl } = require("../domain/avatars");
+
+// avatar_version, not avatar_data: the image itself is served by
+// GET /api/users/:id/avatar and never selected here.
 const USER_COLUMNS = `
-  id, name, name_key, password_hash, avatar_data, register_nickname,
+  id, name, name_key, password_hash, avatar_version, register_nickname,
   telegram_contact, challenge_credits, rating, rating_tts, rating_irl, rating_combined,
   is_admin, created_at, updated_at
 `;
@@ -18,7 +22,7 @@ const FEEDBACK_COLUMNS = `
 `;
 
 const TOURNAMENT_COLUMNS = `
-  id, owner_user_id, slug, name, description, game_system, starts_at,
+  id, owner_user_id, slug, name, logo_data, description, game_system, starts_at,
   rules_summary, rules_link, status, format, swiss_round_count,
   single_elimination_size, tiebreaker_order, rating_policy,
   challenge_credit_policy, season_id, venue_mode, final_results, round_draft,
@@ -81,7 +85,7 @@ function mapUser(row) {
     id: row.id,
     name: row.name,
     passwordHash: row.password_hash,
-    avatarData: row.avatar_data || null,
+    avatarUrl: avatarUrl(row.id, row.avatar_version),
     registerNickname: row.register_nickname || "",
     telegramContact: row.telegram_contact || "",
     challengeCredits: Array.isArray(row.challenge_credits) ? row.challenge_credits : [],
@@ -152,6 +156,7 @@ function mapTournament(row) {
     ownerUserId: row.owner_user_id,
     slug: row.slug,
     name: row.name || "",
+    logoData: row.logo_data || null,
     description: row.description || "",
     gameSystem: row.game_system || "",
     startsAt: toIso(row.starts_at),

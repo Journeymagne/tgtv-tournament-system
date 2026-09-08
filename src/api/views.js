@@ -1,10 +1,6 @@
-const { MAX_AVATAR_DATA_URL_LENGTH } = require("../config");
+const { contentVersion } = require("../domain/data-url");
 const { buildChallengeTracks } = require("../domain/challenge-progress");
-
-function safeAvatar(value) {
-  if (!value || value.length > MAX_AVATAR_DATA_URL_LENGTH) return null;
-  return value;
-}
+const { registrationFactionsHidden } = require("../domain/tournaments/privacy");
 
 function publicRatings(user) {
   return {
@@ -19,7 +15,7 @@ function publicUser(user) {
   return {
     id: user.id,
     name: user.name,
-    avatarData: safeAvatar(user.avatarData),
+    avatarUrl: user.avatarUrl || null,
     registerNickname: user.registerNickname || "",
     telegramContact: user.telegramContact || "",
     rating: user.rating,
@@ -47,7 +43,7 @@ function leaderboardUser(user) {
   return {
     id: user.id,
     name: user.name,
-    avatarData: safeAvatar(user.avatarData),
+    avatarUrl: user.avatarUrl || null,
     rating: user.rating,
     ratings: publicRatings(user),
     isAdmin: Boolean(user.isAdmin)
@@ -206,17 +202,37 @@ function tournamentRoundView(round, matches, participantById) {
   };
 }
 
+function tournamentRulesType(tournament) {
+  const link = String(tournament?.rulesLink || "");
+  if (!link) return "";
+  return link.startsWith("data:") ? "pdf" : "url";
+}
+
+function tournamentRulesUrl(tournament) {
+  const link = String(tournament?.rulesLink || "");
+  if (!link) return "";
+  if (!link.startsWith("data:")) return link;
+  // Content-addressed so the browser can cache the file forever and still pick
+  // up a replacement the moment an administrator uploads one.
+  return `/api/tournaments/${encodeURIComponent(tournament.slug)}/rules?v=${contentVersion(link)}`;
+}
+
 function tournamentSummaryView(tournament) {
   return {
     id: tournament.id,
     ownerUserId: tournament.ownerUserId,
+    logoData: tournament.logoData || null,
     slug: tournament.slug,
     name: tournament.name,
     description: tournament.description,
     gameSystem: tournament.gameSystem,
     startsAt: tournament.startsAt,
     rulesSummary: tournament.rulesSummary,
-    rulesLink: tournament.rulesLink,
+    // An uploaded PDF is served by its own route rather than inlined here: the
+    // same summary object rides along with every game of the tournament, so a
+    // 130 KB base64 blob was being repeated once per match.
+    rulesLink: tournamentRulesUrl(tournament),
+    rulesLinkType: tournamentRulesType(tournament),
     status: tournament.status,
     format: tournament.format,
     participantMode: tournament.participantMode || "individual",
@@ -265,9 +281,14 @@ function tournamentDetailView({
   viewer = {},
   auditEvents = []
 }) {
-  const participantViews = participants.map((participant) =>
-    tournamentParticipantView(participant, people)
-  );
+  const hideFactions = registrationFactionsHidden(tournament) && !viewer.canAdmin;
+  const participantViews = participants.map((participant) => {
+    const view = tournamentParticipantView(participant, people);
+    if (hideFactions && participant.id !== viewer.participantId) {
+      return { ...view, faction: "", factionRules: "", factionHidden: true };
+    }
+    return view;
+  });
   const participantById = new Map(participantViews.map((participant) => [participant.id, participant]));
   const tableViews = tables.map(tournamentTableView);
   const tableById = new Map(tableViews.map((table) => [table.id, table]));

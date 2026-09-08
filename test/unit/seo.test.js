@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const {
   handleSeoRequest,
@@ -75,4 +77,31 @@ test("metaDescription strips markdown and truncates long text", () => {
   const text = metaDescription("# Header\n[Link](https://example.com) " + "x".repeat(200));
   assert.equal(text.startsWith("Header Link "), true);
   assert.equal(text.length, 155);
+});
+
+// seo.js builds its own HTML shell for crawlable routes, so it carries a second
+// copy of the asset version. When the two drift, a visitor who lands on a
+// tournament page gets a different app.js than one who lands on "/" -- and a
+// released fix silently fails to reach the first of them.
+test("the server-rendered shell serves the same asset version as index.html", () => {
+  const seoSource = fs.readFileSync(path.join(__dirname, "../../src/http/seo.js"), "utf8");
+  const indexSource = fs.readFileSync(path.join(__dirname, "../../public/index.html"), "utf8");
+  const seoVersion = seoSource.match(/ASSET_VERSION = "([^"]+)"/)?.[1];
+  assert.ok(seoVersion, "seo.js no longer declares ASSET_VERSION");
+  const indexVersions = [...indexSource.matchAll(/\/(?:app\.js|styles\.css|theme-boot\.js)\?v=([^"]+)/g)]
+    .map((match) => match[1]);
+  assert.ok(indexVersions.length >= 3, "index.html no longer versions its own scripts and stylesheet");
+  assert.deepEqual([...new Set(indexVersions)], [seoVersion]);
+});
+
+// admin.js and documentation.css are deliberately absent from both shells: they
+// are fetched at runtime, by administrators and by documentation readers
+// respectively. Listing either one here would put them back on every visit.
+test("the on-demand bundles are not linked from any first-paint shell", () => {
+  const indexSource = fs.readFileSync(path.join(__dirname, "../../public/index.html"), "utf8");
+  const seoSource = fs.readFileSync(path.join(__dirname, "../../src/http/seo.js"), "utf8");
+  for (const asset of ["admin.js", "documentation.js", "documentation.css"]) {
+    assert.ok(!indexSource.includes(asset), `index.html must not preload ${asset}`);
+    assert.ok(!seoSource.includes(`/${asset}`), `the server-rendered shell must not preload ${asset}`);
+  }
 });

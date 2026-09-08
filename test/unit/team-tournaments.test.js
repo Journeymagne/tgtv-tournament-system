@@ -59,6 +59,40 @@ function pairKeyForTest(a, b) {
   return [a, b].sort((left, right) => left - right).join(":");
 }
 
+test("started tournaments keep pairing after withdrawals, including odd fields and a single roster", () => {
+  const started = { ...tournament, status: "in_progress" };
+  for (const count of [1, 2, 3]) {
+    const active = rosters.slice(0, count);
+    for (const round of [buildFirstTeamRound(started, active), buildNextTeamRound(started, active, [], 2)]) {
+      assert.deepEqual(round.pairings.flatMap((m) => [m.rosterAId, m.rosterBId]).filter(Boolean).sort(), active.map((r) => r.id));
+      assert.equal(round.pairings.filter((m) => m.rosterBId === null).length, count % 2);
+    }
+  }
+  assert.throws(() => buildFirstTeamRound(started, []), /No active rosters/);
+});
+
+test("bye allocation avoids a second free win while another roster has received none", () => {
+  const active = rosters.slice(0, 3);
+  const matches = [{ rosterAId: 3, rosterBId: null, resolution: "bye", phase: "completed", teamTournamentPointsA: 2, teamGamePointsA: 60 }];
+  const next = buildNextTeamRound({ ...tournament, status: "in_progress" }, active, matches, 2);
+  assert.notEqual(next.pairings.find((m) => m.rosterBId === null).rosterAId, 3);
+});
+
+test("opponents retain points against a removed roster and byes do not invent personal results", () => {
+  const matches = [
+    { rosterAId: 1, rosterBId: 2, phase: "completed", teamTournamentPointsA: 2, teamTournamentPointsB: 0, teamGamePointsA: 40, teamGamePointsB: 20 },
+    { rosterAId: 1, rosterBId: null, phase: "completed", resolution: "bye", teamTournamentPointsA: 2, teamGamePointsA: 60 }
+  ];
+  const winner = teamStandings([rosters[0]], matches)[0];
+  assert.equal(winner.teamTournamentPoints, 4);
+  assert.equal(winner.teamGamePoints, 100);
+  assert.equal(winner.played, 2);
+  assert.equal(winner.wins, 2);
+  assert.equal(winner.individualWins, 0);
+  assert.equal(winner.totalVp, 0);
+  assert.equal(teamStandings([rosters[1]], matches)[0].losses, 1);
+});
+
 test("legacy team rounds require three distinct canonical Crit Ops", () => {
   assert.deepEqual(normalizeRoundMissions(CRIT_OPS.slice(0, 3)), CRIT_OPS.slice(0, 3).map((critOp) => ({ critOp })));
   assert.throws(() => normalizeRoundMissions([CRIT_OPS[0], CRIT_OPS[0], CRIT_OPS[1]]), ValidationError);

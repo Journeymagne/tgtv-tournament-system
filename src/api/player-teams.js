@@ -3,6 +3,7 @@ const { requirePositiveIntId } = require("./params");
 const usersRepo = require("../db/repositories/users");
 const teamsRepo = require("../db/repositories/player-teams");
 const rostersRepo = require("../db/repositories/team-rosters");
+const { rosterForViewer } = require("../domain/tournaments/privacy");
 const { uniqueSlug } = require("../domain/tournaments/slug");
 const {
   normalizeTeamName,
@@ -136,7 +137,10 @@ async function profileData(client, team, user) {
     } },
     currentMembers: memberships.filter((item) => !item.endedAt),
     formerMembers: memberships.filter((item) => item.endedAt),
-    rosters: rosters.map((roster) => ({ ...roster, tournament: tournamentById.get(roster.tournamentId) || null })),
+    rosters: rosters.map((roster) => ({
+      ...rosterForViewer(roster, tournamentById.get(roster.tournamentId), user, { teamLeader: viewerMembership?.role === "leader" }),
+      tournament: tournamentById.get(roster.tournamentId) || null
+    })),
     recentGames: gameRows.map((row) => ({
       id: row.id,
       status: row.status,

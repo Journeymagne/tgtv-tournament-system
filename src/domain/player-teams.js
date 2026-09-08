@@ -23,15 +23,15 @@ function normalizeTeamDescription(value) {
   return markdownText(value, "Team description", TEAM_DESCRIPTION_MAX);
 }
 
-function normalizeTeamLogo(value) {
+function normalizeTeamLogo(value, label = "Team logo") {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
-  if (typeof value !== "string") throw new ValidationError("Team logo must be an image data URL");
+  if (typeof value !== "string") throw new ValidationError(`${label} must be an image data URL`);
   const match = value.match(TEAM_LOGO_PATTERN);
-  if (!match) throw new ValidationError("Team logo must be a PNG, JPG, WebP, or GIF image");
+  if (!match) throw new ValidationError(`${label} must be a PNG, JPG, WebP, or GIF image`);
   const padding = (match[2].match(/=*$/) || [""])[0].length;
   const byteLength = Math.floor((match[2].length * 3) / 4) - padding;
-  if (byteLength > TEAM_LOGO_MAX_BYTES) throw new ValidationError("Team logo must be 1 MB or smaller");
+  if (byteLength > TEAM_LOGO_MAX_BYTES) throw new ValidationError(`${label} must be 1 MB or smaller`);
   return value;
 }
 
@@ -43,11 +43,23 @@ function normalizeRosterName(value) {
   return name;
 }
 
+function defaultRosterName(team, rosters = []) {
+  let number = rosters.filter((roster) => roster.teamId === team.id).length + 1;
+  const used = new Set(rosters.map((roster) => normalizeName(roster.name).toLocaleLowerCase("en-US")));
+  while (true) {
+    const suffix = ` ${number}`;
+    const name = `${normalizeName(team.name).slice(0, 80 - suffix.length).trimEnd()}${suffix}`;
+    if (!used.has(name.toLocaleLowerCase("en-US"))) return name;
+    number += 1;
+  }
+}
+
 module.exports = {
   TEAM_LOGO_MAX_BYTES,
   normalizeTeamName,
   teamNameKey,
   normalizeTeamDescription,
   normalizeTeamLogo,
-  normalizeRosterName
+  normalizeRosterName,
+  defaultRosterName
 };

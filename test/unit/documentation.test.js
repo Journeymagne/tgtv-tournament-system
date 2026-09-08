@@ -107,19 +107,30 @@ test("documentation loader reuses its request and retries after a failed asset l
   const scripts = [];
   const fakeWindow = {};
   const load = new Function("window", "document", "t",
-    `let documentationLoadPromise = null; ${sourceOf("loadDocumentation")}; return loadDocumentation;`
-  )(fakeWindow, { querySelector: () => ({ src: "http://localhost/theme-boot.js?v=docs-test" }),
-    createElement: () => ({ remove() {} }), head: { appendChild: (script) => scripts.push(script) } }, (key) => key);
+    `let documentationLoadPromise = null; ${sourceOf("loadDocumentationStyles")} ${sourceOf("loadDocumentation")}; return loadDocumentation;`
+  )(fakeWindow, {
+    querySelector: (selector) => (selector.includes("theme-boot")
+      ? { src: "http://localhost/theme-boot.js?v=docs-test" }
+      : scripts.find((node) => node.dataset && node.dataset.documentationStyles) || null),
+    createElement: () => ({ dataset: {}, remove() {} }),
+    head: { appendChild: (node) => scripts.push(node) }
+  }, (key) => key);
   const first = load();
   assert.equal(load(), first);
-  assert.equal(scripts.length, 1);
-  assert.equal(scripts[0].src, "/documentation.js?v=docs-test");
-  scripts[0].onerror();
+  // The stylesheet rides along with the script and is injected exactly once.
+  const styles = scripts.filter((node) => node.rel === "stylesheet");
+  assert.equal(styles.length, 1);
+  assert.equal(styles[0].href, "/documentation.css?v=docs-test");
+  const loaded = scripts.filter((node) => node.rel !== "stylesheet");
+  assert.equal(loaded.length, 1);
+  assert.equal(loaded[0].src, "/documentation.js?v=docs-test");
+  loaded[0].onerror();
   await assert.rejects(first, /documentation.loadError/);
   const retry = load();
-  assert.equal(scripts.length, 2);
+  const retried = scripts.filter((node) => node.rel !== "stylesheet");
+  assert.equal(retried.length, 2);
   fakeWindow.TGTV_DOCUMENTATION = docs;
-  scripts[1].onload();
+  retried[1].onload();
   assert.equal(await retry, docs);
 });
 
