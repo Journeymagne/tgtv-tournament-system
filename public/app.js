@@ -14,6 +14,8 @@ const state = {
   tournamentsError: "",
   teamsDashboard: null,
   teamProfile: null,
+  teamProfileTab: "team",
+  teamProfileTabTeamId: null,
   teamPairings: [],
   teamPairingDetail: null,
   selectedTeamMatchId: null,
@@ -1447,7 +1449,7 @@ function scheduleTeamPairingPoll(slug) {
 }
 
 function teamPairingSubmissionPending() {
-  return Boolean(document.querySelector('[data-team-pairing-form] [type="submit"]:disabled, [data-team-pair-action="roll"]:disabled, [data-team-match-reset]:disabled, [data-team-pairings-override] [type="submit"]:disabled'));
+  return Boolean(document.querySelector('[data-team-pairing-form] [type="submit"]:disabled, [data-team-pairing-form] [data-combo].open, [data-team-pair-action="roll"]:disabled, [data-team-match-reset]:disabled, [data-team-pairings-override] [type="submit"]:disabled, [data-team-pairings-override] [data-combo].open'));
 }
 
 function preserveTeamPairingDrafts() {
@@ -1458,7 +1460,10 @@ function preserveTeamPairingDrafts() {
     document.querySelectorAll("[data-team-pairing-form]").forEach((form) => {
       for (const [name, value] of drafts.get(key(form)) || []) {
         const select = form.elements.namedItem(name);
-        if (select && [...select.options].some((option) => option.value === value)) select.value = value;
+        if (select && [...select.options].some((option) => option.value === value)) {
+          select.value = value;
+          syncUserSelect(select, true);
+        }
       }
     });
   };
@@ -1839,7 +1844,7 @@ function teamRosterMemberFields(team, roster = null) {
         <div class="team-roster-player-row">
           <div class="field">
             <label>${t("teams.tournament.player", { number: index + 1 })}</label>
-            <select name="member-${index + 1}" required>${options(defaults[index])}</select>
+            <select name="member-${index + 1}" data-user-search required>${options(defaults[index])}</select>
           </div>
           <div class="field">
             <label>${t("tournaments.field.faction")}</label>
@@ -1853,7 +1858,7 @@ function teamRosterMemberFields(team, roster = null) {
     </div>
     <div class="field">
       <label>${t("teams.tournament.captain")}</label>
-      <select name="captainUserId" required>${options(roster?.captainUserId || defaults[0])}</select>
+      <select name="captainUserId" data-user-search required>${options(roster?.captainUserId || defaults[0])}</select>
     </div>
   `;
 }
@@ -1870,9 +1875,11 @@ function wireTeamRosterMemberSelection(form) {
     })).filter((choice, index, all) => choice.id && all.findIndex((item) => item.id === choice.id) === index);
     captain.innerHTML = choices.map((choice) => `<option value="${choice.id}" ${choice.id === previous ? "selected" : ""}>${escapeHtml(choice.label)}</option>`).join("");
     if (!choices.some((choice) => choice.id === previous) && choices[0]) captain.value = String(choices[0].id);
+    syncUserSelect(captain, true);
   };
   selects.forEach((select) => select.addEventListener("change", refreshCaptain));
   refreshCaptain();
+  wireComboFields(form);
 }
 
 function suggestedRosterName(team, rosters = []) {
@@ -5709,7 +5716,7 @@ function renderResultForm(gameId, options = {}) {
               `).join("")}
               <div class="field">
                 <label>${t("games.result.tiebreaker.rollOffWinnerLabel")}</label>
-                <select data-tiebreaker-input name="rollOffWinnerId">
+                <select data-tiebreaker-input data-user-search name="rollOffWinnerId">
                   <option value="">${t("games.result.tiebreaker.selectIfTied")}</option>
                   ${game.players.map((player) => `<option value="${player.id}" ${existingResult?.tiebreakers?.rollOffWinnerId === player.id ? "selected" : ""}>${escapeHtml(player.name)}</option>`).join("")}
                 </select>
@@ -5958,7 +5965,7 @@ function renderTournamentResultForm(data, match, options = {}) {
               `).join("")}
               <div class="field">
                 <label>${t("games.result.tiebreaker.rollOffWinnerLabel")}</label>
-                <select data-tiebreaker-input name="rollOffWinnerId">
+                <select data-tiebreaker-input data-user-search name="rollOffWinnerId">
                   <option value="">${t("games.result.tiebreaker.selectIfTied")}</option>
                   ${game.players.map((player) => `<option value="${player.id}" ${Number(existingResult?.tiebreakers?.rollOffWinnerId) === player.id ? "selected" : ""}>${escapeHtml(player.name)}</option>`).join("")}
                 </select>
@@ -6304,6 +6311,7 @@ function randomOption(options = []) {
 }
 
 function comboField(label, name, optionsKey, selected = "", placeholder = t("tournaments.combo.defaultPlaceholder"), options = {}) {
+  const inputId = `combo-input-${comboField.nextId = (comboField.nextId || 0) + 1}`;
   const optional = Boolean(options.optional);
   const disabled = Boolean(options.disabled);
   const valueMode = options.valueMode || (options.items ? "value" : "label");
@@ -6322,10 +6330,16 @@ function comboField(label, name, optionsKey, selected = "", placeholder = t("tou
   const inputName = valueMode === "value" ? "" : ` name="${escapeHtml(name)}"`;
   return `
     <div class="field combo-field" data-combo data-combo-options="${optionsKey}" data-combo-optional="${optional ? "true" : "false"}" data-combo-value-mode="${valueMode}"${itemsAttribute}>
-      <label>${escapeHtml(label)}</label>
+      <label for="${inputId}">${escapeHtml(label)}</label>
       <div class="combo-control">
         <input
           class="combo-input"
+          id="${inputId}"
+          type="${optionsKey === "users" ? "search" : "text"}"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded="false"
+          aria-controls="${inputId}-options"
           ${inputName}
           value="${escapeHtml(displaySelected)}"
           placeholder="${escapeHtml(placeholder)}"
@@ -6337,7 +6351,7 @@ function comboField(label, name, optionsKey, selected = "", placeholder = t("tou
         ${valueInput}
         <button class="combo-toggle" type="button" data-combo-toggle aria-label="${t("tournaments.combo.showOptions")}" ${disabled ? "disabled" : ""}></button>
       </div>
-      <div class="combo-menu" data-combo-menu hidden></div>
+      <div class="combo-menu" id="${inputId}-options" role="listbox" data-combo-menu hidden></div>
     </div>
   `;
 }
@@ -6393,13 +6407,78 @@ function comboOptionsFor(key, combo = null) {
 function userComboItems(users = []) {
   return users.map((user) => ({
     value: String(user.id),
-    label: `${user.name} (${user.rating})`,
-    search: [user.name, user.registerNickname, user.telegramContact, user.rating].filter(Boolean).join(" ")
+    label: user.rating == null ? user.name : `${user.name} (${user.rating})`,
+    search: user.name
   }));
 }
 
-function wireComboFields() {
-  document.querySelectorAll("[data-combo]").forEach((combo) => {
+function userSearchMatches(name, query) {
+  return String(name || "").toLocaleLowerCase().includes(String(query || "").trim().toLocaleLowerCase());
+}
+
+// Keep the native control as the form value so roster and pairing rules share
+// the same selection, including dynamically disabled or replaced options.
+function enhanceUserSelects(root = document) {
+  root.querySelectorAll("select[data-user-search]").forEach((select) => {
+    if (select.dataset.userSearchBound) return;
+    const fieldLabel = select.closest(".field")?.querySelector("label");
+    const label = select.dataset.userSearchLabel || fieldLabel?.textContent || t("teams.invite.choose");
+    const holder = document.createElement("div");
+    holder.innerHTML = comboField(label, "", "users", "", t("leaderboard.users.searchPlaceholder"), {
+      optional: !select.required, valueMode: "value", items: []
+    });
+    const combo = holder.firstElementChild;
+    combo.classList.add("user-search-field");
+    const input = combo.querySelector("[data-combo-input]");
+    const valueInput = combo.querySelector("[data-combo-value-input]");
+    valueInput.removeAttribute("name");
+    if (fieldLabel || select.closest("label")) combo.querySelector("label").remove();
+    if (select.id) {
+      input.id = select.id;
+      select.removeAttribute("id");
+    }
+    if (fieldLabel) fieldLabel.htmlFor = input.id;
+    input.setAttribute("aria-label", label.trim());
+    select.before(combo);
+    combo.append(select);
+    select.hidden = true;
+    select.required = false;
+    select.dataset.userSearchBound = "true";
+    valueInput.addEventListener("change", () => {
+      if (select.value === valueInput.value) return;
+      select.value = valueInput.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    select.addEventListener("change", () => syncUserSelect(select));
+    syncUserSelect(select, true);
+  });
+}
+
+function syncUserSelect(select, resetQuery = false) {
+  const combo = select.closest("[data-combo]");
+  if (!combo) return;
+  const input = combo.querySelector("[data-combo-input]");
+  const valueInput = combo.querySelector("[data-combo-value-input]");
+  const items = Array.from(select.options).filter((option) => option.value && !option.disabled).map((option) => ({
+    value: option.value,
+    label: option.textContent.trim(),
+    search: option.dataset.userName || option.textContent.trim()
+  }));
+  combo.dataset.comboItems = JSON.stringify(items);
+  if (resetQuery || select.value !== valueInput.value || select.value) {
+    input.value = items.find((item) => item.value === select.value)?.label || "";
+  }
+  valueInput.value = select.value;
+  input.disabled = select.disabled;
+  combo.querySelector("[data-combo-toggle]").disabled = select.disabled;
+  combo.dispatchEvent(new Event("combo-options-change"));
+}
+
+function wireComboFields(root = document) {
+  enhanceUserSelects(root);
+  root.querySelectorAll("[data-combo]").forEach((combo) => {
+    if (combo.dataset.comboBound) return;
+    combo.dataset.comboBound = "true";
     const input = combo.querySelector("[data-combo-input]");
     const valueInput = combo.querySelector("[data-combo-value-input]");
     const menu = combo.querySelector("[data-combo-menu]");
@@ -6407,21 +6486,22 @@ function wireComboFields() {
     const optionsKey = combo.dataset.comboOptions;
     const optional = combo.dataset.comboOptional === "true";
     const valueMode = combo.dataset.comboValueMode || "label";
-    const options = comboOptionsFor(optionsKey, combo);
+    let options = comboOptionsFor(optionsKey, combo);
     let activeIndex = -1;
 
     const normalizeValue = () => {
       if (valueMode === "value") {
         const typed = String(input.value || "").trim();
         if (!valueInput.value && typed) {
-          const exact = options.find((option) => searchKey(option.label) === searchKey(typed));
+          const exactMatches = options.filter((option) => option.label.toLocaleLowerCase() === typed.toLocaleLowerCase());
+          const exact = exactMatches.length === 1 ? exactMatches[0] : null;
           if (exact) {
             input.value = exact.label;
             valueInput.value = exact.value;
           }
         }
         const current = options.find((option) => option.value === valueInput.value);
-        if (current && input.value !== current.label) valueInput.value = "";
+        if (!current || input.value !== current.label) valueInput.value = "";
         if (valueInput.value || (optional && !typed)) {
           input.setCustomValidity("");
           return true;
@@ -6446,6 +6526,8 @@ function wireComboFields() {
 
     const close = () => {
       menu.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
       combo.classList.remove("open");
       activeIndex = -1;
     };
@@ -6454,7 +6536,7 @@ function wireComboFields() {
       const query = input.value.trim();
       return (showAll || !query)
         ? options
-        : options.filter((option) => comboOptionMatchesQuery(option, query))
+        : options.filter((option) => optionsKey === "users" ? userSearchMatches(option.search, query) : comboOptionMatchesQuery(option, query))
             .sort((a, b) => {
               const aStarts = comboOptionStartsWithQuery(a, query);
               const bStarts = comboOptionStartsWithQuery(b, query);
@@ -6466,12 +6548,19 @@ function wireComboFields() {
       const matches = filteredOptions(showAll);
       menu.innerHTML = matches.length
         ? matches.map((option, index) => `
-          <button class="combo-option ${index === activeIndex ? "active" : ""}" type="button" data-combo-value="${escapeHtml(comboOptionValue(option))}">
+          <button class="combo-option ${index === activeIndex ? "active" : ""}" id="${menu.id}-${index}" role="option" aria-selected="${index === activeIndex}" tabindex="-1" type="button" data-combo-value="${escapeHtml(comboOptionValue(option))}">
             ${escapeHtml(comboOptionLabel(option))}
           </button>
         `).join("")
         : `<div class="combo-empty">${t("common.noMatches")}</div>`;
       menu.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+      if (matches[activeIndex]) {
+        input.setAttribute("aria-activedescendant", `${menu.id}-${activeIndex}`);
+        menu.children[activeIndex]?.scrollIntoView({ block: "nearest" });
+      } else {
+        input.removeAttribute("aria-activedescendant");
+      }
       combo.classList.add("open");
     };
 
@@ -6496,10 +6585,12 @@ function wireComboFields() {
       if (valueInput) valueInput.value = "";
       normalizeValue();
       renderOptions(false);
+      if (valueInput) valueInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
     input.addEventListener("keydown", (event) => {
       const items = Array.from(menu.querySelectorAll("[data-combo-value]"));
       if (event.key === "Escape") {
+        event.preventDefault();
         close();
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -6529,6 +6620,11 @@ function wireComboFields() {
       const selected = options.find((item) => comboOptionValue(item) === option?.dataset.comboValue);
       if (selected) choose(selected);
     });
+    combo.addEventListener("combo-options-change", () => {
+      options = comboOptionsFor(optionsKey, combo);
+      normalizeValue();
+      if (!menu.hidden) renderOptions(false);
+    });
     normalizeValue();
   });
 
@@ -6537,6 +6633,8 @@ function wireComboFields() {
       document.querySelectorAll("[data-combo]").forEach((combo) => {
         if (!combo.contains(event.target)) {
           combo.querySelector("[data-combo-menu]").hidden = true;
+          combo.querySelector("[data-combo-input]").setAttribute("aria-expanded", "false");
+          combo.querySelector("[data-combo-input]").removeAttribute("aria-activedescendant");
           combo.classList.remove("open");
         }
       });
@@ -7492,7 +7590,7 @@ function teamPairingControlForSide(match, tournament, side) {
 
 function teamMemberChoiceForm(match, action, roster, label, side, selectedId) {
   const members = (roster.members || []).filter((member) => !member.endedAt);
-  return `<form class="team-pairing-control" data-team-pairing-form="${action}" data-team-match-id="${match.id}" data-side="${side}"><label>${escapeHtml(label)}<select name="memberId" required>${members.map((member) => `<option value="${member.id}" ${member.id === selectedId ? "selected" : ""}>${escapeHtml(member.displayNameSnapshot)} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)}</option>`).join("")}</select></label><button class="primary-button" type="submit">${t("common.confirm")}</button></form>`;
+  return `<form class="team-pairing-control" data-team-pairing-form="${action}" data-team-match-id="${match.id}" data-side="${side}"><div class="field"><label>${escapeHtml(label)}</label><select name="memberId" data-user-search required>${members.map((member) => `<option value="${member.id}" ${member.id === selectedId ? "selected" : ""} data-user-name="${escapeHtml(member.displayNameSnapshot)}">${escapeHtml(member.displayNameSnapshot)} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)}</option>`).join("")}</select></div><button class="primary-button" type="submit">${t("common.confirm")}</button></form>`;
 }
 
 function teamEnvironmentChoiceForm(match, name, choices, slot, side) {
@@ -7914,10 +8012,10 @@ function roundSetupPlayerSelect(name, selectedId = "") {
   return `
     <div class="field">
       <label>${name === "participantAId" ? t("admin.roundSetup.playerA") : t("admin.roundSetup.playerB")}</label>
-      <select name="${name}">
+      <select name="${name}" data-user-search>
         <option value="">${t("admin.roundSetup.emptySlot")}</option>
         ${participants.map((participant) => `
-          <option value="${participant.id}" ${Number(selectedId) === participant.id ? "selected" : ""}>
+          <option value="${participant.id}" data-user-name="${escapeHtml(participant.displayName)}" ${Number(selectedId) === participant.id ? "selected" : ""}>
             ${escapeHtml(participant.displayName)}${participant.faction ? ` / ${escapeHtml(participant.faction)}` : ""}
           </option>
         `).join("")}
@@ -7967,6 +8065,7 @@ function wireRoundSetupModal(tournament, tables) {
     const row = button.closest(".round-setup-match-row");
     row?.querySelectorAll("select").forEach((select) => {
       select.value = "";
+      syncUserSelect(select, true);
       if (select.name === "tableId") updateRoundSetupTableDeployment(select);
     });
     updateRoundSetupPlayerSelects();
@@ -8011,7 +8110,9 @@ function updateRoundSetupPlayerSelects() {
     select.querySelectorAll("option").forEach((option) => {
       option.disabled = Boolean(option.value && option.value !== select.value && assigned.has(option.value));
     });
+    syncUserSelect(select);
   });
+  wireComboFields();
 }
 
 function updateRoundSetupTableDeployment(select) {
@@ -8225,6 +8326,7 @@ async function refreshTeamTournamentUi(data, options = {}) {
 
 function wireTeamTournamentControls(data, options = {}) {
   stopTeamPairingPoll();
+  wireComboFields();
   if (options.admin && document.querySelector("[data-admin-team-roster-save-seeds]")) {
     adminUi().wireAdminTeamRosterControls(data);
   }
@@ -8491,7 +8593,27 @@ function renderPlayerTeamProfile(data) {
   const team = data.team || {};
   const current = data.currentMembers || [];
   const former = data.formerMembers || [];
+  const canViewManagement = Boolean(state.me && (team.viewer?.canAdmin || team.viewer?.isLeader));
   const canManage = Boolean(state.me && (team.viewer?.canAdmin || (team.viewer?.isLeader && !team.archivedAt)));
+  const tabs = [
+    { id: "team", label: t("teams.profile.tab.team"), content: `
+      <section class="card panel team-members-panel"><h3>${t("teams.members.current")}</h3><div class="list">${teamMemberCards(current, team, canManage)}</div><h3>${t("teams.members.former")}</h3><div class="list">${teamMemberCards(former, team, false)}</div></section>
+      ${state.me && team.viewer?.isMember ? `<section class="card panel"><button class="danger-button" data-team-leave="${team.id}">${t("teams.action.leave")}</button></section>` : ""}
+    ` },
+    ...(canViewManagement ? [{ id: "management", label: t("teams.profile.tab.management"), content: `
+      ${canManage ? teamManagementPanel(data) : ""}
+      ${teamDeletionPanel(team)}
+    ` }] : []),
+    { id: "history", label: t("teams.profile.tab.history"), content: `
+      <section class="card panel"><h3>${t("teams.history.games")}</h3><div class="list">${teamGameHistory(data.recentGames || [])}</div></section>
+      <section class="card panel"><h3>${t("teams.history.tournaments")}</h3><div class="list">${teamRosterHistory(data.rosters || [])}</div></section>
+    ` }
+  ];
+  if (state.teamProfileTabTeamId !== team.id || !tabs.some((tab) => tab.id === state.teamProfileTab)) {
+    state.teamProfileTab = "team";
+  }
+  state.teamProfileTabTeamId = team.id;
+  const activeTab = state.teamProfileTab;
   const container = playerTeamContainer();
   container.innerHTML = `
     <div class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
@@ -8500,14 +8622,16 @@ function renderPlayerTeamProfile(data) {
           <div class="team-hero">${team.logoData ? `<img class="team-logo" src="${team.logoData}" alt="${t("teams.logoAlt", { name: escapeHtml(team.name) })}">` : `<span class="mark">${escapeHtml(String(team.name || "?").slice(0, 2).toUpperCase())}</span>`}<div><h2>${escapeHtml(team.name || "")}</h2><p class="muted">${team.archivedAt ? t("teams.status.archived") : fmtDate(team.createdAt)}</p></div></div>
           <div class="row-actions"><button class="small-button" data-team-back>${t("common.back")}</button>${!state.me ? `<button class="primary-button" data-team-login>${t("auth.tab.signIn")}</button>` : ""}</div>
         </div>
-        ${team.description ? `<div class="markdown-content">${markdownToHtml(team.description)}</div>` : ""}
+        ${team.description ? `<div class="markdown-content team-description">${markdownToHtml(team.description)}</div>` : ""}
         <div class="profile-grid">${metricCard(t("teams.rating.tts"), team.ratings?.tts ?? 1000)}${metricCard(t("teams.rating.irl"), team.ratings?.irl ?? 1000)}${metricCard(t("teams.metric.tournaments"), data.stats?.tournaments ?? 0)}${metricCard(t("teams.metric.rosters"), data.stats?.rosters ?? 0)}${metricCard(t("teams.metric.record"), `${data.stats?.wins ?? 0}-${data.stats?.draws ?? 0}-${Math.max(0, Number(data.stats?.team_matches || 0) - Number(data.stats?.wins || 0) - Number(data.stats?.draws || 0))}`)}</div>
       </section>
-      <section class="card panel"><h3>${t("teams.members.current")}</h3><div class="list">${teamMemberCards(current, team, canManage)}</div><h3>${t("teams.members.former")}</h3><div class="list">${teamMemberCards(former, team, false)}</div></section>
-      ${canManage ? teamManagementPanel(data) : ""}
-      <section class="card panel"><h3>${t("teams.history.tournaments")}</h3><div class="list">${teamRosterHistory(data.rosters || [])}</div></section>
-      <section class="card panel"><h3>${t("teams.history.games")}</h3><div class="list">${teamGameHistory(data.recentGames || [])}</div></section>
-      ${state.me && team.viewer?.isMember ? `<section class="card panel"><button class="danger-button" data-team-leave="${team.id}">${t("teams.action.leave")}</button></section>` : ""}
+      <div class="tabs page-tabs team-profile-tabs" role="tablist" aria-label="${t("teams.profile.tabsAria")}">
+        ${tabs.map((tab) => `<button type="button" class="tab ${activeTab === tab.id ? "active" : ""}" role="tab"
+          id="team-profile-tab-${tab.id}" data-team-profile-tab="${tab.id}" aria-controls="team-profile-panel-${tab.id}"
+          aria-selected="${activeTab === tab.id}" tabindex="${activeTab === tab.id ? "0" : "-1"}">${escapeHtml(tab.label)}</button>`).join("")}
+      </div>
+      ${tabs.map((tab) => `<div class="team-profile-panel" role="tabpanel" id="team-profile-panel-${tab.id}"
+        aria-labelledby="team-profile-tab-${tab.id}" data-team-profile-panel="${tab.id}" ${activeTab === tab.id ? "" : "hidden"}>${tab.content}</div>`).join("")}
       <div class="message" data-message></div>
     </div>`;
   wirePlayerTeamProfile(data);
@@ -8538,7 +8662,7 @@ function teamManagementPanel(data) {
   const current = data.currentMembers || [];
   const memberIds = new Set(current.map((membership) => membership.userId));
   const inviteCandidates = (state.users || []).filter((user) => !memberIds.has(user.id));
-  return `<section class="card panel"><h3>${t("teams.manage.title")}</h3>
+  return `<section class="card panel team-management-panel"><h3>${t("teams.manage.title")}</h3>
     <form data-team-edit>
       <div class="field"><label for="team-edit-name">${t("teams.field.name")}</label><input id="team-edit-name" name="name" minlength="2" maxlength="80" value="${escapeHtml(team.name || "")}" required></div>
       ${markdownEditorField({ name: "description", label: t("teams.field.description"), value: team.description || "", rows: 10 })}
@@ -8546,15 +8670,50 @@ function teamManagementPanel(data) {
       ${team.logoData ? `<label class="checkbox-field"><input name="removeLogo" type="checkbox">${t("teams.field.removeLogo")}</label>` : ""}
       <button class="small-button" type="submit">${t("common.save")}</button>
     </form>
-    ${!team.archivedAt ? `<form data-team-invite><div class="field"><label for="team-invite-user">${t("teams.invite.player")}</label><select id="team-invite-user" name="userId" required><option value="">${t("teams.invite.choose")}</option>${inviteCandidates.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.invite.submit")}</button></form>` : ""}
-    <form data-team-leadership><div class="field"><label for="team-leader-user">${t("teams.leadership.label")}</label><select id="team-leader-user" name="userId" required><option value="">${t("teams.invite.choose")}</option>${current.filter((membership) => membership.role !== "leader" && membership.userId).map((membership) => `<option value="${membership.userId}">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.leadership.submit")}</button></form>
+    ${!team.archivedAt ? `<form data-team-invite><div class="field"><label for="team-invite-user">${t("teams.invite.player")}</label><select id="team-invite-user" name="userId" data-user-search required><option value="">${t("teams.invite.choose")}</option>${inviteCandidates.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.invite.submit")}</button><div class="message" data-team-invite-message role="status" aria-live="polite" aria-atomic="true" hidden></div></form>` : ""}
+    <form data-team-leadership><div class="field"><label for="team-leader-user">${t("teams.leadership.label")}</label><select id="team-leader-user" name="userId" data-user-search required><option value="">${t("teams.invite.choose")}</option>${current.filter((membership) => membership.role !== "leader" && membership.userId).map((membership) => `<option value="${membership.userId}">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.leadership.submit")}</button></form>
     <div class="row-actions">${team.archivedAt && team.viewer?.canAdmin ? `<button class="small-button" data-team-restore="${team.id}">${t("teams.action.restore")}</button>` : !team.archivedAt ? `<button class="danger-button" data-team-archive="${team.id}">${t("teams.action.archive")}</button>` : ""}</div>
   </section>`;
+}
+
+function teamDeletionPanel(team) {
+  if (!state.me || !(team.viewer?.isLeader || team.viewer?.canAdmin)) return "";
+  const hint = team.viewer.deleteBlockedReason === "matches" ? "teams.delete.matches"
+    : team.viewer.deleteBlockedReason === "activeTournament" ? "teams.delete.activeTournament" : "teams.delete.hint";
+  return `<section class="card panel"><h3>${t("teams.action.delete")}</h3>
+    <p class="muted">${t(hint)}</p>
+    <button class="danger-button" data-team-delete="${team.id}" ${team.viewer.canDelete ? "" : "disabled"}>${t("teams.action.delete")}</button>
+  </section>`;
+}
+
+async function deletePlayerTeam(team, button) {
+  if (!await confirmDelete(t("teams.dialog.delete", { name: team.name }), t("teams.action.delete"))) return;
+  button.disabled = true;
+  try {
+    await api(`/api/teams/${team.id}`, { method: "DELETE" });
+    clearPlayerTeamRoute();
+    state.teamProfile = null;
+    state.teamReturnHash = "";
+    state.teamsTab = "mine";
+    state.view = "teams";
+    await loadTeamsDashboard();
+    await loadNotifications();
+    syncAppHash({ replace: true });
+    renderShell();
+    setMessage(t("teams.message.deleted"));
+  } catch (err) {
+    setMessage(err.message, true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function wirePlayerTeamProfile(data) {
   const team = data.team;
   wireMarkdownEditors();
+  wireTeamProfileTabs();
+  wireComboFields();
+  document.querySelector("[data-team-delete]")?.addEventListener("click", (event) => deletePlayerTeam(team, event.currentTarget));
   document.querySelector("[data-team-back]")?.addEventListener("click", async () => {
     clearPlayerTeamRoute();
     if (!state.me) return render();
@@ -8585,8 +8744,33 @@ function wirePlayerTeamProfile(data) {
   });
   document.querySelector("[data-team-invite]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    try { await api(`/api/teams/${team.id}/invitations`, { method: "POST", body: { userId: Number(event.currentTarget.elements.userId.value) } }); setMessage(t("teams.message.invited")); }
-    catch (err) { setMessage(err.message, true); }
+    const form = event.currentTarget;
+    const button = form.querySelector('[type="submit"]');
+    if (button.disabled) return;
+    const select = form.elements.userId;
+    const userId = Number(select.value);
+    const name = select.selectedOptions[0]?.textContent.trim() || "";
+    const message = form.querySelector("[data-team-invite-message]");
+    button.disabled = true;
+    message.hidden = true;
+    try {
+      await api(`/api/teams/${team.id}/invitations`, { method: "POST", body: { userId } });
+      message.textContent = t("teams.message.invitedPlayer", { name });
+      message.classList.remove("error");
+      message.classList.add("success");
+      // Keep a different selection if the user started preparing another invite.
+      if (Number(select.value) === userId) {
+        select.value = "";
+        syncUserSelect(select, true);
+      }
+    } catch (err) {
+      message.textContent = err.message;
+      message.classList.remove("success");
+      message.classList.add("error");
+    } finally {
+      message.hidden = false;
+      button.disabled = false;
+    }
   });
   document.querySelector("[data-team-leadership]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -8612,6 +8796,35 @@ function wirePlayerTeamProfile(data) {
   document.querySelector("[data-team-restore]")?.addEventListener("click", async () => {
     try { await api(`/api/admin/teams/${team.id}/restore`, { method: "POST" }); await renderPlayerTeamRoute(team.slug, { force: true }); }
     catch (err) { setMessage(err.message, true); }
+  });
+}
+
+function wireTeamProfileTabs() {
+  const buttons = Array.from(document.querySelectorAll("[data-team-profile-tab]"));
+  const panels = Array.from(document.querySelectorAll("[data-team-profile-panel]"));
+  const select = (button) => {
+    state.teamProfileTab = button.dataset.teamProfileTab;
+    for (const tab of buttons) {
+      const active = tab === button;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", String(active));
+      tab.tabIndex = active ? 0 : -1;
+    }
+    for (const panel of panels) panel.hidden = panel.dataset.teamProfilePanel !== state.teamProfileTab;
+  };
+  buttons.forEach((button, index) => {
+    button.addEventListener("click", () => select(button));
+    button.addEventListener("keydown", (event) => {
+      let next;
+      if (event.key === "ArrowRight") next = (index + 1) % buttons.length;
+      else if (event.key === "ArrowLeft") next = (index - 1 + buttons.length) % buttons.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = buttons.length - 1;
+      else return;
+      event.preventDefault();
+      select(buttons[next]);
+      buttons[next].focus();
+    });
   });
 }
 

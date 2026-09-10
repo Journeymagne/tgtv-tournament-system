@@ -233,7 +233,7 @@ test("pairing refresh preserves a draft only for the same match, action and step
       querySelectorAll: () => [select], elements: { namedItem: () => select }, select };
   };
   let forms = [makeForm("3", "Data")];
-  const preserve = new Function("document", `${source}; return preserveTeamPairingDrafts;`)({ querySelectorAll: () => forms });
+  const preserve = new Function("document", "syncUserSelect", `${source}; return preserveTeamPairingDrafts;`)({ querySelectorAll: () => forms }, () => {});
   const restore = preserve();
   forms = [makeForm("3", "Orb")];
   restore();

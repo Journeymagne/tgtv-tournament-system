@@ -1143,7 +1143,7 @@ function adminTeamPairingOverrideForm(match) {
   const options = (members, selectedId) => members.map((member) => `<option value="${member.id}" ${member.id === Number(selectedId) ? "selected" : ""}>${escapeHtml(member.displayNameSnapshot)}</option>`).join("");
   return `<form class="team-pairing-override" data-team-pairings-override="${match.id}">
     <strong>${t("teams.pairing.override")}</strong>
-    ${(match.pairings || []).map((pairing, index) => `<div class="team-pairing-override-row"><span>${index + 1}</span><select name="pair-a-${index + 1}">${options(membersA, pairing.rosterAMemberId)}</select><span>vs</span><select name="pair-b-${index + 1}">${options(membersB, pairing.rosterBMemberId)}</select></div>`).join("")}
+    ${(match.pairings || []).map((pairing, index) => `<div class="team-pairing-override-row"><span>${index + 1}</span><select name="pair-a-${index + 1}" data-user-search data-user-search-label="${t("admin.roundSetup.playerA")}" required>${options(membersA, pairing.rosterAMemberId)}</select><span>vs</span><select name="pair-b-${index + 1}" data-user-search data-user-search-label="${t("admin.roundSetup.playerB")}" required>${options(membersB, pairing.rosterBMemberId)}</select></div>`).join("")}
     <button class="small-button" type="submit">${t("teams.pairing.saveOverride")}</button>
   </form>`;
 }

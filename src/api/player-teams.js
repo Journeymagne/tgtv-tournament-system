@@ -129,11 +129,15 @@ async function profileData(client, team, user) {
     [team.id]
   );
   const viewerMembership = user ? memberships.find((item) => !item.endedAt && item.userId === user.id) : null;
+  const canManageDeletion = Boolean(user?.isAdmin || viewerMembership?.role === "leader");
+  const deleteBlockedReason = canManageDeletion ? await teamsRepo.deletionBlockReason(client, team.id) : null;
   return {
     team: { ...teamView(team), viewer: {
       isMember: Boolean(viewerMembership),
       isLeader: viewerMembership?.role === "leader",
-      canAdmin: Boolean(user?.isAdmin)
+      canAdmin: Boolean(user?.isAdmin),
+      canDelete: canManageDeletion && !deleteBlockedReason,
+      deleteBlockedReason
     } },
     currentMembers: memberships.filter((item) => !item.endedAt),
     formerMembers: memberships.filter((item) => item.endedAt),
@@ -363,6 +367,37 @@ async function restore({ client, user, params }) {
   return { team: teamView(updated) };
 }
 
+async function remove({ client, user, params }) {
+  const teamId = requirePositiveIntId(params.id, 404, "Team not found");
+  // Tournament operations lock the tournament before its teams and rosters.
+  // Use the same order so deletion cannot race with pairing or registration.
+  const { rows: tournaments } = await client.query(
+    `SELECT t.id FROM tournaments t
+     WHERE EXISTS (SELECT 1 FROM tournament_team_rosters r WHERE r.tournament_id = t.id AND r.team_id = $1)
+     ORDER BY t.id FOR UPDATE`,
+    [teamId]
+  );
+  const team = await requireTeam(client, teamId, true);
+  await requireMembership(client, team, user, { leader: true });
+  const { rows: rosters } = await client.query(
+    "SELECT id, tournament_id FROM tournament_team_rosters WHERE team_id = $1 ORDER BY id FOR UPDATE",
+    [team.id]
+  );
+  if (rosters.some((roster) => !tournaments.some((tournament) => tournament.id === roster.tournament_id))) {
+    throw new HttpError(409, "Team tournament registrations changed. Reload and try again");
+  }
+  const reason = await teamsRepo.deletionBlockReason(client, team.id);
+  if (reason === "matches") throw new HttpError(409, "A team with played, scheduled, or active matches cannot be deleted");
+  if (reason === "activeTournament") throw new HttpError(409, "A team with an active tournament roster cannot be deleted");
+  await teamsRepo.remove(client, team.id);
+  // Keep the deletion event without a team FK, which would cascade on deletion.
+  await teamsRepo.audit(client, {
+    actorUserId: user.id, eventType: "team_delete", entityType: "team", entityId: team.id,
+    before: team, metadata: { rosterIds: rosters.map((roster) => roster.id) }
+  });
+  return { deletedTeamId: team.id };
+}
+
 module.exports = {
   create,
   list,
@@ -380,6 +415,7 @@ module.exports = {
   transferLeadership,
   archive,
   restore,
+  remove,
   profileData,
   teamView
 };

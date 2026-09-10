@@ -42,6 +42,7 @@ module.exports = [
   { method: "GET", path: "/api/teams/:slug", handler: playerTeams.get, auth: "none", loadUser: true },
   { method: "POST", path: "/api/teams", handler: playerTeams.create, auth: "user", tx: true },
   { method: "PATCH", path: "/api/teams/:id", handler: playerTeams.update, auth: "user", tx: true },
+  { method: "DELETE", path: "/api/teams/:id", handler: playerTeams.remove, auth: "user", tx: true },
   { method: "POST", path: "/api/teams/:id/invitations", handler: playerTeams.invite, auth: "user", tx: true },
   { method: "POST", path: "/api/team-invitations/:id/accept", handler: playerTeams.acceptInvitation, auth: "user", tx: true },
   { method: "POST", path: "/api/team-invitations/:id/decline", handler: playerTeams.declineInvitation, auth: "user", tx: true },

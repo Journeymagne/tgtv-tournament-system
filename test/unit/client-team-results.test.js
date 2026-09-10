@@ -62,10 +62,12 @@ test("admin polling preserves independent Shield drafts for both sides", () => {
       querySelectorAll: () => [select], elements: { namedItem: () => select } };
   };
   let forms = [make("a", "12"), make("b", "22")];
-  const preserve = new Function("document", `${sourceOf("preserveTeamPairingDrafts")}; return preserveTeamPairingDrafts;`)({ querySelectorAll: () => forms });
+  const synced = [];
+  const preserve = new Function("document", "syncUserSelect", `${sourceOf("preserveTeamPairingDrafts")}; return preserveTeamPairingDrafts;`)({ querySelectorAll: () => forms }, (select) => synced.push(select.value));
   const restore = preserve();
   forms = [make("a", "11"), make("b", "21")];
   restore();
+  assert.deepEqual(synced, ["12", "22"]);
   assert.deepEqual(forms.map(form => form.select.value), ["12", "22"]);
 });
 

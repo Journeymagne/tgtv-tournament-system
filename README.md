@@ -95,6 +95,15 @@ All of them are cache-busted by the `?v=` marker in `public/index.html`, which
 `src/http/seo.js` mirrors in `ASSET_VERSION` for the server-rendered tournament
 pages. **Bump both together** when releasing changed assets; a unit test fails
 if they drift.
+
+User pickers use the shared live nickname search, with the same case-insensitive
+substring matching as User administration. For new player selects, add
+`data-user-search` and call `wireComboFields(container)` after rendering. The
+native select keeps its name and submitted ID; after changing its value or
+options in code, call `syncUserSelect(select, true)`. Use `data-user-name` on
+options whose displayed labels also include a faction. ID-based combo fields
+can use `userComboItems(users)` with the `users` options key.
+
 ## Deploying to production
 
 **`NODE_ENV=production` must be set on the running process.** `src/config.js`
@@ -198,6 +207,7 @@ node scripts/import-json-db.js
 - automatic total and Elo calculation with `K=32`;
 - leaderboard;
 - team leaderboard with TTS, IRL, and combined ratings (TTS + IRL - 1000);
+- team leaders and administrators can permanently delete teams without tournament matches from the team profile, including archived teams. Scheduled matches and active tournament rosters block deletion. Deletion removes the team's rosters, memberships, and invitations, while preserving player accounts and personal games;
 - Teams Administration: search all teams, edit names, descriptions and logos,
   remove members, transfer leadership, archive and restore teams;
 - admin panel: view users, delete users, edit ratings, assign administrators.

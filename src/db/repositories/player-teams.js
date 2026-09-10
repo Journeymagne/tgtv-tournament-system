@@ -297,6 +297,31 @@ async function hasUnfinishedRoster(client, teamId) {
   return rows.length > 0;
 }
 
+async function deletionBlockReason(client, teamId) {
+  const { rows } = await client.query(
+    `SELECT CASE
+       WHEN EXISTS (
+         SELECT 1 FROM tournament_team_matches m
+         JOIN tournament_team_rosters r ON r.id = m.roster_a_id OR r.id = m.roster_b_id
+         WHERE r.team_id = $1
+       ) THEN 'matches'
+       WHEN EXISTS (
+         SELECT 1 FROM tournament_team_rosters r
+         JOIN tournaments t ON t.id = r.tournament_id
+         WHERE r.team_id = $1 AND t.status = 'in_progress'
+           AND r.status NOT IN ('withdrawn', 'finished')
+       ) THEN 'activeTournament'
+       ELSE NULL END AS reason`,
+    [teamId]
+  );
+  return rows[0].reason;
+}
+
+async function remove(client, teamId) {
+  await client.query("DELETE FROM tournament_team_rosters WHERE team_id = $1", [teamId]);
+  await client.query("DELETE FROM player_teams WHERE id = $1", [teamId]);
+}
+
 async function resetRatings(client) {
   await client.query("UPDATE player_teams SET rating_tts = 1000, rating_irl = 1000");
 }
@@ -346,6 +371,8 @@ module.exports = {
   updateInvitationStatus,
   hasLockedActiveRoster,
   hasUnfinishedRoster,
+  deletionBlockReason,
+  remove,
   resetRatings,
   setRating,
   audit

@@ -33,7 +33,7 @@ async function register(name) {
 }
 
 test.beforeEach(async () => {
-  await getPool().query("TRUNCATE player_teams, users RESTART IDENTITY CASCADE");
+  await getPool().query("TRUNCATE games, tournaments, player_teams, users RESTART IDENTITY CASCADE");
   authLimiter.reset();
   admin = await register("Admin");
   leader = await register("Leader");
@@ -157,4 +157,119 @@ test("invalid and duplicate edits leave team data intact", async () => {
   const unchanged = (await admin.http.get(`/api/teams/${team.slug}`)).body.team;
   assert.equal(unchanged.name, "Amber Guard");
   assert.equal(unchanged.description, "Original");
+});
+
+test("only a leader or administrator can delete a team, including an archived team", async () => {
+  const guest = createClient(server.baseUrl);
+  assert.equal((await guest.del(`/api/teams/${team.id}`)).status, 401);
+  for (const player of [member, outsider]) {
+    assert.equal((await player.http.del(`/api/teams/${team.id}`)).status, 403);
+    assert.equal((await player.http.get(`/api/teams/${team.slug}`)).body.team.viewer.canDelete, false);
+  }
+  for (const id of ["invalid", "0", "-1", "999999"]) {
+    assert.equal((await admin.http.del(`/api/teams/${id}`)).status, 404);
+  }
+  assert.equal((await leader.http.get(`/api/teams/${team.slug}`)).body.team.viewer.canDelete, true);
+  await admin.http.post(`/api/teams/${team.id}/archive`);
+  const archived = (await admin.http.get(`/api/teams/${team.slug}`)).body.team;
+  assert.ok(archived.archivedAt);
+  assert.equal(archived.viewer.canDelete, true);
+  assert.equal((await admin.http.del(`/api/teams/${team.id}`)).status, 200);
+  assert.equal((await admin.http.get(`/api/teams/${team.slug}`)).status, 404);
+  assert.equal((await admin.http.del(`/api/teams/${team.id}`)).status, 404);
+});
+
+async function deletionTournament(status = "registration_open") {
+  const { rows: [cup] } = await getPool().query(
+    `INSERT INTO tournaments (slug, name, status, format, participant_mode, team_size, pairing_type)
+     VALUES ('deletion-cup', 'Deletion cup', $1, 'swiss', 'team', 3, 'shield_sword') RETURNING *`, [status]
+  );
+  const { rows: rosters } = await getPool().query(
+    `INSERT INTO tournament_team_rosters (tournament_id, team_id, name, name_key, team_name_snapshot)
+     VALUES ($1, $2, 'Roster A', 'roster a', 'Amber Guard'),
+            ($1, $2, 'Roster B', 'roster b', 'Amber Guard') RETURNING *`, [cup.id, team.id]
+  );
+  const { rows: members } = await getPool().query(
+    `INSERT INTO tournament_team_roster_members (tournament_id, roster_id, user_id, slot, display_name_snapshot, faction_snapshot)
+     VALUES ($1, $2, $4, 1, 'Leader', 'Kommandos'), ($1, $3, $5, 1, 'Member', 'Kommandos') RETURNING *`,
+    [cup.id, rosters[0].id, rosters[1].id, leader.id, member.id]
+  );
+  return { cup, rosters, members };
+}
+
+test("deleting an unplayed team removes rosters and invitations but keeps players and personal games", async () => {
+  const { cup } = await deletionTournament();
+  const invitation = await leader.http.post(`/api/teams/${team.id}/invitations`, { userId: outsider.id });
+  assert.equal(invitation.status, 201);
+  const { rows: [game] } = await getPool().query(
+    "INSERT INTO games (player_ids, status) VALUES ($1, 'completed') RETURNING id", [[leader.id, member.id]]
+  );
+  const deleted = await leader.http.del(`/api/teams/${team.id}`);
+  assert.deepEqual(deleted, { status: 200, body: { deletedTeamId: team.id } });
+  for (const table of ["player_teams", "player_team_memberships", "player_team_invitations", "tournament_team_rosters", "tournament_team_roster_members"]) {
+    assert.equal((await getPool().query(`SELECT COUNT(*)::int AS count FROM ${table}`)).rows[0].count, 0, table);
+  }
+  assert.equal((await getPool().query("SELECT COUNT(*)::int AS count FROM users")).rows[0].count, 4);
+  assert.equal((await getPool().query("SELECT id FROM games WHERE id = $1", [game.id])).rowCount, 1);
+  assert.equal((await getPool().query("SELECT id FROM tournaments WHERE id = $1", [cup.id])).rowCount, 1);
+  assert.deepEqual((await leader.http.get("/api/teams/dashboard")).body.myTeams, []);
+  assert.deepEqual((await outsider.http.get("/api/teams/dashboard")).body.incomingInvitations, []);
+  assert.deepEqual((await admin.http.get("/api/admin/teams")).body.teams, []);
+  assert.deepEqual((await outsider.http.get("/api/leaderboards/teams")).body.teams, []);
+  assert.equal((await outsider.http.post(`/api/team-invitations/${invitation.body.invitation.id}/accept`)).status, 404);
+  const audit = (await getPool().query("SELECT * FROM player_team_audit_events WHERE event_type = 'team_delete'")).rows[0];
+  assert.equal(audit.actor_user_id, leader.id);
+  assert.equal(audit.team_id, null);
+  assert.equal(audit.before.name, team.name);
+  assert.equal((await leader.http.post("/api/teams", { name: team.name, slug: team.slug })).status, 201);
+});
+
+for (const phase of ["awaiting_roll", "in_progress", "completed"]) {
+  test(`team deletion protects ${phase} matches even between two rosters of the same team`, async () => {
+    const { cup, rosters, members } = await deletionTournament();
+    const { rows: [round] } = await getPool().query(
+      "INSERT INTO tournament_rounds (tournament_id, round_number, status) VALUES ($1, 1, 'active') RETURNING id", [cup.id]
+    );
+    const { rows: [match] } = await getPool().query(
+      `INSERT INTO tournament_team_matches (tournament_id, round_id, round_number, bracket_position, roster_a_id, roster_b_id, phase)
+       VALUES ($1, $2, 1, 1, $3, $4, $5) RETURNING id`, [cup.id, round.id, rosters[0].id, rosters[1].id, phase]
+    );
+    // A completed personal game must protect an unfinished team match too.
+    if (phase === "in_progress") {
+      const { rows: [game] } = await getPool().query(
+        "INSERT INTO games (player_ids, status, source_type, source_id) VALUES ($1, 'completed', 'team_match_game', $2) RETURNING id",
+        [[leader.id, member.id], match.id]
+      );
+      await getPool().query(
+        `INSERT INTO tournament_team_match_games (team_match_id, game_id, slot, roster_a_member_id, roster_b_member_id, mission)
+         VALUES ($1, $2, 1, $3, $4, '{}')`, [match.id, game.id, members[0].id, members[1].id]
+      );
+    }
+    for (const player of [leader, admin]) {
+      const profile = (await player.http.get(`/api/teams/${team.slug}`)).body;
+      assert.equal(profile.stats.team_matches, 0, "public stats exclude internal matches");
+      assert.equal(profile.team.viewer.canDelete, false);
+      assert.equal(profile.team.viewer.deleteBlockedReason, "matches");
+      const response = await player.http.del(`/api/teams/${team.id}`);
+      assert.equal(response.status, 409);
+      assert.match(response.body.error, /matches/);
+    }
+    assert.equal((await getPool().query("SELECT id FROM tournament_team_matches WHERE id = $1", [match.id])).rowCount, 1);
+    assert.equal((await getPool().query("SELECT id FROM tournament_team_rosters WHERE team_id = $1", [team.id])).rowCount, 2);
+    assert.equal((await getPool().query("SELECT id FROM player_team_memberships WHERE team_id = $1", [team.id])).rowCount, 2);
+  });
+}
+
+test("an active tournament roster is protected before its first pairing", async () => {
+  await deletionTournament("in_progress");
+  const profile = (await leader.http.get(`/api/teams/${team.slug}`)).body.team;
+  assert.equal(profile.viewer.canDelete, false);
+  assert.equal(profile.viewer.deleteBlockedReason, "activeTournament");
+  assert.equal((await admin.http.del(`/api/teams/${team.id}`)).status, 409);
+});
+
+test("concurrent team deletions produce one success and one not found", async () => {
+  const responses = await Promise.all([leader.http.del(`/api/teams/${team.id}`), admin.http.del(`/api/teams/${team.id}`)]);
+  assert.deepEqual(responses.map((response) => response.status).sort(), [200, 404]);
+  assert.equal((await getPool().query("SELECT id FROM player_team_audit_events WHERE event_type = 'team_delete'")).rowCount, 1);
 });

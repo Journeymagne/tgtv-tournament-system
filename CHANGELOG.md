@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.3.2 — 2026-09-10
+
+- Added permanent team deletion for leaders and administrators when the team has no tournament matches. Scheduled matches and active tournament rosters block deletion; player accounts and personal games are preserved.
+- Split team profiles into Team, Management, and History tabs. Management is available to leaders and administrators; switching tabs preserves unsaved form values.
+- Added shared live nickname search to player selection in team invitations, leadership transfers, rosters, captains, pairings, and result forms, using the same case-insensitive matching as User administration.
+- Preserve player IDs, roster eligibility, and pairing drafts when using search; support keyboard selection and distinguish players with identical nicknames.
+- Show invitation success or failure next to the send button, include the recipient's nickname on success, and prevent duplicate submissions while sending.
+- Increased vertical spacing between management forms, current and former members, and the team description and statistics.
+- Added Russian and English labels and messages for the new team controls, with keyboard navigation and accessible tab and search states.
+
 ## 2.3 — 2026-09-08
 
 - Added tournament logos and editable roster names, with defaults based on the team name and roster number.
