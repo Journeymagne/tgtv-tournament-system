@@ -13,7 +13,7 @@ const sourceOf = (name) => {
 test("team round setup always renders three editable terrain/deployment pairs with preview defaults", () => {
   const tables = [{ killzone: "Volkus", deployment: 6 }, { killzone: "Gallowdark", deployment: 5 }, { killzone: "Tomb World", deployment: 4 }];
   const render = new Function("t", "optionsHtml", "killzoneOptions", "state",
-    `${sourceOf("teamTableSetupFields")}; ${sourceOf("teamRoundMissionFields")}; return teamRoundMissionFields;`
+    `${sourceOf("teamTableImageField")}; ${sourceOf("teamTableSetupFields")}; ${sourceOf("teamRoundMissionFields")}; return teamRoundMissionFields;`
   )((key) => key, (_options, value) => `<option selected>${value}</option>`, [], { adminTournamentDetail: { tournament: { teamTablesLocked: true } } });
   const html = render(tables);
   assert.equal((html.match(/<select /g) || []).length, 6);
@@ -37,7 +37,7 @@ test("round generation submits all three new table selections alongside team pai
 
 test("captain table choices use the match's round snapshot, not a cached tournament's latest tables", () => {
   const form = new Function("t", "escapeHtml", "tableLabel", "teamTournamentTables", "teamEnvironmentStep",
-    `${sourceOf("teamEnvironmentChoiceForm")}; ${sourceOf("teamPairingControlForSide")}; return teamPairingControlForSide;`
+    `${sourceOf("teamPairingMemberLabel")}; ${sourceOf("teamRosterMemberLabel")}; ${sourceOf("teamPairingMatchupLabel")}; ${sourceOf("teamEnvironmentChoiceForm")}; ${sourceOf("teamPairingControlForSide")}; return teamPairingControlForSide;`
   )((key) => key, String, (table) => `${table.killzone}/${table.deployment}`, () => [{ id: 1, killzone: "Wrong round", deployment: 1 }],
     () => ({ kind: "table", side: "a", slot: 1 }));
   const html = form({ id: 7, tournamentId: 4, phase: "environment_selection", tableIds: [1], tables: [{ id: 1, killzone: "Volkus", deployment: 6 }], environment: { step: 0, assignments: [] } }, {}, "a");

@@ -19,7 +19,13 @@ const MIGRATIONS = [
   require("./migrations/018_documentation"),
   require("./migrations/019_tournament_logo"),
   require("./migrations/020_team_roster_withdrawal"),
-  require("./migrations/021_avatar_version")
+  require("./migrations/021_avatar_version"),
+  require("./migrations/022_team_pairing_history"),
+  require("./migrations/023_achievements"),
+  require("./migrations/024_legacy_achievements"),
+  require("./migrations/025_tournament_table_images"),
+  require("./migrations/026_achievement_titles"),
+  require("./migrations/027_achievement_text_edits")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

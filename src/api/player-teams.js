@@ -3,6 +3,7 @@ const { requirePositiveIntId } = require("./params");
 const usersRepo = require("../db/repositories/users");
 const teamsRepo = require("../db/repositories/player-teams");
 const rostersRepo = require("../db/repositories/team-rosters");
+const roundsRepo = require("../db/repositories/tournament-rounds");
 const { rosterForViewer } = require("../domain/tournaments/privacy");
 const { uniqueSlug } = require("../domain/tournaments/slug");
 const {
@@ -80,6 +81,8 @@ async function leaderboard({ client, query }) {
 async function profileData(client, team, user) {
   const memberships = await teamsRepo.listMemberships(client, team.id);
   const rosters = await rostersRepo.listByTeam(client, team.id);
+  const firstRounds = await roundsRepo.listFirstByTournamentIds(client, [...new Set(rosters.map((roster) => roster.tournamentId))]);
+  const firstRoundByTournamentId = new Map(firstRounds.map((round) => [round.tournamentId, round]));
   const { rows: tournamentRows } = await client.query(
     `SELECT id, slug, name, format, venue_mode, status, starts_at
      FROM tournaments WHERE id = ANY($1::int[])`,
@@ -142,7 +145,10 @@ async function profileData(client, team, user) {
     currentMembers: memberships.filter((item) => !item.endedAt),
     formerMembers: memberships.filter((item) => item.endedAt),
     rosters: rosters.map((roster) => ({
-      ...rosterForViewer(roster, tournamentById.get(roster.tournamentId), user, { teamLeader: viewerMembership?.role === "leader" }),
+      ...rosterForViewer(roster, user, {
+        rounds: firstRoundByTournamentId.has(roster.tournamentId) ? [firstRoundByTournamentId.get(roster.tournamentId)] : [],
+        teamLeader: viewerMembership?.role === "leader"
+      }),
       tournament: tournamentById.get(roster.tournamentId) || null
     })),
     recentGames: gameRows.map((row) => ({

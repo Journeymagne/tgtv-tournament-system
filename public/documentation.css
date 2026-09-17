@@ -53,10 +53,9 @@
 .documentation-editor { display: grid; gap: 16px; min-width: 0; }
 .documentation-editor label { display: grid; gap: 8px; min-width: 0; }
 .documentation-editor input:not([type="file"]), .documentation-editor select, .documentation-editor textarea { box-sizing: border-box; width: 100%; padding: 10px 12px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
-.documentation-editor [data-doc-save] { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 700; }
+.documentation-editor [data-doc-save] { background: var(--accent); border-color: var(--accent); color: #111; }
 .documentation-editor-meta { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 16px; }
 .documentation-editor-tools, .documentation-editor-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.documentation-editor-tools .small-button { font-size: 0.85rem; }
 .documentation-editor-actions { position: sticky; bottom: 0; background: var(--panel); padding: 14px 0; border-top: 1px solid var(--line); z-index: 1; }
 .documentation-editor-actions p { flex: 1 1 240px; margin: 0; }
 .documentation-editor-panes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }

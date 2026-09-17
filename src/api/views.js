@@ -1,6 +1,6 @@
 const { contentVersion } = require("../domain/data-url");
 const { buildChallengeTracks } = require("../domain/challenge-progress");
-const { registrationFactionsHidden } = require("../domain/tournaments/privacy");
+const { tournamentFactionsHidden } = require("../domain/tournaments/privacy");
 
 function publicRatings(user) {
   return {
@@ -264,6 +264,8 @@ function tournamentTableView(table) {
     tableNumber: table.tableNumber,
     killzone: table.killzone || "",
     deployment: table.deployment,
+    imageId: table.imageId || null,
+    imageUrl: table.imageId ? `/api/tournament-table-images/${table.imageId}` : null,
     createdAt: table.createdAt,
     updatedAt: table.updatedAt
   };
@@ -281,7 +283,7 @@ function tournamentDetailView({
   viewer = {},
   auditEvents = []
 }) {
-  const hideFactions = registrationFactionsHidden(tournament) && !viewer.canAdmin;
+  const hideFactions = tournamentFactionsHidden(rounds) && !viewer.canAdmin;
   const participantViews = participants.map((participant) => {
     const view = tournamentParticipantView(participant, people);
     if (hideFactions && participant.id !== viewer.participantId) {

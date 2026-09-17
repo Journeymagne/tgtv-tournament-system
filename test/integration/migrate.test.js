@@ -61,9 +61,17 @@ test("повторный migrate ничего не применяет", async ()
 
 test("migrate на живой базе не ломает данные", async () => {
   await migrate(pool);
-  await pool.query(
+  const { rows: [user] } = await pool.query(
     `INSERT INTO users (name, name_key, password_hash, rating, is_admin)
-     VALUES ('Alpha', 'alpha', 'salt:hash', 1000, true)`
+     VALUES ('Alpha', 'alpha', 'salt:hash', 1000, true) RETURNING id`
+  );
+  const { rows: [tournament] } = await pool.query(
+    `INSERT INTO tournaments (owner_user_id, slug, status, format, swiss_round_count)
+     VALUES ($1, 'preserve-table-images', 'draft', 'swiss', 1) RETURNING id`, [user.id]
+  );
+  const { rows: [image] } = await pool.query(
+    `INSERT INTO tournament_table_images (tournament_id, image_data, content_hash)
+     VALUES ($1, 'saved-image-data', 'saved-image-hash') RETURNING *`, [tournament.id]
   );
 
   await pool.query("DELETE FROM schema_migrations");
@@ -73,6 +81,8 @@ test("migrate на живой базе не ломает данные", async ()
   const { rows } = await pool.query("SELECT name FROM users");
   assert.equal(rows.length, 1);
   assert.equal(rows[0].name, "Alpha");
+  const images = await pool.query("SELECT * FROM tournament_table_images");
+  assert.deepEqual(images.rows, [image], "повторная миграция сохраняет изображения и их ID");
 });
 
 test("migration 010 creates a canonical Game for a tournament match with a guest", async () => {

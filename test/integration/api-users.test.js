@@ -175,6 +175,33 @@ test("профиль отражает прогресс по challenge-треку
   assert.equal(result.challengeProgress.teams[0].status, "completed");
 });
 
+test("страница челленджа и профиль считают только победы в порядке All Kill Team", async () => {
+  async function win(faction, at) {
+    const game = await gamesRepo.insert(client, { challengeId: null, playerIds: [alpha.id, bravo.id] });
+    await gamesRepo.saveFinalResult(client, game.id, {
+      result: { winnerId: alpha.id, scores: { [alpha.id]: { faction } } }, elo: {}
+    });
+    await client.query("UPDATE games SET submitted_at = $2 WHERE id = $1", [game.id, at]);
+    return game.id;
+  }
+  await win("Elucidian Starstriders", "2026-01-01T00:00:00.000Z");
+  await win("Novitiates", "2026-01-02T00:00:00.000Z");
+  const query = new URLSearchParams("");
+  const first = await api.challengeProgress({ client, user: alpha, query });
+  const track = first.users[0].tracks.allKillTeam;
+  assert.equal(track.completedCount, 1);
+  assert.equal(track.nextTeam, "Elucidian Starstriders");
+  assert.equal(track.teams[1].credit, null);
+  const profile = await api.profile({ client, user: alpha, params: { id: String(alpha.id) } });
+  assert.deepEqual(profile.challengeProgress.tracks.allKillTeam, track);
+
+  const secondGameId = await win("Elucidian Starstriders", "2026-01-03T00:00:00.000Z");
+  const next = await api.challengeProgress({ client, user: alpha, query });
+  assert.equal(next.users[0].tracks.allKillTeam.completedCount, 2);
+  assert.equal(next.users[0].tracks.allKillTeam.teams[1].credit.gameId, secondGameId);
+  assert.equal(next.users[0].tracks.allKillTeam.nextTeam, "Hunter Clade");
+});
+
 test("несуществующий профиль отдаёт 404", async () => {
   await assert.rejects(
     () => api.profile({ client, user: alpha, params: { id: "9999" } }),

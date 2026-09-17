@@ -1,0 +1,236 @@
+[
+  {
+    "id": 32,
+    "name": "Главный по разработке",
+    "emoji": "🧔‍♂️",
+    "description": "отец ачивкабота"
+  },
+  {
+    "id": 33,
+    "name": "Ищейка",
+    "emoji": "🪲",
+    "description": "За нахождение багов в ачивка-боте"
+  },
+  {
+    "id": 34,
+    "name": "Фобос слеер",
+    "emoji": "6️⃣",
+    "description": "666666"
+  },
+  {
+    "id": 35,
+    "name": "Альфа-тестер бота",
+    "emoji": "🛠",
+    "description": "участвовал в реализации бота"
+  },
+  {
+    "id": 42,
+    "name": "Кабананиматор",
+    "emoji": "🐽",
+    "description": "Создатель кабан стикеров"
+  },
+  {
+    "id": 44,
+    "name": "ГачиЧамп E1",
+    "emoji": "🏆",
+    "description": "Победитель первой в истории ГачиЛиги"
+  },
+  {
+    "id": 45,
+    "name": "ГачиЧамп E2",
+    "emoji": "🏆",
+    "description": "Победитель GachiBass League E2"
+  },
+  {
+    "id": 46,
+    "name": "ГачиЧамп E4",
+    "emoji": "🏆",
+    "description": "Победитель GachiBass League E4"
+  },
+  {
+    "id": 47,
+    "name": "Тактический реролл",
+    "emoji": "🎲",
+    "description": "Получил ачивку в рамках Randomanza Estravaganza E1"
+  },
+  {
+    "id": 48,
+    "name": "Бог Хаоса",
+    "emoji": "🎲",
+    "description": "Получил ачивку в рамках Randomanza Estravaganza E1"
+  },
+  {
+    "id": 49,
+    "name": "TGTT Чамп",
+    "emoji": "🥇",
+    "description": "Победитель Thundergrounds Teams Tournament E1 в составе Soldiers Of Failure"
+  },
+  {
+    "id": 50,
+    "name": "Клешер",
+    "emoji": "🤜",
+    "description": "Победитель Clash — Decima Special"
+  },
+  {
+    "id": 51,
+    "name": "Kill Team Survivor",
+    "emoji": "👌",
+    "description": "Прошел All Kill Team Challenge"
+  },
+  {
+    "id": 52,
+    "name": "TGTT 2 Чамп",
+    "emoji": "🏆",
+    "description": "Победитель Thundergrounds Teams Tournament E2 в составе Вонючек"
+  },
+  {
+    "id": 53,
+    "name": "Рамблер",
+    "emoji": "⚔️",
+    "description": "Победитель Rumble 1"
+  },
+  {
+    "id": 54,
+    "name": "Turbokiller",
+    "emoji": "🏃‍♂️",
+    "description": "Победитель Turbo 1"
+  },
+  {
+    "id": 55,
+    "name": "ГачиЧамп E6",
+    "emoji": "🏆",
+    "description": "Победитель GachiBass League E6"
+  },
+  {
+    "id": 56,
+    "name": "ГачиЧамп E3",
+    "emoji": "🏆",
+    "description": "Победитель GachiBass League E3"
+  },
+  {
+    "id": 57,
+    "name": "ГачиЧамп E5",
+    "emoji": "🏆",
+    "description": "Победитель GachiBass League E5"
+  },
+  {
+    "id": 58,
+    "name": "Yerevan Open I Чамп",
+    "emoji": "🏔",
+    "description": "Победитель Yerevan Open I"
+  },
+  {
+    "id": 59,
+    "name": "Повелитель гробниц",
+    "emoji": "🪦",
+    "description": "За оперативное добавление в ТТС Tomb World'а"
+  },
+  {
+    "id": 61,
+    "name": "Living Dead",
+    "emoji": "💀",
+    "description": "Первый забаненный член комьюнити"
+  },
+  {
+    "id": 62,
+    "name": "TGTT 3 Champ",
+    "emoji": "🏆",
+    "description": "Победитель Thundergrounds Team Tournament III: The Three Is Not Enough в составе Вонючек"
+  },
+  {
+    "id": 63,
+    "name": "Paintmaster",
+    "emoji": "🖌",
+    "description": "Победитель конкурса росписи миниатюр"
+  },
+  {
+    "id": 64,
+    "name": "Cleaning",
+    "emoji": "🧹",
+    "description": "Войти в топ5 Rumble, играя Sweep & Clear как Primary Op в каждой игре"
+  },
+  {
+    "id": 65,
+    "name": "Burn The Witches",
+    "emoji": "🔥",
+    "description": "Войти в топ5 Rumble на Inquisitorial Agents, беря 5 Sisters Of Silence"
+  },
+  {
+    "id": 66,
+    "name": "Touchdown",
+    "emoji": "🏈",
+    "description": "Коснуться базой вражеского table edge, и потратить APL на действие"
+  },
+  {
+    "id": 67,
+    "name": "The Trooper",
+    "emoji": "🧑🏻‍🚀",
+    "description": "Выиграть игру, играя на DKoK, Kasarkin, Imperial Navy Breachers, Tempestus Aquilons — Взяв только Trooperов и их аналоги, и лидера с самой неэффективной закачкой"
+  },
+  {
+    "id": 68,
+    "name": "За что мут, суки?",
+    "emoji": "🙊",
+    "description": "Допизделся"
+  },
+  {
+    "id": 71,
+    "name": "Deathrattle",
+    "emoji": "💀",
+    "description": "Победить, с единственной моделью в живых"
+  },
+  {
+    "id": 73,
+    "name": "Фракционный эквип для слабых",
+    "emoji": "💣",
+    "description": "Выбрать для турнира команду Strike Force Variel"
+  },
+  {
+    "id": 74,
+    "name": "ГачиЧамп E7",
+    "emoji": "🏆",
+    "description": "Победитель GachiBass League E7"
+  },
+  {
+    "id": 75,
+    "name": "Рамблер x2",
+    "emoji": "2️⃣",
+    "description": "Двухкратный победитель вечерников!"
+  },
+  {
+    "id": 76,
+    "name": "Джентльмен",
+    "emoji": "🎩",
+    "description": "Самый приятный опп Гачи лиги"
+  },
+  {
+    "id": 79,
+    "name": "Обманули дурака на 4 кулака",
+    "emoji": "👊",
+    "description": "Победитель в Фистинге среди конфы"
+  },
+  {
+    "id": 81,
+    "name": "Under The Gaze Of The Gods",
+    "emoji": "👀",
+    "description": "Прошел челлендж на Triple Take"
+  },
+  {
+    "id": 82,
+    "name": "Hammer Of The Emperor",
+    "emoji": "🔨",
+    "description": "Прошел челлендж на Triple Take"
+  },
+  {
+    "id": 83,
+    "name": "WAAAGH!",
+    "emoji": "🍄",
+    "description": "Прошел челлендж на Triple Take"
+  },
+  {
+    "id": 84,
+    "name": "Blue Boys",
+    "emoji": "🔷",
+    "description": "Прошел челлендж на Triple Take"
+  }
+]

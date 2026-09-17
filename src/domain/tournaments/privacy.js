@@ -1,10 +1,12 @@
-function registrationFactionsHidden(tournament) {
-  return !tournament || ["draft", "registration_open"].includes(tournament.status);
+function tournamentFactionsHidden(rounds = []) {
+  // Closing registration and starting the tournament do not start its first round.
+  return !rounds.some((round) => round.roundNumber === 1 && ["active", "completed"].includes(round.status));
 }
 
-function rosterForViewer(roster, tournament, user, { teamLeader = false } = {}) {
-  if (!registrationFactionsHidden(tournament) || user?.isAdmin ||
-      (user && (roster.captainUserId === user.id || teamLeader))) return roster;
+function rosterForViewer(roster, user, { teamLeader = false, rounds = [] } = {}) {
+  const isRosterMember = user && (roster.members || []).some((member) => member.userId === user.id && !member.endedAt);
+  if (!tournamentFactionsHidden(rounds) || user?.isAdmin ||
+      (user && (roster.captainUserId === user.id || teamLeader || isRosterMember))) return roster;
   return {
     ...roster,
     members: (roster.members || []).map((member) => {
@@ -14,4 +16,4 @@ function rosterForViewer(roster, tournament, user, { teamLeader = false } = {}) 
   };
 }
 
-module.exports = { registrationFactionsHidden, rosterForViewer };
+module.exports = { tournamentFactionsHidden, rosterForViewer };

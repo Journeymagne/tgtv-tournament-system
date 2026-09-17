@@ -35,8 +35,15 @@
      result banners). Stays dark in BOTH themes, like --on-accent: the gradient
      over it is orange either way. */
   --surface-medallion: #111111;
+  /* One action-button size, based on Back. Variants change color, not density. */
+  --button-height: 40px;
+  --button-font-size: 16px;
+  --button-font-weight: 900;
+  --button-line-height: 1;
+  --button-padding: 2px 14px 0;
+  --button-radius: 7px;
   /* Right-hand room reserved for the fixed language/theme/notification controls. */
-  --topbar-controls-gutter: 166px;
+  --topbar-controls-gutter: calc(var(--button-height) * 3 + 34px);
 }
 
 :root[data-theme="light"] {
@@ -102,9 +109,33 @@ button {
   cursor: pointer;
 }
 
+/* Also covers future native buttons and links styled as action buttons. */
+button,
+.primary-button,
+.ghost-button,
+.danger-button,
+.small-button,
+input[type="file"]::file-selector-button {
+  min-height: var(--button-height);
+  padding: var(--button-padding);
+  border-radius: var(--button-radius);
+  font-family: inherit;
+  font-size: var(--button-font-size);
+  font-weight: var(--button-font-weight);
+  line-height: var(--button-line-height);
+  text-align: center;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+/* Clickable content cards keep their content typography and intrinsic height. */
+.challenge-user-card,
+.team-stat-card,
+.notification-item {
+  font: inherit;
 }
 
 .app-shell {
@@ -227,19 +258,13 @@ button:disabled {
 }
 
 .page-tabs .tab {
-  height: 40px;
-  min-height: 40px;
+  height: var(--button-height);
 }
 
 .tab {
   flex: 1;
-  min-height: 40px;
-  padding: 0 10px;
-  border-radius: 6px;
   color: var(--muted);
   background: transparent;
-  font-weight: 800;
-  line-height: 1.2;
   white-space: normal;
 }
 
@@ -355,13 +380,9 @@ button:disabled {
   justify-content: space-between;
   gap: 10px;
   width: 100%;
-  min-height: 36px;
-  padding: 8px 10px;
-  border-radius: 6px;
   color: var(--ink);
   background: transparent;
   text-align: left;
-  font-weight: 850;
 }
 
 .filter-suggestion:hover {
@@ -396,7 +417,7 @@ button:disabled {
    ====================================================================== */
 .password-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-columns: minmax(0, 1fr) var(--button-height);
 }
 
 .password-control input {
@@ -406,7 +427,7 @@ button:disabled {
 .password-toggle {
   display: grid;
   place-items: center;
-  min-height: 44px;
+  padding: 0;
   color: var(--muted);
   background: var(--surface-input);
   border: 1px solid var(--line-strong);
@@ -439,7 +460,12 @@ button:disabled {
 
 .combo-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
+  grid-template-columns: minmax(0, 1fr) var(--button-height);
+}
+
+.password-control input,
+.combo-control .combo-input {
+  min-height: var(--button-height);
 }
 
 .combo-control .combo-input {
@@ -449,13 +475,12 @@ button:disabled {
 .combo-toggle {
   display: grid;
   place-items: center;
-  min-height: 44px;
+  padding: 0;
   border: 1px solid var(--line-strong);
   border-left: 0;
   border-radius: 0 7px 7px 0;
   color: var(--ink);
   background: var(--surface-input);
-  font-weight: 950;
 }
 
 .combo-toggle::before {
@@ -498,13 +523,9 @@ button:disabled {
 
 .combo-option {
   width: 100%;
-  min-height: 34px;
-  padding: 8px 10px;
-  border-radius: 6px;
   color: var(--ink);
   background: transparent;
   text-align: left;
-  font-weight: 850;
 }
 
 .combo-option:hover,
@@ -529,12 +550,9 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
-  padding: 2px 14px 0;
-  border-radius: 7px;
-  font-weight: 900;
-  line-height: 1;
-  text-align: center;
+  max-width: 100%;
+  border: 1px solid transparent;
+  overflow-wrap: anywhere;
 }
 
 .primary-button {
@@ -580,13 +598,17 @@ button:disabled {
 }
 
 .danger-button {
-  color: #ffffff;
-  background: var(--danger);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+}
+
+.danger-button:hover:not(:disabled) {
+  background: var(--panel-2);
+  border-color: var(--muted);
 }
 
 .small-button {
-  min-height: 34px;
-  padding: 2px 10px 0;
   color: var(--ink);
   background: var(--panel-2);
   border: 1px solid var(--line-strong);
@@ -598,6 +620,8 @@ button:disabled {
   color: var(--ink);
   background: transparent;
   font-weight: 900;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .text-button:hover {
@@ -671,6 +695,8 @@ button:disabled {
   background: transparent;
   font-weight: 900;
   text-align: left;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .text-link-button:hover {
@@ -785,6 +811,11 @@ button:disabled {
   object-fit: cover;
 }
 
+.avatar-button {
+  width: var(--button-height);
+  height: var(--button-height);
+}
+
 .avatar-button:hover {
   box-shadow: 0 0 32px rgb(var(--accent-rgb) / 0.34);
 }
@@ -820,8 +851,8 @@ button:disabled {
 .menu-toggle {
   display: none;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: var(--button-height);
+  height: var(--button-height);
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
@@ -894,13 +925,9 @@ button:disabled {
 
 .nav-button {
   width: 100%;
-  min-height: 42px;
-  padding: 0 12px;
-  border-radius: 7px;
   color: var(--ink);
   background: transparent;
   text-align: left;
-  font-weight: 900;
 }
 
 .nav-button + .nav-button {
@@ -932,6 +959,7 @@ button:disabled {
    ====================================================================== */
 .public-tournament-layout {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   width: min(1180px, calc(100% - 36px));
   margin: 18px auto 32px;
@@ -982,8 +1010,8 @@ button:disabled {
 .lang-toggle {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: var(--button-height);
+  height: var(--button-height);
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
@@ -998,8 +1026,6 @@ button:disabled {
 }
 
 .lang-toggle {
-  font-size: 14px;
-  font-weight: 700;
   letter-spacing: 0.04em;
 }
 
@@ -1025,6 +1051,33 @@ button:disabled {
 .tournament-table-admin {
   display: grid;
   gap: 14px;
+}
+
+.roster-profile-page {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.roster-profile-page .panel-header,
+.roster-profile-page .row-actions {
+  flex-wrap: wrap;
+}
+
+.roster-profile-page .panel-header > div,
+.roster-profile-page .row-main {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.roster-summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr));
+  gap: 12px;
+}
+
+.roster-summary-metrics .metric-card {
+  min-width: 0;
 }
 
 .tournament-stats-grid {
@@ -1157,6 +1210,7 @@ button:disabled {
 
 .markdown-field-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -1165,17 +1219,14 @@ button:disabled {
 
 .markdown-view-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
 .markdown-view-tab {
-  padding: 4px 10px;
   border: 1px solid var(--line);
-  border-radius: 6px;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -1198,16 +1249,10 @@ button:disabled {
 }
 
 .markdown-tool {
-  min-width: 30px;
-  height: 26px;
-  padding: 0 7px;
+  min-width: var(--button-height);
   border: 1px solid transparent;
-  border-radius: 5px;
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
   cursor: pointer;
 }
 
@@ -1255,6 +1300,7 @@ button:disabled {
 
 .public-rounds {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -1278,6 +1324,7 @@ button:disabled {
 
 .public-round {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -1383,14 +1430,12 @@ button:disabled {
 .tournament-card-buttons {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 100px;
+  grid-auto-columns: max-content;
   gap: 8px;
 }
 
 .tournament-card-buttons > button {
   width: 100%;
-  min-height: 40px;
-  padding: 2px 10px 0;
   white-space: nowrap;
 }
 
@@ -1590,7 +1635,7 @@ button:disabled {
    ====================================================================== */
 .challenge-track {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 10px;
 }
 
@@ -1600,9 +1645,11 @@ button:disabled {
 
 .challenge-team-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 82px;
-  align-items: center;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
   min-height: 140px;
   padding: 14px;
   border: 1px solid var(--line);
@@ -1628,7 +1675,7 @@ button:disabled {
 
 .challenge-team-main {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
+  grid-template-columns: clamp(56px, 24%, 80px) minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   min-width: 0;
@@ -1639,14 +1686,16 @@ button:disabled {
 }
 
 .challenge-team-logo {
-  width: 96px;
-  height: 96px;
+  width: 100%;
+  max-width: 80px;
+  height: auto;
+  aspect-ratio: 1;
   justify-self: center;
   object-fit: contain;
   filter: drop-shadow(0 0 14px rgb(var(--accent-rgb) / 0.32));
 }
 
-.challenge-team-card span {
+.challenge-team-main span {
   display: block;
   color: var(--muted);
   font-size: 11px;
@@ -1657,33 +1706,31 @@ button:disabled {
 .challenge-team-card strong {
   display: block;
   margin: 3px 0;
-  overflow-wrap: anywhere;
-  line-height: 1.08;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.25;
 }
 
 .challenge-team-card .row-actions {
-  align-self: center;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-end;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
   gap: 8px;
-  min-width: 82px;
+  min-width: 0;
 }
 
 .challenge-team-card .status {
-  width: auto;
-  min-width: 88px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 132px;
+  max-width: 100%;
   height: 28px;
   min-height: 0;
-  padding: 2px 10px 0;
-}
-
-.challenge-team-card .small-button {
-  width: 82px;
-  min-height: 30px;
-  padding: 2px 8px 0;
-  font-size: 12px;
+  padding: 0 10px;
+  text-align: center;
 }
 
 .metric-card {
@@ -1921,14 +1968,10 @@ button:disabled {
 }
 
 .file-input::file-selector-button {
-  min-height: 34px;
   margin-right: 10px;
-  padding: 0 10px;
   border: 1px solid var(--line-strong);
-  border-radius: 7px;
   color: var(--on-accent);
   background: var(--accent);
-  font-weight: 900;
   cursor: pointer;
 }
 
@@ -1944,6 +1987,7 @@ button:disabled {
 
 .panel-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1956,6 +2000,7 @@ button:disabled {
 
 .panel-header > .row-actions {
   flex: 0 0 auto;
+  max-width: 100%;
 }
 
 .panel h2,
@@ -2073,17 +2118,6 @@ button:disabled {
 
 .game-challenge-actions {
   margin-left: auto;
-}
-
-.game-challenge-button {
-  width: 168px;
-  min-width: 168px;
-  height: 168px;
-  min-height: 168px;
-  padding: 14px;
-  font-size: 18px;
-  line-height: 1.15;
-  white-space: normal;
 }
 
 .row-main {
@@ -2459,10 +2493,6 @@ tr:last-child td {
   flex-wrap: wrap;
 }
 
-.admin-save-button {
-  min-width: 170px;
-}
-
 .autosave-status {
   min-height: 16px;
   color: var(--muted);
@@ -2505,16 +2535,6 @@ tr:last-child td {
   gap: 14px;
 }
 
-.admin-tournament-header-actions > .small-button,
-.admin-tournament-header-actions > .danger-button,
-.admin-tournament-header-actions > .ghost-button {
-  width: 168px;
-  min-height: 38px;
-  padding: 2px 10px 0;
-  text-align: center;
-  white-space: nowrap;
-}
-
 .admin-tournament-actions {
   display: flex;
   align-items: center;
@@ -2547,6 +2567,8 @@ tr:last-child td {
 
 .tournament-info-tabs {
   margin-bottom: 4px;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .tournament-participant-admin {
@@ -2754,15 +2776,13 @@ tr:last-child td {
 .dialog-close-button {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: var(--button-height);
+  height: var(--button-height);
+  flex: 0 0 var(--button-height);
   padding: 0;
   border: 1px solid var(--line-strong);
-  border-radius: 50%;
   color: var(--ink);
   background: var(--panel-2);
-  font-weight: 950;
-  line-height: 1;
 }
 
 .info-icon-button:hover,
@@ -2942,10 +2962,6 @@ tr:last-child td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .challenge-track {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .auth-layout {
     padding: 12px;
   }
@@ -2961,17 +2977,17 @@ tr:last-child td {
 
   .topbar-title {
     width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    gap: 12px;
   }
 
   .topbar-user-controls {
-    order: 2;
+    order: 1;
   }
 
-  .topbar-player {
-    order: 3;
-    flex: 1 1 0;
-    min-width: 0;
+  .topbar-player,
+  .topbar-user-controls .avatar-button {
+    display: none;
   }
 
   .menu-toggle {
@@ -3027,16 +3043,21 @@ tr:last-child td {
   }
 
   .app-brand {
-    width: 100%;
-    order: 1;
+    flex: 1 1 auto;
+    order: 2;
     min-width: 0;
-    padding: 0 0 12px;
+    padding: 0;
+    border-radius: 0;
     border-right: 0;
-    border-bottom: 1px solid var(--line);
   }
 
-  .topbar-name-row {
-    flex-wrap: wrap;
+  .app-brand > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .app-logo {
+    flex: 0 0 auto;
   }
 
   .tiebreaker-grid,
@@ -3092,7 +3113,6 @@ tr:last-child td {
 .teams-search,
 .team-roster-member-grid,
 .team-roster-members,
-.team-pairings-list,
 .team-match-games {
   display: grid;
   gap: 10px;
@@ -3162,7 +3182,6 @@ tr:last-child td {
 }
 
 .team-roster-members span,
-.team-pairings-list > div,
 .team-match-game {
   padding: 8px 10px;
   border: 1px solid var(--line);
@@ -3171,7 +3190,9 @@ tr:last-child td {
 }
 
 .team-match-card {
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
 }
 
 .team-pairing-page {
@@ -3184,6 +3205,61 @@ tr:last-child td {
   border: 0;
   padding: 0;
   background: transparent;
+}
+
+.team-pairing-details {
+  margin-top: 14px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.team-match-preview-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+[data-team-match-previews] .list,
+.team-match-preview .team-match-games {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.team-match-preview-header > .row-main {
+  flex: 1 1 320px;
+}
+
+.team-match-preview-header > button {
+  flex: 0 0 auto;
+}
+
+.team-match-preview .team-match-progress {
+  font-size: 1.25em;
+  margin-bottom: 8px;
+}
+
+.team-pairing-details[open] {
+  padding-bottom: 12px;
+}
+
+.team-pairing-details > summary {
+  min-height: var(--button-height);
+  padding: 10px 0;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.team-pairing-details > summary:hover,
+.team-pairing-details > summary:focus-visible {
+  color: var(--ink);
+}
+
+.team-pairing-details > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .team-pairing-selections {
@@ -3242,23 +3318,19 @@ tr:last-child td {
   text-align: right;
 }
 
-.team-environment-assignments {
-  display: grid;
-  gap: 8px;
-  margin-top: 10px;
+.team-match-progress {
+  margin: 0 0 14px;
+  font-size: 2em;
+  font-weight: 900;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
-.team-environment-assignments > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--panel-2);
+.captain-pairing-progress {
+  margin-top: 6px;
+  font-weight: 700;
 }
 
-.team-pairings-list,
 .team-match-games,
 .team-captain-control {
   margin-top: 10px;
@@ -3272,11 +3344,60 @@ tr:last-child td {
   gap: 10px;
 }
 
+.team-match-game > .row-main {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.team-match-game > button,
+.team-game-actions {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.team-game-actions {
+  display: grid;
+}
+
+.team-roll-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.team-roll-controls input {
+  min-width: 0;
+  width: 100%;
+}
+
+.team-pairing-undo {
+  margin-top: 14px;
+  justify-content: flex-start;
+}
+
 .team-pairing-control label {
   display: grid;
   flex: 1;
   gap: 6px;
   color: var(--muted);
+}
+
+.team-pairing-control[data-team-pairing-form="environment"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.team-pairing-control[data-team-pairing-form="environment"] label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.team-pairing-control[data-team-pairing-form="environment"] select {
+  width: 100%;
+  min-width: 0;
+}
+
+.team-pairing-control[data-team-pairing-form="environment"] button {
+  justify-self: start;
 }
 
 .team-admin-pairing h4 {
@@ -3310,7 +3431,10 @@ tr:last-child td {
   gap: 8px;
 }
 
-.team-match-admin-actions,
+.team-match-admin-actions {
+  align-items: end;
+}
+
 .team-match-admin-actions label {
   display: grid;
   gap: 6px;
@@ -3372,14 +3496,13 @@ tr:last-child td {
 
   .admin-tournament-header > .admin-tournament-header-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
     width: 100%;
   }
 
   .admin-tournament-detail .admin-tournament-header-actions > button {
     width: 100%;
     min-width: 0;
-    padding-inline: 10px;
     white-space: normal;
   }
 
@@ -3415,8 +3538,7 @@ tr:last-child td {
     grid-template-columns: 1fr;
   }
 
-  .team-pairing-side-header,
-  .team-environment-assignments > div {
+  .team-pairing-side-header {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -3453,8 +3575,20 @@ tr:last-child td {
 }
 
 .team-start-dialog::backdrop { background: var(--overlay); }
-.team-table-setup { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; margin: 20px 0; }
+.team-table-setup { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 20px 0; }
 .team-table-setup select { width: 100%; min-width: 0; }
+.team-table-setup-card { padding: 14px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.team-table-image-field { margin-top: 12px; align-items: start; }
+.team-table-image-field input[type="file"] {
+  max-width: 100%;
+  min-height: calc(var(--button-height) + 14px);
+  padding: 6px 12px;
+}
+.team-table-image { max-width: 100%; max-height: 300px; width: auto; height: auto; border-radius: 6px; margin: 8px 0; }
+.team-table-image:not([hidden]) { display: block; }
+.team-table-choice-images { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.team-table-choice-images figure { margin: 0; max-width: 100%; }
+.team-table-choice-images figcaption { color: var(--muted); font-size: 0.85rem; }
 
 .team-mission-pool { margin: 16px 0; }
 .team-mission-options { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -3469,8 +3603,8 @@ tr:last-child td {
   position: relative;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: var(--button-height);
+  height: var(--button-height);
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
@@ -3643,7 +3777,6 @@ tr:last-child td {
 @media (max-width: 560px) {
   .search-row,
   .profile-grid,
-  .challenge-track,
   .score-meta-grid,
   .killzone-grid,
   .tiebreaker-grid,
@@ -3687,29 +3820,6 @@ tr:last-child td {
     margin-left: 0;
   }
 
-  .challenge-team-card {
-    align-items: flex-start;
-    grid-template-columns: 1fr;
-  }
-
-  .challenge-team-main {
-    grid-template-columns: 88px minmax(0, 1fr);
-  }
-
-  .challenge-team-card .row-actions {
-    grid-column: auto;
-    align-self: auto;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: center;
-  }
-
-  .challenge-team-logo {
-    width: 88px;
-    height: 88px;
-    flex-basis: 88px;
-  }
-
   .layout {
     width: min(100% - 24px, 1240px);
   }
@@ -3736,18 +3846,30 @@ tr:last-child td {
     gap: 6px;
   }
 
-  .theme-toggle,
-  .lang-toggle {
-    width: 38px;
-    height: 38px;
+  .topbar {
+    padding: 10px var(--topbar-controls-gutter) 10px 12px;
+  }
+
+  .topbar-title,
+  .app-brand {
+    gap: 8px;
+  }
+
+  .app-logo {
+    width: 32px;
+    height: 32px;
+  }
+
+  .app-brand-name {
+    font-size: 12px;
+  }
+
+  .app-brand-subtitle {
+    font-size: 9px;
   }
 
   .theme-toggle {
     font-size: 19px;
-  }
-
-  .lang-toggle {
-    font-size: 12px;
   }
 
   .profile-grid.tournament-metrics {
@@ -3756,11 +3878,6 @@ tr:last-child td {
 
   .tournament-metrics .metric-card:last-child {
     grid-column: auto;
-  }
-
-  .notification-toggle {
-    width: 38px;
-    height: 38px;
   }
 
   .notification-panel {
@@ -3773,9 +3890,16 @@ tr:last-child td {
   }
 
   :root {
-    --topbar-controls-gutter: 136px;
+    --topbar-controls-gutter: calc(var(--button-height) * 3 + 22px);
   }
 }
+
+@media (max-width: 360px) {
+  .app-brand-subtitle {
+    display: none;
+  }
+}
+
 .tournament-heading,
 .tournament-card-heading,
 .tournament-logo-controls {
@@ -3839,3 +3963,56 @@ tr:last-child td {
   max-width: 100%;
   flex-wrap: wrap;
 }
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: 16px;
+  margin-block: 20px;
+}
+.achievement-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: inherit;
+  text-decoration: none;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.achievement-card:hover, .achievement-card:focus-visible {
+  border-color: var(--accent);
+  background: var(--panel);
+}
+.achievement-picture { width: 96px; height: 96px; object-fit: contain; border-radius: 12px; }
+.achievement-emoji { display: grid; place-items: center; width: 96px; height: 96px; font-size: 64px; }
+.achievement-detail { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 24px; overflow-wrap: anywhere; }
+.achievement-detail p, .achievement-card .muted { white-space: pre-wrap; }
+.achievement-create form { display: grid; gap: 16px; }
+.achievement-create [hidden] { display: none !important; }
+.achievement-create .field, .achievement-create .tiebreaker-help-header { margin: 0; }
+.achievement-create [data-achievement-message]:empty { display: none; }
+.achievement-create label, [data-achievement-award] label { display: grid; gap: 8px; }
+.profile-achievements { margin-block: 16px; }
+.profile-progress-panels { align-items: start; }
+.profile-progress-panels .profile-achievements { margin: 0; }
+.profile-achievement-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.profile-achievement-item {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
+  padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink); text-decoration: none; overflow-wrap: anywhere;
+}
+.profile-achievement-item:hover, .profile-achievement-item:focus-visible { border-color: var(--accent); }
+.profile-achievement-item .achievement-picture, .profile-achievement-item .achievement-emoji {
+  width: 28px; height: 28px; flex: 0 0 28px; font-size: 24px; border-radius: 4px;
+}
+.profile-achievement-item strong { font-size: 14px; min-width: 0; }
+.profile-achievement-item .achievement-emoji { line-height: 1; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
+[data-achievement-award] > .primary-button { margin-top: 20px; }
+.achievement-delete-actions { margin-top: 24px; }
+.achievement-edit-actions { margin-bottom: 20px; }
+[data-achievement-roster] { margin-block: 16px; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+[data-achievement-award] .achievement-member { display: flex; align-items: center; gap: 10px; padding-block: 6px; }
+.achievement-member input { width: auto; }

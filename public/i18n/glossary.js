@@ -80,6 +80,7 @@ const FORBIDDEN = [
 // the reason. Anything not listed here and not made purely of protected terms
 // fails check 7.
 const SAME_IN_BOTH = {
+  "achievements.hallOfFame": "User explicitly requested the Hall Of Fame label in both locales.",
   "tiebreaker.strengthOfSchedule.label": "Strength of Schedule stays English by decision.",
   "op.crit": "Rules term.",
   "op.kill": "Rules term.",

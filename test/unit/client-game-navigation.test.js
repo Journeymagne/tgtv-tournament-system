@@ -212,7 +212,7 @@ test("team tournament polling cannot redraw a tournament after its route is left
   scheduleTeamPairingPoll("summer-cup");
   scheduleTeamPairingPoll("summer-cup");
   assert.deepEqual(cleared, [1]);
-  assert.equal(timers[1].delay, 5000);
+  assert.equal(timers[1].delay, 2000);
 
   currentSlug = "";
   await timers[1].callback();
@@ -233,7 +233,7 @@ test("pairing refresh preserves a draft only for the same match, action and step
       querySelectorAll: () => [select], elements: { namedItem: () => select }, select };
   };
   let forms = [makeForm("3", "Data")];
-  const preserve = new Function("document", "syncUserSelect", `${source}; return preserveTeamPairingDrafts;`)({ querySelectorAll: () => forms }, () => {});
+  const preserve = new Function("document", "syncUserSelect", `${source}; return preserveTeamPairingDrafts;`)({ querySelectorAll: (selector) => selector === "[data-team-pairing-form]" ? forms : [] }, () => {});
   const restore = preserve();
   forms = [makeForm("3", "Orb")];
   restore();
@@ -247,7 +247,7 @@ test("pairing refresh preserves a draft only for the same match, action and step
 });
 
 test("table labels never come from another cached tournament", () => {
-  const source = appSource.match(/function teamTournamentTables\(tournamentId\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction teamEnvironmentAssignmentsMarkup)/)?.[0];
+  const source = appSource.match(/function teamTournamentTables\(tournamentId\) \{[\s\S]*?\r?\n\}/)?.[0];
   assert.ok(source);
   const tables = new Function("state", `${source}; return teamTournamentTables;`)({
     teamPairingDetail: { tournament: { id: 1 }, tables: [{ id: 11, killzone: "Volkus" }] },
@@ -305,6 +305,7 @@ test("opening a team explicitly leaves the tournament polling route", () => {
     "playerTeamPublicPath",
     "leavePublicTournamentRoute",
     "renderPlayerTeamRoute",
+    "pushAppLocation",
     `${navigateToPlayerTeamSource}; return navigateToPlayerTeam;`
   );
   const navigateToPlayerTeam = factory(
@@ -313,7 +314,8 @@ test("opening a team explicitly leaves the tournament polling route", () => {
     { history: { pushState: (_state, _title, url) => { calls.push(["push", url]); } } },
     (slug) => `/teams/${slug}`,
     () => { calls.push(["leave"]); },
-    (slug, options) => { calls.push(["render", slug, options]); }
+    (slug, options) => { calls.push(["render", slug, options]); },
+    (url) => { calls.push(["push", url]); }
   );
 
   navigateToPlayerTeam("amber-ravens");
@@ -337,13 +339,13 @@ test("admin tournament loader opens a selected tournament directly without loadi
   );
   const loadTournamentAdmin = factory(
     state,
-    async (id, options) => { calls.push(["detail", id, options]); },
+    async (id) => { calls.push(["detail", id]); },
     async () => { calls.push(["list"]); }
   );
 
   await loadTournamentAdmin();
 
-  assert.deepEqual(calls, [["detail", 7, { preservePreview: true }]]);
+  assert.deepEqual(calls, [["detail", 7]]);
 });
 
 test("challenge progress routes retain the selected user id", () => {

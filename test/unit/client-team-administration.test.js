@@ -77,15 +77,13 @@ test("team leaderboard venue and administration links round-trip through routing
   assert.equal(parse(() => ["teams", "admin"])().teamSlug, "");
 });
 
-test("opening teams remembers the leaderboard or administration return route", () => {
-  for (const [view, returnHash] of [["top", "#/leaderboard/teams/irl"], ["teams", "#/teams/admin"]]) {
-    const state = { view, teamProfile: null };
-    const navigate = new Function("state", "appHashForState", "window", "playerTeamPublicPath", "leavePublicTournamentRoute", "renderPlayerTeamRoute", `${extract("navigateToPlayerTeam")}; return navigateToPlayerTeam;`)(
-      state, () => returnHash, { history: { pushState() {} } }, (slug) => `/teams/${slug}`, () => {}, () => {}
-    );
-    navigate("amber");
-    assert.equal(state.teamReturnHash, returnHash);
-  }
+test("opening teams uses the shared navigation history", () => {
+  const destinations = [];
+  const navigate = new Function("pushAppLocation", "playerTeamPublicPath", "leavePublicTournamentRoute", "renderPlayerTeamRoute", `${extract("navigateToPlayerTeam")}; return navigateToPlayerTeam;`)(
+    (url) => destinations.push(url), (slug) => `/teams/${slug}`, () => {}, () => {}
+  );
+  navigate("amber");
+  assert.deepEqual(destinations, ["/teams/amber"]);
 });
 
 test("logo removal sends null while an unchanged logo is omitted", async () => {

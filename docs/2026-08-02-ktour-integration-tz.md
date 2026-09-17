@@ -692,7 +692,7 @@ PATCH  /api/admin/tournaments/:id/participants/:participantId
 DELETE /api/admin/tournaments/:id/participants/:participantId
 PUT    /api/admin/tournaments/:id/seeds
 POST   /api/admin/tournaments/:id/seeds/shuffle
-GET    /api/admin/tournaments/:id/preview
+GET    /api/admin/tournaments/:id/rounds/next/preview
 POST   /api/admin/tournaments/:id/start
 POST   /api/admin/tournaments/:id/rounds/:roundId/start
 POST   /api/admin/tournaments/:id/matches/:matchId/result

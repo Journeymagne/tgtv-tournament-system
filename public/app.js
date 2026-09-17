@@ -4,16 +4,21 @@ const state = {
   me: null,
   hasAdmin: false,
   view: "play",
+  achievementCategory: "achievement",
+  selectedAchievementId: null,
   documentationPage: "",
   authMode: "login",
   users: [],
   allGames: [],
   gamesError: "",
   selectedGameId: null,
+  gameDetailMode: "",
   tournaments: [],
   tournamentsError: "",
   teamsDashboard: null,
   teamProfile: null,
+  rosterProfile: null,
+  selectedRosterId: null,
   teamProfileTab: "team",
   teamProfileTabTeamId: null,
   teamPairings: [],
@@ -27,7 +32,6 @@ const state = {
   adminTeamsPage: 1,
   teamLeaderboard: [],
   teamLeaderboardPage: 1,
-  teamReturnHash: "",
   challengeProgress: [],
   challengeError: "",
   selectedChallengeUserId: null,
@@ -54,7 +58,6 @@ const state = {
   adminTournamentMode: "list",
   selectedTournamentId: null,
   adminTournamentDetail: null,
-  adminTournamentPreview: null,
   publicTournamentDetail: null,
   tournamentInfoTab: "standings",
   adminPasswordReset: null,
@@ -78,6 +81,7 @@ let searchRequestId = 0;
 let publicTournamentRequestId = 0;
 let teamPairingPollTimer = null;
 let teamPairingRequestId = 0;
+let teamPairingMutationPending = false;
 let notificationPollTimer = null;
 let notificationRequestId = 0;
 let documentationRequestId = 0;
@@ -177,23 +181,6 @@ const killTeamOptions = [
   "Raveners"
 ];
 
-const allKillTeamExtraTeams = [
-  "Novitiates",
-  "Elucidian Starstriders",
-  "Hunter Clade",
-  "Death Korps",
-  "Phobos Strike Team",
-  "Gellerpox Infected",
-  "Legionaries",
-  "Blooded",
-  "Warpcoven",
-  "Corsair Voidscarred",
-  "Wyrmblade",
-  "Void-Dancer Troupe",
-  "Kommandos",
-  "Pathfinders"
-];
-
 const nonClassifiedKillTeams = new Set([
   "Novitiates",
   "Elucidian Starstriders",
@@ -210,16 +197,6 @@ const nonClassifiedKillTeams = new Set([
   "Kommandos",
   "Pathfinders"
 ]);
-
-const classifiedChallengeExtraTeams = [
-  "Spectre Squad",
-  "Dragon Masters"
-];
-
-const challengeWildcardTeams = [
-  "Navy Breachers",
-  "XV26 Stealth Suits"
-];
 
 const killTeamAliases = new Map([
   ["angel of death", "Angels of Death"],
@@ -757,6 +734,7 @@ function profileContactsCard(user) {
 }
 
 function notificationIcon(type) {
+  if (type === "tournament_started") return "▶";
   if (type === "game_challenge") return "⚔";
   if (type === "team_invitation") return "+";
   if (type === "team_tournament_pairing") return "3";
@@ -764,6 +742,7 @@ function notificationIcon(type) {
 }
 
 function notificationTitle(item) {
+  if (item.type === "tournament_started") return t("notifications.tournamentStarted.title", { tournament: item.tournament?.name || "" });
   const unknown = t("notifications.unknownPlayer");
   if (item.type === "game_challenge") {
     return t("notifications.challenge.title", { name: item.actor?.name || unknown });
@@ -924,6 +903,10 @@ function focusNotificationTarget(selector) {
 async function openNotificationItem(item) {
   state.notificationsOpen = false;
   renderNotificationControl();
+  if (item.type === "tournament_started") {
+    navigateToPublicTournament(item.tournament.slug, { tab: "matches", force: true });
+    return;
+  }
   if (item.type === "game_challenge") {
     await refresh();
     state.focusChallengeId = Number(item.sourceId);
@@ -1042,8 +1025,7 @@ async function boot() {
   try {
     await refresh();
     await loadTop();
-    if (state.me) await applyAppRouteFromHash();
-    render();
+    await handleHashNavigation();
   } catch (err) {
     app.innerHTML = `<div class="loading">${escapeHtml(err.message)}</div>`;
   }
@@ -1060,6 +1042,10 @@ function render() {
   const playerTeamSlug = playerTeamSlugFromLocation();
   if (playerTeamSlug) {
     renderPlayerTeamRoute(playerTeamSlug);
+    return;
+  }
+  if (appRouteFromHash()?.view === "roster") {
+    openRosterProfile(appRouteFromHash().selectedRosterId, { navigate: false });
     return;
   }
   if (!state.me) {
@@ -1083,16 +1069,46 @@ function render() {
 
 window.addEventListener("hashchange", handleHashNavigation);
 window.addEventListener("popstate", handleHashNavigation);
+document.addEventListener("click", rememberNavigationContext, true);
+document.addEventListener("click", (event) => {
+  const link = event.target.closest('a[href^="/#/achievements/"]');
+  if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target || link.hasAttribute("download")) return;
+  event.preventDefault();
+  pushAppLocation(link.getAttribute("href"));
+  handleHashNavigation();
+});
+window.addEventListener("pagehide", rememberNavigationContext);
+
+let navigationRequestId = 0;
 
 async function handleHashNavigation() {
+  const requestId = ++navigationRequestId;
   try {
-    if (tournamentSlugFromLocation() || playerTeamSlugFromLocation() || !state.me) {
+    const context = currentNavigationEntry()?.context;
+    restoreNavigationContext(context);
+    const tournamentSlug = tournamentSlugFromLocation();
+    const teamSlug = playerTeamSlugFromLocation();
+    if (tournamentSlug) {
+      await renderPublicTournamentRoute(tournamentSlug, { force: true });
+    } else if (teamSlug) {
+      leavePublicTournamentRoute();
+      await renderPlayerTeamRoute(teamSlug, { force: true });
+    } else if (appRouteFromHash()?.view === "roster") {
+      await openRosterProfile(appRouteFromHash().selectedRosterId, { navigate: false });
+    } else if (!state.me) {
       render();
-      return;
+    } else {
+      const routed = await applyAppRouteFromHash();
+      if (requestId !== navigationRequestId) return;
+      restoreNavigationContext(context);
+      if (routed) renderShell();
+      else render();
     }
-    const routed = await applyAppRouteFromHash();
-    if (routed) renderShell();
-    else render();
+    if (requestId === navigationRequestId && Number.isFinite(context?.scrollY)) {
+      window.requestAnimationFrame(() => {
+        if (requestId === navigationRequestId) window.scrollTo(0, context.scrollY);
+      });
+    }
   } catch (err) {
     setMessage(err.message, true);
   }
@@ -1115,6 +1131,11 @@ function appRouteFromHash() {
   const segments = hashSegments();
   if (!segments.length) return null;
   const [section, subroute, id] = segments;
+  if (section === "achievements") return { view: "achievements", achievementCategory: subroute === "hall-of-fame" ? "title" : "achievement", selectedAchievementId: /^\d+$/.test(subroute || "") ? Number(subroute) : null };
+  if (section === "rosters") {
+    const rosterId = Number(subroute);
+    return { view: "roster", selectedRosterId: Number.isSafeInteger(rosterId) && rosterId > 0 ? rosterId : null };
+  }
   if (section === "documentation") return { view: "documentation", documentationPage: subroute || "" };
   if (section === "mygames" || section === "matchmaking" || section === "play") {
     const challengeId = subroute === "challenge" ? Number(id) : null;
@@ -1139,7 +1160,10 @@ function appRouteFromHash() {
     };
   }
   if (section === "games") {
-    if (subroute === "game") return { view: "gameDetail", selectedGameId: Number(id) };
+    if (subroute === "game") return {
+      view: "gameDetail", selectedGameId: Number(id),
+      gameDetailMode: ["result", "edit", "review"].includes(segments[3]) ? segments[3] : ""
+    };
     if (subroute === "tournament-match") {
       const matchId = Number(id);
       return {
@@ -1200,9 +1224,11 @@ async function applyAppRouteFromHash() {
 async function applyAppRoute(route) {
   state.adminPasswordReset = null;
   state.view = route.view;
+  if (route.view === "achievements") { state.achievementCategory = route.achievementCategory; state.selectedAchievementId = route.selectedAchievementId; }
   if (route.view === "documentation") state.documentationPage = route.documentationPage || "";
   state.playerProfile = null;
   state.selectedGameId = null;
+  state.gameDetailMode = route.view === "gameDetail" ? route.gameDetailMode || "" : "";
   state.selectedTeamMatchId = route.view === "teamPairing" ? Number(route.selectedTeamMatchId) : null;
   if (route.view !== "teamPairing") state.teamPairingDetail = null;
   state.focusChallengeId = route.view === "play" ? route.focusChallengeId || null : null;
@@ -1211,7 +1237,6 @@ async function applyAppRoute(route) {
     state.adminTournamentMode = "list";
     state.selectedTournamentId = null;
     state.adminTournamentDetail = null;
-    state.adminTournamentPreview = null;
   }
   if (route.view === "challenge") {
     const selectedChallengeUserId = Number(route.selectedChallengeUserId);
@@ -1224,7 +1249,7 @@ async function applyAppRoute(route) {
     state.challengeOpenedFromProfile = false;
   }
   if (route.view === "feedback") state.feedbackMode = "form";
-  if (route.view === "play" && state.focusChallengeId) {
+  if (route.view === "play") {
     await refresh();
   } else if (route.view === "teamPairing") {
     if (!state.selectedTeamMatchId) throw new Error(t("teams.pairing.notFound"));
@@ -1254,13 +1279,11 @@ async function applyAppRoute(route) {
         : null;
       if (state.adminTournamentMode === "detail" && state.selectedTournamentId) state.tournamentInfoTab = "settings";
       state.adminTournamentDetail = null;
-      state.adminTournamentPreview = null;
       await adminUi().loadTournamentAdmin();
     } else {
       state.adminTournamentMode = "list";
       state.selectedTournamentId = null;
       state.adminTournamentDetail = null;
-      state.adminTournamentPreview = null;
       await loadTournaments();
     }
   } else if (route.view === "teams") {
@@ -1290,6 +1313,8 @@ async function applyAppRoute(route) {
 }
 
 function appHashForState() {
+  if (state.view === "achievements") return state.selectedAchievementId ? `#/achievements/${state.selectedAchievementId}` : state.achievementCategory === "title" ? "#/achievements/hall-of-fame" : "#/achievements";
+  if (state.view === "roster" && state.selectedRosterId) return `#/rosters/${state.selectedRosterId}`;
   if (state.view === "play") {
     return state.focusChallengeId
       ? `#/mygames/challenge/${encodeURIComponent(state.focusChallengeId)}`
@@ -1310,7 +1335,7 @@ function appHashForState() {
     const tournamentMatchId = tournamentMatchIdFromGameId(state.selectedGameId);
     return tournamentMatchId
       ? `#/games/tournament-match/${encodeURIComponent(tournamentMatchId)}`
-      : `#/games/game/${encodeURIComponent(state.selectedGameId)}`;
+      : `#/games/game/${encodeURIComponent(state.selectedGameId)}${state.gameDetailMode ? `/${state.gameDetailMode}` : ""}`;
   }
   if (state.view === "tournaments") {
     if (state.tournamentsTab === "admin") {
@@ -1347,8 +1372,74 @@ function syncAppHash(options = {}) {
   const pathname = tournamentSlugFromPath() || playerTeamSlugFromPath() ? "/" : window.location.pathname;
   if (!hash || (window.location.hash === hash && window.location.pathname === pathname)) return;
   const url = `${pathname}${window.location.search}${hash}`;
-  if (options.replace) window.history.replaceState(null, "", url);
-  else window.history.pushState(null, "", url);
+  pushAppLocation(url, options);
+}
+
+function navigationUrl() {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function currentNavigationEntry() {
+  const entry = window.history.state?.tgtvNavigation;
+  return entry?.url === navigationUrl() ? entry : null;
+}
+
+function navigationContextKeys() {
+  return ["tournamentInfoTab", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
+    "selectedStatisticsTeam", "selectedSeasonId", "statisticsFilters", "statisticsSort",
+    "gameFilters", "leaderboardPage", "teamLeaderboardPage", "adminUsersPage",
+    "adminUsersQuery", "adminTeamsPage", "adminTeamsQuery", "teamsQuery", "challengeTab"];
+}
+
+function rememberNavigationContext() {
+  const entry = currentNavigationEntry() || { url: navigationUrl(), previous: null };
+  const context = Object.fromEntries(navigationContextKeys().map((key) => [key, state[key]]));
+  const round = document.querySelector('[data-tournament-round-tab][aria-selected="true"]');
+  context.tournamentRound = round?.dataset.tournamentRoundTab || entry.context?.tournamentRound || null;
+  context.scrollY = window.scrollY;
+  window.history.replaceState({ ...window.history.state, tgtvNavigation: { ...entry, context } }, "");
+}
+
+function restoreNavigationContext(context) {
+  if (!context) return;
+  for (const key of navigationContextKeys()) {
+    if (Object.hasOwn(context, key)) state[key] = context[key];
+  }
+}
+
+function pushAppLocation(url, options = {}) {
+  const target = new URL(url, window.location.href);
+  if (target.origin !== window.location.origin) return;
+  const targetUrl = `${target.pathname}${target.search}${target.hash}`;
+  if (targetUrl === navigationUrl()) return;
+  const current = currentNavigationEntry() || { url: navigationUrl(), previous: null, context: {} };
+  // Click capture saves the old screen before its handler changes application state.
+  window.history.replaceState({ ...window.history.state, tgtvNavigation: current }, "");
+  const entry = { url: targetUrl, previous: options.replace ? current.previous : current.url, context: {} };
+  if (options.replace) window.history.replaceState({ tgtvNavigation: entry }, "", targetUrl);
+  else window.history.pushState({ tgtvNavigation: entry }, "", targetUrl);
+}
+
+function navigateBack(fallback = "/#/mygames", options = {}) {
+  if (currentNavigationEntry()?.previous) {
+    window.history.back();
+    return;
+  }
+  if (options.tournamentTab) state.tournamentInfoTab = options.tournamentTab;
+  pushAppLocation(fallback, { replace: true });
+  return handleHashNavigation();
+}
+
+function gameBackFallback(game) {
+  const teamMatchId = gameTeamMatchId(game);
+  if (teamMatchId) return `/#/team-matches/${teamMatchId}`;
+  if (game.tournament?.slug) return tournamentPublicPath(game.tournament.slug);
+  return "/#/games";
+}
+
+function gameTeamMatchId(game) {
+  return game.teamMatch?.id || game.teamTournamentGame?.teamMatchId ||
+    (game.sourceType === "team_match_game" ? game.sourceId : null);
 }
 
 function pathSegments() {
@@ -1394,7 +1485,7 @@ function tournamentSlugFromLocation() {
   if (pathSlug) return pathSlug;
   const hashSlug = tournamentSlugFromHash();
   if (hashSlug) {
-    window.history.replaceState(null, "", `${tournamentPublicPath(hashSlug)}${window.location.search}`);
+    pushAppLocation(`${tournamentPublicPath(hashSlug)}${window.location.search}`, { replace: true });
     return hashSlug;
   }
   return "";
@@ -1445,24 +1536,29 @@ function scheduleTeamPairingPoll(slug) {
     } catch {
       if (isCurrentPublicTournamentRoute(slug)) scheduleTeamPairingPoll(slug);
     }
-  }, 5000);
+  }, 2000);
 }
 
 function teamPairingSubmissionPending() {
-  return Boolean(document.querySelector('[data-team-pairing-form] [type="submit"]:disabled, [data-team-pairing-form] [data-combo].open, [data-team-pair-action="roll"]:disabled, [data-team-match-reset]:disabled, [data-team-pairings-override] [type="submit"]:disabled, [data-team-pairings-override] [data-combo].open'));
+  return teamPairingMutationPending || Boolean(document.querySelector('[data-team-pairing-form] [type="submit"]:disabled, [data-team-pairing-form] [data-combo].open, [data-team-pair-action="roll"]:disabled, [data-team-match-undo]:disabled, [data-team-match-reset]:disabled, [data-team-pairings-override] [type="submit"]:disabled, [data-team-pairings-override] [data-combo].open'));
 }
 
 function preserveTeamPairingDrafts() {
-  const key = (form) => `${form.dataset.teamMatchId}:${form.dataset.teamPairingForm}:${form.dataset.side || ""}:${form.dataset.step || ""}`;
+  const expandedDetails = new Set([...document.querySelectorAll("[data-team-pairing-details][open]")]
+    .map((details) => details.dataset.teamPairingDetails));
+  const key = (form) => `${form.dataset.teamMatchId}:${form.dataset.teamPairingForm}:${form.dataset.side || ""}:${form.dataset.step || form.dataset.rollRound || ""}`;
   const drafts = new Map([...document.querySelectorAll("[data-team-pairing-form]")].map((form) =>
-    [key(form), [...form.querySelectorAll("select[name]")].map((select) => [select.name, select.value])]));
+    [key(form), [...form.querySelectorAll("select[name], input[name]")].map((input) => [input.name, input.value])]));
   return () => {
+    document.querySelectorAll("[data-team-pairing-details]").forEach((details) => {
+      details.open = expandedDetails.has(details.dataset.teamPairingDetails);
+    });
     document.querySelectorAll("[data-team-pairing-form]").forEach((form) => {
       for (const [name, value] of drafts.get(key(form)) || []) {
         const select = form.elements.namedItem(name);
-        if (select && [...select.options].some((option) => option.value === value)) {
+        if (select && (!select.options || [...select.options].some((option) => option.value === value))) {
           select.value = value;
-          syncUserSelect(select, true);
+          if (select.options) syncUserSelect(select, true);
         }
       }
     });
@@ -1482,13 +1578,14 @@ function scheduleTeamPairingScreenPoll(matchId) {
     if (!isCurrentTeamPairingRoute(matchId)) return;
     if (teamPairingSubmissionPending()) { scheduleTeamPairingScreenPoll(matchId); return; }
     try {
+      const previous = JSON.stringify(state.teamPairingDetail);
       const loaded = await loadTeamPairing(matchId, { force: true });
       if (!loaded) return;
       if (isCurrentTeamPairingRoute(matchId)) {
         if (teamPairingSubmissionPending()) { scheduleTeamPairingScreenPoll(matchId); return; }
+        if (previous === JSON.stringify(loaded)) { scheduleTeamPairingScreenPoll(matchId); return; }
         const restore = preserveTeamPairingDrafts();
-        if (state.me) renderShell();
-        else renderTeamPairing();
+        renderTeamPairing();
         restore();
       }
     } catch (err) {
@@ -1497,7 +1594,7 @@ function scheduleTeamPairingScreenPoll(matchId) {
         scheduleTeamPairingScreenPoll(matchId);
       }
     }
-  }, 5000);
+  }, 2000);
 }
 
 async function loadTeamPairing(matchId, options = {}) {
@@ -1534,9 +1631,7 @@ async function openTeamPairing(matchId) {
 
 function navigateToPlayerTeam(slug) {
   if (!slug) return;
-  if (state.view === "top" || (state.view === "teams" && !state.teamProfile)) state.teamReturnHash = appHashForState();
-  else state.teamReturnHash = "";
-  window.history.pushState(null, "", playerTeamPublicPath(slug));
+  pushAppLocation(playerTeamPublicPath(slug));
   leavePublicTournamentRoute();
   renderPlayerTeamRoute(slug, { force: true });
 }
@@ -1545,11 +1640,11 @@ function clearPlayerTeamRoute() {
   if (playerTeamSlugFromLocation()) window.history.replaceState(null, "", `/${window.location.search}`);
 }
 
-function navigateToPublicTournament(slug) {
+function navigateToPublicTournament(slug, options = {}) {
   if (!slug) return;
-  state.tournamentInfoTab = "standings";
-  window.history.pushState(null, "", tournamentPublicPath(slug));
-  renderPublicTournamentRoute(slug);
+  state.tournamentInfoTab = options.tab || "standings";
+  pushAppLocation(tournamentPublicPath(slug));
+  renderPublicTournamentRoute(slug, options);
 }
 
 function clearSharedChallengeHash() {
@@ -1625,7 +1720,6 @@ function publicTournamentContainer() {
   state.adminTournamentMode = "list";
   state.selectedTournamentId = null;
   state.adminTournamentDetail = null;
-  state.adminTournamentPreview = null;
   if (shouldRenderShell) renderShell();
   return document.querySelector("[data-content]");
 }
@@ -1650,6 +1744,7 @@ function renderPublicTournament(data) {
             </div>
           </div>
           <div class="row-actions">
+            <button class="ghost-button" data-public-back>${t("common.back")}</button>
             ${state.me ? `
               ${tournamentEditButton(tournament)}
               ${publicTournamentViewerActions(data)}
@@ -1732,7 +1827,6 @@ async function openTournamentEditor(tournamentId) {
     adminTournamentMode: "detail",
     selectedTournamentId: id,
     adminTournamentDetail: data,
-    adminTournamentPreview: null,
     tournamentInfoTab: "settings"
   });
   syncAppHash();
@@ -1989,8 +2083,7 @@ function wirePublicTournamentNav(data) {
     render();
   });
   document.querySelector("[data-public-back]")?.addEventListener("click", () => {
-    clearTournamentRoute();
-    render();
+    navigateBack("/#/tournaments");
   });
   document.querySelector("[data-public-tournament-join]")?.addEventListener("click", async () => {
     renderTournamentJoinForm(data);
@@ -2231,8 +2324,11 @@ function tournamentInfoTabDefinitions(data, options = {}) {
     { id: "stats", label: t("tournaments.tab.stats") }
   ];
   if (options.admin) tabs.unshift({ id: "settings", label: t("tournaments.tab.settings") });
+  if (data?.tournament?.participantMode === "team") {
+    tabs.push({ id: "participants", label: t("teams.tournament.rosters") });
+  }
   if (options.admin && canManageTournamentParticipants(data)) {
-    tabs.push({ id: "participants", label: t(data?.tournament?.participantMode === "team" ? "teams.tournament.rosters" : "tournaments.field.participants") });
+    if (data?.tournament?.participantMode !== "team") tabs.push({ id: "participants", label: t("tournaments.field.participants") });
     if (data?.tournament?.venueMode === "irl" || data?.tournament?.participantMode === "team") tabs.push({ id: "tables", label: t("tournaments.tab.tables") });
   }
   return tabs;
@@ -2259,7 +2355,12 @@ function tournamentInfoTabs(activeTab, data, options = {}) {
 
 function tournamentInfoTabContent(activeTab, data, options = {}) {
   if (activeTab === "settings" && options.admin) return adminUi().adminTournamentSettingsContent(data);
-  if (activeTab === "participants") return adminUi().adminTournamentParticipantsContent(data);
+  if (activeTab === "participants") {
+    if (options.admin && canManageTournamentParticipants(data)) return adminUi().adminTournamentParticipantsContent(data);
+    return data?.tournament?.participantMode === "team"
+      ? publicTeamRostersList(data.rosters || [])
+      : publicParticipantsList(listedTournamentParticipants(data.participants || []));
+  }
   if (activeTab === "tables") return adminUi().adminTournamentTablesContent(data);
   if (activeTab === "stats") return tournamentStatsContent(data);
   if (activeTab === "matches") return tournamentMatchesContent(data, options);
@@ -2268,12 +2369,10 @@ function tournamentInfoTabContent(activeTab, data, options = {}) {
 
 function tournamentMatchesContent(data, options = {}) {
   if (data?.tournament?.participantMode === "team") {
-    return options.admin
-      ? `${adminUi().adminTournamentPreviewPanel(data)}${teamTournamentRoundsMarkup(data, options)}`
-      : teamTournamentRoundsMarkup(data, options);
+    return teamTournamentRoundsMarkup(data, options);
   }
   if (options.admin) {
-    return `${adminUi().adminTournamentPreviewPanel(data)}${adminUi().adminTournamentRoundsPanel(data)}`;
+    return adminUi().adminTournamentRoundsPanel(data);
   }
   return publicRoundsMarkup(data.rounds || [], data.tournament || {});
 }
@@ -2516,7 +2615,10 @@ function wirePageTabs() {
       const section = button.dataset.pageTab;
       const value = button.dataset.pageTabValue;
       try {
-        if (section === "leaderboard") {
+        if (section === "achievements") {
+          state.achievementCategory = value === "title" ? "title" : "achievement";
+          state.selectedAchievementId = null;
+        } else if (section === "leaderboard") {
           state.leaderboardTab = value;
           if (value === "users") await adminUi().loadAdminUsers();
           else if (value === "teams") await loadTeamLeaderboard();
@@ -2539,7 +2641,6 @@ function wirePageTabs() {
             state.adminTournamentMode = "list";
             state.selectedTournamentId = null;
             state.adminTournamentDetail = null;
-            state.adminTournamentPreview = null;
             await loadTournaments();
           }
         }
@@ -2888,6 +2989,7 @@ function renderShell() {
         ${navButton("statistics", t("nav.stats"))}
         ${navButton("profile", t("nav.profile"))}
         ${navButton("challenge", t("nav.challenge"))}
+        ${navButton("achievements", t("achievements.title"))}
         ${navButton("documentation", t("nav.documentation"))}
         ${navButton("feedback", t("nav.feedback"))}
         <button class="nav-button sidebar-logout" data-logout>${t("nav.signOut")}</button>
@@ -2918,6 +3020,7 @@ function renderShell() {
       const targetView = button.dataset.view;
       state.adminPasswordReset = null;
       state.view = targetView;
+      if (targetView === "achievements") state.selectedAchievementId = null;
       state.playerProfile = null;
       state.selectedGameId = null;
       state.selectedTeamMatchId = null;
@@ -2940,12 +3043,12 @@ function renderShell() {
         state.adminTournamentMode = "list";
         state.selectedTournamentId = null;
         state.adminTournamentDetail = null;
-        state.adminTournamentPreview = null;
       }
       if (targetView === "teams") { state.teamProfile = null; state.teamsTab = "mine"; }
       syncAppHash();
       renderShell();
       try {
+        if (targetView === "play") await refresh();
         if (targetView === "games") await loadGames();
         if (targetView === "tournaments") await loadTournaments();
         if (targetView === "teams") await loadTeamsDashboard();
@@ -2960,12 +3063,18 @@ function renderShell() {
   });
 
   if (state.view === "profile") renderProfile();
+  else if (state.view === "achievements") renderAchievements();
   else if (state.view === "player") renderPlayerProfile();
   else if (state.view === "games") renderGames();
   else if (state.view === "tournaments") renderTournaments();
   else if (state.view === "teams") renderTeams();
-  else if (state.view === "gameDetail") renderGameDetail();
+  else if (state.view === "gameDetail") {
+    if (state.gameDetailMode === "review") renderResultReview(state.selectedGameId);
+    else if (["result", "edit"].includes(state.gameDetailMode)) renderResultForm(state.selectedGameId, { adminEdit: state.gameDetailMode === "edit" && state.me.isAdmin });
+    else renderGameDetail();
+  }
   else if (state.view === "teamPairing") renderTeamPairing();
+  else if (state.view === "roster") renderRosterProfile();
   else if (state.view === "statistics") renderStatistics();
   else if (state.view === "challenge") renderChallenge();
   else if (state.view === "feedback") renderFeedback();
@@ -3008,7 +3117,7 @@ function loadAdminUi() {
 const ADMIN_UI_MARKUP = [
   "adminActiveGamesPanel", "adminChallengeActions", "adminPendingGamesCard",
   "adminPlayerToolsCard", "adminTeamPairingOverrideForm", "adminTeamsPanel",
-  "adminTournamentAdminView", "adminTournamentParticipantsContent", "adminTournamentPreviewPanel",
+  "adminTournamentAdminView", "adminTournamentParticipantsContent",
   "adminTournamentRoundsPanel", "adminTournamentSettingsContent", "adminTournamentTablesContent",
   "adminUsersPanel"
 ];
@@ -3116,7 +3225,8 @@ function navButton(id, label) {
   const active = state.view === id ||
     (id === "top" && state.view === "player") ||
     (id === "games" && state.view === "gameDetail") ||
-    (id === "play" && state.view === "teamPairing");
+    (id === "play" && state.view === "teamPairing") ||
+    (id === "tournaments" && state.view === "roster");
   return `<button class="nav-button ${active ? "active" : ""}" data-view="${id}">${label}</button>`;
 }
 
@@ -3158,15 +3268,7 @@ function renderPlay() {
       <div class="list search-results" data-search-results style="margin-top:14px"></div>
     </section>
 
-    ${teamPairings.length ? `<section class="card panel captain-pairings-panel">
-      <div class="panel-header">
-        <div>
-          <h2>${t("play.teamPairings.title")}</h2>
-          <p class="muted">${t("play.teamPairings.hint")}</p>
-        </div>
-      </div>
-      <div class="list">${teamPairings.map(teamPairingCard).join("")}</div>
-    </section>` : ""}
+    <div data-captain-pairings>${teamPairingsPanelMarkup(teamPairings)}</div>
 
     <section class="grid-2">
       <div class="card panel">
@@ -3199,21 +3301,72 @@ function renderPlay() {
   });
   wireChallengeButtons();
   wireGameButtons();
-  document.querySelectorAll("[data-team-pairing-open]").forEach((button) => {
-    button.addEventListener("click", () => openTeamPairing(button.dataset.teamPairingOpen));
-  });
+  wireMyGamesPairings();
+  scheduleMyGamesPairingPoll();
   if (state.focusChallengeId) {
     focusNotificationTarget(`[data-challenge-card="${state.focusChallengeId}"]`);
   }
 }
 
+function teamPairingsPanelMarkup(pairings) {
+  if (!pairings.length) return "";
+  return `<section class="card panel captain-pairings-panel">
+    <div class="panel-header"><div><h2>${t("play.teamPairings.title")}</h2><p class="muted">${t("play.teamPairings.hint")}</p></div></div>
+    <div class="list">${pairings.map(teamPairingCard).join("")}</div>
+  </section>`;
+}
+
+function wireMyGamesPairings() {
+  document.querySelectorAll("[data-captain-pairings] [data-team-pairing-open]").forEach((button) => {
+    button.addEventListener("click", () => openTeamPairing(button.dataset.teamPairingOpen));
+  });
+}
+
+let myGamesPairingRequestId = 0;
+
+function scheduleMyGamesPairingPoll() {
+  stopTeamPairingPoll();
+  const requestId = ++myGamesPairingRequestId;
+  const userId = state.me?.id;
+  const isCurrent = () => requestId === myGamesPairingRequestId && state.me?.id === userId
+    && state.view === "play" && Boolean(document.querySelector("[data-captain-pairings]"));
+  if (!userId || !isCurrent() || !state.teamPairings.length) return;
+  teamPairingPollTimer = window.setTimeout(async () => {
+    teamPairingPollTimer = null;
+    if (!isCurrent()) return;
+    try {
+      if (document.visibilityState !== "hidden") {
+        const data = await api("/api/me/team-pairings");
+        if (!isCurrent()) return;
+        const pairings = data.teamPairings || [];
+        if (JSON.stringify(pairings) !== JSON.stringify(state.teamPairings)) {
+          state.teamPairings = pairings;
+          document.querySelector("[data-captain-pairings]").innerHTML = teamPairingsPanelMarkup(pairings);
+          wireMyGamesPairings();
+        }
+      }
+    } catch {
+      // Keep the last confirmed score if a background refresh fails.
+    } finally {
+      if (isCurrent()) scheduleMyGamesPairingPoll();
+    }
+  }, 2000);
+}
+
 function teamPairingCard(pairing) {
   const own = pairing.captainSide === "a" ? pairing.rosterA : pairing.rosterB;
   const opponent = pairing.captainSide === "a" ? pairing.rosterB : pairing.rosterA;
+  const progress = pairing.progress || { completed: 0, total: 3, gpA: 0, gpB: 0 };
+  const status = pairing.phase === "in_progress" ? t("teams.results.progress", {
+    count: progress.completed, total: progress.total,
+    a: pairing.captainSide === "a" ? progress.gpA : progress.gpB,
+    b: pairing.captainSide === "a" ? progress.gpB : progress.gpA
+  }) : teamMatchPhaseLabel(pairing.phase);
   return `<article class="row-card captain-pairing-card">
     <div class="row-main">
       <div class="row-title">${escapeHtml(own?.name || "")} vs ${escapeHtml(opponent?.name || "")}</div>
-      <div class="row-meta">${escapeHtml(pairing.tournament?.name || "")} · ${t("notifications.round", { number: pairing.roundNumber })} · ${escapeHtml(teamMatchPhaseLabel(pairing.phase))}</div>
+      <div class="row-meta">${escapeHtml(pairing.tournament?.name || "")} · ${t("notifications.round", { number: pairing.roundNumber })}</div>
+      <div class="captain-pairing-progress">${escapeHtml(status)}</div>
     </div>
     <div class="row-actions"><button class="primary-button" data-team-pairing-open="${pairing.id}">${t("play.teamPairings.open")}</button></div>
   </article>`;
@@ -3266,6 +3419,31 @@ async function copyText(text) {
   input.remove();
 }
 
+function teamGameResultPermissions(game) {
+  if (game.resultPermissions) return game.resultPermissions;
+  const userId = state.me?.id;
+  const rosters = [game.teamMatch?.rosterA, game.teamMatch?.rosterB];
+  const captain = userId && rosters.find((roster) => roster?.captainUserId === userId);
+  const playerIds = game.playerIds || (game.players || []).map((player) => Number(player.userId || player.id));
+  const participant = playerIds.includes(userId);
+  const ownRoster = captain || rosters[playerIds.indexOf(userId)];
+  const pending = game.pendingResult;
+  const submittedRosterId = pending?.submittedRosterId || rosters[playerIds.indexOf(pending?.submittedBy)]?.id;
+  const ownSubmission = pending?.submittedBy === userId;
+  const sameSide = Boolean(ownRoster && ownRoster.id === submittedRosterId);
+  return {
+    captainRosterId: captain?.id || null,
+    canSubmit: Boolean(state.me?.isAdmin || captain || participant) && (game.status === "open" || (game.status === "pending_confirmation" && ownSubmission)),
+    canReview: game.status === "pending_confirmation" && Boolean(state.me?.isAdmin || (!ownSubmission && !sameSide && (pending?.submittedAs === "captain" ? captain : captain || participant)))
+  };
+}
+
+function teamGameResultAction(game, permissions = teamGameResultPermissions(game)) {
+  if (permissions.canSubmit) return `<button class="primary-button" data-game-result="${game.id}">${t(game.status === "pending_confirmation" ? "play.action.editResult" : "play.action.enterResult")}</button>`;
+  if (permissions.canReview) return `<button class="primary-button" data-game-review="${game.id}">${t("play.action.reviewResult")}</button>`;
+  return "";
+}
+
 function gameCard(game) {
   const players = game.players || [];
   const isTournamentGame = game.sourceType === "tournament_match";
@@ -3279,7 +3457,7 @@ function gameCard(game) {
     : isPending
       ? pendingResultSummary(game)
       : t("play.game.waitingForResult");
-  const mainAction = isParticipant && game.status === "open"
+  const mainAction = game.sourceType === "team_match_game" ? teamGameResultAction(game) : isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">${t("play.action.enterResult")}</button>`
     : isTournamentGame && isParticipant && isPending
       ? `<button class="primary-button" data-game-result="${game.id}">${t("play.action.enterResult")}</button>`
@@ -3291,7 +3469,7 @@ function gameCard(game) {
   const adminResultAction = state.me?.isAdmin && !isParticipant && game.status !== "completed"
     ? `<button class="primary-button" data-game-admin-result="${game.id}">${t("play.action.enterResult")}</button>`
     : "";
-  const canExit = !isTournamentGame && isParticipant && (game.status === "open" || (isPending && game.pendingResult?.submittedBy === state.me.id));
+  const canExit = !["tournament_match", "team_match_game"].includes(game.sourceType) && isParticipant && (game.status === "open" || (isPending && game.pendingResult?.submittedBy === state.me.id));
   const exitAction = canExit
     ? `<button class="danger-button" data-game-exit="${game.id}">${isPending ? t("play.action.deletePending") : t("play.action.exitGame")}</button>`
     : "";
@@ -3359,7 +3537,7 @@ function pendingResultSummary(game) {
   const score = resultHeadline(game, result);
   const submitterName = pending?.submittedBy === state.me.id
     ? t("play.game.you")
-    : submitter?.name || t("games.pendingResult.opponentFallback");
+    : submitter?.name || pending?.submittedByName || t("games.pendingResult.opponentFallback");
   const waiting = players.some((player) => player.hasProfile === false || Number(player.id) < 0)
     ? t("games.pendingResult.waitingForAdmin")
     : t("games.pendingResult.waitingForConfirmation");
@@ -3534,6 +3712,250 @@ function profileRatingsMarkup(user) {
   `;
 }
 
+function achievementTitle(achievement) {
+  return achievement.place && !achievement.textEdited ? t("achievements.podium", { place: achievement.place, event: achievement.description }) : achievement.name;
+}
+
+function achievementDescription(achievement) {
+  return achievement.place && !achievement.textEdited ? t("achievements.podiumDescription", { place: achievement.place, event: achievement.description }) : achievement.description;
+}
+
+function achievementPicture(achievement) {
+  return achievement.imageUrl
+    ? `<img class="achievement-picture" src="${escapeHtml(achievement.imageUrl)}" alt="" loading="lazy" width="96" height="96">`
+    : `<span class="achievement-emoji" aria-hidden="true">${escapeHtml(achievement.emoji)}</span>`;
+}
+
+function achievementCards(achievements, { compact = false } = {}) {
+  return achievements.length ? `<div class="${compact ? "profile-achievement-list" : "achievement-grid"}">${achievements.map((item) => `
+    <a class="${compact ? "profile-achievement-item" : "achievement-card"}" href="/#/achievements/${item.id}">
+      ${achievementPicture(item)}<strong>${escapeHtml(achievementTitle(item))}</strong>
+      ${compact ? "" : `<span class="muted">${t(item.kind === "team" ? "achievements.team" : "achievements.personal")}</span>
+      <span class="muted">${escapeHtml(achievementDescription(item))}</span>`}
+    </a>`).join("")}</div>` : `<p class="empty">${t("achievements.empty")}</p>`;
+}
+
+async function mountProfileAchievements(container, field, id) {
+  if (!container || !id) return;
+  const panel = document.createElement("section");
+  panel.className = "card panel profile-achievements";
+  panel.innerHTML = `<h3>${t("achievements.title")}</h3><div data-achievement-profile>${t("achievements.loading")}</div>`;
+  const compact = field === "userId";
+  const challengePanel = compact ? container.querySelector("[data-profile-challenge-progress]")?.closest(".card.panel") : null;
+  if (challengePanel) {
+    const pair = document.createElement("div");
+    pair.className = "grid-2 wide-panel profile-progress-panels";
+    challengePanel.before(pair);
+    pair.append(challengePanel, panel);
+  } else container.prepend(panel);
+  const target = panel.querySelector("[data-achievement-profile]");
+  try {
+    const data = await api(`/api/achievements?${field}=${encodeURIComponent(id)}`);
+    if (panel.isConnected) target.innerHTML = achievementCards(data.achievements, { compact });
+  } catch (err) { if (panel.isConnected) target.textContent = err.message; }
+}
+
+function openAchievementEditor(achievement, page) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "tiebreaker-help-dialog achievement-create";
+  dialog.setAttribute("aria-labelledby", "achievement-edit-title");
+  dialog.innerHTML = `<form class="tiebreaker-help-content">
+    <div class="tiebreaker-help-header"><h3 id="achievement-edit-title">${t("achievements.edit")}</h3><button type="button" class="dialog-close-button" data-edit-close aria-label="${t("common.close")}">&times;</button></div>
+    <div class="field"><label for="achievement-edit-name">${t("achievements.name")}</label><input id="achievement-edit-name" name="name" value="${escapeHtml(achievementTitle(achievement))}" maxlength="120" required></div>
+    <div class="field"><label for="achievement-edit-description">${t("achievements.description")}</label><textarea id="achievement-edit-description" name="description" rows="5" maxlength="2000" required>${escapeHtml(achievementDescription(achievement))}</textarea></div>
+    <p role="status" data-achievement-message></p>
+    <div class="row-actions"><button type="button" class="small-button" data-edit-close>${t("common.cancel")}</button><button type="submit" class="primary-button">${t("common.save")}</button></div>
+  </form>`;
+  page.appendChild(dialog);
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.querySelectorAll("[data-edit-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  const form = dialog.querySelector("form");
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = form.querySelector('[type="submit"]');
+    button.disabled = true;
+    try {
+      await api(`/api/achievements/${achievement.id}`, { method: "PATCH", body: {
+        name: form.elements.name.value, description: form.elements.description.value
+      } });
+      dialog.close();
+      if (page.isConnected) renderAchievements();
+    } catch (err) { form.querySelector("[data-achievement-message]").textContent = err.message; }
+    finally { button.disabled = false; }
+  });
+  dialog.showModal();
+  form.elements.name.focus();
+}
+
+async function renderAchievements() {
+  const content = document.querySelector("[data-content]");
+  const selectedId = state.selectedAchievementId;
+  const category = state.achievementCategory || "achievement";
+  content.innerHTML = `<section class="card panel" data-achievement-page><h2>${t("achievements.title")}</h2><p>${t("achievements.loading")}</p></section>`;
+  const page = content.querySelector("[data-achievement-page]");
+  const isCurrent = () => page.isConnected && state.view === "achievements";
+  try {
+    const data = await api(selectedId ? `/api/achievements/${selectedId}` : `/api/achievements?category=${category}`);
+    if (!isCurrent()) return;
+    if (selectedId) {
+      const achievement = data.achievement;
+      state.achievementCategory = achievement.category;
+      page.innerHTML = `<div class="row-actions"><button type="button" class="ghost-button" data-achievement-back>${t("common.back")}</button></div>
+        <div class="achievement-detail">${achievementPicture(achievement)}<h2>${escapeHtml(achievementTitle(achievement))}</h2><p>${escapeHtml(achievementDescription(achievement))}</p><span class="muted">${t(achievement.kind === "team" ? "achievements.team" : "achievements.personal")}</span></div>
+        ${state.me?.isAdmin ? `<div class="row-actions achievement-edit-actions"><button type="button" class="small-button" data-achievement-edit>${t("achievements.edit")}</button></div>` : ""}
+        ${achievement.tournamentId ? `<p class="muted">${t("achievements.auto")}</p>` : state.me?.isAdmin ? `
+        <form data-achievement-award class="settings-block"><label>${t("achievements.recipient")}
+          <select name="targetId" ${achievement.kind === "player" ? "data-user-search" : ""} required disabled><option value="">${t("achievements.loading")}</option></select></label>
+          ${achievement.kind === "team" ? `<fieldset data-achievement-roster hidden><legend>${t("achievements.roster")}</legend><p class="muted">${t("achievements.rosterHint")}</p><div data-achievement-members></div></fieldset>` : ""}
+          <button class="primary-button" disabled>${t("achievements.award")}</button></form>` : ""}
+        <p role="status" data-achievement-message></p><h3>${t("achievements.recipients")}</h3>
+        <div data-achievement-recipients></div>
+        ${state.me?.isAdmin ? `<div class="row-actions achievement-delete-actions"><button type="button" class="danger-button" data-achievement-delete>${t("achievements.delete")}</button></div>` : ""}`;
+      const showRecipients = (recipients) => {
+        page.querySelector("[data-achievement-recipients]").innerHTML = recipients.length ? `<div class="list">${recipients.map((recipient) => `
+          <div class="row-card"><div class="row-main"><a href="${recipient.teamId ? `/teams/${encodeURIComponent(recipient.slug)}` : `/#/players/${recipient.userId}`}">${escapeHtml(recipient.name)}</a>
+          ${recipient.members?.length ? `<div class="row-meta">${recipient.members.map((member) => member.userId ? `<a href="/#/players/${member.userId}">${escapeHtml(member.name)}</a>` : escapeHtml(member.name)).join(", ")}</div>` : ""}</div><span class="muted">${fmtDate(recipient.awardedAt)}</span></div>`).join("")}</div>` : `<p class="empty">${t("achievements.noRecipients")}</p>`;
+      };
+      page.querySelector("[data-achievement-back]").addEventListener("click", () => navigateBack(`/#/achievements${achievement.category === "title" ? "/hall-of-fame" : ""}`));
+      showRecipients(data.recipients);
+      page.querySelector("[data-achievement-edit]")?.addEventListener("click", () => openAchievementEditor(achievement, page));
+      page.querySelector("[data-achievement-delete]")?.addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        if (!await confirmDelete(t("achievements.deleteConfirm", { name: achievementTitle(achievement) }), t("achievements.delete"))) return;
+        button.disabled = true;
+        try {
+          await api(`/api/achievements/${selectedId}`, { method: "DELETE" });
+          if (isCurrent()) window.location.hash = achievement.category === "title" ? "#/achievements/hall-of-fame" : "#/achievements";
+        } catch (err) { if (isCurrent()) { page.querySelector("[data-achievement-message]").textContent = err.message; page.querySelector("[data-achievement-delete]").disabled = false; } }
+      });
+      const form = page.querySelector("[data-achievement-award]");
+      if (form) {
+        const result = await api(achievement.kind === "team" ? "/api/teams" : "/api/users");
+        if (!isCurrent()) return;
+        const targets = result.teams || result.users || [];
+        const select = form.elements.targetId;
+        select.innerHTML = `<option value="">${t("achievements.choose")}</option>` + targets.map((target) => `<option value="${target.id}">${escapeHtml(target.name)}</option>`).join("");
+        select.disabled = false;
+        form.querySelector("button").disabled = false;
+        wireComboFields(form);
+        if (achievement.kind === "team") {
+          let rosterRequest = 0;
+          const roster = form.querySelector("[data-achievement-roster]");
+          const membersBox = form.querySelector("[data-achievement-members]");
+          select.addEventListener("change", async () => {
+            const request = ++rosterRequest;
+            membersBox.innerHTML = "";
+            roster.hidden = !select.value;
+            const team = targets.find((item) => item.id === Number(select.value));
+            if (!team) return;
+            try {
+              const details = await api(`/api/teams/${encodeURIComponent(team.slug)}`);
+              if (!isCurrent() || request !== rosterRequest) return;
+              const members = [...new Map([...(details.formerMembers || []), ...(details.currentMembers || [])].filter((member) => member.userId).map((member) => [member.userId, member])).values()];
+              membersBox.innerHTML = members.length ? members.map((member) => `<label class="achievement-member"><input type="checkbox" name="memberIds" value="${member.userId}"><span>${escapeHtml(member.user?.name || member.displayNameSnapshot)}${member.endedAt ? ` (${t("achievements.former")})` : ""}</span></label>`).join("") : `<p class="muted">${t("achievements.rosterEmpty")}</p>`;
+            } catch (err) { if (request === rosterRequest) membersBox.textContent = err.message; }
+          });
+        }
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const button = form.querySelector("button[type=submit], button.primary-button");
+          button.disabled = true;
+          const message = page.querySelector("[data-achievement-message]");
+          try {
+            const result = await api(`/api/achievements/${selectedId}/awards`, { method: "POST", body: { targetId: Number(select.value), memberIds: [...form.querySelectorAll('[name="memberIds"]:checked')].map((input) => Number(input.value)) } });
+            message.textContent = t(result.awarded ? "achievements.awarded" : "achievements.duplicate");
+            const fresh = await api(`/api/achievements/${selectedId}`);
+            if (isCurrent()) showRecipients(fresh.recipients);
+          } catch (err) { message.textContent = err.message; }
+          finally { button.disabled = false; }
+        });
+      }
+    } else {
+      page.innerHTML = `<div class="panel-header"><h2>${t("achievements.title")}</h2>
+        ${state.me?.isAdmin ? `<button type="button" class="primary-button" data-achievement-create-open>${t("achievements.create")}</button>` : ""}</div>
+        ${pageTabs("achievements", [
+          { id: "achievement", label: t("achievements.title") },
+          { id: "title", label: t("achievements.hallOfFame") }
+        ], category, { publicTabs: true })}
+        ${achievementCards(data.achievements)}
+        ${state.me?.isAdmin ? `<dialog class="tiebreaker-help-dialog achievement-create" aria-labelledby="achievement-create-title" data-achievement-dialog>
+          <form data-achievement-create class="tiebreaker-help-content">
+            <div class="tiebreaker-help-header"><h3 id="achievement-create-title">${t("achievements.create")}</h3>
+              <button type="button" class="dialog-close-button" data-achievement-create-close aria-label="${t("common.close")}">&times;</button></div>
+            <div class="field"><label for="achievement-name">${t("achievements.name")}</label><input id="achievement-name" name="name" maxlength="120" required></div>
+            <div class="field"><label for="achievement-kind">${t("achievements.kind")}</label><select id="achievement-kind" name="kind"><option value="player">${t("achievements.personal")}</option><option value="team">${t("achievements.team")}</option></select></div>
+            <div class="field"><label for="achievement-category">${t("achievements.category")}</label><select id="achievement-category" name="category"><option value="achievement" ${category === "achievement" ? "selected" : ""}>${t("achievements.title")}</option><option value="title" ${category === "title" ? "selected" : ""}>${t("achievements.hallOfFame")}</option></select></div>
+            <div class="field"><label for="achievement-description">${t("achievements.description")}</label><textarea id="achievement-description" name="description" rows="4" maxlength="2000" required></textarea></div>
+            <div class="field"><label for="achievement-logo-type">${t("achievements.logoType")}</label><select id="achievement-logo-type" name="logoType"><option value="emoji">${t("achievements.emoji")}</option><option value="image">${t("achievements.picture")}</option></select></div>
+            <div class="field" data-achievement-emoji-field><label for="achievement-emoji">${t("achievements.emoji")}</label><input id="achievement-emoji" name="emoji" value="🏅" maxlength="64" required aria-describedby="achievement-emoji-hint"><p id="achievement-emoji-hint" class="field-help">${t("achievements.emojiHint")}</p><span class="achievement-emoji" data-achievement-emoji-preview aria-hidden="true">🏅</span></div>
+            <div class="field" data-achievement-image-field hidden><label for="achievement-image">${t("achievements.image")}</label><input id="achievement-image" name="image" type="file" accept="image/png,image/jpeg,image/webp" disabled></div>
+            <img data-achievement-preview class="achievement-picture" alt="" hidden>
+            <p role="status" data-achievement-message></p>
+            <div class="row-actions"><button type="button" class="small-button" data-achievement-create-close>${t("common.cancel")}</button>
+              <button type="submit" class="primary-button">${t("achievements.create")}</button></div>
+          </form></dialog>` : ""}`;
+      wirePageTabs();
+      const form = page.querySelector("[data-achievement-create]");
+      if (form) {
+        const dialog = page.querySelector("[data-achievement-dialog]");
+        page.querySelector("[data-achievement-create-open]").addEventListener("click", () => {
+          dialog.showModal();
+          form.elements.name.focus();
+        });
+        dialog.querySelectorAll("[data-achievement-create-close]").forEach((button) => {
+          button.addEventListener("click", () => dialog.close());
+        });
+        let imageData = null;
+        let imageRevision = 0;
+        const message = form.querySelector("[data-achievement-message]");
+        form.elements.emoji.addEventListener("input", () => {
+          form.querySelector("[data-achievement-emoji-preview]").textContent = form.elements.emoji.value;
+        });
+        form.elements.logoType.addEventListener("change", () => {
+          const useImage = form.elements.logoType.value === "image";
+          form.querySelector("[data-achievement-emoji-field]").hidden = useImage;
+          form.querySelector("[data-achievement-image-field]").hidden = !useImage;
+          form.elements.emoji.disabled = useImage;
+          form.elements.emoji.required = !useImage;
+          form.elements.image.disabled = !useImage;
+          form.elements.image.required = useImage;
+          form.querySelector("[data-achievement-preview]").hidden = !useImage || !imageData;
+          message.textContent = "";
+        });
+        form.elements.image.addEventListener("change", async () => {
+          const revision = ++imageRevision;
+          imageData = null;
+          const preview = form.querySelector("[data-achievement-preview]");
+          preview.hidden = true;
+          const file = form.elements.image.files[0];
+          if (!file) return;
+          if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 1024 * 1024) { message.textContent = t("achievements.imageError"); return; }
+          try {
+            const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
+            if (revision !== imageRevision) return;
+            imageData = dataUrl;
+            preview.src = dataUrl; preview.hidden = form.elements.logoType.value !== "image"; message.textContent = "";
+          } catch { message.textContent = t("achievements.imageError"); }
+        });
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const useImage = form.elements.logoType.value === "image";
+          if (useImage && !imageData) { message.textContent = t("achievements.imageError"); return; }
+          const button = form.querySelector("button[type=submit]"); button.disabled = true;
+          try {
+            const result = await api("/api/achievements", { method: "POST", body: { name: form.elements.name.value, description: form.elements.description.value, kind: form.elements.kind.value, category: form.elements.category.value, imageData: useImage ? imageData : null, emoji: useImage ? null : form.elements.emoji.value } });
+            if (isCurrent()) {
+              dialog.close();
+              window.location.hash = `#/achievements/${result.achievement.id}`;
+            }
+          } catch (err) { message.textContent = err.message; }
+          finally { button.disabled = false; }
+        });
+      }
+    }
+  } catch (err) { if (isCurrent()) page.innerHTML = `<h2>${t("achievements.title")}</h2><p role="alert">${escapeHtml(err.message)}</p>`; }
+}
+
 function renderProfile() {
   const content = document.querySelector("[data-content]");
   if (!state.teamsDashboard && !state.teamsError) {
@@ -3553,6 +3975,7 @@ function renderProfile() {
         <h2>${escapeHtml(state.me.name)}</h2>
         <p class="muted">${state.me.isAdmin ? t("profile.hero.role.admin") : t("profile.hero.role.player")} &middot; ${t("profile.hero.joined", { date: fmtDate(state.me.createdAt) })}</p>
         ${profileInfoMarkup(state.me)}
+        <div class="row-actions"><button class="ghost-button" data-profile-back>${t("common.back")}</button></div>
       </div>
       ${profileRatingsMarkup(state.me)}
     </section>
@@ -3582,7 +4005,7 @@ function renderProfile() {
               <input class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-avatar-input>
               <p class="muted small-note">${t("profile.settings.avatarHint")}</p>
               <div class="row-actions">
-                <button class="small-button" data-remove-avatar type="button">${t("profile.settings.removeAvatar")}</button>
+                <button class="danger-button" data-remove-avatar type="button">${t("profile.settings.removeAvatar")}</button>
               </div>
             </div>
           </div>
@@ -3654,6 +4077,8 @@ function renderProfile() {
     </section>
   `;
 
+  mountProfileAchievements(content, "userId", state.me.id);
+  document.querySelector("[data-profile-back]").addEventListener("click", () => navigateBack("/#/mygames"));
   wireProfileSettings();
   wireGameButtons();
   wireOpenMatchmakingButton();
@@ -3812,6 +4237,7 @@ function renderPlayerProfile() {
         <h2>${escapeHtml(user.name)}</h2>
         <p class="muted">${t("profile.hero.role.player")} &middot; ${t("profile.hero.joined", { date: fmtDate(user.createdAt) })}</p>
         ${profileInfoMarkup(user)}
+        <div class="row-actions"><button class="ghost-button" data-player-back>${t("common.back")}</button></div>
       </div>
       ${profileRatingsMarkup(user)}
     </section>
@@ -3859,7 +4285,6 @@ function renderPlayerProfile() {
             <h3>${t("profile.recent.title")}</h3>
             <p class="muted">${t("profile.playerProfile.recentSubtitle")}</p>
           </div>
-          <button class="ghost-button" data-back-leaderboard>${t("nav.leaderboard")}</button>
         </div>
         <div class="list">
           ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`}
@@ -3868,14 +4293,8 @@ function renderPlayerProfile() {
     </section>
   `;
 
-  document.querySelector("[data-back-leaderboard]").addEventListener("click", async () => {
-    state.view = "top";
-    state.playerProfile = null;
-    state.adminPasswordReset = null;
-    await loadTop();
-    syncAppHash();
-    renderShell();
-  });
+  mountProfileAchievements(content, "userId", user.id);
+  document.querySelector("[data-player-back]").addEventListener("click", () => navigateBack("/#/leaderboard"));
 
   document.querySelector("[data-profile-challenge]")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
@@ -3922,6 +4341,7 @@ function wireProfileSettings() {
   });
 
   removeAvatar?.addEventListener("click", async () => {
+    if (!await confirmDelete(t("dialog.profile.removeAvatar"), t("profile.settings.removeAvatar"))) return;
     await updateProfile({ avatarData: null }, t("profile.settings.avatarRemoved"));
   });
 
@@ -4198,6 +4618,7 @@ async function openGameDetail(gameId) {
     id = normalizedGameDetailId(game?.id || gameId);
   }
   state.selectedGameId = id;
+  state.gameDetailMode = "";
   state.view = "gameDetail";
   syncAppHash();
   renderShell();
@@ -5121,86 +5542,7 @@ function renderChallenge() {
 }
 
 function challengeTrackProgress(progress) {
-  if (state.challengeTab === "classified") {
-    return moveChallengeTeamToEnd(progress?.tracks?.classified || classifiedFallbackProgress(progress), "Dragon Masters");
-  }
-  return moveChallengeTeamToEnd(progress?.tracks?.allKillTeam || allKillTeamFallbackProgress(progress), "Dragon Masters");
-}
-
-function classifiedFallbackProgress(progress) {
-  if (!progress) return progress;
-  return appendTeamsToChallengeProgress(progress, classifiedChallengeExtraTeams);
-}
-
-function allKillTeamFallbackProgress(progress) {
-  if (!progress) return null;
-  const teams = uniqueList([
-    ...allKillTeamExtraTeams,
-    ...(progress.teams || []).map((item) => item.team),
-    ...classifiedChallengeExtraTeams
-  ]).filter((team) => !challengeWildcardTeams.includes(team));
-  const completedByTeam = new Map((progress.completed || []).map((item) => [item.team, item]));
-  const wildcardCompletedByTeam = new Map((progress.wildcardCompleted || []).map((item) => [item.team, item]));
-  const completedTeams = new Set([...completedByTeam.keys()].filter((team) => teams.includes(team)));
-  const completedWildcards = new Set([...wildcardCompletedByTeam.keys()].filter((team) => challengeWildcardTeams.includes(team)));
-  const nextIndex = teams.findIndex((team) => !completedTeams.has(team));
-  const currentIndex = nextIndex === -1 ? teams.length : nextIndex;
-  return {
-    ...progress,
-    total: teams.length,
-    completedCount: completedTeams.size,
-    nextTeam: teams[currentIndex] || null,
-    teams: teams.map((team, index) => ({
-      order: index + 1,
-      team,
-      status: completedTeams.has(team) ? "completed" : index === currentIndex ? "current" : "locked",
-      credit: completedByTeam.get(team) || null
-    })),
-    wildcards: challengeWildcardTeams.map((team) => ({
-      team,
-      status: completedWildcards.has(team) ? "completed" : "available",
-      credit: wildcardCompletedByTeam.get(team) || null
-    }))
-  };
-}
-
-function moveChallengeTeamToEnd(progress, teamName) {
-  if (!progress?.teams?.some((item) => item.team === teamName)) return progress;
-  const teams = [
-    ...progress.teams.filter((item) => item.team !== teamName),
-    ...progress.teams.filter((item) => item.team === teamName)
-  ];
-  const completedTeams = new Set(teams.filter((item) => item.status === "completed").map((item) => item.team));
-  const currentIndex = teams.findIndex((item) => !completedTeams.has(item.team));
-  return {
-    ...progress,
-    nextTeam: currentIndex === -1 ? null : teams[currentIndex].team,
-    teams: teams.map((item, index) => ({
-      ...item,
-      order: index + 1,
-      status: completedTeams.has(item.team) ? "completed" : index === currentIndex ? "current" : "locked"
-    }))
-  };
-}
-
-function appendTeamsToChallengeProgress(progress, extraTeams) {
-  const teams = uniqueList([...(progress.teams || []).map((item) => item.team), ...extraTeams]);
-  const completedByTeam = new Map((progress.completed || []).map((item) => [item.team, item]));
-  const completedTeams = new Set([...completedByTeam.keys()].filter((team) => teams.includes(team)));
-  const nextIndex = teams.findIndex((team) => !completedTeams.has(team));
-  const currentIndex = nextIndex === -1 ? teams.length : nextIndex;
-  return {
-    ...progress,
-    total: teams.length,
-    completedCount: completedTeams.size,
-    nextTeam: teams[currentIndex] || null,
-    teams: teams.map((team, index) => ({
-      order: index + 1,
-      team,
-      status: completedTeams.has(team) ? "completed" : index === currentIndex ? "current" : "locked",
-      credit: completedByTeam.get(team) || null
-    }))
-  };
+  return progress?.tracks?.[state.challengeTab] || null;
 }
 
 function uniqueList(items) {
@@ -5289,7 +5631,9 @@ function challengeTeamCard(item, wildcard = false, userId = null) {
   const adminAction = canEdit
     ? item.status === "completed"
       ? `<button class="small-button" data-remove-credit-user="${userId}" data-remove-credit-team="${escapeHtml(item.team)}">${t("challenge.card.subtract")}</button>`
-      : `<button class="small-button" data-credit-user="${userId}" data-credit-team="${escapeHtml(item.team)}">${t("challenge.card.credit")}</button>`
+      : item.status === "current" || item.status === "available"
+        ? `<button class="small-button" data-credit-user="${userId}" data-credit-team="${escapeHtml(item.team)}">${t("challenge.card.credit")}</button>`
+        : ""
     : "";
   const statusKey = item.status === "completed" ? "challenge.status.completed"
     : item.status === "current" ? "challenge.status.current"
@@ -5330,7 +5674,7 @@ function renderGameDetail() {
   const submitter = game.players?.find((player) => player.id === game.pendingResult?.submittedBy || player.id === game.submittedBy);
   const isParticipant = game.players?.some((player) => Number(player.userId || player.id) === state.me.id);
   const canDeletePending = isParticipant && game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id;
-  const playerAction = isParticipant && game.status === "open"
+  const playerAction = isTeamTournamentGame ? teamGameResultAction(game) : isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">${t("play.action.enterResult")}</button>
        ${isTournamentGame || isTeamTournamentGame ? "" : `<button class="danger-button" data-exit-game="${game.id}">${t("play.action.exitGame")}</button>`}`
     : isTournamentGame && isParticipant && game.status === "pending_confirmation"
@@ -5363,7 +5707,8 @@ function renderGameDetail() {
         </div>
         <div class="row-actions">
           <span class="status ${game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "open"}">${statusLabel}</span>
-          <button class="ghost-button" data-back-games>${t("games.detail.backToGames")}</button>
+          <button class="ghost-button" data-back-games>${t("common.back")}</button>
+          ${gameTeamMatchId(game) ? `<button class="small-button" data-detail-team-match="${gameTeamMatchId(game)}">${t("games.detail.teamMatch")}</button>` : ""}
           ${tournamentAction}
           ${playerAction}
           ${adminAction}
@@ -5378,6 +5723,7 @@ function renderGameDetail() {
         </section>
       ` : ""}
       ${!result && game.teamTournamentGame?.mission ? killzoneReview({ killzone: game.teamTournamentGame.mission }) : ""}
+      ${game.teamTournamentGame?.mission?.imageId ? teamTableImageMarkup(game.teamTournamentGame.mission) : ""}
       ${result ? `
         <div class="result-headline">${escapeHtml(resultHeadline(game, result))}</div>
         ${submitter ? `<p class="muted">${t("games.detail.submittedBy", { name: escapeHtml(submitter.name) })}${game.submittedAt ? ` &middot; ${fmtDate(game.submittedAt)}` : ""}</p>` : ""}
@@ -5394,13 +5740,8 @@ function renderGameDetail() {
     </section>
   `;
 
-  document.querySelector("[data-back-games]").addEventListener("click", async () => {
-    state.view = "games";
-    state.selectedGameId = null;
-    await loadGames();
-    syncAppHash();
-    renderShell();
-  });
+  document.querySelector("[data-back-games]").addEventListener("click", () => navigateBack(gameBackFallback(game), { tournamentTab: "matches" }));
+  document.querySelector("[data-detail-team-match]")?.addEventListener("click", () => openTeamPairing(gameTeamMatchId(game)));
   document.querySelector("[data-admin-edit-game]")?.addEventListener("click", () => {
     renderResultForm(game.id, { adminEdit: true });
   });
@@ -5420,7 +5761,7 @@ function renderGameDetail() {
     renderResultReview(Number(event.currentTarget.dataset.gameReview));
   });
   document.querySelector("[data-detail-tournament-open]")?.addEventListener("click", (event) => {
-    navigateToPublicTournament(event.currentTarget.dataset.detailTournamentOpen);
+    navigateToPublicTournament(event.currentTarget.dataset.detailTournamentOpen, { tab: "matches" });
   });
   wireLeaderboardProfiles();
 }
@@ -5639,6 +5980,16 @@ function renderResultForm(gameId, options = {}) {
   const { adminEdit = false } = options;
   const game = getKnownGame(gameId);
   if (!game) return;
+  state.view = "gameDetail";
+  state.selectedGameId = game.id;
+  state.gameDetailMode = adminEdit ? "edit" : "result";
+  if (!adminEdit && (["completed", "cancelled"].includes(game.status) || (game.sourceType === "team_match_game" && !teamGameResultPermissions(game).canSubmit))) {
+    state.gameDetailMode = "";
+    syncAppHash({ replace: true });
+    renderGameDetail();
+    return;
+  }
+  syncAppHash();
   const content = document.querySelector("[data-content]");
   const existingResult = adminEdit
     ? game.result || game.pendingResult?.result || null
@@ -5652,7 +6003,7 @@ function renderResultForm(gameId, options = {}) {
       <div class="panel-header">
         <div>
           <h2>${adminEdit ? t("games.result.editTitle") : t("games.result.title")}</h2>
-          <p class="muted">${t("games.result.hint")}</p>
+          <p class="muted">${t(game.sourceType === "team_match_game" && teamGameResultPermissions(game).captainRosterId && !adminEdit ? "teams.results.captainHint" : "games.result.hint")}</p>
         </div>
         <div class="row-actions">
           ${canExitFromForm ? `<button class="danger-button" type="button" data-exit-game="${game.id}">${game.status === "pending_confirmation" ? t("play.action.deletePending") : t("play.action.exitGame")}</button>` : ""}
@@ -5733,21 +6084,7 @@ function renderResultForm(gameId, options = {}) {
     </section>
   `;
 
-  document.querySelector("[data-back]").addEventListener("click", () => {
-    if (adminEdit) {
-      renderGameDetail();
-      return;
-    }
-    if (state.view === "games") {
-      renderGames();
-      return;
-    }
-    if (state.view === "profile") {
-      renderProfile();
-      return;
-    }
-    renderPlay();
-  });
+  document.querySelector("[data-back]").addEventListener("click", () => navigateBack(`/#/games/game/${game.id}`));
   document.querySelector("[data-exit-game]")?.addEventListener("click", (event) => {
     exitOpenGame(Number(event.currentTarget.dataset.exitGame));
   });
@@ -5780,12 +6117,8 @@ function renderResultForm(gameId, options = {}) {
       await refresh();
       await loadTop();
       await loadGames();
-      if (adminEdit) {
-        state.selectedGameId = game.id;
-        state.view = "gameDetail";
-        syncAppHash();
-      }
-      renderShell();
+      await loadGame(game.id);
+      navigateBack(`/#/games/game/${game.id}`);
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -5797,7 +6130,17 @@ function renderResultReview(gameId) {
   const game = getKnownGame(gameId);
   const pending = game?.pendingResult;
   const result = pending?.result;
-  if (!game || !result) return;
+  if (!game) return;
+  if (!result || (game.sourceType === "team_match_game" && !teamGameResultPermissions(game).canReview)) {
+    state.gameDetailMode = "";
+    syncAppHash({ replace: true });
+    renderGameDetail();
+    return;
+  }
+  state.view = "gameDetail";
+  state.selectedGameId = game.id;
+  state.gameDetailMode = "review";
+  syncAppHash();
   const content = document.querySelector("[data-content]");
   const submitter = game.players.find((player) => player.id === pending.submittedBy);
   const reviewSummary = resultHeadline(game, result);
@@ -5806,7 +6149,7 @@ function renderResultReview(gameId) {
       <div class="panel-header">
         <div>
           <h2>${t("games.review.title")}</h2>
-          <p class="muted">${t("games.review.submittedBy", { name: escapeHtml(submitter?.name || t("games.review.opponentFallback")) })}</p>
+          <p class="muted">${t("games.review.submittedBy", { name: escapeHtml(submitter?.name || pending.submittedByName || t("games.review.opponentFallback")) })}</p>
         </div>
         <button class="ghost-button" data-back>${t("games.result.back")}</button>
       </div>
@@ -5824,20 +6167,15 @@ function renderResultReview(gameId) {
     </section>
   `;
 
-  document.querySelector("[data-back]").addEventListener("click", () => {
-    if (state.view === "games") {
-      renderGames();
-      return;
-    }
-    renderPlay();
-  });
+  document.querySelector("[data-back]").addEventListener("click", () => navigateBack(`/#/games/game/${game.id}`));
   document.querySelector("[data-confirm-result]").addEventListener("click", async () => {
     try {
       await api(`/api/games/${game.id}/confirm-result`, { method: "POST" });
       await refresh();
       await loadTop();
       await loadGames();
-      renderShell();
+      await loadGame(game.id);
+      navigateBack(`/#/games/game/${game.id}`);
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -5847,7 +6185,8 @@ function renderResultReview(gameId) {
       await api(`/api/games/${game.id}/reject-result`, { method: "POST" });
       await refresh();
       await loadGames();
-      renderShell();
+      await loadGame(game.id);
+      navigateBack(`/#/games/game/${game.id}`);
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -6229,7 +6568,7 @@ function scoreCard(player, score = {}) {
     <div class="score-card" data-score-card="${player.id}">
       <h4>${escapeHtml(player.name)}</h4>
       <div class="score-meta-grid">
-        ${comboField(t("games.filter.teamLabel"), `faction-${player.id}`, "faction", score.faction, t("tournaments.score.searchKillTeam"))}
+        ${comboField(t("games.filter.teamLabel"), `faction-${player.id}`, "faction", score.faction || player.faction || "", t("tournaments.score.searchKillTeam"))}
         ${comboField(t("op.tac"), `tac-op-${player.id}`, "tacOp", score.tacOp, t("tournaments.score.searchTacOp"))}
       </div>
       <div class="score-fields">
@@ -6488,6 +6827,7 @@ function wireComboFields(root = document) {
     const valueMode = combo.dataset.comboValueMode || "label";
     let options = comboOptionsFor(optionsKey, combo);
     let activeIndex = -1;
+    let showAllOptions = true;
 
     const normalizeValue = () => {
       if (valueMode === "value") {
@@ -6536,7 +6876,9 @@ function wireComboFields(root = document) {
       const query = input.value.trim();
       return (showAll || !query)
         ? options
-        : options.filter((option) => optionsKey === "users" ? userSearchMatches(option.search, query) : comboOptionMatchesQuery(option, query))
+        : options.filter((option) => optionsKey === "users"
+            ? userSearchMatches(option.search, query) || userSearchMatches(comboOptionLabel(option), query)
+            : comboOptionMatchesQuery(option, query))
             .sort((a, b) => {
               const aStarts = comboOptionStartsWithQuery(a, query);
               const bStarts = comboOptionStartsWithQuery(b, query);
@@ -6544,7 +6886,8 @@ function wireComboFields(root = document) {
             });
     };
 
-    const renderOptions = (showAll = false) => {
+    const renderOptions = (showAll = showAllOptions) => {
+      showAllOptions = showAll;
       const matches = filteredOptions(showAll);
       menu.innerHTML = matches.length
         ? matches.map((option, index) => `
@@ -6569,11 +6912,21 @@ function wireComboFields(root = document) {
       if (valueInput) valueInput.value = comboOptionValue(option);
       normalizeValue();
       close();
+      showAllOptions = true;
       if (valueInput) valueInput.dispatchEvent(new Event("change", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     };
 
-    input.addEventListener("focus", () => renderOptions(false));
+    input.addEventListener("focus", () => {
+      activeIndex = -1;
+      renderOptions(true);
+    });
+    input.addEventListener("click", () => {
+      if (menu.hidden) {
+        activeIndex = -1;
+        renderOptions(true);
+      }
+    });
     input.addEventListener("blur", () => {
       window.setTimeout(() => {
         normalizeValue();
@@ -6594,15 +6947,15 @@ function wireComboFields(root = document) {
         close();
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
-        if (menu.hidden) renderOptions(false);
+        if (menu.hidden) renderOptions();
         const count = menu.querySelectorAll("[data-combo-value]").length;
         activeIndex = Math.min(activeIndex + 1, Math.max(count - 1, 0));
-        renderOptions(false);
+        renderOptions();
       } else if (event.key === "ArrowUp") {
         event.preventDefault();
-        if (menu.hidden) renderOptions(false);
+        if (menu.hidden) renderOptions();
         activeIndex = Math.max(activeIndex - 1, 0);
-        renderOptions(false);
+        renderOptions();
       } else if (event.key === "Enter" && !menu.hidden && items[activeIndex]) {
         event.preventDefault();
         const selected = options.find((option) => comboOptionValue(option) === items[activeIndex].dataset.comboValue);
@@ -6623,7 +6976,7 @@ function wireComboFields(root = document) {
     combo.addEventListener("combo-options-change", () => {
       options = comboOptionsFor(optionsKey, combo);
       normalizeValue();
-      if (!menu.hidden) renderOptions(false);
+      if (!menu.hidden) renderOptions();
     });
     normalizeValue();
   });
@@ -7255,36 +7608,6 @@ function allowParticipantLink(tournament, participant, availableUsers) {
   return !["withdrawn", "removed"].includes(participant.status);
 }
 
-function previewRoundsMarkup(rounds, names) {
-  return `
-    <div class="public-rounds">
-      ${rounds.map((round) => `
-        <section class="public-round">
-          <div class="public-round-title">
-            <strong>${t("tournaments.round.title", { number: round.roundNumber })}</strong>
-            <span class="status ${round.status === "active" ? "pending" : ""}">${escapeHtml(tournamentMatchStatusLabel(round.status))}</span>
-          </div>
-          <div class="list">
-            ${(round.matches || []).map((match) => `
-              <div class="row-card compact-row-card">
-                <div class="row-main">
-                  <div class="row-title">${escapeHtml(names.get(match.participantAId) || t("tournaments.participant.fallback"))} vs ${match.isBye ? t("tournaments.match.byeUpper") : escapeHtml(names.get(match.participantBId) || t("tournaments.participant.fallback"))}</div>
-                  <div class="row-meta">${match.isBye ? t("tournaments.match.bye") : t("admin.tournament.preview.pendingResult")}</div>
-                </div>
-                <span class="status ${match.status === "active" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
-              </div>
-            `).join("")}
-          </div>
-        </section>
-      `).join("")}
-    </div>
-  `;
-}
-
-function participantNameLookup(participants) {
-  return new Map(participants.map((participant) => [participant.id, participant.displayName]));
-}
-
 function tournamentRulesValue(tournament) {
   return tournament.rulesSummary || tournament.description || "";
 }
@@ -7366,11 +7689,109 @@ function datetimeLocalToIso(value) {
   return date.toISOString();
 }
 
+let rosterProfileRequestId = 0;
+
+async function openRosterProfile(rosterId, { navigate = true } = {}) {
+  const id = Number(rosterId);
+  const requestId = ++rosterProfileRequestId;
+  stopTeamPairingPoll();
+  leavePublicTournamentRoute();
+  state.view = "roster";
+  state.selectedRosterId = id;
+  state.rosterProfile = null;
+  state.rosterProfileError = "";
+  if (navigate) syncAppHash();
+  if (state.me) renderShell();
+  else renderRosterProfile();
+  const isCurrent = () => requestId === rosterProfileRequestId && state.view === "roster"
+    && appRouteFromHash()?.selectedRosterId === id && !playerTeamSlugFromLocation();
+  try {
+    if (!Number.isSafeInteger(id) || id < 1) throw new Error(t("teams.roster.notFound"));
+    const data = await api(`/api/rosters/${id}`);
+    if (!isCurrent()) return;
+    state.rosterProfile = data;
+  } catch (err) {
+    if (!isCurrent() && id > 0) return;
+    state.rosterProfileError = err.message;
+  }
+  renderRosterProfile();
+}
+
+function wireRosterLinks(root = document) {
+  root.querySelectorAll("[data-roster-profile-link]").forEach((button) => {
+    button.addEventListener("click", () => openRosterProfile(button.dataset.rosterProfileLink));
+  });
+}
+
+function rosterMatchHistoryMarkup(data) {
+  const matches = [...(data.teamMatches || [])].sort((a, b) => b.roundNumber - a.roundNumber || b.id - a.id);
+  if (!matches.length) return `<div class="empty">${t("teams.roster.noMatches")}</div>`;
+  return matches.map((match) => {
+    const status = data.tournament.status === "registration_closed" ? t("admin.roundSetup.awaitingStart")
+      : match.resolution === "bye" ? t("teams.pairing.bye")
+      : match.resolution === "forfeit" ? t("teams.pairing.forfeit") : teamMatchPhaseLabel(match.phase);
+    const score = match.phase === "completed"
+      ? `${match.teamTournamentPointsA}:${match.teamTournamentPointsB} TTP · ${match.teamGamePointsA}:${match.teamGamePointsB} GP` : "";
+    return `<article class="row-card team-match-card" data-roster-history-match="${match.id}">
+      <div class="row-main"><p class="profile-label">${t("notifications.round", { number: match.roundNumber })}</p>
+        <h3>${teamRosterLabel(match.rosterA)}${match.rosterB ? ` vs ${teamRosterLabel(match.rosterB)}` : ""}</h3>
+        <p class="row-meta">${escapeHtml([status, score].filter(Boolean).join(" · "))}</p>
+        ${teamMatchGamesMarkup(match, { readOnly: true })}
+      </div>
+      <div class="row-actions"><button class="small-button" data-team-pairing-open="${match.id}">${t("games.detail.teamMatch")}</button></div>
+    </article>`;
+  }).join("");
+}
+
+function renderRosterProfile() {
+  const content = state.me ? document.querySelector("[data-content]") : app;
+  if (!content) return;
+  const data = state.rosterProfile;
+  if (!data) {
+    content.innerHTML = `<section class="card panel"><button class="ghost-button" data-roster-back>${t("common.back")}</button><p class="${state.rosterProfileError ? "message error" : "loading"}">${escapeHtml(state.rosterProfileError || t("common.loading"))}</p></section>`;
+    content.querySelector("[data-roster-back]").addEventListener("click", () => navigateBack("/#/tournaments"));
+    return;
+  }
+  const { roster, tournament, standing = {} } = data;
+  const metrics = [
+    [t("teams.roster.place"), standing.rank ?? "—"],
+    [t("teams.tournament.ttp"), standing.teamTournamentPoints ?? 0],
+    [t("tournaments.standings.column.wdl"), `${standing.wins ?? 0}-${standing.draws ?? 0}-${standing.losses ?? 0}`],
+    [t("teams.tournament.individualWins"), standing.individualWins ?? 0],
+    [t("teams.tournament.totalVp"), standing.totalVp ?? 0],
+    [t("teams.tournament.tac"), standing.tacOpPoints ?? 0]
+  ];
+  const members = [...(roster.members || [])].sort((a, b) => Boolean(a.endedAt) - Boolean(b.endedAt) || a.slot - b.slot);
+  content.innerHTML = `<div class="roster-profile-page">
+    <section class="card panel">
+      <div class="panel-header"><div><p class="profile-label">${t("teams.tournament.roster")} · ${escapeHtml(tournament.name)}</p>
+        <h2>${escapeHtml(roster.name)}</h2>
+        <p class="muted">${escapeHtml(roster.teamNameSnapshot || roster.team?.name || "")} · ${escapeHtml(teamRosterStatusLabel(roster.status))} · ${t("teams.roster.seed", { seed: roster.seed || "—" })}</p>
+      </div><div class="row-actions">
+        <button class="ghost-button" data-roster-back>${t("common.back")}</button>
+        <button class="small-button" data-roster-tournament>${t("teams.pairing.openTournament")}</button>
+        ${roster.team?.slug ? `<button class="small-button" data-team-profile-link="${escapeHtml(roster.team.slug)}">${t("teams.roster.openTeam")}</button>` : ""}
+      </div></div>
+      <div class="roster-summary-metrics">${metrics.map(([label, value]) => `<div class="card metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("")}</div>
+    </section>
+    <section class="card panel"><h3>${t("teams.roster.players")}</h3><div class="list">${members.map((member) => `<div class="row-card"><div class="row-main">
+      <div class="row-title">${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })}${member.userId === roster.captainUserId && !member.endedAt ? ` · ${t("teams.role.captain")}` : ""}</div>
+      <div class="row-meta">${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot || t("tournaments.participant.factionMissing"))}${member.endedAt ? ` · ${t("teams.roster.formerPlayer")} · ${fmtDate(member.endedAt)}` : ""}</div>
+    </div></div>`).join("")}</div></section>
+    <section class="card panel"><h3>${t("teams.roster.matchHistory")}</h3><div class="list">${rosterMatchHistoryMarkup(data)}</div></section>
+    <div class="message" data-message></div>
+  </div>`;
+  content.querySelector("[data-roster-back]").addEventListener("click", () => navigateBack(tournamentPublicPath(tournament.slug), { tournamentTab: "standings" }));
+  content.querySelector("[data-roster-tournament]").addEventListener("click", () => navigateToPublicTournament(tournament.slug, { tab: "standings" }));
+  wireTeamTournamentControls(data, { roster: true });
+  wireLeaderboardProfiles();
+}
+
 function teamRosterLabel(roster, fallback = t("teams.tournament.rosterFallback")) {
   if (!roster) return escapeHtml(fallback);
   const label = escapeHtml(roster.name || roster.teamNameSnapshot || fallback);
-  return roster.team?.slug
-    ? `<button class="text-link-button inline-profile-link" data-team-profile-link="${escapeHtml(roster.team.slug)}">${label}</button>`
+  return roster.id
+    ? `<button class="text-link-button inline-profile-link" data-roster-profile-link="${roster.id}">${label}</button>`
     : label;
 }
 
@@ -7383,6 +7804,21 @@ function teamRosterStatusLabel(status) {
     finished: "teams.roster.status.finished"
   }[status];
   return key ? t(key) : String(status || "");
+}
+
+function publicTeamRostersList(rosters) {
+  if (!rosters.length) return `<div class="empty">${t("teams.tournament.rostersEmpty")}</div>`;
+  return `<div class="list public-team-rosters">${rosters.map((roster) => `
+    <div class="row-card">
+      <div class="row-main">
+        <div class="row-title">${teamRosterLabel(roster)}</div>
+        <div class="row-meta">${escapeHtml(roster.team?.name || roster.teamNameSnapshot || "")} · ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
+        <div class="team-roster-members">${activeRosterMembersForUi(roster).slice().sort((a, b) => a.slot - b.slot).map((member) => `
+          <span>${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot || t("tournaments.participant.factionMissing"))}${member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>
+        `).join("")}</div>
+      </div>
+    </div>
+  `).join("")}</div>`;
 }
 
 function teamStandingsTable(data) {
@@ -7416,12 +7852,30 @@ function teamMatchPhaseLabel(phase) {
   return key ? t(key) : String(phase || "");
 }
 
-function teamRosterMemberName(roster, memberId) {
-  return (roster?.members || []).find((member) => member.id === Number(memberId))?.displayNameSnapshot || t("tournaments.player.fallback");
+function teamPairingMemberLabel(member) {
+  if (!member) return t("tournaments.player.fallback");
+  const name = member.displayNameSnapshot || t("tournaments.player.fallback");
+  const faction = member.factionHidden
+    ? t("tournaments.participant.factionHidden")
+    : member.factionSnapshot || t("tournaments.participant.factionMissing");
+  return `${name} (${faction})`;
+}
+
+function teamRosterMemberLabel(roster, memberId) {
+  return teamPairingMemberLabel((roster?.members || []).find((member) => member.id === Number(memberId)));
+}
+
+function teamPairingMatchupLabel(match, slot) {
+  const pairing = (match.pairings || []).find((item) => Number(item.slot) === Number(slot));
+  if (!pairing) return t("teams.pairing.game", { number: slot });
+  return t("teams.pairing.matchup", {
+    playerA: teamRosterMemberLabel(match.rosterA, pairing.rosterAMemberId),
+    playerB: teamRosterMemberLabel(match.rosterB, pairing.rosterBMemberId)
+  });
 }
 
 function teamPairingChoiceLabel(roster, memberId, confirmed) {
-  if (memberId) return teamRosterMemberName(roster, memberId);
+  if (memberId) return teamRosterMemberLabel(roster, memberId);
   return confirmed ? t("teams.pairing.choiceLocked") : t("teams.pairing.choiceWaiting");
 }
 
@@ -7450,11 +7904,15 @@ function teamPairingSideMarkup(match, side) {
 }
 
 function teamPairingSelectionsMarkup(match) {
-  return `${teamRollHistoryMarkup(match)}<div class="team-pairing-selections">${teamPairingSideMarkup(match, "a")}${teamPairingSideMarkup(match, "b")}</div>${teamMissionPoolMarkup(match)}`;
+  const selections = `${teamRollHistoryMarkup(match)}<div class="team-pairing-selections">${teamPairingSideMarkup(match, "a")}${teamPairingSideMarkup(match, "b")}</div>${teamMissionPoolMarkup(match)}`;
+  return ["in_progress", "completed"].includes(match.phase)
+    ? `<details class="team-pairing-details" data-team-pairing-details="${match.id}"><summary>${t("teams.pairing.details")}</summary>${selections}</details>`
+    : selections;
 }
 
 function teamRollHistoryMarkup(match) {
-  if (!(match.rollHistory || []).length) return "";
+  if (!(match.rollHistory || []).length) return match.rollResult
+    ? `<div class="team-roll-history"><p>${escapeHtml(t("teams.pairing.rollResult", { result: match.rollResult }))}</p></div>` : "";
   return `<div class="team-roll-history">${match.rollHistory.map((roll, index) => `<p>${escapeHtml(t("teams.pairing.rollOffResult", {
     round: index + 1, nameA: match.rosterA?.name || "A", a: roll.a || "—", nameB: match.rosterB?.name || "B", b: roll.b || "—"
   }))}${roll.a && roll.a === roll.b ? ` · ${t("teams.pairing.reroll")}` : ""}</p>`).join("")}</div>`;
@@ -7466,7 +7924,8 @@ function teamMissionPoolMarkup(match) {
   const used = new Set((match.environment?.assignments || []).map((item) => item.mission?.critOp));
   const turn = match.nextAction;
   const next = turn ? t(turn.kind === "ban" ? "teams.pairing.turnBan" : turn.kind === "table" ? "teams.pairing.turnTable" : "teams.pairing.turnMission", {
-    name: (turn.side === "a" ? match.rosterA : match.rosterB)?.name || turn.side.toUpperCase(), number: turn.slot
+    name: (turn.side === "a" ? match.rosterA : match.rosterB)?.name || turn.side.toUpperCase(),
+    matchup: turn.kind === "ban" ? "" : teamPairingMatchupLabel(match, turn.slot)
   }) : "";
   return `<section class="team-mission-pool"><h4>${t("teams.pairing.pool")}</h4><div class="team-mission-options">${(match.missions || []).map(({ critOp }) => {
     const ban = bans.find((item) => item.mission === critOp);
@@ -7481,39 +7940,52 @@ function teamTournamentTables(tournamentId) {
   return detail?.tables || [];
 }
 
-function teamEnvironmentAssignmentsMarkup(match) {
-  const assignments = match.environment?.assignments || [];
-  if (!assignments.length) return "";
-  return `<div class="team-environment-assignments">${assignments.map((assignment) => {
-    const table = (match.tables || teamTournamentTables(match.tournamentId)).find((item) => item.id === Number(assignment.tableId));
-    const parts = [teamMissionLabel(assignment.mission)];
-    if (table) parts.push(assignment.mission?.killzone ? t("tournaments.match.table", { number: table.tableNumber }) : tableLabel(table));
-    return `<div><strong>${t("teams.pairing.game", { number: assignment.slot })}</strong><span>${escapeHtml(parts.filter(Boolean).join(" · "))}</span></div>`;
-  }).join("")}</div>`;
-}
-
-function teamMatchPairingsMarkup(match) {
-  if (!(match.pairings || []).length) return "";
-  return `<div class="team-pairings-list">${match.pairings.map((pairing) => `
-    <div><strong>${t("teams.pairing.table", { number: pairing.slot })}</strong> ${escapeHtml(teamRosterMemberName(match.rosterA, pairing.rosterAMemberId))} vs ${escapeHtml(teamRosterMemberName(match.rosterB, pairing.rosterBMemberId))}${pairing.shieldOwner ? ` · ${t("teams.pairing.shieldOwner", { side: pairing.shieldOwner.toUpperCase() })}` : ""}</div>
-  `).join("")}</div>`;
-}
-
-function teamMatchGamesMarkup(match) {
+function teamMatchProgressMarkup(match) {
   if (!(match.games || []).length) return "";
   const progress = match.progress || { completed: 0, total: 3, gpA: 0, gpB: 0 };
-  const summary = t("teams.results.progress", { count: progress.completed, total: progress.total, a: progress.gpA, b: progress.gpB });
-  return `<p class="team-match-progress">${escapeHtml(summary)}</p><div class="team-match-games">${match.games.map((link) => {
-    const game = link.game || {};
-    const mission = teamMissionLabel(link.mission);
-    const completed = game.status === "completed" && game.result;
-    const status = t(completed ? "teams.results.completed" : game.status === "pending_confirmation" ? "teams.results.pending" : "teams.results.unplayed");
-    const [playerAId, playerBId] = game.playerIds || [];
-    const vpA = completed ? game.result.scores?.[playerAId]?.total ?? 0 : null;
-    const vpB = completed ? game.result.scores?.[playerBId]?.total ?? 0 : null;
-    const score = completed ? `${vpA}:${vpB} VP · ${link.gamePointsA}:${link.gamePointsB} GP` : t("teams.results.notCounted");
-    const players = `${teamRosterMemberName(match.rosterA, link.rosterAMemberId)} vs ${teamRosterMemberName(match.rosterB, link.rosterBMemberId)}`;
-    return `<div class="team-match-game" data-team-game-status="${escapeHtml(game.status || "open")}"><div class="row-main"><strong>${t("teams.pairing.game", { number: link.slot })} · ${escapeHtml(players)}</strong><div class="row-meta">${escapeHtml(mission)}</div><span>${escapeHtml(status)} · ${escapeHtml(score)}</span></div>${state.me ? `<button class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</button>` : ""}</div>`;
+  return `<p class="team-match-progress">${escapeHtml(t("teams.results.progress", { count: progress.completed, total: progress.total, a: progress.gpA, b: progress.gpB }))}</p>`;
+}
+
+function teamMatchGamesMarkup(match, options = {}) {
+  const pairings = new Map((match.pairings || []).map((pairing) => [Number(pairing.slot), pairing]));
+  const assignments = new Map((match.environment?.assignments || []).map((assignment) => [Number(assignment.slot), assignment]));
+  const games = new Map((match.games || []).map((link) => [Number(link.slot), link]));
+  const slots = [...new Set([...(options.preview && !match.resolution ? [1, 2, 3] : []), ...pairings.keys(), ...assignments.keys(), ...games.keys()])].sort((a, b) => a - b);
+  if (!slots.length) return "";
+  const summary = options.showProgress === false ? "" : teamMatchProgressMarkup(match);
+  return `${summary}<div class="team-match-games">${slots.map((slot) => {
+    const pairing = pairings.get(slot);
+    const assignment = assignments.get(slot);
+    const link = games.get(slot);
+    const game = link?.game;
+    const players = link || pairing;
+    const matchup = players ? t("teams.pairing.matchup", {
+      playerA: teamRosterMemberLabel(match.rosterA, players.rosterAMemberId),
+      playerB: teamRosterMemberLabel(match.rosterB, players.rosterBMemberId)
+    }) : options.preview ? t("teams.pairing.awaitingMatchup") : "";
+    const mission = link?.mission || assignment?.mission || {};
+    const tableId = link?.tableId ?? assignment?.tableId;
+    const table = link?.table || (tableId ? (match.tables || teamTournamentTables(match.tournamentId)).find((item) => item.id === Number(tableId)) : null);
+    const tableImage = table?.imageId ? teamTableImageMarkup(table) : "";
+    const details = [pairing?.shieldOwner && !options.preview && !["in_progress", "completed"].includes(match.phase) ? t("teams.pairing.shieldOwner", { side: pairing.shieldOwner.toUpperCase() }) : "", teamMissionLabel(mission)];
+    if (table) details.push(mission.killzone ? t("tournaments.match.table", { number: table.tableNumber }) : tableLabel(table));
+    const environment = details.filter(Boolean).join(" · ");
+    let result = "";
+    if (game) {
+      const completed = game.status === "completed" && game.result;
+      const status = t(completed ? "teams.results.completed" : game.status === "pending_confirmation" ? "teams.results.pending" : "teams.results.unplayed");
+      const [playerAId, playerBId] = game.playerIds || [];
+      const vpA = completed ? game.result.scores?.[playerAId]?.total ?? 0 : null;
+      const vpB = completed ? game.result.scores?.[playerBId]?.total ?? 0 : null;
+      const score = completed ? `${vpA}:${vpB} VP · ${link.gamePointsA}:${link.gamePointsB} GP` : t("teams.results.notCounted");
+      result = `<span>${escapeHtml(status)} · ${escapeHtml(score)}</span>`;
+    }
+    const resultAction = options.readOnly ? "" : link?.permissions?.canSubmit
+      ? `<button class="primary-button" data-team-game-result="${game?.id}">${t(game?.status === "pending_confirmation" ? "play.action.editResult" : "play.action.enterResult")}</button>`
+      : link?.permissions?.canReview ? `<button class="primary-button" data-team-game-review="${game?.id}">${t("play.action.reviewResult")}</button>` : "";
+    const awaitingCaptain = game?.status === "pending_confirmation" && game.pendingResult?.submittedAs === "captain"
+      ? `<p class="row-meta">${t("teams.results.awaitingCaptain")}</p>` : "";
+    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${tableImage}${result}${awaitingCaptain}</div>${state.me && game?.id ? `<div class="row-actions team-game-actions">${resultAction}<button class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</button></div>` : ""}</div>`;
   }).join("")}</div>`;
 }
 
@@ -7554,7 +8026,11 @@ function teamPairingControlForSide(match, tournament, side) {
   if (match.phase === "awaiting_roll") {
     const current = (match.rollHistory || [])[Number(match.rollRound || 1) - 1];
     if (match.pairingVersion === 2 && current?.[side]) return `<span class="muted">${t("teams.pairing.rolledWaiting", { result: current[side] })}</span>`;
-    return `<button class="primary-button" data-team-pair-action="roll" data-team-match-id="${match.id}" data-side="${side}" data-roll-round="${match.rollRound || 1}">${t("teams.pairing.roll")}</button>`;
+    return `<div class="team-roll-controls"><button class="primary-button" data-team-pair-action="roll" data-team-match-id="${match.id}" data-side="${side}" data-roll-round="${match.rollRound || 1}">${t("teams.pairing.roll")}</button>
+      <form class="team-pairing-control" data-team-pairing-form="roll" data-team-match-id="${match.id}" data-side="${side}" data-roll-round="${match.rollRound || 1}">
+        <label>${t("teams.pairing.manualRoll")}<input name="result" type="number" min="1" max="6" step="1" inputmode="numeric" required></label>
+        <button class="small-button" type="submit">${t("common.confirm")}</button>
+      </form></div>`;
   }
   if (match.phase === "mission_ban") {
     if (match.nextAction?.side !== side) return `<span class="muted">${t("teams.pairing.waitingTurn")}</span>`;
@@ -7582,7 +8058,10 @@ function teamPairingControlForSide(match, tournament, side) {
       return teamEnvironmentChoiceForm(match, "mission", choices.map((mission) => ({ value: mission.critOp, label: mission.critOp })), step.slot, side);
     }
     const used = new Set(assigned.map((item) => item.tableId).filter(Boolean));
-    const choices = (match.tableIds || []).filter((id) => !used.has(id)).map((id) => ({ value: id, label: tableLabel((match.tables || teamTournamentTables(match.tournamentId)).find((table) => table.id === id) || { tableNumber: id }) }));
+    const choices = (match.tableIds || []).filter((id) => !used.has(id)).map((id) => {
+      const table = (match.tables || teamTournamentTables(match.tournamentId)).find((item) => item.id === id) || { tableNumber: id };
+      return { value: id, label: tableLabel(table), table };
+    });
     return teamEnvironmentChoiceForm(match, "tableId", choices, step.slot, side);
   }
   return "";
@@ -7590,11 +8069,22 @@ function teamPairingControlForSide(match, tournament, side) {
 
 function teamMemberChoiceForm(match, action, roster, label, side, selectedId) {
   const members = (roster.members || []).filter((member) => !member.endedAt);
-  return `<form class="team-pairing-control" data-team-pairing-form="${action}" data-team-match-id="${match.id}" data-side="${side}"><div class="field"><label>${escapeHtml(label)}</label><select name="memberId" data-user-search required>${members.map((member) => `<option value="${member.id}" ${member.id === selectedId ? "selected" : ""} data-user-name="${escapeHtml(member.displayNameSnapshot)}">${escapeHtml(member.displayNameSnapshot)} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)}</option>`).join("")}</select></div><button class="primary-button" type="submit">${t("common.confirm")}</button></form>`;
+  return `<form class="team-pairing-control" data-team-pairing-form="${action}" data-team-match-id="${match.id}" data-side="${side}"><div class="field"><label>${escapeHtml(label)}</label><select name="memberId" data-user-search required>${members.map((member) => `<option value="${member.id}" ${member.id === selectedId ? "selected" : ""}>${escapeHtml(teamPairingMemberLabel(member))}</option>`).join("")}</select></div><button class="primary-button" type="submit">${t("common.confirm")}</button></form>`;
 }
 
 function teamEnvironmentChoiceForm(match, name, choices, slot, side) {
-  return `<form class="team-pairing-control" data-team-pairing-form="environment" data-team-match-id="${match.id}" data-side="${side}" data-step="${match.environment?.step || 0}"><label>${t(name === "mission" ? "teams.pairing.chooseMission" : "teams.pairing.chooseTable", { number: slot })}<select name="${name}" required>${choices.map((choice) => `<option value="${escapeHtml(choice.value)}">${escapeHtml(choice.label)}</option>`).join("")}</select></label><button class="primary-button" type="submit">${t("common.confirm")}</button></form>`;
+  const label = t(name === "mission" ? "teams.pairing.chooseMission" : "teams.pairing.chooseTable", {
+    matchup: teamPairingMatchupLabel(match, slot)
+  });
+  const images = choices.filter((choice) => choice.table?.imageId).map((choice) => `<figure>${teamTableImageMarkup(choice.table)}<figcaption>${escapeHtml(choice.label)}</figcaption></figure>`).join("");
+  return `<form class="team-pairing-control" data-team-pairing-form="environment" data-team-match-id="${match.id}" data-side="${side}" data-step="${match.environment?.step || 0}"><label><span>${escapeHtml(label)}</span><select name="${name}" required>${choices.map((choice) => `<option value="${escapeHtml(choice.value)}">${escapeHtml(choice.label)}</option>`).join("")}</select></label><button class="primary-button" type="submit">${t("common.confirm")}</button></form>${images ? `<div class="team-table-choice-images">${images}</div>` : ""}`;
+}
+
+function teamTableImageMarkup(table) {
+  const id = Number(table?.imageId);
+  if (!Number.isSafeInteger(id) || id < 1) return "";
+  const label = [t("teams.tableImage.label"), table.killzone, table.deployment || table.layout ? t("tournaments.mission.layout", { layout: table.deployment || table.layout }) : ""].filter(Boolean).join(" · ");
+  return `<img class="team-table-image" src="/api/tournament-table-images/${id}" alt="${escapeHtml(label)}" loading="lazy">`;
 }
 
 function teamTournamentMatchMarkup(match, tournament, options = {}) {
@@ -7606,12 +8096,17 @@ function teamTournamentMatchMarkup(match, tournament, options = {}) {
   const resetPhaseIndex = resetPhases.indexOf(match.phase);
   const resetOptions = resetPhases.slice(0, resetPhaseIndex === -1 ? undefined : resetPhaseIndex + 1)
     .map((phase) => `<option value="${phase}">${teamMatchPhaseLabel(phase)}</option>`).join("");
+  const status = [tournament.status === "registration_closed" ? t("admin.roundSetup.awaitingStart")
+    : match.resolution === "forfeit" ? t("teams.pairing.forfeit")
+    : ["in_progress", "completed"].includes(match.phase) ? "" : teamMatchPhaseLabel(match.phase), completeScore].filter(Boolean).join(" · ");
   return `<article class="row-card team-match-card">
     <div class="row-main">
+      ${teamMatchProgressMarkup(match)}
       <div class="row-title">${teamRosterLabel(match.rosterA)} vs ${teamRosterLabel(match.rosterB)}</div>
-      <div class="row-meta">${escapeHtml([match.resolution === "forfeit" ? t("teams.pairing.forfeit") : teamMatchPhaseLabel(match.phase), completeScore, match.rollResult && match.pairingVersion !== 2 ? t("teams.pairing.rollResult", { result: match.rollResult }) : ""].filter(Boolean).join(" · "))}</div>
-      ${teamPairingSelectionsMarkup(match)}${teamMatchPairingsMarkup(match)}${teamEnvironmentAssignmentsMarkup(match)}${teamMatchGamesMarkup(match)}
+      ${status ? `<div class="row-meta">${escapeHtml(status)}</div>` : ""}
+      ${teamPairingSelectionsMarkup(match)}${teamMatchGamesMarkup(match, { showProgress: false })}
       <div class="team-captain-control">${teamCaptainPairingControl(match, tournament)}${canReset ? adminUi().adminTeamPairingOverrideForm(match) : ""}</div>
+      ${match.canUndo && tournament.status === "in_progress" ? `<div class="row-actions team-pairing-undo"><button class="ghost-button" data-team-match-undo="${match.id}" data-revision="${match.pairingRevision}" data-resets-results="${Boolean(match.undoResetsResults)}">${t("teams.pairing.undo")}</button></div>` : ""}
     </div>
     ${canOpenPairing || canReset ? `<div class="row-actions team-match-admin-actions">${canOpenPairing ? `<button class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</button>` : ""}${canReset ? `<label>${t("teams.pairing.resetTo")}<select data-team-match-reset-phase="${match.id}">${resetOptions}</select></label><button class="danger-button" data-team-match-reset="${match.id}">${t("teams.pairing.reset")}</button>` : ""}</div>` : ""}
   </article>`;
@@ -7635,7 +8130,7 @@ function renderTeamPairing() {
           <p class="muted">${t("teams.pairing.screenHint")}</p>
         </div>
         <div class="row-actions">
-          ${state.me ? `<button class="small-button" data-team-pairing-back>${t("teams.pairing.backToMyGames")}</button>` : ""}
+          <button class="ghost-button" data-team-pairing-back>${t("common.back")}</button>
           ${tournament.slug ? `<button class="small-button" data-team-pairing-tournament="${escapeHtml(tournament.slug)}">${t("teams.pairing.openTournament")}</button>` : ""}
         </div>
       </div>
@@ -7646,23 +8141,88 @@ function renderTeamPairing() {
     <div class="message" data-message></div>
   </div>`;
   document.querySelector("[data-team-pairing-back]")?.addEventListener("click", () => {
-    stopTeamPairingPoll();
-    state.view = "play";
-    state.selectedTeamMatchId = null;
-    state.teamPairingDetail = null;
-    syncAppHash();
-    renderShell();
+    navigateBack(tournament.slug ? tournamentPublicPath(tournament.slug) : "/#/mygames", { tournamentTab: "matches" });
   });
   document.querySelector("[data-team-pairing-tournament]")?.addEventListener("click", (event) => {
-    navigateToPublicTournament(event.currentTarget.dataset.teamPairingTournament);
+    navigateToPublicTournament(event.currentTarget.dataset.teamPairingTournament, { tab: "matches" });
   });
   wireTeamTournamentControls(data, { standalone: true });
 }
 
-function teamTournamentRoundsMarkup(data, options = {}) {
+function teamTournamentMatchPreviewMarkup(match, tournament) {
+  const score = match.phase === "completed" ? `${match.teamTournamentPointsA}:${match.teamTournamentPointsB} TTP · ${match.teamGamePointsA}:${match.teamGamePointsB} GP` : "";
+  const status = tournament.status === "registration_closed" ? t("admin.roundSetup.awaitingStart")
+    : match.resolution === "bye" ? t("teams.pairing.bye")
+    : match.resolution === "forfeit" ? t("teams.pairing.forfeit")
+    : ["in_progress", "completed"].includes(match.phase) ? "" : teamMatchPhaseLabel(match.phase);
+  const meta = [status, score].filter(Boolean).join(" · ");
+  return `<article class="row-card team-match-card team-match-preview" data-team-match-preview="${match.id}">
+    <div class="team-match-preview-header">
+      <div class="row-main">
+        ${teamMatchProgressMarkup(match)}
+        <div class="row-title">${teamRosterLabel(match.rosterA)}${match.rosterB ? ` vs ${teamRosterLabel(match.rosterB)}` : ""}</div>
+        ${meta ? `<div class="row-meta">${escapeHtml(meta)}</div>` : ""}
+      </div>
+      ${match.resolution === "bye" ? "" : `<button class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</button>`}
+    </div>
+    ${teamMatchGamesMarkup(match, { showProgress: false, readOnly: true, preview: true })}
+  </article>`;
+}
+
+function teamTournamentMatchPreviewsMarkup(data) {
   const rounds = data.rounds || [];
   if (!rounds.length) return `<div class="empty">${t("tournaments.matches.empty")}</div>`;
-  return tournamentRoundsTabbedMarkup(rounds, (match) => teamTournamentMatchMarkup(match, data.tournament || {}, options));
+  return tournamentRoundsTabbedMarkup(rounds, (match) => teamTournamentMatchPreviewMarkup(match, data.tournament || {}));
+}
+
+function teamTournamentRoundsMarkup(data) {
+  return `<div data-team-match-previews="${data.tournament.id}">${teamTournamentMatchPreviewsMarkup(data)}</div>`;
+}
+
+function wireTeamMatchPreviews(root) {
+  wireRosterLinks(root);
+  root.querySelectorAll("[data-team-pairing-open]").forEach((button) => {
+    button.addEventListener("click", () => openTeamPairing(button.dataset.teamPairingOpen));
+  });
+  root.querySelectorAll("[data-team-tournament-game]").forEach((button) => {
+    button.addEventListener("click", () => openGameDetail(Number(button.dataset.teamTournamentGame)));
+  });
+}
+
+function scheduleTournamentMatchPreviewPoll(data, options = {}) {
+  stopTeamPairingPoll();
+  const tournamentId = data.tournament.id;
+  const userId = state.me?.id;
+  const selector = `[data-team-match-previews="${tournamentId}"]`;
+  const container = document.querySelector(selector);
+  const isCurrent = () => container && document.querySelector(selector) === container && state.me?.id === userId
+    && state.tournamentInfoTab === "matches" && (options.admin
+      ? state.view === "tournaments" && state.tournamentsTab === "admin" && Number(state.selectedTournamentId) === Number(tournamentId)
+      : isCurrentPublicTournamentRoute(data.tournament.slug));
+  if (!isCurrent() || !["registration_closed", "in_progress"].includes(data.tournament.status)) return;
+  const previousMarkup = teamTournamentMatchPreviewsMarkup(data);
+  teamPairingPollTimer = window.setTimeout(async () => {
+    teamPairingPollTimer = null;
+    if (!isCurrent()) return;
+    try {
+      if (document.visibilityState !== "hidden") {
+        const loaded = await api(options.admin ? `/api/admin/tournaments/${tournamentId}` : `/api/tournaments/${encodeURIComponent(data.tournament.slug)}`);
+        if (!isCurrent()) return;
+        // Tab handlers retain this object; keep their data current without rebuilding the page.
+        Object.assign(data, loaded);
+        const markup = teamTournamentMatchPreviewsMarkup(data);
+        if (markup !== previousMarkup) {
+          container.innerHTML = markup;
+          wireTournamentRoundTabs(container);
+          wireTeamMatchPreviews(container);
+        }
+      }
+    } catch {
+      // Retain the last confirmed results during a temporary connection failure.
+    } finally {
+      if (isCurrent()) scheduleTournamentMatchPreviewPoll(data, options);
+    }
+  }, 2000);
 }
 
 function tournamentLogoMarkup(tournament) {
@@ -7677,7 +8237,7 @@ function tournamentLogoField(tournament = {}, disabledAttrs = "") {
       <img class="tournament-logo" data-tournament-logo-preview ${tournament.logoData ? `src="${escapeHtml(tournament.logoData)}"` : "hidden"} alt="${t("tournaments.logo.preview")}">
       <input type="file" name="tournamentLogo" accept="image/png,image/jpeg,image/webp,image/gif" data-tournament-logo-file ${disabledAttrs}>
       <input type="hidden" name="logoData">
-      <button class="small-button" type="button" data-tournament-logo-remove ${tournament.logoData ? "" : "hidden"} ${disabledAttrs}>${t("tournaments.logo.remove")}</button>
+      <button class="danger-button" type="button" data-tournament-logo-remove ${tournament.logoData ? "" : "hidden"} ${disabledAttrs}>${t("tournaments.logo.remove")}</button>
     </div>
     <span class="field-help" data-tournament-logo-status>${t("tournaments.logo.hint")}</span>
   </div>`;
@@ -7724,7 +8284,8 @@ function wireTournamentLogo(form) {
       if (version === current) form.dataset.logoLoading = "";
     }
   });
-  remove.addEventListener("click", () => {
+  remove.addEventListener("click", async () => {
+    if (!await confirmDelete(t("dialog.tournaments.removeLogo"), t("tournaments.logo.remove"))) return;
     version += 1;
     input.value = "";
     status.textContent = t("tournaments.logo.hint");
@@ -7810,7 +8371,6 @@ function currentTournamentDetail() {
 }
 
 async function refreshTournamentParticipantView(tournament) {
-  state.adminTournamentPreview = null;
   if (tournamentSlugFromLocation() && tournament?.slug) {
     await renderPublicTournamentRoute(tournament.slug, { force: true });
     return;
@@ -7827,11 +8387,12 @@ function wireTournamentInfoControls(data, options = {}) {
     button.addEventListener("click", async () => {
       state.tournamentInfoTab = button.dataset.tournamentInfoTab || "standings";
       try {
-        if (state.tournamentInfoTab === "participants" && canManageTournamentParticipants(data)) {
+        if (options.admin && state.tournamentInfoTab === "participants" && canManageTournamentParticipants(data)) {
           if (!state.adminUsers.length) await adminUi().loadAdminUsers();
         }
         if (options.publicRoute) renderPublicTournament(data);
         else renderTournaments();
+        rememberNavigationContext();
       } catch (err) {
         setMessage(err.message, true);
       }
@@ -7847,19 +8408,25 @@ function wireTournamentInfoControls(data, options = {}) {
   }
 }
 
-function wireTournamentRoundTabs() {
-  document.querySelectorAll("[data-tournament-round-switcher]").forEach((switcher) => {
+function wireTournamentRoundTabs(root = document) {
+  root.querySelectorAll("[data-tournament-round-switcher]").forEach((switcher) => {
+    const selectRound = (roundNumber) => {
+      switcher.querySelectorAll("[data-tournament-round-tab]").forEach((tab) => {
+        const selected = tab.dataset.tournamentRoundTab === roundNumber;
+        tab.classList.toggle("active", selected);
+        tab.setAttribute("aria-selected", selected ? "true" : "false");
+      });
+      switcher.querySelectorAll("[data-tournament-round-panel]").forEach((panel) => {
+        panel.hidden = panel.dataset.tournamentRoundPanel !== roundNumber;
+      });
+    };
+    const savedRound = currentNavigationEntry()?.context?.tournamentRound;
+    const tabs = [...switcher.querySelectorAll("[data-tournament-round-tab]")];
+    if (tabs.some((tab) => tab.dataset.tournamentRoundTab === savedRound)) selectRound(savedRound);
     switcher.querySelectorAll("[data-tournament-round-tab]").forEach((button) => {
       button.addEventListener("click", () => {
-        const roundNumber = button.dataset.tournamentRoundTab;
-        switcher.querySelectorAll("[data-tournament-round-tab]").forEach((tab) => {
-          const selected = tab.dataset.tournamentRoundTab === roundNumber;
-          tab.classList.toggle("active", selected);
-          tab.setAttribute("aria-selected", selected ? "true" : "false");
-        });
-        switcher.querySelectorAll("[data-tournament-round-panel]").forEach((panel) => {
-          panel.hidden = panel.dataset.tournamentRoundPanel !== roundNumber;
-        });
+        selectRound(button.dataset.tournamentRoundTab);
+        rememberNavigationContext();
       });
     });
   });
@@ -7896,7 +8463,7 @@ function renderRoundSetupModal(preview) {
           <div>
             <p class="profile-label">${escapeHtml(venueModeLabel(tournament.venueMode))}</p>
             <h2>${t(preview.restoredDraft ? "admin.roundSetup.regenerateTitle" : "admin.roundSetup.title", { number: round.roundNumber || "" })}</h2>
-            <p class="muted">${t(preview.restoredDraft ? "admin.roundSetup.restoredHint" : "admin.roundSetup.hint")}</p>
+            <p class="muted">${t(preview.prepared ? "admin.roundSetup.prepareHint" : preview.restoredDraft ? "admin.roundSetup.restoredHint" : "admin.roundSetup.hint")}</p>
           </div>
           <button class="ghost-button" type="button" data-round-setup-close>${t("common.cancel")}</button>
         </div>
@@ -7909,7 +8476,7 @@ function renderRoundSetupModal(preview) {
           </div>
           <div class="row-actions">
             ${tournament.format === "swiss" && !preview.teamRound ? `<button class="small-button" type="button" data-round-setup-add-empty>${t("admin.roundSetup.addEmpty")}</button>` : ""}
-            <button class="primary-button" type="submit">${t(preview.restoredDraft ? "admin.roundSetup.regenerateSubmit" : "admin.roundSetup.submit")}</button>
+            <button class="primary-button" type="submit">${t(preview.prepared ? "admin.roundSetup.prepareSubmit" : preview.restoredDraft ? "admin.roundSetup.regenerateSubmit" : "admin.roundSetup.submit")}</button>
           </div>
           <div class="message" data-round-setup-message></div>
         </form>
@@ -7924,32 +8491,100 @@ function teamRoundMissionFields(tables = []) {
 }
 
 function teamTableSetupFields(tables = []) {
-  return `<p class="muted">${t("teams.tournament.tablesHint")}</p><div class="team-table-setup">${[0, 1, 2].map((index) => `<div class="field"><label>${t("tournaments.match.table", { number: index + 1 })}</label><select name="teamKillzone-${index}" required><option value="">${t("games.result.notSelected")}</option>${optionsHtml(killzoneOptions, tables[index]?.killzone || "")}</select></div><div class="field"><label>${t("admin.tournament.tables.field.deployment")}</label><select name="teamLayout-${index}" required><option value="">${t("games.result.notSelected")}</option>${[1, 2, 3, 4, 5, 6].map((number) => `<option value="${number}" ${Number(tables[index]?.deployment) === number ? "selected" : ""}>${number}</option>`).join("")}</select></div>`).join("")}</div>`;
+  return `<p class="muted">${t("teams.tournament.tablesHint")}</p><div class="team-table-setup">${[0, 1, 2].map((index) => `<section class="team-table-setup-card" data-team-table-setup="${index}"><div class="grid-2"><div class="field"><label>${t("tournaments.match.table", { number: index + 1 })}</label><select name="teamKillzone-${index}" required><option value="">${t("games.result.notSelected")}</option>${optionsHtml(killzoneOptions, tables[index]?.killzone || "")}</select></div><div class="field"><label>${t("admin.tournament.tables.field.deployment")}</label><select name="teamLayout-${index}" required><option value="">${t("games.result.notSelected")}</option>${[1, 2, 3, 4, 5, 6].map((number) => `<option value="${number}" ${Number(tables[index]?.deployment) === number ? "selected" : ""}>${number}</option>`).join("")}</select></div></div>${teamTableImageField(tables[index], index)}</section>`).join("")}</div>`;
 }
 
 function teamTableSetupPayload(form) {
-  return [0, 1, 2].map((index) => ({ killzone: form.elements[`teamKillzone-${index}`].value, deployment: Number(form.elements[`teamLayout-${index}`].value) }));
+  return [0, 1, 2].map((index) => ({ killzone: form.elements[`teamKillzone-${index}`].value, deployment: Number(form.elements[`teamLayout-${index}`].value),
+    ...(form.elements[`teamImageData-${index}`] ? { imageId: Number(form.elements[`teamImageId-${index}`].value) || null,
+      imageData: form.elements[`teamImageData-${index}`].value || null } : {}) }));
 }
 
-function openTeamTournamentStart(tournament) {
-  const dialog = document.createElement("dialog");
-  dialog.className = "team-start-dialog";
-  dialog.innerHTML = `<form><h3>${t("teams.tournament.startWithTables")}</h3>${teamTableSetupFields(state.adminTournamentDetail?.tables)}<div class="row-actions"><button class="ghost-button" type="button" data-close>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("admin.tournament.action.start")}</button></div><p class="message" data-error></p></form>`;
-  document.body.appendChild(dialog);
-  const close = () => { dialog.close(); dialog.remove(); };
-  dialog.querySelector("[data-close]").addEventListener("click", close);
-  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
-  dialog.querySelector("form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const button = event.currentTarget.querySelector('[type="submit"]');
-    button.disabled = true;
-    try {
-      await api(`/api/admin/tournaments/${tournament.id}/start`, { method: "POST", body: { tables: teamTableSetupPayload(event.currentTarget) } });
-      close();
-      await adminUi().refreshAdminTournamentDetailView();
-    } catch (err) { dialog.querySelector("[data-error]").textContent = err.message; button.disabled = false; }
+function teamTableImageField(table = {}, index) {
+  const imageId = Number(table.imageId) || 0;
+  return `<div class="field team-table-image-field">
+    <label for="team-table-image-${index}">${t("teams.tableImage.label")}</label>
+    <input id="team-table-image-${index}" type="file" accept="image/png,image/jpeg,image/webp" data-team-table-image-file>
+    <span class="field-help">${t("teams.tableImage.hint")}</span>
+    <input type="hidden" name="teamImageId-${index}" value="${imageId || ""}">
+    <input type="hidden" name="teamImageData-${index}" value="">
+    <img class="team-table-image" data-team-table-image-preview ${imageId ? `src="/api/tournament-table-images/${imageId}"` : "hidden"} alt="${t("teams.tableImage.label")}">
+    <button class="danger-button" type="button" data-team-table-image-remove ${imageId ? "" : "hidden"}>${t("teams.tableImage.remove")}</button>
+    <span class="message error" data-team-table-image-error></span>
+  </div>`;
+}
+
+function tableImageDimensions(width, height) {
+  if (!(width > 0 && height > 0)) throw new Error(t("teams.tableImage.error"));
+  const scale = 200 / Math.min(width, height);
+  const resized = { width: Math.round(width * scale), height: Math.round(height * scale) };
+  if (Math.max(resized.width, resized.height) > 8192) throw new Error(t("teams.tableImage.error"));
+  return resized;
+}
+
+async function resizeTableImage(file) {
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 20 * 1024 * 1024) {
+    throw new Error(t("teams.tableImage.error"));
+  }
+  const image = await loadImage(file);
+  const dimensions = tableImageDimensions(image.naturalWidth, image.naturalHeight);
+  const canvas = document.createElement("canvas");
+  canvas.width = dimensions.width;
+  canvas.height = dimensions.height;
+  const context = canvas.getContext("2d");
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const blob = await canvasToBlob(canvas, "image/png");
+  if (blob.size > 1024 * 1024) throw new Error(t("teams.tableImage.error"));
+  return blobToDataUrl(blob);
+}
+
+function wireTeamTableImages(form) {
+  if (!form) return;
+  form.querySelectorAll("[data-team-table-setup]").forEach((card) => {
+    const index = card.dataset.teamTableSetup;
+    const input = card.querySelector("[data-team-table-image-file]");
+    const preview = card.querySelector("[data-team-table-image-preview]");
+    const remove = card.querySelector("[data-team-table-image-remove]");
+    const error = card.querySelector("[data-team-table-image-error]");
+    let revision = 0;
+    const apply = (value) => {
+      form.elements[`teamImageId-${index}`].value = "";
+      form.elements[`teamImageData-${index}`].value = value;
+      preview.hidden = remove.hidden = !value;
+      if (value) preview.src = value;
+      else preview.removeAttribute("src");
+    };
+    const clear = () => {
+      revision += 1;
+      delete card.dataset.imageLoading;
+      input.value = "";
+      error.textContent = "";
+      apply("");
+    };
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const request = ++revision;
+      card.dataset.imageLoading = "1";
+      error.textContent = t("teams.tableImage.processing");
+      try {
+        const value = await resizeTableImage(file);
+        if (request !== revision) return;
+        apply(value);
+        error.textContent = "";
+      } catch (err) {
+        if (request === revision) { error.textContent = err.message; input.value = ""; }
+      } finally {
+        if (request === revision) delete card.dataset.imageLoading;
+      }
+    });
+    remove.addEventListener("click", async () => {
+      if (await confirmAction({ message: t("teams.tableImage.removeConfirm"), confirmLabel: t("teams.tableImage.remove") })) clear();
+    });
+    card.querySelectorAll("select").forEach((select) => select.addEventListener("change", clear));
   });
-  dialog.showModal();
 }
 
 function teamRoundSetupMatchRow(match = {}) {
@@ -7959,7 +8594,7 @@ function teamRoundSetupMatchRow(match = {}) {
 function teamRoundSetupRosterSelect(name, selectedId = "") {
   const rosters = (state.adminTournamentDetail?.rosters || []).filter((roster) => ["registered", "active"].includes(roster.status));
   const allowBye = name === "rosterBId" && rosters.length % 2 === 1;
-  return `<div class="field"><label>${name === "rosterAId" ? t("teams.tournament.rosterA") : t("teams.tournament.rosterB")}</label><select name="${name}" ${allowBye ? "" : "required"}>${allowBye ? `<option value="" ${!selectedId ? "selected" : ""}>${t("teams.pairing.bye")}</option>` : ""}${rosters.map((roster) => `<option value="${roster.id}" ${Number(selectedId) === roster.id ? "selected" : ""}>${escapeHtml(roster.name)}</option>`).join("")}</select></div>`;
+  return `<div class="field"><label>${name === "rosterAId" ? t("teams.tournament.rosterA") : t("teams.tournament.rosterB")}</label><select name="${name}" ${allowBye ? "" : "required"}><option value="" ${!selectedId ? "selected" : ""}>${t(allowBye ? "teams.pairing.bye" : "games.result.notSelected")}</option>${rosters.map((roster) => `<option value="${roster.id}" ${Number(selectedId) === roster.id ? "selected" : ""}>${escapeHtml(roster.name)}</option>`).join("")}</select></div>`;
 }
 
 function roundMissionFields(tournament, round) {
@@ -8051,6 +8686,7 @@ function tableLabel(table = {}) {
 }
 
 function wireRoundSetupModal(tournament, tables) {
+  wireTeamTableImages(document.querySelector("[data-round-setup-form]"));
   document.querySelector("[data-round-setup-close]")?.addEventListener("click", closeRoundSetupModal);
   document.querySelector("[data-round-setup-add-empty]")?.addEventListener("click", () => {
     document.querySelector("[data-round-setup-list]")?.insertAdjacentHTML(
@@ -8083,12 +8719,14 @@ function wireRoundSetupModal(tournament, tables) {
     event.preventDefault();
     const message = document.querySelector("[data-round-setup-message]");
     try {
+      if (event.currentTarget.querySelector("[data-image-loading]")) throw new Error(t("teams.tableImage.processing"));
       await api(`/api/admin/tournaments/${tournament.id}/rounds/next`, {
         method: "POST",
         body: roundSetupPayload(event.currentTarget, tournament)
       });
       closeRoundSetupModal();
       await adminUi().loadTournamentAdmin();
+      state.tournamentInfoTab = "matches";
       renderTournaments();
     } catch (err) {
       if (message) {
@@ -8306,14 +8944,16 @@ async function loadTeamsDashboard(query = "") {
 async function refreshTeamTournamentUi(data, options = {}) {
   if (options.standalone) {
     const matchId = Number(data.teamMatch?.id || state.selectedTeamMatchId);
+    if (!isCurrentTeamPairingRoute(matchId)) return;
     const detail = await loadTeamPairing(matchId, { force: true });
-    if (["completed", "in_progress"].includes(detail.teamMatch?.phase)) {
+    if (!detail) return;
+    if (detail.teamMatch?.phase === "completed") {
       state.teamPairings = state.teamPairings.filter((item) => item.id !== matchId);
     } else {
       const summary = state.teamPairings.find((item) => item.id === matchId);
       if (summary) summary.phase = detail.teamMatch.phase;
     }
-    if (isCurrentTeamPairingRoute(matchId)) renderShell();
+    if (isCurrentTeamPairingRoute(matchId)) renderTeamPairing();
     return;
   }
   if (options.admin) {
@@ -8321,12 +8961,38 @@ async function refreshTeamTournamentUi(data, options = {}) {
     renderTournaments();
     return;
   }
-  await renderPublicTournamentRoute(data.tournament.slug, { force: true });
+  if (isCurrentPublicTournamentRoute(data.tournament.slug)) await renderPublicTournamentRoute(data.tournament.slug, { force: true });
+}
+
+async function submitTeamPairingAction(data, options, path, body, method = "POST") {
+  if (teamPairingMutationPending) return;
+  teamPairingMutationPending = true;
+  stopTeamPairingPoll();
+  teamPairingRequestId += 1;
+  publicTournamentRequestId += 1;
+  try {
+    await api(path, { method, body });
+    await refreshTeamTournamentUi(data, options);
+  } catch (err) {
+    // Refresh conflicts too, so both captains continue from the saved step.
+    try { await refreshTeamTournamentUi(data, options); } catch { }
+    throw err;
+  } finally {
+    teamPairingMutationPending = false;
+  }
 }
 
 function wireTeamTournamentControls(data, options = {}) {
   stopTeamPairingPoll();
+  const previews = document.querySelector("[data-team-match-previews]");
+  if (previews) {
+    wireTeamMatchPreviews(previews);
+    scheduleTournamentMatchPreviewPoll(data, options);
+    return;
+  }
   wireComboFields();
+  wireRosterLinks();
+  const pairingRevision = (id) => [data.teamMatch, ...(data.teamMatches || [])].find((match) => match?.id === Number(id))?.pairingRevision;
   if (options.admin && document.querySelector("[data-admin-team-roster-save-seeds]")) {
     adminUi().wireAdminTeamRosterControls(data);
   }
@@ -8339,12 +9005,22 @@ function wireTeamTournamentControls(data, options = {}) {
   document.querySelectorAll("[data-team-tournament-game]").forEach((button) => {
     button.addEventListener("click", () => openGameDetail(Number(button.dataset.teamTournamentGame)));
   });
+  document.querySelectorAll("[data-team-game-result], [data-team-game-review]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const gameId = Number(button.dataset.teamGameResult || button.dataset.teamGameReview);
+      try {
+        stopTeamPairingPoll();
+        await loadGame(gameId);
+        if (button.dataset.teamGameReview) renderResultReview(gameId);
+        else renderResultForm(gameId);
+      } catch (err) { setMessage(err.message, true); }
+    });
+  });
   document.querySelectorAll("[data-team-pair-action='roll']").forEach((button) => {
     button.addEventListener("click", async () => {
       button.disabled = true;
       try {
-        await api(`/api/tournaments/${data.tournament.id}/team-matches/${button.dataset.teamMatchId}/roll`, { method: "POST", body: { rollRound: Number(button.dataset.rollRound), side: button.dataset.side } });
-        await refreshTeamTournamentUi(data, options);
+        await submitTeamPairingAction(data, options, `/api/tournaments/${data.tournament.id}/team-matches/${button.dataset.teamMatchId}/roll`, { rollRound: Number(button.dataset.rollRound), side: button.dataset.side, revision: pairingRevision(button.dataset.teamMatchId) });
       } catch (err) { setMessage(err.message, true); button.disabled = false; }
     });
   });
@@ -8352,7 +9028,11 @@ function wireTeamTournamentControls(data, options = {}) {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const action = form.dataset.teamPairingForm;
-      const body = { side: form.dataset.side };
+      const body = { side: form.dataset.side, revision: pairingRevision(form.dataset.teamMatchId) };
+      if (action === "roll") {
+        body.result = Number(form.elements.result.value);
+        body.rollRound = Number(form.dataset.rollRound);
+      }
       if (action === "ban") body.mission = form.elements.mission.value;
       if (action === "shield" || action === "sword") body.memberId = Number(form.elements.memberId.value);
       if (action === "environment") {
@@ -8362,9 +9042,21 @@ function wireTeamTournamentControls(data, options = {}) {
       }
       try {
         form.querySelector('[type="submit"]').disabled = true;
-        await api(`/api/tournaments/${data.tournament.id}/team-matches/${form.dataset.teamMatchId}/${action}`, { method: "POST", body });
-        await refreshTeamTournamentUi(data, options);
+        await submitTeamPairingAction(data, options, `/api/tournaments/${data.tournament.id}/team-matches/${form.dataset.teamMatchId}/${action}`, body);
       } catch (err) { setMessage(err.message, true); form.querySelector('[type="submit"]').disabled = false; }
+    });
+  });
+  document.querySelectorAll("[data-team-match-undo]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const resetsResults = button.dataset.resetsResults === "true";
+      if (!await confirmAction({ message: t(resetsResults ? "teams.pairing.undoResultsConfirm" : "teams.pairing.undoConfirm"), confirmLabel: t("teams.pairing.undo") })) return;
+      button.disabled = true;
+      try {
+        await submitTeamPairingAction(data, options, `/api/tournaments/${data.tournament.id}/team-matches/${button.dataset.teamMatchUndo}/undo`, {
+          revision: Number(button.dataset.revision), confirmResultsReset: resetsResults
+        });
+      } catch (err) { setMessage(err.message, true); }
+      finally { if (button.isConnected) button.disabled = false; }
     });
   });
   document.querySelectorAll("[data-team-match-reset]").forEach((button) => {
@@ -8373,8 +9065,7 @@ function wireTeamTournamentControls(data, options = {}) {
       button.disabled = true;
       try {
         const phase = document.querySelector(`[data-team-match-reset-phase="${button.dataset.teamMatchReset}"]`)?.value || "awaiting_roll";
-        await api(`/api/admin/tournaments/${data.tournament.id}/team-matches/${button.dataset.teamMatchReset}/reset`, { method: "POST", body: { phase, confirmResultsReset: true } });
-        await refreshTeamTournamentUi(data, options);
+        await submitTeamPairingAction(data, options, `/api/admin/tournaments/${data.tournament.id}/team-matches/${button.dataset.teamMatchReset}/reset`, { phase, confirmResultsReset: true });
       } catch (err) { setMessage(err.message, true); }
       finally { if (button.isConnected) button.disabled = false; }
     });
@@ -8389,16 +9080,16 @@ function wireTeamTournamentControls(data, options = {}) {
       const button = form.querySelector('[type="submit"]');
       button.disabled = true;
       try {
-        await api(`/api/admin/tournaments/${data.tournament.id}/team-matches/${form.dataset.teamPairingsOverride}/pairings`, { method: "PATCH", body: { pairings } });
-        await refreshTeamTournamentUi(data, options);
+        await submitTeamPairingAction(data, options, `/api/admin/tournaments/${data.tournament.id}/team-matches/${form.dataset.teamPairingsOverride}/pairings`, { pairings }, "PATCH");
       } catch (err) { setMessage(err.message, true); }
       finally { if (button.isConnected) button.disabled = false; }
     });
   });
 
+  if (options.roster) return;
   if (options.standalone) {
     const match = data.teamMatch;
-    if (match && match.phase !== "completed" && data.tournament.status === "in_progress") {
+    if (match && data.tournament.status === "in_progress") {
       scheduleTeamPairingScreenPoll(match.id);
     }
     return;
@@ -8406,7 +9097,7 @@ function wireTeamTournamentControls(data, options = {}) {
 
   if (!options.admin) {
     const waiting = (data.teamMatches || []).length > 0;
-    if (waiting && data.tournament.status === "in_progress" && (data.teamMatches || []).some((match) => match.phase !== "completed")) {
+    if (waiting && data.tournament.status === "in_progress") {
       scheduleTeamPairingPoll(data.tournament.slug);
     }
   }
@@ -8634,6 +9325,7 @@ function renderPlayerTeamProfile(data) {
         aria-labelledby="team-profile-tab-${tab.id}" data-team-profile-panel="${tab.id}" ${activeTab === tab.id ? "" : "hidden"}>${tab.content}</div>`).join("")}
       <div class="message" data-message></div>
     </div>`;
+  mountProfileAchievements(document.querySelector(".team-profile-panel"), "teamId", team.id);
   wirePlayerTeamProfile(data);
 }
 
@@ -8645,7 +9337,11 @@ function teamMemberCards(members, team, canManage) {
 
 function teamRosterHistory(rosters) {
   if (!rosters.length) return `<div class="empty">${t("teams.history.empty")}</div>`;
-  return rosters.map((roster) => `<div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(roster.team?.name || roster.teamNameSnapshot || roster.name)}</div><div class="row-meta">${t("teams.tournament.rosterName")}: ${escapeHtml(roster.name)}</div><div class="row-meta">${escapeHtml(roster.tournament?.name || "")} / ${t("teams.roster.seed", { seed: roster.seed || "-" })} / ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>${activeRosterMembersForUi(roster).map((member) => `${escapeHtml(member.displayNameSnapshot)} (${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)})${member.userId === roster.captainUserId ? ` — ${t("teams.role.captain")}` : ""}`).join("<br>")}</div>${roster.tournament?.slug ? `<button class="small-button" data-team-tournament="${escapeHtml(roster.tournament.slug)}">${t("common.open")}</button>` : ""}</div>`).join("");
+  return rosters.map((roster) => `<div class="row-card compact-row-card"><div class="row-main">
+    <div class="row-title">${teamRosterLabel(roster)}</div>
+    <div class="row-meta">${escapeHtml(roster.tournament?.name || "")} / ${t("teams.roster.seed", { seed: roster.seed || "-" })} / ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
+    ${activeRosterMembersForUi(roster).map((member) => `${escapeHtml(member.displayNameSnapshot)} (${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)})${member.userId === roster.captainUserId ? ` — ${t("teams.role.captain")}` : ""}`).join("<br>")}
+  </div><button class="small-button" data-roster-profile-link="${roster.id}">${t("common.open")}</button></div>`).join("");
 }
 
 function activeRosterMembersForUi(roster) {
@@ -8710,26 +9406,12 @@ async function deletePlayerTeam(team, button) {
 
 function wirePlayerTeamProfile(data) {
   const team = data.team;
+  wireRosterLinks();
   wireMarkdownEditors();
   wireTeamProfileTabs();
   wireComboFields();
   document.querySelector("[data-team-delete]")?.addEventListener("click", (event) => deletePlayerTeam(team, event.currentTarget));
-  document.querySelector("[data-team-back]")?.addEventListener("click", async () => {
-    clearPlayerTeamRoute();
-    if (!state.me) return render();
-    state.teamProfile = null;
-    if (state.teamReturnHash) {
-      window.history.replaceState(null, "", state.teamReturnHash);
-      state.teamReturnHash = "";
-      await applyAppRouteFromHash();
-      renderShell();
-      return;
-    }
-    state.teamsTab = "mine";
-    await loadTeamsDashboard();
-    syncAppHash({ replace: true });
-    renderShell();
-  });
+  document.querySelector("[data-team-back]")?.addEventListener("click", () => navigateBack("/#/teams"));
   document.querySelector("[data-team-login]")?.addEventListener("click", () => { state.authMode = "login"; clearPlayerTeamRoute(); render(); });
   document.querySelectorAll("[data-team-player]").forEach((button) => button.addEventListener("click", () => openPlayerProfile(Number(button.dataset.teamPlayer))));
   document.querySelectorAll("[data-team-tournament]").forEach((button) => button.addEventListener("click", () => navigateToPublicTournament(button.dataset.teamTournament)));
@@ -8811,6 +9493,7 @@ function wireTeamProfileTabs() {
       tab.tabIndex = active ? 0 : -1;
     }
     for (const panel of panels) panel.hidden = panel.dataset.teamProfilePanel !== state.teamProfileTab;
+    rememberNavigationContext();
   };
   buttons.forEach((button, index) => {
     button.addEventListener("click", () => select(button));

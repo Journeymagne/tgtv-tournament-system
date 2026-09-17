@@ -57,9 +57,10 @@ async function startedCup() {
     teams.push({ people, roster });
   }
   await expect(admin.http.post(`/api/admin/tournaments/${cup.id}/registration/close`));
-  await expect(admin.http.post(`/api/admin/tournaments/${cup.id}/start`, {
+  await expect(admin.http.post(`/api/admin/tournaments/${cup.id}/rounds/next`, {
     tables: [{ killzone: "Volkus", deployment: 1 }, { killzone: "Gallowdark", deployment: 2 }, { killzone: "Octarius", deployment: 3 }]
   }));
+  await expect(admin.http.post(`/api/admin/tournaments/${cup.id}/start`));
   return { cup, teams };
 }
 const nextRound = (cup, body = {}) => expect(admin.http.post(`/api/admin/tournaments/${cup.id}/rounds/next`, body));
@@ -89,7 +90,7 @@ async function personalGames(match, completedCount = 3) {
   });
 }
 
-test("only an admin removes a started roster; the first round handles three remaining rosters", async () => {
+test("only an admin removes a started roster; the next round handles three remaining rosters", async () => {
   const { cup, teams } = await startedCup();
   const roster = teams[0].roster;
   await expect(teams[0].people[0].http.del(`/api/tournaments/${cup.id}/rosters/${roster.id}`), 403);
@@ -99,25 +100,27 @@ test("only an admin removes a started roster; the first round handles three rema
   const before = await detail(cup);
   assert.equal(before.rosters.find((r) => r.id === roster.id).status, "withdrawn");
   assert.equal(before.standings.length, 3);
+  for (const match of before.teamMatches.filter((match) => !match.resolution)) await personalGames(match);
   const preview = await expect(admin.http.get(`/api/admin/tournaments/${cup.id}/rounds/next/preview`));
   const pairings = preview.round.matches;
   assert.equal(pairings.filter((m) => m.rosterBId === null).length, 1);
   await expect(admin.http.post(`/api/admin/tournaments/${cup.id}/rounds/next`, { matchups: [pairings[0], pairings[0]] }), 400);
   const generated = await nextRound(cup, { matchups: pairings });
-  assert.ok(generated.teamMatches.every((m) => m.rosterAId !== roster.id && m.rosterBId !== roster.id));
-  const bye = generated.teamMatches.find((m) => m.resolution === "bye");
+  const nextMatches = generated.teamMatches.filter((match) => match.roundNumber === 2);
+  assert.ok(nextMatches.every((m) => m.rosterAId !== roster.id && m.rosterBId !== roster.id));
+  const bye = nextMatches.find((m) => m.resolution === "bye");
   assert.equal(bye.phase, "completed");
   assert.equal(bye.teamTournamentPointsA, 2);
   assert.equal(bye.games.length, 0);
   assert.equal((await expect(createClient(server.baseUrl).get(`/api/team-matches/${bye.id}`))).teamMatch.resolution, "bye");
   await expect(admin.http.post(`/api/admin/tournaments/${cup.id}/team-matches/${bye.id}/reset`, { phase: "awaiting_roll" }), 409);
   await expect(admin.http.del(`/api/admin/tournaments/${cup.id}/rounds/latest`));
-  assert.equal((await detail(cup)).rounds.length, 0);
+  assert.equal((await detail(cup)).rounds.length, 1);
 });
 
 test("removal preserves completed games, opponent points and Elo; closes pending matches and allows later rounds and final standings", async () => {
   const { cup, teams } = await startedCup();
-  const first = await nextRound(cup);
+  const first = await detail(cup);
   for (const match of first.teamMatches) await personalGames(match);
   const second = await nextRound(cup);
   const roster = teams[0].roster;

@@ -1,3 +1,4 @@
+const achievements = require("./achievements");
 const auth = require("./auth");
 const users = require("./users");
 const challenges = require("./challenges");
@@ -7,6 +8,7 @@ const admin = require("./admin");
 const tournaments = require("./tournaments");
 const playerTeams = require("./player-teams");
 const teamTournaments = require("./team-tournaments");
+const tournamentTableImages = require("./tournament-table-images");
 const notifications = require("./notifications");
 const documentation = require("./documentation");
 const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
@@ -16,11 +18,20 @@ function withAction(handler, action) {
 }
 
 module.exports = [
+  { method: "GET", path: "/api/tournament-table-images/:id", handler: tournamentTableImages.image, auth: "none", loadUser: true },
+  { method: "GET", path: "/api/achievements", handler: achievements.list, auth: "none" },
+  { method: "GET", path: "/api/achievements/:id", handler: achievements.get, auth: "none" },
+  { method: "GET", path: "/api/achievements/:id/image", handler: achievements.image, auth: "none" },
+  { method: "POST", path: "/api/achievements", handler: achievements.create, auth: "admin", tx: true },
+  { method: "PATCH", path: "/api/achievements/:id", handler: achievements.update, auth: "admin", tx: true },
+  { method: "DELETE", path: "/api/achievements/:id", handler: achievements.remove, auth: "admin", tx: true },
+  { method: "POST", path: "/api/achievements/:id/awards", handler: achievements.award, auth: "admin", tx: true },
   { method: "GET", path: "/api/documentation/:locale", handler: documentation.list, auth: "none" },
   { method: "GET", path: "/api/documentation/:locale/:id", handler: documentation.get, auth: "none" },
   { method: "POST", path: "/api/admin/documentation/preview", handler: documentation.preview, auth: "admin", tx: true },
   { method: "PATCH", path: "/api/admin/documentation/:locale/:id", handler: documentation.update, auth: "admin", tx: true },
   { method: "GET", path: "/api/me", handler: auth.me, auth: "none", loadUser: true },
+  { method: "GET", path: "/api/me/team-pairings", handler: auth.myTeamPairings, auth: "user" },
   { method: "PATCH", path: "/api/me", handler: auth.updateMe, auth: "user", tx: true },
   { method: "POST", path: "/api/register", handler: auth.register, auth: "none", tx: true, rateLimit: "auth" },
   { method: "POST", path: "/api/setup-admin", handler: auth.setupAdmin, auth: "none", tx: true, rateLimit: "auth" },
@@ -142,8 +153,10 @@ module.exports = [
   { method: "PATCH", path: "/api/tournaments/:id/rosters/:rosterId", handler: teamTournaments.updateRoster, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/rosters/:rosterId/withdraw", handler: teamTournaments.withdrawRoster, auth: "user", tx: true },
   { method: "DELETE", path: "/api/tournaments/:id/rosters/:rosterId", handler: teamTournaments.deleteRoster, auth: "user", tx: true },
+  { method: "GET", path: "/api/rosters/:rosterId", handler: teamTournaments.getRoster, auth: "none", loadUser: true },
   { method: "GET", path: "/api/team-matches/:matchId", handler: teamTournaments.getPairingMatch, auth: "none", loadUser: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/roll", handler: teamTournaments.roll, auth: "user", tx: true },
+  { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/undo", handler: teamTournaments.undoPairing, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/ban", handler: teamTournaments.banMission, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/shield", handler: teamTournaments.selectShield, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/sword", handler: teamTournaments.selectSword, auth: "user", tx: true },
@@ -317,12 +330,6 @@ module.exports = [
   },
   {
     method: "GET",
-    path: "/api/admin/tournaments/:id/preview",
-    handler: tournaments.previewAdmin,
-    auth: "admin"
-  },
-  {
-    method: "GET",
     path: "/api/admin/tournaments/:id/rounds/next/preview",
     handler: tournaments.previewNextRoundAdmin,
     auth: "admin"
@@ -338,6 +345,7 @@ module.exports = [
     method: "POST",
     path: "/api/admin/tournaments/:id/rounds/next",
     handler: tournaments.generateNextRoundAdmin,
+    maxBodyBytes: MAX_TOURNAMENT_REQUEST_BYTES,
     auth: "admin",
     tx: true
   },

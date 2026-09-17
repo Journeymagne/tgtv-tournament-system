@@ -6,7 +6,7 @@ const { SECURITY_HEADERS } = require("./io");
 const SITE_NAME = "TGTV Ranking Tournament System";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "20260910-team-description-spacing";
+const ASSET_VERSION = "3.0.0";
 
 function requestOrigin(req) {
   const configured = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");

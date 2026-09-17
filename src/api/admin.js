@@ -190,7 +190,9 @@ async function resetPassword({ client, user, params }) {
 }
 
 async function challengeCredit({ client, user, params, body }) {
-  const target = await requireTarget(client, params.id);
+  const targetId = requirePositiveIntId(params.id, 404, "Route not found");
+  const [target] = await usersRepo.lockByIds(client, [targetId]);
+  if (!target) throw new HttpError(404, "User not found");
   const team = requireKillTeam(body.team);
   const trackKey = body.track === "allKillTeam" ? "allKillTeam" : "classified";
   const trackTeams = trackKey === "allKillTeam" ? ALL_KILL_TEAM_TRACK : CLASSIFIED_TRACK;
@@ -221,6 +223,10 @@ async function challengeCredit({ client, user, params, body }) {
     track.wildcards.find((item) => item.team === team)?.status === "completed";
 
   if (alreadyDone) return { progress: current };
+
+  if (!WILDCARDS.includes(team) && team !== track.nextTeam) {
+    throw new ValidationError(`Complete the previous Kill Teams first. Next: ${track.nextTeam}`);
+  }
 
   const updated = await usersRepo.appendChallengeCredit(client, target.id, {
     team,

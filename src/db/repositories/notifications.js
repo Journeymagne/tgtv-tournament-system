@@ -192,10 +192,36 @@ async function listTeamTournamentPairings(client, userId) {
   });
 }
 
+async function listTournamentStarts(client, userId) {
+  const { rows } = await client.query(
+    `SELECT t.id, t.slug, t.name, t.started_at
+     FROM tournaments t
+     WHERE t.status = 'in_progress' AND t.started_at IS NOT NULL
+       AND (EXISTS (
+         SELECT 1 FROM tournament_participants p
+         WHERE p.tournament_id = t.id AND p.user_id = $1
+           AND p.status NOT IN ('withdrawn', 'removed')
+       ) OR EXISTS (
+         SELECT 1 FROM tournament_team_rosters r
+         JOIN tournament_team_roster_members m ON m.roster_id = r.id
+         WHERE r.tournament_id = t.id AND m.user_id = $1
+           AND m.ended_at IS NULL AND r.status <> 'withdrawn'
+       ))`,
+    [userId]
+  );
+  return rows.map((row) => ({
+    id: `tournament_started:${row.id}`, type: "tournament_started", sourceId: row.id,
+    createdAt: toIso(row.started_at),
+    tournament: { id: row.id, slug: row.slug, name: row.name },
+    href: `/tournaments/${encodeURIComponent(row.slug)}`
+  }));
+}
+
 async function listActive(client, userId) {
   const groups = [
     await listChallenges(client, userId),
     await listTeamInvitations(client, userId),
+    await listTournamentStarts(client, userId),
     await listTournamentPairings(client, userId),
     await listTeamTournamentPairings(client, userId)
   ];

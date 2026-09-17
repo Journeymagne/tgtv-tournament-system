@@ -113,6 +113,10 @@ async function createAccount(client, credentials, isAdmin) {
   };
 }
 
+async function myTeamPairings({ client, user }) {
+  return { teamPairings: await teamMatches.listActivePairingsForCaptain(client, user.id) };
+}
+
 async function me({ client, user }) {
   if (!user) return { user: null, hasAdmin: await users.hasAdmin(client) };
   return buildUserSummary(client, user);
@@ -218,6 +222,7 @@ module.exports = {
   loadUserFromRequest,
   buildUserSummary,
   me,
+  myTeamPairings,
   updateMe,
   applyProfilePatch,
   register,

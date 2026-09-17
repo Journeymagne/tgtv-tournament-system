@@ -163,6 +163,10 @@ function adminChallengeActions(progress) {
 // and challenge screens render all 48 of these at once.
 
 async function adminChallengeCredit(userId, team, action) {
+  if (action === "remove" && !await confirmAction({
+    message: t("challenge.admin.confirmSubtract", { team }),
+    confirmLabel: t("challenge.card.subtract")
+  })) return;
   try {
     const data = await api(`/api/admin/users/${userId}/challenge-credit`, { method: "POST", body: { team, action, track: state.challengeTab } });
     upsertChallengeProgress(data.progress);
@@ -277,34 +281,21 @@ async function openAdminTournamentList() {
   state.adminTournamentMode = "list";
   state.selectedTournamentId = null;
   state.adminTournamentDetail = null;
-  state.adminTournamentPreview = null;
   syncAppHash();
   renderTournaments();
 }
 
 async function loadTournamentAdmin() {
   if (state.selectedTournamentId) {
-    await loadAdminTournamentDetail(state.selectedTournamentId, { preservePreview: true });
+    await loadAdminTournamentDetail(state.selectedTournamentId);
     return;
   }
   if (state.adminTournamentMode !== "create") await loadAdminTournaments();
 }
 
-async function loadAdminTournamentDetail(id, options = {}) {
-  const { preservePreview = false } = options;
+async function loadAdminTournamentDetail(id) {
   state.selectedTournamentId = Number(id);
   state.adminTournamentDetail = await api(`/api/admin/tournaments/${state.selectedTournamentId}`);
-  if (
-    !preservePreview ||
-    !["draft", "registration_open", "registration_closed"].includes(state.adminTournamentDetail?.tournament?.status)
-  ) {
-    state.adminTournamentPreview = null;
-  }
-}
-
-async function loadAdminTournamentPreview(id) {
-  const data = await api(`/api/admin/tournaments/${id}/preview`);
-  state.adminTournamentPreview = data.preview || null;
 }
 
 function adminTournamentAdminView() {
@@ -485,7 +476,7 @@ function adminTournamentDetailPanel(data) {
           <button class="small-button" data-admin-tournament-public="${tournament.slug}">${t("admin.tournament.detail.viewPublic")}</button>
           <button class="small-button" data-admin-tournament-copy="${escapeHtml(publicUrl)}">${t("admin.tournament.detail.copyLink")}</button>
           <button class="danger-button" data-admin-tournament-action="delete">${t("admin.tournament.detail.delete")}</button>
-          <button class="ghost-button" data-admin-tournament-close>${t("admin.tournament.detail.backToList")}</button>
+          <button class="ghost-button" data-admin-tournament-close>${t("common.back")}</button>
         </div>
       </div>
       <section class="profile-grid tournament-metrics">
@@ -515,11 +506,10 @@ function adminTournamentActionButtons(data) {
     buttons.push(`<button class="small-button" data-admin-tournament-action="close-registration">${t("admin.tournament.action.closeRegistration")}</button>`);
   }
   if (tournament.status === "registration_closed") {
+    const prepared = (data.rounds || []).some((round) => round.roundNumber === 1 && round.status === "not_ready");
     buttons.push(`<button class="small-button" data-admin-tournament-action="reopen-registration">${t("admin.tournament.action.reopenRegistration")}</button>`);
-    buttons.push(`<button class="primary-button" data-admin-tournament-action="start">${t("admin.tournament.action.start")}</button>`);
-  }
-  if (["draft", "registration_open", "registration_closed"].includes(tournament.status)) {
-    buttons.push(`<button class="small-button" data-admin-tournament-action="preview">${t("admin.tournament.action.preview")}</button>`);
+    buttons.push(`<button class="${prepared ? "small-button" : "primary-button"}" data-admin-tournament-action="generate-next-round">${t(prepared ? "admin.tournament.action.editFirst" : "admin.tournament.action.generateFirst")}</button>`);
+    if (prepared) buttons.push(`<button class="primary-button" data-admin-tournament-action="start">${t("admin.tournament.action.start")}</button>`);
   }
   if (tournament.status === "in_progress") {
     const rollbackState = rollbackRoundActionState(data);
@@ -846,24 +836,6 @@ function adminTournamentStandingsPanel(data) {
   `;
 }
 
-function adminTournamentPreviewPanel(data) {
-  const preview = state.adminTournamentPreview;
-  if (!preview) return "";
-  if (data.tournament?.participantMode === "team") return adminTeamTournamentPreviewPanel(data, preview);
-  const names = participantNameLookup(data.participants || []);
-  return `
-    <section class="admin-subpanel wide-panel">
-      <div class="panel-header">
-        <div>
-          <h3>${t("admin.tournament.preview.title")}</h3>
-          <p class="muted">${t("admin.tournament.preview.hint", { format: formatLabel(preview.format) })}</p>
-        </div>
-      </div>
-      ${previewRoundsMarkup(preview.rounds || [], names)}
-    </section>
-  `;
-}
-
 function adminTournamentRoundsPanel(data) {
   const rounds = data.rounds || [];
   if (!rounds.length) {
@@ -937,13 +909,6 @@ function filterAdminUsers(users, query) {
   const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
   if (!normalizedQuery) return users;
   return users.filter((user) => String(user.name || "").toLocaleLowerCase().includes(normalizedQuery));
-}
-
-function adminTeamTournamentPreviewPanel(data, preview) {
-  const rosters = new Map((data.rosters || []).map((roster) => [roster.id, roster]));
-  return `<section class="admin-subpanel wide-panel"><div class="panel-header"><div><h3>${t("admin.tournament.preview.title")}</h3><p class="muted">${t("teams.tournament.previewHint")}</p></div></div>
-    <div class="public-rounds">${(preview.rounds || []).map((round) => `<section class="public-round"><div class="public-round-title"><strong>${t("tournaments.round.title", { number: round.roundNumber })}</strong></div><div class="list">${(round.matches || []).map((match) => `<div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${teamRosterLabel(rosters.get(match.rosterAId))} vs ${teamRosterLabel(rosters.get(match.rosterBId), t("teams.pairing.bye"))}</div><div class="row-meta">${t("tournaments.pairingType.shieldSword")}</div></div></div>`).join("")}</div></section>`).join("")}</div>
-  </section>`;
 }
 
 function adminTeamRostersContent(data) {
@@ -1140,7 +1105,7 @@ function adminTeamPairingOverrideForm(match) {
   if (match.phase !== "environment_selection" || (match.games || []).length || !(match.pairings || []).length) return "";
   const membersA = activeRosterMembersForUi(match.rosterA);
   const membersB = activeRosterMembersForUi(match.rosterB);
-  const options = (members, selectedId) => members.map((member) => `<option value="${member.id}" ${member.id === Number(selectedId) ? "selected" : ""}>${escapeHtml(member.displayNameSnapshot)}</option>`).join("");
+  const options = (members, selectedId) => members.map((member) => `<option value="${member.id}" ${member.id === Number(selectedId) ? "selected" : ""}>${escapeHtml(teamPairingMemberLabel(member))}</option>`).join("");
   return `<form class="team-pairing-override" data-team-pairings-override="${match.id}">
     <strong>${t("teams.pairing.override")}</strong>
     ${(match.pairings || []).map((pairing, index) => `<div class="team-pairing-override-row"><span>${index + 1}</span><select name="pair-a-${index + 1}" data-user-search data-user-search-label="${t("admin.roundSetup.playerA")}" required>${options(membersA, pairing.rosterAMemberId)}</select><span>vs</span><select name="pair-b-${index + 1}" data-user-search data-user-search-label="${t("admin.roundSetup.playerB")}" required>${options(membersB, pairing.rosterBMemberId)}</select></div>`).join("")}
@@ -1473,14 +1438,13 @@ function wireAdminTournamentControls() {
     state.adminTournamentMode = "create";
     state.selectedTournamentId = null;
     state.adminTournamentDetail = null;
-    state.adminTournamentPreview = null;
     syncAppHash();
     renderTournaments();
   });
 
   document.querySelector("[data-admin-tournament-create-cancel]")?.addEventListener("click", async () => {
     try {
-      await openAdminTournamentList();
+      await navigateBack("/#/tournaments/admin");
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -1494,7 +1458,6 @@ function wireAdminTournamentControls() {
       state.selectedTournamentId = data.tournament.id;
       state.adminTournamentMode = "detail";
       state.tournamentInfoTab = "settings";
-      state.adminTournamentPreview = null;
       await loadTournamentAdmin();
       syncAppHash();
       renderShell();
@@ -1519,7 +1482,7 @@ function wireAdminTournamentControls() {
 
   document.querySelector("[data-admin-tournament-close]")?.addEventListener("click", async () => {
     try {
-      await openAdminTournamentList();
+      await navigateBack("/#/tournaments/admin");
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -1575,7 +1538,6 @@ async function saveAdminTournamentUpdate(form, options = {}) {
     method: "PATCH",
     body: adminTournamentBodyFromForm(form)
   });
-  state.adminTournamentPreview = null;
   if (data?.tournament && state.adminTournamentDetail?.tournament?.id === data.tournament.id) {
     state.adminTournamentDetail.tournament = {
       ...state.adminTournamentDetail.tournament,
@@ -1674,9 +1636,7 @@ async function runAdminTournamentAction(action) {
   const tournament = state.adminTournamentDetail?.tournament;
   if (!tournament) return;
   try {
-    if (action === "preview") {
-      await loadAdminTournamentPreview(tournament.id);
-    } else if (action === "publish-open") {
+    if (action === "publish-open") {
       await api(`/api/admin/tournaments/${tournament.id}/publish`, {
         method: "POST",
         body: { status: "registration_open" }
@@ -1691,9 +1651,9 @@ async function runAdminTournamentAction(action) {
     } else if (action === "reopen-registration") {
       await api(`/api/admin/tournaments/${tournament.id}/registration/reopen`, { method: "POST" });
     } else if (action === "start") {
-      if (tournament.participantMode === "team") { openTeamTournamentStart(tournament); return; }
       if (!await confirmAction({ message: t("dialog.admin.startTournament"), confirmLabel: t("admin.tournament.action.start"), danger: false })) return;
       await api(`/api/admin/tournaments/${tournament.id}/start`, { method: "POST" });
+      state.tournamentInfoTab = "matches";
     } else if (action === "generate-next-round") {
       await openNextRoundSetupModal(tournament.id);
       return;
@@ -2003,7 +1963,6 @@ window.TGTV_ADMIN = {
   adminTeamsPanel,
   adminTournamentAdminView,
   adminTournamentParticipantsContent,
-  adminTournamentPreviewPanel,
   adminTournamentRoundsPanel,
   adminTournamentSettingsContent,
   adminTournamentTablesContent,

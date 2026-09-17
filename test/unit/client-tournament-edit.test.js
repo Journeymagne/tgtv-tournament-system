@@ -67,7 +67,7 @@ function editorHarness(options = {}) {
   const state = {
     me: { id: 1, isAdmin: true }, view: "tournaments", tournamentsTab: "public",
     selectedTournamentId: 99, adminTournamentDetail: { tournament: { id: 99 } },
-    adminTournamentPreview: { stale: true }, tournamentInfoTab: "matches", ...options.state
+    tournamentInfoTab: "matches", ...options.state
   };
   const calls = [];
   const data = { tournament: { id: 6, name: "Fresh tournament" }, rounds: [] };
@@ -90,7 +90,6 @@ test("Edit loads only the selected tournament and opens settings without visitin
   assert.equal(state.adminTournamentMode, "detail");
   assert.equal(state.selectedTournamentId, 6);
   assert.equal(state.adminTournamentDetail, data);
-  assert.equal(state.adminTournamentPreview, null);
   assert.equal(state.tournamentInfoTab, "settings");
 });
 
@@ -117,12 +116,12 @@ test("non-admins and invalid tournament IDs cannot trigger editor navigation", a
 test("Edit converts the canonical public URL into the exact admin detail URL", () => {
   const state = { view: "tournaments", tournamentsTab: "admin", adminTournamentMode: "detail", selectedTournamentId: 6, me: { isAdmin: true } };
   const urls = [];
-  const sync = new Function("state", "window", "tournamentSlugFromPath", "playerTeamSlugFromPath",
+  const sync = new Function("state", "window", "tournamentSlugFromPath", "playerTeamSlugFromPath", "pushAppLocation",
     `${sourceOf("appHashForState")}; ${sourceOf("syncAppHash")}; return syncAppHash;`
   )(state, {
     location: { pathname: "/tournaments/test-cup", search: "", hash: "" },
     history: { pushState: (_state, _title, url) => urls.push(url) }
-  }, () => "test-cup", () => "");
+  }, () => "test-cup", () => "", (url) => urls.push(url));
   sync();
   assert.deepEqual(urls, ["/#/tournaments/admin/6"]);
 });

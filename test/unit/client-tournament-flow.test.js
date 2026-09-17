@@ -20,6 +20,61 @@ const actionButtonsSource = functionSource("adminTournamentActionButtons");
 const tabContentSource = functionSource("tournamentInfoTabContent");
 const runActionSource = functionSource("runAdminTournamentAction");
 
+test("registration closed offers preparation first and a separate start only after saving a round", () => {
+  const render = new Function("t", `${actionButtonsSource}; return adminTournamentActionButtons;`)((key) => key);
+  for (const participantMode of ["individual", "team"]) {
+    const data = { tournament: { status: "registration_closed", participantMode }, rounds: [] };
+    const initial = render(data);
+    assert.match(initial, /admin.tournament.action.generateFirst/);
+    assert.doesNotMatch(initial, /data-admin-tournament-action="start"/);
+    data.rounds = [{ roundNumber: 1, status: "not_ready" }];
+    const prepared = render(data);
+    assert.match(prepared, /admin.tournament.action.editFirst/);
+    assert.match(prepared, /data-admin-tournament-action="start"/);
+  }
+});
+
+test("preparation only opens setup, while Start explicitly activates either tournament mode", async () => {
+  for (const participantMode of ["individual", "team"]) {
+    const state = { adminTournamentDetail: { tournament: { id: 17, participantMode } } };
+    const requests = [];
+    const opened = [];
+    const confirmations = [];
+    const run = new Function("state", "api", "openNextRoundSetupModal", "confirmAction", "t", "loadTournamentAdmin", "renderTournaments", "setMessage",
+      `${runActionSource}; return runAdminTournamentAction;`)(
+      state, async (...args) => requests.push(args), async (id) => opened.push(id),
+      async (options) => { confirmations.push(options); return true; }, (key) => key,
+      async () => {}, () => {}, (message) => assert.fail(message)
+    );
+    await run("generate-next-round");
+    assert.deepEqual(opened, [17]);
+    assert.deepEqual(requests, []);
+    assert.deepEqual(confirmations, []);
+    await run("start");
+    assert.equal(confirmations.length, 1);
+    assert.deepEqual(requests, [["/api/admin/tournaments/17/start", { method: "POST" }]]);
+    assert.equal(state.tournamentInfoTab, "matches");
+  }
+});
+
+test("start notification opens freshly loaded tournament matches", async () => {
+  const state = { notificationsOpen: true };
+  const opened = [];
+  const open = new Function("state", "renderNotificationControl", "navigateToPublicTournament",
+    `${functionSource("openNotificationItem")}; return openNotificationItem;`)(state, () => {}, (...args) => opened.push(args));
+  await open({ type: "tournament_started", tournament: { slug: "cup" } });
+  assert.equal(state.notificationsOpen, false);
+  assert.deepEqual(opened, [["cup", { tab: "matches", force: true }]]);
+  const rendered = [];
+  const navigate = new Function("state", "window", "tournamentPublicPath", "renderPublicTournamentRoute", "pushAppLocation",
+    `${functionSource("navigateToPublicTournament")}; return navigateToPublicTournament;`)(
+    state, { history: { pushState() {} } }, (slug) => `/tournaments/${slug}`, (...args) => rendered.push(args), () => {}
+  );
+  navigate(...opened[0]);
+  assert.equal(state.tournamentInfoTab, "matches");
+  assert.deepEqual(rendered, [["cup", { tab: "matches", force: true }]]);
+});
+
 test("completed rounds replace Generate next round with Close tournament", () => {
   assert.ok(actionButtonsSource, "could not find adminTournamentActionButtons in public/app.js");
   const translatedKeys = [];
@@ -92,7 +147,6 @@ test("Close tournament confirms and publishes the displayed standings order", as
     "confirmDelete",
     "t",
     "api",
-    "loadAdminTournamentPreview",
     "openNextRoundSetupModal",
     "rollbackRoundActionState",
     "loadTournamentAdmin",
@@ -107,7 +161,6 @@ test("Close tournament confirms and publishes the displayed standings order", as
     async (message) => { confirmations.push(message); return true; },
     (key) => key,
     async (requestPath, options) => { requests.push([requestPath, options]); },
-    async () => {},
     async () => {},
     () => ({ roundNumber: 1 }),
     async () => {},

@@ -55,6 +55,16 @@ async function update(client, id, patch) {
   return mapTournamentRound(rows[0]);
 }
 
+async function listFirstByTournamentIds(client, tournamentIds) {
+  if (!tournamentIds.length) return [];
+  const { rows } = await client.query(
+    `SELECT ${COLUMNS} FROM tournament_rounds
+     WHERE tournament_id = ANY($1::int[]) AND round_number = 1`,
+    [tournamentIds]
+  );
+  return rows.map(mapTournamentRound);
+}
+
 async function remove(client, id) {
   const { rows } = await client.query(
     `DELETE FROM tournament_rounds WHERE id = $1 RETURNING ${COLUMNS}`,
@@ -63,4 +73,4 @@ async function remove(client, id) {
   return mapTournamentRound(rows[0]);
 }
 
-module.exports = { insert, listByTournament, update, remove };
+module.exports = { insert, listByTournament, listFirstByTournamentIds, update, remove };

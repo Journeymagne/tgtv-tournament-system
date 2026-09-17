@@ -90,3 +90,23 @@ test("the confirmation modal itself stays in the always-loaded bundle", () => {
     );
   }
 });
+
+test("avatar removal waits for explicit confirmation and cancellation leaves the profile untouched", async () => {
+  for (const confirmed of [false, true]) {
+    let click, answer;
+    const updates = [];
+    const document = { querySelector: (selector) => selector === "[data-remove-avatar]"
+      ? { addEventListener: (_event, handler) => { click = handler; } } : null };
+    const wire = new Function("document", "t", "confirmDelete", "updateProfile",
+      `${functionSource("wireProfileSettings")}; return wireProfileSettings;`)(
+      document, (key) => key, () => new Promise((resolve) => { answer = resolve; }),
+      async (patch) => { updates.push(patch); }
+    );
+    wire();
+    const removing = click();
+    assert.deepEqual(updates, []);
+    answer(confirmed);
+    await removing;
+    assert.deepEqual(updates, confirmed ? [{ avatarData: null }] : []);
+  }
+});

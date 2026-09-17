@@ -1,4 +1,5 @@
 const { toIso } = require("../rows");
+const { teamMatchProgress } = require("../../domain/team-tournaments");
 
 function mapTeamMatch(row) {
   if (!row) return null;
@@ -16,6 +17,8 @@ function mapTeamMatch(row) {
     pairingVersion: row.pairing_version || 1,
     rollHistory: row.roll_history || [],
     missionBans: row.mission_bans || [],
+    pairingHistory: row.pairing_history || [],
+    pairingRevision: row.pairing_revision || 0,
     attackerRosterId: row.attacker_roster_id,
     defenderRosterId: row.defender_roster_id,
     shieldAMemberId: row.shield_a_member_id,
@@ -68,6 +71,7 @@ function mapGameLink(row) {
         }
       : null,
     table: row.table_id ? { id: row.table_id, tableNumber: row.table_number,
+      ...(row.mission?.imageId ? { imageId: row.mission.imageId, imageUrl: `/api/tournament-table-images/${row.mission.imageId}` } : {}),
       killzone: row.mission?.killzone ?? row.killzone ?? "", deployment: row.mission?.layout ?? row.deployment } : null
   };
 }
@@ -136,32 +140,42 @@ async function listActivePairingsForCaptain(client, userId) {
      JOIN tournament_team_rosters ra ON ra.id = tm.roster_a_id
      JOIN tournament_team_rosters rb ON rb.id = tm.roster_b_id
      WHERE t.status = 'in_progress'
-       AND tm.phase IN ('awaiting_roll', 'mission_ban', 'shield_selection', 'sword_selection', 'environment_selection')
+       AND tm.phase IN ('awaiting_roll', 'mission_ban', 'shield_selection', 'sword_selection', 'environment_selection', 'in_progress')
        AND (ra.captain_user_id = $1 OR rb.captain_user_id = $1)
      ORDER BY tm.created_at DESC, tm.id DESC`,
     [userId]
   );
-  return rows.map((row) => ({
-    id: row.id,
-    tournamentId: row.tournament_id,
-    roundNumber: row.round_number,
-    phase: row.phase,
-    captainSide: row.captain_side,
-    createdAt: toIso(row.created_at),
-    tournament: {
-      id: row.tournament_id,
-      slug: row.tournament_slug,
-      name: row.tournament_name,
-      venueMode: row.venue_mode
-    },
-    rosterA: { id: row.roster_a_id, name: row.roster_a_name, teamName: row.team_a_name },
-    rosterB: { id: row.roster_b_id, name: row.roster_b_name, teamName: row.team_b_name }
-  }));
+  const gamesByMatch = new Map();
+  for (const link of await listGameLinksForMatches(client, rows.map((row) => row.id))) {
+    if (!gamesByMatch.has(link.teamMatchId)) gamesByMatch.set(link.teamMatchId, []);
+    gamesByMatch.get(link.teamMatchId).push(link);
+  }
+  return rows.map((row) => {
+    const { completed, total, gpA, gpB } = teamMatchProgress({ games: gamesByMatch.get(row.id) || [] });
+    return {
+      id: row.id,
+      tournamentId: row.tournament_id,
+      roundNumber: row.round_number,
+      phase: row.phase,
+      captainSide: row.captain_side,
+      progress: { completed, total, gpA, gpB },
+      createdAt: toIso(row.created_at),
+      tournament: {
+        id: row.tournament_id,
+        slug: row.tournament_slug,
+        name: row.tournament_name,
+        venueMode: row.venue_mode
+      },
+      rosterA: { id: row.roster_a_id, name: row.roster_a_name, teamName: row.team_a_name },
+      rosterB: { id: row.roster_b_id, name: row.roster_b_name, teamName: row.team_b_name }
+    };
+  });
 }
 
 async function update(client, id, patch) {
   const fields = {
     resolution: "resolution",
+    pairingHistory: "pairing_history", pairingRevision: "pairing_revision",
     pairingVersion: "pairing_version", rollHistory: "roll_history", missionBans: "mission_bans",
     phase: "phase", rollResult: "roll_result", attackerRosterId: "attacker_roster_id",
     defenderRosterId: "defender_roster_id", shieldAMemberId: "shield_a_member_id",
@@ -174,7 +188,7 @@ async function update(client, id, patch) {
     teamTournamentPointsA: "team_tournament_points_a", teamTournamentPointsB: "team_tournament_points_b",
     teamElo: "team_elo", completedAt: "completed_at"
   };
-  const jsonFields = new Set(["pairings", "missions", "environment", "gamePoints", "teamElo", "rollHistory", "missionBans"]);
+  const jsonFields = new Set(["pairings", "missions", "environment", "gamePoints", "teamElo", "rollHistory", "missionBans", "pairingHistory"]);
   const values = [id];
   const assignments = [];
   for (const [field, column] of Object.entries(fields)) {

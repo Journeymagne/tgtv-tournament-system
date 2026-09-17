@@ -8,6 +8,7 @@ const auditRepo = require("../db/repositories/tournament-audit-events");
 const usersRepo = require("../db/repositories/users");
 const gamesRepo = require("../db/repositories/games");
 const { requirePositiveIntId } = require("./params");
+const { clearPreparedRounds, requirePreparedFirstRound } = require("./tournament-preparation");
 const {
   tournamentDetailView,
   tournamentSummaryView,
@@ -432,6 +433,10 @@ async function updateAdmin({ client, user, params, body }) {
     }
   }
   const patch = normalizeTournamentPatch(body, tournament);
+  const preparationFields = ["format", "participantMode", "teamSize", "pairingType", "swissRoundCount", "singleEliminationSize", "venueMode"];
+  if (preparationFields.some((key) => Object.hasOwn(patch, key) && patch[key] !== tournament[key])) {
+    await clearPreparedRounds(client, tournament);
+  }
   const updated = await tournamentsRepo.update(client, tournament.id, patch);
   await audit(client, updated, user, "update", { before: tournament, after: updated });
   return { tournament: tournamentSummaryView(updated) };
@@ -499,6 +504,7 @@ async function setRegistration({ client, user, params, status }) {
   ) {
     throw new HttpError(409, "Registration can be changed only before tournament start");
   }
+  if (status === TOURNAMENT_STATUSES.REGISTRATION_OPEN) await clearPreparedRounds(client, tournament);
   const updated = await tournamentsRepo.update(client, tournament.id, { status });
   await audit(client, updated, user, `registration_${status}`, { before: tournament, after: updated });
   if (
@@ -562,7 +568,7 @@ async function createParticipant(client, tournament, user, body, source) {
       : PARTICIPANT_STATUSES.JOINED;
   const seed = (await participantsRepo.maxSeed(client, tournament.id)) + 1;
   try {
-    return await participantsRepo.insert(client, {
+    const participant = await participantsRepo.insert(client, {
       tournamentId: tournament.id,
       userId: linkedUser?.id || null,
       displayName,
@@ -573,6 +579,8 @@ async function createParticipant(client, tournament, user, body, source) {
       source,
       seed
     });
+    await clearPreparedRounds(client, tournament);
+    return participant;
   } catch (err) {
     if (err.code === "23505") throw new HttpError(409, "Participant already exists");
     throw err;
@@ -621,6 +629,7 @@ async function withdraw({ client, user, params }) {
     forUpdate: true
   });
   if (!participant) throw new HttpError(404, "Participant not found");
+  await clearPreparedRounds(client, tournament);
   const updated = await participantsRepo.update(client, participant.id, {
     status: PARTICIPANT_STATUSES.WITHDRAWN,
     withdrawnAt: nowIso()
@@ -711,6 +720,7 @@ async function updateParticipant({ client, user, params, body }) {
     patch.factionRules = normalizeFactionRules(body.factionRules);
   }
   const updated = await participantsRepo.update(client, participant.id, patch);
+  await clearPreparedRounds(client, tournament);
   await audit(client, tournament, user, "participant_update", {
     entityType: "participant",
     entityId: participant.id,
@@ -741,6 +751,7 @@ async function removeParticipant({ client, user, params }) {
     status: PARTICIPANT_STATUSES.REMOVED,
     removedAt: nowIso()
   });
+  await clearPreparedRounds(client, tournament);
   await audit(client, tournament, user, "participant_remove", {
     entityType: "participant",
     entityId: participant.id,
@@ -772,6 +783,7 @@ async function persistSeedOrder(client, tournament, user, active, ids, eventType
         : await participantsRepo.update(client, participant.id, { seed: index + 1 })
     );
   }
+  await clearPreparedRounds(client, tournament);
   await audit(client, tournament, user, eventType, {
     before: active.map((participant) => ({ id: participant.id, seed: participant.seed })),
     after: updated.map((participant) => ({ id: participant.id, seed: participant.seed }))
@@ -864,6 +876,7 @@ async function updateTableAdmin({ client, user, params, body }) {
   assertTablesAvailable(tournament);
   const table = await requireTournamentTable(client, tournament, params.tableId);
   const updated = await tablesRepo.update(client, table.id, normalizeTablePayload(body));
+  await clearPreparedRounds(client, tournament);
   await audit(client, tournament, user, "table_update", {
     entityType: "table",
     entityId: table.id,
@@ -892,22 +905,13 @@ async function deleteTableAdmin({ client, user, params }) {
   return { table: tournamentTableView(removed) };
 }
 
-async function previewAdmin({ client, params }) {
-  const tournament = await requireTournament(client, params.id);
-  if (tournament.participantMode === "team") {
-    return { preview: await require("./team-tournaments").previewTournament(client, tournament) };
-  }
-  const participants = await participantsRepo.listCompetitive(client, tournament.id);
-  return { preview: buildTournamentPreview(tournament, participants) };
-}
-
 function roundSetupParticipantPool(participants) {
   return participants.filter((participant) => isListedParticipant(participant));
 }
 
 function firstRoundParticipantPool(participants) {
   return participants.filter((participant) =>
-    [PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.PENDING_PLACEMENT].includes(participant.status)
+    [PARTICIPANT_STATUSES.JOINED, PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.PENDING_PLACEMENT].includes(participant.status)
   );
 }
 
@@ -1124,8 +1128,8 @@ async function prepareNextRoundSetup(client, tournament, user, rounds, matches, 
 
 async function previewNextRoundAdmin({ client, user, params }) {
   const tournament = await requireTournament(client, params.id);
-  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) {
-    throw new HttpError(409, "Tournament is not in progress");
+  if (![TOURNAMENT_STATUSES.REGISTRATION_CLOSED, TOURNAMENT_STATUSES.IN_PROGRESS].includes(tournament.status)) {
+    throw new HttpError(409, "Close registration before preparing the first round");
   }
   if (tournament.participantMode === "team") {
     return require("./team-tournaments").previewNextRound(client, tournament, user);
@@ -1133,6 +1137,15 @@ async function previewNextRoundAdmin({ client, user, params }) {
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await matchesRepo.listByTournament(client, tournament.id);
   const participants = await participantsRepo.listByTournament(client, tournament.id);
+  if (tournament.status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED && rounds.length) {
+    const first = requirePreparedFirstRound(rounds);
+    const tables = await tablesRepo.listByTournament(client, tournament.id);
+    return {
+      round: roundSetupView({ ...first, mission: first.metadata?.mission || null, matches: matchesForRound(matches, first) }, tables, participants),
+      tables: tables.map(tournamentTableView),
+      prepared: true
+    };
+  }
   const { round, tables, restoredDraft = false } = await prepareNextRoundSetup(
     client,
     tournament,
@@ -1144,7 +1157,8 @@ async function previewNextRoundAdmin({ client, user, params }) {
   return {
     round: roundSetupView(round, tables, participants),
     tables: tables.map(tournamentTableView),
-    restoredDraft
+    restoredDraft,
+    prepared: tournament.status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED
   };
 }
 
@@ -1204,15 +1218,38 @@ async function startAdmin({ client, user, params, body = {} }) {
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
   const competitive = participants.filter((item) => item.status === PARTICIPANT_STATUSES.JOINED);
   buildTournamentPreview(tournament, competitive);
+  const first = requirePreparedFirstRound(await roundsRepo.listByTournament(client, tournament.id));
+  const matches = await matchesRepo.listByRound(client, first.id);
+  const eligibleIds = new Set(competitive.map((participant) => participant.id));
+  if (!matches.length || matches.some((match) => matchParticipantIds(match).some((id) => !eligibleIds.has(id)))) {
+    throw new HttpError(409, "Participants changed; generate the first round again");
+  }
   await participantsRepo.setAllCompetitiveStatus(client, tournament.id, PARTICIPANT_STATUSES.ACTIVE);
   const updated = await tournamentsRepo.update(client, tournament.id, {
     status: TOURNAMENT_STATUSES.IN_PROGRESS,
     startedAt: nowIso()
   });
+  await roundsRepo.update(client, first.id, {
+    status: ROUND_STATUSES.ACTIVE,
+    startedAt: updated.startedAt,
+    metadata: { ...first.metadata, activatedParticipantIds: [] }
+  });
+  for (const match of matches) {
+    const status = match.isBye ? MATCH_STATUSES.COMPLETED
+      : match.participantAId && match.participantBId ? MATCH_STATUSES.ACTIVE : MATCH_STATUSES.NOT_READY;
+    const activated = await matchesRepo.update(client, match.id, {
+      status, completedAt: match.isBye ? updated.startedAt : null,
+      ...(match.isBye ? { matchPoints: matchPointsFor(match, match.winnerParticipantId) } : {})
+    });
+    if (status === MATCH_STATUSES.ACTIVE) {
+      const { participantA, participantB } = requireMatchParticipants(activated, participants);
+      await ensureTournamentGame(client, updated, activated, participantA, participantB);
+    }
+  }
   await audit(client, updated, user, "start", {
     before: tournament,
     after: updated,
-    metadata: { firstRoundPending: true, participantCount: competitive.length }
+    metadata: { firstRoundId: first.id, participantCount: competitive.length }
   });
   return fullView(client, updated, user, { includeAudit: true, includePrivate: true });
 }
@@ -1427,6 +1464,7 @@ async function publishFinalStandingsAdmin({ client, user, params, body }) {
     completedAt: nowIso(),
     finalResults
   });
+  await require("../db/repositories/achievements").syncPodium(client, updated, user.id);
   await audit(client, updated, user, "standings_publish", { after: updated, metadata: { finalResults } });
   return fullView(client, updated, user, { includeAudit: true });
 }
@@ -1651,9 +1689,10 @@ async function generateSingleEliminationNextRound(client, tournament, user, roun
 
 async function generateNextRoundAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
-  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) {
-    throw new HttpError(409, "Tournament is not in progress");
+  if (![TOURNAMENT_STATUSES.REGISTRATION_CLOSED, TOURNAMENT_STATUSES.IN_PROGRESS].includes(tournament.status)) {
+    throw new HttpError(409, "Close registration before preparing the first round");
   }
+  validatePublishable(tournament);
   if (tournament.participantMode === "team") {
     return require("./team-tournaments").generateRound(client, tournament, user, body);
   }
@@ -1661,6 +1700,18 @@ async function generateNextRoundAdmin({ client, user, params, body }) {
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await matchesRepo.listByTournament(client, tournament.id);
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
+
+  if (tournament.status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED) {
+    const setup = await prepareFirstRoundSetup(client, tournament, [], [], participants, body);
+    const prepared = { ...setup.preview, rounds: setup.preview.rounds.map((round) => ({
+      ...round, status: ROUND_STATUSES.NOT_READY,
+      matches: round.matches.map((match) => ({ ...match, status: MATCH_STATUSES.NOT_READY, completedAt: null }))
+    })) };
+    await clearPreparedRounds(client, tournament);
+    await persistPreview(client, tournament, prepared);
+    await audit(client, tournament, user, "first_round_prepare", { metadata: setup.round });
+    return fullView(client, tournament, user, { includeAudit: true });
+  }
 
   if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
     await generateSwissNextRound(client, tournament, user, rounds, matches, participants, body);
@@ -2013,7 +2064,6 @@ module.exports = {
   removeParticipant,
   updateSeeds,
   regenerateSeeds,
-  previewAdmin,
   previewNextRoundAdmin,
   startAdmin,
   generateNextRoundAdmin,

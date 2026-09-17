@@ -73,6 +73,9 @@ function fakeClient(options = {}) {
       if (sql.includes("INSERT INTO notification_inbox_state")) {
         return { rows: [{ last_seen_at: now }] };
       }
+      if (sql.includes("SELECT t.id, t.slug, t.name, t.started_at")) {
+        return { rows: [{ id: 13, slug: "started-cup", name: "Started Cup", started_at: createdAt }] };
+      }
       throw new Error(`Unexpected query: ${sql}`);
     }
   };
@@ -82,15 +85,16 @@ test("notification inbox maps every supported source and deep link", async () =>
   const inbox = await notificationsApi.list({ client: fakeClient(), user: { id: 1 } });
 
   assert.equal(inbox.generatedAt, "2026-09-04T12:00:00.000Z");
-  assert.equal(inbox.unreadCount, 4);
+  assert.equal(inbox.unreadCount, 5);
   assert.deepEqual(
     inbox.items.map((item) => item.type).sort(),
-    ["game_challenge", "team_invitation", "team_tournament_pairing", "tournament_pairing"]
+    ["game_challenge", "team_invitation", "team_tournament_pairing", "tournament_pairing", "tournament_started"]
   );
   assert.equal(inbox.items.find((item) => item.type === "game_challenge").href, "#/mygames/challenge/7");
   assert.equal(inbox.items.find((item) => item.type === "team_invitation").href, "#/teams/invitation/8");
   assert.equal(inbox.items.find((item) => item.type === "tournament_pairing").href, "#/games/tournament-match/11");
   assert.equal(inbox.items.find((item) => item.type === "team_tournament_pairing").href, "#/games/game/10");
+  assert.equal(inbox.items.find((item) => item.type === "tournament_started").href, "/tournaments/started-cup");
 });
 
 test("read notifications stay active but are no longer counted as new", async () => {
@@ -99,7 +103,7 @@ test("read notifications stay active but are no longer counted as new", async ()
     user: { id: 1 }
   });
 
-  assert.equal(inbox.items.length, 4);
+  assert.equal(inbox.items.length, 5);
   assert.equal(inbox.unreadCount, 0);
   assert.ok(inbox.items.every((item) => item.unread === false));
 });

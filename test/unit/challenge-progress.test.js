@@ -6,7 +6,7 @@ const {
   buildTrackProgress,
   buildChallengeTracks
 } = require("../../src/domain/challenge-progress");
-const { CLASSIFIED_TRACK, WILDCARDS } = require("../../src/domain/kill-teams");
+const { CLASSIFIED_TRACK, ALL_KILL_TEAM_TRACK, WILDCARDS } = require("../../src/domain/kill-teams");
 
 function completedGame(id, winnerId, faction, at) {
   return {
@@ -194,4 +194,74 @@ test("списание команды, которую никогда не нач
     assert.equal(progress.completedCount, 0);
     assert.equal(progress.teams[0].status, "current");
   });
+});
+
+for (const [name, teams] of [["Classified", CLASSIFIED_TRACK], ["All Kill Team", ALL_KILL_TEAM_TRACK]]) {
+  test(`${name}: победа до своей очереди не копится, нужна новая победа`, () => {
+    const user = { id: 1, challengeCredits: [] };
+    const games = [
+      completedGame(1, 1, teams[1], "2026-01-01T00:00:00.000Z"),
+      completedGame(2, 1, teams[0], "2026-01-02T00:00:00.000Z"),
+      completedGame(3, 1, teams[2], "2026-01-03T00:00:00.000Z")
+    ];
+    let progress = buildTrackProgress(buildChallengeEvents([...games].reverse(), user), teams, WILDCARDS);
+    assert.equal(progress.completedCount, 1);
+    assert.equal(progress.nextTeam, teams[1]);
+    assert.equal(progress.teams[1].credit, null);
+    assert.equal(progress.teams[2].status, "locked");
+
+    games.push(completedGame(4, 1, teams[1], "2026-01-04T00:00:00.000Z"));
+    progress = buildTrackProgress(buildChallengeEvents(games, user), teams, WILDCARDS);
+    assert.equal(progress.completedCount, 2);
+    assert.equal(progress.teams[1].credit.gameId, 4);
+    assert.equal(progress.nextTeam, teams[2]);
+  });
+}
+
+test("старые ручные зачёты также не могут пропускать шаги", () => {
+  const user = { id: 1, challengeCredits: [
+    { team: CLASSIFIED_TRACK[1], creditedAt: "2026-01-01T00:00:00.000Z" },
+    { team: CLASSIFIED_TRACK[0], creditedAt: "2026-01-02T00:00:00.000Z" }
+  ] };
+  const progress = buildChallengeTracks([], user).classified;
+  assert.equal(progress.completedCount, 1);
+  assert.equal(progress.nextTeam, CLASSIFIED_TRACK[1]);
+});
+
+test("снятие раннего шага сбрасывает зависимые шаги, но не wildcards", () => {
+  const teams = CLASSIFIED_TRACK.slice(0, 3);
+  const events = [...teams, WILDCARDS[0]].map((team) => ({ team, action: "credit" }));
+  events.push({ team: teams[1], action: "deduct" });
+  let progress = buildTrackProgress(events, teams, WILDCARDS);
+  assert.equal(progress.completedCount, 1);
+  assert.equal(progress.nextTeam, teams[1]);
+  assert.equal(progress.wildcardCompleted.length, 1);
+  assert.equal(progress.teams[2].credit, null);
+
+  events.push({ team: teams[2], action: "credit" }, { team: teams[1], action: "credit" });
+  progress = buildTrackProgress(events, teams, WILDCARDS);
+  assert.equal(progress.completedCount, 2);
+  assert.equal(progress.nextTeam, teams[2]);
+  events.push({ team: teams[2], action: "credit" });
+  assert.equal(buildTrackProgress(events, teams, WILDCARDS).completedCount, 3);
+});
+
+test("треки продвигаются независимо и исключённые игры не открывают следующий шаг", () => {
+  const user = { id: 1 };
+  const first = completedGame(1, 1, "Kasrkin", "2026-01-01T00:00:00.000Z");
+  first.result.challengeCredit = false;
+  const games = [first, completedGame(2, 1, "Inquisitorial Agents", "2026-01-02T00:00:00.000Z")];
+  assert.equal(buildChallengeTracks(games, user).classified.completedCount, 0);
+  first.result.challengeCredit = true;
+  const tracks = buildChallengeTracks(games, user);
+  assert.equal(tracks.classified.completedCount, 2);
+  assert.equal(tracks.allKillTeam.completedCount, 0);
+});
+
+test("игры с одинаковым временем идут по id независимо от порядка выдачи БД", () => {
+  const games = [
+    completedGame(2, 1, "Inquisitorial Agents", "2026-01-01T00:00:00.000Z"),
+    completedGame(1, 1, "Kasrkin", "2026-01-01T00:00:00.000Z")
+  ];
+  assert.equal(buildChallengeTracks(games, { id: 1 }).classified.completedCount, 2);
 });

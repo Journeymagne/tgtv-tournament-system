@@ -2,6 +2,13 @@
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 3.0.0
+
+See [CHANGELOG.md](CHANGELOG.md) for all changes since 2.3.2 and upgrade notes.
+This release adds migrations 022–027, a separate first-round preparation/start
+flow, captain undo and result confirmation, roster profiles, table images,
+Achievements and Hall Of Fame, and strict challenge ordering.
+
 ## Run
 
 PostgreSQL is required. Without `DATABASE_URL` the server refuses to start.
@@ -196,6 +203,37 @@ existing JSON data into PostgreSQL, run once:
 ```powershell
 node scripts/import-json-db.js
 ```
+
+## Achievements
+
+The **Achievements** page has **Achievements** and **Hall Of Fame** tabs. The
+first shows the latest additions first; Hall Of Fame contains winner titles
+sorted by tournament edition (descending, including Roman numerals), then by
+date added. Administrators choose the category and personal/team type on creation.
+Administrators
+can create an achievement with a name, description and either one emoji or a
+PNG/JPEG/WebP image (up to 1 MiB), open its page, and award it to a registered player or team.
+The creation dialog defaults to Emoji, supports paste and previews the selected
+symbol. On Windows, Win + . opens the system emoji panel.
+Player selection supports nickname search. Each recipient can receive a given
+achievement once; the detail page lists recipients. Awards appear in player
+profiles (including your own) and in the main tab of team profiles. Team awards
+can include an optional selection of current or former team members; the names
+are saved as a snapshot on the award and shown on its detail page.
+Administrators can delete achievements from the detail page after confirmation.
+Deletion hides the catalog entry and all profile awards while preserving the
+stored history and preventing automatic medals from being recreated on re-publication.
+
+Publishing an event's final standings completes the event and automatically
+creates its first-, second- and third-place medals (🥇, 🥈, 🥉). Individual events
+award player accounts; team events award the roster's parent team. A guest
+without an account retains their placing but receives no profile award; their
+medal is not reassigned to the next player. Event medals cannot be manually
+awarded. Repeated team standings publication reconciles recipients without
+duplicates. Existing completed events are not retroactively awarded on upgrade.
+
+Migration `023_achievements` adds the catalog and award tables. Include both in
+database backups. Images are served separately from catalog JSON.
 
 ## Features
 

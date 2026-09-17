@@ -14,6 +14,59 @@ function sourceOf(name) {
   return result;
 }
 
+function publicRosterUi(me = null) {
+  const functions = ["canManageTournamentParticipants", "tournamentInfoTabDefinitions", "tournamentInfoTabContent",
+    "publicTeamRostersList", "teamRosterLabel", "teamRosterStatusLabel", "tournamentParticipantProfileLink", "activeRosterMembersForUi"];
+  const escape = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+  return new Function("state", "t", "escapeHtml", "playerProfileLink", "adminUi",
+    `${functions.map(sourceOf).join("\n")}; return { tournamentInfoTabDefinitions, tournamentInfoTabContent };`)(
+    { me }, (key) => key, escape, (player) => `<a data-player="${player.id}">${escape(player.name)}</a>`,
+    () => ({ adminTournamentParticipantsContent: () => "ADMIN EDITOR" })
+  );
+}
+
+test("team roster tab is available to guests and players, and retains the admin editor", () => {
+  const data = { tournament: { id: 1, participantMode: "team" }, rosters: [] };
+  for (const me of [null, { id: 2 }, { id: 1, isAdmin: true }]) {
+    const ui = publicRosterUi(me);
+    assert.deepEqual(ui.tournamentInfoTabDefinitions(data).map((tab) => tab.id), ["standings", "matches", "stats", "participants"]);
+    assert.match(ui.tournamentInfoTabContent("participants", data), /teams.tournament.rostersEmpty/);
+    assert.doesNotMatch(ui.tournamentInfoTabContent("participants", data, { admin: true }), me?.isAdmin ? /rostersEmpty/ : /ADMIN EDITOR/);
+  }
+  const ui = publicRosterUi({ id: 1, isAdmin: true });
+  assert.equal(ui.tournamentInfoTabDefinitions(data, { admin: true }).filter((tab) => tab.id === "participants").length, 1);
+  assert.equal(ui.tournamentInfoTabContent("participants", data, { admin: true }), "ADMIN EDITOR");
+});
+
+test("public roster preview shows names, captain and status while respecting faction privacy", () => {
+  const data = { tournament: { id: 1, participantMode: "team" }, rosters: [{
+    id: 1, name: "Squad <one>", team: { name: "Amber", slug: "amber" }, status: "registered", captainUserId: 1,
+    members: [
+      { userId: 2, slot: 2, displayNameSnapshot: "Player B", factionSnapshot: "Kommandos", factionHidden: true },
+      { userId: 1, slot: 1, displayNameSnapshot: "Captain <A>", factionSnapshot: "Angels of Death", factionHidden: true },
+      { userId: 3, slot: 3, displayNameSnapshot: "Former player", endedAt: "2026-09-01", factionSnapshot: "Kommandos" }
+    ]
+  }] };
+  for (const me of [null, { id: 99 }]) {
+    const ui = publicRosterUi(me);
+    const hidden = ui.tournamentInfoTabContent("participants", data);
+    assert.match(hidden, /Squad &lt;one&gt;/);
+    assert.match(hidden, /Captain &lt;A&gt;/);
+    assert.match(hidden, /data-roster-profile-link="1"/);
+    assert.doesNotMatch(hidden, /data-team-profile-link/);
+    assert.match(hidden, /teams.role.captain/);
+    assert.match(hidden, /teams.roster.status.registered/);
+    assert.match(hidden, /tournaments.participant.factionHidden/);
+    assert.doesNotMatch(hidden, /Kommandos|Angels of Death|Former player|ADMIN EDITOR/);
+    assert.ok(hidden.indexOf("Captain &lt;A&gt;") < hidden.indexOf("Player B"));
+  }
+  data.rosters[0].members.forEach((member) => { member.factionHidden = false; });
+  const revealed = publicRosterUi().tournamentInfoTabContent("participants", data);
+  assert.match(revealed, /Kommandos/);
+  assert.match(revealed, /Angels of Death/);
+  assert.doesNotMatch(revealed, /tournaments.participant.factionHidden/);
+});
+
 const rosterHelpers = new Function(`${["suggestedRosterName", "updateRosterNameDefault", "rosterNameFromForm"].map(sourceOf).join("\n")}; return { suggestedRosterName, updateRosterNameDefault, rosterNameFromForm };`)();
 
 test("roster defaults count only this team's entries and avoid collisions, including withdrawn entries", () => {
@@ -55,7 +108,7 @@ test("tournament form preserves an existing logo unless replaced or removed and 
   assert.throws(() => bodyFromForm(form), { message: "tournaments.logo.loading" });
 });
 
-function logoHarness() {
+function logoHarness(confirmDelete = async () => true) {
   const listeners = {};
   const input = { value: "", files: [], addEventListener: (_event, fn) => { listeners.upload = fn; } };
   const remove = { hidden: true, addEventListener: (_event, fn) => { listeners.remove = fn; } };
@@ -65,9 +118,9 @@ function logoHarness() {
   const requests = [];
   const form = { dataset: {}, elements: { logoData: { value: "", dataset: {} } }, querySelector: (key) => controls[key], dispatchEvent: (event) => requests.push(event.type) };
   const loads = new Map();
-  const wire = new Function("t", "loadImage", "blobToDataUrl", "CustomEvent", "setMessage", `${sourceOf("wireTournamentLogo")}; return wireTournamentLogo;`)(
+  const wire = new Function("t", "loadImage", "blobToDataUrl", "CustomEvent", "setMessage", "confirmDelete", `${sourceOf("wireTournamentLogo")}; return wireTournamentLogo;`)(
     (key) => key, (file) => new Promise((resolve) => loads.set(file.name, resolve)), async (file) => `data:image/png;base64,${file.name}`,
-    class { constructor(type) { this.type = type; } }, () => {}
+    class { constructor(type) { this.type = type; } }, () => {}, confirmDelete
   );
   wire(form);
   return { form, input, preview, remove, status, loads, requests, listeners };
@@ -88,10 +141,27 @@ test("logo selection previews the newest file and ignores a slower previous read
   assert.equal(h.preview.hidden, false);
   assert.equal(h.remove.hidden, false);
   assert.deepEqual(h.requests, ["tournament-autosave-request"]);
-  h.listeners.remove();
+  await h.listeners.remove();
   assert.equal(h.form.elements.logoData.value, "");
   assert.equal(h.form.elements.logoData.dataset.changed, "1");
   assert.equal(h.preview.hidden, true);
+});
+
+test("cancelling logo removal preserves the image and does not request autosave", async () => {
+  let answer;
+  const h = logoHarness(() => new Promise((resolve) => { answer = resolve; }));
+  h.form.elements.logoData.value = "existing";
+  h.preview.src = "existing";
+  h.preview.hidden = false;
+  const removing = h.listeners.remove();
+  assert.equal(h.form.elements.logoData.value, "existing");
+  assert.deepEqual(h.requests, []);
+  answer(false);
+  await removing;
+  assert.equal(h.form.elements.logoData.value, "existing");
+  assert.equal(h.preview.src, "existing");
+  assert.equal(h.preview.hidden, false);
+  assert.deepEqual(h.requests, []);
 });
 
 test("oversized or unsupported logos never replace the current image", async () => {

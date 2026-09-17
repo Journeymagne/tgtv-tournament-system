@@ -3,7 +3,6 @@ const {
   mapTournamentParticipant
 } = require("../rows");
 
-const COMPETITIVE_STATUSES = ["joined", "active"];
 const ACTIVE_NAME_STATUSES = ["joined", "active", "pending_placement", "eliminated", "finished"];
 
 const FIELD_COLUMNS = {
@@ -60,16 +59,6 @@ async function listByTournament(client, tournamentId) {
      WHERE tournament_id = $1
      ORDER BY COALESCE(seed, 2147483647), id`,
     [tournamentId]
-  );
-  return rows.map(mapTournamentParticipant);
-}
-
-async function listCompetitive(client, tournamentId) {
-  const { rows } = await client.query(
-    `SELECT ${COLUMNS} FROM tournament_participants
-     WHERE tournament_id = $1 AND status = ANY($2::text[])
-     ORDER BY seed, id`,
-    [tournamentId, COMPETITIVE_STATUSES]
   );
   return rows.map(mapTournamentParticipant);
 }
@@ -142,11 +131,9 @@ async function setAllCompetitiveStatus(client, tournamentId, status) {
 }
 
 module.exports = {
-  COMPETITIVE_STATUSES,
   ACTIVE_NAME_STATUSES,
   insert,
   listByTournament,
-  listCompetitive,
   findByTournamentUser,
   lockById,
   lockByTournament,
