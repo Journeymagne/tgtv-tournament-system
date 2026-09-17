@@ -1758,7 +1758,7 @@ function renderPublicTournament(data) {
         ${tournamentRulesLinkMarkup(tournament)}
         <section class="profile-grid tournament-metrics">
           ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
-          ${metricCard(t(isTeamTournament ? "teams.tournament.rosters" : "tournaments.field.participants"), String(listedParticipants.length))}
+          ${metricCard(t(isTeamTournament ? "teams.tournament.rosters" : "tournaments.field.participants"), tournamentParticipantCountLabel({ ...tournament, participantCount: listedParticipants.length }))}
           ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
           ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
           ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
@@ -1773,6 +1773,8 @@ function renderPublicTournament(data) {
 function publicTournamentViewerActions(data) {
   const tournament = data.tournament || {};
   const viewer = tournament.viewer || {};
+  const limit = tournamentParticipantLimit(tournament);
+  const full = limit > 0 && tournamentRegistrationCount(data) >= limit;
   if (!state.me) return "";
   if (tournament.participantMode === "team") {
     const mine = (data.rosters || []).filter((item) =>
@@ -1792,7 +1794,7 @@ function publicTournamentViewerActions(data) {
         ? `<button class="danger-button" data-public-team-roster-delete="${withdrawn.id}">${t("teams.tournament.delete")}</button>`
         : "";
       const join = tournament.status === "registration_open"
-        ? `<button class="primary-button" data-public-tournament-join="${tournament.id}">${t("teams.tournament.register")}</button>`
+        ? `<button class="primary-button" data-public-tournament-join="${tournament.id}" ${full ? "disabled" : ""}>${t(full ? "tournaments.registration.full" : "teams.tournament.register")}</button>`
         : "";
       return `${join}${clear}`;
     }
@@ -1802,7 +1804,7 @@ function publicTournamentViewerActions(data) {
     return "";
   }
   if (!viewer.participantId && tournament.status === "registration_open") {
-    return `<button class="primary-button" data-public-tournament-join="${tournament.id}">${t("tournaments.action.join")}</button>`;
+    return `<button class="primary-button" data-public-tournament-join="${tournament.id}" ${full ? "disabled" : ""}>${t(full ? "tournaments.registration.full" : "tournaments.action.join")}</button>`;
   }
   if (viewer.participantId && ["draft", "registration_open", "registration_closed"].includes(tournament.status)) {
     return `<button class="danger-button" data-public-tournament-withdraw="${tournament.id}">${t("tournaments.action.withdraw")}</button>`;
@@ -2767,8 +2769,15 @@ function tournamentParticipantCountLabel(tournament) {
 }
 
 function tournamentParticipantLimit(tournament) {
+  if (tournament.registrationLimit) return Number(tournament.registrationLimit);
+  if (tournament.participantMode === "team") return 128;
   if (tournament.format !== "single_elimination") return 0;
   return Number(tournament.singleEliminationSize || 0);
+}
+
+function tournamentRegistrationCount(data) {
+  const entries = data.tournament?.participantMode === "team" ? data.rosters : data.participants;
+  return (entries || []).filter((entry) => !["withdrawn", "removed"].includes(entry.status)).length;
 }
 
 function tournamentRoundCountLabel(tournament) {
@@ -7764,10 +7773,10 @@ function renderRosterProfile() {
   const members = [...(roster.members || [])].sort((a, b) => Boolean(a.endedAt) - Boolean(b.endedAt) || a.slot - b.slot);
   content.innerHTML = `<div class="roster-profile-page">
     <section class="card panel">
-      <div class="panel-header"><div><p class="profile-label">${t("teams.tournament.roster")} · ${escapeHtml(tournament.name)}</p>
+      <div class="panel-header"><div class="roster-heading">${rosterTeamLogoMarkup(roster)}<div><p class="profile-label">${t("teams.tournament.roster")} · ${escapeHtml(tournament.name)}</p>
         <h2>${escapeHtml(roster.name)}</h2>
-        <p class="muted">${escapeHtml(roster.teamNameSnapshot || roster.team?.name || "")} · ${escapeHtml(teamRosterStatusLabel(roster.status))} · ${t("teams.roster.seed", { seed: roster.seed || "—" })}</p>
-      </div><div class="row-actions">
+        <p class="muted">${rosterTeamLinkMarkup(roster)} · ${escapeHtml(teamRosterStatusLabel(roster.status))} · ${t("teams.roster.seed", { seed: roster.seed || "—" })}</p>
+      </div></div><div class="row-actions">
         <button class="ghost-button" data-roster-back>${t("common.back")}</button>
         <button class="small-button" data-roster-tournament>${t("teams.pairing.openTournament")}</button>
         ${roster.team?.slug ? `<button class="small-button" data-team-profile-link="${escapeHtml(roster.team.slug)}">${t("teams.roster.openTeam")}</button>` : ""}
@@ -7785,6 +7794,20 @@ function renderRosterProfile() {
   content.querySelector("[data-roster-tournament]").addEventListener("click", () => navigateToPublicTournament(tournament.slug, { tab: "standings" }));
   wireTeamTournamentControls(data, { roster: true });
   wireLeaderboardProfiles();
+}
+
+function rosterTeamLinkMarkup(roster) {
+  const name = escapeHtml(roster.team?.name || roster.teamNameSnapshot || "");
+  const slug = roster.team?.slug;
+  return slug ? `<a class="text-link-button inline-profile-link" href="${escapeHtml(playerTeamPublicPath(slug))}" data-team-profile-link="${escapeHtml(slug)}">${name}</a>` : name;
+}
+
+function rosterTeamLogoMarkup(roster) {
+  const name = roster.team?.name || roster.teamNameSnapshot || "";
+  const logo = roster.team && Object.hasOwn(roster.team, "logoData") ? roster.team.logoData : roster.teamLogoSnapshot;
+  return logo
+    ? `<img class="roster-team-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(t("teams.logoAlt", { name }))}" loading="lazy">`
+    : `<span class="roster-team-logo roster-team-initials" aria-hidden="true">${escapeHtml(name.slice(0, 2).toUpperCase() || "?")}</span>`;
 }
 
 function teamRosterLabel(roster, fallback = t("teams.tournament.rosterFallback")) {
@@ -7811,8 +7834,10 @@ function publicTeamRostersList(rosters) {
   return `<div class="list public-team-rosters">${rosters.map((roster) => `
     <div class="row-card">
       <div class="row-main">
-        <div class="row-title">${teamRosterLabel(roster)}</div>
-        <div class="row-meta">${escapeHtml(roster.team?.name || roster.teamNameSnapshot || "")} · ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
+        <div class="roster-heading roster-heading-compact">${rosterTeamLogoMarkup(roster)}<div>
+          <div class="row-title">${teamRosterLabel(roster)}</div>
+          <div class="row-meta">${rosterTeamLinkMarkup(roster)} · ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
+        </div></div>
         <div class="team-roster-members">${activeRosterMembersForUi(roster).slice().sort((a, b) => a.slot - b.slot).map((member) => `
           <span>${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot || t("tournaments.participant.factionMissing"))}${member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>
         `).join("")}</div>
@@ -8087,9 +8112,27 @@ function teamTableImageMarkup(table) {
   return `<img class="team-table-image" src="/api/tournament-table-images/${id}" alt="${escapeHtml(label)}" loading="lazy">`;
 }
 
+function teamMatchResultMarkup(match) {
+  if (match.phase !== "completed" || !Number.isFinite(match.teamTournamentPointsA) || !Number.isFinite(match.teamTournamentPointsB)) return "";
+  const pointsA = match.teamTournamentPointsA;
+  const pointsB = match.teamTournamentPointsB;
+  const winner = pointsA > pointsB ? match.rosterA : pointsB > pointsA ? match.rosterB : null;
+  const headline = pointsA === pointsB ? t("teams.results.draw")
+    : t("teams.results.winner", { name: winner?.name || winner?.teamNameSnapshot || t("teams.tournament.rosterFallback") });
+  const score = `${pointsA}:${pointsB} TTP · ${match.teamGamePointsA}:${match.teamGamePointsB} GP`;
+  const note = match.resolution === "bye" ? t("teams.pairing.bye")
+    : match.resolution === "forfeit" ? t("teams.pairing.forfeit") : "";
+  return `<div class="result-headline team-match-result">
+    <div>${escapeHtml(headline)}</div>
+    <div class="team-match-score">${escapeHtml(score)}</div>
+    ${note ? `<div class="team-match-result-note">${escapeHtml(note)}</div>` : ""}
+  </div>`;
+}
+
 function teamTournamentMatchMarkup(match, tournament, options = {}) {
   const completeScore = match.phase === "completed" ? `${match.teamTournamentPointsA}:${match.teamTournamentPointsB} TTP · ${match.teamGamePointsA}:${match.teamGamePointsB} GP` : "";
-  if (match.resolution === "bye") return `<article class="row-card team-match-card"><div class="row-main"><div class="row-title">${teamRosterLabel(match.rosterA)}</div><div class="row-meta">${t("teams.pairing.bye")} · ${escapeHtml(completeScore)}</div></div></article>`;
+  const resultMarkup = teamMatchResultMarkup(match);
+  if (match.resolution === "bye") return `<article class="row-card team-match-card"><div class="row-main"><div class="row-title">${teamRosterLabel(match.rosterA)}</div>${resultMarkup || `<div class="row-meta">${t("teams.pairing.bye")}</div>`}</div></article>`;
   const canReset = Boolean(state.me?.isAdmin) && tournament.status === "in_progress" && !match.resolution && match.rosterA?.status !== "withdrawn" && match.rosterB?.status !== "withdrawn";
   const canOpenPairing = !options.standalone;
   const resetPhases = ["awaiting_roll", ...(match.pairingVersion === 2 ? ["mission_ban"] : []), "shield_selection", "sword_selection", "environment_selection"];
@@ -8101,9 +8144,9 @@ function teamTournamentMatchMarkup(match, tournament, options = {}) {
     : ["in_progress", "completed"].includes(match.phase) ? "" : teamMatchPhaseLabel(match.phase), completeScore].filter(Boolean).join(" · ");
   return `<article class="row-card team-match-card">
     <div class="row-main">
-      ${teamMatchProgressMarkup(match)}
       <div class="row-title">${teamRosterLabel(match.rosterA)} vs ${teamRosterLabel(match.rosterB)}</div>
-      ${status ? `<div class="row-meta">${escapeHtml(status)}</div>` : ""}
+      ${teamMatchProgressMarkup(match)}
+      ${resultMarkup || (status ? `<div class="row-meta">${escapeHtml(status)}</div>` : "")}
       ${teamPairingSelectionsMarkup(match)}${teamMatchGamesMarkup(match, { showProgress: false })}
       <div class="team-captain-control">${teamCaptainPairingControl(match, tournament)}${canReset ? adminUi().adminTeamPairingOverrideForm(match) : ""}</div>
       ${match.canUndo && tournament.status === "in_progress" ? `<div class="row-actions team-pairing-undo"><button class="ghost-button" data-team-match-undo="${match.id}" data-revision="${match.pairingRevision}" data-resets-results="${Boolean(match.undoResetsResults)}">${t("teams.pairing.undo")}</button></div>` : ""}
@@ -8159,8 +8202,8 @@ function teamTournamentMatchPreviewMarkup(match, tournament) {
   return `<article class="row-card team-match-card team-match-preview" data-team-match-preview="${match.id}">
     <div class="team-match-preview-header">
       <div class="row-main">
-        ${teamMatchProgressMarkup(match)}
         <div class="row-title">${teamRosterLabel(match.rosterA)}${match.rosterB ? ` vs ${teamRosterLabel(match.rosterB)}` : ""}</div>
+        ${teamMatchProgressMarkup(match)}
         ${meta ? `<div class="row-meta">${escapeHtml(meta)}</div>` : ""}
       </div>
       ${match.resolution === "bye" ? "" : `<button class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</button>`}
@@ -8926,6 +8969,13 @@ function updateTournamentParticipantModeFields(form) {
     field.hidden = isTeam;
   });
   updateTournamentFormatFields(form);
+  const limitField = form.querySelector('[name="registrationLimit"]');
+  if (limitField) {
+    const capacity = isTeam ? 128 : formatSelect?.value === "single_elimination"
+      ? Number(form.querySelector('[name="singleEliminationSize"]')?.value || 8) : null;
+    if (capacity) limitField.max = String(capacity);
+    else limitField.removeAttribute("max");
+  }
 }
 
 async function loadTeamsDashboard(query = "") {
@@ -8997,7 +9047,11 @@ function wireTeamTournamentControls(data, options = {}) {
     adminUi().wireAdminTeamRosterControls(data);
   }
   document.querySelectorAll("[data-team-profile-link]").forEach((button) => {
-    button.addEventListener("click", () => navigateToPlayerTeam(button.dataset.teamProfileLink));
+    button.addEventListener("click", (event) => {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button > 0) return;
+      event.preventDefault();
+      navigateToPlayerTeam(button.dataset.teamProfileLink);
+    });
   });
   document.querySelectorAll("[data-team-pairing-open]").forEach((button) => {
     button.addEventListener("click", () => openTeamPairing(button.dataset.teamPairingOpen));

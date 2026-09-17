@@ -3,6 +3,11 @@
 // public/i18n/glossary.js and test/unit/i18n.test.js.
 
 const TGTV_I18N_RU = {
+  "tournaments.registration.limit": "Лимит регистраций",
+  "tournaments.registration.optional": "Не задан",
+  "tournaments.registration.limitHint": "Игроков в личном турнире, составов в командном. Пустое поле — вместимость по формату турнира. Лимит виден всем.",
+  "tournaments.registration.full": "Мест нет",
+  "tournaments.registration.paid": "Оплатил",
   "achievements.edit": "Редактировать",
   "achievements.logoType": "Лого ачивки",
   "achievements.emoji": "Эмодзи",
@@ -889,6 +894,8 @@ const TGTV_I18N_RU = {
   "teams.tournament.totalVp": "Сумма VP",
   "teams.results.noTiebreakers": "При равном счёте личная игра заканчивается вничью. Личные тайбрейки в командном формате не применяются.",
   "teams.results.progress": "Завершено игр: {count}/{total} · Текущие GP: {a}:{b}",
+  "teams.results.winner": "Победа: {name}",
+  "teams.results.draw": "Ничья",
   "teams.pairing.awaitingMatchup": "Игроки ещё не определены",
   "teams.tableImage.label": "Изображение Killzone",
   "teams.tableImage.hint": "PNG, JPG или WebP до 20 МБ. Сохраняется с короткой стороной 200 px и исходными пропорциями. При смене киллзоны или лейаута картинка очищается.",

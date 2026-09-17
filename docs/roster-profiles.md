@@ -9,6 +9,9 @@
 - The page displays the roster's players (including former members), captain,
   seed, status, tournament place and statistics. Match history is newest round
   first; scores follow the displayed roster A / roster B order.
+- The roster header and public/admin roster lists display the parent team's
+  current logo and a separate link on its name. Missing logos use initials;
+  the roster name continues to open its tournament-specific profile.
 - History cards link to match/game details. Result entry and pairing controls
   remain on the match and game pages. Back retraces the actual navigation;
   opening the roster by a direct link falls back to the tournament standings.

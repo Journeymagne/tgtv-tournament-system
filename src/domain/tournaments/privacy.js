@@ -4,6 +4,10 @@ function tournamentFactionsHidden(rounds = []) {
 }
 
 function rosterForViewer(roster, user, { teamLeader = false, rounds = [] } = {}) {
+  if (!user?.isAdmin && Object.hasOwn(roster, "paid")) {
+    const { paid, ...publicRoster } = roster;
+    roster = publicRoster;
+  }
   const isRosterMember = user && (roster.members || []).some((member) => member.userId === user.id && !member.endedAt);
   if (!tournamentFactionsHidden(rounds) || user?.isAdmin ||
       (user && (roster.captainUserId === user.id || teamLeader || isRosterMember))) return roster;

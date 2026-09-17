@@ -1076,6 +1076,47 @@ button:disabled {
   gap: 12px;
 }
 
+.roster-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.roster-heading > div {
+  min-width: 0;
+}
+
+.roster-team-logo {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.roster-team-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.roster-heading-compact {
+  margin-bottom: 10px;
+}
+
+.roster-heading-compact .roster-team-logo {
+  width: 48px;
+  height: 48px;
+  flex-basis: 48px;
+  font-size: 18px;
+}
+
 .roster-summary-metrics .metric-card {
   min-width: 0;
 }
@@ -3207,6 +3248,36 @@ tr:last-child td {
   background: transparent;
 }
 
+.team-pairing-workspace > .team-match-card > .row-main > .row-title {
+  font-size: 26px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.team-pairing-workspace .team-match-score {
+  font-size: 21px;
+  line-height: 1.4;
+}
+
+.team-match-result {
+  margin-top: 10px;
+  color: #f4f4f4;
+  font-size: 21px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.team-match-result .team-match-score,
+.team-match-result-note {
+  margin-top: 4px;
+  color: #b9b9b9;
+  font-weight: 600;
+}
+
+.team-match-result-note {
+  font-size: 13px;
+}
+
 .team-pairing-details {
   margin-top: 14px;
   padding: 0 12px;
@@ -3233,11 +3304,6 @@ tr:last-child td {
 
 .team-match-preview-header > button {
   flex: 0 0 auto;
-}
-
-.team-match-preview .team-match-progress {
-  font-size: 1.25em;
-  margin-bottom: 8px;
 }
 
 .team-pairing-details[open] {
@@ -3319,10 +3385,11 @@ tr:last-child td {
 }
 
 .team-match-progress {
-  margin: 0 0 14px;
-  font-size: 2em;
-  font-weight: 900;
-  line-height: 1.2;
+  margin: 6px 0 8px;
+  color: var(--muted);
+  font-size: 0.875em;
+  font-weight: 600;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
@@ -4016,3 +4083,29 @@ tr:last-child td {
 [data-achievement-roster] { margin-block: 16px; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
 [data-achievement-award] .achievement-member { display: flex; align-items: center; gap: 10px; padding-block: 6px; }
 .achievement-member input { width: auto; }
+.registration-payment {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.registration-payment label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.registration-payment input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.registration-payment [data-payment-status]:empty {
+  display: none;
+}

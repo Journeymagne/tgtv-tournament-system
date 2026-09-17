@@ -16,7 +16,7 @@ function sourceOf(name) {
 
 function publicRosterUi(me = null) {
   const functions = ["canManageTournamentParticipants", "tournamentInfoTabDefinitions", "tournamentInfoTabContent",
-    "publicTeamRostersList", "teamRosterLabel", "teamRosterStatusLabel", "tournamentParticipantProfileLink", "activeRosterMembersForUi"];
+    "publicTeamRostersList", "rosterTeamLinkMarkup", "rosterTeamLogoMarkup", "playerTeamPublicPath", "teamRosterLabel", "teamRosterStatusLabel", "tournamentParticipantProfileLink", "activeRosterMembersForUi"];
   const escape = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
   return new Function("state", "t", "escapeHtml", "playerProfileLink", "adminUi",
     `${functions.map(sourceOf).join("\n")}; return { tournamentInfoTabDefinitions, tournamentInfoTabContent };`)(
@@ -53,7 +53,8 @@ test("public roster preview shows names, captain and status while respecting fac
     assert.match(hidden, /Squad &lt;one&gt;/);
     assert.match(hidden, /Captain &lt;A&gt;/);
     assert.match(hidden, /data-roster-profile-link="1"/);
-    assert.doesNotMatch(hidden, /data-team-profile-link/);
+    assert.match(hidden, /href="\/teams\/amber"/);
+    assert.match(hidden, /data-team-profile-link="amber"/);
     assert.match(hidden, /teams.role.captain/);
     assert.match(hidden, /teams.roster.status.registered/);
     assert.match(hidden, /tournaments.participant.factionHidden/);

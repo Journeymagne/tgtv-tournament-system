@@ -433,6 +433,13 @@ async function updateAdmin({ client, user, params, body }) {
     }
   }
   const patch = normalizeTournamentPatch(body, tournament);
+  if (patch.registrationLimit) {
+    const entries = tournament.participantMode === "team"
+      ? await require("../db/repositories/team-rosters").listByTournament(client, tournament.id)
+      : await participantsRepo.listByTournament(client, tournament.id);
+    const count = entries.filter((entry) => !["withdrawn", "removed"].includes(entry.status)).length;
+    if (patch.registrationLimit < count) throw new HttpError(409, "Registration limit cannot be lower than the number already registered");
+  }
   const preparationFields = ["format", "participantMode", "teamSize", "pairingType", "swissRoundCount", "singleEliminationSize", "venueMode"];
   if (preparationFields.some((key) => Object.hasOwn(patch, key) && patch[key] !== tournament[key])) {
     await clearPreparedRounds(client, tournament);
@@ -542,10 +549,14 @@ async function assertParticipantAddAllowed(client, tournament, source) {
 }
 
 async function assertParticipantCapacityAllowed(client, tournament, additionalCount = 1) {
+  const participants = await participantsRepo.listByTournament(client, tournament.id);
+  const registeredCount = participants.filter((participant) => !["withdrawn", "removed"].includes(participant.status)).length;
+  if (tournament.registrationLimit && registeredCount + additionalCount > tournament.registrationLimit) {
+    throw new HttpError(409, "Registration limit reached");
+  }
   if (tournament.format !== TOURNAMENT_FORMATS.SINGLE_ELIMINATION) return;
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) return;
   const bracketSize = Number(tournament.singleEliminationSize || 8);
-  const participants = await participantsRepo.listByTournament(client, tournament.id);
   const competitiveCount = participants.filter((participant) =>
     [PARTICIPANT_STATUSES.JOINED, PARTICIPANT_STATUSES.ACTIVE].includes(participant.status)
   ).length;

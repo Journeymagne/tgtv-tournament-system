@@ -13,6 +13,7 @@ const FIELD_COLUMNS = {
   factionRules: "faction_rules",
   seed: "seed",
   status: "status",
+  paid: "paid",
   source: "source",
   withdrawnAt: "withdrawn_at",
   removedAt: "removed_at",

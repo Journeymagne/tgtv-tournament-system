@@ -2,12 +2,14 @@
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 3.0.0
+## Release 3.0.1
 
-See [CHANGELOG.md](CHANGELOG.md) for all changes since 2.3.2 and upgrade notes.
-This release adds migrations 022–027, a separate first-round preparation/start
-flow, captain undo and result confirmation, roster profiles, table images,
-Achievements and Hall Of Fame, and strict challenge ordering.
+See [CHANGELOG.md](CHANGELOG.md) for the release history and upgrade notes.
+This release adds public registration limits, private administrator payment
+checkboxes, 24-hour time, team logos and links on rosters, and clearer team-match
+results. Migration 028 applies on startup; existing tournaments have no explicit
+registration limit and existing registrations start with payment unchecked.
+The migration preserves production data and does not import the local demo database.
 
 ## Run
 

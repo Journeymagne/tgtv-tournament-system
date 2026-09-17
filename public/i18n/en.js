@@ -3,6 +3,11 @@
 // Keys are flat and dotted, grouped by screen with comment separators.
 
 const TGTV_I18N_EN = {
+  "tournaments.registration.limit": "Registration limit",
+  "tournaments.registration.optional": "Not set",
+  "tournaments.registration.limitHint": "Players for individual tournaments; rosters for team tournaments. Leave blank to use the format's capacity. The limit is public.",
+  "tournaments.registration.full": "Registration full",
+  "tournaments.registration.paid": "Paid",
   "achievements.edit": "Edit",
   "achievements.logoType": "Achievement logo",
   "achievements.emoji": "Emoji",
@@ -880,6 +885,8 @@ const TGTV_I18N_EN = {
   "teams.tournament.totalVp": "Total VP scored",
   "teams.results.noTiebreakers": "Individual ties remain draws in team tournaments. No individual tiebreakers.",
   "teams.results.progress": "Completed {count}/{total} games · Current GP: {a}:{b}",
+  "teams.results.winner": "Winner: {name}",
+  "teams.results.draw": "Draw",
   "teams.pairing.awaitingMatchup": "Players not paired yet",
   "teams.tableImage.label": "Killzone image",
   "teams.tableImage.hint": "PNG, JPG or WebP up to 20 MB. Saved with a 200 px short side, preserving proportions. Changing the killzone or layout clears the image.",

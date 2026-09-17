@@ -323,6 +323,50 @@ function adminTournamentsPanel() {
   `;
 }
 
+function adminRegistrationLimitField(tournament = {}, disabled = "") {
+  return `<div class="field">
+    <label for="tournament-registration-limit">${t("tournaments.registration.limit")}</label>
+    <input id="tournament-registration-limit" name="registrationLimit" type="number" min="1" step="1" value="${tournament.registrationLimit || ""}" placeholder="${t("tournaments.registration.optional")}" ${disabled}>
+    <span class="field-help">${t("tournaments.registration.limitHint")}</span>
+  </div>`;
+}
+
+function registrationPaymentCheckbox(entry, kind) {
+  return `<div class="registration-payment">
+    <label><input type="checkbox" data-registration-paid="${entry.id}" data-registration-kind="${kind}" ${entry.paid ? "checked" : ""}><span>${t("tournaments.registration.paid")}</span></label>
+    <span class="field-help" data-payment-status role="status"></span>
+  </div>`;
+}
+
+function wireRegistrationPayments(data) {
+  if (!data?.tournament) return;
+  document.querySelectorAll("[data-registration-paid]").forEach((input) => {
+    if (input.dataset.paymentWired) return;
+    input.dataset.paymentWired = "1";
+    input.addEventListener("change", async () => {
+      const paid = input.checked;
+      const kind = input.dataset.registrationKind;
+      const status = input.closest(".registration-payment").querySelector("[data-payment-status]");
+      input.disabled = true;
+      status.textContent = t("admin.tournament.autosave.saving");
+      try {
+        const result = await api(`/api/admin/tournaments/${data.tournament.id}/${kind}/${input.dataset.registrationPaid}/payment`, {
+          method: "PATCH", body: { paid }
+        });
+        const entry = (data[kind] || []).find((item) => item.id === Number(input.dataset.registrationPaid));
+        if (entry) entry.paid = result.paid;
+        input.checked = result.paid;
+        status.textContent = t("admin.tournament.autosave.saved");
+      } catch (err) {
+        input.checked = !paid;
+        status.textContent = err.message;
+      } finally {
+        input.disabled = false;
+      }
+    });
+  });
+}
+
 function adminTournamentCreatePanel() {
   return `
     <section class="card panel">
@@ -380,6 +424,7 @@ function adminTournamentCreatePanel() {
             <label>${t("admin.tournament.field.startsAt")}</label>
             <input name="startsAt" type="datetime-local">
           </div>
+          ${adminRegistrationLimitField()}
           <div class="field">
             <label>${t("admin.tournament.field.ratingPolicy")}</label>
             <select name="ratingPolicy">
@@ -481,7 +526,7 @@ function adminTournamentDetailPanel(data) {
       </div>
       <section class="profile-grid tournament-metrics">
         ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
-        ${metricCard(t(tournament.participantMode === "team" ? "teams.tournament.rosters" : "tournaments.field.participants"), String(tournament.participantMode === "team" ? (data.rosters || []).filter((roster) => roster.status !== "withdrawn").length : listedTournamentParticipants(data.participants || []).length))}
+        ${metricCard(t(tournament.participantMode === "team" ? "teams.tournament.rosters" : "tournaments.field.participants"), tournamentParticipantCountLabel({ ...tournament, participantCount: tournamentRegistrationCount(data) }))}
         ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
         ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
         ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
@@ -550,6 +595,7 @@ function adminTournamentEditForm(tournament) {
           <label>${t("admin.tournament.field.startsAt")}</label>
           <input name="startsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(tournament.startsAt))}" ${textLockAttrs}>
         </div>
+        ${adminRegistrationLimitField(tournament, lockAttrs)}
         <div class="field">
           <label>${t("admin.tournament.field.participantMode")}</label>
           <select name="participantMode" data-admin-tournament-participant-mode ${lockAttrs}>
@@ -815,6 +861,7 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
       </div>
       <div class="row-actions">
         <input class="seed-input" type="number" min="1" value="${participant.seed || 1}" data-participant-seed="${participant.id}" ${options.seedLocked || !["joined", "active"].includes(participant.status) ? "disabled" : ""}>
+        ${registrationPaymentCheckbox(participant, "participants")}
         <span class="status ${participant.status === "active" || participant.status === "joined" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(tournamentParticipantStatusLabel(participant.status))}</span>
         ${canRemove ? `<button class="danger-button" data-admin-participant-remove="${participant.id}">${t("admin.tournament.participants.remove")}</button>` : ""}
       </div>
@@ -926,12 +973,15 @@ function adminTeamRostersContent(data) {
     <div class="list">${rosters.length ? rosters.map((roster) => `
       <div class="row-card team-roster-admin-row ${roster.status === "withdrawn" ? "is-muted" : ""}">
         <div class="row-main">
-          <div class="row-title">${teamRosterLabel(roster)}</div>
-          <div class="row-meta">${t("teams.roster.seed", { seed: roster.seed || "-" })} · ${escapeHtml(roster.teamNameSnapshot || "")} · ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
+          <div class="roster-heading roster-heading-compact">${rosterTeamLogoMarkup(roster)}<div>
+            <div class="row-title">${teamRosterLabel(roster)}</div>
+            <div class="row-meta">${t("teams.roster.seed", { seed: roster.seed || "-" })} · ${rosterTeamLinkMarkup(roster)} · ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
+          </div></div>
           <div class="team-roster-members">${activeRosterMembersForUi(roster).map((member) => `<span>${escapeHtml(member.displayNameSnapshot)} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)}${member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>`).join("")}</div>
         </div>
         <div class="row-actions">
           ${roster.status !== "withdrawn" ? `<input class="seed-input" type="number" min="1" max="128" value="${roster.seed || 1}" data-team-roster-seed="${roster.id}" ${seedLocked ? "disabled" : ""}>` : ""}
+          ${registrationPaymentCheckbox(roster, "rosters")}
           ${!["withdrawn", "finished"].includes(roster.status) && !["completed", "cancelled"].includes(tournament.status) ? `<button class="small-button" data-admin-team-roster-edit="${roster.id}">${t("teams.tournament.edit")}</button>` : ""}
           ${!seedLocked && roster.status !== "withdrawn" ? `<button class="danger-button" data-admin-team-roster-withdraw="${roster.id}">${t("teams.tournament.withdraw")}</button>` : ""}
           ${!started || roster.status !== "withdrawn" ? `<button class="danger-button" data-admin-team-roster-delete="${roster.id}">${t("teams.tournament.delete")}</button>` : ""}
@@ -1236,6 +1286,7 @@ function wireAdminTournamentFormBehavior() {
     form.querySelector("[data-admin-tournament-participant-mode]")?.addEventListener("change", () => {
       updateTournamentParticipantModeFields(form);
     });
+    form.querySelector('[name="singleEliminationSize"]')?.addEventListener("change", () => updateTournamentParticipantModeFields(form));
     updateTournamentParticipantModeFields(form);
 
     const rulesFile = form.querySelector("[data-tournament-rules-file]");
@@ -1385,6 +1436,7 @@ function wireTournamentTableAdminControls() {
 }
 
 function wireTournamentParticipantAdminControls() {
+  wireRegistrationPayments(state.adminTournamentDetail);
   document.querySelector("[data-admin-tournament-add-participant]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     await submitAdminTournamentParticipant(event.currentTarget);
@@ -1567,6 +1619,9 @@ function adminTournamentBodyFromForm(form, options = {}) {
   setFormValue(body, form, "name");
   setFormValue(body, form, "gameSystem");
   setFormValue(body, form, "startsAt");
+  if (form.elements.registrationLimit && !form.elements.registrationLimit.disabled) {
+    body.registrationLimit = form.elements.registrationLimit.value.trim() === "" ? null : Number(form.elements.registrationLimit.value);
+  }
   if (Object.prototype.hasOwnProperty.call(body, "startsAt")) {
     // datetime-local has no timezone; convert in the browser before the API sees it.
     body.startsAt = datetimeLocalToIso(body.startsAt);
@@ -1901,6 +1956,7 @@ async function adminPatch(id, body) {
 }
 
 function wireAdminTeamRosterControls(data) {
+  wireRegistrationPayments(data);
   document.querySelector("[data-admin-team-roster-add]")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
     button.disabled = true;

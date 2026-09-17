@@ -227,6 +227,7 @@ function tournamentSummaryView(tournament) {
     description: tournament.description,
     gameSystem: tournament.gameSystem,
     startsAt: tournament.startsAt,
+    registrationLimit: tournament.registrationLimit || null,
     rulesSummary: tournament.rulesSummary,
     // An uploaded PDF is served by its own route rather than inlined here: the
     // same summary object rides along with every game of the tournament, so a
@@ -286,6 +287,7 @@ function tournamentDetailView({
   const hideFactions = tournamentFactionsHidden(rounds) && !viewer.canAdmin;
   const participantViews = participants.map((participant) => {
     const view = tournamentParticipantView(participant, people);
+    if (viewer.canAdmin) view.paid = Boolean(participant.paid);
     if (hideFactions && participant.id !== viewer.participantId) {
       return { ...view, faction: "", factionRules: "", factionHidden: true };
     }

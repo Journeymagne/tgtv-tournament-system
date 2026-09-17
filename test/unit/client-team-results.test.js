@@ -147,6 +147,7 @@ test("pairing choices collapse only after pairing ends, while games and undo rem
     const teamCaptainPairingControl = () => '';
     ${sourceOf("teamMatchProgressMarkup")}
     ${sourceOf("teamPairingSelectionsMarkup")}
+    ${sourceOf("teamMatchResultMarkup")}
     ${sourceOf("teamTournamentMatchMarkup")}
     return teamTournamentMatchMarkup;
   `)({ me: null }, key => key, String);
@@ -165,6 +166,28 @@ test("pairing choices collapse only after pairing ends, while games and undo rem
     assert.match(html.slice(html.indexOf('</details>')), /data-team-match-undo="7"/);
     assert.doesNotMatch(html, new RegExp(`<div class="row-meta">${phase}`));
   }
+});
+
+test("team result banners use awarded TTP, including draws with unequal GP, and wait for completion", () => {
+  const messages = require("../../public/i18n/en.js");
+  const render = new Function("t", "escapeHtml", `${sourceOf("teamMatchResultMarkup")}; return teamMatchResultMarkup;`)(
+    (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name]),
+    value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+  );
+  const match = { phase: "completed", rosterA: { name: "Ash <1>" }, rosterB: { name: "Silent 1" },
+    teamTournamentPointsA: 2, teamTournamentPointsB: 0, teamGamePointsA: 40, teamGamePointsB: 20 };
+  assert.match(render(match), /Winner: Ash &lt;1&gt;/);
+  assert.match(render(match), /2:0 TTP · 40:20 GP/);
+  assert.match(render({ ...match, teamTournamentPointsA: 0, teamTournamentPointsB: 2, teamGamePointsA: 20, teamGamePointsB: 40 }), /Winner: Silent 1/);
+  for (const gpA of [28, 30, 32]) {
+    const draw = render({ ...match, teamTournamentPointsA: 1, teamTournamentPointsB: 1, teamGamePointsA: gpA, teamGamePointsB: 60 - gpA });
+    assert.match(draw, />Draw<\/div>/);
+    assert.doesNotMatch(draw, /Winner:/);
+  }
+  assert.match(render({ ...match, resolution: "forfeit" }), /Winner: Ash &lt;1&gt;/);
+  assert.match(render({ ...match, resolution: "bye", rosterB: null }), /Winner: Ash &lt;1&gt;/);
+  assert.equal(render({ ...match, phase: "in_progress" }), "");
+  assert.equal(render({ ...match, teamTournamentPointsA: null, teamTournamentPointsB: null }), "");
 });
 
 test("My Games previews show confirmed game count and GP in the captain's displayed roster order", () => {

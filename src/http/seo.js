@@ -6,7 +6,7 @@ const { SECURITY_HEADERS } = require("./io");
 const SITE_NAME = "TGTV Ranking Tournament System";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "3.0.0";
+const ASSET_VERSION = "3.0.1";
 
 function requestOrigin(req) {
   const configured = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
@@ -205,6 +205,7 @@ function tournamentHtml(origin, tournament) {
     ["Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked"]
   ];
   if (tournament.startsAt) facts.splice(2, 0, ["Starts", new Date(tournament.startsAt).toISOString()]);
+  if (tournament.registrationLimit) facts.push([tournament.participantMode === "team" ? "Roster limit" : "Player limit", tournament.registrationLimit]);
   return `<!doctype html>
 <html lang="en">
   <head>

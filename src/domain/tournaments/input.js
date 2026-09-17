@@ -166,6 +166,16 @@ function normalizeTournamentPatch(body = {}, current = {}) {
   if (Object.prototype.hasOwnProperty.call(body, "startsAt")) {
     patch.startsAt = normalizeStartsAt(body.startsAt);
   }
+  if (Object.prototype.hasOwnProperty.call(body, "registrationLimit")) {
+    const value = body.registrationLimit;
+    if (value === null || value === "") patch.registrationLimit = null;
+    else {
+      if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 2147483647) {
+        throw new ValidationError("Registration limit must be a positive whole number");
+      }
+      patch.registrationLimit = value;
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(body, "rulesSummary")) {
     patch.rulesSummary = optionalTournamentMarkdown(body.rulesSummary, "Rules summary", RULES_MAX);
   }
@@ -230,6 +240,13 @@ function normalizeTournamentPatch(body = {}, current = {}) {
   if (Object.prototype.hasOwnProperty.call(body, "venueMode")) {
     patch.venueMode = normalizePolicy(body.venueMode, VENUE_MODES, "tts", "venue");
   }
+  const limit = Object.hasOwn(patch, "registrationLimit") ? patch.registrationLimit : current.registrationLimit;
+  const capacity = participantMode === PARTICIPANT_MODES.TEAM ? 128
+    : selectedFormat === TOURNAMENT_FORMATS.SINGLE_ELIMINATION
+      ? (patch.singleEliminationSize || current.singleEliminationSize || 8) : null;
+  if (limit && capacity && limit > capacity) {
+    throw new ValidationError(`Registration limit cannot exceed ${capacity}`);
+  }
   return patch;
 }
 
@@ -252,6 +269,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     description: patch.description || "",
     gameSystem: patch.gameSystem || "Warhammer 40k Kill Team",
     startsAt: patch.startsAt || null,
+    registrationLimit: patch.registrationLimit || null,
     rulesSummary: patch.rulesSummary || "",
     rulesLink: patch.rulesLink || "",
     logoData: patch.logoData || null,

@@ -186,11 +186,14 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
     rosters.push(response.body.roster);
   }
   assert.deepEqual(rosters.map((r) => r.name), ["Amber Guard 1", "Amber Guard 2", "Custom Squad", "Amber Guard 4"]);
+  assert.equal((await leader.http.patch(`/api/teams/${team.id}`, { logoData: PNG })).status, 200);
   const rosterGuest = createClient(server.baseUrl);
   assert.equal((await rosterGuest.get("/api/rosters/999999")).status, 404);
   assert.equal((await rosterGuest.get("/api/rosters/invalid")).status, 404);
   const ownProfile = (await people[1].http.get(`/api/rosters/${rosters[0].id}`)).body;
   assert.equal(ownProfile.roster.id, rosters[0].id);
+  assert.equal(ownProfile.roster.team.logoData, PNG);
+  assert.equal(ownProfile.roster.teamLogoSnapshot, null);
   assert.ok(ownProfile.roster.members.every((member) => member.factionSnapshot === "Kommandos"));
   assert.deepEqual(ownProfile.teamMatches, []);
   for (const http of [leader.http, admin.http]) {
@@ -200,6 +203,7 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
   assert.doesNotMatch(JSON.stringify(otherProfile), /Kommandos/);
   const mine = (await people[0].http.get(`/api/tournaments/${cup.slug}`)).body;
   assert.equal(mine.viewerTeams[0].defaultRosterName, "Amber Guard 5");
+  assert.ok(mine.rosters.every((roster) => roster.team.logoData === PNG));
   assert.ok(mine.rosters[0].members.every((m) => m.factionSnapshot));
   assert.ok(mine.rosters.slice(1).every((r) => r.members.every((m) => m.factionHidden)));
   async function assertMemberView() {
@@ -207,6 +211,7 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
       const memberView = (await people[1].http.get(url)).body;
       const ownRoster = memberView.rosters.find((r) => r.id === rosters[0].id);
       assert.equal(ownRoster.members.length, 3);
+      assert.equal(ownRoster.team.logoData, PNG);
       assert.ok(ownRoster.members.every((m) => m.factionSnapshot === "Kommandos" && !m.factionHidden));
       const otherRosters = memberView.rosters.filter((r) => r.tournamentId === cup.id && r.id !== ownRoster.id);
       assert.equal(otherRosters.length, 3);

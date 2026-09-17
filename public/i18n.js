@@ -57,7 +57,8 @@ function createI18n(dictionaries, options = {}) {
       return locale;
     },
     formatDate(value, formatOptions) {
-      return new Intl.DateTimeFormat(locale, formatOptions).format(value);
+      const { hour12, ...settings } = formatOptions || {};
+      return new Intl.DateTimeFormat(locale, { ...settings, hourCycle: "h23" }).format(value);
     }
   };
 }

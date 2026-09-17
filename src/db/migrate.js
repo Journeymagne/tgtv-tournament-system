@@ -25,7 +25,8 @@ const MIGRATIONS = [
   require("./migrations/024_legacy_achievements"),
   require("./migrations/025_tournament_table_images"),
   require("./migrations/026_achievement_titles"),
-  require("./migrations/027_achievement_text_edits")
+  require("./migrations/027_achievement_text_edits"),
+  require("./migrations/028_tournament_registration")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

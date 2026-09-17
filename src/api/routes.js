@@ -6,6 +6,7 @@ const games = require("./games");
 const feedback = require("./feedback");
 const admin = require("./admin");
 const tournaments = require("./tournaments");
+const tournamentRegistration = require("./tournament-registration");
 const playerTeams = require("./player-teams");
 const teamTournaments = require("./team-tournaments");
 const tournamentTableImages = require("./tournament-table-images");
@@ -18,6 +19,8 @@ function withAction(handler, action) {
 }
 
 module.exports = [
+  { method: "PATCH", path: "/api/admin/tournaments/:id/participants/:participantId/payment", handler: tournamentRegistration.participantPayment, auth: "admin", tx: true },
+  { method: "PATCH", path: "/api/admin/tournaments/:id/rosters/:rosterId/payment", handler: tournamentRegistration.rosterPayment, auth: "admin", tx: true },
   { method: "GET", path: "/api/tournament-table-images/:id", handler: tournamentTableImages.image, auth: "none", loadUser: true },
   { method: "GET", path: "/api/achievements", handler: achievements.list, auth: "none" },
   { method: "GET", path: "/api/achievements/:id", handler: achievements.get, auth: "none" },

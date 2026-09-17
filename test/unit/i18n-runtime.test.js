@@ -85,3 +85,12 @@ test("formats dates in the active locale", () => {
   assert.match(build("ru").formatDate(date, options), /августа/);
   assert.match(build("en").formatDate(date, options), /August/);
 });
+
+test("time uses 00:00–23:59 in both languages, including midnight and afternoon", () => {
+  for (const locale of ["en", "ru"]) {
+    for (const [hour, expected] of [[0, "00:05"], [12, "12:05"], [23, "23:05"]]) {
+      const date = new Date(Date.UTC(2026, 8, 18, hour, 5));
+      assert.equal(build(locale).formatDate(date, { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: true }), expected);
+    }
+  }
+});

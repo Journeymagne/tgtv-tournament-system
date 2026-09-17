@@ -26,14 +26,14 @@ const TOURNAMENT_COLUMNS = `
   rules_summary, rules_link, status, format, swiss_round_count,
   single_elimination_size, tiebreaker_order, rating_policy,
   challenge_credit_policy, season_id, venue_mode, final_results, round_draft,
-  participant_mode, team_size, pairing_type, team_tables_locked,
+  participant_mode, team_size, pairing_type, team_tables_locked, registration_limit,
   published_at, started_at,
   completed_at, cancelled_at, created_at, updated_at
 `;
 
 const TOURNAMENT_PARTICIPANT_COLUMNS = `
   id, tournament_id, user_id, display_name, display_name_key, faction,
-  faction_rules, seed, status, source, joined_at, withdrawn_at, removed_at,
+  faction_rules, seed, status, source, paid, joined_at, withdrawn_at, removed_at,
   placed_at, updated_at
 `;
 
@@ -177,6 +177,7 @@ function mapTournament(row) {
     teamSize: row.team_size || null,
     pairingType: row.pairing_type || null,
     teamTablesLocked: Boolean(row.team_tables_locked),
+    registrationLimit: row.registration_limit || null,
     participantCount: row.participant_count === undefined ? undefined : Number(row.participant_count || 0),
     roundCount: row.round_count === undefined ? undefined : Number(row.round_count || 0),
     publishedAt: toIso(row.published_at),
@@ -196,6 +197,7 @@ function mapTournamentParticipant(row) {
     userId: row.user_id,
     displayName: row.display_name,
     displayNameKey: row.display_name_key,
+    paid: Boolean(row.paid),
     faction: row.faction || "",
     factionRules: row.faction_rules || "",
     seed: row.seed,

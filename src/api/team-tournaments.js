@@ -120,6 +120,9 @@ async function registerRoster({ client, user, params, body }) {
     throw new ValidationError("The captain must be one of the three roster players");
   }
   const existing = await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: true });
+  if (tournament.registrationLimit && existing.filter((roster) => roster.status !== "withdrawn").length >= tournament.registrationLimit) {
+    throw new HttpError(409, "Registration limit reached");
+  }
   if (existing.filter((roster) => roster.status !== "withdrawn").length >= 128) throw new HttpError(409, "A team tournament is limited to 128 rosters");
   const name = normalizeRosterName(String(body.name || "").trim() || defaultRosterName(team, existing));
   try {
@@ -137,7 +140,7 @@ async function registerRoster({ client, user, params, body }) {
     }, members);
     await clearPreparedRounds(client, tournament);
     await audit(client, tournament, user, "roster_create", { teamId: team.id, entityType: "roster", entityId: roster.id, after: roster });
-    return { status: 201, body: { roster } };
+    return { status: 201, body: { roster: rosterForViewer(roster, user) } };
   } catch (err) {
     if (err.code === "23505") throw new HttpError(409, "Roster name, seed, or player is already used in this tournament");
     throw err;
@@ -209,7 +212,7 @@ async function updateRoster({ client, user, params, body }) {
     const updated = await rostersRepo.update(client, roster.id, patch);
     await clearPreparedRounds(client, tournament);
     await audit(client, tournament, user, "roster_update", { teamId: roster.teamId, entityType: "roster", entityId: roster.id, before, after: updated });
-    return { roster: updated };
+    return { roster: { ...updated, paid: user.isAdmin ? updated.paid : undefined } };
   } catch (err) {
     if (err.code === "23505") throw new HttpError(409, "Roster name, seed, or player is already used in this tournament");
     throw err;
@@ -228,7 +231,7 @@ async function withdrawRoster({ client, user, params }) {
   const updated = await rostersRepo.update(client, roster.id, { status: "withdrawn", withdrawnAt: nowIso(), seed: null });
   await clearPreparedRounds(client, tournament);
   await audit(client, tournament, user, "roster_withdraw", { teamId: roster.teamId, entityType: "roster", entityId: roster.id, before: roster, after: updated });
-  return { roster: updated };
+  return { roster: { ...updated, paid: user.isAdmin ? updated.paid : undefined } };
 }
 
 async function deleteRoster({ client, user, params }) {
@@ -1063,8 +1066,8 @@ function redactTeamMatch(match, rosterA, rosterB, user) {
     shieldBMemberId: admin || shieldsRevealed || side === "b" ? match.shieldBMemberId : null,
     swordAMemberId: admin || swordsRevealed || side === "a" ? match.swordAMemberId : null,
     swordBMemberId: admin || swordsRevealed || side === "b" ? match.swordBMemberId : null,
-    rosterA,
-    rosterB
+    rosterA: rosterA ? { ...rosterA, paid: admin ? rosterA.paid : undefined } : rosterA,
+    rosterB: rosterB ? { ...rosterB, paid: admin ? rosterB.paid : undefined } : rosterB
   };
 }
 
