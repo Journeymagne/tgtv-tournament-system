@@ -98,19 +98,23 @@ body {
 }
 
 button,
+:where(a[data-app-link]),
 input,
 select,
 textarea {
   font: inherit;
 }
 
-button {
+button,
+:where(a[data-app-link]) {
   border: 0;
+  text-decoration: none;
   cursor: pointer;
 }
 
 /* Also covers future native buttons and links styled as action buttons. */
 button,
+:where(a[data-app-link]),
 .primary-button,
 .ghost-button,
 .danger-button,
@@ -924,6 +928,9 @@ button:disabled {
 }
 
 .nav-button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   width: 100%;
   color: var(--ink);
   background: transparent;

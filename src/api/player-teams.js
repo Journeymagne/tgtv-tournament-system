@@ -13,10 +13,12 @@ const {
   normalizeTeamLogo
 } = require("../domain/player-teams");
 
+const { teamLogoView } = require("../domain/logos");
+
 function teamView(team) {
   if (!team) return null;
   const { nameKey, ...view } = team;
-  return view;
+  return teamLogoView(view);
 }
 
 async function requireTeam(client, id, forUpdate = false) {
@@ -404,7 +406,13 @@ async function remove({ client, user, params }) {
   return { deletedTeamId: team.id };
 }
 
+async function members({ client, user, params }) {
+  const team = await requireTeam(client, params.id);
+  return { team: teamView(team), currentMembers: (await teamsRepo.listMemberships(client, team.id)).filter(member => !member.endedAt) };
+}
+
 module.exports = {
+  members,
   create,
   list,
   administration,

@@ -23,7 +23,7 @@ test("public tournament Edit is available only to authenticated admins", () => {
     for (const participantMode of ["individual", "team"]) {
       for (const status of ["draft", "registration_open", "registration_closed", "in_progress", "completed", "cancelled"]) {
         const html = button({ id: 6, participantMode, status, viewer: { canAdmin: true } });
-        if (me?.isAdmin) assert.match(html, /data-tournament-edit="6">Edit<\/button>/);
+        if (me?.isAdmin) assert.match(html, /data-tournament-edit="6">Edit<\/a>/);
         else assert.equal(html, "");
       }
     }
@@ -45,7 +45,7 @@ test("every public tournament category groups Open/Edit separately from its stat
         const buttons = html.match(/class="tournament-card-buttons">([\s\S]*?)<\/div>/)[1];
         assert.match(buttons, /data-tournament-open="test-cup"/);
         assert.equal(buttons.includes('data-tournament-edit="6"'), isAdmin);
-        assert.equal((buttons.match(/<button /g) || []).length, isAdmin ? 2 : 1);
+        assert.equal((buttons.match(/<a /g) || []).length, isAdmin ? 2 : 1);
         assert.doesNotMatch(buttons, /class="status/);
       }
     }
@@ -59,7 +59,7 @@ test("admin tournament rows share the same card button layout for every status",
   for (const status of ["draft", "registration_open", "registration_closed", "in_progress", "completed", "cancelled"]) {
     const html = render({ id: 6, name: "Test", slug: "test-cup", status });
     assert.match(html, /class="row-card tournament-card"/);
-    assert.match(html, /class="tournament-card-actions">\s*<span class="status [^"]+">[^<]+<\/span>\s*<div class="tournament-card-buttons">\s*<button class="small-button" type="button" data-admin-tournament-open="6"/);
+    assert.match(html, /class="tournament-card-actions">\s*<span class="status [^"]+">[^<]+<\/span>\s*<div class="tournament-card-buttons">\s*<a href="\/#\/tournaments\/admin\/6" data-app-link class="small-button" data-admin-tournament-open="6"/);
   }
 });
 
@@ -71,13 +71,13 @@ function editorHarness(options = {}) {
   };
   const calls = [];
   const data = { tournament: { id: 6, name: "Fresh tournament" }, rounds: [] };
-  const open = new Function("state", "api", "leavePublicTournamentRoute", "syncAppHash", "renderShell",
+  const open = new Function("state", "api", "leavePublicTournamentRoute", "syncAppHash", "renderShell", "loadAdminUi",
     `${sourceOf("openTournamentEditor")}; return openTournamentEditor;`
   )(state, async (...args) => {
     calls.push(["api", ...args]);
     if (options.error) throw options.error;
     return data;
-  }, () => calls.push(["leave"]), () => calls.push(["hash"]), () => calls.push(["render"]));
+  }, () => calls.push(["leave"]), () => calls.push(["hash"]), () => calls.push(["render"]), async () => true);
   return { state, calls, data, open };
 }
 

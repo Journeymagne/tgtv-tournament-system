@@ -53,7 +53,9 @@ test("all published MMR examples match the production Elo function", () => {
       assert.equal(a + delta, nextA); assert.equal(b - delta, nextB);
     }
     assert.match(page.markdown, /Math\.round\(32/);
-    assert.ok(page.markdown.includes("+15"));
+    assert.ok(page.markdown.includes("+16"));
+    assert.ok(page.markdown.includes("−16"));
+    assert.ok(!page.markdown.includes("+15"));
     assert.ok(page.markdown.includes("Unranked"));
   }
 });

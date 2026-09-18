@@ -38,7 +38,7 @@ test("history shows newest rounds first, preserves A/B scores and hides result e
   const html = render({ tournament: { status: "in_progress" }, teamMatches: matches });
   assert.deepEqual(renderedGames, [[3, true], [2, true], [1, true]]);
   assert.deepEqual(matches.map((match) => match.id), [1, 3, 2], "render must not mutate stored history");
-  assert.match(html, /Opponent<\/button> vs .*My roster<\/button>/);
+  assert.match(html, /Opponent<\/a> vs .*My roster<\/a>/);
   assert.match(html, /0:2 TTP · 20:40 GP/);
   assert.match(html, /data-team-pairing-open="3"/);
   assert.doesNotMatch(html, /data-team-match-reset|data-team-pairing-form/);

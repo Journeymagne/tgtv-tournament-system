@@ -473,9 +473,10 @@ test("registered player can submit result against unregistered tournament partic
   const completedMatch = completed.rounds[0].matches.find((item) => item.id === match.id);
   assert.equal(completedMatch.status, "completed");
   assert.equal(completedMatch.gameId, submittedMatch.gameId);
-  assert.equal(completedMatch.elo.flat, 15);
-  assert.equal(completedMatch.elo[alpha.id].delta, 15);
-  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1015);
+  assert.equal(completedMatch.elo.k, 32);
+  assert.equal(completedMatch.elo[-unregistered.id].fixed, true);
+  assert.equal(completedMatch.elo[alpha.id].delta, 16);
+  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1016);
 
   const completedGames = await gamesApi.listCompleted({ client });
   const tournamentGame = completedGames.games.find((game) => game.id === completedMatch.gameId);
@@ -494,7 +495,7 @@ test("registered player can submit result against unregistered tournament partic
   });
   assert.equal(alphaProfile.stats.matches, 1);
   assert.equal(alphaProfile.stats.wins, 1);
-  assert.equal(alphaProfile.stats.eloDelta, 15);
+  assert.equal(alphaProfile.stats.eloDelta, 16);
   assert.equal(alphaProfile.recentGames[0].id, completedMatch.gameId);
   assert.equal(alphaProfile.recentGames[0].tournamentMatch.id, match.id);
 
@@ -504,7 +505,7 @@ test("registered player can submit result against unregistered tournament partic
     params: { id: String(tournament.id), matchId: String(match.id) },
     body: { scores: scores(alpha.id, -unregistered.id) }
   });
-  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1015);
+  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1016);
 
   await tournamentsApi.deleteAdmin({
     client,

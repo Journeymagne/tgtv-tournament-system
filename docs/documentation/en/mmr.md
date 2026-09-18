@@ -37,9 +37,9 @@ Only completed results count. TTS needs opponent confirmation or an administrato
 
 At equal VP, a win decided by enabled game tiebreakers counts as an Elo win. Team WTC has no individual tiebreakers: equal VP gives S = 0.5.
 
-## Exception: an opponent without an account
+## An opponent without an account
 
-In a ranked individual tournament, if only one of the two participants has an account, that registered player receives a fixed +15 MMR for the completed game, regardless of win, draw or loss. This is the app's current special rule, not Elo. +15 applies to the venue track and combined rating. If neither has an account, no individual MMR is awarded. A bye is not a played game and gives no MMR.
+An opponent without an account has a fixed rating of 1000 for each game. In a ranked tournament, the registered player’s MMR change uses normal Elo with K = 32 and the actual win, draw or loss. At 1000 versus 1000, this gives +16 for a win, 0 for a draw and −16 for a loss. The guest’s rating never accumulates. This rule applies separately to venue and combined ratings. If neither participant has an account, no individual MMR is awarded. A bye is not a played game and gives no MMR.
 
 ## Team MMR
 
@@ -50,3 +50,5 @@ Important: currently, Unranked disables individual MMR, but team rating is repla
 ## Result corrections
 
 Correcting or deleting a result replays rating history. Later game changes can change too, because their expected scores depend on new pre-game ratings. Individual and team MMR are recalculated separately; neither is added to TP or used as a standings tiebreaker.
+
+An administrator can open a completed ranked game and choose “Recalculate rating”. After confirmation, the entire individual rating history is replayed from saved results, including later games. Repeating it does not award rating twice. Scores, winners and result timestamps remain unchanged.

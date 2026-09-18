@@ -121,6 +121,24 @@ async function listUsers({ client }) {
   };
 }
 
+async function recalculateGameRating({ client, user, params }) {
+  if (!user?.isAdmin) throw new HttpError(403, "Administrator rights required");
+  const game = await games.findGame(client, params.id);
+  // Replay locks users and games in its usual order and validates the target
+  // under those locks. Do not lock a single game first and invert that order.
+  await recalculateCompletedGameRatings(client, { requiredGameId: game.id });
+  const updated = await games.viewOf(client, await gamesRepo.findById(client, game.id));
+  if (updated.tournament?.id) {
+    await require("../db/repositories/tournament-audit-events").insert(client, {
+      tournamentId: updated.tournament.id, actorUserId: user.id,
+      eventType: "game_rating_recalculated", entityType: "game", entityId: game.id,
+      before: { elo: game.elo }, after: { elo: updated.elo },
+      metadata: { scope: "individual_rating_history" }
+    });
+  }
+  return { game: updated };
+}
+
 async function updateUser({ client, user, params, body }) {
   const target = await requireTarget(client, params.id);
 
@@ -242,6 +260,7 @@ module.exports = {
   confirmGameResult,
   deleteGame,
   saveGameResult,
+  recalculateGameRating,
   listUsers,
   updateUser,
   deleteUser,

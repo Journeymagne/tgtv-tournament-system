@@ -11,6 +11,7 @@ const playerTeams = require("./player-teams");
 const teamTournaments = require("./team-tournaments");
 const tournamentTableImages = require("./tournament-table-images");
 const notifications = require("./notifications");
+const tournamentLive = require("./tournament-live");
 const documentation = require("./documentation");
 const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
 
@@ -19,6 +20,9 @@ function withAction(handler, action) {
 }
 
 module.exports = [
+  { method: "GET", path: "/api/teams/:id/members", handler: playerTeams.members, auth: "user" },
+  { method: "GET", path: "/api/tournaments/revision", handler: tournamentLive.revision, auth: "none", loadUser: true },
+  ...["team", "tournament", "roster"].map(kind => ({ method: "GET", path: "/api/" + kind + "-logos/:id", handler: ctx => tournamentLive.logo({ ...ctx, params: { ...ctx.params, kind } }), auth: "none", loadUser: true })),
   { method: "PATCH", path: "/api/admin/tournaments/:id/participants/:participantId/payment", handler: tournamentRegistration.participantPayment, auth: "admin", tx: true },
   { method: "PATCH", path: "/api/admin/tournaments/:id/rosters/:rosterId/payment", handler: tournamentRegistration.rosterPayment, auth: "admin", tx: true },
   { method: "GET", path: "/api/tournament-table-images/:id", handler: tournamentTableImages.image, auth: "none", loadUser: true },
@@ -203,6 +207,7 @@ module.exports = [
   },
 
   { method: "GET", path: "/api/admin/games", handler: admin.listActiveGames, auth: "admin" },
+  { method: "POST", path: "/api/admin/games/:id/recalculate-rating", handler: admin.recalculateGameRating, auth: "admin", tx: true },
   {
     method: "POST",
     path: "/api/admin/games/:id/confirm-result",

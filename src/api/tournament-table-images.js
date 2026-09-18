@@ -29,8 +29,7 @@ async function saveTableImage(client, tournamentId, selection, previous) {
     return rows[0].id;
   }
   const supplied = Object.hasOwn(selection, "imageId") || Object.hasOwn(selection, "imageData");
-  const imageId = supplied ? selection.imageId : previous?.killzone === selection.killzone
-    && Number(previous?.deployment) === Number(selection.deployment) ? previous.imageId : null;
+  const imageId = supplied ? selection.imageId : previous?.imageId;
   if (imageId === null || imageId === undefined || imageId === "") return null;
   const id = requirePositiveIntId(imageId, 400, "Invalid killzone image");
   const { rowCount } = await client.query("SELECT id FROM tournament_table_images WHERE id = $1 AND tournament_id = $2", [id, tournamentId]);

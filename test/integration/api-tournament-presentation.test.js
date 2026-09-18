@@ -1,3 +1,4 @@
+const { logoUrl } = require("../../src/domain/logos");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { TEST_DATABASE_URL } = require("../helpers/db");
@@ -44,15 +45,15 @@ async function tournament(overrides = {}) {
 test("tournament logos persist on creation, lists, details and updates, and can be removed", async () => {
   const cup = await tournament({ logoData: PNG });
   const guest = createClient(server.baseUrl);
-  assert.equal(cup.logoData, PNG);
-  assert.equal((await guest.get(`/api/tournaments/${cup.slug}`)).body.tournament.logoData, PNG);
-  assert.equal((await guest.get("/api/tournaments")).body.tournaments[0].logoData, PNG);
+  assert.equal(cup.logoData, logoUrl("tournament", cup.id, PNG));
+  assert.equal((await guest.get(`/api/tournaments/${cup.slug}`)).body.tournament.logoData, logoUrl("tournament", cup.id, PNG));
+  assert.equal((await guest.get("/api/tournaments")).body.tournaments[0].logoData, logoUrl("tournament", cup.id, PNG));
   const regular = await register("Regular");
   assert.equal((await regular.http.patch(`/api/admin/tournaments/${cup.id}`, { logoData: null })).status, 403);
   for (const logoData of ["https://example.com/logo.png", "data:image/svg+xml;base64,YQ==", `data:image/png;base64,${Buffer.alloc(1024 * 1024 + 1).toString("base64")}`]) {
     assert.equal((await admin.http.patch(`/api/admin/tournaments/${cup.id}`, { logoData })).status, 400);
   }
-  assert.equal((await admin.http.patch(`/api/admin/tournaments/${cup.id}`, { description: "Changed" })).body.tournament.logoData, PNG);
+  assert.equal((await admin.http.patch(`/api/admin/tournaments/${cup.id}`, { description: "Changed" })).body.tournament.logoData, logoUrl("tournament", cup.id, PNG));
   assert.equal((await admin.http.patch(`/api/admin/tournaments/${cup.id}`, { logoData: null })).body.tournament.logoData, null);
   assert.equal((await guest.get(`/api/tournaments/${cup.slug}`)).body.tournament.logoData, null);
   const rulesLink = `data:application/pdf;base64,${Buffer.alloc(2 * 1024 * 1024, 65).toString("base64")}`;
@@ -60,7 +61,7 @@ test("tournament logos persist on creation, lists, details and updates, and can 
   const updated = await admin.http.patch(`/api/admin/tournaments/${cup.id}`, { logoData, rulesLink });
   assert.equal(updated.status, 200);
   const reopened = (await admin.http.get(`/api/admin/tournaments/${cup.id}`)).body.tournament;
-  assert.equal(reopened.logoData, logoData);
+  assert.equal(reopened.logoData, logoUrl("tournament", cup.id, logoData));
   // The PDF is no longer inlined anywhere: JSON carries a URL and a type.
   assert.equal(reopened.rulesLinkType, "pdf");
   assert.match(reopened.rulesLink, /^\/api\/tournaments\/[^/]+\/rules\?v=[0-9a-f]{16}$/);
@@ -192,7 +193,7 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
   assert.equal((await rosterGuest.get("/api/rosters/invalid")).status, 404);
   const ownProfile = (await people[1].http.get(`/api/rosters/${rosters[0].id}`)).body;
   assert.equal(ownProfile.roster.id, rosters[0].id);
-  assert.equal(ownProfile.roster.team.logoData, PNG);
+  assert.equal(ownProfile.roster.team.logoData, logoUrl("team", team.id, PNG));
   assert.equal(ownProfile.roster.teamLogoSnapshot, null);
   assert.ok(ownProfile.roster.members.every((member) => member.factionSnapshot === "Kommandos"));
   assert.deepEqual(ownProfile.teamMatches, []);
@@ -203,7 +204,7 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
   assert.doesNotMatch(JSON.stringify(otherProfile), /Kommandos/);
   const mine = (await people[0].http.get(`/api/tournaments/${cup.slug}`)).body;
   assert.equal(mine.viewerTeams[0].defaultRosterName, "Amber Guard 5");
-  assert.ok(mine.rosters.every((roster) => roster.team.logoData === PNG));
+  assert.ok(mine.rosters.every((roster) => roster.team.logoData === logoUrl("team", team.id, PNG)));
   assert.ok(mine.rosters[0].members.every((m) => m.factionSnapshot));
   assert.ok(mine.rosters.slice(1).every((r) => r.members.every((m) => m.factionHidden)));
   async function assertMemberView() {
@@ -211,7 +212,7 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
       const memberView = (await people[1].http.get(url)).body;
       const ownRoster = memberView.rosters.find((r) => r.id === rosters[0].id);
       assert.equal(ownRoster.members.length, 3);
-      assert.equal(ownRoster.team.logoData, PNG);
+      assert.equal(ownRoster.team.logoData, logoUrl("team", team.id, PNG));
       assert.ok(ownRoster.members.every((m) => m.factionSnapshot === "Kommandos" && !m.factionHidden));
       const otherRosters = memberView.rosters.filter((r) => r.tournamentId === cup.id && r.id !== ownRoster.id);
       assert.equal(otherRosters.length, 3);

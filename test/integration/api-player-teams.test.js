@@ -95,7 +95,7 @@ test("an administrator outside a team edits all profile fields and removes its l
   assert.equal(edited.status, 200);
   assert.equal(edited.body.team.name, "New Name");
   assert.equal(edited.body.team.description, "Updated description");
-  assert.equal(edited.body.team.logoData, logoData);
+  assert.equal(edited.body.team.logoData, require("../../src/domain/logos").logoUrl("team", team.id, logoData));
   assert.equal(edited.body.team.slug, team.slug);
   assert.equal((await admin.http.patch(`/api/teams/${team.id}`, { logoData: null })).body.team.logoData, null);
   const profile = await admin.http.get(`/api/teams/${team.slug}`);

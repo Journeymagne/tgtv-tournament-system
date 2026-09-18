@@ -134,14 +134,16 @@ async function listActivePairingsForCaptain(client, userId) {
             t.slug AS tournament_slug, t.name AS tournament_name, t.venue_mode,
             ra.id AS roster_a_id, ra.name AS roster_a_name, ra.team_name_snapshot AS team_a_name,
             rb.id AS roster_b_id, rb.name AS roster_b_name, rb.team_name_snapshot AS team_b_name,
-            CASE WHEN ra.captain_user_id = $1 THEN 'a' ELSE 'b' END AS captain_side
+            CASE WHEN ra.captain_user_id = $1 OR EXISTS (SELECT 1 FROM tournament_team_roster_members m WHERE m.roster_id = ra.id AND m.user_id = $1 AND m.ended_at IS NULL) THEN 'a' ELSE 'b' END AS captain_side
      FROM tournament_team_matches tm
      JOIN tournaments t ON t.id = tm.tournament_id
      JOIN tournament_team_rosters ra ON ra.id = tm.roster_a_id
      JOIN tournament_team_rosters rb ON rb.id = tm.roster_b_id
      WHERE t.status = 'in_progress'
        AND tm.phase IN ('awaiting_roll', 'mission_ban', 'shield_selection', 'sword_selection', 'environment_selection', 'in_progress')
-       AND (ra.captain_user_id = $1 OR rb.captain_user_id = $1)
+       AND (ra.captain_user_id = $1 OR rb.captain_user_id = $1 OR EXISTS (
+         SELECT 1 FROM tournament_team_roster_members m
+         WHERE m.roster_id IN (ra.id, rb.id) AND m.user_id = $1 AND m.ended_at IS NULL))
      ORDER BY tm.created_at DESC, tm.id DESC`,
     [userId]
   );

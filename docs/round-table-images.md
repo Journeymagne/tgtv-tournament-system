@@ -6,7 +6,7 @@ image to exactly 200 pixels on its shorter side, preserving proportions and
 transparency, and saves PNG. Smaller source images are enlarged to the same
 size. Uploads are limited to 20 MiB before resizing and 1 MiB afterward.
 
-Changing terrain or deployment clears that table's draft image. Removing an
+Changing terrain or deployment preserves that table's draft image. Removing an
 image asks for confirmation. Asynchronous file reads cannot restore an image
 after removal or replacement, and saving waits until processing finishes.
 

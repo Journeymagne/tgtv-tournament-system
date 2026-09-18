@@ -116,7 +116,7 @@ function adminPendingGamesCard(profile) {
               <div class="row-meta">${escapeHtml(pendingResultSummary(game))}</div>
             </div>
             <div class="row-actions">
-              <button class="small-button" data-admin-pending-open="${game.id}">${t("tournaments.card.open")}</button>
+              <a href="/#/games/game/${game.id}" data-app-link class="small-button" data-admin-pending-open="${game.id}">${t("tournaments.card.open")}</a>
               <button class="small-button" data-admin-pending-confirm="${game.id}">${t("games.detail.forceConfirm")}</button>
               <button class="danger-button" data-admin-pending-delete="${game.id}">${t("common.delete")}</button>
             </div>
@@ -202,6 +202,26 @@ async function adminDeleteGame(gameId, profileUserId = null) {
   } catch (err) {
     setMessage(err.message, true);
     setPlayerProfileMessage(err.message, true);
+  }
+}
+
+async function adminRecalculateGameRating(gameId, button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  const isCurrent = () => state.view === "gameDetail" && Number(state.selectedGameId) === Number(gameId);
+  try {
+    if (!await confirmAction({ message: t("dialog.games.recalculateRating"), confirmLabel: t("games.detail.recalculateRating"), danger: false })) return;
+    await api(`/api/admin/games/${gameId}/recalculate-rating`, { method: "POST" });
+    await refresh();
+    await Promise.all([loadTop(), loadGames()]);
+    if (isCurrent()) {
+      renderShell();
+      setMessage(t("message.games.ratingRecalculated"));
+    }
+  } catch (err) {
+    if (isCurrent()) setMessage(err.message, true);
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -489,14 +509,14 @@ function adminTournamentRow(tournament) {
       <div class="row-main tournament-card-heading">
         ${tournament.logoData ? tournamentLogoMarkup(tournament) : ""}
         <div>
-        <button class="text-button row-title" data-admin-tournament-open="${tournament.id}">${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</button>
+        <a href="/#/tournaments/admin/${tournament.id}" data-app-link class="text-button row-title" data-admin-tournament-open="${tournament.id}">${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</a>
         <div class="row-meta">${escapeHtml(tournamentFormatLabel(tournament))} / ${escapeHtml(tournament.slug)} / ${tournament.startsAt ? fmtDate(tournament.startsAt) : t("tournaments.date.none")}</div>
         </div>
       </div>
       <div class="tournament-card-actions">
         <span class="status ${tournamentStatusClass(tournament.status)}">${escapeHtml(tournamentStatusLabel(tournament.status))}</span>
         <div class="tournament-card-buttons">
-          <button class="small-button" type="button" data-admin-tournament-open="${tournament.id}">${t("admin.action.open")}</button>
+          <a href="/#/tournaments/admin/${tournament.id}" data-app-link class="small-button" data-admin-tournament-open="${tournament.id}">${t("admin.action.open")}</a>
         </div>
       </div>
     </div>
@@ -518,7 +538,7 @@ function adminTournamentDetailPanel(data) {
           </div>
         </div>
         <div class="row-actions admin-tournament-header-actions">
-          <button class="small-button" data-admin-tournament-public="${tournament.slug}">${t("admin.tournament.detail.viewPublic")}</button>
+          <a href="/tournaments/${tournament.slug}" data-app-link class="small-button" data-admin-tournament-public="${tournament.slug}">${t("admin.tournament.detail.viewPublic")}</a>
           <button class="small-button" data-admin-tournament-copy="${escapeHtml(publicUrl)}">${t("admin.tournament.detail.copyLink")}</button>
           <button class="danger-button" data-admin-tournament-action="delete">${t("admin.tournament.detail.delete")}</button>
           <button class="ghost-button" data-admin-tournament-close>${t("common.back")}</button>
@@ -558,15 +578,16 @@ function adminTournamentActionButtons(data) {
   }
   if (tournament.status === "in_progress") {
     const rollbackState = rollbackRoundActionState(data);
-    if (rollbackState.canRollback) {
-      buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round">${t("admin.tournament.action.rollbackLatestRound")}</button>`);
+    if (rollbackState.roundNumber) {
+      buttons.push(`<button class="small-button" data-admin-tournament-action="rollback-latest-round" ${rollbackState.canRollback ? "" : "disabled"}>${t(rollbackState.roundNumber === 1 ? "admin.round.editFirstStarted" : "admin.tournament.action.rollbackLatestRound")}</button>`);
+      if (!rollbackState.canRollback) buttons.push(`<span class="field-help">${t("admin.round.resultsLocked")}</span>`);
     }
     if (tournamentFinalStandingsReady(data)) {
       buttons.push(`<button class="primary-button" data-admin-tournament-action="close-tournament">${t("admin.tournament.action.closeTournament")}</button>`);
     } else {
       const nextRoundState = nextRoundActionState(data);
       if (nextRoundState.canGenerate) {
-        const label = (data.rounds || []).length ? t("admin.tournament.action.generateNext") : t("admin.tournament.action.generateFirst");
+        const label = tournament.roundDraft ? t("admin.round.resumeDraft") : (data.rounds || []).length ? t("admin.tournament.action.generateNext") : t("admin.tournament.action.generateFirst");
         buttons.push(`<button class="primary-button" data-admin-tournament-action="generate-next-round">${label}</button>`);
       } else {
         buttons.push(`<span class="muted">${escapeHtml(nextRoundState.message)}</span>`);
@@ -940,7 +961,7 @@ function adminActiveGamesPanel() {
               </div>
               <div class="row-actions">
                 <span class="status ${pending ? "pending" : "open"}">${pending ? t("play.game.status.pending") : t("admin.games.status.open")}</span>
-                <button class="small-button" data-admin-game-open="${game.id}">${t("admin.action.open")}</button>
+                <a href="/#/games/game/${game.id}" data-app-link class="small-button" data-admin-game-open="${game.id}">${t("admin.action.open")}</a>
                 ${pending && game.pendingResult?.result ? `<button class="small-button" data-admin-game-confirm="${game.id}">${t("games.detail.forceConfirm")}</button>` : ""}
                 <button class="danger-button" data-admin-game-delete="${game.id}">${t("common.delete")}</button>
               </div>
@@ -968,7 +989,7 @@ function adminTeamRostersContent(data) {
   return `<div class="tournament-participant-admin">
     <div class="panel-header">
       <p class="participant-admin-note muted">${t("teams.tournament.adminRosterHint")} ${t(started ? "teams.tournament.removeAfterStartHint" : "teams.tournament.deleteHint")}</p>
-      <div class="row-actions"><button class="primary-button" data-admin-team-roster-add ${canAddRoster ? "" : "disabled"}>${t("teams.tournament.add")}</button></div>
+      <div class="row-actions"><button class="primary-button" data-admin-team-roster-add ${canAddRoster ? "" : "disabled"}>${t("teams.tournament.add")}</button><button class="small-button" data-admin-team-roster-reserve ${canAddRoster ? "" : "disabled"}>${t("teams.reserve.add")}</button></div>
     </div>
     <div class="list">${rosters.length ? rosters.map((roster) => `
       <div class="row-card team-roster-admin-row ${roster.status === "withdrawn" ? "is-muted" : ""}">
@@ -982,7 +1003,7 @@ function adminTeamRostersContent(data) {
         <div class="row-actions">
           ${roster.status !== "withdrawn" ? `<input class="seed-input" type="number" min="1" max="128" value="${roster.seed || 1}" data-team-roster-seed="${roster.id}" ${seedLocked ? "disabled" : ""}>` : ""}
           ${registrationPaymentCheckbox(roster, "rosters")}
-          ${!["withdrawn", "finished"].includes(roster.status) && !["completed", "cancelled"].includes(tournament.status) ? `<button class="small-button" data-admin-team-roster-edit="${roster.id}">${t("teams.tournament.edit")}</button>` : ""}
+          ${!["withdrawn", "finished"].includes(roster.status) && !["completed", "cancelled"].includes(tournament.status) ? `<button class="small-button" data-admin-team-roster-edit="${roster.id}">${t(roster.isReserve ? "teams.reserve.fill" : "teams.tournament.edit")}</button>` : ""}
           ${!seedLocked && roster.status !== "withdrawn" ? `<button class="danger-button" data-admin-team-roster-withdraw="${roster.id}">${t("teams.tournament.withdraw")}</button>` : ""}
           ${!started || roster.status !== "withdrawn" ? `<button class="danger-button" data-admin-team-roster-delete="${roster.id}">${t("teams.tournament.delete")}</button>` : ""}
         </div>
@@ -991,7 +1012,31 @@ function adminTeamRostersContent(data) {
   </div>`;
 }
 
-async function openAdminTeamRosterCreator(data) {
+function openReservedRosterCreator(data) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "tiebreaker-help-dialog";
+  dialog.innerHTML = `<form class="tiebreaker-help-content"><h3>${t("teams.reserve.add")}</h3><p>${t("teams.reserve.hint")}</p>
+    <label>${t("teams.tournament.rosterName")}<input name="name" minlength="2" maxlength="80" required></label>
+    <p class="message" data-reserve-error></p><div class="row-actions"><button type="button" class="small-button" data-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("common.save")}</button></div></form>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
+  dialog.querySelector("[data-cancel]").addEventListener("click", close);
+  dialog.querySelector("form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const submit = event.currentTarget.querySelector('[type="submit"]');
+    submit.disabled = true;
+    try {
+      await api(`/api/admin/tournaments/${data.tournament.id}/rosters`, { method: "POST", body: { reserve: true, name: event.currentTarget.elements.name.value } });
+      close();
+      await refreshTeamTournamentUi(data, { admin: true });
+    } catch (error) { dialog.querySelector("[data-reserve-error]").textContent = error.message; submit.disabled = false; }
+  });
+  dialog.showModal();
+  dialog.querySelector("input").focus();
+}
+
+async function openAdminTeamRosterCreator(data, reserve = null) {
   const response = await api("/api/teams");
   const teams = (response.teams || []).filter((team) => !team.archivedAt && Number(team.memberCount || 0) >= 3);
   if (!teams.length) {
@@ -1017,6 +1062,7 @@ async function openAdminTeamRosterCreator(data) {
   dialog.querySelector("[data-team-roster-creator-close]")?.addEventListener("click", close);
   dialog.querySelector("[data-team-roster-creator-cancel]")?.addEventListener("click", close);
   const form = dialog.querySelector("[data-admin-team-roster-creator]");
+  if (reserve) form.elements.name.value = reserve.name;
   const fields = form.querySelector("[data-admin-team-roster-creator-members]");
   const submit = form.querySelector("[data-team-roster-creator-submit]");
   const message = form.querySelector("[data-admin-team-roster-creator-message]");
@@ -1033,9 +1079,9 @@ async function openAdminTeamRosterCreator(data) {
     submit.disabled = true;
     showError();
     fields.innerHTML = `<div class="empty">${t("teams.loading")}</div>`;
-    updateRosterNameDefault(form, team, data.rosters);
+    if (!reserve) updateRosterNameDefault(form, team, data.rosters);
     try {
-      const profile = await api(`/api/teams/${encodeURIComponent(team.slug)}`);
+      const profile = await api(`/api/teams/${team.id}/members`);
       if (version !== loadVersion) return;
       const selectedTeam = { ...profile.team, members: profile.currentMembers || [] };
       if (selectedTeam.members.length < 3) throw new Error(t("teams.tournament.adminNoEligibleTeam"));
@@ -1065,7 +1111,7 @@ async function openAdminTeamRosterCreator(data) {
     submit.disabled = true;
     showError();
     try {
-      await api(`/api/admin/tournaments/${data.tournament.id}/rosters`, { method: "POST", body: {
+      await api(reserve ? `/api/tournaments/${data.tournament.id}/rosters/${reserve.id}` : `/api/admin/tournaments/${data.tournament.id}/rosters`, { method: reserve ? "PATCH" : "POST", body: {
         teamId,
         name: rosterNameFromForm(form),
         captainUserId: Number(form.elements.captainUserId.value),
@@ -1082,8 +1128,10 @@ async function openAdminTeamRosterCreator(data) {
   await loadSelectedTeam();
 }
 
-function openAdminTeamRosterEditor(data, roster) {
-  const members = roster.availableMembers || [];
+async function openAdminTeamRosterEditor(data, roster) {
+  if (roster.isReserve) return openAdminTeamRosterCreator(data, roster);
+  const profile = await api(`/api/teams/${roster.teamId}/members`);
+  const members = profile.currentMembers || [];
   if (members.length < 3) {
     setMessage(t("teams.tournament.noEligibleTeam"), true);
     return;
@@ -1175,7 +1223,7 @@ function adminUsersResultsMarkup(users) {
           <tbody>
             ${pageData.items.map((user) => `
               <tr>
-                <td><button class="text-link-button inline-profile-link" data-profile-user="${user.id}">${escapeHtml(user.name)}</button></td>
+                <td><a href="/#/players/${user.id}" data-app-link class="text-link-button inline-profile-link" data-profile-user="${user.id}">${escapeHtml(user.name)}</a></td>
                 <td>
                   <div class="admin-contact-cell">
                     <span>${t("leaderboard.users.contact.register", { value: escapeHtml(user.registerNickname || "-") })}</span>
@@ -1352,6 +1400,7 @@ function wireAdminTournamentAutosave(form) {
       return;
     }
     if (snapshot === lastSnapshot) {
+      delete form.dataset.liveDirty;
       setStatus("", "");
       return;
     }
@@ -1361,6 +1410,7 @@ function wireAdminTournamentAutosave(form) {
     try {
       await saveAdminTournamentUpdate(form, { renderAfterSave: false });
       lastSnapshot = snapshot;
+      if (adminTournamentAutosaveSnapshot(form) === snapshot) delete form.dataset.liveDirty;
       setStatus(t("admin.tournament.autosave.saved"), "saved");
     } catch (err) {
       setStatus(t("admin.tournament.autosave.saveFailed"), "error");
@@ -1588,7 +1638,7 @@ async function saveAdminTournamentUpdate(form, options = {}) {
   const id = state.adminTournamentDetail?.tournament?.id;
   const data = await api(`/api/admin/tournaments/${id}`, {
     method: "PATCH",
-    body: adminTournamentBodyFromForm(form)
+    body: { ...adminTournamentBodyFromForm(form), expectedUpdatedAt: state.adminTournamentDetail?.tournament?.updatedAt }
   });
   if (data?.tournament && state.adminTournamentDetail?.tournament?.id === data.tournament.id) {
     state.adminTournamentDetail.tournament = {
@@ -1956,6 +2006,7 @@ async function adminPatch(id, body) {
 }
 
 function wireAdminTeamRosterControls(data) {
+  document.querySelector("[data-admin-team-roster-reserve]")?.addEventListener("click", () => openReservedRosterCreator(data));
   wireRegistrationPayments(data);
   document.querySelector("[data-admin-team-roster-add]")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
@@ -1969,9 +2020,9 @@ function wireAdminTeamRosterControls(data) {
     }
   });
   document.querySelectorAll("[data-admin-team-roster-edit]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const roster = (data.rosters || []).find((item) => item.id === Number(button.dataset.adminTeamRosterEdit));
-      if (roster) openAdminTeamRosterEditor(data, roster);
+      try { if (roster) await openAdminTeamRosterEditor(data, roster); } catch (error) { setMessage(error.message, true); }
     });
   });
   document.querySelector("[data-admin-team-roster-save-seeds]")?.addEventListener("click", async () => {
@@ -2008,11 +2059,14 @@ function wireAdminTeamRosterControls(data) {
 }
 
 window.TGTV_ADMIN = {
+  adminTournamentActionButtons,
+  runAdminTournamentAction,
   adminActiveGamesPanel,
   adminChallengeActions,
   adminChallengeCredit,
   adminDeleteGame,
   adminForceConfirmGame,
+  adminRecalculateGameRating,
   adminPendingGamesCard,
   adminPlayerToolsCard,
   adminTeamPairingOverrideForm,

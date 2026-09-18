@@ -18,8 +18,8 @@ const {
 const { attachTournamentGameDetails } = require("./tournament-game-details");
 const { buildTournamentPreview } = require("../domain/tournaments/preview");
 const { buildStandings } = require("../domain/tournaments/standings");
-const { calculateSubmittedResult, matchScoreFor, parseKillzone } = require("../domain/scoring");
-const { calculateElo, ELO_K } = require("../domain/elo");
+const { calculateSubmittedResult, parseKillzone } = require("../domain/scoring");
+const { calculateParticipantElo } = require("../domain/elo");
 const { requireKillTeam } = require("../domain/kill-teams");
 const { uniqueSlug } = require("../domain/tournaments/slug");
 const { decodeDataUrl, contentVersion } = require("../domain/data-url");
@@ -41,7 +41,6 @@ const {
   MATCH_STATUSES
 } = require("../domain/tournaments/constants");
 
-const UNREGISTERED_OPPONENT_RATING_BONUS = 15;
 
 function nowIso() {
   return new Date().toISOString();
@@ -369,10 +368,10 @@ async function listPublic({ client }) {
   return { tournaments: tournaments.map(tournamentSummaryView) };
 }
 
-async function getPublic({ client, user, params }) {
+async function getPublic({ client, user, params, query }) {
   const tournament = await tournamentsRepo.findBySlug(client, params.slug);
   if (!tournament || !publicStatuses(tournament)) throw new HttpError(404, "Tournament not found");
-  return fullView(client, tournament, user);
+  return require("./tournament-payload").tournamentPayload(await fullView(client, tournament, user), query);
 }
 
 // The uploaded rules PDF, served as a file. It used to travel inside every
@@ -400,9 +399,9 @@ async function listAdmin({ client }) {
   return { tournaments: tournaments.map(tournamentSummaryView) };
 }
 
-async function getAdmin({ client, user, params }) {
+async function getAdmin({ client, user, params, query }) {
   const tournament = await requireTournament(client, params.id);
-  return fullView(client, tournament, user, { includeAudit: true });
+  return require("./tournament-payload").tournamentPayload(await fullView(client, tournament, user, { includeAudit: query?.get("audit") === "1" }), query);
 }
 
 async function createAdmin({ client, user, body }) {
@@ -426,6 +425,9 @@ function assertEditableSetup(tournament) {
 async function updateAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   assertEditableSetup(tournament);
+  if (body.expectedUpdatedAt && body.expectedUpdatedAt !== tournament.updatedAt) throw new HttpError(409, "Tournament was changed by another administrator. Reload its settings before saving.");
+  const { expectedUpdatedAt, ...changes } = body;
+  body = changes;
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
     const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules"]);
     for (const key of Object.keys(body || {})) {
@@ -1369,78 +1371,23 @@ async function ensureTournamentGame(client, tournament, match, participantA, par
 
 async function applyTournamentElo(client, tournament, participantA, participantB, result) {
   if (tournament.ratingPolicy !== "ranked") return null;
-  const userIds = [...new Set([participantA.userId, participantB.userId].filter(Number.isInteger))];
+  const participants = [participantA, participantB].map((participant) => ({
+    userId: participant.userId || null, resultKey: participantResultKey(participant)
+  }));
+  const userIds = [...new Set(participants.map((p) => p.userId).filter(Number.isInteger))];
   if (!userIds.length) return null;
-
-  if (userIds.length === 1) {
-    const [player] = await usersRepo.lockByIds(client, userIds);
-    if (!player) throw new HttpError(409, "The registered tournament player has been deleted");
-    const before = usersRepo.ratingForVenue(player, tournament.venueMode);
-    const combinedBefore = usersRepo.ratingForVenue(player, "combined");
-    const updated = await usersRepo.addRating(
-      client,
-      player.id,
-      UNREGISTERED_OPPONENT_RATING_BONUS,
-      tournament.venueMode
-    );
-    await usersRepo.addRating(client, player.id, UNREGISTERED_OPPONENT_RATING_BONUS, "combined");
-    return {
-      flat: UNREGISTERED_OPPONENT_RATING_BONUS,
-      [player.id]: {
-        before,
-        after: usersRepo.ratingForVenue(updated, tournament.venueMode),
-        delta: UNREGISTERED_OPPONENT_RATING_BONUS
-      },
-      combined: {
-        flat: UNREGISTERED_OPPONENT_RATING_BONUS,
-        [player.id]: {
-          before: combinedBefore,
-          after: combinedBefore + UNREGISTERED_OPPONENT_RATING_BONUS,
-          delta: UNREGISTERED_OPPONENT_RATING_BONUS
-        }
-      }
-    };
-  }
-
   const players = await usersRepo.lockByIds(client, userIds);
-  const playerA = players.find((player) => player.id === participantA.userId);
-  const playerB = players.find((player) => player.id === participantB.userId);
-  if (!playerA || !playerB) throw new HttpError(409, "One of the tournament players has been deleted");
-
-  const ratingA = usersRepo.ratingForVenue(playerA, tournament.venueMode);
-  const ratingB = usersRepo.ratingForVenue(playerB, tournament.venueMode);
-  const combinedRatingA = usersRepo.ratingForVenue(playerA, "combined");
-  const combinedRatingB = usersRepo.ratingForVenue(playerB, "combined");
-  const matchScoreA = matchScoreFor(result, playerA.id, playerB.id);
-  const { deltaA, deltaB } = calculateElo(ratingA, ratingB, matchScoreA);
-  const { deltaA: combinedDeltaA, deltaB: combinedDeltaB } = calculateElo(
-    combinedRatingA,
-    combinedRatingB,
-    matchScoreA
-  );
-  const updatedA = await usersRepo.addRating(client, playerA.id, deltaA, tournament.venueMode);
-  const updatedB = await usersRepo.addRating(client, playerB.id, deltaB, tournament.venueMode);
-  await usersRepo.addRating(client, playerA.id, combinedDeltaA, "combined");
-  await usersRepo.addRating(client, playerB.id, combinedDeltaB, "combined");
-
-  return {
-    k: ELO_K,
-    [playerA.id]: { before: ratingA, after: usersRepo.ratingForVenue(updatedA, tournament.venueMode), delta: deltaA },
-    [playerB.id]: { before: ratingB, after: usersRepo.ratingForVenue(updatedB, tournament.venueMode), delta: deltaB },
-    combined: {
-      k: ELO_K,
-      [playerA.id]: {
-        before: combinedRatingA,
-        after: combinedRatingA + combinedDeltaA,
-        delta: combinedDeltaA
-      },
-      [playerB.id]: {
-        before: combinedRatingB,
-        after: combinedRatingB + combinedDeltaB,
-        delta: combinedDeltaB
-      }
-    }
-  };
+  if (players.length !== userIds.length) throw new HttpError(409, "One of the tournament players has been deleted");
+  const calculate = (mode) => calculateParticipantElo(participants,
+    new Map(players.map((player) => [player.id, usersRepo.ratingForVenue(player, mode)])), result);
+  const venueElo = calculate(tournament.venueMode);
+  const combined = calculate("combined");
+  for (const p of participants) {
+    if (!p.userId) continue;
+    await usersRepo.addRating(client, p.userId, venueElo[p.resultKey].delta, tournament.venueMode);
+    await usersRepo.addRating(client, p.userId, combined[p.resultKey].delta, "combined");
+  }
+  return { ...venueElo, combined };
 }
 
 async function publishFinalStandingsAdmin({ client, user, params, body }) {

@@ -2,15 +2,21 @@
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 3.0.2
+## Release 3.1.0
 
 See [CHANGELOG.md](CHANGELOG.md) for the release history and upgrade notes.
-This release keeps the five latest notifications, including read items, and saves
-each notification as read only when clicked. Opening the panel does not mark items
-as read. Notification history remains after an event ends, and completed tournament
-games can be opened from notifications. Migration 029 applies on startup and
-preserves existing data without importing the local demo database.
-See [notification behavior and migration notes](docs/notifications.md).
+This release adds reserved rosters, tournament live updates, lighter tournament
+payloads and images, round editing for all site administrators, and native browser
+navigation. Games against opponents without accounts now use normal Elo against
+1000 MMR. Administrators can recalculate individual rating history from a completed
+game without changing its result.
+
+Migrations 030 and 031 apply on startup. They add roster reservations and update
+untouched rating documentation; they do not import local demo data or reset ratings.
+After upgrading, use **Recalculate rating** on a completed ranked game to repair
+historical guest-game awards and dependent later ratings. A regular rating replay
+also uses the corrected rule. Existing achievements and awards remain intact.
+See [tournament workflow and live-update notes](docs/tournament-live-updates.md).
 
 ## Run
 

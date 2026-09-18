@@ -217,11 +217,13 @@ function tournamentRulesUrl(tournament) {
   return `/api/tournaments/${encodeURIComponent(tournament.slug)}/rules?v=${contentVersion(link)}`;
 }
 
+const { logoUrl } = require("../domain/logos");
+
 function tournamentSummaryView(tournament) {
   return {
     id: tournament.id,
     ownerUserId: tournament.ownerUserId,
-    logoData: tournament.logoData || null,
+    logoData: logoUrl("tournament", tournament.id, tournament.logoData),
     slug: tournament.slug,
     name: tournament.name,
     description: tournament.description,
@@ -254,6 +256,7 @@ function tournamentSummaryView(tournament) {
     startedAt: tournament.startedAt,
     completedAt: tournament.completedAt,
     cancelledAt: tournament.cancelledAt,
+    updatedAt: tournament.updatedAt,
     createdAt: tournament.createdAt
   };
 }

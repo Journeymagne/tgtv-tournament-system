@@ -1,6 +1,8 @@
 const { toIso } = require("../rows");
 const { avatarUrl } = require("../../domain/avatars");
 
+const { logoUrl } = require("../../domain/logos");
+
 function mapRoster(row) {
   if (!row) return null;
   return {
@@ -14,14 +16,15 @@ function mapRoster(row) {
     seed: row.seed,
     status: row.status,
     paid: Boolean(row.paid),
+    isReserve: Boolean(row.is_reserve),
     teamNameSnapshot: row.team_name_snapshot,
-    teamLogoSnapshot: row.team_logo_snapshot || null,
+    teamLogoSnapshot: logoUrl("roster", row.id, row.team_logo_snapshot),
     finalPlace: row.final_place,
     registeredAt: toIso(row.registered_at),
     startedAt: toIso(row.started_at),
     withdrawnAt: toIso(row.withdrawn_at),
     finishedAt: toIso(row.finished_at),
-    team: row.team_slug ? { id: row.team_id, slug: row.team_slug, name: row.current_team_name || row.team_name_snapshot, logoData: row.current_team_logo || null } : null,
+    team: row.team_slug ? { id: row.team_id, slug: row.team_slug, name: row.current_team_name || row.team_name_snapshot, logoData: logoUrl("team", row.team_id, row.current_team_logo) } : null,
     members: []
   };
 }
@@ -108,7 +111,7 @@ async function listByTournament(client, tournamentId, { includeWithdrawn = true,
   const { rows } = await client.query(
     `SELECT r.*, pt.slug AS team_slug, pt.name AS current_team_name, pt.logo_data AS current_team_logo
      FROM tournament_team_rosters r
-     JOIN player_teams pt ON pt.id = r.team_id
+     LEFT JOIN player_teams pt ON pt.id = r.team_id
      WHERE r.tournament_id = $1 ${includeWithdrawn ? "" : "AND r.status <> 'withdrawn'"}
      ORDER BY COALESCE(r.seed, 2147483647), r.id`,
     [tournamentId]
@@ -120,7 +123,7 @@ async function listByTeam(client, teamId) {
   const { rows } = await client.query(
     `SELECT r.*, pt.slug AS team_slug, pt.name AS current_team_name, pt.logo_data AS current_team_logo
      FROM tournament_team_rosters r
-     JOIN player_teams pt ON pt.id = r.team_id
+     LEFT JOIN player_teams pt ON pt.id = r.team_id
      WHERE r.team_id = $1 ORDER BY r.registered_at DESC, r.id DESC`,
     [teamId]
   );
@@ -130,7 +133,7 @@ async function listByTeam(client, teamId) {
 async function findById(client, id, forUpdate = false) {
   const { rows } = await client.query(
     `SELECT r.*, pt.slug AS team_slug, pt.name AS current_team_name, pt.logo_data AS current_team_logo
-     FROM tournament_team_rosters r JOIN player_teams pt ON pt.id = r.team_id
+     FROM tournament_team_rosters r LEFT JOIN player_teams pt ON pt.id = r.team_id
      WHERE r.id = $1${forUpdate ? " FOR UPDATE OF r" : ""}`,
     [id]
   );
@@ -149,7 +152,7 @@ async function maxSeed(client, tournamentId) {
 }
 
 async function update(client, id, patch) {
-  const fields = { paid: "paid", name: "name", nameKey: "name_key", captainUserId: "captain_user_id", seed: "seed", status: "status", teamNameSnapshot: "team_name_snapshot", teamLogoSnapshot: "team_logo_snapshot", finalPlace: "final_place", startedAt: "started_at", withdrawnAt: "withdrawn_at", finishedAt: "finished_at" };
+  const fields = { teamId: "team_id", isReserve: "is_reserve", paid: "paid", name: "name", nameKey: "name_key", captainUserId: "captain_user_id", seed: "seed", status: "status", teamNameSnapshot: "team_name_snapshot", teamLogoSnapshot: "team_logo_snapshot", finalPlace: "final_place", startedAt: "started_at", withdrawnAt: "withdrawn_at", finishedAt: "finished_at" };
   const values = [id];
   const assignments = [];
   for (const [field, column] of Object.entries(fields)) {

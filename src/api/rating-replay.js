@@ -1,10 +1,8 @@
 const usersRepo = require("../db/repositories/users");
 const gamesRepo = require("../db/repositories/games");
 const tournamentMatchesRepo = require("../db/repositories/tournament-matches");
-const { calculateElo, ELO_K } = require("../domain/elo");
-const { matchScoreFor } = require("../domain/scoring");
-
-const UNREGISTERED_OPPONENT_RATING_BONUS = 15;
+const { calculateParticipantElo } = require("../domain/elo");
+const { HttpError } = require("../http/io");
 
 function eloDeltaFor(game, userId, mode) {
   const track = mode === "combined" ? game.elo?.combined : game.elo;
@@ -65,37 +63,14 @@ function isRankedGame(game, tournamentPolicies) {
 }
 
 function replayGame(game, ratings) {
-  const playerIds = (game.playerIds || []).filter(Number.isInteger);
-  if (game.sourceType === "tournament_match" && playerIds.length === 1) {
-    const [playerId] = playerIds;
-    if (!ratings.has(playerId)) return null;
-    const before = ratings.get(playerId);
-    const after = before + UNREGISTERED_OPPONENT_RATING_BONUS;
-    ratings.set(playerId, after);
-    return {
-      flat: UNREGISTERED_OPPONENT_RATING_BONUS,
-      [playerId]: { before, after, delta: UNREGISTERED_OPPONENT_RATING_BONUS }
-    };
+  const participants = game.ratingParticipants?.length
+    ? game.ratingParticipants
+    : (game.playerIds || []).map((id) => ({ userId: id, resultKey: id }));
+  const elo = calculateParticipantElo(participants, ratings, game.result);
+  if (elo) for (const p of participants) {
+    if (p.userId) ratings.set(p.userId, elo[p.resultKey].after);
   }
-
-  const [playerAId, playerBId] = playerIds;
-  if (!Number.isInteger(playerAId) || !Number.isInteger(playerBId)) return null;
-  if (!ratings.has(playerAId) || !ratings.has(playerBId)) return null;
-
-  const beforeA = ratings.get(playerAId);
-  const beforeB = ratings.get(playerBId);
-  const matchScoreA = matchScoreFor(game.result, playerAId, playerBId);
-  const { deltaA, deltaB } = calculateElo(beforeA, beforeB, matchScoreA);
-  const afterA = beforeA + deltaA;
-  const afterB = beforeB + deltaB;
-  ratings.set(playerAId, afterA);
-  ratings.set(playerBId, afterB);
-
-  return {
-    k: ELO_K,
-    [playerAId]: { before: beforeA, after: afterA, delta: deltaA },
-    [playerBId]: { before: beforeB, after: afterB, delta: deltaB }
-  };
+  return elo;
 }
 
 function ratingReplayOrder(a, b) {
@@ -103,7 +78,7 @@ function ratingReplayOrder(a, b) {
     String(b.submittedAt || b.createdAt || "")
   );
   if (timestamp) return timestamp;
-  return String(a.id).localeCompare(String(b.id));
+  return a.id - b.id;
 }
 
 async function recalculateCompletedGameRatings(client, options = {}) {
@@ -115,6 +90,12 @@ async function recalculateCompletedGameRatings(client, options = {}) {
     .filter((game) => game.sourceType === "tournament_match")
     .map((game) => game.id);
   const tournamentPolicies = await tournamentMatchesRepo.ratingPoliciesByGameIds(client, tournamentGameIds);
+  if (options.requiredGameId) {
+    const target = games.find((game) => game.id === options.requiredGameId);
+    if (!target || !isRankedGame(target, tournamentPolicies)) {
+      throw new HttpError(409, "Only completed ranked games can have their rating recalculated");
+    }
+  }
   const ratings = inferBaseRatings(users, replayGames, options);
 
   for (const game of replayGames) {

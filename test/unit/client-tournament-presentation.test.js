@@ -119,8 +119,8 @@ function logoHarness(confirmDelete = async () => true) {
   const requests = [];
   const form = { dataset: {}, elements: { logoData: { value: "", dataset: {} } }, querySelector: (key) => controls[key], dispatchEvent: (event) => requests.push(event.type) };
   const loads = new Map();
-  const wire = new Function("t", "loadImage", "blobToDataUrl", "CustomEvent", "setMessage", "confirmDelete", `${sourceOf("wireTournamentLogo")}; return wireTournamentLogo;`)(
-    (key) => key, (file) => new Promise((resolve) => loads.set(file.name, resolve)), async (file) => `data:image/png;base64,${file.name}`,
+  const wire = new Function("t", "resizeTournamentLogo", "CustomEvent", "setMessage", "confirmDelete", `${sourceOf("wireTournamentLogo")}; return wireTournamentLogo;`)(
+    (key) => key, (file) => new Promise((resolve) => loads.set(file.name, () => resolve(`data:image/png;base64,${file.name}`))),
     class { constructor(type) { this.type = type; } }, () => {}, confirmDelete
   );
   wire(form);

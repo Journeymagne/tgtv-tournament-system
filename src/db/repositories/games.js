@@ -47,7 +47,18 @@ async function listCompletedForRatingReplay(client) {
      ORDER BY COALESCE(submitted_at, created_at), id
      FOR UPDATE`
   );
-  return rows.map(mapGame);
+  const { rows: participants } = await client.query(
+    `SELECT gp.game_id, gp.user_id, gp.result_key
+     FROM game_participants gp JOIN games g ON g.id = gp.game_id
+     WHERE g.status = 'completed' AND g.result IS NOT NULL
+     ORDER BY gp.game_id, gp.slot`
+  );
+  const byGame = new Map();
+  for (const p of participants) {
+    if (!byGame.has(p.game_id)) byGame.set(p.game_id, []);
+    byGame.get(p.game_id).push({ userId: p.user_id, resultKey: p.result_key });
+  }
+  return rows.map((row) => ({ ...mapGame(row), ratingParticipants: byGame.get(row.id) || [] }));
 }
 
 async function listForUser(client, userId) {

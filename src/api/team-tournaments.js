@@ -105,6 +105,7 @@ async function registerRoster({ client, user, params, body }) {
     ? ["draft", "registration_open", "registration_closed"]
     : ["registration_open"];
   if (!registrationStatuses.includes(tournament.status)) throw new HttpError(409, "Team registration is not open");
+  if (body.reserve === true) return require("./roster-reservations").create(client, tournament, user, body);
   const teamId = requirePositiveIntId(body.teamId, 400, "Choose a team");
   const team = await teamsRepo.findById(client, teamId, true);
   if (!team) throw new HttpError(404, "Team not found");
@@ -153,6 +154,7 @@ async function updateRoster({ client, user, params, body }) {
   const roster = await rostersRepo.findById(client, rosterId, true);
   if (!roster || roster.tournamentId !== tournament.id) throw new HttpError(404, "Roster not found");
   if (["withdrawn", "finished"].includes(roster.status)) throw new HttpError(409, "This roster is read-only");
+  if (roster.isReserve) return require("./roster-reservations").fill(client, tournament, roster, user, body);
   const membership = await teamsRepo.activeMembership(client, roster.teamId, user.id);
   if (!canEditRoster(user, roster, membership)) throw new HttpError(403, "Captain, team leader, or administrator rights required");
   if (tournament.status === "in_progress" && !user.isAdmin) {
@@ -299,7 +301,7 @@ async function deleteRoster({ client, user, params }) {
 async function reseedRosters(client, tournament, user, eventType = "roster_seed_update") {
   const rosters = await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: false });
   let seed = 0;
-  for (const roster of rosters.filter((item) => ["registered", "active"].includes(item.status))) {
+  for (const roster of rosters.filter((item) => item.isReserve || ["registered", "active"].includes(item.status))) {
     seed += 1;
     if (roster.seed !== seed) await rostersRepo.update(client, roster.id, { seed });
   }
@@ -314,14 +316,14 @@ async function updateRosterSeedsAdmin({ client, user, params, body }) {
     throw new HttpError(409, "Roster seeds are locked after tournament start");
   }
   const rosters = (await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: false }))
-    .filter((roster) => ["registered", "active"].includes(roster.status));
+    .filter((roster) => roster.isReserve || ["registered", "active"].includes(roster.status));
   const rosterIds = Array.isArray(body.rosterIds) ? body.rosterIds.map(Number) : [];
   const expected = new Set(rosters.map((roster) => roster.id));
   if (rosterIds.length !== rosters.length || new Set(rosterIds).size !== rosterIds.length || rosterIds.some((id) => !expected.has(id))) {
     throw new ValidationError("Seed order must include every active roster exactly once");
   }
   await client.query(
-    "UPDATE tournament_team_rosters SET seed = NULL, updated_at = NOW() WHERE tournament_id = $1 AND status IN ('registered', 'active')",
+    "UPDATE tournament_team_rosters SET seed = NULL, updated_at = NOW() WHERE tournament_id = $1 AND (status IN ('registered', 'active') OR is_reserve)",
     [tournament.id]
   );
   for (let index = 0; index < rosterIds.length; index += 1) {
@@ -368,7 +370,7 @@ async function nextTeamRoundTables(client, tournament, values) {
     : await configureTeamTables(client, tournament, values);
   validateTeamTables(defaults);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
-  const previous = tablesForRound(rounds.at(-1), defaults);
+  const previous = tournament.roundDraft?.tables || tablesForRound(rounds.at(-1), defaults);
   const selected = validateTeamTables(values === undefined ? previous : values);
   const result = [];
   for (const [index, table] of defaults.entries()) result.push({
@@ -402,9 +404,7 @@ async function startTournament(client, tournament, user, body = {}) {
     if (activeRosterMembers(roster).length !== 3) throw new ValidationError("Every active roster must contain exactly three players");
     await rostersRepo.update(client, roster.id, {
       status: "active",
-      startedAt: nowIso(),
-      teamNameSnapshot: roster.teamNameSnapshot,
-      teamLogoSnapshot: roster.teamLogoSnapshot
+      startedAt: nowIso()
     });
   }
   const updated = await tournamentsRepo.update(client, tournament.id, { status: "in_progress", startedAt: nowIso() });
@@ -463,7 +463,8 @@ async function buildRoundPreview(client, tournament, body = {}) {
     if (latest.roundNumber >= tournament.swissRoundCount) throw new HttpError(409, "All configured Swiss rounds have been generated");
     blueprint = buildNextTeamRound(tournament, rosters, matches, latest.roundNumber + 1);
   }
-  return { blueprint: applyManualMatchups(blueprint, rosters, body), rosters, matches };
+  const setup = tournament.roundDraft && !body.matchups ? { ...body, matchups: tournament.roundDraft.matchups } : body;
+  return { blueprint: applyManualMatchups(blueprint, rosters, setup), rosters, matches };
 }
 
 async function previewNextRound(client, tournament) {
@@ -473,8 +474,9 @@ async function previewNextRound(client, tournament) {
   return {
     tournament: tournamentSummaryView(tournament),
     round: { ...blueprint, matches: blueprint.pairings },
-    tables: tablesForRound(rounds.at(-1), defaults).map(tournamentTableView),
+    tables: (tournament.roundDraft?.tables || tablesForRound(rounds.at(-1), defaults)).map(tournamentTableView),
     teamRound: true,
+    restoredDraft: Boolean(tournament.roundDraft),
     prepared: tournament.status === "registration_closed"
   };
 }
@@ -510,7 +512,8 @@ async function generateRound(client, tournament, user, body = {}) {
     await roundsRepo.update(client, round.id, { status: "completed", completedAt: nowIso() });
   }
   await audit(client, tournament, user, prepared ? "team_first_round_prepare" : "team_round_generate", { entityType: "round", entityId: round.id, metadata: { blueprint, missions, tables } });
-  return tournamentData(client, { ...tournament, teamTablesLocked: true }, user, { includeAudit: true });
+  if (tournament.roundDraft) await tournamentsRepo.update(client, tournament.id, { roundDraft: null });
+  return tournamentData(client, { ...tournament, roundDraft: null, teamTablesLocked: true }, user);
 }
 
 async function requireMatchContext(client, params, user, phase = null) {
@@ -593,6 +596,7 @@ async function getPairingMatch({ client, user, params }) {
   return {
     tournament: {
       ...tournamentSummaryView(tournament),
+      roundDraft: user?.isAdmin ? tournament.roundDraft : undefined,
       viewer: {
         role: user?.isAdmin ? "admin" : user ? "player" : "spectator",
         canAdmin: Boolean(user?.isAdmin),
@@ -1074,7 +1078,7 @@ function redactTeamMatch(match, rosterA, rosterB, user) {
 async function tournamentData(client, tournament, user, { includeAudit = false } = {}) {
   const storedRosters = await rostersRepo.listByTournament(client, tournament.id, {
     includeWithdrawn: true,
-    includeHistory: includeAudit
+    includeHistory: includeAudit || Boolean(user?.isAdmin)
   });
   const myTeams = user ? await teamsRepo.listForUser(client, user.id) : [];
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
@@ -1106,17 +1110,7 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
   const viewerTeams = [];
   for (const team of myTeams) {
     const memberships = await teamsRepo.listMemberships(client, team.id);
-    viewerTeams.push({ ...team, defaultRosterName: defaultRosterName(team, storedRosters), members: memberships.filter((membership) => !membership.endedAt) });
-  }
-  if (user?.isAdmin) {
-    const membersByTeam = new Map();
-    for (const roster of rosters) {
-      if (!membersByTeam.has(roster.teamId)) {
-        const memberships = await teamsRepo.listMemberships(client, roster.teamId);
-        membersByTeam.set(roster.teamId, memberships.filter((membership) => !membership.endedAt));
-      }
-      roster.availableMembers = membersByTeam.get(roster.teamId);
-    }
+    viewerTeams.push({ ...require("../domain/logos").teamLogoView(team), defaultRosterName: defaultRosterName(team, storedRosters), members: memberships.filter((membership) => !membership.endedAt) });
   }
   let auditEvents = [];
   if (includeAudit) {
@@ -1133,7 +1127,8 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
         role: user?.isAdmin ? "admin" : "spectator",
         canAdmin: Boolean(user?.isAdmin),
         captainRosterIds: activeRosters.filter((roster) => roster.captainUserId === user?.id).map((roster) => roster.id)
-      }
+      },
+      roundDraft: user?.isAdmin ? tournament.roundDraft : undefined
     },
     participants: [],
     rosters,
@@ -1470,23 +1465,28 @@ async function deleteTournamentGames(client, tournamentId) {
 }
 
 async function rollbackLatestRound(client, tournament, user) {
+  if (tournament.roundDraft) throw new HttpError(409, "Finish editing the restored round before undoing another round");
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const round = rounds[rounds.length - 1];
   if (!round) throw new HttpError(409, "There is no team round to roll back");
   const matches = await teamMatchesRepo.listByRound(client, round.id);
   const fullMatches = await teamMatchesRepo.listByTournament(client, tournament.id);
   const latest = fullMatches.filter((match) => match.roundId === round.id);
-  if (latest.some((match) => (match.phase === "completed" && !match.resolution) || match.games.some((link) => link.game?.status === "completed"))) {
-    throw new HttpError(409, "Reset completed team-match results before rolling back this round");
+  if (latest.some((match) => (match.phase === "completed" && !match.resolution) || match.games.some((link) => ["completed", "pending_confirmation"].includes(link.game?.status) || link.game?.pendingResult))) {
+    throw new HttpError(409, "Reset submitted team-match results before rolling back this round");
   }
+  const draft = { roundNumber: round.roundNumber, tables: round.metadata?.tables || await tablesRepo.listByTournament(client, tournament.id),
+    matchups: matches.map(match => ({ rosterAId: match.rosterAId, rosterBId: match.rosterBId })) };
+  await tournamentsRepo.update(client, tournament.id, { roundDraft: draft });
   await gamesRepo.removeBySourceIds(client, "team_match_game", matches.map((match) => match.id));
   await teamMatchesRepo.removeByRound(client, round.id);
   await roundsRepo.remove(client, round.id);
   await audit(client, tournament, user, "team_round_rollback", { entityType: "round", entityId: round.id, before: { round, matches } });
-  return tournamentData(client, tournament, user, { includeAudit: true });
+  return tournamentData(client, { ...tournament, roundDraft: draft }, user);
 }
 
 module.exports = {
+  normalizeRosterMembers,
   registerRoster,
   updateRoster,
   withdrawRoster,
