@@ -6,8 +6,9 @@ const notificationsApi = require("../../src/api/notifications");
 function fakeClient(options = {}) {
   const now = new Date("2026-09-04T12:00:00.000Z");
   const createdAt = new Date("2026-09-04T11:00:00.000Z");
+  const stored = new Map();
   return {
-    async query(sql) {
+    async query(sql, params = []) {
       if (sql === "SELECT NOW() AS generated_at") return { rows: [{ generated_at: now }] };
       if (sql.includes("SELECT last_seen_at FROM notification_inbox_state")) {
         return { rows: options.lastSeenAt ? [{ last_seen_at: new Date(options.lastSeenAt) }] : [] };
@@ -73,6 +74,17 @@ function fakeClient(options = {}) {
       if (sql.includes("INSERT INTO notification_inbox_state")) {
         return { rows: [{ last_seen_at: now }] };
       }
+      if (sql.includes("INSERT INTO notification_inbox_items")) {
+        for (const item of JSON.parse(params[1])) {
+          const readAt = stored.get(item.id)?.read_at || (params[2] && item.createdAt <= params[2] ? params[2] : null);
+          stored.set(item.id, { payload: item, read_at: readAt });
+        }
+        return { rows: [] };
+      }
+      if (sql.includes("SELECT payload, read_at FROM notification_inbox_items")) {
+        return { rows: [...stored.values()].sort((a, b) => b.payload.createdAt.localeCompare(a.payload.createdAt) || b.payload.id.localeCompare(a.payload.id)).slice(0, 5) };
+      }
+      if (sql.includes("UPDATE notification_inbox_items")) return { rows: [] };
       if (sql.includes("SELECT t.id, t.slug, t.name, t.started_at")) {
         return { rows: [{ id: 13, slug: "started-cup", name: "Started Cup", started_at: createdAt }] };
       }

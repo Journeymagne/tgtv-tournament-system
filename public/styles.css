@@ -3801,6 +3801,12 @@ tr:last-child td {
   padding-right: 10px;
 }
 
+.notification-item-title,
+.notification-item-meta,
+.notification-item-time {
+  display: block;
+}
+
 .notification-item-title {
   font-size: 14px;
   font-weight: 750;

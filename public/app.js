@@ -778,7 +778,7 @@ function notificationItemMarkup(item) {
       <span class="notification-item-copy">
         <span class="notification-item-title">${escapeHtml(notificationTitle(item))}</span>
         ${meta ? `<span class="notification-item-meta">${escapeHtml(meta)}</span>` : ""}
-        <span class="notification-item-time">${escapeHtml(fmtDate(item.createdAt))}</span>
+        <span class="notification-item-time">${escapeHtml(fmtDate(item.createdAt))} · ${t(item.unread ? "notifications.unread" : "notifications.read")}</span>
       </span>
     </button>`;
 }
@@ -820,10 +820,10 @@ function renderNotificationControl() {
     const errorNotice = state.notificationsError
       ? `<div class="notification-error">${t("notifications.loadError")}<br><button class="small-button notification-retry" type="button" data-notification-retry>${t("notifications.retry")}</button></div>`
       : "";
-    body = `${errorNotice}<div class="notification-list">${state.notifications.map(notificationItemMarkup).join("")}</div>`;
+    body = `${errorNotice}<div class="notification-list">${state.notifications.slice(0, 5).map(notificationItemMarkup).join("")}</div>`;
   }
   panel.setAttribute("aria-label", t("notifications.title"));
-  panel.innerHTML = `<div class="notification-panel-header"><h2>${t("notifications.title")}</h2></div>${body}`;
+  panel.innerHTML = `<div class="notification-panel-header"><h2>${t("notifications.title")}</h2><span class="field-help">${t("notifications.latestFive")}</span></div>${body}`;
 }
 
 function resetNotifications() {
@@ -844,11 +844,11 @@ function scheduleNotificationPoll() {
   notificationPollTimer = null;
   if (!state.me || document.visibilityState === "hidden") return;
   notificationPollTimer = window.setTimeout(async () => {
-    await loadNotifications({ markRead: state.notificationsOpen });
+    await loadNotifications();
   }, NOTIFICATION_POLL_INTERVAL_MS);
 }
 
-async function loadNotifications(options = {}) {
+async function loadNotifications() {
   if (!state.me) {
     resetNotifications();
     return;
@@ -862,21 +862,9 @@ async function loadNotifications(options = {}) {
   try {
     const data = await api("/api/notifications");
     if (requestId !== notificationRequestId) return;
-    state.notifications = data.items || [];
+    state.notifications = (data.items || []).slice(0, 5);
     state.notificationsUnreadCount = Number(data.unreadCount || 0);
     state.notificationsGeneratedAt = data.generatedAt || null;
-    if (options.markRead && data.generatedAt) {
-      const readState = await api("/api/notifications/read", {
-        method: "POST",
-        body: { through: data.generatedAt }
-      });
-      if (requestId !== notificationRequestId) return;
-      state.notifications = state.notifications.map((item) => ({
-        ...item,
-        unread: Boolean(readState.lastSeenAt && item.createdAt > readState.lastSeenAt)
-      }));
-      state.notificationsUnreadCount = state.notifications.filter((item) => item.unread).length;
-    }
   } catch (err) {
     if (requestId !== notificationRequestId) return;
     state.notificationsError = err.message;
@@ -900,7 +888,22 @@ function focusNotificationTarget(selector) {
   });
 }
 
+async function markNotificationRead(item) {
+  const viewerId = state.me?.id;
+  if (!viewerId) return false;
+  const result = await api("/api/notifications/read", { method: "POST", body: { id: item.id } });
+  if (state.me?.id !== viewerId) return false;
+  notificationRequestId += 1;
+  state.notifications = state.notifications.map((candidate) => candidate.id === item.id
+    ? { ...candidate, unread: false, readAt: result.readAt } : candidate);
+  state.notificationsUnreadCount = state.notifications.filter((candidate) => candidate.unread).length;
+  renderNotificationControl();
+  await loadNotifications();
+  return state.me?.id === viewerId;
+}
+
 async function openNotificationItem(item) {
+  if (item.unread && !await markNotificationRead(item)) return;
   state.notificationsOpen = false;
   renderNotificationControl();
   if (item.type === "tournament_started") {
@@ -937,8 +940,7 @@ async function openNotificationItem(item) {
     ? `tournament-match-${item.sourceId}`
     : Number(item.gameId);
   const game = await loadGame(gameId);
-  const tournamentInactive = game?.tournament?.status && game.tournament.status !== "in_progress";
-  if (!game || !["open", "pending_confirmation"].includes(game.status) || tournamentInactive) {
+  if (!game || !["open", "pending_confirmation", "completed"].includes(game.status)) {
     state.view = "games";
     state.gamesTab = "history";
     await loadGames();
@@ -963,12 +965,12 @@ function wireNotificationControl() {
   document.querySelector("[data-notification-toggle]")?.addEventListener("click", async () => {
     state.notificationsOpen = !state.notificationsOpen;
     renderNotificationControl();
-    if (state.notificationsOpen) await loadNotifications({ markRead: true });
+    if (state.notificationsOpen) await loadNotifications();
   });
   document.querySelector("[data-notification-panel]")?.addEventListener("click", async (event) => {
     const retry = event.target.closest("[data-notification-retry]");
     if (retry) {
-      await loadNotifications({ markRead: true });
+      await loadNotifications();
       return;
     }
     const button = event.target.closest("[data-notification-item]");
@@ -997,13 +999,13 @@ function wireNotificationControl() {
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && state.me) {
-      loadNotifications({ markRead: state.notificationsOpen });
+      loadNotifications();
     } else {
       scheduleNotificationPoll();
     }
   });
   window.addEventListener("focus", () => {
-    if (state.me) loadNotifications({ markRead: state.notificationsOpen });
+    if (state.me) loadNotifications();
   });
 }
 

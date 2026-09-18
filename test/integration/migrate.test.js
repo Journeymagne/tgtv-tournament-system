@@ -40,6 +40,7 @@ test("migrate на пустой базе создаёт схему", async () =>
     "game_participants",
     "games",
     "notification_inbox_state",
+    "notification_inbox_items",
     "schema_migrations",
     "sessions",
     "tournament_audit_events",

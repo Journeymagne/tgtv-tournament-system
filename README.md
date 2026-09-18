@@ -2,14 +2,15 @@
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 3.0.1
+## Release 3.0.2
 
 See [CHANGELOG.md](CHANGELOG.md) for the release history and upgrade notes.
-This release adds public registration limits, private administrator payment
-checkboxes, 24-hour time, team logos and links on rosters, and clearer team-match
-results. Migration 028 applies on startup; existing tournaments have no explicit
-registration limit and existing registrations start with payment unchecked.
-The migration preserves production data and does not import the local demo database.
+This release keeps the five latest notifications, including read items, and saves
+each notification as read only when clicked. Opening the panel does not mark items
+as read. Notification history remains after an event ends, and completed tournament
+games can be opened from notifications. Migration 029 applies on startup and
+preserves existing data without importing the local demo database.
+See [notification behavior and migration notes](docs/notifications.md).
 
 ## Run
 

@@ -217,6 +217,46 @@ async function listTournamentStarts(client, userId) {
   }));
 }
 
+async function rememberItems(client, userId, items, lastSeenAt) {
+  if (!items.length) return;
+  await client.query(
+    `INSERT INTO notification_inbox_items (user_id, notification_id, payload, created_at, read_at)
+     SELECT $1, item->>'id', item, (item->>'createdAt')::timestamptz,
+       CASE WHEN (item->>'createdAt')::timestamptz <= $3::timestamptz THEN $3::timestamptz END
+     FROM jsonb_array_elements($2::jsonb) AS item
+     ON CONFLICT (user_id, notification_id) DO UPDATE SET payload = EXCLUDED.payload
+       WHERE notification_inbox_items.payload IS DISTINCT FROM EXCLUDED.payload`,
+    [userId, JSON.stringify(items), lastSeenAt]
+  );
+}
+
+async function listRecent(client, userId) {
+  const { rows } = await client.query(
+    `SELECT payload, read_at FROM notification_inbox_items
+     WHERE user_id = $1
+     ORDER BY created_at DESC, notification_id DESC LIMIT 5`,
+    [userId]
+  );
+  return rows.map((row) => ({ ...row.payload, readAt: toIso(row.read_at), unread: !row.read_at }));
+}
+
+async function markItemRead(client, userId, id) {
+  const { rows } = await client.query(
+    `UPDATE notification_inbox_items SET read_at = COALESCE(read_at, NOW())
+     WHERE user_id = $1 AND notification_id = $2 RETURNING notification_id, read_at`,
+    [userId, id]
+  );
+  return rows[0] ? { id: rows[0].notification_id, readAt: toIso(rows[0].read_at) } : null;
+}
+
+async function markRememberedReadThrough(client, userId, through) {
+  await client.query(
+    `UPDATE notification_inbox_items SET read_at = NOW()
+     WHERE user_id = $1 AND read_at IS NULL AND created_at <= $2::timestamptz`,
+    [userId, through]
+  );
+}
+
 async function listActive(client, userId) {
   const groups = [
     await listChallenges(client, userId),
@@ -230,4 +270,4 @@ async function listActive(client, userId) {
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id));
 }
 
-module.exports = { getLastSeenAt, markReadThrough, listActive };
+module.exports = { getLastSeenAt, markReadThrough, listActive, rememberItems, listRecent, markItemRead, markRememberedReadThrough };

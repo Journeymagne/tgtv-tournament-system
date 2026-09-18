@@ -211,7 +211,8 @@ test("active inbox aggregates challenges and invitations and keeps read items ac
   await client.query("UPDATE challenges SET status = 'declined' WHERE id = $1", [challengeRows[0].id]);
   await client.query("UPDATE player_teams SET archived_at = NOW() WHERE id = $1", [teamRows[0].id]);
   const inactive = await listFor(alpha);
-  assert.equal(inactive.items.length, 0);
+  assert.equal(inactive.items.length, 2);
+  assert.equal(inactive.unreadCount, 0);
 });
 
 test("individual and captain-completed team pairings create personal notifications", async () => {
@@ -232,5 +233,51 @@ test("individual and captain-completed team pairings create personal notificatio
 
   await client.query("UPDATE games SET status = 'completed' WHERE id = ANY($1::int[])", [[individualGame.id, teamGame.id]]);
   const completed = await listFor(alpha);
-  assert.equal(completed.items.length, 0);
+  assert.equal(completed.items.length, 2);
+  assert.deepEqual(completed.items.map(item => item.id), inbox.items.map(item => item.id));
+});
+
+test("click reads only that notification, survives new connections and cannot read another user's inbox", async () => {
+  const game = await createIndividualPairing();
+  await createTeamPairing();
+  const before = await listFor(alpha);
+  const target = before.items.find(item => item.gameId === game.id);
+  const read = await notificationsApi.markRead({ client, user: alpha, body: { id: target.id } });
+  assert.equal(read.id, target.id);
+  assert.ok(read.readAt);
+  const otherConnection = await pool.connect();
+  try {
+    const after = await notificationsApi.list({ client: otherConnection, user: alpha });
+    assert.equal(after.unreadCount, 1);
+    assert.equal(after.items.find(item => item.id === target.id).unread, false);
+    assert.equal(after.items.find(item => item.id !== target.id).unread, true);
+  } finally { otherConnection.release(); }
+  assert.deepEqual(await notificationsApi.markRead({ client, user: alpha, body: { id: target.id } }), read);
+  assert.equal((await listFor(bravo)).unreadCount, 2);
+  const { rows: [privateChallenge] } = await client.query(
+    "INSERT INTO challenges (from_user_id, to_user_id, status) VALUES ($1, $2, 'pending') RETURNING id", [bravo.id, alpha.id]);
+  await listFor(alpha);
+  await assert.rejects(() => notificationsApi.markRead({ client, user: bravo, body: { id: `game_challenge:${privateChallenge.id}` } }), error => error.status === 404);
+  await assert.rejects(() => notificationsApi.markRead({ client, user: alpha, body: { id: "bad-id" } }), error => error.status === 400);
+  await client.query("UPDATE games SET status = 'completed' WHERE id = $1", [game.id]);
+  const history = await listFor(alpha);
+  assert.equal(history.items.find(item => item.id === target.id).unread, false);
+  assert.equal(history.items.find(item => item.id === target.id).readAt, read.readAt);
+});
+
+test("the inbox keeps exactly the latest five, including read and resolved entries", async () => {
+  const { rows } = await client.query(`INSERT INTO challenges (from_user_id, to_user_id, status, created_at)
+    SELECT $1, $2, 'pending', NOW() - n * INTERVAL '1 minute' FROM generate_series(1, 7) AS n
+    RETURNING id, created_at`, [bravo.id, alpha.id]);
+  const expected = rows.sort((a, b) => b.created_at - a.created_at).slice(0, 5).map(row => `game_challenge:${row.id}`);
+  const inbox = await listFor(alpha);
+  assert.deepEqual(inbox.items.map(item => item.id), expected);
+  assert.equal(inbox.unreadCount, 5);
+  await notificationsApi.markRead({ client, user: alpha, body: { id: expected[0] } });
+  await client.query("UPDATE challenges SET status = 'declined' WHERE to_user_id = $1", [alpha.id]);
+  const history = await listFor(alpha);
+  assert.deepEqual(history.items.map(item => item.id), expected);
+  assert.equal(history.unreadCount, 4);
+  const { rows: [newest] } = await client.query("INSERT INTO challenges (from_user_id, to_user_id, status) VALUES ($1, $2, 'pending') RETURNING id", [bravo.id, alpha.id]);
+  assert.deepEqual((await listFor(alpha)).items.map(item => item.id), [`game_challenge:${newest.id}`, ...expected.slice(0, 4)]);
 });
