@@ -2,10 +2,15 @@
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 3.1.0
+## Release 3.1.1
 
 See [CHANGELOG.md](CHANGELOG.md) for the release history and upgrade notes.
-This release adds reserved rosters, tournament live updates, lighter tournament
+This patch adds the Google Search Console ownership verification file at
+`/googlef86243166b01dc47.html`. After deployment, complete verification in Search
+Console and inspect the Security Issues report. Keep the file deployed to retain
+verification. This patch adds no database migrations.
+
+Version 3.1.0 added reserved rosters, tournament live updates, lighter tournament
 payloads and images, round editing for all site administrators, and native browser
 navigation. Games against opponents without accounts now use normal Elo against
 1000 MMR. Administrators can recalculate individual rating history from a completed
