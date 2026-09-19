@@ -87,8 +87,8 @@ test("opening teams uses the shared navigation history", () => {
 });
 
 test("logo removal sends null while an unchanged logo is omitted", async () => {
-  const readLogo = new Function("resizeTournamentLogo", `${extract("teamLogoFromForm")}; return teamLogoFromForm;`)(async () => "uploaded-logo");
+  const readLogo = new Function("resizeTournamentLogo", "t", `${extract("teamLogoFileError")}; ${extract("teamLogoFromForm")}; return teamLogoFromForm;`)(async () => "uploaded-logo", key => key);
   assert.equal(await readLogo({ elements: {} }), undefined);
   assert.equal(await readLogo({ elements: { removeLogo: { checked: true } } }), null);
-  assert.equal(await readLogo({ elements: { logo: { files: [{}] } } }), "uploaded-logo");
+  assert.equal(await readLogo({ elements: { logo: { files: [{ type: "image/png", size: 100 }] } } }), "uploaded-logo");
 });

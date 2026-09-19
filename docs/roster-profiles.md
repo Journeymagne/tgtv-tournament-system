@@ -9,6 +9,12 @@
 - The page displays the roster's players (including former members), captain,
   seed, status, tournament place and statistics. Match history is newest round
   first; scores follow the displayed roster A / roster B order.
+- The roster captain, current parent-team leader (including one outside the
+  roster), and administrators can rename it from its profile before or during
+  the tournament. `viewer.canRename` controls the button; the PATCH endpoint
+  independently checks permissions. After start, non-admin changes must contain
+  only `name`. Renaming preserves members, captains, prepared pairings and results.
+  Finished/withdrawn rosters and completed/cancelled tournaments remain read-only.
 - The roster header and public/admin roster lists display the parent team's
   current logo and a separate link on its name. Missing logos use initials;
   the roster name continues to open its tournament-specific profile.

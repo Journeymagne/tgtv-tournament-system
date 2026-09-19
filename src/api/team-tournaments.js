@@ -70,6 +70,7 @@ function rosterById(rosters, id) {
 }
 
 function canEditRoster(user, roster, teamMembership) {
+  if (!user) return false;
   if (user.isAdmin) return true;
   return roster.captainUserId === user.id || teamMembership?.role === "leader";
 }
@@ -157,7 +158,8 @@ async function updateRoster({ client, user, params, body }) {
   if (roster.isReserve) return require("./roster-reservations").fill(client, tournament, roster, user, body);
   const membership = await teamsRepo.activeMembership(client, roster.teamId, user.id);
   if (!canEditRoster(user, roster, membership)) throw new HttpError(403, "Captain, team leader, or administrator rights required");
-  if (tournament.status === "in_progress" && !user.isAdmin) {
+  const nameOnly = Object.keys(body).length === 1 && Object.hasOwn(body, "name");
+  if (tournament.status === "in_progress" && !user.isAdmin && !nameOnly) {
     throw new HttpError(403, "Only an administrator can change a roster after tournament start");
   }
   if (["completed", "cancelled"].includes(tournament.status)) throw new HttpError(409, "This tournament is read-only");
@@ -207,12 +209,13 @@ async function updateRoster({ client, user, params, body }) {
       throw new ValidationError("The captain must be one of the three roster players");
     }
     patch.captainUserId = captainUserId;
-  } else if (!freshMembers.some((member) => member.userId === roster.captainUserId)) {
+  } else if (!nameOnly && !freshMembers.some((member) => member.userId === roster.captainUserId)) {
     throw new ValidationError("Choose a new captain when replacing the current captain");
   }
   try {
     const updated = await rostersRepo.update(client, roster.id, patch);
-    await clearPreparedRounds(client, tournament);
+    // A display-name change must not discard the organizer's prepared pairings.
+    if (!nameOnly) await clearPreparedRounds(client, tournament);
     await audit(client, tournament, user, "roster_update", { teamId: roster.teamId, entityType: "roster", entityId: roster.id, before, after: updated });
     return { roster: { ...updated, paid: user.isAdmin ? updated.paid : undefined } };
   } catch (err) {
@@ -555,9 +558,15 @@ async function getRoster({ client, user, params }) {
   const row = standings.find((item) => item.roster.id === roster.id)
     || { ...teamStandings([roster], matches)[0], rank: null };
   const finalRow = tournament.finalResults?.find((item) => item.rosterId === roster.id);
+  const teamLeader = myTeams.some((team) => team.id === roster.teamId && team.leaderUserId === user?.id);
   return {
     tournament: tournamentSummaryView(tournament),
     roster,
+    viewer: {
+      canRename: !roster.isReserve && !["withdrawn", "finished"].includes(roster.status)
+        && !["completed", "cancelled"].includes(tournament.status)
+        && canEditRoster(user, roster, teamLeader ? { role: "leader" } : null)
+    },
     standing: { ...row, ...finalRow, rosterId: roster.id, roster: undefined },
     teamMatches: matches.map((match) => redactTeamMatch({
       ...match,

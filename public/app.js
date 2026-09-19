@@ -7814,6 +7814,7 @@ function renderRosterProfile() {
       </div></div><div class="row-actions">
         <button class="ghost-button" data-roster-back>${t("common.back")}</button>
         <button class="small-button" data-roster-tournament>${t("teams.pairing.openTournament")}</button>
+        ${data.viewer?.canRename ? `<button class="small-button" data-roster-rename>${t("teams.roster.rename")}</button>` : ""}
         ${roster.team?.slug ? `<a href="/teams/${escapeHtml(roster.team.slug)}" data-app-link class="small-button" data-team-profile-link="${escapeHtml(roster.team.slug)}">${t("teams.roster.openTeam")}</a>` : ""}
       </div></div>
       <div class="roster-summary-metrics">${metrics.map(([label, value]) => `<div class="card metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("")}</div>
@@ -7827,8 +7828,51 @@ function renderRosterProfile() {
   </div>`;
   content.querySelector("[data-roster-back]").addEventListener("click", () => navigateBack(tournamentPublicPath(tournament.slug), { tournamentTab: "standings" }));
   content.querySelector("[data-roster-tournament]").addEventListener("click", () => navigateToPublicTournament(tournament.slug, { tab: "standings" }));
+  content.querySelector("[data-roster-rename]")?.addEventListener("click", () => openRosterNameEditor(data));
   wireTeamTournamentControls(data, { roster: true });
   wireLeaderboardProfiles();
+}
+
+function openRosterNameEditor(data) {
+  if (!data.viewer?.canRename) return;
+  const { roster, tournament } = data;
+  const dialog = document.createElement("dialog");
+  dialog.className = "tiebreaker-help-dialog";
+  dialog.setAttribute("aria-labelledby", "roster-rename-title");
+  dialog.innerHTML = `<form class="tiebreaker-help-content" data-roster-rename-form>
+    <div class="tiebreaker-help-header"><h3 id="roster-rename-title">${t("teams.roster.rename")}</h3><button class="dialog-close-button" type="button" data-roster-rename-close aria-label="${t("common.close")}">&times;</button></div>
+    <div class="field"><label for="roster-rename-name">${t("teams.tournament.rosterName")}</label><input id="roster-rename-name" name="name" minlength="2" maxlength="80" value="${escapeHtml(roster.name)}" required></div>
+    <div class="message error" data-roster-rename-message role="alert" hidden></div>
+    <div class="row-actions"><button class="small-button" type="button" data-roster-rename-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("common.save")}</button></div>
+  </form>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("[data-roster-rename-close]").addEventListener("click", close);
+  dialog.querySelector("[data-roster-rename-cancel]").addEventListener("click", close);
+  const form = dialog.querySelector("[data-roster-rename-form]");
+  const message = form.querySelector("[data-roster-rename-message]");
+  const submit = form.querySelector('[type="submit"]');
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (submit.disabled) return;
+    submit.disabled = true;
+    message.hidden = true;
+    try {
+      await api(`/api/tournaments/${tournament.id}/rosters/${roster.id}`, { method: "PATCH", body: { name: form.elements.name.value.trim() } });
+      if (state.publicTournamentDetail?.tournament?.id === tournament.id) state.publicTournamentDetail = null;
+      if (state.teamProfile?.team?.id === roster.teamId) state.teamProfile = null;
+      close();
+      if (state.view === "roster" && state.selectedRosterId === roster.id) await openRosterProfile(roster.id, { navigate: false });
+    } catch (err) {
+      message.textContent = err.message;
+      message.hidden = false;
+      submit.disabled = false;
+    }
+  });
+  dialog.showModal();
+  form.elements.name.focus();
+  form.elements.name.select();
 }
 
 function rosterTeamLinkMarkup(roster) {
@@ -9341,9 +9385,45 @@ function teamInvitationCards(invitations, direction) {
   }).join("");
 }
 
+function teamLogoField(id) {
+  return `<div class="field">
+    <label for="${id}">${t("teams.field.logo")}</label>
+    <input id="${id}" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif" aria-describedby="${id}-hint ${id}-error">
+    <span id="${id}-hint" class="field-help">${t("teams.logo.hint")}</span>
+    <span id="${id}-error" class="message error" data-team-logo-error role="alert" hidden></span>
+  </div>`;
+}
+
+function teamLogoFileError(file) {
+  if (!file) return "";
+  if (file.size > 1024 * 1024) return t("teams.logo.sizeError");
+  if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) return t("teams.logo.typeError");
+  return "";
+}
+
+function wireTeamLogoValidation(form) {
+  const input = form?.elements.logo;
+  if (!input) return;
+  const message = form.querySelector("[data-team-logo-error]");
+  const validate = () => {
+    const error = form.elements.removeLogo?.checked ? "" : teamLogoFileError(input.files?.[0]);
+    input.setCustomValidity(error);
+    input.setAttribute("aria-invalid", String(Boolean(error)));
+    message.textContent = error;
+    message.hidden = !error;
+  };
+  input.addEventListener("change", () => {
+    if (input.files?.[0] && form.elements.removeLogo) form.elements.removeLogo.checked = false;
+    validate();
+  });
+  form.elements.removeLogo?.addEventListener("change", validate);
+}
+
 async function teamLogoFromForm(form) {
   if (form.elements.removeLogo?.checked) return null;
   const file = form.elements.logo?.files?.[0];
+  const error = teamLogoFileError(file);
+  if (error) throw new Error(error);
   return file ? resizeTournamentLogo(file) : undefined;
 }
 
@@ -9354,7 +9434,7 @@ function openTeamCreator() {
     <div class="tiebreaker-help-header"><div><h3>${t("teams.create.title")}</h3></div><button class="dialog-close-button" type="button" data-team-create-close aria-label="${t("common.close")}">&times;</button></div>
     <div class="field"><label>${t("teams.field.name")}</label><input name="name" minlength="2" maxlength="80" required></div>
     ${markdownEditorField({ name: "description", label: t("teams.field.description"), rows: 10 })}
-    <div class="field"><label>${t("teams.field.logo")}</label><input name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div>
+    ${teamLogoField("team-create-logo")}
     <div class="message" data-team-create-message></div>
     <div class="row-actions"><button class="small-button" type="button" data-team-create-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("teams.create.submit")}</button></div>
   </form>`;
@@ -9365,6 +9445,7 @@ function openTeamCreator() {
   dialog.querySelector("[data-team-create-cancel]")?.addEventListener("click", close);
   const form = dialog.querySelector("[data-team-create-dialog]");
   wireMarkdownEditors(form);
+  wireTeamLogoValidation(form);
   const message = form.querySelector("[data-team-create-message]");
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -9496,9 +9577,10 @@ function teamManagementPanel(data) {
     <form data-team-edit>
       <div class="field"><label for="team-edit-name">${t("teams.field.name")}</label><input id="team-edit-name" name="name" minlength="2" maxlength="80" value="${escapeHtml(team.name || "")}" required></div>
       ${markdownEditorField({ name: "description", label: t("teams.field.description"), value: team.description || "", rows: 10 })}
-      <div class="field"><label for="team-edit-logo">${t("teams.field.logo")}</label><input id="team-edit-logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></div>
+      ${teamLogoField("team-edit-logo")}
       ${team.logoData ? `<label class="checkbox-field"><input name="removeLogo" type="checkbox">${t("teams.field.removeLogo")}</label>` : ""}
       <button class="small-button" type="submit">${t("common.save")}</button>
+      <div class="message error" data-team-edit-message role="alert" hidden></div>
     </form>
     ${!team.archivedAt ? `<form data-team-invite><div class="field"><label for="team-invite-user">${t("teams.invite.player")}</label><select id="team-invite-user" name="userId" data-user-search required><option value="">${t("teams.invite.choose")}</option>${inviteCandidates.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.invite.submit")}</button><div class="message" data-team-invite-message role="status" aria-live="polite" aria-atomic="true" hidden></div></form>` : ""}
     <form data-team-leadership><div class="field"><label for="team-leader-user">${t("teams.leadership.label")}</label><select id="team-leader-user" name="userId" data-user-search required><option value="">${t("teams.invite.choose")}</option>${current.filter((membership) => membership.role !== "leader" && membership.userId).map((membership) => `<option value="${membership.userId}">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.leadership.submit")}</button></form>
@@ -9550,13 +9632,20 @@ function wirePlayerTeamProfile(data) {
   document.querySelectorAll("[data-team-player]").forEach((button) => button.addEventListener("click", () => openPlayerProfile(Number(button.dataset.teamPlayer))));
   document.querySelectorAll("[data-team-tournament]").forEach((button) => button.addEventListener("click", () => navigateToPublicTournament(button.dataset.teamTournament)));
   document.querySelectorAll("[data-team-game]").forEach((button) => button.addEventListener("click", () => openGameDetail(Number(button.dataset.teamGame))));
-  document.querySelector("[data-team-edit]")?.addEventListener("submit", async (event) => {
+  const editForm = document.querySelector("[data-team-edit]");
+  wireTeamLogoValidation(editForm);
+  editForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
+    const message = form.querySelector("[data-team-edit-message]");
+    message.hidden = true;
     try {
       await api(`/api/teams/${team.id}`, { method: "PATCH", body: { name: form.elements.name.value, description: form.elements.description.value, logoData: await teamLogoFromForm(form) } });
       await renderPlayerTeamRoute(team.slug, { force: true });
-    } catch (err) { setMessage(err.message, true); }
+    } catch (err) {
+      message.textContent = err.message;
+      message.hidden = false;
+    }
   });
   document.querySelector("[data-team-invite]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
