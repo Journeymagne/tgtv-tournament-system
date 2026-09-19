@@ -9,7 +9,12 @@
 - Every site administrator gets round controls on the public tournament page.
   The controls open the existing administration workflow; the server still
   requires the administrator role. Ownership is not required.
-- A started first round can return to the round editor while it is the latest
+- **Edit round tables** changes only the killzones, layouts, table numbers and
+  images of a generated team round. It keeps the same round, team/player pairings,
+  captain choices, games and results, including pending results. Existing game
+  table details update immediately; other rounds retain their own tables.
+- **Undo round** is separate and requires confirmation. The latest prepared or
+  started team round can return to the full round editor while it is the latest
   round and no game result has been submitted. Its team pairings, tables and
   images are retained in `round_draft`. Captain choices restart after regeneration.
   Closing the editor leaves a resumable draft. Pending and confirmed results

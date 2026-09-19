@@ -573,13 +573,17 @@ function adminTournamentActionButtons(data) {
   if (tournament.status === "registration_closed") {
     const prepared = (data.rounds || []).some((round) => round.roundNumber === 1 && round.status === "not_ready");
     buttons.push(`<button class="small-button" data-admin-tournament-action="reopen-registration">${t("admin.tournament.action.reopenRegistration")}</button>`);
-    buttons.push(`<button class="${prepared ? "small-button" : "primary-button"}" data-admin-tournament-action="generate-next-round">${t(prepared ? "admin.tournament.action.editFirst" : "admin.tournament.action.generateFirst")}</button>`);
+    buttons.push(`<button class="${prepared ? "small-button" : "primary-button"}" data-admin-tournament-action="${prepared && tournament.participantMode === "team" ? "edit-round-tables" : "generate-next-round"}">${t(prepared ? (tournament.participantMode === "team" ? "admin.round.editTables" : "admin.tournament.action.editFirst") : tournament.roundDraft ? "admin.round.resumeDraft" : "admin.tournament.action.generateFirst")}</button>`);
+    if (prepared && tournament.participantMode === "team") buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round">${t("admin.tournament.action.rollbackLatestRound")}</button>`);
     if (prepared) buttons.push(`<button class="primary-button" data-admin-tournament-action="start">${t("admin.tournament.action.start")}</button>`);
   }
   if (tournament.status === "in_progress") {
     const rollbackState = rollbackRoundActionState(data);
+    if (tournament.participantMode === "team" && (data.rounds || []).length && !tournament.roundDraft) {
+      buttons.push(`<button class="small-button" data-admin-tournament-action="edit-round-tables">${t("admin.round.editTables")}</button>`);
+    }
     if (rollbackState.roundNumber) {
-      buttons.push(`<button class="small-button" data-admin-tournament-action="rollback-latest-round" ${rollbackState.canRollback ? "" : "disabled"}>${t(rollbackState.roundNumber === 1 ? "admin.round.editFirstStarted" : "admin.tournament.action.rollbackLatestRound")}</button>`);
+      buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round" ${rollbackState.canRollback ? "" : "disabled"}>${t("admin.tournament.action.rollbackLatestRound")}</button>`);
       if (!rollbackState.canRollback) buttons.push(`<span class="field-help">${t("admin.round.resultsLocked")}</span>`);
     }
     if (tournamentFinalStandingsReady(data)) {
@@ -1769,10 +1773,16 @@ async function runAdminTournamentAction(action) {
         method: "POST",
         body: { participantIds }
       });
+    } else if (action === "edit-round-tables") {
+      const round = state.adminTournamentDetail?.rounds?.at(-1);
+      if (!round) return;
+      const preview = await api(`/api/admin/tournaments/${tournament.id}/rounds/${round.id}/tables`);
+      renderRoundSetupModal({ ...preview, teamRound: true, tableOnly: true });
+      return;
     } else if (action === "rollback-latest-round") {
       const rollbackState = rollbackRoundActionState(state.adminTournamentDetail || {});
       if (!await confirmAction({ message: t("dialog.admin.rollbackLatestRound", { number: rollbackState.roundNumber || "" }), confirmLabel: t("admin.tournament.action.rollbackLatestRound") })) return;
-      await api(`/api/admin/tournaments/${tournament.id}/rounds/latest`, { method: "DELETE" });
+      await api(`/api/admin/tournaments/${tournament.id}/rounds/latest`, { method: "DELETE", body: { roundId: rollbackState.roundId } });
       await loadTournamentAdmin();
       renderTournaments();
       await openNextRoundSetupModal(tournament.id);

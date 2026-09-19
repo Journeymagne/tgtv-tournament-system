@@ -358,6 +358,20 @@ module.exports = [
     tx: true
   },
   {
+    method: "GET",
+    path: "/api/admin/tournaments/:id/rounds/:roundId/tables",
+    handler: require("./round-tables").getAdmin,
+    auth: "admin"
+  },
+  {
+    method: "PATCH",
+    path: "/api/admin/tournaments/:id/rounds/:roundId/tables",
+    handler: require("./round-tables").updateAdmin,
+    maxBodyBytes: MAX_TOURNAMENT_REQUEST_BYTES,
+    auth: "admin",
+    tx: true
+  },
+  {
     method: "DELETE",
     path: "/api/admin/tournaments/:id/rounds/latest",
     handler: tournaments.rollbackLatestRoundAdmin,

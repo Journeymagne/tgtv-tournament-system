@@ -2,13 +2,15 @@
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 3.1.3
+## Release 3.1.4
 
 See [CHANGELOG.md](CHANGELOG.md) for the release history and upgrade notes.
-This patch shows an immediate warning when a team logo exceeds 1 MB and lets
-roster captains and parent-team leaders rename their rosters before or during a
-tournament. Renaming preserves players, prepared pairings and results. The Russian
-pairing label for Sword target is now «Меч». This patch adds no database migrations.
+**Edit round tables** changes a generated team round's killzones, table numbers,
+layouts and images while preserving pairings, captain choices, games and results.
+The separate **Undo round** action requires confirmation and restores the latest
+round's pairs and tables as an editable, resumable draft. Submitted results block
+Undo; captain choices restart after regeneration. This patch adds no database
+migrations.
 
 The Google Search Console ownership verification file added in 3.1.1 remains at
 `/googlef86243166b01dc47.html`. After deployment, complete verification in Search

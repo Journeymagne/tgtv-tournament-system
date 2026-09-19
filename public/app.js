@@ -7421,7 +7421,8 @@ function wireLeaderboardProfiles() {
 
 function rollbackRoundActionState(data) {
   if (data.tournament?.roundDraft) return { canRollback: false };
-  const rounds = (data.rounds || []).filter((round) => round.status !== "not_ready");
+  const rounds = (data.rounds || []).filter((round) => round.status !== "not_ready" ||
+    (data.tournament?.participantMode === "team" && data.tournament?.status === "registration_closed"));
   const round = rounds[rounds.length - 1];
   if (!round) return { canRollback: false };
   const canRollback = data.tournament?.participantMode === "team"
@@ -7436,7 +7437,7 @@ function rollbackRoundActionState(data) {
       !match.elo
     )
     );
-  return { canRollback, roundNumber: round.roundNumber };
+  return { canRollback, roundNumber: round.roundNumber, roundId: round.id };
 }
 
 function nextRoundActionState(data) {
@@ -8629,28 +8630,28 @@ function renderRoundSetupModal(preview) {
         <div class="panel-header">
           <div>
             <p class="profile-label">${escapeHtml(venueModeLabel(tournament.venueMode))}</p>
-            <h2>${t(preview.restoredDraft ? "admin.roundSetup.regenerateTitle" : "admin.roundSetup.title", { number: round.roundNumber || "" })}</h2>
-            <p class="muted">${t(preview.prepared ? "admin.roundSetup.prepareHint" : preview.restoredDraft ? "admin.roundSetup.restoredHint" : "admin.roundSetup.hint")}</p>
+            <h2>${t(preview.tableOnly ? "admin.round.tablesTitle" : preview.restoredDraft ? "admin.roundSetup.regenerateTitle" : "admin.roundSetup.title", { number: round.roundNumber || "" })}</h2>
+            <p class="muted">${t(preview.tableOnly ? "admin.round.tablesHint" : preview.prepared ? "admin.roundSetup.prepareHint" : preview.restoredDraft ? "admin.roundSetup.restoredHint" : "admin.roundSetup.hint")}</p>
           </div>
           <button class="ghost-button" type="button" data-round-setup-close>${t("common.cancel")}</button>
         </div>
         <form class="round-setup-form" data-round-setup-form>
-          ${preview.teamRound ? teamRoundMissionFields(tables) : roundMissionFields(tournament, round)}
+          ${preview.tableOnly ? teamTableSetupFields(tables) : preview.teamRound ? teamRoundMissionFields(tables) : roundMissionFields(tournament, round)}
           <div class="round-setup-list" data-round-setup-list>
-            ${(round.matches || []).filter((match) => !match.isBye).map((match) =>
+            ${(preview.tableOnly ? [] : round.matches || []).filter((match) => !match.isBye).map((match) =>
               preview.teamRound ? teamRoundSetupMatchRow(match) : roundSetupMatchRow(match, tournament, tables)
             ).join("")}
           </div>
           <div class="row-actions">
-            ${tournament.format === "swiss" && !preview.teamRound ? `<button class="small-button" type="button" data-round-setup-add-empty>${t("admin.roundSetup.addEmpty")}</button>` : ""}
-            <button class="primary-button" type="submit">${t(preview.prepared ? "admin.roundSetup.prepareSubmit" : preview.restoredDraft ? "admin.roundSetup.regenerateSubmit" : "admin.roundSetup.submit")}</button>
+            ${tournament.format === "swiss" && !preview.teamRound && !preview.tableOnly ? `<button class="small-button" type="button" data-round-setup-add-empty>${t("admin.roundSetup.addEmpty")}</button>` : ""}
+            <button class="primary-button" type="submit">${t(preview.tableOnly ? "common.save" : preview.prepared ? "admin.roundSetup.prepareSubmit" : preview.restoredDraft ? "admin.roundSetup.regenerateSubmit" : "admin.roundSetup.submit")}</button>
           </div>
           <div class="message" data-round-setup-message></div>
         </form>
       </section>
     </div>
   `);
-  wireRoundSetupModal(tournament, tables);
+  wireRoundSetupModal(tournament, tables, preview);
 }
 
 function teamRoundMissionFields(tables = []) {
@@ -8658,11 +8659,32 @@ function teamRoundMissionFields(tables = []) {
 }
 
 function teamTableSetupFields(tables = []) {
-  return `<p class="muted">${t("teams.tournament.tablesHint")}</p><div class="team-table-setup">${[0, 1, 2].map((index) => `<section class="team-table-setup-card" data-team-table-setup="${index}"><div class="grid-2"><div class="field"><label>${t("tournaments.match.table", { number: index + 1 })}</label><select name="teamKillzone-${index}" required><option value="">${t("games.result.notSelected")}</option>${optionsHtml(killzoneOptions, tables[index]?.killzone || "")}</select></div><div class="field"><label>${t("admin.tournament.tables.field.deployment")}</label><select name="teamLayout-${index}" required><option value="">${t("games.result.notSelected")}</option>${[1, 2, 3, 4, 5, 6].map((number) => `<option value="${number}" ${Number(tables[index]?.deployment) === number ? "selected" : ""}>${number}</option>`).join("")}</select></div></div>${teamTableImageField(tables[index], index)}</section>`).join("")}</div>`;
+  return `<p class="muted">${t("teams.tournament.tablesHint")}</p><div class="team-table-setup">${[0, 1, 2].map((index) => `
+    <section class="team-table-setup-card" data-team-table-setup="${index}">
+      ${tables[index]?.id ? `<input type="hidden" name="teamTableId-${index}" value="${Number(tables[index].id)}">` : ""}
+      <div class="grid-3">
+        <div class="field">
+          <label for="team-table-number-${index}">${t("admin.tournament.tables.field.number")}</label>
+          <input id="team-table-number-${index}" name="teamTableNumber-${index}" type="number" min="1" max="2147483647" step="1" required value="${Number(tables[index]?.tableNumber) || index + 1}">
+        </div>
+        <div class="field">
+          <label for="team-killzone-${index}">${t("games.result.killzoneLabel")}</label>
+          <select id="team-killzone-${index}" name="teamKillzone-${index}" required><option value="">${t("games.result.notSelected")}</option>${optionsHtml(killzoneOptions, tables[index]?.killzone || "")}</select>
+        </div>
+        <div class="field">
+          <label for="team-layout-${index}">${t("admin.tournament.tables.field.deployment")}</label>
+          <select id="team-layout-${index}" name="teamLayout-${index}" required><option value="">${t("games.result.notSelected")}</option>${[1, 2, 3, 4, 5, 6].map((number) => `<option value="${number}" ${Number(tables[index]?.deployment) === number ? "selected" : ""}>${number}</option>`).join("")}</select>
+        </div>
+      </div>
+      ${teamTableImageField(tables[index], index)}
+    </section>`).join("")}</div>`;
 }
 
 function teamTableSetupPayload(form) {
-  return [0, 1, 2].map((index) => ({ killzone: form.elements[`teamKillzone-${index}`].value, deployment: Number(form.elements[`teamLayout-${index}`].value),
+  return [0, 1, 2].map((index) => ({
+    ...(form.elements[`teamTableId-${index}`] ? { id: Number(form.elements[`teamTableId-${index}`].value) } : {}),
+    ...(form.elements[`teamTableNumber-${index}`] ? { tableNumber: Number(form.elements[`teamTableNumber-${index}`].value) } : {}),
+    killzone: form.elements[`teamKillzone-${index}`].value, deployment: Number(form.elements[`teamLayout-${index}`].value),
     ...(form.elements[`teamImageData-${index}`] ? { imageId: Number(form.elements[`teamImageId-${index}`].value) || null,
       imageData: form.elements[`teamImageData-${index}`].value || null } : {}) }));
 }
@@ -8852,7 +8874,7 @@ function tableLabel(table = {}) {
   ].filter(Boolean).join(" / ");
 }
 
-function wireRoundSetupModal(tournament, tables) {
+function wireRoundSetupModal(tournament, tables, preview = {}) {
   wireTeamTableImages(document.querySelector("[data-round-setup-form]"));
   document.querySelector("[data-round-setup-close]")?.addEventListener("click", closeRoundSetupModal);
   document.querySelector("[data-round-setup-add-empty]")?.addEventListener("click", () => {
@@ -8887,14 +8909,23 @@ function wireRoundSetupModal(tournament, tables) {
     const message = document.querySelector("[data-round-setup-message]");
     try {
       if (event.currentTarget.querySelector("[data-image-loading]")) throw new Error(t("teams.tableImage.processing"));
-      await api(`/api/admin/tournaments/${tournament.id}/rounds/next`, {
-        method: "POST",
-        body: roundSetupPayload(event.currentTarget, tournament)
-      });
+      const submit = event.currentTarget.querySelector('[type="submit"]');
+      submit.disabled = true;
+      try {
+        await api(preview.tableOnly
+          ? `/api/admin/tournaments/${tournament.id}/rounds/${preview.round.id}/tables`
+          : `/api/admin/tournaments/${tournament.id}/rounds/next`, {
+          method: preview.tableOnly ? "PATCH" : "POST",
+          body: preview.tableOnly
+            ? { tables: teamTableSetupPayload(event.currentTarget), expectedUpdatedAt: preview.round.updatedAt }
+            : roundSetupPayload(event.currentTarget, tournament)
+        });
+      } finally { submit.disabled = false; }
       closeRoundSetupModal();
       await adminUi().loadTournamentAdmin();
       state.tournamentInfoTab = "matches";
       renderTournaments();
+      if (preview.tableOnly) setMessage(t("admin.round.tablesSaved"));
     } catch (err) {
       if (message) {
         message.textContent = err.message;

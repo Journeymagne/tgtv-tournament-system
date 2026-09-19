@@ -29,7 +29,8 @@ test("registration closed offers preparation first and a separate start only aft
     assert.doesNotMatch(initial, /data-admin-tournament-action="start"/);
     data.rounds = [{ roundNumber: 1, status: "not_ready" }];
     const prepared = render(data);
-    assert.match(prepared, /admin.tournament.action.editFirst/);
+    assert.match(prepared, participantMode === "team" ? /admin.round.editTables/ : /admin.tournament.action.editFirst/);
+    if (participantMode === "team") assert.match(prepared, /data-admin-tournament-action="rollback-latest-round"/);
     assert.match(prepared, /data-admin-tournament-action="start"/);
   }
 });
@@ -176,4 +177,77 @@ test("Close tournament confirms and publishes the displayed standings order", as
     "/api/admin/tournaments/17/standings/publish",
     { method: "POST", body: { participantIds: [4, 9] } }
   ]]);
+});
+
+test("table editing remains available after results while Undo round is disabled", () => {
+  const render = new Function("t", "tournamentFinalStandingsReady", "nextRoundActionState", "escapeHtml",
+    functionSource("rollbackRoundActionState") + ";" + actionButtonsSource + "; return adminTournamentActionButtons;"
+  )(key => key, () => false, () => ({ canGenerate: false, message: "" }), String);
+  const html = render({ tournament: { status: "in_progress", participantMode: "team" },
+    rounds: [{ id: 9, roundNumber: 1, status: "active", matches: [{ phase: "in_progress", games: [{ game: { status: "pending_confirmation" } }] }] }] });
+  assert.match(html, /data-admin-tournament-action="edit-round-tables">/);
+  assert.match(html, /data-admin-tournament-action="rollback-latest-round" disabled/);
+  assert.doesNotMatch(html, /editFirstStarted/);
+});
+
+test("Edit only opens table settings; Undo sends DELETE only after confirmation and opens the full draft", async () => {
+  const data = { tournament: { id: 17, participantMode: "team", status: "in_progress" }, rounds: [{ id: 4, roundNumber: 1, status: "active", matches: [] }] };
+  const calls = [], opened = [];
+  let accepted = false, confirms = 0;
+  const run = new Function("state", "api", "renderRoundSetupModal", "openNextRoundSetupModal", "confirmAction", "t", "loadTournamentAdmin", "renderTournaments", "setMessage",
+    functionSource("rollbackRoundActionState") + ";" + runActionSource + "; return runAdminTournamentAction;"
+  )({ adminTournamentDetail: data }, async (url, options) => { calls.push([url, options]); return { round: data.rounds[0], tables: [] }; },
+    preview => opened.push(preview), async id => opened.push({ draft: id }),
+    async () => { confirms++; return accepted; }, key => key, async () => {}, () => {}, message => assert.fail(message));
+  await run("edit-round-tables");
+  assert.equal(confirms, 0);
+  assert.deepEqual(calls, [["/api/admin/tournaments/17/rounds/4/tables", undefined]]);
+  assert.equal(opened[0].tableOnly, true);
+  await run("rollback-latest-round");
+  assert.equal(calls.length, 1);
+  assert.equal(confirms, 1);
+  accepted = true;
+  await run("rollback-latest-round");
+  assert.deepEqual(calls[1], ["/api/admin/tournaments/17/rounds/latest", { method: "DELETE", body: { roundId: 4 } }]);
+  assert.deepEqual(opened[1], { draft: 17 });
+});
+
+test("table-only dialog contains no pairing or mission controls and saves through PATCH", async () => {
+  let html = "", previewWired, submitHandler;
+  const state = { adminTournamentDetail: { tournament: { id: 17, participantMode: "team", venueMode: "tts", format: "swiss" } } };
+  const render = new Function("state", "closeRoundSetupModal", "document", "venueModeLabel", "escapeHtml", "t", "teamTableSetupFields", "wireRoundSetupModal",
+    functionSource("renderRoundSetupModal") + "; return renderRoundSetupModal;"
+  )(state, () => {}, { body: { insertAdjacentHTML: (_position, value) => { html = value; } } }, value => value, String, key => key,
+    () => '<input name="teamTableNumber-0"><input name="teamImageData-0">', (_tournament, _tables, preview) => { previewWired = preview; });
+  const preview = { tableOnly: true, teamRound: true, round: { id: 4, roundNumber: 1, updatedAt: null,
+    matches: [{ rosterAId: 3, rosterBId: 8 }] }, tables: [] };
+  render(preview);
+  assert.equal(previewWired, preview);
+  assert.match(html, /admin.round.tablesTitle/);
+  assert.match(html, /teamTableNumber-0/);
+  assert.doesNotMatch(html, /rosterAId|rosterBId|roundCritOp|round-setup-add-empty/);
+
+  const calls = [], notices = [], button = { disabled: false }, message = { classList: { add() {} } };
+  const form = { elements: {}, querySelector: selector => selector === '[type="submit"]' ? button : null,
+    addEventListener: (event, handler) => { if (event === "submit") submitHandler = handler; } };
+  for (let index = 0; index < 3; index++) {
+    for (const [name, value] of Object.entries({ teamTableId: index + 10, teamTableNumber: index + 50, teamKillzone: ["Volkus", "Gallowdark", "Octarius"][index], teamLayout: 6 })) {
+      form.elements[name + "-" + index] = { value: String(value) };
+    }
+  }
+  const document = { querySelector: selector => selector === "[data-round-setup-form]" ? form : selector === "[data-round-setup-message]" ? message : null,
+    querySelectorAll: () => [] };
+  const wire = new Function("document", "wireTeamTableImages", "closeRoundSetupModal", "updateRoundSetupPlayerSelects", "updateRoundSetupTableDeployment", "api", "adminUi", "state", "renderTournaments", "setMessage", "t",
+    functionSource("teamTableSetupPayload") + ";" + functionSource("wireRoundSetupModal") + "; return wireRoundSetupModal;"
+  )(document, () => {}, () => {}, () => {}, () => {}, async (url, options) => { assert.equal(button.disabled, true); calls.push([url, options]); },
+    () => ({ loadTournamentAdmin: async () => {} }), state, () => {}, text => notices.push(text), key => key);
+  wire(state.adminTournamentDetail.tournament, [], preview);
+  await submitHandler({ preventDefault() {}, currentTarget: form });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "/api/admin/tournaments/17/rounds/4/tables");
+  assert.equal(calls[0][1].method, "PATCH");
+  assert.deepEqual(Object.keys(calls[0][1].body), ["tables", "expectedUpdatedAt"]);
+  assert.deepEqual(calls[0][1].body.tables.map(table => [table.id, table.tableNumber]), [[10, 50], [11, 51], [12, 52]]);
+  assert.equal(button.disabled, false);
+  assert.deepEqual(notices, ["admin.round.tablesSaved"]);
 });

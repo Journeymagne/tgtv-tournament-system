@@ -48,6 +48,7 @@ function mapTeamMatch(row) {
 
 function mapGameLink(row) {
   if (!row) return null;
+  const roundTable = row.round_tables?.find(table => table.id === row.table_id);
   return {
     id: row.id,
     teamMatchId: row.team_match_id,
@@ -70,7 +71,7 @@ function mapGameLink(row) {
           venueMode: row.venue_mode || "tts"
         }
       : null,
-    table: row.table_id ? { id: row.table_id, tableNumber: row.table_number,
+    table: row.table_id ? { id: row.table_id, tableNumber: roundTable?.tableNumber ?? row.table_number,
       ...(row.mission?.imageId ? { imageId: row.mission.imageId, imageUrl: `/api/tournament-table-images/${row.mission.imageId}` } : {}),
       killzone: row.mission?.killzone ?? row.killzone ?? "", deployment: row.mission?.layout ?? row.deployment } : null
   };
@@ -224,6 +225,20 @@ async function insertGameLink(client, link) {
   return mapGameLink(rows[0]);
 }
 
+async function updateRoundTableMissions(client, roundId, tables) {
+  for (const table of tables) {
+    const terrain = { killzone: table.killzone, layout: table.deployment,
+      ...(table.imageId ? { imageId: table.imageId } : {}) };
+    await client.query(
+      `UPDATE tournament_team_match_games l
+       SET mission = (l.mission - 'imageId') || $3::jsonb, updated_at = NOW()
+       FROM tournament_team_matches tm
+       WHERE l.team_match_id = tm.id AND tm.round_id = $1 AND l.table_id = $2`,
+      [roundId, table.id, JSON.stringify(terrain)]
+    );
+  }
+}
+
 async function updateGamePoints(client, id, a, b) {
   await client.query(
     `UPDATE tournament_team_match_games SET game_points_a = $2, game_points_b = $3, updated_at = NOW()
@@ -240,9 +255,11 @@ async function listGameLinksForMatches(client, teamMatchIds) {
   if (!teamMatchIds.length) return [];
   const { rows } = await client.query(
     `SELECT l.*, g.status AS game_status, g.player_ids, g.pending_result, g.result, g.elo, g.venue_mode,
-            tt.table_number, tt.killzone, tt.deployment
+            tt.table_number, tt.killzone, tt.deployment, tr.metadata->'tables' AS round_tables
      FROM tournament_team_match_games l
      JOIN games g ON g.id = l.game_id
+     JOIN tournament_team_matches tm ON tm.id = l.team_match_id
+     JOIN tournament_rounds tr ON tr.id = tm.round_id
      LEFT JOIN tournament_tables tt ON tt.id = l.table_id
      WHERE l.team_match_id = ANY($1::int[]) ORDER BY l.team_match_id, l.slot`,
     [teamMatchIds]
@@ -294,6 +311,7 @@ module.exports = {
   update,
   insertGameLink,
   updateGamePoints,
+  updateRoundTableMissions,
   listGameLinks,
   findByGameId,
   listCompletedForRatingReplay,

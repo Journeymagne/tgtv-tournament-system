@@ -14,6 +14,17 @@ function validateTeamTables(tables) {
   return tables;
 }
 
+function numberTeamTables(tables) {
+  const numbered = tables.map((table, index) => ({ ...table,
+    tableNumber: table.tableNumber === undefined ? index + 1
+      : ["number", "string"].includes(typeof table.tableNumber) ? Number(table.tableNumber) : NaN }));
+  if (numbered.some(table => !Number.isSafeInteger(table.tableNumber) || table.tableNumber < 1 || table.tableNumber > 2147483647) ||
+      new Set(numbered.map(table => table.tableNumber)).size !== numbered.length) {
+    throw new ValidationError("Table numbers must be unique positive integers");
+  }
+  return numbered;
+}
+
 function teamEnvironmentPlan(match) {
   const attacker = match.attackerRosterId === match.rosterAId ? "a" : "b";
   const defender = attacker === "a" ? "b" : "a";
@@ -302,6 +313,7 @@ function teamTournamentPoints(teamGamePointsA) {
 module.exports = {
   teamMatchProgress,
   validateTeamTables,
+  numberTeamTables,
   teamEnvironmentPlan,
   teamRollRound,
   teamNextAction,

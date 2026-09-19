@@ -27,6 +27,7 @@ const {
   teamStandings,
   teamMatchProgress,
   validateTeamTables,
+  numberTeamTables,
   teamEnvironmentPlan,
   teamRollRound,
   teamNextAction,
@@ -374,12 +375,14 @@ async function nextTeamRoundTables(client, tournament, values) {
   validateTeamTables(defaults);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const previous = tournament.roundDraft?.tables || tablesForRound(rounds.at(-1), defaults);
-  const selected = validateTeamTables(values === undefined ? previous : values);
+  const selected = numberTeamTables(validateTeamTables(values === undefined ? previous : values).map((table, index) => ({
+    ...table, tableNumber: table.tableNumber ?? previous[index]?.tableNumber ?? index + 1
+  })));
   const result = [];
   for (const [index, table] of defaults.entries()) result.push({
     id: table.id,
     tournamentId: tournament.id,
-    tableNumber: index + 1,
+    tableNumber: selected[index].tableNumber,
     killzone: selected[index].killzone,
     deployment: Number(selected[index].deployment),
     imageId: await saveTableImage(client, tournament.id, selected[index], previous[index])

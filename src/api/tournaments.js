@@ -1732,9 +1732,15 @@ function activatedParticipantIdsForRound(round, participants) {
     .map((participant) => participant.id);
 }
 
-async function rollbackLatestRoundAdmin({ client, user, params }) {
+async function rollbackLatestRoundAdmin({ client, user, params, body = {} }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
-  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) {
+  if (body.roundId !== undefined) {
+    const latest = (await roundsRepo.listByTournament(client, tournament.id))
+      .filter(round => tournament.participantMode === "team" || round.status !== ROUND_STATUSES.NOT_READY).at(-1);
+    if (!latest || latest.id !== Number(body.roundId)) throw new HttpError(409, "Round changed. Refresh and try again");
+  }
+  const preparedTeamRound = tournament.participantMode === "team" && tournament.status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED;
+  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS && !preparedTeamRound) {
     throw new HttpError(409, "Tournament is not in progress");
   }
   if (tournament.participantMode === "team") {
