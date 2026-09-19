@@ -2,13 +2,18 @@
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 3.1.1
+## Release 3.1.2
 
 See [CHANGELOG.md](CHANGELOG.md) for the release history and upgrade notes.
-This patch adds the Google Search Console ownership verification file at
+This patch fixes match details: a single result entry/edit action, a compact
+tournament summary that handles long names, and separate navigation and result
+controls. Administrators playing a match retain the normal participant result
+workflow. This patch adds no database migrations.
+
+The Google Search Console ownership verification file added in 3.1.1 remains at
 `/googlef86243166b01dc47.html`. After deployment, complete verification in Search
 Console and inspect the Security Issues report. Keep the file deployed to retain
-verification. This patch adds no database migrations.
+verification.
 
 Version 3.1.0 added reserved rosters, tournament live updates, lighter tournament
 payloads and images, round editing for all site administrators, and native browser

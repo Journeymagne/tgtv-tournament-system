@@ -5707,7 +5707,7 @@ function renderGameDetail() {
   const submitter = game.players?.find((player) => player.id === game.pendingResult?.submittedBy || player.id === game.submittedBy);
   const isParticipant = game.players?.some((player) => Number(player.userId || player.id) === state.me.id);
   const canDeletePending = isParticipant && game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id;
-  const playerAction = isTeamTournamentGame ? teamGameResultAction(game) : isParticipant && game.status === "open"
+  const playerAction = state.me.isAdmin && !isParticipant ? "" : isTeamTournamentGame ? teamGameResultAction(game) : isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">${t("play.action.enterResult")}</button>
        ${isTournamentGame || isTeamTournamentGame ? "" : `<button class="danger-button" data-exit-game="${game.id}">${t("play.action.exitGame")}</button>`}`
     : isTournamentGame && isParticipant && game.status === "pending_confirmation"
@@ -5719,7 +5719,8 @@ function renderGameDetail() {
         ? `<button class="primary-button" data-game-review="${game.id}">${t("play.action.reviewResult")}</button>`
         : "";
   const adminAction = state.me.isAdmin
-    ? `<button class="primary-button" data-admin-edit-game="${game.id}">${result ? t("play.action.editResult") : t("play.action.enterResult")}</button>
+    // Keep the participant workflow (and opponent confirmation) for admins playing a game.
+    ? `${playerAction ? "" : `<button class="primary-button" data-admin-edit-game="${game.id}">${result ? t("play.action.editResult") : t("play.action.enterResult")}</button>`}
        ${game.status === "completed" && (game.sourceType === "challenge" || tournament.ratingPolicy === "ranked" || game.elo) ? `<button class="small-button" data-admin-recalculate-rating="${game.id}">${t("games.detail.recalculateRating")}</button>` : ""}
        ${!isTournamentGame && game.status === "pending_confirmation" && game.pendingResult?.result ? `<button class="small-button" data-admin-confirm-game="${game.id}">${t("games.detail.forceConfirm")}</button>` : ""}
        ${!isTournamentGame && !isTeamTournamentGame && ["open", "pending_confirmation"].includes(game.status) ? `<button class="danger-button" data-admin-delete-game="${game.id}">${t("games.detail.deleteGame")}</button>` : ""}`
@@ -5728,33 +5729,37 @@ function renderGameDetail() {
     ? `<a href="/tournaments/${escapeHtml(tournament.slug)}" data-app-link class="small-button" data-detail-tournament-open="${escapeHtml(tournament.slug)}">${t("play.tournamentMatch.openAction")}</a>`
     : "";
   const detailTitle = isTournamentGame ? t("games.detail.tournamentTitle") : t("games.detail.title", { id: game.id });
-  const detailMeta = isTournamentGame
-    ? `${gamePlayerLinks(game)} &middot; ${escapeHtml(tournamentMatchLabel(game))} &middot; ${fmtDate(game.createdAt)}`
-    : `${gamePlayerLinks(game)} &middot; ${fmtDate(game.createdAt)}`;
-
   content.innerHTML = `
-    <section class="card panel">
-      <div class="panel-header">
+    <section class="card panel game-detail">
+      <div class="panel-header game-detail-header">
         <div>
-          <h2>${detailTitle}</h2>
-          <p class="muted">${detailMeta}</p>
+          <p class="game-detail-eyebrow">${detailTitle}</p>
+          <h2>${gamePlayerLinks(game)}</h2>
+          <p class="muted game-detail-date">${fmtDate(game.createdAt)}</p>
         </div>
-        <div class="row-actions">
-          <span class="status ${game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "open"}">${statusLabel}</span>
+        <span class="status ${game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "open"}">${statusLabel}</span>
+      </div>
+      <div class="game-detail-toolbar">
+        <div class="row-actions game-detail-navigation">
           <button class="ghost-button" data-back-games>${t("common.back")}</button>
           ${gameTeamMatchId(game) ? `<a href="/#/team-matches/${gameTeamMatchId(game)}" data-app-link class="small-button" data-detail-team-match="${gameTeamMatchId(game)}">${t("games.detail.teamMatch")}</a>` : ""}
           ${tournamentAction}
+        </div>
+        ${playerAction || adminAction ? `<div class="row-actions game-detail-actions">
           ${playerAction}
           ${adminAction}
-        </div>
+        </div>` : ""}
       </div>
       ${isTournamentGame ? `
-        <section class="profile-grid">
-          ${metricCard(t("games.detail.metric.tournament"), tournament.name || t("tournaments.fallbackName"))}
-          ${metricCard(t("games.detail.metric.round"), match.roundNumber ? String(match.roundNumber) : t("common.notAssigned"))}
-          ${metricCard(t("games.detail.metric.match"), match.bracketPosition ? String(match.bracketPosition) : t("common.notAssigned"))}
-          ${metricCard(t("games.detail.metric.table"), match.table?.tableNumber ? String(match.table.tableNumber) : t("common.notAssigned"))}
-        </section>
+        <dl class="game-detail-context">
+          <div class="game-detail-tournament">
+            <dt>${t("games.detail.metric.tournament")}</dt>
+            <dd>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</dd>
+          </div>
+          <div><dt>${t("games.detail.metric.round")}</dt><dd>${match.roundNumber ? escapeHtml(match.roundNumber) : t("common.notAssigned")}</dd></div>
+          <div><dt>${t("games.detail.metric.match")}</dt><dd>${match.bracketPosition ? escapeHtml(match.bracketPosition) : t("common.notAssigned")}</dd></div>
+          <div><dt>${t("games.detail.metric.table")}</dt><dd>${match.table?.tableNumber ? escapeHtml(match.table.tableNumber) : t("common.notAssigned")}</dd></div>
+        </dl>
       ` : ""}
       ${!result && game.teamTournamentGame?.mission ? killzoneReview({ killzone: game.teamTournamentGame.mission }) : ""}
       ${game.teamTournamentGame?.mission?.imageId ? teamTableImageMarkup(game.teamTournamentGame.mission) : ""}
