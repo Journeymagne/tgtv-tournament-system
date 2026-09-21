@@ -1436,9 +1436,13 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
   for (const result of [0, 7, 1.5, "4"]) {
     await assert.rejects(() => teamTournamentsApi.roll({ client, user: captainA, params, body: { rollRound: 1, result } }), /D6 result/);
   }
+  const readLog = async (user = null) => (await teamTournamentsApi.getPairingMatch({ client, user, params })).eventLog;
+  assert.deepEqual(await readLog(), [], "rejected actions must not enter the log");
   const rolled = await teamTournamentsApi.roll({ client, user: captainA, params, body: { rollRound: 1, result: 4, side: "b" } });
   assert.deepEqual(rolled.teamMatch.rollHistory, [{ a: 4, b: null }]);
   assert.equal(rolled.teamMatch.pairingHistory, undefined);
+  assert.equal((await readLog())[0].actorName, captainA.name);
+  assert.equal((await readLog())[0].result, 4);
   await assert.rejects(() => teamTournamentsApi.undoPairing({ client, user: outsider, params, body: { revision: rolled.teamMatch.pairingRevision } }), { status: 403 });
   const undone = await teamTournamentsApi.undoPairing({ client, user: captainB, params, body: { revision: rolled.teamMatch.pairingRevision } });
   assert.deepEqual(undone.teamMatch.rollHistory, []);
@@ -1454,11 +1458,25 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
     const before = await read();
     await handler({ client, user, params, body: { ...body, revision: before.pairingRevision } });
     const after = await read();
+    const actionLog = await readLog();
+    if (actionLog[0].type === "shield_select" || actionLog[0].type === "sword_select") {
+      assert.equal(actionLog[0].choice, null);
+      assert.equal(actionLog[0].choiceHidden, true);
+      assert.ok((await readLog(user))[0].choice.playerName);
+      assert.equal((await readLog(outsider))[0].choice, null);
+    }
+    if (["shields_reveal", "swords_reveal"].includes(actionLog[0].type)) {
+      assert.equal(actionLog[0].revealedChoices.length, 2);
+      assert.ok(actionLog[0].revealedChoices.every(item => item.choice.playerName && item.choice.faction));
+    }
     assert.equal(after.canUndo, true);
     assert.equal((await read(outsider)).canUndo, false);
     assert.equal(JSON.stringify(await read(null)).includes('"pairingHistory"'), false);
     await teamTournamentsApi.undoPairing({ client, user: user.id === captainA.id ? captainB : captainA, params, body: { revision: after.pairingRevision } });
     const restored = await read();
+    const undoLog = await readLog();
+    assert.equal(undoLog[0].type, "team_pairing_undo");
+    assert.ok(actionLog.every(event => undoLog.some(saved => saved.id === event.id)), "undo must retain event history");
     for (const key of ["phase", "rollHistory", "missionBans", "shieldAMemberId", "shieldBMemberId", "swordAMemberId", "swordBMemberId", "pairings", "environment"]) {
       assert.deepEqual(restored[key], before[key], key);
     }
@@ -1478,6 +1496,15 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
 
   const ready = await read(captainA);
   assert.equal(ready.games.length, 3);
+  const readyLog = await readLog();
+  assert.ok(readyLog.some(event => event.type === "team_match_roll" && event.tied));
+  assert.ok(readyLog.some(event => event.type === "environment_select" && event.kind === "table" && event.assignments.length === 2));
+  const created = readyLog.find(event => event.type === "personal_games_create");
+  assert.equal(created.assignments.length, 3);
+  assert.ok(created.assignments.every(item => item.playerA && item.playerB && item.table));
+  assert.deepEqual(readyLog.map(item => item.id), readyLog.map(item => item.id).sort((a, b) => b - a));
+  const otherLog = (await teamTournamentsApi.getPairingMatch({ client, user: null, params: { ...tournamentParams, matchId: String(started.teamMatches[1].id) } })).eventLog;
+  assert.deepEqual(otherLog, []);
   assert.equal((await authApi.buildUserSummary(client, captainA)).teamPairings.some((match) => match.id === original.id), true);
   const preview = async (user) => (await authApi.myTeamPairings({ client, user })).teamPairings.find((match) => match.id === original.id);
   assert.deepEqual((await preview(captainA)).progress, { completed: 0, total: 3, gpA: 0, gpB: 0 });
@@ -1527,6 +1554,11 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
   assert.equal(reset.teamMatch.games.length, 0);
   assert.deepEqual((await preview(captainB)).progress, { completed: 0, total: 3, gpA: 0, gpB: 0 });
   for (const link of ready.games) assert.equal(await gamesRepo.findById(client, link.gameId), null);
+  const resultLog = await readLog();
+  assert.equal(resultLog.filter(event => event.type === "team_game_result_submit").length, 4);
+  assert.equal(resultLog.filter(event => event.type === "team_game_result_reject").length, 1);
+  assert.equal(resultLog.filter(event => event.type === "team_game_result_confirm").length, 3);
+  assert.deepEqual(resultLog.filter(event => event.type === "team_game_result_confirm").map(event => event.slot).sort(), [1, 2, 3]);
   for (const id of [...original.rosterA.members, ...original.rosterB.members].map((member) => member.userId)) {
     assert.equal((await usersRepo.findById(client, id)).ratings.tts, 1000);
   }

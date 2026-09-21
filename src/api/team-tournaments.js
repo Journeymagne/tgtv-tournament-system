@@ -6,6 +6,7 @@ const tournamentsRepo = require("../db/repositories/tournaments");
 const roundsRepo = require("../db/repositories/tournament-rounds");
 const tablesRepo = require("../db/repositories/tournament-tables");
 const { saveTableImage } = require("./tournament-table-images");
+const pairingLog = require("./team-pairing-log");
 const usersRepo = require("../db/repositories/users");
 const gamesRepo = require("../db/repositories/games");
 const gameParticipantsRepo = require("../db/repositories/game-participants");
@@ -44,7 +45,8 @@ async function audit(client, tournament, user, eventType, details = {}) {
     tournamentId: tournament.id,
     actorUserId: user?.id || null,
     eventType,
-    ...details
+    ...details,
+    metadata: { ...details.metadata, actorName: user?.name || null, actorIsAdmin: Boolean(user?.isAdmin) }
   });
 }
 
@@ -618,6 +620,7 @@ async function getPairingMatch({ client, user, params }) {
       }
     },
     teamMatch: redactTeamMatch({ ...match, tables }, rosterA, rosterB, user),
+    eventLog: await pairingLog.read(client, match, rosterA, rosterB, user),
     tables
   };
 }
@@ -787,7 +790,10 @@ async function roll({ client, user, params, body = {} }) {
       patch.phase = "mission_ban";
     }
     const updated = await teamMatchesRepo.update(client, context.match.id, patch);
-    await audit(client, context.tournament, user, "team_match_roll", { entityType: "team_match", entityId: updated.id, metadata: { side, round, result: current[side], manual } });
+    await audit(client, context.tournament, user, "team_match_roll", { entityType: "team_match", entityId: updated.id, metadata: { side, round, result: current[side], manual,
+      tied: Boolean(current.a && current.a === current.b),
+      ...(patch.attackerRosterId ? { attackerName: rosterById([context.rosterA, context.rosterB], patch.attackerRosterId)?.name,
+        defenderName: rosterById([context.rosterA, context.rosterB], patch.defenderRosterId)?.name } : {}) } });
     return { teamMatch: redactTeamMatch(updated, context.rosterA, context.rosterB, user) };
   }
   const result = manual ? body.result : crypto.randomInt(1, 7);
@@ -799,7 +805,9 @@ async function roll({ client, user, params, body = {} }) {
     defenderRosterId,
     phase: "shield_selection"
   });
-  await audit(client, context.tournament, user, "team_match_roll", { entityType: "team_match", entityId: context.match.id, after: { rollResult: result, attackerRosterId, defenderRosterId } });
+  await audit(client, context.tournament, user, "team_match_roll", { entityType: "team_match", entityId: context.match.id, after: { rollResult: result, attackerRosterId, defenderRosterId },
+    metadata: { manual, attackerName: rosterById([context.rosterA, context.rosterB], attackerRosterId)?.name,
+      defenderName: rosterById([context.rosterA, context.rosterB], defenderRosterId)?.name } });
   return { teamMatch: updated };
 }
 
@@ -835,7 +843,8 @@ async function selectShield({ client, user, params, body }) {
     (side === "b" ? patch.shieldBConfirmed : context.match.shieldBConfirmed);
   if (bothConfirmed) patch.phase = "sword_selection";
   const updated = await teamMatchesRepo.update(client, context.match.id, patch);
-  await audit(client, context.tournament, user, bothConfirmed ? "shields_reveal" : "shield_select", { entityType: "team_match", entityId: context.match.id, metadata: { side, confirmed: patch[confirmedField] } });
+  await audit(client, context.tournament, user, bothConfirmed ? "shields_reveal" : "shield_select", { entityType: "team_match", entityId: context.match.id, metadata: { side, confirmed: patch[confirmedField],
+    ...pairingLog.choiceDetails(context, side, memberId, "shield", updated) } });
   return { teamMatch: redactTeamMatch(updated, context.rosterA, context.rosterB, user) };
 }
 
@@ -866,7 +875,8 @@ async function selectSword({ client, user, params, body }) {
     patch.environment = { step: 0, assignments: [] };
   }
   const updated = await teamMatchesRepo.update(client, context.match.id, patch);
-  await audit(client, context.tournament, user, bothConfirmed ? "swords_reveal" : "sword_select", { entityType: "team_match", entityId: context.match.id, metadata: { side, confirmed: patch[confirmedField] } });
+  await audit(client, context.tournament, user, bothConfirmed ? "swords_reveal" : "sword_select", { entityType: "team_match", entityId: context.match.id, metadata: { side, confirmed: patch[confirmedField],
+    ...pairingLog.choiceDetails(context, side, memberId, "sword", updated) } });
   return { teamMatch: redactTeamMatch(updated, context.rosterA, context.rosterB, user) };
 }
 
@@ -949,9 +959,12 @@ async function selectEnvironment({ client, user, params, body }) {
     }
     if (Number(state.step || 0) + 1 < plan.length) {
       const updated = await teamMatchesRepo.update(client, context.match.id, { environment: { step: Number(state.step || 0) + 1, assignments } });
-      await audit(client, context.tournament, user, "environment_select", { entityType: "team_match", entityId: context.match.id, metadata: { step } });
+      await audit(client, context.tournament, user, "environment_select", { entityType: "team_match", entityId: context.match.id, metadata: { step, assignment,
+        logAssignments: pairingLog.assignmentDetails(context, [assignment], await tablesForTeamMatch(client, context.match)) } });
       return { teamMatch: updated };
     }
+    await audit(client, context.tournament, user, "environment_select", { entityType: "team_match", entityId: context.match.id, metadata: { step, assignment,
+      logAssignments: pairingLog.assignmentDetails(context, [assignment], await tablesForTeamMatch(client, context.match)) } });
     const usedMissions = new Set(assignments.map((item) => item.mission?.critOp).filter(Boolean));
     const usedTables = new Set(assignments.map((item) => item.tableId).filter(Boolean));
     const finalSlot = [1, 2, 3].find((slot) => !assignments.some((item) => item.slot === slot));
@@ -1006,7 +1019,9 @@ async function selectTeamEnvironment(client, context, user, body) {
     assignments.push({ slot: 3, tableId: table.id, mission: { killzone: table.killzone, layout: table.deployment } });
   }
   assignments.sort((a, b) => a.slot - b.slot);
-  await audit(client, context.tournament, user, "environment_select", { entityType: "team_match", entityId: match.id, metadata: { step, assignment } });
+  await audit(client, context.tournament, user, "environment_select", { entityType: "team_match", entityId: match.id, metadata: { step, assignment,
+    logAssignments: pairingLog.assignmentDetails(context, assignments.filter(item => item.slot === step.slot ||
+      (!state.assignments?.some(previous => previous.slot === item.slot) && item.slot !== step.slot)), tables) } });
   if (Number(state.step) + 1 === teamEnvironmentPlan(match).length) {
     if (assignments.length !== 3 || assignments.some((item) => !item.tableId || !item.mission.critOp || !item.mission.killzone || !item.mission.layout)) {
       throw new HttpError(409, "Complete all three game assignments first");
@@ -1056,7 +1071,7 @@ async function createPersonalGames(client, context, assignments, user) {
     });
   }
   await teamMatchesRepo.update(client, context.match.id, { phase: "in_progress", environment: { step: "complete", assignments } });
-  await audit(client, context.tournament, user, "personal_games_create", { entityType: "team_match", entityId: context.match.id, metadata: { assignments } });
+  await audit(client, context.tournament, user, "personal_games_create", { entityType: "team_match", entityId: context.match.id, metadata: { assignments, logAssignments: pairingLog.assignmentDetails(context, assignments, roundTables) } });
 }
 
 function redactTeamMatch(match, rosterA, rosterB, user) {
@@ -1294,7 +1309,8 @@ async function overridePairingsAdmin({ client, user, params, body }) {
     throw new ValidationError("Manual pairings must use every player exactly once");
   }
   const updated = await teamMatchesRepo.update(client, context.match.id, { pairings, phase: "environment_selection", environment: { step: 0, assignments: [] } });
-  await audit(client, context.tournament, user, "team_pairings_override", { entityType: "team_match", entityId: context.match.id, before: context.match.pairings, after: pairings });
+  await audit(client, context.tournament, user, "team_pairings_override", { entityType: "team_match", entityId: context.match.id, before: context.match.pairings, after: pairings,
+    metadata: { logAssignments: pairingLog.assignmentDetails({ ...context, match: updated }, pairings.map(item => ({ slot: item.slot })), []) } });
   return { teamMatch: updated };
 }
 
@@ -1379,7 +1395,7 @@ async function handleGameRequest(context, action) {
     await recalculateCompletedGameRatings(client);
     await recomputeTeamMatch(client, match.id);
   }
-  await audit(client, tournament, user, `team_game_result_${action}`, { entityType: "game", entityId: game.id });
+  await audit(client, tournament, user, `team_game_result_${action}`, { entityType: "game", entityId: game.id, metadata: { matchId: match.id, slot: link.slot } });
   return require("./games").viewOf(client, await gamesRepo.findById(client, game.id));
 }
 

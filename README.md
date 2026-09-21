@@ -9,8 +9,12 @@ See [CHANGELOG.md](CHANGELOG.md) for the release history and upgrade notes.
 layouts and images while preserving pairings, captain choices, games and results.
 The separate **Undo round** action requires confirmation and restores the latest
 round's pairs and tables as an editable, resumable draft. Submitted results block
-Undo; captain choices restart after regeneration. This patch adds no database
-migrations.
+Undo; captain choices restart after regeneration.
+
+Team pairing screens now include a live event log of captain choices, dice rolls,
+mission bans, table assignments, game creation, result actions and undo/reset.
+Entries identify the actor and selected player/Kill Team, preserve history across
+undo, and keep unrevealed choices private. This patch adds no database migrations.
 
 The Google Search Console ownership verification file added in 3.1.1 remains at
 `/googlef86243166b01dc47.html`. After deployment, complete verification in Search

@@ -1562,12 +1562,17 @@ function teamPairingSubmissionPending() {
 }
 
 function preserveTeamPairingDrafts() {
+  const logPositions = [...document.querySelectorAll("[data-team-pairing-log-list]")].map(list => ({ top: list.scrollTop, height: list.scrollHeight }));
   const expandedDetails = new Set([...document.querySelectorAll("[data-team-pairing-details][open]")]
     .map((details) => details.dataset.teamPairingDetails));
   const key = (form) => `${form.dataset.teamMatchId}:${form.dataset.teamPairingForm}:${form.dataset.side || ""}:${form.dataset.step || form.dataset.rollRound || ""}`;
   const drafts = new Map([...document.querySelectorAll("[data-team-pairing-form]")].map((form) =>
     [key(form), [...form.querySelectorAll("select[name], input[name]")].map((input) => [input.name, input.value])]));
   return () => {
+    document.querySelectorAll("[data-team-pairing-log-list]").forEach((list, index) => {
+      const saved = logPositions[index];
+      if (saved) list.scrollTop = saved.top > 0 ? saved.top + list.scrollHeight - saved.height : 0;
+    });
     document.querySelectorAll("[data-team-pairing-details]").forEach((details) => {
       details.open = expandedDetails.has(details.dataset.teamPairingDetails);
     });
@@ -8235,6 +8240,88 @@ function teamTournamentMatchMarkup(match, tournament, options = {}) {
   </article>`;
 }
 
+
+function teamPairingLogMember(member) {
+  if (!member) return t("tournaments.player.fallback");
+  const faction = member.factionHidden ? t("tournaments.participant.factionHidden") : member.faction;
+  return [member.playerName || t("tournaments.player.fallback"), faction ? `(${faction})` : ""].filter(Boolean).join(" ");
+}
+
+function teamPairingLogAssignment(assignment) {
+  const parts = [t("teams.pairing.game", { number: assignment.slot })];
+  if (assignment.playerA && assignment.playerB) parts.push(t("teams.pairing.matchup", {
+    playerA: teamPairingLogMember(assignment.playerA), playerB: teamPairingLogMember(assignment.playerB)
+  }));
+  if (assignment.table) parts.push(t("teams.pairing.log.table", {
+    number: assignment.table.number, killzone: assignment.table.killzone, layout: assignment.table.layout
+  }));
+  if (assignment.mission) parts.push(assignment.mission);
+  return parts.join(" · ");
+}
+
+function teamPairingLogEvent(event) {
+  const actorName = event.actorName || t("teams.pairing.log.unknownActor");
+  let actor = t(`teams.pairing.log.actor.${event.actorRole || "player"}`, { name: actorName });
+  if (event.rosterName) actor = t("teams.pairing.log.actorTeam", { actor, team: event.rosterName });
+  let text = "", details = [];
+  if (event.type === "team_match_roll") {
+    text = t(event.manual ? "teams.pairing.log.manualRoll" : "teams.pairing.log.roll", { actor, result: event.result ?? "?" });
+    if (event.tied) details.push(t("teams.pairing.log.tie"));
+    if (event.attackerName) details.push(t("teams.pairing.log.roles", { attacker: event.attackerName, defender: event.defenderName }));
+  } else if (event.type === "mission_ban") {
+    text = t("teams.pairing.log.ban", { actor, mission: event.mission || "?" });
+  } else if (["shield_select", "shields_reveal", "sword_select", "swords_reveal"].includes(event.type)) {
+    const kind = event.type.startsWith("shield") ? "shield" : "sword";
+    const choice = event.choice ? teamPairingLogMember(event.choice) : t("teams.pairing.log.hiddenChoice");
+    text = event.choice || event.choiceHidden
+      ? t(`teams.pairing.log.${kind}`, { actor, choice })
+      : t(`teams.pairing.log.recorded.${kind}`, { actor });
+    if (event.confirmed === false) details.push(t("teams.pairing.log.notConfirmed"));
+    for (const revealed of event.revealedChoices || []) details.push(t(`teams.pairing.log.revealed.${kind}`, {
+      team: revealed.rosterName, choice: teamPairingLogMember(revealed.choice)
+    }));
+  } else if (event.type === "environment_select") {
+    const selection = (event.assignments || []).find(item => item.slot === event.slot);
+    text = event.kind === "table"
+      ? t("teams.pairing.log.tableChoice", { actor, number: selection?.table?.number ?? "?", slot: event.slot ?? "?" })
+      : t("teams.pairing.log.missionChoice", { actor, mission: event.mission || selection?.mission || "?", slot: event.slot ?? "?" });
+    details = (event.assignments || []).map(teamPairingLogAssignment);
+  } else if (event.type === "personal_games_create") {
+    text = t("teams.pairing.log.gamesCreated", { actor });
+    details = (event.assignments || []).map(teamPairingLogAssignment);
+  } else if (event.type === "team_pairing_undo") {
+    const actions = { roll: "roll", banMission: "ban", selectShield: "shield", selectSword: "sword", selectEnvironment: "environment" };
+    const action = t(`teams.pairing.log.action.${actions[event.undoneAction] || "previous"}`);
+    text = t("teams.pairing.log.undo", { actor, action });
+    if (event.phase) details.push(teamMatchPhaseLabel(event.phase));
+  } else if (event.type === "team_match_reset") {
+    text = t("teams.pairing.log.reset", { actor, phase: teamMatchPhaseLabel(event.phase) });
+  } else if (event.type === "team_pairings_override") {
+    text = t("teams.pairing.log.override", { actor });
+    details = (event.assignments || []).map(teamPairingLogAssignment);
+  } else if (event.type === "team_round_tables_update") {
+    text = t("teams.pairing.log.tablesUpdated", { actor });
+  } else {
+    const actions = { team_game_result_submit: "submit", team_game_result_confirm: "confirm", team_game_result_reject: "reject", "team_game_result_admin-save": "edit" };
+    if (actions[event.type]) text = t(`teams.pairing.log.result.${actions[event.type]}`, { actor, slot: event.slot ?? "?" });
+  }
+  return { text, details };
+}
+
+function teamPairingLogMarkup(events = []) {
+  const items = events.map(event => ({ event, ...teamPairingLogEvent(event) })).filter(item => item.text);
+  return `<section class="card panel team-pairing-log" aria-labelledby="team-pairing-log-title">
+    <h3 id="team-pairing-log-title">${t("teams.pairing.log.title")}</h3>
+    <p class="muted">${t("teams.pairing.log.hint")}</p>
+    ${items.length ? `<ol class="team-pairing-log-list" data-team-pairing-log-list tabindex="0" aria-label="${t("teams.pairing.log.title")}">
+      ${items.map(({ event, text, details }) => `<li data-pairing-event="${Number(event.id)}">
+        <time class="muted" datetime="${escapeHtml(event.at || "")}">${escapeHtml(fmtDate(event.at))}</time>
+        <div><p>${escapeHtml(text)}</p>${details.length ? `<ul class="team-pairing-log-details">${details.map(detail => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>` : ""}</div>
+      </li>`).join("")}
+    </ol>` : `<p class="empty">${t("teams.pairing.log.empty")}</p>`}
+  </section>`;
+}
+
 function renderTeamPairing() {
   const content = state.me ? document.querySelector("[data-content]") : app;
   const data = state.teamPairingDetail;
@@ -8261,6 +8348,7 @@ function renderTeamPairing() {
     <section class="card panel team-pairing-workspace">
       ${teamTournamentMatchMarkup(match, tournament, { standalone: true })}
     </section>
+    ${teamPairingLogMarkup(data.eventLog || [])}
     <div class="message" data-message></div>
   </div>`;
   document.querySelector("[data-team-pairing-back]")?.addEventListener("click", () => {

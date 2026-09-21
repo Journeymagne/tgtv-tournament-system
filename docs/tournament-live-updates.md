@@ -43,6 +43,25 @@
   82,948 to 49,470 bytes before HTTP compression. An unchanged revision response
   was 47 bytes. These are local payload measurements, not production timings.
 
+## Pairing event log
+
+The dedicated pairing screen shows a persistent event log with timestamps and
+actor names. It covers dice rolls and ties, mission bans, shield/sword choices and
+reveals, tables/missions, game creation, manual pair changes, Undo/reset, table
+updates and result submission/review. Newest events appear first; polling retains
+the reader's position in older events.
+
+Events come from the existing tournament audit, independently of the undo stack.
+New entries preserve actor names, chosen players/Kill Teams and table descriptions
+as they were when the action happened. Older audit entries use their available
+details without inferring earlier choices from the current match.
+
+The server returns only public log fields. Private shield/sword attempts are
+visible to the corresponding captain and administrators. Opponents and spectators
+receive the selection event without its choice. Separate reveal entries contain
+only the choices actually revealed; undo does not erase them or disclose earlier
+private attempts. No database migration is needed.
+
 ## Images and navigation
 
 - Changing a killzone/deployment keeps the uploaded image. Explicit replacement

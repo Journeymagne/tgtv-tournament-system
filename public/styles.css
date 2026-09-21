@@ -4221,3 +4221,16 @@ tr:last-child td {
 .registration-payment [data-payment-status]:empty {
   display: none;
 }
+
+.team-pairing-log { min-width: 0; }
+.team-pairing-log > h3 { margin-bottom: 10px; }
+.team-pairing-log > .muted { margin-bottom: 18px; }
+.team-pairing-log-list { list-style: none; padding: 0 10px 0 0; margin: 0; max-height: 520px; overflow: auto; }
+.team-pairing-log-list > li { display: grid; grid-template-columns: 145px minmax(0, 1fr); gap: 16px; padding: 16px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.team-pairing-log-list > li:first-child { border-top: 0; padding-top: 0; }
+.team-pairing-log-list p { margin: 0; line-height: 1.5; }
+.team-pairing-log-list time { font-size: 13px; line-height: 1.6; }
+.team-pairing-log-details { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 6px; line-height: 1.5; }
+@media (max-width: 640px) {
+  .team-pairing-log-list > li { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
