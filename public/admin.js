@@ -527,7 +527,7 @@ function adminTournamentDetailPanel(data) {
   const tournament = data.tournament || {};
   const publicUrl = tournamentPublicUrl(tournament);
   return `
-    <section class="card panel admin-tournament-detail">
+    <section class="card panel admin-tournament-detail" data-live-view="adminTournament">
       <div class="panel-header admin-tournament-header">
         <div class="tournament-heading">
           ${tournament.logoData ? tournamentLogoMarkup(tournament) : ""}
@@ -921,7 +921,7 @@ function adminTournamentRoundsPanel(data) {
           <p class="muted">${t("admin.tournament.rounds.hint")}</p>
         </div>
       </div>
-      ${tournamentRoundsTabbedMarkup(rounds, adminTournamentMatchMarkup)}
+      ${tournamentRoundsTabbedMarkup(rounds, adminTournamentMatchMarkup, data.tournament?.id)}
     </section>
   `;
 }
@@ -947,7 +947,7 @@ function adminTournamentMatchMarkup(match) {
 function adminActiveGamesPanel() {
   const games = state.adminGames || [];
   return `
-    <section class="card panel">
+    <section class="card panel" data-live-view="sessions">
       <div class="panel-header">
         <div>
           <h2>${t("games.tabs.sessions")}</h2>
@@ -1208,7 +1208,7 @@ function adminTeamPairingOverrideForm(match) {
   const membersA = activeRosterMembersForUi(match.rosterA);
   const membersB = activeRosterMembersForUi(match.rosterB);
   const options = (members, selectedId) => members.map((member) => `<option value="${member.id}" ${member.id === Number(selectedId) ? "selected" : ""}>${escapeHtml(teamPairingMemberLabel(member))}</option>`).join("");
-  return `<form class="team-pairing-override" data-team-pairings-override="${match.id}">
+  return `<form class="team-pairing-override" data-team-pairings-override="${match.id}" data-pairing-phase="${escapeHtml(match.phase)}">
     <strong>${t("teams.pairing.override")}</strong>
     ${(match.pairings || []).map((pairing, index) => `<div class="team-pairing-override-row"><span>${index + 1}</span><select name="pair-a-${index + 1}" data-user-search data-user-search-label="${t("admin.roundSetup.playerA")}" required>${options(membersA, pairing.rosterAMemberId)}</select><span>vs</span><select name="pair-b-${index + 1}" data-user-search data-user-search-label="${t("admin.roundSetup.playerB")}" required>${options(membersB, pairing.rosterBMemberId)}</select></div>`).join("")}
     <button class="small-button" type="submit">${t("teams.pairing.saveOverride")}</button>
@@ -1308,17 +1308,17 @@ function wireAdminUserRowControls() {
 
 function wireAdminGameButtons() {
   document.querySelectorAll("[data-admin-game-open]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       await openGameDetail(Number(button.dataset.adminGameOpen));
     });
   });
   document.querySelectorAll("[data-admin-game-confirm]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       await adminForceConfirmGame(Number(button.dataset.adminGameConfirm));
     });
   });
   document.querySelectorAll("[data-admin-game-delete]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       await adminDeleteGame(Number(button.dataset.adminGameDelete));
     });
   });
@@ -1540,7 +1540,7 @@ function wireAdminTournamentControls() {
   wireAdminTournamentFormBehavior();
   wireTournamentInfoControls(state.adminTournamentDetail, { admin: true });
 
-  document.querySelector("[data-admin-tournament-new]")?.addEventListener("click", () => {
+  onLive(document.querySelector("[data-admin-tournament-new]"), "click", () => {
     state.adminTournamentMode = "create";
     state.selectedTournamentId = null;
     state.adminTournamentDetail = null;
@@ -1548,7 +1548,7 @@ function wireAdminTournamentControls() {
     renderTournaments();
   });
 
-  document.querySelector("[data-admin-tournament-create-cancel]")?.addEventListener("click", async () => {
+  onLive(document.querySelector("[data-admin-tournament-create-cancel]"), "click", async () => {
     try {
       await navigateBack("/#/tournaments/admin");
     } catch (err) {
@@ -1556,7 +1556,7 @@ function wireAdminTournamentControls() {
     }
   });
 
-  document.querySelector("[data-admin-tournament-create]")?.addEventListener("submit", async (event) => {
+  onLive(document.querySelector("[data-admin-tournament-create]"), "submit", async (event) => {
     event.preventDefault();
     try {
       const body = adminTournamentBodyFromForm(event.currentTarget, { includeSlug: true });
@@ -1573,7 +1573,7 @@ function wireAdminTournamentControls() {
   });
 
   document.querySelectorAll("[data-admin-tournament-open]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       try {
         state.adminTournamentMode = "detail";
         state.tournamentInfoTab = "settings";
@@ -1586,7 +1586,7 @@ function wireAdminTournamentControls() {
     });
   });
 
-  document.querySelector("[data-admin-tournament-close]")?.addEventListener("click", async () => {
+  onLive(document.querySelector("[data-admin-tournament-close]"), "click", async () => {
     try {
       await navigateBack("/#/tournaments/admin");
     } catch (err) {
@@ -1594,7 +1594,7 @@ function wireAdminTournamentControls() {
     }
   });
 
-  document.querySelector("[data-admin-tournament-update]")?.addEventListener("submit", async (event) => {
+  onLive(document.querySelector("[data-admin-tournament-update]"), "submit", async (event) => {
     event.preventDefault();
     try {
       await saveAdminTournamentUpdate(event.currentTarget);
@@ -1604,18 +1604,18 @@ function wireAdminTournamentControls() {
   });
 
   document.querySelectorAll("[data-admin-tournament-action]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       await runAdminTournamentAction(button.dataset.adminTournamentAction);
     });
   });
 
-  document.querySelector("[data-admin-tournament-public]")?.addEventListener("click", () => {
+  onLive(document.querySelector("[data-admin-tournament-public]"), "click", () => {
     const slug = document.querySelector("[data-admin-tournament-public]")?.dataset.adminTournamentPublic;
     if (!slug) return;
     navigateToPublicTournament(slug);
   });
 
-  document.querySelector("[data-admin-tournament-copy]")?.addEventListener("click", async (event) => {
+  onLive(document.querySelector("[data-admin-tournament-copy]"), "click", async (event) => {
     const button = event.currentTarget;
     try {
       await copyText(button.dataset.adminTournamentCopy);
@@ -1629,7 +1629,7 @@ function wireAdminTournamentControls() {
   });
 
   document.querySelectorAll("[data-admin-tournament-match-result]").forEach((button) => {
-    button.addEventListener("click", () => {
+    onLive(button, "click", () => {
       const detail = state.adminTournamentDetail;
       const match = findTournamentMatch(detail, Number(button.dataset.adminTournamentMatchResult));
       if (match) renderTournamentResultForm(detail, match, { admin: true });

@@ -4,6 +4,7 @@ const path = require("node:path");
 const { PUBLIC_DIR } = require("../config");
 const { SECURITY_HEADERS, sendText } = require("./io");
 const { MIN_COMPRESS_BYTES, negotiateEncoding, compressSync } = require("./compression");
+const { rootDocument } = require("./sites");
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -18,6 +19,7 @@ const MIME = {
   ".jpeg": "image/jpeg",
   ".gif": "image/gif",
   ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
   ".txt": "text/plain; charset=utf-8",
   ".map": "application/json; charset=utf-8"
 };
@@ -37,11 +39,13 @@ const fileCache = new Map();
 function resolveStaticPath(pathname) {
   let requested;
   try {
-    requested = pathname === "/" ? "/index.html" : decodeURIComponent(pathname);
+    requested = pathname === "/" ? "/home.html" : decodeURIComponent(pathname);
   } catch {
     return null;
   }
   if (requested.includes("\0")) return null;
+  if (requested === "/tournament" || requested === "/tournament/") requested = "/index.html";
+  if (requested === "/studio" || requested === "/studio/") requested = "/studio/index.html";
   // Team profiles use client-side rendering, including on direct visits/reloads.
   if (/^\/teams\/[^/\\]+\/?$/.test(requested)) return path.join(PUBLIC_DIR, "index.html");
   const filePath = path.normalize(path.join(PUBLIC_DIR, requested));
@@ -92,7 +96,12 @@ function loadFile(filePath, done) {
 
 function sendStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-  const filePath = resolveStaticPath(url.pathname);
+  if (url.pathname === "/studio" || url.pathname === "/tournament") {
+    res.writeHead(308, { ...SECURITY_HEADERS, Location: url.pathname + "/" + url.search, "Cache-Control": "no-store" });
+    res.end();
+    return;
+  }
+  const filePath = url.pathname === "/" ? path.join(PUBLIC_DIR, rootDocument(req)) : resolveStaticPath(url.pathname);
   if (!filePath) {
     sendText(res, 403, "Forbidden");
     return;
@@ -114,7 +123,9 @@ function sendStatic(req, res) {
         ? "no-store, max-age=0"
         : url.searchParams.has("v")
           ? "public, max-age=604800, immutable"
-          : "public, max-age=604800";
+          : url.pathname.startsWith("/companion/") || url.pathname.startsWith("/studio/")
+            ? "public, max-age=0, must-revalidate"
+            : "public, max-age=604800";
 
     const headers = {
       "Content-Type": MIME[ext] || "application/octet-stream",

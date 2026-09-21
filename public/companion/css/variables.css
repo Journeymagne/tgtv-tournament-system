@@ -1,0 +1,22 @@
+:root {
+  color-scheme: dark;
+  --bg: #050505;
+  --panel: #151515;
+  --panel-2: #202020;
+  --panel-3: #2d2d2d;
+  --text: #f1f1ef;
+  --muted: #b8b8b2;
+  --line: #3d3d39;
+  --accent: #f47b20;
+  --accent-dark: #b84a0d;
+  --danger: #ff6b5f;
+  --shadow: rgba(0, 0, 0, 0.55);
+  --input-bg: #080808;
+  --input-bg-alt: #101319;
+  --me: #45c7a4;
+  --me-soft: rgba(69, 199, 164, 0.16);
+  --opp: #ef6f61;
+  --opp-soft: rgba(239, 111, 97, 0.16);
+  --counter: #f3c969;
+  --counter-soft: rgba(243, 201, 105, 0.18);
+}

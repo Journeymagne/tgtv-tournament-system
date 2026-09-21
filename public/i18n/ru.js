@@ -131,7 +131,7 @@ const TGTV_I18N_RU = {
   "nav.playerTeams": "Команды",
   "nav.stats": "Статистика",
   "nav.profile": "Профиль",
-  "nav.challenge": "All Kill Team Challenge",
+  "nav.challenge": "Challange",
   "nav.feedback": "Обратная связь",
   "nav.documentation": "Документация",
   "documentation.loadError": "Не удалось загрузить документацию. Попробуйте ещё раз.",

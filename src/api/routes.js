@@ -13,6 +13,8 @@ const tournamentTableImages = require("./tournament-table-images");
 const notifications = require("./notifications");
 const tournamentLive = require("./tournament-live");
 const documentation = require("./documentation");
+const account = require("./account");
+const studio = require("./studio");
 const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
 
 function withAction(handler, action) {
@@ -33,6 +35,14 @@ module.exports = [
   { method: "PATCH", path: "/api/achievements/:id", handler: achievements.update, auth: "admin", tx: true },
   { method: "DELETE", path: "/api/achievements/:id", handler: achievements.remove, auth: "admin", tx: true },
   { method: "POST", path: "/api/achievements/:id/awards", handler: achievements.award, auth: "admin", tx: true },
+  { method: "GET", path: "/api/session", handler: account.session, auth: "none", loadUser: true },
+  { method: "GET", path: "/api/studio/session", handler: studio.session, auth: "user" },
+  { method: "GET", path: "/api/studio/drafts", handler: studio.drafts, auth: "user" },
+  { method: "GET", path: "/api/studio/drafts/:id", handler: studio.draft, auth: "user" },
+  { method: "PUT", path: "/api/studio/drafts/:id", handler: studio.save, auth: "user", tx: true, maxBodyBytes: studio.MAX_BODY },
+  { method: "POST", path: "/api/studio/drafts/:id/publish", handler: studio.publish, auth: "user", tx: true, maxBodyBytes: studio.MAX_BODY },
+  { method: "GET", path: "/api/studio/library", handler: studio.library, auth: "none" },
+  { method: "GET", path: "/api/studio/library/:id", handler: studio.publication, auth: "none" },
   { method: "GET", path: "/api/documentation/:locale", handler: documentation.list, auth: "none" },
   { method: "GET", path: "/api/documentation/:locale/:id", handler: documentation.get, auth: "none" },
   { method: "POST", path: "/api/admin/documentation/preview", handler: documentation.preview, auth: "admin", tx: true },

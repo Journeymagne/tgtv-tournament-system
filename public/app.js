@@ -79,7 +79,7 @@ const state = {
 let searchDebounce = null;
 let searchRequestId = 0;
 let publicTournamentRequestId = 0;
-let teamPairingPollTimer = null;
+const tournamentRoundSelections = new Map();
 let teamPairingRequestId = 0;
 let teamPairingMutationPending = false;
 let notificationPollTimer = null;
@@ -90,6 +90,96 @@ let documentationLoadPromise = null;
 const LEADERBOARD_PAGE_SIZE = 50;
 const THEME_STORAGE_KEY = "tgtv-theme";
 const NOTIFICATION_POLL_INTERVAL_MS = 30000;
+const liveRefresh = window.TGTV_LIVE.createController({
+  target: liveRefreshTarget,
+  fetch: fetchLiveRefresh,
+  apply: applyLiveRefresh,
+  blocked: (target) => window.TGTV_LIVE.blocked(target.root, document) || teamPairingSubmissionPending() || tournamentLiveEditing(),
+  window,
+  document
+});
+
+function onLive(element, type, handler) {
+  window.TGTV_LIVE.on(element, type, handler);
+}
+
+function setLiveContent(element, html, live = false) {
+  window.TGTV_LIVE.content(element, html, live);
+}
+
+function liveTournamentInterval(data, tab) {
+  if (data?.tournament?.status !== "in_progress") return 0;
+  return tab === "matches" ? 5000 : tab === "stats" ? 45000 : tab === "standings" ? 15000 : 0;
+}
+
+function liveRefreshTarget() {
+  const root = document.querySelector("[data-content]") || app;
+  const make = (kind, id, interval, url, snapshot, project = (data) => data) => {
+    const anchor = root.querySelector(`[data-live-view="${kind}"]`);
+    return interval && anchor ? { kind, id, key: `${kind}:${id}:${state.tournamentInfoTab}`, interval, url, snapshot, project, root, anchor } : null;
+  };
+  const slug = tournamentSlugFromLocation();
+  if (slug) return make("tournament", slug, liveTournamentInterval(state.publicTournamentDetail, state.tournamentInfoTab),
+    `/api/tournaments/${encodeURIComponent(slug)}`, state.publicTournamentDetail);
+  if (playerTeamSlugFromLocation()) return null;
+  if (state.view === "teamPairing") {
+    const data = state.teamPairingDetail;
+    const match = data?.teamMatch;
+    const interval = data?.tournament?.status === "in_progress" && match && match.phase !== "completed"
+      ? match.phase === "in_progress" ? 10000 : 5000 : 0;
+    return make("pairing", state.selectedTeamMatchId, interval, `/api/team-matches/${state.selectedTeamMatchId}`, data);
+  }
+  if (!state.me) return null;
+  if (state.view === "play") {
+    const project = (data) => ({ challenges: data.challenges || [], games: data.games || [], teamPairings: data.teamPairings || [] });
+    return make("play", state.me.id, 15000, "/api/me", project(state), project);
+  }
+  if (state.view === "gameDetail") {
+    const game = getKnownGame(state.selectedGameId);
+    const matchId = tournamentMatchIdFromGameId(state.selectedGameId);
+    const path = matchId ? `tournament-match/${matchId}` : state.selectedGameId;
+    const interval = game && ["open", "pending_confirmation"].includes(game.status) &&
+      (!game.tournament?.status || game.tournament.status === "in_progress") ? 10000 : 0;
+    return make("game", state.selectedGameId, interval, `/api/games/${path}`, game, (data) => data.game);
+  }
+  if (state.me.isAdmin && state.view === "games" && state.gamesTab === "sessions") {
+    return make("sessions", "all", 15000, "/api/admin/games", state.adminGames, (data) => data.games || []);
+  }
+  if (state.me.isAdmin && state.view === "tournaments" && state.tournamentsTab === "admin" && state.adminTournamentMode === "detail") {
+    return make("adminTournament", state.selectedTournamentId, liveTournamentInterval(state.adminTournamentDetail, state.tournamentInfoTab),
+      `/api/admin/tournaments/${state.selectedTournamentId}`, state.adminTournamentDetail);
+  }
+  return null;
+}
+
+function applyLiveRefresh(target, data) {
+  if (state.me && typeof data._liveRole === "boolean") state.me.isAdmin = data._liveRole;
+  const restore = preserveTeamPairingDrafts();
+  if (target.kind === "tournament") renderPublicTournament(data, true);
+  else if (target.kind === "pairing") {
+    state.teamPairingDetail = data;
+    renderTeamPairing(true);
+  } else if (target.kind === "play") {
+    Object.assign(state, target.project(data));
+    renderPlay(true);
+  } else if (target.kind === "game" && data.game) {
+    const index = state.allGames.findIndex((game) => String(game.id) === String(data.game.id));
+    if (index < 0) state.allGames.push(data.game);
+    else state.allGames[index] = data.game;
+    state.games = (state.games || []).map((game) => String(game.id) === String(data.game.id) ||
+      (game.sourceType === "tournament_match" && data.game.sourceType === "tournament_match" &&
+        tournamentMatchSourceId(game) === tournamentMatchSourceId(data.game)) ? data.game : game);
+    renderGameDetail(true);
+  } else if (target.kind === "sessions") {
+    state.adminGames = data.games || [];
+    renderGames(true);
+  } else if (target.kind === "adminTournament") {
+    state.adminTournamentDetail = data;
+    state.adminTournamentPreview = null;
+    renderTournaments(true);
+  }
+  restore();
+}
 
 const standingsTiebreakerOptions = [
   {
@@ -260,6 +350,8 @@ async function api(path, options = {}) {
   if ((!options.method || options.method === "GET") && /^\/api\/(?:admin\/)?tournaments\/[^/?]+$/.test(path) && !path.endsWith("/revision")) path += "?compact=1";
   const writing = options.method && !["GET", "HEAD"].includes(options.method);
   if (writing) { tournamentWritesPending += 1; tournamentRefreshEpoch += 1; }
+  const mutation = (options.method || "GET").toUpperCase() !== "GET" && path !== "/api/notifications/read";
+  if (mutation) liveRefresh.startWrite();
   try {
     const res = await fetch(path, {
       credentials: "same-origin",
@@ -279,7 +371,10 @@ async function api(path, options = {}) {
       for (const round of data.rounds || []) round.matches = data.teamMatches.filter(match => match.roundId === round.id);
     }
     return data;
-  } finally { if (writing) { tournamentWritesPending -= 1; tournamentRefreshEpoch += 1; } }
+  } finally {
+    if (writing) { tournamentWritesPending -= 1; tournamentRefreshEpoch += 1; }
+    if (mutation) liveRefresh.endWrite();
+  }
 }
 
 function escapeHtml(value) {
@@ -839,7 +934,8 @@ function renderNotificationControl() {
     body = `${errorNotice}<div class="notification-list">${state.notifications.slice(0, 5).map(notificationItemMarkup).join("")}</div>`;
   }
   panel.setAttribute("aria-label", t("notifications.title"));
-  panel.innerHTML = `<div class="notification-panel-header"><h2>${t("notifications.title")}</h2><span class="field-help">${t("notifications.latestFive")}</span></div>${body}`;
+  if (window.TGTV_LIVE.blocked(panel, document)) return;
+  setLiveContent(panel, `<div class="notification-panel-header"><h2>${t("notifications.title")}</h2><span class="field-help">${t("notifications.latestFive")}</span></div>${body}`, true);
 }
 
 function resetNotifications() {
@@ -1023,11 +1119,16 @@ function wireNotificationControl() {
   window.addEventListener("focus", () => {
     if (state.me) loadNotifications();
   });
+  document.addEventListener("selectionchange", () => {
+    if (state.notificationsOpen) renderNotificationControl();
+  });
 }
+
 
 async function refresh() {
   const data = await api("/api/me");
   state.me = data.user;
+  window.KTCompanion?.setUser(state.me);
   state.hasAdmin = data.hasAdmin;
   // Before anything renders: every admin panel below is built synchronously and
   // expects the module to be there by then.
@@ -1042,6 +1143,7 @@ async function refresh() {
 async function boot() {
   try {
     await refresh();
+    if (state.me && window.KTCompanion?.returnAfterLogin()) return;
     await loadTop();
     await handleHashNavigation();
   } catch (err) {
@@ -1387,7 +1489,7 @@ function appHashForState() {
 
 function syncAppHash(options = {}) {
   const hash = appHashForState();
-  const pathname = tournamentSlugFromPath() || playerTeamSlugFromPath() ? "/" : window.location.pathname;
+  const pathname = tournamentSlugFromPath() || playerTeamSlugFromPath() ? (window.KT_SITES?.subdomains ? "/" : "/tournament/") : window.location.pathname;
   if (!hash || (window.location.hash === hash && window.location.pathname === pathname)) return;
   const url = `${pathname}${window.location.search}${hash}`;
   pushAppLocation(url, options);
@@ -1522,40 +1624,22 @@ function playerTeamPublicPath(slug) {
   return `/teams/${encodeURIComponent(slug || "")}`;
 }
 
-function stopTeamPairingPoll() {
-  if (teamPairingPollTimer !== null) window.clearTimeout(teamPairingPollTimer);
-  teamPairingPollTimer = null;
-}
+
 
 function leavePublicTournamentRoute() {
   publicTournamentRequestId += 1;
-  stopTeamPairingPoll();
+  liveRefresh.invalidate();
+}
+
+function stopTeamPairingPoll() {
+  liveRefresh.invalidate();
 }
 
 function isCurrentPublicTournamentRoute(slug) {
   return tournamentSlugFromLocation() === String(slug || "");
 }
 
-function scheduleTeamPairingPoll(slug) {
-  stopTeamPairingPoll();
-  teamPairingPollTimer = window.setTimeout(async () => {
-    teamPairingPollTimer = null;
-    if (!isCurrentPublicTournamentRoute(slug)) return;
-    if (teamPairingSubmissionPending()) { scheduleTeamPairingPoll(slug); return; }
-    const requestId = publicTournamentRequestId;
-    try {
-      const data = await api(`/api/tournaments/${encodeURIComponent(slug)}`);
-      if (requestId !== publicTournamentRequestId || !isCurrentPublicTournamentRoute(slug)) return;
-      if (teamPairingSubmissionPending()) { scheduleTeamPairingPoll(slug); return; }
-      const restore = preserveTeamPairingDrafts();
-      state.publicTournamentDetail = data;
-      renderPublicTournament(data);
-      restore();
-    } catch {
-      if (isCurrentPublicTournamentRoute(slug)) scheduleTeamPairingPoll(slug);
-    }
-  }, 2000);
-}
+
 
 function teamPairingSubmissionPending() {
   return teamPairingMutationPending || Boolean(document.querySelector('[data-team-pairing-form] [type="submit"]:disabled, [data-team-pairing-form] [data-combo].open, [data-team-pair-action="roll"]:disabled, [data-team-match-undo]:disabled, [data-team-match-reset]:disabled, [data-team-pairings-override] [type="submit"]:disabled, [data-team-pairings-override] [data-combo].open'));
@@ -1565,8 +1649,8 @@ function preserveTeamPairingDrafts() {
   const logPositions = [...document.querySelectorAll("[data-team-pairing-log-list]")].map(list => ({ top: list.scrollTop, height: list.scrollHeight }));
   const expandedDetails = new Set([...document.querySelectorAll("[data-team-pairing-details][open]")]
     .map((details) => details.dataset.teamPairingDetails));
-  const key = (form) => `${form.dataset.teamMatchId}:${form.dataset.teamPairingForm}:${form.dataset.side || ""}:${form.dataset.step || form.dataset.rollRound || ""}`;
-  const drafts = new Map([...document.querySelectorAll("[data-team-pairing-form]")].map((form) =>
+  const key = (form) => `${form.dataset.teamMatchId || form.dataset.teamPairingsOverride}:${form.dataset.teamPairingForm || "override"}:${form.dataset.side || ""}:${form.dataset.step || form.dataset.rollRound || form.dataset.pairingPhase || ""}`;
+  const drafts = new Map([...document.querySelectorAll("[data-team-pairing-form], [data-team-pairings-override]")].map((form) =>
     [key(form), [...form.querySelectorAll("select[name], input[name]")].map((input) => [input.name, input.value])]));
   return () => {
     document.querySelectorAll("[data-team-pairing-log-list]").forEach((list, index) => {
@@ -1576,7 +1660,7 @@ function preserveTeamPairingDrafts() {
     document.querySelectorAll("[data-team-pairing-details]").forEach((details) => {
       details.open = expandedDetails.has(details.dataset.teamPairingDetails);
     });
-    document.querySelectorAll("[data-team-pairing-form]").forEach((form) => {
+    document.querySelectorAll("[data-team-pairing-form], [data-team-pairings-override]").forEach((form) => {
       for (const [name, value] of drafts.get(key(form)) || []) {
         const select = form.elements.namedItem(name);
         if (select && (!select.options || [...select.options].some((option) => option.value === value))) {
@@ -1594,31 +1678,7 @@ function isCurrentTeamPairingRoute(matchId) {
     state.view === "teamPairing" && Number(state.selectedTeamMatchId) === Number(matchId);
 }
 
-function scheduleTeamPairingScreenPoll(matchId) {
-  stopTeamPairingPoll();
-  teamPairingPollTimer = window.setTimeout(async () => {
-    teamPairingPollTimer = null;
-    if (!isCurrentTeamPairingRoute(matchId)) return;
-    if (teamPairingSubmissionPending()) { scheduleTeamPairingScreenPoll(matchId); return; }
-    try {
-      const previous = JSON.stringify(state.teamPairingDetail);
-      const loaded = await loadTeamPairing(matchId, { force: true });
-      if (!loaded) return;
-      if (isCurrentTeamPairingRoute(matchId)) {
-        if (teamPairingSubmissionPending()) { scheduleTeamPairingScreenPoll(matchId); return; }
-        if (previous === JSON.stringify(loaded)) { scheduleTeamPairingScreenPoll(matchId); return; }
-        const restore = preserveTeamPairingDrafts();
-        renderTeamPairing();
-        restore();
-      }
-    } catch (err) {
-      if (isCurrentTeamPairingRoute(matchId)) {
-        setMessage(err.message, true);
-        scheduleTeamPairingScreenPoll(matchId);
-      }
-    }
-  }, 2000);
-}
+
 
 async function loadTeamPairing(matchId, options = {}) {
   const id = Number(matchId);
@@ -1660,7 +1720,7 @@ function navigateToPlayerTeam(slug) {
 }
 
 function clearPlayerTeamRoute() {
-  if (playerTeamSlugFromLocation()) window.history.replaceState(null, "", `/${window.location.search}`);
+  if (playerTeamSlugFromLocation()) window.history.replaceState(null, "", `${window.KT_SITES?.subdomains ? "/" : "/tournament/"}${window.location.search}`);
 }
 
 function navigateToPublicTournament(slug, options = {}) {
@@ -1677,7 +1737,7 @@ function clearSharedChallengeHash() {
 
 function clearTournamentRoute() {
   if (!tournamentSlugFromLocation()) return;
-  window.history.replaceState(null, "", `/${window.location.search}`);
+  window.history.replaceState(null, "", `${window.KT_SITES?.subdomains ? "/" : "/tournament/"}${window.location.search}`);
 }
 
 function getKnownPublicTournament(slug) {
@@ -1747,15 +1807,15 @@ function publicTournamentContainer() {
   return document.querySelector("[data-content]");
 }
 
-function renderPublicTournament(data) {
+function renderPublicTournament(data, live = false) {
   const tournament = data.tournament || {};
   const isTeamTournament = tournament.participantMode === "team";
   const listedParticipants = isTeamTournament
     ? (data.rosters || []).filter((roster) => roster.status !== "withdrawn")
     : listedTournamentParticipants(data.participants || []);
   state.publicTournamentDetail = data;
-  publicTournamentContainer().innerHTML = `
-    <div class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
+  setLiveContent(publicTournamentContainer(), `
+    <div data-live-view="tournament" class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
       <section class="card panel public-tournament-shell">
         <div class="panel-header public-tournament-header">
           <div class="tournament-heading">
@@ -1790,8 +1850,9 @@ function renderPublicTournament(data) {
       ${state.me?.isAdmin ? `<section class="card panel"><div class="admin-tournament-actions">${adminUi().adminTournamentActionButtons(data).replaceAll("data-admin-tournament-action", "data-public-admin-action")}</div></section>` : ""}
       ${tournamentInfoPanel(data, { publicRoute: true })}
     </div>
-  `;
+  `, live);
   wirePublicTournamentNav(data);
+  liveRefresh.schedule();
 }
 
 function publicTournamentViewerActions(data) {
@@ -1862,7 +1923,7 @@ async function openTournamentEditor(tournamentId) {
 
 function wireTournamentEditButtons() {
   document.querySelectorAll("[data-tournament-edit]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       button.disabled = true;
       try {
         await openTournamentEditor(button.dataset.tournamentEdit);
@@ -2103,23 +2164,23 @@ function wirePublicTournamentNav(data) {
   const tournament = data?.tournament || {};
   wireTournamentEditButtons();
   wireTournamentInfoControls(data, { publicRoute: true });
-  document.querySelector("[data-public-login]")?.addEventListener("click", () => {
+  onLive(document.querySelector("[data-public-login]"), "click", () => {
     state.authMode = "login";
     clearTournamentRoute();
     render();
   });
-  document.querySelector("[data-public-register]")?.addEventListener("click", () => {
+  onLive(document.querySelector("[data-public-register]"), "click", () => {
     state.authMode = "register";
     clearTournamentRoute();
     render();
   });
-  document.querySelector("[data-public-back]")?.addEventListener("click", () => {
+  onLive(document.querySelector("[data-public-back]"), "click", () => {
     navigateBack("/#/tournaments");
   });
-  document.querySelector("[data-public-tournament-join]")?.addEventListener("click", async () => {
+  onLive(document.querySelector("[data-public-tournament-join]"), "click", async () => {
     renderTournamentJoinForm(data);
   });
-  document.querySelector("[data-public-tournament-withdraw]")?.addEventListener("click", async () => {
+  onLive(document.querySelector("[data-public-tournament-withdraw]"), "click", async () => {
     if (!await confirmAction({ message: t("dialog.tournaments.withdraw"), confirmLabel: t("tournaments.action.withdraw") })) return;
     try {
       await api(`/api/tournaments/${tournament.id}/withdraw`, { method: "POST" });
@@ -2128,11 +2189,11 @@ function wirePublicTournamentNav(data) {
       window.alert(err.message);
     }
   });
-  document.querySelector("[data-public-team-roster-edit]")?.addEventListener("click", (event) => {
+  onLive(document.querySelector("[data-public-team-roster-edit]"), "click", (event) => {
     const roster = (data.rosters || []).find((item) => item.id === Number(event.currentTarget.dataset.publicTeamRosterEdit));
     if (roster) renderTeamRosterRegistration(data, roster);
   });
-  document.querySelector("[data-public-team-roster-withdraw]")?.addEventListener("click", async (event) => {
+  onLive(document.querySelector("[data-public-team-roster-withdraw]"), "click", async (event) => {
     if (!await confirmAction({ message: t("teams.tournament.withdrawConfirm"), confirmLabel: t("teams.tournament.withdraw") })) return;
     try {
       await api(`/api/tournaments/${tournament.id}/rosters/${event.currentTarget.dataset.publicTeamRosterWithdraw}/withdraw`, { method: "POST" });
@@ -2141,7 +2202,7 @@ function wirePublicTournamentNav(data) {
       window.alert(err.message);
     }
   });
-  document.querySelector("[data-public-team-roster-delete]")?.addEventListener("click", async (event) => {
+  onLive(document.querySelector("[data-public-team-roster-delete]"), "click", async (event) => {
     const rosterId = event.currentTarget.dataset.publicTeamRosterDelete;
     const roster = (data.rosters || []).find((item) => item.id === Number(rosterId));
     if (!await confirmDelete(t("teams.tournament.deleteConfirm", { name: roster?.name || roster?.teamNameSnapshot || "" }))) return;
@@ -2153,14 +2214,14 @@ function wirePublicTournamentNav(data) {
     }
   });
   document.querySelectorAll("[data-public-tournament-result]").forEach((button) => {
-    button.addEventListener("click", () => {
+    onLive(button, "click", () => {
       const match = findTournamentMatch(data, Number(button.dataset.publicTournamentResult));
       const admin = button.dataset.publicTournamentAdminResult === "1";
       if (match) renderTournamentResultForm(data, match, { admin, publicRoute: true });
     });
   });
   document.querySelectorAll("[data-public-tournament-review]").forEach((button) => {
-    button.addEventListener("click", () => {
+    onLive(button, "click", () => {
       const match = findTournamentMatch(data, Number(button.dataset.publicTournamentReview));
       if (match) renderTournamentResultReview(data, match, { publicRoute: true });
     });
@@ -2482,7 +2543,7 @@ function publicParticipantsList(participants) {
 
 function publicRoundsMarkup(rounds, tournament = {}) {
   if (!rounds.length) return `<div class="empty">${t("tournaments.matches.empty")}</div>`;
-  return tournamentRoundsTabbedMarkup(rounds, (match) => publicMatchMarkup(match, tournament));
+  return tournamentRoundsTabbedMarkup(rounds, (match) => publicMatchMarkup(match, tournament), tournament.id);
 }
 
 function defaultTournamentRoundNumber(rounds = []) {
@@ -2491,11 +2552,12 @@ function defaultTournamentRoundNumber(rounds = []) {
   return Number((active.at(-1) || ordered.at(-1))?.roundNumber || 0);
 }
 
-function tournamentRoundsTabbedMarkup(rounds, matchMarkup) {
+function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "") {
   const ordered = [...rounds].sort((a, b) => Number(a.roundNumber) - Number(b.roundNumber));
-  const selectedRoundNumber = defaultTournamentRoundNumber(ordered);
+  const saved = selectionKey ? tournamentRoundSelections.get(String(selectionKey)) : null;
+  const selectedRoundNumber = ordered.some((round) => Number(round.roundNumber) === saved) ? saved : defaultTournamentRoundNumber(ordered);
   return `
-    <div class="tournament-round-switcher" data-tournament-round-switcher>
+    <div class="tournament-round-switcher" data-tournament-round-switcher data-round-selection-key="${escapeHtml(selectionKey)}">
       <div class="tabs tournament-round-tabs" role="tablist" aria-label="${t("tournaments.round.tabsAria")}">
         ${ordered.map((round) => `
           <button
@@ -2642,7 +2704,7 @@ function wireVenueTabs() {
 
 function wirePageTabs() {
   document.querySelectorAll("[data-page-tab]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       const section = button.dataset.pageTab;
       const value = button.dataset.pageTabValue;
       try {
@@ -2684,12 +2746,12 @@ function wirePageTabs() {
   });
 }
 
-function renderTournaments() {
+function renderTournaments(live = false) {
   const content = document.querySelector("[data-content]");
   const tournaments = state.tournaments || [];
   const activeTab = state.me?.isAdmin ? state.tournamentsTab : "public";
   if (state.tournamentsTab !== activeTab) state.tournamentsTab = activeTab;
-  content.innerHTML = `
+  setLiveContent(content, `
     ${pageTabs("tournaments", [
       { id: "public", label: t("tournaments.tab.publicList") },
       { id: "admin", label: t("tournaments.tab.adminList") }
@@ -2707,10 +2769,11 @@ function renderTournaments() {
       `}
       </section>
     `}
-  `;
+  `, live);
   wirePageTabs();
   if (activeTab === "admin") {
     adminUi().wireAdminTournamentControls();
+    liveRefresh.schedule();
     return;
   }
   document.querySelectorAll("[data-tournament-open]").forEach((button) => {
@@ -2719,6 +2782,7 @@ function renderTournaments() {
     });
   });
   wireTournamentEditButtons();
+  liveRefresh.schedule();
 }
 
 function publicTournamentSections(tournaments) {
@@ -2905,7 +2969,7 @@ function renderAuth() {
             <button class="primary-button" type="submit">${action}</button>
             <div class="message" data-message></div>
           </form>
-          <a class="documentation-auth-link" href="/#/documentation">${t("nav.documentation")}</a>
+          <a class="documentation-auth-link" href="${window.KT_SITES?.subdomains ? "/" : "/tournament/"}#/documentation">${t("nav.documentation")}</a>
         </div>
       </section>
     </main>
@@ -2974,6 +3038,8 @@ async function submitAuth(event) {
   try {
     await api(path, { method: "POST", body });
     await refresh();
+    window.KTCompanion?.changed();
+    if (window.KTCompanion?.returnAfterLogin()) return;
     await loadTop();
     const routed = await applyAppRouteFromHash();
     if (!routed && !tournamentSlugFromLocation()) {
@@ -3119,6 +3185,7 @@ function renderShell() {
   else if (state.view === "documentation") renderDocumentation();
   else if (state.view === "top") renderTop();
   else renderPlay();
+  liveRefresh.schedule();
 }
 
 // The stylesheet travels with the script: both are needed by exactly the
@@ -3270,6 +3337,8 @@ function navButton(id, label) {
 
 async function logout() {
   await api("/api/logout", { method: "POST" });
+  window.KTCompanion?.setUser(null);
+  window.KTCompanion?.changed();
   state.me = null;
   state.view = "play";
   state.sharedChallengeTokenHandled = "";
@@ -3281,7 +3350,7 @@ async function logout() {
   render();
 }
 
-function renderPlay() {
+function renderPlay(live = false) {
   const content = document.querySelector("[data-content]");
   const teamPairings = state.teamPairings || [];
   const incoming = state.challenges.filter((item) => item.status === "pending" && item.toUserId === state.me.id);
@@ -3289,8 +3358,8 @@ function renderPlay() {
   const openGames = state.games.filter((game) => ["open", "pending_confirmation"].includes(game.status));
   const completedGames = state.games.filter((game) => game.status === "completed").slice(0, 8);
 
-  content.innerHTML = `
-    <section class="card panel">
+  setLiveContent(content, `
+    <section class="card panel" data-live-view="play" data-live-preserve>
       <div class="panel-header">
         <div>
           <h2>${t("play.newChallenge.title")}</h2>
@@ -3329,21 +3398,21 @@ function renderPlay() {
       <div class="list">${completedGames.length ? completedGames.map(gameCard).join("") : `<div class="empty">${t("play.recent.empty")}</div>`}</div>
     </section>
     <div class="message" data-message></div>
-  `;
+  `, live);
 
   const searchInput = document.querySelector("[data-search-input]");
-  document.querySelector("[data-search]").addEventListener("click", () => searchUsers({ allowEmpty: true }));
-  searchInput.addEventListener("input", handleSearchInput);
-  searchInput.addEventListener("keydown", (event) => {
+  onLive(document.querySelector("[data-search]"), "click", () => searchUsers({ allowEmpty: true }));
+  onLive(searchInput, "input", handleSearchInput);
+  onLive(searchInput, "keydown", (event) => {
     if (event.key === "Enter") searchUsers();
   });
   wireChallengeButtons();
   wireGameButtons();
   wireMyGamesPairings();
-  scheduleMyGamesPairingPoll();
-  if (state.focusChallengeId) {
+  if (!live && state.focusChallengeId) {
     focusNotificationTarget(`[data-challenge-card="${state.focusChallengeId}"]`);
   }
+  liveRefresh.schedule();
 }
 
 function teamPairingsPanelMarkup(pairings) {
@@ -3356,39 +3425,8 @@ function teamPairingsPanelMarkup(pairings) {
 
 function wireMyGamesPairings() {
   document.querySelectorAll("[data-captain-pairings] [data-team-pairing-open]").forEach((button) => {
-    button.addEventListener("click", () => openTeamPairing(button.dataset.teamPairingOpen));
+    onLive(button, "click", () => openTeamPairing(button.dataset.teamPairingOpen));
   });
-}
-
-let myGamesPairingRequestId = 0;
-
-function scheduleMyGamesPairingPoll() {
-  stopTeamPairingPoll();
-  const requestId = ++myGamesPairingRequestId;
-  const userId = state.me?.id;
-  const isCurrent = () => requestId === myGamesPairingRequestId && state.me?.id === userId
-    && state.view === "play" && Boolean(document.querySelector("[data-captain-pairings]"));
-  if (!userId || !isCurrent()) return;
-  teamPairingPollTimer = window.setTimeout(async () => {
-    teamPairingPollTimer = null;
-    if (!isCurrent()) return;
-    try {
-      if (document.visibilityState !== "hidden") {
-        const data = await api("/api/me/team-pairings");
-        if (!isCurrent()) return;
-        const pairings = data.teamPairings || [];
-        if (JSON.stringify(pairings) !== JSON.stringify(state.teamPairings)) {
-          state.teamPairings = pairings;
-          document.querySelector("[data-captain-pairings]").innerHTML = teamPairingsPanelMarkup(pairings);
-          wireMyGamesPairings();
-        }
-      }
-    } catch {
-      // Keep the last confirmed score if a background refresh fails.
-    } finally {
-      if (isCurrent()) scheduleMyGamesPairingPoll();
-    }
-  }, 2000);
 }
 
 function teamPairingCard(pairing) {
@@ -4662,13 +4700,13 @@ async function openGameDetail(gameId) {
   renderShell();
 }
 
-function renderGames() {
+function renderGames(live = false) {
   const content = document.querySelector("[data-content]");
   const completedGames = state.allGames.filter((game) => game.status === "completed");
   const filteredGames = filterGames(completedGames);
   const activeTab = state.me?.isAdmin ? state.gamesTab : "history";
   if (state.gamesTab !== activeTab) state.gamesTab = activeTab;
-  content.innerHTML = `
+  setLiveContent(content, `
     ${pageTabs("games", [
       { id: "history", label: t("games.tabs.completed") },
       { id: "sessions", label: t("games.tabs.sessions") }
@@ -4701,7 +4739,7 @@ function renderGames() {
       <div class="list" data-games-list>${gamesListMarkup(filteredGames)}</div>
       </section>
     `}
-  `;
+  `, live);
   wirePageTabs();
   if (activeTab === "sessions") {
     adminUi().wireAdminGameButtons();
@@ -4709,6 +4747,7 @@ function renderGames() {
     wireGameFilters();
     wireGameButtons();
   }
+  liveRefresh.schedule();
 }
 
 function filterGames(games) {
@@ -5695,7 +5734,7 @@ function challengeTeamCard(item, wildcard = false, userId = null) {
   `;
 }
 
-function renderGameDetail() {
+function renderGameDetail(live = false) {
   const content = document.querySelector("[data-content]");
   const game = getKnownGame(state.selectedGameId);
   if (!game) {
@@ -5734,8 +5773,8 @@ function renderGameDetail() {
     ? `<a href="/tournaments/${escapeHtml(tournament.slug)}" data-app-link class="small-button" data-detail-tournament-open="${escapeHtml(tournament.slug)}">${t("play.tournamentMatch.openAction")}</a>`
     : "";
   const detailTitle = isTournamentGame ? t("games.detail.tournamentTitle") : t("games.detail.title", { id: game.id });
-  content.innerHTML = `
-    <section class="card panel game-detail">
+  setLiveContent(content, `
+    <section class="card panel game-detail" data-live-view="game">
       <div class="panel-header game-detail-header">
         <div>
           <p class="game-detail-eyebrow">${detailTitle}</p>
@@ -5782,35 +5821,36 @@ function renderGameDetail() {
       `}
       <div class="message" data-message></div>
     </section>
-  `;
+  `, live);
 
-  document.querySelector("[data-back-games]").addEventListener("click", () => navigateBack(gameBackFallback(game), { tournamentTab: "matches" }));
-  document.querySelector("[data-detail-team-match]")?.addEventListener("click", () => openTeamPairing(gameTeamMatchId(game)));
-  document.querySelector("[data-admin-edit-game]")?.addEventListener("click", () => {
+  onLive(document.querySelector("[data-back-games]"), "click", () => navigateBack(gameBackFallback(game), { tournamentTab: "matches" }));
+  onLive(document.querySelector("[data-detail-team-match]"), "click", () => openTeamPairing(gameTeamMatchId(game)));
+  onLive(document.querySelector("[data-admin-edit-game]"), "click", () => {
     renderResultForm(game.id, { adminEdit: true });
   });
-  document.querySelector("[data-admin-recalculate-rating]")?.addEventListener("click", (event) => {
+  onLive(document.querySelector("[data-admin-recalculate-rating]"), "click", (event) => {
     adminUi().adminRecalculateGameRating(game.id, event.currentTarget);
   });
-  document.querySelector("[data-admin-delete-game]")?.addEventListener("click", (event) => {
+  onLive(document.querySelector("[data-admin-delete-game]"), "click", (event) => {
     adminUi().adminDeleteGame(Number(event.currentTarget.dataset.adminDeleteGame));
   });
-  document.querySelector("[data-admin-confirm-game]")?.addEventListener("click", (event) => {
+  onLive(document.querySelector("[data-admin-confirm-game]"), "click", (event) => {
     adminUi().adminForceConfirmGame(Number(event.currentTarget.dataset.adminConfirmGame));
   });
-  document.querySelector("[data-exit-game]")?.addEventListener("click", (event) => {
+  onLive(document.querySelector("[data-exit-game]"), "click", (event) => {
     exitOpenGame(Number(event.currentTarget.dataset.exitGame));
   });
-  document.querySelector("[data-game-result]")?.addEventListener("click", (event) => {
+  onLive(document.querySelector("[data-game-result]"), "click", (event) => {
     renderResultForm(Number(event.currentTarget.dataset.gameResult));
   });
-  document.querySelector("[data-game-review]")?.addEventListener("click", (event) => {
+  onLive(document.querySelector("[data-game-review]"), "click", (event) => {
     renderResultReview(Number(event.currentTarget.dataset.gameReview));
   });
-  document.querySelector("[data-detail-tournament-open]")?.addEventListener("click", (event) => {
+  onLive(document.querySelector("[data-detail-tournament-open]"), "click", (event) => {
     navigateToPublicTournament(event.currentTarget.dataset.detailTournamentOpen, { tab: "matches" });
   });
   wireLeaderboardProfiles();
+  liveRefresh.schedule();
 }
 
 function gameTitle(game) {
@@ -5951,7 +5991,7 @@ function searchResultMeta(user) {
 
 function wireChallengeButtons() {
   document.querySelectorAll("[data-challenge-share]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       const originalText = button.textContent;
       try {
         await copyText(button.dataset.challengeShare);
@@ -5967,7 +6007,7 @@ function wireChallengeButtons() {
     });
   });
   document.querySelectorAll("[data-challenge-action]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       const action = button.dataset.challengeAction;
       await api(`/api/challenges/${button.dataset.id}/${action}`, { method: "POST" });
       await refresh();
@@ -5982,26 +6022,26 @@ function wireChallengeButtons() {
 
 function wireGameButtons() {
   document.querySelectorAll("[data-tournament-game-open]").forEach((button) => {
-    button.addEventListener("click", () => {
+    onLive(button, "click", () => {
       navigateToPublicTournament(button.dataset.tournamentGameOpen);
     });
   });
   document.querySelectorAll("[data-game-open]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       await openGameDetail(Number(button.dataset.gameOpen));
     });
   });
   document.querySelectorAll("[data-game-result]").forEach((button) => {
-    button.addEventListener("click", () => renderResultForm(Number(button.dataset.gameResult)));
+    onLive(button, "click", () => renderResultForm(Number(button.dataset.gameResult)));
   });
   document.querySelectorAll("[data-game-admin-result]").forEach((button) => {
-    button.addEventListener("click", () => renderResultForm(Number(button.dataset.gameAdminResult), { adminEdit: true }));
+    onLive(button, "click", () => renderResultForm(Number(button.dataset.gameAdminResult), { adminEdit: true }));
   });
   document.querySelectorAll("[data-game-review]").forEach((button) => {
-    button.addEventListener("click", () => renderResultReview(Number(button.dataset.gameReview)));
+    onLive(button, "click", () => renderResultReview(Number(button.dataset.gameReview)));
   });
   document.querySelectorAll("[data-game-exit]").forEach((button) => {
-    button.addEventListener("click", () => exitOpenGame(Number(button.dataset.gameExit)));
+    onLive(button, "click", () => exitOpenGame(Number(button.dataset.gameExit)));
   });
 }
 
@@ -7414,7 +7454,7 @@ function usersTable(users) {
 
 function wireLeaderboardProfiles() {
   document.querySelectorAll("[data-profile-user]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       try {
         await openPlayerProfile(Number(button.dataset.profileUser));
       } catch (err) {
@@ -8322,7 +8362,7 @@ function teamPairingLogMarkup(events = []) {
   </section>`;
 }
 
-function renderTeamPairing() {
+function renderTeamPairing(live = false) {
   const content = state.me ? document.querySelector("[data-content]") : app;
   const data = state.teamPairingDetail;
   if (!data?.teamMatch) {
@@ -8331,7 +8371,7 @@ function renderTeamPairing() {
   }
   const tournament = data.tournament || {};
   const match = data.teamMatch;
-  content.innerHTML = `<div class="team-pairing-page">
+  setLiveContent(content, `<div data-live-view="pairing" class="team-pairing-page">
     <section class="card panel team-pairing-hero">
       <div class="panel-header">
         <div>
@@ -8350,14 +8390,15 @@ function renderTeamPairing() {
     </section>
     ${teamPairingLogMarkup(data.eventLog || [])}
     <div class="message" data-message></div>
-  </div>`;
-  document.querySelector("[data-team-pairing-back]")?.addEventListener("click", () => {
+  </div>`, live);
+  onLive(document.querySelector("[data-team-pairing-back]"), "click", () => {
     navigateBack(tournament.slug ? tournamentPublicPath(tournament.slug) : "/#/mygames", { tournamentTab: "matches" });
   });
-  document.querySelector("[data-team-pairing-tournament]")?.addEventListener("click", (event) => {
+  onLive(document.querySelector("[data-team-pairing-tournament]"), "click", (event) => {
     navigateToPublicTournament(event.currentTarget.dataset.teamPairingTournament, { tab: "matches" });
   });
   wireTeamTournamentControls(data, { standalone: true });
+  liveRefresh.schedule();
 }
 
 function teamTournamentMatchPreviewMarkup(match, tournament) {
@@ -8383,7 +8424,7 @@ function teamTournamentMatchPreviewMarkup(match, tournament) {
 function teamTournamentMatchPreviewsMarkup(data) {
   const rounds = data.rounds || [];
   if (!rounds.length) return `<div class="empty">${t("tournaments.matches.empty")}</div>`;
-  return tournamentRoundsTabbedMarkup(rounds, (match) => teamTournamentMatchPreviewMarkup(match, data.tournament || {}));
+  return tournamentRoundsTabbedMarkup(rounds, (match) => teamTournamentMatchPreviewMarkup(match, data.tournament || {}), data.tournament?.id);
 }
 
 function teamTournamentRoundsMarkup(data) {
@@ -8393,72 +8434,37 @@ function teamTournamentRoundsMarkup(data) {
 function wireTeamMatchPreviews(root) {
   wireRosterLinks(root);
   root.querySelectorAll("[data-team-pairing-open]").forEach((button) => {
-    button.addEventListener("click", () => openTeamPairing(button.dataset.teamPairingOpen));
+    onLive(button, "click", () => openTeamPairing(button.dataset.teamPairingOpen));
   });
   root.querySelectorAll("[data-team-tournament-game]").forEach((button) => {
-    button.addEventListener("click", () => openGameDetail(Number(button.dataset.teamTournamentGame)));
+    onLive(button, "click", () => openGameDetail(Number(button.dataset.teamTournamentGame)));
   });
 }
 
-function scheduleTournamentMatchPreviewPoll(data, options = {}) {
-  // Tournament pages share the lightweight revision watcher below.
-  stopTeamPairingPoll();
-}
-
-const tournamentFeed = { key: "", revision: null, timer: null, busy: false };
+const tournamentFeed = { key: "", revision: null, data: null, anchor: null, epoch: -1, userId: null };
 
 function tournamentLiveEditing() {
   return tournamentWritesPending > 0 || Boolean(document.querySelector('dialog[open], [data-round-setup-modal], [data-live-dirty], .tournament-registration-shell, [data-tournament-result-form], [data-result-form]'))
     || Boolean(document.activeElement?.matches('input, textarea, select, [contenteditable="true"]'));
 }
 
-async function pollTournamentFeed() {
-  if (tournamentFeed.busy) return;
-  tournamentFeed.busy = true;
-  try {
-    if (document.visibilityState === "hidden" || tournamentLiveEditing()) return;
-    const slug = tournamentSlugFromLocation();
-    if (!slug && !["tournaments", "roster"].includes(state.view)) return;
-    if (!slug && state.adminTournamentMode === "create") return;
-    const key = window.location.pathname + window.location.hash + ":" + (state.me?.id || "guest");
-    const epoch = tournamentRefreshEpoch;
-    const tab = state.tournamentInfoTab;
-    const current = () => key === window.location.pathname + window.location.hash + ":" + (state.me?.id || "guest")
-      && epoch === tournamentRefreshEpoch && tab === state.tournamentInfoTab && !tournamentLiveEditing();
-    const feed = await api("/api/tournaments/revision");
-    if (!current()) return;
-    const roleChanged = state.me && Boolean(state.me.isAdmin) !== feed.isAdmin;
-    if (key === tournamentFeed.key && feed.revision === tournamentFeed.revision && !roleChanged) return;
-    if (state.me) {
-      state.me.isAdmin = feed.isAdmin;
-      if (feed.isAdmin && !await loadAdminUi()) return;
-    }
-    let data;
-    const admin = !slug && state.me?.isAdmin && state.tournamentsTab === "admin";
-    if (slug) data = await api("/api/tournaments/" + encodeURIComponent(slug));
-    else if (state.view === "roster") data = await api("/api/rosters/" + state.selectedRosterId);
-    else if (admin && state.selectedTournamentId) data = await api("/api/admin/tournaments/" + state.selectedTournamentId);
-    else data = await api(admin ? "/api/admin/tournaments" : "/api/tournaments");
-    if (!current()) return;
-    const scroll = window.scrollY;
-    if (slug) renderPublicTournament(data);
-    else if (state.view === "roster") { state.rosterProfile = data; renderRosterProfile(); }
-    else {
-      if (admin && state.selectedTournamentId) state.adminTournamentDetail = data;
-      else if (admin) state.adminTournaments = data.tournaments || [];
-      else state.tournaments = data.tournaments || [];
-      renderTournaments();
-    }
-    window.scrollTo(0, scroll);
-    tournamentFeed.key = key;
-    tournamentFeed.revision = feed.revision;
-  } catch {
-    // Preserve the current page and retry after transient failures.
-  } finally {
-    tournamentFeed.busy = false;
-    window.clearTimeout(tournamentFeed.timer);
-    tournamentFeed.timer = window.setTimeout(pollTournamentFeed, 2000);
+async function fetchLiveRefresh(target) {
+  if (!["tournament", "adminTournament"].includes(target.kind)) return api(target.url);
+  const epoch = tournamentRefreshEpoch;
+  const userId = state.me?.id ?? null;
+  const feed = await api("/api/tournaments/revision");
+  if (target.key === tournamentFeed.key && target.anchor === tournamentFeed.anchor &&
+      epoch === tournamentFeed.epoch && userId === tournamentFeed.userId && feed.revision === tournamentFeed.revision &&
+      feed.isAdmin === tournamentFeed.data?._liveRole) return tournamentFeed.data;
+  if (feed.isAdmin && !await loadAdminUi()) throw new Error("Could not load admin controls");
+  const data = { ...await api(target.url), _liveRole: feed.isAdmin };
+  // Cache the response, not just the revision: a selected text range can defer
+  // rendering it for several polling cycles. The controller owns stale-response
+  // rejection and applies only after interactions finish.
+  if (epoch === tournamentRefreshEpoch && userId === (state.me?.id ?? null)) {
+    Object.assign(tournamentFeed, { key: target.key, anchor: target.anchor, epoch, userId, revision: feed.revision, data });
   }
+  return data;
 }
 
 document.addEventListener("input", event => {
@@ -8466,9 +8472,6 @@ document.addEventListener("input", event => {
   if (event.target.matches?.("[data-registration-paid]")) return;
   if (form && (state.view === "tournaments" || tournamentSlugFromLocation())) form.dataset.liveDirty = "1";
 }, true);
-window.addEventListener("focus", () => { tournamentFeed.revision = null; pollTournamentFeed(); });
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { tournamentFeed.revision = null; pollTournamentFeed(); } });
-tournamentFeed.timer = window.setTimeout(pollTournamentFeed, 2000);
 
 function tournamentLogoMarkup(tournament) {
   if (!/^(?:data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+|\/api\/tournament-logos\/\d+\?v=[a-f0-9]+)$/i.test(tournament.logoData || "")) return "";
@@ -8640,7 +8643,7 @@ function wireTournamentInfoControls(data, options = {}) {
   wireTournamentRoundTabs();
   if (data?.tournament?.participantMode === "team") wireTeamTournamentControls(data, options);
   document.querySelectorAll("[data-tournament-info-tab]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       state.tournamentInfoTab = button.dataset.tournamentInfoTab || "standings";
       try {
         if (options.admin && state.tournamentInfoTab === "participants" && canManageTournamentParticipants(data)) {
@@ -8680,7 +8683,8 @@ function wireTournamentRoundTabs(root = document) {
     const tabs = [...switcher.querySelectorAll("[data-tournament-round-tab]")];
     if (tabs.some((tab) => tab.dataset.tournamentRoundTab === savedRound)) selectRound(savedRound);
     switcher.querySelectorAll("[data-tournament-round-tab]").forEach((button) => {
-      button.addEventListener("click", () => {
+      onLive(button, "click", () => {
+        if (switcher.dataset.roundSelectionKey) tournamentRoundSelections.set(switcher.dataset.roundSelectionKey, Number(button.dataset.tournamentRoundTab));
         selectRound(button.dataset.tournamentRoundTab);
         rememberNavigationContext();
       });
@@ -9276,11 +9280,9 @@ async function submitTeamPairingAction(data, options, path, body, method = "POST
 }
 
 function wireTeamTournamentControls(data, options = {}) {
-  stopTeamPairingPoll();
   const previews = document.querySelector("[data-team-match-previews]");
   if (previews) {
     wireTeamMatchPreviews(previews);
-    scheduleTournamentMatchPreviewPoll(data, options);
     return;
   }
   wireComboFields();
@@ -9290,17 +9292,17 @@ function wireTeamTournamentControls(data, options = {}) {
     adminUi().wireAdminTeamRosterControls(data);
   }
   document.querySelectorAll("[data-team-profile-link]").forEach((button) => {
-    button.addEventListener("click", (event) => {
+    onLive(button, "click", (event) => {
       if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button > 0) return;
       event.preventDefault();
       navigateToPlayerTeam(button.dataset.teamProfileLink);
     });
   });
   document.querySelectorAll("[data-team-pairing-open]").forEach((button) => {
-    button.addEventListener("click", () => openTeamPairing(button.dataset.teamPairingOpen));
+    onLive(button, "click", () => openTeamPairing(button.dataset.teamPairingOpen));
   });
   document.querySelectorAll("[data-team-tournament-game]").forEach((button) => {
-    button.addEventListener("click", () => openGameDetail(Number(button.dataset.teamTournamentGame)));
+    onLive(button, "click", () => openGameDetail(Number(button.dataset.teamTournamentGame)));
   });
   document.querySelectorAll("[data-team-game-result], [data-team-game-review]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -9314,7 +9316,7 @@ function wireTeamTournamentControls(data, options = {}) {
     });
   });
   document.querySelectorAll("[data-team-pair-action='roll']").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       button.disabled = true;
       try {
         await submitTeamPairingAction(data, options, `/api/tournaments/${data.tournament.id}/team-matches/${button.dataset.teamMatchId}/roll`, { rollRound: Number(button.dataset.rollRound), side: button.dataset.side, revision: pairingRevision(button.dataset.teamMatchId) });
@@ -9322,7 +9324,7 @@ function wireTeamTournamentControls(data, options = {}) {
     });
   });
   document.querySelectorAll("[data-team-pairing-form]").forEach((form) => {
-    form.addEventListener("submit", async (event) => {
+    onLive(form, "submit", async (event) => {
       event.preventDefault();
       const action = form.dataset.teamPairingForm;
       const body = { side: form.dataset.side, revision: pairingRevision(form.dataset.teamMatchId) };
@@ -9357,7 +9359,7 @@ function wireTeamTournamentControls(data, options = {}) {
     });
   });
   document.querySelectorAll("[data-team-match-reset]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       if (!await confirmAction({ message: t("teams.pairing.resetConfirm"), confirmLabel: t("teams.pairing.reset") })) return;
       button.disabled = true;
       try {
@@ -9368,7 +9370,7 @@ function wireTeamTournamentControls(data, options = {}) {
     });
   });
   document.querySelectorAll("[data-team-pairings-override]").forEach((form) => {
-    form.addEventListener("submit", async (event) => {
+    onLive(form, "submit", async (event) => {
       event.preventDefault();
       const pairings = [1, 2, 3].map((slot) => ({
         rosterAMemberId: Number(form.elements[`pair-a-${slot}`].value),
@@ -9383,21 +9385,6 @@ function wireTeamTournamentControls(data, options = {}) {
     });
   });
 
-  if (options.roster) return;
-  if (options.standalone) {
-    const match = data.teamMatch;
-    if (match && data.tournament.status === "in_progress") {
-      scheduleTeamPairingScreenPoll(match.id);
-    }
-    return;
-  }
-
-  if (!options.admin) {
-    const waiting = (data.teamMatches || []).length > 0;
-    if (waiting && data.tournament.status === "in_progress") {
-      scheduleTeamPairingPoll(data.tournament.slug);
-    }
-  }
 }
 
 async function loadPlayerTeam(slug, options = {}) {

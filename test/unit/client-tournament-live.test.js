@@ -6,51 +6,50 @@ const source = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf
 const extract = name => source.match(new RegExp(`(?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))[0];
 
 function harness(admin = false) {
-  const state = { me: admin ? { id: 1, isAdmin: true } : null, view: "tournaments", tournamentsTab: admin ? "admin" : "public", selectedTournamentId: 4, tournamentInfoTab: "matches" };
-  const feed = { key: "", revision: null }, calls = [], renders = [], scrolls = [];
-  const doc = { visibilityState: "visible", querySelector: () => null, activeElement: null };
-  const win = { location: { pathname: admin ? "/" : "/tournaments/cup", hash: admin ? "#/tournaments/admin/4" : "" }, scrollY: 350, scrollTo: (...args) => scrolls.push(args), clearTimeout() {}, setTimeout: () => 1 };
+  const { liveHarness } = require("../helpers/live-refresh");
+  const state = { me: admin ? { id: 1, isAdmin: true } : null };
+  const feed = { key: "", revision: null }, calls = [];
   let revision = "one", deferred;
   const api = async url => { calls.push(url); return url.endsWith("revision") ? { revision, isAdmin: admin } : deferred || { tournament: { id: 4 } }; };
-  const render = data => renders.push(data);
-  const fn = new Function("state", "tournamentFeed", "document", "window", "api", "renderPublicTournament", "renderRosterProfile", "renderTournaments", `
-    let tournamentRefreshEpoch = 0, tournamentWritesPending = 0;
-    const tournamentSlugFromLocation = () => window.location.pathname.startsWith('/tournaments/') ? 'cup' : '';
+  const fn = new Function("state", "tournamentFeed", "api", `
+    let tournamentRefreshEpoch = 0;
     const loadAdminUi = async () => true;
-    ${extract("tournamentLiveEditing")}
-    ${extract("pollTournamentFeed")}
-    return { poll: pollTournamentFeed, write: () => { tournamentRefreshEpoch++; } };
-  `)(state, feed, doc, win, api, render, render, () => render(state.adminTournamentDetail));
-  return { ...fn, state, doc, win, feed, calls, renders, scrolls, revision: value => { revision = value; }, response: value => { deferred = value; } };
+    ${extract("fetchLiveRefresh")}
+    return { fetch: fetchLiveRefresh, write: () => { tournamentRefreshEpoch++; } };
+  `)(state, feed, api);
+  const h = liveHarness({ fetch: fn.fetch });
+  h.current = { ...h.current, key: "cup:matches", kind: admin ? "adminTournament" : "tournament", url: admin ? "/api/admin/tournaments/4" : "/api/tournaments/cup" };
+  return { ...h, poll: () => h.controller.run(), write: () => { fn.write(); h.controller.startWrite(); h.controller.endWrite(); },
+    changeTarget: () => { h.current = { ...h.current, key: "other:matches" }; },
+    block: value => { h.blocked = value; }, doc: h.document, feed, calls,
+    revision: value => { revision = value; }, response: value => { deferred = value; } };
 }
 
-test("live tournament views download full data only after a revision changes and retain tab and scroll", async () => {
+test("live tournament views download full data only after a revision changes", async () => {
   for (const admin of [false, true]) {
     const h = harness(admin);
     await h.poll(); await h.poll();
     assert.deepEqual(h.calls, ["/api/tournaments/revision", admin ? "/api/admin/tournaments/4" : "/api/tournaments/cup", "/api/tournaments/revision"]);
     assert.equal(h.renders.length, 1);
-    assert.equal(h.state.tournamentInfoTab, "matches");
-    assert.deepEqual(h.scrolls, [[0, 350]]);
-    h.revision("two"); await h.poll();
+    h.revision("two"); h.response({ tournament: { id: 4, updated: true } }); await h.poll();
     assert.equal(h.renders.length, 2);
   }
 });
 
-test("drafts, open dialogs, focused fields and hidden pages are not replaced", async () => {
+test("deferred revision data survives repeated checks and applies once after interaction ends", async () => {
   const h = harness();
-  h.doc.querySelector = () => ({}); await h.poll();
-  h.doc.querySelector = () => null;
-  h.doc.activeElement = { matches: () => true }; await h.poll();
-  h.doc.activeElement = null;
-  h.doc.visibilityState = "hidden"; await h.poll();
-  assert.equal(h.calls.length, 0);
-  h.doc.visibilityState = "visible"; await h.poll();
+  h.block(true); await h.poll(); await h.poll();
+  assert.equal(h.renders.length, 0);
+  assert.equal(h.calls.filter(url => !url.endsWith("revision")).length, 1);
+  h.block(false); h.controller.flush();
   assert.equal(h.renders.length, 1);
+  h.doc.visibilityState = "hidden";
+  const previous = h.calls.length; await h.poll();
+  assert.equal(h.calls.length, previous);
 });
 
-test("in-flight responses cannot overwrite a later edit, tab switch or page navigation", async () => {
-  for (const change of [h => h.write(), h => { h.state.tournamentInfoTab = "participants"; }, h => { h.win.location.hash = "#/games"; }]) {
+test("in-flight revision responses cannot overwrite a later edit or target change", async () => {
+  for (const change of [h => h.write(), h => h.changeTarget()]) {
     const h = harness();
     let resolve;
     h.response(new Promise(done => { resolve = done; }));
@@ -58,7 +57,6 @@ test("in-flight responses cannot overwrite a later edit, tab switch or page navi
     await Promise.resolve(); await Promise.resolve();
     change(h); resolve({ tournament: { id: 4 } }); await pending;
     assert.equal(h.renders.length, 0);
-    assert.equal(h.feed.revision, null);
   }
 });
 

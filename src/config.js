@@ -1,5 +1,6 @@
 const path = require("node:path");
 const fs = require("node:fs");
+const { buildSites } = require("./domain/sites");
 
 const ROOT = path.join(__dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -32,9 +33,13 @@ function requireDatabaseUrl(value = process.env.DATABASE_URL) {
   return value;
 }
 
+const COMPANION_SITES = buildSites(process.env.COMPANION_ORIGIN);
+
 module.exports = {
   ROOT,
   PUBLIC_DIR,
+  COMPANION_SITES,
+  SESSION_COOKIE_DOMAIN: COMPANION_SITES?.domain || "",
   PORT: positiveIntegerEnv("PORT", 3000),
   HOST: process.env.HOST || "127.0.0.1",
   DATABASE_URL: process.env.DATABASE_URL || "",

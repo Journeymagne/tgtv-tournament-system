@@ -24,6 +24,9 @@ function renderDetail({ game = gameFixture(), me = { id: 11, isAdmin: true }, lo
     getKnownGame: () => game,
     t: (key, values = {}) => (dictionary[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name] ?? ""),
     fmtDate: () => "09/18, 15:16",
+    setLiveContent: (element, html) => { element.innerHTML = html; },
+    onLive: (element, type, handler) => element?.addEventListener(type, handler),
+    liveRefresh: { schedule() {} },
     document: {
       querySelector(selector) {
         if (selector === "[data-content]") return content;

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kill Team Initiative Calculator</title>
+  <link rel="stylesheet" href="/companion/css/common.css">
+  <link rel="stylesheet" href="/companion/css/initiative.css">
+<link rel="icon" href="/companion/assets/thundergrounds-logo.png">
+<link rel="stylesheet" href="/companion-shell.css?v=4.0">
+<script src="/companion-sites.js?v=4.0" defer></script>
+<script src="/companion-shell.js?v=4.0" defer></script>
+</head>
+<body data-companion-section="initiative">
+  <div data-companion-nav></div>
+  <div class="page-shell">
+
+    <main>
+    <header class="hero">
+      <h1>Initiative Calculator</h1>
+      <p class="subtitle">Simulates initiative rolls with Re-roll cards, +1/-1, +2/-2, +3/-3 modifiers, and team abilities. Abilities are applied before Re-roll; +1d3 is revealed before card Re-roll decisions, and card Re-roll results are not known before both players decide.</p>
+    </header>
+
+    <div class="layout">
+      <section>
+        <h2>Player Cards</h2>
+        <div class="players">
+          <div class="player">
+            <h3>Player 1</h3>
+            <div class="check-list" data-player="p1">
+              <label><input type="checkbox" value="reroll"> Re-roll</label>
+              <label><input type="checkbox" value="1"> +1/-1</label>
+              <label><input type="checkbox" value="2"> +2/-2</label>
+              <label><input type="checkbox" value="3"> +3/-3</label>
+            </div>
+            <div class="group-title">Abilities</div>
+            <div class="ability-list" data-abilities="p1">
+              <label><input type="checkbox" value="ability-reroll"> Re-roll</label>
+              <label><input type="checkbox" value="ability-d3"> +1d3</label>
+              <label><input type="checkbox" value="ability-plus1"> +1</label>
+            </div>
+            <label class="tie"><input id="p1Tie" type="checkbox"> Win Ties</label>
+          </div>
+
+          <div class="player">
+            <h3>Player 2</h3>
+            <div class="check-list" data-player="p2" aria-label="Player 2 cards">
+              <label><input type="checkbox" value="reroll"> Re-roll</label>
+              <label><input type="checkbox" value="1"> +1/-1</label>
+              <label><input type="checkbox" value="2"> +2/-2</label>
+              <label><input type="checkbox" value="3"> +3/-3</label>
+            </div>
+            <div class="group-title">Abilities</div>
+            <div class="ability-list" data-abilities="p2">
+              <label><input type="checkbox" value="ability-reroll"> Re-roll</label>
+              <label><input type="checkbox" value="ability-d3"> +1d3</label>
+              <label><input type="checkbox" value="ability-plus1"> +1</label>
+            </div>
+            <label class="tie"><input id="p2Tie" type="checkbox"> Win Ties</label>
+          </div>
+        </div>
+
+        <div class="controls initiative-controls">
+          <label class="field">
+            <span>Simulation Count</span>
+            <input id="simCount" type="number" min="1" max="250000" step="1000" value="10000">
+          </label>
+          <button id="run" type="button">Calculate</button>
+        </div>
+        <div id="error" class="error"></div>
+      </section>
+
+      <aside class="result-box">
+        <h2>Result</h2>
+        <div class="score">
+          <div class="metric">
+            <small>Player 1</small>
+            <strong id="p1Chance">0%</strong>
+          </div>
+          <div class="metric">
+            <small>Player 2</small>
+            <strong id="p2Chance">0%</strong>
+          </div>
+        </div>
+        <p id="summary" class="summary">Run the simulation to see each player's win chance.</p>
+        <div class="controls result-actions">
+          <button id="download" class="secondary" type="button">Download log.txt</button>
+        </div>
+        <pre id="logPreview" class="log-preview">The log will appear here.</pre>
+      </aside>
+    </div>
+    </main>
+  </div>
+
+  <script src="/companion/js/initiative/initiative-calculator.js"></script>
+</body>
+</html>

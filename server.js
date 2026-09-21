@@ -8,6 +8,7 @@ const { sendStatic } = require("./src/http/static");
 const { sendText } = require("./src/http/io");
 const { logError } = require("./src/http/logger");
 const { handleSeoRequest } = require("./src/http/seo");
+const { handleSiteRequest } = require("./src/http/sites");
 const routes = require("./src/api/routes");
 const { loadUserFromRequest } = require("./src/api/auth");
 
@@ -18,6 +19,7 @@ const router = createRouter(routes, {
 });
 
 const server = http.createServer((req, res) => {
+  if (handleSiteRequest(req, res)) return;
   if ((req.url || "").startsWith("/api/")) {
     router(req, res);
     return;

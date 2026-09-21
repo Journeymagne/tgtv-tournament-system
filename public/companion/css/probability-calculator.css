@@ -1,0 +1,347 @@
+.prob-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.prob-toolbar button {
+  min-width: 160px;
+}
+
+.prob-status {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.prob-status.is-visible {
+  display: flex;
+}
+
+.prob-status-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: prob-spin 0.8s linear infinite;
+}
+
+@keyframes prob-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.prob-validation {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--danger);
+  background: rgba(255, 107, 95, 0.08);
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.prob-validation[hidden] {
+  display: none;
+}
+
+.prob-combat-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.prob-panel h2 {
+  margin-bottom: 16px;
+}
+
+.prob-section {
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.prob-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.prob-section-title {
+  margin: 0 0 12px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.prob-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.prob-field {
+  display: grid;
+  gap: 6px;
+}
+
+.prob-field label,
+.prob-field .prob-field-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.prob-field select,
+.prob-field input[type="number"] {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  color: var(--text);
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.prob-field select:focus,
+.prob-field input[type="number"]:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.prob-field.is-invalid input[type="number"] {
+  border-color: var(--danger);
+}
+
+.prob-field-error {
+  display: none;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.prob-field.is-invalid .prob-field-error {
+  display: block;
+}
+
+.prob-field-spaced {
+  margin-top: 12px;
+}
+
+.prob-checklist {
+  display: grid;
+  gap: 8px;
+}
+
+.prob-checklist label {
+  min-height: 28px;
+}
+
+.prob-results {
+  margin-bottom: 18px;
+}
+
+.prob-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.prob-metric strong {
+  display: block;
+  font-size: 32px;
+  line-height: 1;
+  margin-top: 8px;
+  color: var(--accent);
+}
+
+.prob-distribution {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--input-bg);
+}
+
+.prob-distribution table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.prob-distribution th,
+.prob-distribution td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.prob-distribution th {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--panel-2);
+}
+
+.prob-distribution tr:last-child td {
+  border-bottom: 0;
+}
+
+.prob-distribution-empty {
+  padding: 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.prob-tree {
+  margin-bottom: 18px;
+}
+
+.prob-tree-intro {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.prob-accordion {
+  display: grid;
+  gap: 8px;
+}
+
+.prob-accordion details {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.prob-accordion summary {
+  padding: 12px 14px;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.prob-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.prob-accordion summary::after {
+  content: "+";
+  float: right;
+  color: var(--accent);
+}
+
+.prob-accordion details[open] summary::after {
+  content: "−";
+}
+
+.prob-accordion-body {
+  white-space: pre-wrap;
+  padding: 0 14px 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.prob-debug {
+  margin-bottom: 18px;
+}
+
+.prob-debug-intro {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.prob-debug-intro a {
+  color: var(--accent);
+}
+
+.prob-debug-panel {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.prob-debug-panel summary {
+  padding: 12px 14px;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.prob-debug-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.prob-debug-output {
+  margin: 0;
+  padding: 0 14px 14px;
+  max-height: 480px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.prob-faq {
+  margin-bottom: 0;
+}
+
+.prob-faq-list {
+  display: grid;
+  gap: 10px;
+}
+
+.prob-faq-list details {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+}
+
+.prob-faq-list summary {
+  padding: 12px 14px;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.prob-faq-list p {
+  margin: 0;
+  padding: 0 14px 14px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  .prob-combat-layout,
+  .prob-grid,
+  .prob-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .prob-toolbar button {
+    width: 100%;
+  }
+}

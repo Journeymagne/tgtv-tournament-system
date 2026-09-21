@@ -1,7 +1,7 @@
 const crypto = require("node:crypto");
 
 const { SESSION_TTL_MS, SESSION_RENEW_AFTER_MS, INITIAL_RATING, COOKIE_SECURE } = require("../config");
-const { HttpError, ValidationError, parseCookies, sessionCookie, clearedSessionCookie } = require("../http/io");
+const { HttpError, ValidationError, sessionToken, sessionCookie, clearedSessionCookie } = require("../http/io");
 const users = require("../db/repositories/users");
 const sessions = require("../db/repositories/sessions");
 const challenges = require("../db/repositories/challenges");
@@ -17,7 +17,7 @@ const {
 
 
 async function loadUserFromRequest(client, req) {
-  const token = parseCookies(req).sid;
+  const token = sessionToken(req);
   if (!token) return null;
   const session = await sessions.findActiveSession(client, token);
   if (!session) return null;
@@ -210,7 +210,7 @@ async function login({ client, body }) {
 }
 
 async function logout({ client, req }) {
-  await sessions.deleteByToken(client, parseCookies(req).sid);
+  await sessions.deleteByToken(client, sessionToken(req));
   return {
     status: 200,
     body: { ok: true },

@@ -123,7 +123,7 @@ test("Edit converts the canonical public URL into the exact admin detail URL", (
     history: { pushState: (_state, _title, url) => urls.push(url) }
   }, () => "test-cup", () => "", (url) => urls.push(url));
   sync();
-  assert.deepEqual(urls, ["/#/tournaments/admin/6"]);
+  assert.deepEqual(urls, ["/tournament/#/tournaments/admin/6"]);
 });
 
 test("Edit click gives error feedback and re-enables the button after a failed request", async () => {
@@ -132,12 +132,12 @@ test("Edit click gives error feedback and re-enables the button after a failed r
   const messages = [];
   const button = { dataset: { tournamentEdit: "6" }, isConnected: true, disabled: false,
     addEventListener: (event, callback) => { assert.equal(event, "click"); listener = callback; } };
-  const wire = new Function("document", "openTournamentEditor", "setMessage",
+  const wire = new Function("document", "openTournamentEditor", "setMessage", "onLive",
     `${sourceOf("wireTournamentEditButtons")}; return wireTournamentEditButtons;`
   )({ querySelectorAll: () => [button] }, (id) => {
     assert.equal(id, "6");
     return new Promise((_resolve, rejectPromise) => { reject = rejectPromise; });
-  }, (...args) => messages.push(args));
+  }, (...args) => messages.push(args), (element, type, handler) => element.addEventListener(type, handler));
   wire();
   const pending = listener();
   assert.equal(button.disabled, true);

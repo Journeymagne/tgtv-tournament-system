@@ -6,8 +6,10 @@ const zlib = require("node:zlib");
 const { PUBLIC_DIR } = require("../../src/config");
 const { resolveStaticPath, sendStatic } = require("../../src/http/static");
 
-test("корень отдаёт index.html", () => {
-  assert.equal(resolveStaticPath("/"), path.join(PUBLIC_DIR, "index.html"));
+test("корень отдаёт главную Companion, турнирная система доступна отдельным разделом", () => {
+  assert.equal(resolveStaticPath("/"), path.join(PUBLIC_DIR, "home.html"));
+  assert.equal(resolveStaticPath("/tournament/"), path.join(PUBLIC_DIR, "index.html"));
+  assert.equal(resolveStaticPath("/studio/"), path.join(PUBLIC_DIR, "studio", "index.html"));
 });
 
 test("обычный файл разрешается внутри public", () => {

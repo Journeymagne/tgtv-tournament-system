@@ -1,8 +1,25 @@
-# TGTV Ranking Tournament System
+# KT Companion / TGTV Ranking Tournament System
+
+The site opens on the Companion home page with four sections: initiative
+calculator, activation tracker, tournament system and KT Studio. The calculators,
+Studio editor and published team library are public. Saving or publishing a team
+requires the same account and session as the tournament system. Existing
+public tournament pages remain available. See [Companion integration](docs/companion-integration.md)
+for routes, imported sources, account-owned drafts and deployment settings.
+The home page is a service selector. With `COMPANION_ORIGIN` configured, each
+service opens on its own subdomain (`initiative`, `tracker`, `rating`, `studio`),
+with a shared account and a home link in the top right.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 3.1.4
+## Release 4.0
+
+Companion services open on separate subdomains with a shared tournament account.
+Studio supports guest editing and account-owned drafts/publications. Migration
+032 adds only Studio storage; all tournament features from 3.1.4 are retained.
+Configure `COMPANION_ORIGIN`, DNS and HTTPS as described below.
+
+### Previous tournament releases
 
 See [CHANGELOG.md](CHANGELOG.md) for the release history and upgrade notes.
 **Edit round tables** changes a generated team round's killzones, table numbers,
@@ -44,7 +61,10 @@ npm install
 npm start
 ```
 
-After the server starts, open `http://127.0.0.1:3000`.
+For local subdomains, set `COMPANION_ORIGIN=http://ktcompanion.localhost:3000`
+and open `http://ktcompanion.localhost:3000`. Chrome resolves this hostname and
+its service subdomains to the local machine. Keep its port in sync with `PORT`.
+Without this setting, `http://127.0.0.1:3000` uses legacy paths on one hostname.
 
 ## Configuration
 
@@ -55,6 +75,7 @@ DB_PASSWORD=your_password
 DB_PORT=5432
 DATABASE_URL=postgres://tgtv:your_password@localhost:5432/tgtv_tournament
 PORT=3000
+COMPANION_ORIGIN=https://ktcompanion.ru
 SITE_URL=https://rating.ktcompanion.ru
 ```
 
@@ -65,6 +86,8 @@ For managed PostgreSQL services that require SSL, set `PGSSL=true`.
 
 `SITE_URL` is optional locally, but production should set it to the public
 HTTPS origin so canonical URLs, `robots.txt`, and `sitemap.xml` are stable.
+Production subdomains also need DNS and HTTPS for all five hostnames; see
+[the Nginx example](deploy/nginx-companion.conf.example).
 
 The schema is created and upgraded automatically by versioned migrations on
 startup. Applied versions are recorded in the `schema_migrations` table.
@@ -113,8 +136,9 @@ is needed -- but do not enable a module that re-compresses proxied responses.
 
 ## Client bundles loaded on demand
 
-`public/app.js` is the only script `index.html` loads. Three more are fetched at
-runtime and must be deployed alongside it:
+`public/live-refresh.js` loads before `public/app.js` in both HTML shells. It
+provides polling, interaction guards, and updates that retain unchanged DOM
+nodes. The following bundles are fetched on demand and must also be deployed:
 
 - `admin.js` -- the administration UI, requested once `/api/me` reports
   `isAdmin`. It is roughly a fifth of the client and nobody else downloads it.
@@ -127,6 +151,25 @@ All of them are cache-busted by the `?v=` marker in `public/index.html`, which
 `src/http/seo.js` mirrors in `ASSET_VERSION` for the server-rendered tournament
 pages. **Bump both together** when releasing changed assets; a unit test fails
 if they drift.
+
+### Live updates
+
+Only the visible live screen polls. During a tournament, Matches refreshes
+every 5 seconds, Standings every 15 seconds, and Statistics every 45 seconds,
+for both individual and team events, including gaps before/between rounds.
+The same intervals apply to the administrator's corresponding tournament tabs.
+Standalone WTC pairings refresh every 5 seconds during choices and every 10
+seconds while games are running. Completed/cancelled events stop polling.
+My Games and administrator active games refresh every 15 seconds; an open game
+or a game awaiting confirmation refreshes every 10 seconds. Other screens and
+tournament editing tabs do not poll. Notifications retain their 30-second cycle.
+
+Polling pauses in hidden tabs and checks immediately on return. Unchanged data
+does not redraw the view. Text selection, focused fields, open combo menus and
+dialogs defer applying updates; the newest response is applied after interaction
+ends. Result-entry forms never get replaced by polling. Pairing drafts, search
+input, unchanged DOM nodes, and an explicitly selected round are retained.
+Navigation and writes invalidate old responses so they cannot restore stale data.
 
 User pickers use the shared live nickname search, with the same case-insensitive
 substring matching as User administration. For new player selects, add
@@ -168,8 +211,9 @@ and update it there, not in the repo checkout.
 
 Tournament rules PDFs can be up to 2 MiB and logos up to 1 MiB. The browser
 encodes attachments as Base64 inside JSON, so a combined upload can exceed
-4 MiB. Tournament creation and editing accept up to 5 MiB; other application
-routes retain a 2 MiB limit.
+4 MiB. Tournament creation and editing accept up to 5 MiB; Studio draft uploads
+accept 100 MiB for image albums. Other application routes retain a 2 MiB limit.
+See [Companion integration](docs/companion-integration.md) for the Studio proxy allowance.
 
 In the existing Nginx `server` block serving `rating.ktcompanion.ru` over
 HTTPS, set the following (remove or update any smaller override in its

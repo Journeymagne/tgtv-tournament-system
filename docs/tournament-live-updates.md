@@ -24,13 +24,17 @@
 
 ## Live views and performance
 
-- Tournament lists/details and roster profiles check a small revision endpoint
-  every two seconds while visible. Full data is fetched only after a change.
+- In-progress tournament detail views check a small revision endpoint while
+  visible: Matches every 5 seconds, Standings every 15, Statistics every 45.
+  Full data is fetched only after a change. Tournament lists, roster profiles
+  and editing tabs do not poll. Standalone pairings poll every 5 seconds during
+  choices and every 10 during games; My Games polls every 15 seconds.
   The revision includes a database snapshot to detect changes committed after
   an earlier poll. It is global, so a change elsewhere may cause one extra fetch.
 - Updates retain the selected tournament/round tab and scroll position. They
-  pause during registration, result entry, open dialogs, pending writes, focused
-  controls and unsaved forms. Stale responses from a previous route or local edit
+  defer rendering during text selection, registration, result entry, open dialogs,
+  pending writes, focused controls and unsaved forms. Hidden tabs stop polling.
+  Stale responses from a previous route or local edit
   are discarded. Settings saves reject a stale `expectedUpdatedAt`.
 - Logo fields now contain versioned image URLs. Images load separately, with
   private browser caching and conditional requests. New team/tournament uploads

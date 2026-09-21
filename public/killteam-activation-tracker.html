@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kill Team Activation Tracker</title>
+  <link rel="stylesheet" href="/companion/css/common.css">
+  <link rel="stylesheet" href="/companion/css/tracker.css">
+<link rel="icon" href="/companion/assets/thundergrounds-logo.png">
+<link rel="stylesheet" href="/companion-shell.css?v=4.0">
+<script src="/companion-sites.js?v=4.0" defer></script>
+<script src="/companion-shell.js?v=4.0" defer></script>
+</head>
+<body data-companion-section="tracker">
+  <div data-companion-nav></div>
+  <div class="page-shell">
+
+    <main>
+    <header class="hero">
+      <h1>Activation Tracker</h1>
+      <p class="subtitle">Enter your activations, your opponent's activations, and who has initiative. The tracker builds the Firefight phase order: activations alternate, and once one side runs out, counteract windows appear.</p>
+    </header>
+
+    <section class="tracker-layout" aria-label="Kill Team activation tracker">
+      <form class="panel tracker-controls" id="controls">
+        <h2>Settings</h2>
+
+        <div class="field">
+          <label for="myCount">My activations</label>
+          <input id="myCount" name="myCount" type="number" min="0" max="40" value="8" inputmode="numeric">
+        </div>
+
+        <div class="field">
+          <label for="oppCount">Opponent activations</label>
+          <input id="oppCount" name="oppCount" type="number" min="0" max="40" value="10" inputmode="numeric">
+        </div>
+
+        <div class="field">
+          <div class="field-title">Who goes first</div>
+          <div class="segmented" role="radiogroup" aria-label="First player">
+            <label>
+              <input type="radio" name="first" value="me" checked>
+              <span>Me</span>
+            </label>
+            <label>
+              <input type="radio" name="first" value="opponent">
+              <span>Opponent</span>
+            </label>
+          </div>
+        </div>
+
+        <p class="hint">Counteract is shown as a separate step for the side that has no ready operatives left. In-game it is optional and only available to an expended operative with an Engage order, once per turning point.</p>
+      </form>
+
+      <div class="board-wrap">
+        <section class="panel summary" aria-live="polite">
+          <div class="stat">
+            <span>steps in track</span>
+            <b id="totalSteps">0</b>
+          </div>
+          <div class="stat">
+            <span>counteract windows</span>
+            <b id="counterCount">0</b>
+          </div>
+          <div class="stat">
+            <span>first activation</span>
+            <b id="firstPlayer">Me</b>
+          </div>
+        </section>
+
+        <section class="panel legend" aria-label="Legend">
+          <span class="legend-item me"><i class="dot"></i> My activation</span>
+          <span class="legend-item opponent"><i class="dot"></i> Opponent activation</span>
+          <span class="legend-item counter"><i class="dot"></i> Counteract</span>
+        </section>
+
+        <section class="track" id="track" aria-label="Activation order"></section>
+      </div>
+    </section>
+    </main>
+  </div>
+
+  <script src="/companion/js/tracker/activation-tracker.js"></script>
+</body>
+</html>

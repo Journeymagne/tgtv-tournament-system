@@ -21,12 +21,6 @@ const loadPublicTournamentSource = appSource.match(
 const renderPublicTournamentRouteSource = appSource.match(
   /async function renderPublicTournamentRoute\(slug, options = \{\}\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction publicTournamentContainer)/
 )?.[0];
-const stopTeamPairingPollSource = appSource.match(
-  /function stopTeamPairingPoll\(\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction leavePublicTournamentRoute)/
-)?.[0];
-const scheduleTeamPairingPollSource = appSource.match(
-  /function scheduleTeamPairingPoll\(slug\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction teamPairingSubmissionPending)/
-)?.[0];
 const navigateToPlayerTeamSource = appSource.match(
   /function navigateToPlayerTeam\(slug\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction clearPlayerTeamRoute)/
 )?.[0];
@@ -178,50 +172,21 @@ test("public tournament loader reuses a complete cached aggregate and otherwise 
 });
 
 test("team tournament polling cannot redraw a tournament after its route is left", async () => {
-  assert.ok(stopTeamPairingPollSource, "could not find stopTeamPairingPoll in public/app.js");
-  assert.ok(scheduleTeamPairingPollSource, "could not find scheduleTeamPairingPoll in public/app.js");
-  const timers = [];
-  const cleared = [];
-  const renders = [];
-  let currentSlug = "summer-cup";
-  const factory = new Function(
-    "window",
-    "isCurrentPublicTournamentRoute",
-    "api",
-    "renderPublicTournament",
-    "teamPairingSubmissionPending",
-    "preserveTeamPairingDrafts",
-    `let teamPairingPollTimer = null; let publicTournamentRequestId = 0; const state = {}; ${stopTeamPairingPollSource}; ${scheduleTeamPairingPollSource}; return scheduleTeamPairingPoll;`
-  );
-  const scheduleTeamPairingPoll = factory(
-    {
-      clearTimeout: (timer) => { cleared.push(timer); },
-      setTimeout: (callback, delay) => {
-        const timer = { id: timers.length + 1, callback, delay };
-        timers.push(timer);
-        return timer.id;
-      }
-    },
-    (slug) => currentSlug === slug,
-    async (path) => path,
-    (data) => { renders.push(data); },
-    () => false,
-    () => () => {}
-  );
-
-  scheduleTeamPairingPoll("summer-cup");
-  scheduleTeamPairingPoll("summer-cup");
-  assert.deepEqual(cleared, [1]);
-  assert.equal(timers[1].delay, 2000);
-
-  currentSlug = "";
-  await timers[1].callback();
-  assert.deepEqual(renders, []);
-
-  currentSlug = "summer-cup";
-  scheduleTeamPairingPoll("summer-cup");
-  await timers[2].callback();
-  assert.deepEqual(renders, ["/api/tournaments/summer-cup"]);
+  const { liveHarness } = require("../helpers/live-refresh");
+  const h = liveHarness();
+  const current = h.current;
+  h.controller.schedule();
+  h.controller.schedule();
+  assert.equal(h.timers.size, 1);
+  assert.equal([...h.timers.values()][0].delay, 5000);
+  h.current = null;
+  await h.tick();
+  assert.deepEqual(h.renders, []);
+  assert.deepEqual(h.requests, []);
+  h.current = current;
+  h.controller.schedule();
+  await h.tick();
+  assert.deepEqual(h.renders, [2]);
 });
 
 test("pairing refresh preserves a draft only for the same match, action and step", () => {
@@ -233,7 +198,7 @@ test("pairing refresh preserves a draft only for the same match, action and step
       querySelectorAll: () => [select], elements: { namedItem: () => select }, select };
   };
   let forms = [makeForm("3", "Data")];
-  const preserve = new Function("document", "syncUserSelect", `${source}; return preserveTeamPairingDrafts;`)({ querySelectorAll: (selector) => selector === "[data-team-pairing-form]" ? forms : [] }, () => {});
+  const preserve = new Function("document", "syncUserSelect", `${source}; return preserveTeamPairingDrafts;`)({ querySelectorAll: (selector) => selector.includes("[data-team-pairing-form]") ? forms : [] }, () => {});
   const restore = preserve();
   forms = [makeForm("3", "Orb")];
   restore();

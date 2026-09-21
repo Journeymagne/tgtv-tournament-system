@@ -63,7 +63,7 @@ test("admin polling preserves independent Shield drafts for both sides", () => {
   };
   let forms = [make("a", "12"), make("b", "22")];
   const synced = [];
-  const preserve = new Function("document", "syncUserSelect", `${sourceOf("preserveTeamPairingDrafts")}; return preserveTeamPairingDrafts;`)({ querySelectorAll: (selector) => selector === "[data-team-pairing-form]" ? forms : [] }, (select) => synced.push(select.value));
+  const preserve = new Function("document", "syncUserSelect", `${sourceOf("preserveTeamPairingDrafts")}; return preserveTeamPairingDrafts;`)({ querySelectorAll: (selector) => selector.includes("[data-team-pairing-form]") ? forms : [] }, (select) => synced.push(select.value));
   const restore = preserve();
   forms = [make("a", "11"), make("b", "21")];
   restore();
@@ -208,41 +208,31 @@ test("My Games previews show confirmed game count and GP in the captain's displa
   assert.doesNotMatch(preparing, /Current GP/);
 });
 
-test("My Games refreshes only its captain preview and ignores results after navigating away", async () => {
-  const state = { me: { id: 10 }, view: "play", teamPairings: [{ id: 3, progress: { completed: 0 } }] };
-  const container = { innerHTML: "INITIAL" };
-  const timers = [];
-  let requests = 0, wires = 0;
-  let response = Promise.resolve({ teamPairings: [{ id: 3, progress: { completed: 1, gpA: 4, gpB: 16 } }] });
-  const schedule = new Function("state", "document", "window", "api", "wireMyGamesPairings", `
-    let myGamesPairingRequestId = 0, teamPairingPollTimer = null;
-    const stopTeamPairingPoll = () => {};
-    const teamPairingsPanelMarkup = pairings => JSON.stringify(pairings);
-    ${sourceOf("scheduleMyGamesPairingPoll")};return scheduleMyGamesPairingPoll;
-  `)(state, { visibilityState: "visible", querySelector: selector => { assert.equal(selector, "[data-captain-pairings]"); return container; } },
-    { setTimeout: callback => { timers.push(callback); return 1; } },
-    path => { assert.equal(path, "/api/me/team-pairings"); requests += 1; return response; }, () => { wires += 1; });
-  schedule();
-  await timers.shift()();
+test("My Games refreshes pairing progress once and ignores results after navigating away", async () => {
+  const { liveHarness } = require("../helpers/live-refresh");
+  const state = { teamPairings: [{ id: 3, progress: { completed: 0 } }] };
+  let response = { teamPairings: [{ id: 3, progress: { completed: 1, gpA: 4, gpB: 16 } }] };
+  const h = liveHarness({ fetch: () => response, apply: (_target, data) => { state.teamPairings = data.teamPairings; } });
+  h.current = { ...h.current, key: "play:10", interval: 15000, url: "/api/me", snapshot: { ...state } };
+  await h.controller.run();
   assert.equal(state.teamPairings[0].progress.completed, 1);
-  assert.match(container.innerHTML, /"gpB":16/);
-  await timers.shift()();
-  assert.equal(wires, 1, "unchanged data must not replace the visible cards");
+  assert.equal(state.teamPairings[0].progress.gpB, 16);
+  await h.controller.run();
+  assert.equal(h.renders.length, 1);
   let resolve;
   response = new Promise(done => { resolve = done; });
-  const pending = timers.shift()();
-  state.view = "teamPairing";
+  const pending = h.controller.run();
+  h.current = null;
   resolve({ teamPairings: [] });
   await pending;
   assert.equal(state.teamPairings.length, 1);
-  assert.equal(timers.length, 0);
-  assert.equal(requests, 3);
+  assert.equal(h.renders.length, 1);
 });
 
 test("polling retains expanded pairing details by match and leaves newly finished pairings collapsed", () => {
   let details = [{ dataset: { teamPairingDetails: "7" }, open: true }, { dataset: { teamPairingDetails: "8" }, open: false }];
-  const document = { querySelectorAll: (selector) => selector === "[data-team-pairing-form]" ? []
-    : selector.endsWith("[open]") ? details.filter(item => item.open) : details };
+  const document = { querySelectorAll: (selector) => selector.includes("[data-team-pairing-form]") ? []
+    : selector.includes("data-team-pairing-details") ? (selector.endsWith("[open]") ? details.filter(item => item.open) : details) : [] };
   const preserve = new Function("document", `${sourceOf("preserveTeamPairingDrafts")};return preserveTeamPairingDrafts;`)(document);
   const restore = preserve();
   details = ["8", "7", "9"].map(id => ({ dataset: { teamPairingDetails: id }, open: false }));
@@ -251,26 +241,19 @@ test("polling retains expanded pairing details by match and leaves newly finishe
 });
 
 test("standalone live-result polling works anonymously and stops after leaving the pairing URL", async () => {
+  const { liveHarness } = require("../helpers/live-refresh");
   const state = { me: null, view: "teamPairing", selectedTeamMatchId: 7 };
   let segments = ["team-matches", "7"];
-  let callback;
-  let loads = 0;
-  let renders = 0;
-  const schedule = new Function("state", "hashSegments", "window", "stopTeamPairingPoll", "teamPairingSubmissionPending",
-    "loadTeamPairing", "preserveTeamPairingDrafts", "renderShell", "renderTeamPairing", "setMessage",
-    `let teamPairingPollTimer; ${sourceOf("isCurrentTeamPairingRoute")}; ${sourceOf("scheduleTeamPairingScreenPoll")}; return scheduleTeamPairingScreenPoll;`
-  )(state, () => segments, { setTimeout: (fn, delay) => { assert.equal(delay, 2000); callback = fn; return 1; } },
-    () => {}, () => false, async () => { loads += 1; return {}; }, () => () => {},
-    () => assert.fail("anonymous visitor has no signed-in shell"), () => { renders += 1; }, (message) => assert.fail(message));
-  schedule(7);
-  await callback();
-  assert.equal(loads, 1);
-  assert.equal(renders, 1);
-  schedule(7);
+  const currentRoute = new Function("state", "hashSegments", `${sourceOf("isCurrentTeamPairingRoute")}; return isCurrentTeamPairingRoute;`)(state, () => segments);
+  const h = liveHarness();
+  assert.equal(currentRoute(7), true);
+  await h.controller.run();
+  assert.deepEqual(h.renders, [2]);
   segments = ["tournaments"];
-  await callback();
-  assert.equal(loads, 1);
-  assert.equal(renders, 1);
+  assert.equal(currentRoute(7), false);
+  h.current = null;
+  await h.controller.run();
+  assert.equal(h.requests.length, 1);
 });
 
 test("a saved captain action invalidates an older poll and refreshes before enabling another action", async () => {
