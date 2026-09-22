@@ -2,7 +2,7 @@
 'use strict';
 const $=selector=>document.querySelector(selector),esc=value=>KTCards.esc(String(value??''));
 const labels={selectionCards:'Состав',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',operatives:'Оперативники',lorePages:'Картинки и лор'};
-let cloud,adapter,view='editor',requestVersion=0,query='',offset=0,publication,publicationSection='selectionCards',busy=false,busyAction='';
+let cloud,adapter,view='editor',requestVersion=0,query='',offset=0,publication,publicationSection='selectionCards',busy=false,busyAction='',deleteTarget=null;
 const date=value=>value?new Date(value).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
 function status(){
  if(!adapter)return;
@@ -20,7 +20,7 @@ function status(){
 }
 function track(project){if(cloud)cloud.track(project);status()}
 function card(team,draft=false){
- return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div><h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p><div class="team-tile-meta"><span>Оперативников: '+Number(team.operativeCount||0)+'</span><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Не сохранён в базе. Локальная копия доступна.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button></article>';
+ return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div><h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p><div class="team-tile-meta"><span>Оперативников: '+Number(team.operativeCount||0)+'</span><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Не сохранён в базе. Локальная копия доступна.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
 }
 function showEditor(){view='editor';$('.workspace').hidden=false;$('#community-panel').hidden=true;updateTabs()}
 function renderDrafts(){
@@ -39,7 +39,7 @@ async function show(next){
  $('#community-list').innerHTML='<p class="community-empty">Загружаю команды…</p>';$('#library-pages').innerHTML='';
  try{
   if(next==='drafts'){
-   let error;try{await cloud.connect()}catch(e){error=e}
+   let error;try{await cloud.connect(true)}catch(e){error=e}
    if(version!==requestVersion)return;
    renderDrafts();
    if(error)$('#community-list').insertAdjacentHTML('afterbegin','<p class="community-empty">Хранилище недоступно. Показываю черновики этого браузера.</p>');
@@ -58,6 +58,23 @@ async function openDraft(id){
   const remote=await cloud.api('/api/drafts/'+encodeURIComponent(id));
   if(await adapter.openData(remote.project)){cloud.accept(remote);showEditor();status()}
  }catch(error){adapter.toast('Не удалось открыть черновик: '+error.message)}
+}
+function confirmDelete(id){
+ if(busy)return;
+ const team=cloud?.state(id);if(!team)return;
+ deleteTarget={id,revision:team.remoteRevision??team.revision??0};
+ $('#delete-project-description').textContent='Команда «'+(team.name||'Без названия')+'» будет удалена из ваших черновиков'+(team.publicationId?' и из публичной библиотеки':'')+'. Локальные копии этой команды будут удалены при подключении к аккаунту. Отменить удаление нельзя.';
+ $('#delete-project-error').textContent='';$('#review-delete-project').hidden=true;$('#delete-project-dialog').showModal();
+}
+async function deleteProject(){
+ if(busy||!deleteTarget)return;
+ const {id,revision}=deleteTarget;busy=true;busyAction='delete';
+ $('#confirm-delete-project').disabled=true;$('#cancel-delete-project').disabled=true;$('#delete-project-error').textContent='';status();
+ try{
+  await cloud.remove(id,revision);deleteTarget=null;$('#delete-project-dialog').close();
+  adapter.toast('Команда удалена.');await show('drafts');
+ }catch(error){$('#delete-project-error').textContent=error.message;$('#review-delete-project').hidden=error.status!==409}
+ finally{busy=false;busyAction='';$('#confirm-delete-project').disabled=false;$('#cancel-delete-project').disabled=false;status()}
 }
 function renderPublication(){
  const project=publication.project;
@@ -119,15 +136,23 @@ async function resume(){
 async function init(options){
  adapter=options;
  if(root.KTAccount.id&&/^https?:$/.test(root.location?.protocol||'')){
-  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),onChange:status});
-  void cloud.connect().then(()=>cloud.flush()).catch(()=>status());
-  root.addEventListener('online',()=>cloud.flush());
+  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),onChange:status,onRemove:id=>adapter.removeProject(id)});
+  void cloud.connect().then(async()=>{
+   // Preserve access to local projects created before the header picker was removed.
+   for(const id of adapter.localIds())if(!cloud.state(id)&&!cloud.isDeleted(id)){
+    try{const saved=await KTStorage.load('kt-studio-cards-v6:'+id);if(saved)cloud.track(JSON.parse(saved))}catch{}
+   }
+   await cloud.flush();
+  }).catch(()=>status());
+  const refresh=()=>void cloud.connect(true).then(()=>cloud.flush()).catch(()=>status());
+  root.addEventListener('online',refresh);root.addEventListener('focus',refresh);
+  root.addEventListener('storage',()=>void cloud.syncRemoved().catch(error=>adapter.toast(error.message)));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
  }
  status();
  document.addEventListener('click',async event=>{
   const button=event.target.closest('button');if(!button)return;
   if(button.dataset.studioView){offset=0;void show(button.dataset.studioView)}
-  if(button.id==='new-project')showEditor();
   if(button.id==='publish-team')void publish();
   if(button.id==='retry-cloud')void cloud.flush();
   if(button.id==='copy-conflict')try{
@@ -138,9 +163,13 @@ async function init(options){
    }
    status();
   }catch(error){adapter.toast(error.message)}
-  if(button.id==='community-new'){showEditor();void adapter.createEmptyProject()}
+  if(button.id==='community-new')adapter.showCreateProject();
   if(button.id==='reload-community')void show(view);
   if(button.dataset.openDraft)void openDraft(button.dataset.openDraft);
+  if(button.dataset.deleteDraft)confirmDelete(button.dataset.deleteDraft);
+  if(button.id==='confirm-delete-project')void deleteProject();
+  if(button.id==='cancel-delete-project')$('#delete-project-dialog').close();
+  if(button.id==='review-delete-project'){$('#delete-project-dialog').close();void show('drafts')}
   if(button.dataset.openPublication)void openPublication(button.dataset.openPublication);
   if(button.id==='close-publication')$('#publication-dialog').close();
   if(button.dataset.publicationSection){publicationSection=button.dataset.publicationSection;renderPublication()}
@@ -148,7 +177,8 @@ async function init(options){
  });
  let searchTimer;
  $('#library-search').addEventListener('input',event=>{query=event.target.value;offset=0;++requestVersion;clearTimeout(searchTimer);searchTimer=setTimeout(()=>show('library'),250)});
+ $('#delete-project-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault()});
  await resume();
 }
-root.KTCommunity={init,track,status,save,flush:()=>cloud?.flush()};
+root.KTCommunity={init,track,status,save,showEditor,flush:()=>cloud?.flush()};
 })(typeof window!=='undefined'?window:globalThis);

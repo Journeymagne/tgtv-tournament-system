@@ -45,7 +45,7 @@ async function session(ctx) {
 }
 async function drafts(ctx) {
   checkAccount(ctx);
-  return { teams: await store.drafts(ctx.client, ctx.user.id) };
+  return { teams: await store.drafts(ctx.client, ctx.user.id), deletedIds: await store.deletedIds(ctx.client, ctx.user.id) };
 }
 async function draft(ctx) {
   checkAccount(ctx);
@@ -64,6 +64,13 @@ async function library(ctx) {
   if (!Number.isSafeInteger(offset) || offset < 0) throw new HttpError(400, "Некорректная страница.");
   return store.library(ctx.client, (ctx.query.get("q") || "").slice(0, 200), offset);
 }
+
+async function remove(ctx) {
+  checkWrite(ctx);
+  if (!PROJECT_ID.test(ctx.params.id)) throw new HttpError(404, "Команда не найдена.");
+  if (!Number.isSafeInteger(ctx.body?.revision) || ctx.body.revision < 0) throw new HttpError(400, "Некорректная версия черновика.");
+  return store.remove(ctx.client, ctx.user.id, ctx.params.id, ctx.body.revision);
+}
 async function publication(ctx) {
   if (!PUBLICATION_ID.test(ctx.params.id)) throw new HttpError(404, "Команда не найдена.");
   const result = await store.publication(ctx.client, ctx.params.id);
@@ -71,4 +78,4 @@ async function publication(ctx) {
   return result;
 }
 
-module.exports = { session, drafts, draft, save, publish: ctx => save(ctx, true), library, publication, MAX_BODY };
+module.exports = { session, drafts, draft, save, remove, publish: ctx => save(ctx, true), library, publication, MAX_BODY };

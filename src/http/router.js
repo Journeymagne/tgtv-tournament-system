@@ -83,7 +83,7 @@ function matchRoute(routes, method, pathname) {
   return null;
 }
 
-const METHODS_WITH_BODY = new Set(["POST", "PATCH", "PUT"]);
+const METHODS_WITH_BODY = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 
 // A session renewal rides along on whatever the route already returns, but the
 // handler's own Set-Cookie always wins: sign-in, sign-up and sign-out set that

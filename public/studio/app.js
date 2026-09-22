@@ -14,19 +14,35 @@ function rememberProject(team,active=false){
  projectList.set(team.id,team.name);
  try{KTAccount.storage.setItem(PROJECTS,JSON.stringify([...projectList]));if(active)KTAccount.storage.setItem(ACTIVE,team.id)}catch{}
 }
-function renderProjectPicker(){
- const entries=new Map(Object.entries(window.KT_EXAMPLES||{}).map(([id,team])=>[id,team.team.name]));
- for(const [id,name] of projectList)entries.set(id,name);
- entries.set(data.team.id,data.team.name);
- $('#team-example').innerHTML=[...entries].map(([id,name])=>'<option value="'+esc(id)+'" '+(data.team.id===id?'selected':'')+'>'+esc(name||'Без названия')+'</option>').join('');
+function renderProjectTitle(){
  $('.project-name').textContent=data.team.name+' · v.'+data.team.version;
  window.KTCommunity?.status();
 }
+const removedProjects=new Set();
+async function removeProject(id){
+ removedProjects.add(id);
+ projectList.delete(id);
+ KTAccount.storage.setItem(PROJECTS,JSON.stringify([...projectList]));
+ if(KTAccount.storage.getItem(ACTIVE)===id)KTAccount.storage.removeItem(ACTIVE);
+ if(data.team.id===id){
+  ++teamLoadRevision;++saveRevision;
+  data=KTModel.validate(KTModel.newProject('custom-'+uid(),'Новая команда'));original=structuredClone(data);
+  section='project';selected=side=0;pdfReady=false;previewOnly=false;
+  $('.workspace').classList.remove('show-preview');render();
+ }
+ await KTStorage.remove(STORAGE+':'+id);
+}
+function showCreateProject(){
+ $('#project-templates').innerHTML='<button data-create-project="empty"><strong>Пустая команда</strong><span>Добавьте состав, правила и карточки с нуля.</span></button>'+Object.entries(window.KT_EXAMPLES||{}).map(([id,team])=>'<button data-create-project="'+esc(id)+'"><strong>'+esc(team.team.name)+'</strong><span>Создать копию шаблона · '+esc(team.team.version||'')+'</span></button>').join('');
+ $('#create-project-error').textContent='';$('#create-project-dialog').showModal();
+}
 function persist(edited=true){
+ if(removedProjects.has(data.team.id))return Promise.resolve(false);
  for(const c of data.selectionCards)c.size=c.selectionGroups.reduce((n,g)=>n+g.count,0)||1;
  const revision=++saveRevision,key=STORAGE+':'+data.team.id,value=JSON.stringify(data),team={...data.team};
  $('#save-status').textContent='Сохраняю изменения…';
  return KTStorage.save(key,value).then(saved=>{
+  if(removedProjects.has(team.id)){void KTStorage.remove(key);return false}
   const currentSave=revision===saveRevision&&team.id===data.team.id;
   if(saved){rememberProject(team,currentSave);if(edited)window.KTCommunity?.track(JSON.parse(value))}
   if(currentSave){$('#save-status').textContent=saved?(KTAccount.id?'Локальная копия обновлена':'Правки только в этом браузере · войдите для сохранения'):'Не удалось сохранить локальную копию';if(!saved)toast('Браузер не смог сохранить изменения. Освободите место и повторите попытку.')}
@@ -36,7 +52,7 @@ function persist(edited=true){
 async function openProject(id){
  if(id===data.team.id)return;
  const revision=++teamLoadRevision;
- if(!await persist(false)||revision!==teamLoadRevision){renderProjectPicker();return}
+ if(!await persist(false)||revision!==teamLoadRevision){renderProjectTitle();return}
  try{
   const saved=await KTStorage.load(STORAGE+':'+id),example=window.KT_EXAMPLES?.[id];
   if(revision!==teamLoadRevision)return;
@@ -45,23 +61,28 @@ async function openProject(id){
   original=example?KTModel.validate(KTModel.migrate(example)):structuredClone(next);data=next;
   section='selectionCards';selected=side=0;pdfReady=false;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
   rememberProject(data.team,true);render();
- }catch(err){toast('Не удалось открыть проект: '+err.message);renderProjectPicker()}
+ }catch(err){toast('Не удалось открыть проект: '+err.message);renderProjectTitle()}
 }
-async function createEmptyProject(){
+async function createEmptyProject(templateId='empty'){
  const button=$('#new-project');if(button.disabled)return;button.disabled=true;
  const revision=++teamLoadRevision;
+ const choices=[...document.querySelectorAll('[data-create-project]')];choices.forEach(item=>item.disabled=true);
  try{
   if(!await persist(false)||revision!==teamLoadRevision)return;
-  let name='Новая команда',number=2;
-  while([...projectList.values()].includes(name))name='Новая команда '+number++;
-  const next=KTModel.validate(KTModel.newProject('custom-'+uid(),name));
+  const template=templateId==='empty'?null:window.KT_EXAMPLES?.[templateId];
+  if(templateId!=='empty'&&!template)throw Error('Шаблон не найден');
+  let name=template?template.team.name+' (копия)':'Новая команда',number=2;
+  const baseName=name;while([...projectList.values()].includes(name))name=baseName+' '+number++;
+  const id='custom-'+uid(),next=KTModel.validate(template?KTModel.migrate(template):KTModel.newProject(id,name));
+  next.team.id=id;next.team.name=name;
   if(!await KTStorage.save(STORAGE+':'+next.team.id,JSON.stringify(next)))throw Error('Браузер не смог сохранить новый проект');
   rememberProject(next.team);
   if(revision!==teamLoadRevision)return;
-  original=structuredClone(next);data=next;section='project';selected=side=0;pdfReady=false;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
+  original=structuredClone(next);data=next;section=template?'selectionCards':'project';selected=side=0;pdfReady=false;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
   rememberProject(data.team,true);render();$('#save-status').textContent=KTAccount.id?'Локальная копия обновлена':'Правки только в этом браузере · войдите для сохранения';
-  const input=$('#editor input[data-field="name"]');input?.focus?.();input?.select?.();toast('Пустой проект создан. Укажите название команды и добавьте карточки.');
- }catch(err){toast('Не удалось создать проект: '+err.message)}finally{button.disabled=false}
+  window.KTCommunity?.track(data);window.KTCommunity?.showEditor();$('#create-project-dialog').close();
+  const input=$('#editor input[data-field="name"]');input?.focus?.();input?.select?.();toast(template?'Копия шаблона создана.':'Пустой проект создан. Укажите название команды и добавьте карточки.');
+ }catch(err){$('#create-project-error').textContent='Не удалось создать проект: '+err.message}finally{button.disabled=false;choices.forEach(item=>item.disabled=false)}
 }
 async function openStoredProject(project){
  const revision=++teamLoadRevision,next=KTModel.validate(KTModel.migrate(project));
@@ -103,7 +124,7 @@ function pathGet(obj,path){return path.split('.').reduce((o,k)=>o[k],obj)}
 function render(){
  $('#navigation').innerHTML=Object.entries(SECTIONS).map(([key,name])=>'<button data-nav="'+key+'" class="'+(key===section?'active':'')+'"><span>'+name+'</span><small>'+(KTModel.fixed.includes(key)?data[key].filter(KTModel.isFilled).length+'/4':Array.isArray(data[key])?data[key].length:'↗')+'</small></button>').join('');
  $('#section-title').textContent=SECTIONS[section];$('#breadcrumb').textContent=data.team.name+(section==='lorePages'?' / АЛЬБОМ':' / КАРТОЧКИ');
- renderProjectPicker();
+ renderProjectTitle();
  const list=Array.isArray(data[section]);if(list)selected=Math.max(0,Math.min(selected,data[section].length-1));
  $('#add-item').hidden=!list||fixed();
  $('#add-item').textContent=section==='lorePages'?'+ Страница':'+ Карточка';
@@ -216,7 +237,7 @@ function updateField(el){
  }
  persist();renderPreview();if(fixed())$('#navigation [data-nav="'+section+'"] small').textContent=data[section].filter(KTModel.isFilled).length+'/4';
  if(key==='name')$('#record-list .active')?.replaceChildren(document.createTextNode(value||'Пустая карточка'));
- if(obj===data.team){renderProjectPicker();$('#breadcrumb').textContent=data.team.name+' / КАРТОЧКИ'}
+ if(obj===data.team){renderProjectTitle();$('#breadcrumb').textContent=data.team.name+' / КАРТОЧКИ'}
  if(key.startsWith('archetypes.'))renderEditor();
 }
 document.addEventListener('input',e=>{if(e.target.dataset.field)updateField(e.target);if(e.target.id==='tts-folder'){$('#tts-result').hidden=true;$('#tts-status').textContent='Папка изменена. Соберите архив заново.'}});
@@ -228,7 +249,6 @@ document.addEventListener('change',async e=>{
  if(e.target.matches?.('[data-format-size]')){const size=e.target.value;if(size)formatText(e.target.closest('.rich-field').querySelector('textarea'),'size',size);e.target.value='';return}
  if(e.target.id==='lore-image-files'||e.target.id==='lore-replace-file'){const files=Array.from(e.target.files),replaceId=e.target.id==='lore-replace-file'?e.target.dataset.imageId:null;e.target.value='';importLoreImages(files,replaceId);return}
  if(['operative-image-file','card-image-file'].includes(e.target.id)){const file=e.target.files[0];e.target.value='';importCardImage(file);return}
- if(e.target.id==='team-example'){await openProject(e.target.value);return}
  if(e.target.dataset.roster!==undefined){const id=e.target.dataset.roster,c=current();c.excludedOperativeIds=c.excludedOperativeIds.filter(v=>v!==id);if(!e.target.checked)c.excludedOperativeIds.push(id);persist();side=0;renderPreview()}
  if(e.target.dataset.loadout!==undefined){const ids=current().loadouts[Number(e.target.dataset.loadout)].weaponIds;const n=ids.indexOf(e.target.value);if(e.target.checked&&n<0)ids.push(e.target.value);if(!e.target.checked&&n>=0)ids.splice(n,1);persist();renderPreview()}
  if(e.target.id==='import-json')importJSON(e.target.files[0]);
@@ -255,7 +275,9 @@ async function importJSON(file){
 }
 document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
- if(b.id==='new-project'){createEmptyProject();return}
+ if(b.id==='new-project'){showCreateProject();return}
+ if(b.id==='close-create-project'){$('#create-project-dialog').close();return}
+ if(b.dataset.createProject){void createEmptyProject(b.dataset.createProject);return}
  if(b.dataset.format){formatText(b.closest('.rich-field').querySelector('textarea'),b.dataset.format);return}
  if(b.dataset.nav){section=b.dataset.nav;selected=0;side=0;render();return}
  if(b.dataset.record!==undefined){selected=Number(b.dataset.record);side=0;render();return}
@@ -434,7 +456,7 @@ async function init(){
   for(const team of [original,data,...Object.values(window.KT_EXAMPLES||{})])for(const o of [...team.operatives,...team.teamCards,...(team.lorePages||[]).flatMap(p=>p.images)])if(o.image)assets[o.image]=window.KT_ASSETS?.[o.image]||o.image;
   render();if(migrated){persist();toast('Проект обновлён. Ваши правки сохранены.')}
   window.ktStudio={getData:()=>structuredClone(data),toast,validateData:KTModel.validate,buildDefinition:()=>buildTeamPDF(data,assets),preparePDF,exportPDF,prepareTTS,exportTTS,exportROSZ,importOperativeImage,importCardImage,importLoreImages,renderCard:(section,index)=>section==='lorePages'?KTLore.renderPage(data.lorePages[index],data,assets):KTCards.renderCard(data[section][index],data,assets,index)};
-  await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,copyProject,downloadJSON,toast});
+  await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,localIds:()=>[...projectList.keys()],copyProject,downloadJSON,toast});
   $('#new-project').disabled=false;
  }catch(e){$('#editor').textContent='Не удалось открыть проект: '+e.message}
 }

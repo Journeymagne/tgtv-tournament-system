@@ -119,3 +119,72 @@ test("concurrent saves detect conflicts and the library keeps the last published
   assert.equal((await request("/api/studio/library/" + id)).body.project.team.name, "Published name");
   assert.equal((await request("/api/studio/drafts/published-team", bravo)).status, 404);
 });
+
+const remove = (user, id, revision, headers = {}) => request('/api/studio/drafts/' + id, user, {
+  method: 'DELETE', body: { revision }, headers
+});
+
+test('deletion requires the owner session, CSRF, matching account, origin and revision', async () => {
+  const alpha = await account('Alpha'), bravo = await account('Bravo');
+  const project = model.newProject('delete-private', 'Private');
+  await save(alpha, project);
+  assert.equal((await remove(null, project.team.id, 1)).status, 401);
+  assert.equal((await remove(bravo, project.team.id, 1)).status, 404);
+  assert.equal((await remove({ ...alpha, csrf: 'wrong' }, project.team.id, 1)).status, 403);
+  assert.equal((await remove({ ...alpha, id: bravo.id }, project.team.id, 1)).status, 401);
+  assert.equal((await remove(alpha, project.team.id, 1, { Origin: 'https://other.invalid' })).status, 403);
+  for (const revision of [undefined, -1, 1.5, '1']) assert.equal((await remove(alpha, project.team.id, revision)).status, 400);
+  assert.equal((await remove(alpha, project.team.id, 0)).status, 409);
+  assert.equal((await request('/api/studio/drafts/delete-private', alpha)).status, 200);
+});
+
+test('deletion removes the draft, publication and image payload without touching another owner', async () => {
+  const alpha = await account('Alpha'), bravo = await account('Bravo');
+  const project = model.newProject('same-id', 'Published');
+  const published = await save(alpha, project, 0, true);
+  await save(bravo, project);
+  assert.equal((await remove(alpha, project.team.id, 1)).status, 200);
+  assert.equal((await request('/api/studio/drafts/same-id', alpha)).status, 404);
+  assert.equal((await request('/api/studio/library/' + published.body.publicationId)).status, 404);
+  assert.equal((await request('/api/studio/library')).body.total, 0);
+  const list = await request('/api/studio/drafts', alpha);
+  assert.deepEqual(list.body.teams, []);
+  assert.deepEqual(list.body.deletedIds, ['same-id']);
+  assert.equal((await request('/api/studio/drafts/same-id', bravo)).status, 200);
+  const { rows: [row] } = await pool.query('SELECT project,published,publication_id,deleted_at FROM studio_projects WHERE owner_id=$1', [alpha.id]);
+  assert.deepEqual(row.project, {});
+  assert.equal(row.published, null);
+  assert.equal(row.publication_id, null);
+  assert(row.deleted_at);
+});
+
+test('old saves, delayed first uploads and publication cannot resurrect a deleted team', async () => {
+  const alpha = await account('Alpha'), project = model.newProject('deleted', 'Deleted');
+  await save(alpha, project);
+  assert.equal((await remove(alpha, project.team.id, 1)).status, 200);
+  for (const revision of [0, 1, 2]) {
+    assert.equal((await save(alpha, project, revision)).status, 410);
+    assert.equal((await save(alpha, project, revision, true)).status, 410);
+  }
+  assert.equal((await remove(alpha, project.team.id, 1)).status, 200);
+  const local = model.newProject('local-only', 'Local');
+  assert.equal((await remove(alpha, local.team.id, 0)).status, 200);
+  assert.equal((await save(alpha, local)).status, 410);
+  const copy = model.newProject('new-copy', 'New');
+  assert.equal((await save(alpha, copy)).status, 200);
+});
+
+test('concurrent save and deletion serialize and never silently delete a newer revision', async () => {
+  const alpha = await account('Alpha'), project = model.newProject('racing', 'Before');
+  await save(alpha, project);
+  project.team.name = 'After';
+  const [saved, removed] = await Promise.all([save(alpha, project, 1), remove(alpha, project.team.id, 1)]);
+  if (removed.status === 200) {
+    assert.equal(saved.status, 410);
+    assert.equal((await request('/api/studio/drafts/racing', alpha)).status, 404);
+  } else {
+    assert.equal(removed.status, 409);
+    assert.equal(saved.status, 200);
+    assert.equal((await request('/api/studio/drafts/racing', alpha)).body.project.team.name, 'After');
+  }
+});

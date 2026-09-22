@@ -80,12 +80,31 @@ out preserves that account's offline work without exposing it to the next user.
 Concurrent edits produce a conflict; publishing keeps a separate snapshot so
 later private edits do not change the library until republished.
 
+Projects are selected in **My drafts**. The header shows the active project's
+name, and **Create team** opens a choice of an empty team or an independent copy
+of a bundled template. Existing local account projects remain accessible there.
+
+**Delete** on a draft requires confirmation and removes both the private project
+and its publication, if any. The confirmation names the team and explicitly
+mentions removal from the library. The API checks ownership, CSRF, account and
+the confirmed revision; concurrent changes require refreshing and confirming
+again. Local project data is removed from localStorage and IndexedDB; other tabs
+and devices learn about deletion through storage events or reconnect/refresh.
+
+Migration `033_studio_project_deletion` adds `deleted_at`. Deletion clears project
+and publication payloads and retains an owner/project identity record so delayed
+saves cannot recreate the team. A new copy uses a new project id. After deletion
+has been used, rollback must retain the deletion-aware repository queries; older
+code expects every row to contain a project payload.
+
 Guests can create, import and edit teams without logging in. Guest recovery
 copies are isolated by browser tab; no anonymous draft is uploaded. The
-Save team / Publish buttons and project JSON download request login. The selected
-action resumes after login or registration. A single-use token in the return URL
-matches a tab-local transfer record after the round trip through the tournament
-login page on the same origin, and large projects are restored from the
+Save team / Publish buttons, My drafts and project JSON download open the Studio
+login dialog over the current page. Login and registration use the existing
+shared account endpoints and session cookie. Cancellation keeps guest edits in
+the editor. The selected action resumes after login or registration without
+visiting the tournament login page. A single-use token in the Studio reload URL
+matches a tab-local transfer record, and large projects are restored from the
 guest IndexedDB store. The transferred project gets a new id to avoid overwriting
 an existing account draft with the same id. Signing in from another tab alone
 does not adopt guest projects. PDF, TTS and roster exports remain available to

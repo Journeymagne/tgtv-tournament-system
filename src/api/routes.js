@@ -40,6 +40,7 @@ module.exports = [
   { method: "GET", path: "/api/studio/drafts", handler: studio.drafts, auth: "user" },
   { method: "GET", path: "/api/studio/drafts/:id", handler: studio.draft, auth: "user" },
   { method: "PUT", path: "/api/studio/drafts/:id", handler: studio.save, auth: "user", tx: true, maxBodyBytes: studio.MAX_BODY },
+  { method: "DELETE", path: "/api/studio/drafts/:id", handler: studio.remove, auth: "user", tx: true },
   { method: "POST", path: "/api/studio/drafts/:id/publish", handler: studio.publish, auth: "user", tx: true, maxBodyBytes: studio.MAX_BODY },
   { method: "GET", path: "/api/studio/library", handler: studio.library, auth: "none" },
   { method: "GET", path: "/api/studio/library/:id", handler: studio.publication, auth: "none" },

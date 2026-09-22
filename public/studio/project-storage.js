@@ -22,7 +22,13 @@ function save(key,value){
  queue=queue.then(job,job);return queue;
 }
 async function load(key){await queue;const value=storage.getItem(key);if(value!==marker)return value;const stored=await read(key);if(!stored)throw Error('Не найден сохранённый альбом');return stored}
-return {save,load,flush:()=>queue};
+function discard(key){
+ versions.set(key,(versions.get(key)||0)+1);
+ const previous=storage.getItem(key);storage.removeItem(key);
+ const job=async()=>{if(previous===marker||database)await remove(key)};
+ queue=queue.then(job,job);return queue;
+}
+return {save,load,remove:discard,flush:()=>queue};
 }
 root.KTStorage={...create(root.KTAccount),create};
 })(typeof window!=='undefined'?window:globalThis);

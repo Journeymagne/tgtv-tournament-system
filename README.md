@@ -17,7 +17,16 @@ A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, 
 All services now use paths on `ktcompanion.ru`. One host-only session cookie
 works across all sections; new DNS records and subdomain certificates are not
 needed. Existing calculator HTML links and tournament hash links redirect to the
-new addresses. This patch adds no database migrations.
+new addresses.
+
+Studio team selection lives in **My drafts**. **Create team** offers an empty
+team or a separate copy of a template. Login and registration open in a dialog
+over Studio and share the tournament account; guest edits and the requested
+action resume after login. Owners can delete their teams with
+confirmation; deletion also removes the publication. Migration 033 runs on
+startup and records deleted project identities without retaining their content,
+so delayed saves cannot recreate them. See the integration guide for rollback
+requirements after deletion has been used.
 
 The result-confirmation rules from 4.0.1 are retained:
 

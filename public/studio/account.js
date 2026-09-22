@@ -34,8 +34,15 @@
         await KTStorage.flush();
         const nonce = crypto.randomUUID();
         sessionStorage.setItem(pendingKey, JSON.stringify({ nonce, guestId, projectId: project.team.id, action }));
+        const { user: currentUser } = await window.KTCompanion.session();
+        if (!currentUser && !await window.KTStudioLogin.open(action)) {
+          sessionStorage.removeItem(pendingKey);
+          leaving = false;
+          return false;
+        }
         const studioUrl = window.KTCompanion.serviceUrl?.("studio") || "/studio";
-        location.assign(window.KTCompanion.loginUrl(studioUrl + "?resume=" + nonce));
+        window.KTCompanion.changed();
+        location.replace(studioUrl + "?resume=" + nonce);
       } catch (error) {
         leaving = false;
         throw error;
@@ -77,13 +84,13 @@
       event.preventDefault();
       void requireLogin().catch(error => window.ktStudio.toast(error.message));
     });
-    const response = await fetch("/studio/scripts.json?v=4.1");
+    const response = await fetch("/studio/scripts.json?v=4.1-studio-login");
     if (!response.ok) throw Error("Не удалось загрузить Студию.");
     const scripts = await response.json();
     for (const src of scripts) {
       await new Promise((resolve, reject) => {
         const script = document.createElement("script");
-        script.src = "/studio/" + src.split("?")[0] + "?v=4.1";
+        script.src = "/studio/" + src.split("?")[0] + "?v=4.1-studio-login";
         script.onload = resolve;
         script.onerror = () => reject(Error("Не удалось загрузить Студию. Обновите страницу."));
         document.body.append(script);

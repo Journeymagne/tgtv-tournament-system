@@ -15,19 +15,19 @@ function summary(row, published = false) {
 async function drafts(client, owner) {
   const { rows } = await client.query(`SELECT project_id, revision, updated_at, publication_id, published_at,
     project->'team' AS team, jsonb_array_length(project->'operatives') AS count,
-    project->'layout'->>'accent' AS accent FROM studio_projects WHERE owner_id=$1 ORDER BY updated_at DESC`, [owner]);
+    project->'layout'->>'accent' AS accent FROM studio_projects WHERE owner_id=$1 AND deleted_at IS NULL ORDER BY updated_at DESC`, [owner]);
   return rows.map(row => ({ id: row.project_id, name: row.team.name, subtitle: row.team.subtitle || "",
     version: row.team.version || "", operativeCount: row.count, accent: row.accent, revision: row.revision,
     updatedAt: row.updated_at, publicationId: row.publication_id, publishedAt: row.published_at }));
 }
 
 async function draft(client, owner, id) {
-  const { rows } = await client.query("SELECT * FROM studio_projects WHERE owner_id=$1 AND project_id=$2", [owner, id]);
+  const { rows } = await client.query("SELECT * FROM studio_projects WHERE owner_id=$1 AND project_id=$2 AND deleted_at IS NULL", [owner, id]);
   return rows[0] ? { ...summary(rows[0]), project: rows[0].project } : null;
 }
 
 async function library(client, search, offset, limit = 30) {
-  const where = "published IS NOT NULL AND strpos(lower((published->'team'->>'name') || ' ' || COALESCE(published->'team'->>'subtitle','')),lower($1))>0";
+  const where = "deleted_at IS NULL AND published IS NOT NULL AND strpos(lower((published->'team'->>'name') || ' ' || COALESCE(published->'team'->>'subtitle','')),lower($1))>0";
   const { rows } = await client.query(`SELECT publication_id, published_at, published->'team' AS team,
     jsonb_array_length(published->'operatives') AS count, published->'layout'->>'accent' AS accent
     FROM studio_projects WHERE ${where} ORDER BY published_at DESC, publication_id LIMIT $2 OFFSET $3`, [search, limit, offset]);
@@ -37,7 +37,7 @@ async function library(client, search, offset, limit = 30) {
 }
 
 async function publication(client, id) {
-  const { rows } = await client.query("SELECT * FROM studio_projects WHERE publication_id=$1 AND published IS NOT NULL", [id]);
+  const { rows } = await client.query("SELECT * FROM studio_projects WHERE publication_id=$1 AND published IS NOT NULL AND deleted_at IS NULL", [id]);
   return rows[0] ? { ...summary(rows[0], true), project: rows[0].published } : null;
 }
 
@@ -47,6 +47,7 @@ async function save(client, owner, project, revision, publish) {
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["studio:" + owner + ":" + project.team.id]);
   const { rows } = await client.query("SELECT * FROM studio_projects WHERE owner_id=$1 AND project_id=$2", [owner, project.team.id]);
   const previous = rows[0];
+  if (previous?.deleted_at) throw new HttpError(410, "Команда удалена. Создайте новую команду, чтобы продолжить работу.");
   if ((previous?.revision || 0) !== revision) {
     throw new HttpError(409, "Команда изменена в другой вкладке. Ваши правки сохранены в браузере; сохраните их отдельной копией.");
   }
@@ -63,4 +64,24 @@ async function save(client, owner, project, revision, publish) {
   return summary(saved[0]);
 }
 
-module.exports = { drafts, draft, library, publication, save };
+async function deletedIds(client, owner) {
+  const { rows } = await client.query("SELECT project_id FROM studio_projects WHERE owner_id=$1 AND deleted_at IS NOT NULL", [owner]);
+  return rows.map(row => row.project_id);
+}
+
+async function remove(client, owner, id, revision) {
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["studio:" + owner + ":" + id]);
+  const { rows } = await client.query("SELECT revision, deleted_at FROM studio_projects WHERE owner_id=$1 AND project_id=$2", [owner, id]);
+  const previous = rows[0];
+  if (previous?.deleted_at) return { id, deleted: true };
+  if (!previous && revision > 0) throw new HttpError(404, "Команда не найдена.");
+  if ((previous?.revision || 0) !== revision) throw new HttpError(409, "Команда изменена в другой вкладке. Обновите список черновиков и проверьте её перед удалением.");
+  // Also protects local-only drafts whose first upload has not completed yet.
+  await client.query(`INSERT INTO studio_projects (owner_id, project_id, project, revision, deleted_at)
+    VALUES ($1,$2,'{}'::jsonb,1,NOW()) ON CONFLICT (owner_id,project_id) DO UPDATE SET
+    project='{}'::jsonb, published=NULL, publication_id=NULL, published_at=NULL,
+    revision=studio_projects.revision+1, updated_at=NOW(), deleted_at=NOW()`, [owner, id]);
+  return { id, deleted: true };
+}
+
+module.exports = { drafts, draft, library, publication, save, deletedIds, remove };
