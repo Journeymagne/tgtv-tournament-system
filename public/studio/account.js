@@ -77,13 +77,13 @@
       event.preventDefault();
       void requireLogin().catch(error => window.ktStudio.toast(error.message));
     });
-    const response = await fetch("/studio/scripts.json?v=4.0.2");
+    const response = await fetch("/studio/scripts.json?v=4.1");
     if (!response.ok) throw Error("Не удалось загрузить Студию.");
     const scripts = await response.json();
     for (const src of scripts) {
       await new Promise((resolve, reject) => {
         const script = document.createElement("script");
-        script.src = "/studio/" + src.split("?")[0] + "?v=4.0.2";
+        script.src = "/studio/" + src.split("?")[0] + "?v=4.1";
         script.onload = resolve;
         script.onerror = () => reject(Error("Не удалось загрузить Студию. Обновите страницу."));
         document.body.append(script);

@@ -12,7 +12,7 @@ with a shared account and a home link in the top right.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 4.0.2
+## Release 4.1
 
 All services now use paths on `ktcompanion.ru`. One host-only session cookie
 works across all sections; new DNS records and subdomain certificates are not
