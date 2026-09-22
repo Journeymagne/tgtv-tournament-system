@@ -4,6 +4,7 @@ const Model=root.KTModel||(typeof require!=='undefined'?require('./model.js'):nu
 const Text=root.KTText||(typeof require!=='undefined'?require('./rich-text.js'):null);
 const preset=root.KTNewRecruitTemplate||(typeof require!=='undefined'?require('./new-recruit-template.js'):null);
 const NS='http://www.battlescribe.net/schema/rosterSchema';
+const JSON_NS='http://james.newtonking.com/projects/json';
 const clone=x=>JSON.parse(JSON.stringify(x));
 const inch=s=>String(s??'').replace(/″/g,'"');
 const escapeXML=s=>inch(s).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
@@ -24,18 +25,26 @@ function projectTemplate(data){
   for(const variant of variants){
    const selectionId=id(),weapons=variant.weaponIds.map(weaponId=>({weaponId,profileId:id()}));
    bindings.push({selectionId,operativeId:operative.id,name:operative.name,variant:variants.length>1?variant.name:'',count:1,weapons});
-   selections.push(node('selection',{id:selectionId,name:operative.name,entryId:id(),number:'1',type:'model',from:'entry'},[
-    node('profiles',{},[node('profile',{id:id(),typeName:'Operative'}),...weapons.map(w=>node('profile',{id:w.profileId,typeName:'Weapons'}))]),
+   selections.push(node('selection',{id:selectionId,name:operative.name,entryId:id(),number:'1',type:'model',from:'entry','json:Array':'true'},[
+    node('profiles',{},[node('profile',{id:id(),typeName:'Operative'})]),
+    // Command Node reads weapons only from nested upgrade selections.
+    node('selections',{},weapons.map(w=>node('selection',{id:id(),name:operative.weapons.find(weapon=>weapon.id===w.weaponId).name,entryId:id(),number:'1',type:'upgrade',from:'entry'},[
+     node('profiles',{},[node('profile',{id:w.profileId,typeName:'Weapons'})])
+    ]))),
     node('categories')
    ]));
   }
  }
  const tree=clone(preset.tree),force=child(child(tree,'forces'),'force');
  Object.assign(force.attrs,{id:id(),catalogueId:'studio-'+data.team.id,catalogueRevision:'1',catalogueName:data.team.name});
- child(force,'selections').children=selections;
+ // Command Node expects a list and skips Reference entries. A reference keeps
+ // an empty roster importable without inventing an operative.
+ child(force,'selections').children=selections.length?selections:[node('selection',{id:id(),name:data.team.name,entryId:id(),number:'1',type:'upgrade','json:Array':'true'},[
+  node('categories',{},[node('category',{id:id(),entryId:'b318-a8d7-2d38-99a3',name:'Reference',primary:'true'})])
+ ])];
  child(force,'rules').children=[];
  child(force,'categories').children=[];
- Object.assign(tree.attrs,{id:id(),name:data.team.name,generatedBy:'Kill Team Studio'});
+ Object.assign(tree.attrs,{id:id(),name:data.team.name,generatedBy:'Kill Team Studio','xmlns:json':JSON_NS});
  return {teamId:data.team.id,sourceFile:preset.sourceFile,generated:true,types:preset.types,bindings,tree};
 }
 function rosterName(data,name){
