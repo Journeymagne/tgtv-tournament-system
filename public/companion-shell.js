@@ -1,8 +1,8 @@
 (function () {
   "use strict";
   const sites = window.KT_SITES || { subdomains: false, urls: {
-    home: "/", initiative: "/killteam-initiative-calculator.html", tracker: "/killteam-activation-tracker.html",
-    tournament: "/tournament/", studio: "/studio/"
+    home: "/", initiative: "/initiative", tracker: "/tracker",
+    tournament: "/tournament", studio: "/studio"
   } };
   const serviceUrl = name => new URL(sites.urls[name], location.origin).href;
   const path = location.pathname;

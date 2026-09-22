@@ -1,4 +1,4 @@
-const { MAX_REQUEST_BYTES, SESSION_COOKIE_DOMAIN } = require("../config");
+const { MAX_REQUEST_BYTES } = require("../config");
 const { MIN_COMPRESS_BYTES, negotiateEncoding, compress } = require("./compression");
 
 class HttpError extends Error {
@@ -182,25 +182,22 @@ function sendText(res, status, text, headers = {}) {
   res.end(text);
 }
 
-function sessionToken(req, domain = SESSION_COOKIE_DOMAIN) {
-  // A separate name prevents old host-only sid cookies from shadowing the
-  // shared session, or silently signing a user back in after a shared logout.
-  return parseCookies(req)[domain ? "kt_sid" : "sid"];
+function sessionToken(req) {
+  return parseCookies(req).sid;
 }
 
-function buildSessionCookie(value, maxAgeSeconds, secure, domain) {
-  const parts = [`${domain ? "kt_sid" : "sid"}=${value}`, "HttpOnly", "SameSite=Lax", "Path=/", `Max-Age=${maxAgeSeconds}`];
-  if (domain) parts.push(`Domain=${domain}`);
+function buildSessionCookie(value, maxAgeSeconds, secure) {
+  const parts = [`sid=${value}`, "HttpOnly", "SameSite=Lax", "Path=/", `Max-Age=${maxAgeSeconds}`];
   if (secure) parts.push("Secure");
   return parts.join("; ");
 }
 
-function sessionCookie(token, ttlMs, secure, domain = SESSION_COOKIE_DOMAIN) {
-  return buildSessionCookie(encodeURIComponent(token), Math.floor(ttlMs / 1000), secure, domain);
+function sessionCookie(token, ttlMs, secure) {
+  return buildSessionCookie(encodeURIComponent(token), Math.floor(ttlMs / 1000), secure);
 }
 
-function clearedSessionCookie(secure, domain = SESSION_COOKIE_DOMAIN) {
-  return buildSessionCookie("", 0, secure, domain);
+function clearedSessionCookie(secure) {
+  return buildSessionCookie("", 0, secure);
 }
 
 module.exports = {

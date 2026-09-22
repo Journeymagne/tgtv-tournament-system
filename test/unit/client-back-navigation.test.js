@@ -44,15 +44,15 @@ test("Back retraces tournament, roster, team match, game and result, preserving 
   const nav = navigationHarness();
   nav.rememberNavigationContext();
   nav.state.tournamentInfoTab = "standings";
-  nav.pushAppLocation("/#/rosters/3");
-  nav.pushAppLocation("/#/team-matches/7");
+  nav.pushAppLocation("/tournament#/rosters/3");
+  nav.pushAppLocation("/tournament#/team-matches/7");
   nav.round(null);
   nav.rememberNavigationContext();
-  nav.pushAppLocation("/#/games/game/42");
+  nav.pushAppLocation("/tournament#/games/game/42");
   nav.rememberNavigationContext();
-  nav.pushAppLocation("/#/games/game/42/result");
-  for (const expected of ["/#/games/game/42", "/#/team-matches/7", "/#/rosters/3", "/tournaments/cup"]) {
-    nav.navigateBack("/#/mygames");
+  nav.pushAppLocation("/tournament#/games/game/42/result");
+  for (const expected of ["/tournament#/games/game/42", "/tournament#/team-matches/7", "/tournament#/rosters/3", "/tournaments/cup"]) {
+    nav.navigateBack("/tournament#/mygames");
     assert.equal(nav.navigationUrl(), expected);
   }
   nav.restoreNavigationContext(nav.currentNavigationEntry().context);
@@ -61,33 +61,33 @@ test("Back retraces tournament, roster, team match, game and result, preserving 
   assert.equal(nav.currentNavigationEntry().context.scrollY, 450);
   assert.equal(nav.entries.length, 5, "Back must not push new copies of earlier screens");
   nav.window.history.forward();
-  assert.equal(nav.navigationUrl(), "/#/rosters/3");
+  assert.equal(nav.navigationUrl(), "/tournament#/rosters/3");
 });
 
 test("history context survives refresh and list filters are independent between screens", () => {
-  const nav = navigationHarness("/#/games/sessions");
+  const nav = navigationHarness("/tournament#/games/sessions");
   nav.rememberNavigationContext();
-  nav.pushAppLocation("/#/games/game/42");
+  nav.pushAppLocation("/tournament#/games/game/42");
   nav.state.gameFilters.playerQuery = "Changed";
   nav.rememberNavigationContext();
   nav.navigateBack();
   nav.restoreNavigationContext(structuredClone(nav.window.history.state).tgtvNavigation.context);
-  assert.equal(nav.navigationUrl(), "/#/games/sessions");
+  assert.equal(nav.navigationUrl(), "/tournament#/games/sessions");
   assert.equal(nav.state.gameFilters.playerQuery, "Player");
 });
 
 test("direct game links fall back to the team match, then tournament, without a Back loop", () => {
-  const nav = navigationHarness("/#/games/game/42");
+  const nav = navigationHarness("/tournament#/games/game/42");
   const game = { teamMatch: { id: 7 }, tournament: { slug: "cup" } };
   nav.navigateBack(nav.gameBackFallback(game));
-  assert.equal(nav.navigationUrl(), "/#/team-matches/7");
+  assert.equal(nav.navigationUrl(), "/tournament#/team-matches/7");
   nav.navigateBack("/tournaments/cup");
   assert.equal(nav.navigationUrl(), "/tournaments/cup");
   assert.equal(nav.entries.length, 1);
   assert.equal(nav.routed(), 2);
   assert.equal(nav.gameBackFallback({ tournament: { slug: "cup" } }), "/tournaments/cup");
-  assert.equal(nav.gameBackFallback({}), "/#/games");
-  assert.equal(nav.gameBackFallback({ sourceType: "team_match_game", sourceId: 7 }), "/#/team-matches/7");
+  assert.equal(nav.gameBackFallback({}), "/tournament#/games");
+  assert.equal(nav.gameBackFallback({ sourceType: "team_match_game", sourceId: 7 }), "/tournament#/team-matches/7");
 });
 
 test("reopening the same page does not add a duplicate Back destination", () => {

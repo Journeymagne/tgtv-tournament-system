@@ -1191,7 +1191,7 @@ window.addEventListener("hashchange", handleHashNavigation);
 window.addEventListener("popstate", handleHashNavigation);
 document.addEventListener("click", rememberNavigationContext, true);
 document.addEventListener("click", (event) => {
-  const link = event.target.closest('a[href^="/#/achievements/"]');
+  const link = event.target.closest('a[href^="/tournament#/achievements/"]');
   if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || link.target || link.hasAttribute("download")) return;
   event.preventDefault();
   pushAppLocation(link.getAttribute("href"));
@@ -1489,7 +1489,7 @@ function appHashForState() {
 
 function syncAppHash(options = {}) {
   const hash = appHashForState();
-  const pathname = tournamentSlugFromPath() || playerTeamSlugFromPath() ? (window.KT_SITES?.subdomains ? "/" : "/tournament/") : window.location.pathname;
+  const pathname = tournamentSlugFromPath() || playerTeamSlugFromPath() ? "/tournament" : window.location.pathname;
   if (!hash || (window.location.hash === hash && window.location.pathname === pathname)) return;
   const url = `${pathname}${window.location.search}${hash}`;
   pushAppLocation(url, options);
@@ -1540,7 +1540,7 @@ function pushAppLocation(url, options = {}) {
   else window.history.pushState({ tgtvNavigation: entry }, "", targetUrl);
 }
 
-function navigateBack(fallback = "/#/mygames", options = {}) {
+function navigateBack(fallback = "/tournament#/mygames", options = {}) {
   if (currentNavigationEntry()?.previous) {
     window.history.back();
     return;
@@ -1552,9 +1552,9 @@ function navigateBack(fallback = "/#/mygames", options = {}) {
 
 function gameBackFallback(game) {
   const teamMatchId = gameTeamMatchId(game);
-  if (teamMatchId) return `/#/team-matches/${teamMatchId}`;
+  if (teamMatchId) return `/tournament#/team-matches/${teamMatchId}`;
   if (game.tournament?.slug) return tournamentPublicPath(game.tournament.slug);
-  return "/#/games";
+  return "/tournament#/games";
 }
 
 function gameTeamMatchId(game) {
@@ -1720,7 +1720,7 @@ function navigateToPlayerTeam(slug) {
 }
 
 function clearPlayerTeamRoute() {
-  if (playerTeamSlugFromLocation()) window.history.replaceState(null, "", `${window.KT_SITES?.subdomains ? "/" : "/tournament/"}${window.location.search}`);
+  if (playerTeamSlugFromLocation()) window.history.replaceState(null, "", `/tournament${window.location.search}`);
 }
 
 function navigateToPublicTournament(slug, options = {}) {
@@ -1737,7 +1737,7 @@ function clearSharedChallengeHash() {
 
 function clearTournamentRoute() {
   if (!tournamentSlugFromLocation()) return;
-  window.history.replaceState(null, "", `${window.KT_SITES?.subdomains ? "/" : "/tournament/"}${window.location.search}`);
+  window.history.replaceState(null, "", `/tournament${window.location.search}`);
 }
 
 function getKnownPublicTournament(slug) {
@@ -1900,7 +1900,7 @@ function publicTournamentViewerActions(data) {
 function tournamentEditButton(tournament) {
   const id = Number(tournament?.id);
   if (!state.me?.isAdmin || !Number.isSafeInteger(id) || id < 1) return "";
-  return `<a href="/#/tournaments/admin/${id}" data-app-link class="small-button" data-tournament-edit="${id}">${t("common.edit")}</a>`;
+  return `<a href="/tournament#/tournaments/admin/${id}" data-app-link class="small-button" data-tournament-edit="${id}">${t("common.edit")}</a>`;
 }
 
 async function openTournamentEditor(tournamentId) {
@@ -2175,7 +2175,7 @@ function wirePublicTournamentNav(data) {
     render();
   });
   onLive(document.querySelector("[data-public-back]"), "click", () => {
-    navigateBack("/#/tournaments");
+    navigateBack("/tournament#/tournaments");
   });
   onLive(document.querySelector("[data-public-tournament-join]"), "click", async () => {
     renderTournamentJoinForm(data);
@@ -2969,7 +2969,7 @@ function renderAuth() {
             <button class="primary-button" type="submit">${action}</button>
             <div class="message" data-message></div>
           </form>
-          <a class="documentation-auth-link" href="${window.KT_SITES?.subdomains ? "/" : "/tournament/"}#/documentation">${t("nav.documentation")}</a>
+          <a class="documentation-auth-link" href="/tournament#/documentation">${t("nav.documentation")}</a>
         </div>
       </section>
     </main>
@@ -3072,7 +3072,7 @@ function renderShell() {
             <span></span>
             <span></span>
           </button>
-          <a href="/#/profile" data-app-link class="mark avatar-button" data-header-profile aria-label="${t("nav.openProfile")}">${avatarMarkup(state.me)}</a>
+          <a href="/tournament#/profile" data-app-link class="mark avatar-button" data-header-profile aria-label="${t("nav.openProfile")}">${avatarMarkup(state.me)}</a>
         </div>
         <div class="topbar-player">
           <div class="topbar-name-row">
@@ -3332,7 +3332,7 @@ function navButton(id, label) {
     (id === "games" && state.view === "gameDetail") ||
     (id === "play" && state.view === "teamPairing") ||
     (id === "tournaments" && state.view === "roster");
-  return `<a href="/#/${({ play: "mygames", top: "leaderboard", statistics: "stats" })[id] || id}" data-app-link class="nav-button ${active ? "active" : ""}" data-view="${id}">${label}</a>`;
+  return `<a href="/tournament#/${({ play: "mygames", top: "leaderboard", statistics: "stats" })[id] || id}" data-app-link class="nav-button ${active ? "active" : ""}" data-view="${id}">${label}</a>`;
 }
 
 async function logout() {
@@ -3444,7 +3444,7 @@ function teamPairingCard(pairing) {
       <div class="row-meta">${escapeHtml(pairing.tournament?.name || "")} · ${t("notifications.round", { number: pairing.roundNumber })}</div>
       <div class="captain-pairing-progress">${escapeHtml(status)}</div>
     </div>
-    <div class="row-actions"><a href="/#/team-matches/${pairing.id}" data-app-link class="primary-button" data-team-pairing-open="${pairing.id}">${t("play.teamPairings.open")}</a></div>
+    <div class="row-actions"><a href="/tournament#/team-matches/${pairing.id}" data-app-link class="primary-button" data-team-pairing-open="${pairing.id}">${t("play.teamPairings.open")}</a></div>
   </article>`;
 }
 
@@ -3549,7 +3549,7 @@ function gameCard(game) {
   const exitAction = canExit
     ? `<button class="danger-button" data-game-exit="${game.id}">${isPending ? t("play.action.deletePending") : t("play.action.exitGame")}</button>`
     : "";
-  const detailsAction = `<a href="/#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-game-open="${game.id}">${t("play.action.details")}</a>`;
+  const detailsAction = `<a href="/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-game-open="${game.id}">${t("play.action.details")}</a>`;
   const tournamentAction = isTournamentGame && game.tournament?.slug
     ? `<a href="/tournaments/${escapeHtml(game.tournament.slug)}" data-app-link class="small-button" data-tournament-game-open="${escapeHtml(game.tournament.slug)}">${t("play.tournamentMatch.openAction")}</a>`
     : "";
@@ -3804,7 +3804,7 @@ function achievementPicture(achievement) {
 
 function achievementCards(achievements, { compact = false } = {}) {
   return achievements.length ? `<div class="${compact ? "profile-achievement-list" : "achievement-grid"}">${achievements.map((item) => `
-    <a class="${compact ? "profile-achievement-item" : "achievement-card"}" href="/#/achievements/${item.id}">
+    <a class="${compact ? "profile-achievement-item" : "achievement-card"}" href="/tournament#/achievements/${item.id}">
       ${achievementPicture(item)}<strong>${escapeHtml(achievementTitle(item))}</strong>
       ${compact ? "" : `<span class="muted">${t(item.kind === "team" ? "achievements.team" : "achievements.personal")}</span>
       <span class="muted">${escapeHtml(achievementDescription(item))}</span>`}
@@ -3889,10 +3889,10 @@ async function renderAchievements() {
         ${state.me?.isAdmin ? `<div class="row-actions achievement-delete-actions"><button type="button" class="danger-button" data-achievement-delete>${t("achievements.delete")}</button></div>` : ""}`;
       const showRecipients = (recipients) => {
         page.querySelector("[data-achievement-recipients]").innerHTML = recipients.length ? `<div class="list">${recipients.map((recipient) => `
-          <div class="row-card"><div class="row-main"><a href="${recipient.teamId ? `/teams/${encodeURIComponent(recipient.slug)}` : `/#/players/${recipient.userId}`}">${escapeHtml(recipient.name)}</a>
-          ${recipient.members?.length ? `<div class="row-meta">${recipient.members.map((member) => member.userId ? `<a href="/#/players/${member.userId}">${escapeHtml(member.name)}</a>` : escapeHtml(member.name)).join(", ")}</div>` : ""}</div><span class="muted">${fmtDate(recipient.awardedAt)}</span></div>`).join("")}</div>` : `<p class="empty">${t("achievements.noRecipients")}</p>`;
+          <div class="row-card"><div class="row-main"><a href="${recipient.teamId ? `/teams/${encodeURIComponent(recipient.slug)}` : `/tournament#/players/${recipient.userId}`}">${escapeHtml(recipient.name)}</a>
+          ${recipient.members?.length ? `<div class="row-meta">${recipient.members.map((member) => member.userId ? `<a href="/tournament#/players/${member.userId}">${escapeHtml(member.name)}</a>` : escapeHtml(member.name)).join(", ")}</div>` : ""}</div><span class="muted">${fmtDate(recipient.awardedAt)}</span></div>`).join("")}</div>` : `<p class="empty">${t("achievements.noRecipients")}</p>`;
       };
-      page.querySelector("[data-achievement-back]").addEventListener("click", () => navigateBack(`/#/achievements${achievement.category === "title" ? "/hall-of-fame" : ""}`));
+      page.querySelector("[data-achievement-back]").addEventListener("click", () => navigateBack(`/tournament#/achievements${achievement.category === "title" ? "/hall-of-fame" : ""}`));
       showRecipients(data.recipients);
       page.querySelector("[data-achievement-edit]")?.addEventListener("click", () => openAchievementEditor(achievement, page));
       page.querySelector("[data-achievement-delete]")?.addEventListener("click", async (event) => {
@@ -4154,7 +4154,7 @@ function renderProfile() {
   `;
 
   mountProfileAchievements(content, "userId", state.me.id);
-  document.querySelector("[data-profile-back]").addEventListener("click", () => navigateBack("/#/mygames"));
+  document.querySelector("[data-profile-back]").addEventListener("click", () => navigateBack("/tournament#/mygames"));
   wireProfileSettings();
   wireGameButtons();
   wireOpenMatchmakingButton();
@@ -4181,7 +4181,7 @@ function profileChallengeNextCard(progress) {
     return `
       <div class="empty">${t("profile.challenge.loading")}</div>
       <div class="row-actions profile-challenge-actions">
-        <a href="/#/challenge/${state.me.id}" data-app-link class="small-button" data-profile-challenge-progress="${state.me.id}">${t("profile.challenge.openAction")}</a>
+        <a href="/tournament#/challenge/${state.me.id}" data-app-link class="small-button" data-profile-challenge-progress="${state.me.id}">${t("profile.challenge.openAction")}</a>
       </div>
     `;
   }
@@ -4196,7 +4196,7 @@ function profileChallengeNextCard(progress) {
           <div class="row-meta">${t("challenge.detail.progress", { completed: progress.completedCount, total: progress.total })}</div>
         </div>
         <div class="row-actions">
-          <a href="/#/challenge/${progress.user.id}" data-app-link class="small-button" data-profile-challenge-progress="${progress.user.id}">${t("profile.challenge.openAction")}</a>
+          <a href="/tournament#/challenge/${progress.user.id}" data-app-link class="small-button" data-profile-challenge-progress="${progress.user.id}">${t("profile.challenge.openAction")}</a>
         </div>
       </div>
     `;
@@ -4213,7 +4213,7 @@ function profileChallengeNextCard(progress) {
         </div>
       </div>
       <div class="row-actions">
-        <a href="/#/challenge/${progress.user.id}" data-app-link class="small-button" data-profile-challenge-progress="${progress.user.id}">${t("profile.challenge.openAction")}</a>
+        <a href="/tournament#/challenge/${progress.user.id}" data-app-link class="small-button" data-profile-challenge-progress="${progress.user.id}">${t("profile.challenge.openAction")}</a>
       </div>
     </div>
   `;
@@ -4278,7 +4278,7 @@ function activeMatchmakingPreview(item) {
       </div>
       <div class="row-actions">
         <span class="status ${item.type === "game" ? "open" : "pending"}">${item.type === "game" ? t("play.game.status.active") : t("play.game.status.pending")}</span>
-        <a href="${item.type === "game" ? `/#/games/game/${item.id}` : "/#/mygames"}" data-app-link class="primary-button" data-open-matchmaking ${item.type === "game" ? `data-game-id="${item.id}"` : ""}>${t("tournaments.card.open")}</a>
+        <a href="${item.type === "game" ? `/tournament#/games/game/${item.id}` : "/tournament#/mygames"}" data-app-link class="primary-button" data-open-matchmaking ${item.type === "game" ? `data-game-id="${item.id}"` : ""}>${t("tournaments.card.open")}</a>
       </div>
     </div>
   `;
@@ -4302,7 +4302,7 @@ function renderPlayerProfile() {
   const challengeButton = user.id === state.me.id
     ? ""
     : activeGame
-      ? `<a href="/#/games/game/${activeGame.id}" data-app-link class="primary-button game-challenge-button" data-profile-game="${activeGame.id}">${t("profile.playerProfile.openGame")}</a>`
+      ? `<a href="/tournament#/games/game/${activeGame.id}" data-app-link class="primary-button game-challenge-button" data-profile-game="${activeGame.id}">${t("profile.playerProfile.openGame")}</a>`
       : `<button class="primary-button game-challenge-button" data-profile-challenge="${user.id}" ${pendingChallenge ? "disabled" : ""}>${pendingChallenge ? t("profile.playerProfile.challengePending") : t("profile.playerProfile.challengeToPlay")}</button>`;
 
   content.innerHTML = `
@@ -4370,7 +4370,7 @@ function renderPlayerProfile() {
   `;
 
   mountProfileAchievements(content, "userId", user.id);
-  document.querySelector("[data-player-back]").addEventListener("click", () => navigateBack("/#/leaderboard"));
+  document.querySelector("[data-player-back]").addEventListener("click", () => navigateBack("/tournament#/leaderboard"));
 
   document.querySelector("[data-profile-challenge]")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
@@ -5447,7 +5447,7 @@ function teamRecentGameCard(item) {
       </div>
       <div class="row-actions">
         <span class="status ${item.result === "win" ? "completed" : item.result === "loss" ? "pending" : "open"}">${resultStatus}</span>
-        <a href="/#/games/game/${item.game.id}" data-app-link class="small-button" data-game-open="${item.game.id}">${t("play.action.details")}</a>
+        <a href="/tournament#/games/game/${item.game.id}" data-app-link class="small-button" data-game-open="${item.game.id}">${t("play.action.details")}</a>
       </div>
     </div>
   `;
@@ -5786,7 +5786,7 @@ function renderGameDetail(live = false) {
       <div class="game-detail-toolbar">
         <div class="row-actions game-detail-navigation">
           <button class="ghost-button" data-back-games>${t("common.back")}</button>
-          ${gameTeamMatchId(game) ? `<a href="/#/team-matches/${gameTeamMatchId(game)}" data-app-link class="small-button" data-detail-team-match="${gameTeamMatchId(game)}">${t("games.detail.teamMatch")}</a>` : ""}
+          ${gameTeamMatchId(game) ? `<a href="/tournament#/team-matches/${gameTeamMatchId(game)}" data-app-link class="small-button" data-detail-team-match="${gameTeamMatchId(game)}">${t("games.detail.teamMatch")}</a>` : ""}
           ${tournamentAction}
         </div>
         ${playerAction || adminAction ? `<div class="row-actions game-detail-actions">
@@ -5866,7 +5866,7 @@ function gamePlayerLinks(game) {
 function playerProfileLink(player) {
   const userId = Number(player?.userId || (player?.hasProfile === false ? 0 : player?.id));
   if (!state.me || !Number.isSafeInteger(userId) || userId <= 0) return escapeHtml(player?.name || t("tournaments.player.fallback"));
-  return `<a href="/#/players/${userId}" data-app-link class="text-link-button inline-profile-link" data-profile-user="${userId}">${escapeHtml(player.name)}</a>`;
+  return `<a href="/tournament#/players/${userId}" data-app-link class="text-link-button inline-profile-link" data-profile-user="${userId}">${escapeHtml(player.name)}</a>`;
 }
 
 function tournamentParticipantProfileLink(participant, fallbackName = t("tournaments.participant.fallback")) {
@@ -6172,7 +6172,7 @@ function renderResultForm(gameId, options = {}) {
     </section>
   `;
 
-  document.querySelector("[data-back]").addEventListener("click", () => navigateBack(`/#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}`));
+  document.querySelector("[data-back]").addEventListener("click", () => navigateBack(`/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}`));
   document.querySelector("[data-exit-game]")?.addEventListener("click", (event) => {
     exitOpenGame(Number(event.currentTarget.dataset.exitGame));
   });
@@ -6206,7 +6206,7 @@ function renderResultForm(gameId, options = {}) {
       await loadTop();
       await loadGames();
       await loadGame(game.id);
-      navigateBack(`/#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}`);
+      navigateBack(`/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}`);
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -6255,7 +6255,7 @@ function renderResultReview(gameId) {
     </section>
   `;
 
-  document.querySelector("[data-back]").addEventListener("click", () => navigateBack(`/#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}`));
+  document.querySelector("[data-back]").addEventListener("click", () => navigateBack(`/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}`));
   document.querySelector("[data-confirm-result]").addEventListener("click", async () => {
     try {
       await api(`/api/games/${game.id}/confirm-result`, { method: "POST" });
@@ -6263,7 +6263,7 @@ function renderResultReview(gameId) {
       await loadTop();
       await loadGames();
       await loadGame(game.id);
-      navigateBack(`/#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}`);
+      navigateBack(`/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}`);
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -6274,7 +6274,7 @@ function renderResultReview(gameId) {
       await refresh();
       await loadGames();
       await loadGame(game.id);
-      navigateBack(`/#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}`);
+      navigateBack(`/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}`);
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -7437,7 +7437,7 @@ function usersTable(users) {
             <tr>
               <td class="rank">${pageData.start + index + 1}</td>
               <td>
-                <a href="/#/players/${user.id}" data-app-link class="text-button player-name-button leaderboard-player-button" data-profile-user="${user.id}">
+                <a href="/tournament#/players/${user.id}" data-app-link class="text-button player-name-button leaderboard-player-button" data-profile-user="${user.id}">
                   <span class="leaderboard-avatar">${avatarMarkup(user)}</span>
                   <span>${escapeHtml(user.name)}</span>
                 </a>
@@ -7828,7 +7828,7 @@ function rosterMatchHistoryMarkup(data) {
         <p class="row-meta">${escapeHtml([status, score].filter(Boolean).join(" · "))}</p>
         ${teamMatchGamesMarkup(match, { readOnly: true })}
       </div>
-      <div class="row-actions"><a href="/#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("games.detail.teamMatch")}</a></div>
+      <div class="row-actions"><a href="/tournament#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("games.detail.teamMatch")}</a></div>
     </article>`;
   }).join("");
 }
@@ -7839,7 +7839,7 @@ function renderRosterProfile() {
   const data = state.rosterProfile;
   if (!data) {
     content.innerHTML = `<section class="card panel"><button class="ghost-button" data-roster-back>${t("common.back")}</button><p class="${state.rosterProfileError ? "message error" : "loading"}">${escapeHtml(state.rosterProfileError || t("common.loading"))}</p></section>`;
-    content.querySelector("[data-roster-back]").addEventListener("click", () => navigateBack("/#/tournaments"));
+    content.querySelector("[data-roster-back]").addEventListener("click", () => navigateBack("/tournament#/tournaments"));
     return;
   }
   const { roster, tournament, standing = {} } = data;
@@ -7939,7 +7939,7 @@ function teamRosterLabel(roster, fallback = t("teams.tournament.rosterFallback")
   if (!roster) return escapeHtml(fallback);
   const label = escapeHtml(roster.name || roster.teamNameSnapshot || fallback);
   return roster.id
-    ? `<a href="/#/rosters/${roster.id}" data-app-link class="text-link-button inline-profile-link" data-roster-profile-link="${roster.id}">${label}</a>`
+    ? `<a href="/tournament#/rosters/${roster.id}" data-app-link class="text-link-button inline-profile-link" data-roster-profile-link="${roster.id}">${label}</a>`
     : label;
 }
 
@@ -8135,7 +8135,7 @@ function teamMatchGamesMarkup(match, options = {}) {
       : link?.permissions?.canReview ? `<button class="primary-button" data-team-game-review="${game?.id}">${t("play.action.reviewResult")}</button>` : "";
     const awaitingCaptain = game?.status === "pending_confirmation" && game.pendingResult?.submittedAs === "captain"
       ? `<p class="row-meta">${t("teams.results.awaitingCaptain")}</p>` : "";
-    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${tableImage}${result}${awaitingCaptain}</div>${state.me && game?.id ? `<div class="row-actions team-game-actions">${resultAction}<a href="/#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</a></div>` : ""}</div>`;
+    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${tableImage}${result}${awaitingCaptain}</div>${state.me && game?.id ? `<div class="row-actions team-game-actions">${resultAction}<a href="/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</a></div>` : ""}</div>`;
   }).join("")}</div>`;
 }
 
@@ -8276,7 +8276,7 @@ function teamTournamentMatchMarkup(match, tournament, options = {}) {
       <div class="team-captain-control">${teamCaptainPairingControl(match, tournament)}${canReset ? adminUi().adminTeamPairingOverrideForm(match) : ""}</div>
       ${match.canUndo && tournament.status === "in_progress" ? `<div class="row-actions team-pairing-undo"><button class="ghost-button" data-team-match-undo="${match.id}" data-revision="${match.pairingRevision}" data-resets-results="${Boolean(match.undoResetsResults)}">${t("teams.pairing.undo")}</button></div>` : ""}
     </div>
-    ${canOpenPairing || canReset ? `<div class="row-actions team-match-admin-actions">${canOpenPairing ? `<a href="/#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</a>` : ""}${canReset ? `<label>${t("teams.pairing.resetTo")}<select data-team-match-reset-phase="${match.id}">${resetOptions}</select></label><button class="danger-button" data-team-match-reset="${match.id}">${t("teams.pairing.reset")}</button>` : ""}</div>` : ""}
+    ${canOpenPairing || canReset ? `<div class="row-actions team-match-admin-actions">${canOpenPairing ? `<a href="/tournament#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</a>` : ""}${canReset ? `<label>${t("teams.pairing.resetTo")}<select data-team-match-reset-phase="${match.id}">${resetOptions}</select></label><button class="danger-button" data-team-match-reset="${match.id}">${t("teams.pairing.reset")}</button>` : ""}</div>` : ""}
   </article>`;
 }
 
@@ -8392,7 +8392,7 @@ function renderTeamPairing(live = false) {
     <div class="message" data-message></div>
   </div>`, live);
   onLive(document.querySelector("[data-team-pairing-back]"), "click", () => {
-    navigateBack(tournament.slug ? tournamentPublicPath(tournament.slug) : "/#/mygames", { tournamentTab: "matches" });
+    navigateBack(tournament.slug ? tournamentPublicPath(tournament.slug) : "/tournament#/mygames", { tournamentTab: "matches" });
   });
   onLive(document.querySelector("[data-team-pairing-tournament]"), "click", (event) => {
     navigateToPublicTournament(event.currentTarget.dataset.teamPairingTournament, { tab: "matches" });
@@ -8415,7 +8415,7 @@ function teamTournamentMatchPreviewMarkup(match, tournament) {
         ${teamMatchProgressMarkup(match)}
         ${meta ? `<div class="row-meta">${escapeHtml(meta)}</div>` : ""}
       </div>
-      ${match.resolution === "bye" ? "" : `<a href="/#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</a>`}
+      ${match.resolution === "bye" ? "" : `<a href="/tournament#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</a>`}
     </div>
     ${teamMatchGamesMarkup(match, { showProgress: false, readOnly: true, preview: true })}
   </article>`;
@@ -9653,7 +9653,7 @@ function renderPlayerTeamProfile(data) {
 function teamMemberCards(members, team, canManage) {
   if (!members.length) return `<div class="empty">${t("teams.members.empty")}</div>`;
   return members.map((membership) => `
-    <div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</div><div class="row-meta">${membership.role === "leader" ? t("teams.role.leader") : t("teams.role.member")} / ${fmtDate(membership.joinedAt)}${membership.endedAt ? ` - ${fmtDate(membership.endedAt)}` : ""}</div></div><div class="row-actions">${state.me && membership.userId ? `<a href="/#/players/${membership.userId}" data-app-link class="small-button" data-team-player="${membership.userId}">${t("common.open")}</a>` : ""}${canManage && (membership.role !== "leader" || team.viewer?.canAdmin) && !membership.endedAt ? `<button class="danger-button" data-team-member-remove="${membership.id}">${t("teams.action.remove")}</button>` : ""}</div></div>`).join("");
+    <div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</div><div class="row-meta">${membership.role === "leader" ? t("teams.role.leader") : t("teams.role.member")} / ${fmtDate(membership.joinedAt)}${membership.endedAt ? ` - ${fmtDate(membership.endedAt)}` : ""}</div></div><div class="row-actions">${state.me && membership.userId ? `<a href="/tournament#/players/${membership.userId}" data-app-link class="small-button" data-team-player="${membership.userId}">${t("common.open")}</a>` : ""}${canManage && (membership.role !== "leader" || team.viewer?.canAdmin) && !membership.endedAt ? `<button class="danger-button" data-team-member-remove="${membership.id}">${t("teams.action.remove")}</button>` : ""}</div></div>`).join("");
 }
 
 function teamRosterHistory(rosters) {
@@ -9662,7 +9662,7 @@ function teamRosterHistory(rosters) {
     <div class="row-title">${teamRosterLabel(roster)}</div>
     <div class="row-meta">${escapeHtml(roster.tournament?.name || "")} / ${t("teams.roster.seed", { seed: roster.seed || "-" })} / ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
     ${activeRosterMembersForUi(roster).map((member) => `${escapeHtml(member.displayNameSnapshot)} (${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)})${member.userId === roster.captainUserId ? ` — ${t("teams.role.captain")}` : ""}`).join("<br>")}
-  </div><a href="/#/rosters/${roster.id}" data-app-link class="small-button" data-roster-profile-link="${roster.id}">${t("common.open")}</a></div>`).join("");
+  </div><a href="/tournament#/rosters/${roster.id}" data-app-link class="small-button" data-roster-profile-link="${roster.id}">${t("common.open")}</a></div>`).join("");
 }
 
 function activeRosterMembersForUi(roster) {
@@ -9671,7 +9671,7 @@ function activeRosterMembersForUi(roster) {
 
 function teamGameHistory(games) {
   if (!games.length) return `<div class="empty">${t("teams.history.empty")}</div>`;
-  return games.map((game) => `<div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(game.tournament?.name || "")}</div><div class="row-meta">${t("tournaments.round.title", { number: game.roundNumber })} / ${escapeHtml(game.rosterA?.name || "")} vs ${escapeHtml(game.rosterB?.name || "")}</div></div>${state.me ? `<a href="/#/games/game/${game.id}" data-app-link class="small-button" data-team-game="${game.id}">${t("common.open")}</a>` : ""}</div>`).join("");
+  return games.map((game) => `<div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(game.tournament?.name || "")}</div><div class="row-meta">${t("tournaments.round.title", { number: game.roundNumber })} / ${escapeHtml(game.rosterA?.name || "")} vs ${escapeHtml(game.rosterB?.name || "")}</div></div>${state.me ? `<a href="/tournament#/games/game/${game.id}" data-app-link class="small-button" data-team-game="${game.id}">${t("common.open")}</a>` : ""}</div>`).join("");
 }
 
 function teamManagementPanel(data) {
@@ -9733,7 +9733,7 @@ function wirePlayerTeamProfile(data) {
   wireTeamProfileTabs();
   wireComboFields();
   document.querySelector("[data-team-delete]")?.addEventListener("click", (event) => deletePlayerTeam(team, event.currentTarget));
-  document.querySelector("[data-team-back]")?.addEventListener("click", () => navigateBack("/#/teams"));
+  document.querySelector("[data-team-back]")?.addEventListener("click", () => navigateBack("/tournament#/teams"));
   document.querySelector("[data-team-login]")?.addEventListener("click", () => { state.authMode = "login"; clearPlayerTeamRoute(); render(); });
   document.querySelectorAll("[data-team-player]").forEach((button) => button.addEventListener("click", () => openPlayerProfile(Number(button.dataset.teamPlayer))));
   document.querySelectorAll("[data-team-tournament]").forEach((button) => button.addEventListener("click", () => navigateToPublicTournament(button.dataset.teamTournament)));

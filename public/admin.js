@@ -116,7 +116,7 @@ function adminPendingGamesCard(profile) {
               <div class="row-meta">${escapeHtml(pendingResultSummary(game))}</div>
             </div>
             <div class="row-actions">
-              <a href="/#/games/game/${game.id}" data-app-link class="small-button" data-admin-pending-open="${game.id}">${t("tournaments.card.open")}</a>
+              <a href="/tournament#/games/game/${game.id}" data-app-link class="small-button" data-admin-pending-open="${game.id}">${t("tournaments.card.open")}</a>
               <button class="small-button" data-admin-pending-confirm="${game.id}">${t("games.detail.forceConfirm")}</button>
               <button class="danger-button" data-admin-pending-delete="${game.id}">${t("common.delete")}</button>
             </div>
@@ -509,14 +509,14 @@ function adminTournamentRow(tournament) {
       <div class="row-main tournament-card-heading">
         ${tournament.logoData ? tournamentLogoMarkup(tournament) : ""}
         <div>
-        <a href="/#/tournaments/admin/${tournament.id}" data-app-link class="text-button row-title" data-admin-tournament-open="${tournament.id}">${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</a>
+        <a href="/tournament#/tournaments/admin/${tournament.id}" data-app-link class="text-button row-title" data-admin-tournament-open="${tournament.id}">${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</a>
         <div class="row-meta">${escapeHtml(tournamentFormatLabel(tournament))} / ${escapeHtml(tournament.slug)} / ${tournament.startsAt ? fmtDate(tournament.startsAt) : t("tournaments.date.none")}</div>
         </div>
       </div>
       <div class="tournament-card-actions">
         <span class="status ${tournamentStatusClass(tournament.status)}">${escapeHtml(tournamentStatusLabel(tournament.status))}</span>
         <div class="tournament-card-buttons">
-          <a href="/#/tournaments/admin/${tournament.id}" data-app-link class="small-button" data-admin-tournament-open="${tournament.id}">${t("admin.action.open")}</a>
+          <a href="/tournament#/tournaments/admin/${tournament.id}" data-app-link class="small-button" data-admin-tournament-open="${tournament.id}">${t("admin.action.open")}</a>
         </div>
       </div>
     </div>
@@ -965,7 +965,7 @@ function adminActiveGamesPanel() {
               </div>
               <div class="row-actions">
                 <span class="status ${pending ? "pending" : "open"}">${pending ? t("play.game.status.pending") : t("admin.games.status.open")}</span>
-                <a href="/#/games/game/${game.id}" data-app-link class="small-button" data-admin-game-open="${game.id}">${t("admin.action.open")}</a>
+                <a href="/tournament#/games/game/${game.id}" data-app-link class="small-button" data-admin-game-open="${game.id}">${t("admin.action.open")}</a>
                 ${pending && game.pendingResult?.result ? `<button class="small-button" data-admin-game-confirm="${game.id}">${t("games.detail.forceConfirm")}</button>` : ""}
                 <button class="danger-button" data-admin-game-delete="${game.id}">${t("common.delete")}</button>
               </div>
@@ -1227,7 +1227,7 @@ function adminUsersResultsMarkup(users) {
           <tbody>
             ${pageData.items.map((user) => `
               <tr>
-                <td><a href="/#/players/${user.id}" data-app-link class="text-link-button inline-profile-link" data-profile-user="${user.id}">${escapeHtml(user.name)}</a></td>
+                <td><a href="/tournament#/players/${user.id}" data-app-link class="text-link-button inline-profile-link" data-profile-user="${user.id}">${escapeHtml(user.name)}</a></td>
                 <td>
                   <div class="admin-contact-cell">
                     <span>${t("leaderboard.users.contact.register", { value: escapeHtml(user.registerNickname || "-") })}</span>
@@ -1550,7 +1550,7 @@ function wireAdminTournamentControls() {
 
   onLive(document.querySelector("[data-admin-tournament-create-cancel]"), "click", async () => {
     try {
-      await navigateBack("/#/tournaments/admin");
+      await navigateBack("/tournament#/tournaments/admin");
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -1588,7 +1588,7 @@ function wireAdminTournamentControls() {
 
   onLive(document.querySelector("[data-admin-tournament-close]"), "click", async () => {
     try {
-      await navigateBack("/#/tournaments/admin");
+      await navigateBack("/tournament#/tournaments/admin");
     } catch (err) {
       setMessage(err.message, true);
     }

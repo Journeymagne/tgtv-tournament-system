@@ -1,20 +1,20 @@
 # KT Companion
 
-One tournament server serves five hostnames. The home page selects a service;
+One tournament server serves one hostname. The home page selects a service;
 each service has its own page, internal navigation and a top-right home link.
 There is no cross-service tab bar or sidebar.
 
 | URL | Section | Access |
 | --- | --- | --- |
 | `ktcompanion.ru` | Companion home | Public |
-| `initiative.ktcompanion.ru` | Initiative calculator | Public |
-| `tracker.ktcompanion.ru` | Activation tracker | Public |
-| `rating.ktcompanion.ru` | Tournament system | Existing tournament account |
-| `studio.ktcompanion.ru` | KT Studio editor and published library | Public; saving and publishing require the tournament account |
+| `ktcompanion.ru/tournament` | Tournament system | Existing tournament account |
+| `ktcompanion.ru/initiative` | Initiative calculator | Public |
+| `ktcompanion.ru/tracker` | Activation tracker | Public |
+| `ktcompanion.ru/studio` | KT Studio editor and published library | Public; saving and publishing require the tournament account |
 
 Existing `/tournaments/:slug` and `/teams/:slug` pages keep their public access
-on the rating hostname. Legacy calculator HTML URLs, `/tournament/`, `/studio/`
-and `/index.html` redirect to the corresponding service root.
+on the same hostname. Legacy calculator HTML URLs, `/tournament/`, `/studio/`
+and `/index.html` redirect to the corresponding service path without a trailing slash.
 Old root hash links (`/#/mygames`, `/#team-match/...`, etc.) forward to the
 tournament section without losing their query or hash. `/index.html` also remains
 an alias for the tournament application.
@@ -28,28 +28,35 @@ published snapshots in the existing database on startup. It does not alter
 tournament data or copy drafts from a standalone Studio installation.
 
 Set `COMPANION_ORIGIN=https://ktcompanion.ru` and
-`SITE_URL=https://rating.ktcompanion.ru`. Point all five DNS names to the same
-server and provide HTTPS certificates covering all five. The reverse proxy must
-preserve `Host` and send every path to Node, including `/` and static assets:
-Node chooses the service entry page from the hostname. See
+`SITE_URL=https://ktcompanion.ru`. Keep the existing DNS record and HTTPS
+certificate for `ktcompanion.ru`. Replace its old static-site Nginx configuration
+with a reverse proxy to the existing tournament Node process. The proxy must
+preserve `Host` and send every path to Node, including `/`, `/api/` and assets:
+Node chooses the service entry page from the URL path. A single `location /`
+is sufficient because all sections run in the same application. See
 [`deploy/nginx-companion.conf.example`](../deploy/nginx-companion.conf.example).
-The deployment script does not provision DNS, certificates or proxy rules.
+The deployment script does not change proxy rules. Update the external environment
+file used by that script (normally `/app/tgtv-ts.env`), deploy the new code and
+restart the app with those settings. Check `nginx -t` before reloading Nginx.
+Verify `/`, all four service URLs and `/api/session` over public HTTPS. Updating
+Git alone leaves the old root website in place until its proxy is switched.
 
-The `kt_sid` session cookie uses `Domain=ktcompanion.ru`, HttpOnly, SameSite=Lax
-and Secure in production. Login, renewal and logout use the same cookie on all
-services. Existing accounts remain unchanged; users sign in once again when
-switching from old host-only `sid` cookies, which are ignored in subdomain mode.
-Only trusted services should use this parent domain. API calls remain on each
-service's own origin; no CORS or authentication tokens in URLs are needed.
-Return-after-login URLs accept only the five exact configured origins.
+Keep `rating.ktcompanion.ru` as a redirect for existing links, using its existing
+certificate: `/` redirects to `https://ktcompanion.ru/tournament`, and other paths
+redirect to the same path on `https://ktcompanion.ru`. The example includes an
+optional redirect block. No new service subdomains are needed.
 
-Locally, use `COMPANION_ORIGIN=http://ktcompanion.localhost:3000`,
-`SITE_URL=http://rating.ktcompanion.localhost:3000` and `COOKIE_SECURE=false`.
-Chrome resolves the parent and subdomains to loopback without hosts-file edits.
-Use the actual `PORT` in both URLs. If `COMPANION_ORIGIN` is unset, the server
-keeps legacy paths under one hostname and host-only `sid` cookies for existing
-development and integration tests. `/companion-sites.js` supplies the URLs to
-all pages and is not cached.
+The `sid` session cookie is host-only, with `Path=/`, HttpOnly, SameSite=Lax and
+Secure in production. Login, renewal and logout use the same cookie across all
+service paths. Existing accounts remain unchanged; moving from the rating
+hostname or the old shared `kt_sid` cookie requires one new login. Existing `sid`
+sessions on the canonical hostname remain valid. All API calls and login return
+URLs use the same origin; no CORS or authentication tokens in URLs are needed.
+
+Locally, open `http://127.0.0.1:3000` and use `COOKIE_SECURE=false`. Leave
+`COMPANION_ORIGIN` and `SITE_URL` empty or set both to that origin, with the actual
+`PORT`. Service paths work with either configuration. `/companion-sites.js`
+supplies the URLs to all pages and is not cached.
 
 Studio projects may include image albums, so `/api/studio/drafts/` accepts up to
 100 MiB of JSON. Raise the reverse proxy body allowance to `100m` for that path,
@@ -64,7 +71,7 @@ the account controls. Studio session, private draft and write routes use the
 existing tournament authentication middleware. Library listing and published
 team viewing are public. Private drafts use `users.id` as their owner, never an
 owner supplied in the project. Writes require a session-bound CSRF token and a
-matching service Origin when present. The fixed `X-Studio-Account` header rejects requests
+matching site Origin when present. The fixed `X-Studio-Account` header rejects requests
 from an editor whose account changed in another tab, even during reconnect.
 
 The editor retains local saves after every edit and uploads edits every minute.
@@ -77,8 +84,8 @@ Guests can create, import and edit teams without logging in. Guest recovery
 copies are isolated by browser tab; no anonymous draft is uploaded. The
 Save team / Publish buttons and project JSON download request login. The selected
 action resumes after login or registration. A single-use token in the return URL
-matches a tab-local transfer record on the Studio origin after the round trip
-through the rating login page, and large projects are restored from the
+matches a tab-local transfer record after the round trip through the tournament
+login page on the same origin, and large projects are restored from the
 guest IndexedDB store. The transferred project gets a new id to avoid overwriting
 an existing account draft with the same id. Signing in from another tab alone
 does not adopt guest projects. PDF, TTS and roster exports remain available to
@@ -109,7 +116,7 @@ Run the existing `npm test` against an explicitly isolated `TEST_DATABASE_URL`.
 `test/integration/api-studio.test.js` exercises public pages/library, common sessions,
 account isolation, stale editors, CSRF, logout, concurrent draft revisions and
 published snapshots over HTTP with PostgreSQL.
-`test/unit/companion-sites.test.js` checks host routing, legacy redirects,
-domain-cookie creation/clearing and the login-return allowlist. Browser checks
+`test/unit/companion-sites.test.js` checks path routing, legacy redirects,
+host-only cookie creation/clearing and the login-return allowlist. Browser checks
 cover all service roots, mobile calculator results, shared login/logout and
-guest draft recovery after cross-subdomain registration.
+guest draft recovery after registration.

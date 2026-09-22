@@ -18,7 +18,7 @@ test("documentation has the same five complete, independently linkable pages in 
     assert.equal((index.match(/class="card panel documentation-card"/g) || []).length, 5);
     for (const page of data.pages) {
       assert.ok(page.title && page.summary && page.markdown && page.headings.length > 0);
-      assert.match(index, new RegExp(`href="/#/documentation/${page.id}"`));
+      assert.match(index, new RegExp(`href="/tournament#/documentation/${page.id}"`));
       const html = docs.render(locale, page.id, false, book(locale, page.id));
       assert.ok(html.includes(page.title));
       assert.ok(html.includes(`data-documentation-page="${page.id}"`));

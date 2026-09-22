@@ -44,6 +44,8 @@ function resolveStaticPath(pathname) {
     return null;
   }
   if (requested.includes("\0")) return null;
+  if (requested === "/initiative" || requested === "/initiative/") requested = "/killteam-initiative-calculator.html";
+  if (requested === "/tracker" || requested === "/tracker/") requested = "/killteam-activation-tracker.html";
   if (requested === "/tournament" || requested === "/tournament/") requested = "/index.html";
   if (requested === "/studio" || requested === "/studio/") requested = "/studio/index.html";
   // Team profiles use client-side rendering, including on direct visits/reloads.
@@ -96,11 +98,6 @@ function loadFile(filePath, done) {
 
 function sendStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-  if (url.pathname === "/studio" || url.pathname === "/tournament") {
-    res.writeHead(308, { ...SECURITY_HEADERS, Location: url.pathname + "/" + url.search, "Cache-Control": "no-store" });
-    res.end();
-    return;
-  }
   const filePath = url.pathname === "/" ? path.join(PUBLIC_DIR, rootDocument(req)) : resolveStaticPath(url.pathname);
   if (!filePath) {
     sendText(res, 403, "Forbidden");

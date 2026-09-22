@@ -6,13 +6,20 @@ Studio editor and published team library are public. Saving or publishing a team
 requires the same account and session as the tournament system. Existing
 public tournament pages remain available. See [Companion integration](docs/companion-integration.md)
 for routes, imported sources, account-owned drafts and deployment settings.
-The home page is a service selector. With `COMPANION_ORIGIN` configured, each
-service opens on its own subdomain (`initiative`, `tracker`, `rating`, `studio`),
+The home page is a service selector. Each service opens on its own page under
+the same hostname: `/tournament`, `/initiative`, `/tracker` and `/studio`,
 with a shared account and a home link in the top right.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 4.0.1
+## Release 4.0.2
+
+All services now use paths on `ktcompanion.ru`. One host-only session cookie
+works across all sections; new DNS records and subdomain certificates are not
+needed. Existing calculator HTML links and tournament hash links redirect to the
+new addresses. This patch adds no database migrations.
+
+The result-confirmation rules from 4.0.1 are retained:
 
 In team TTS games, results reported by a player can only be confirmed or rejected
 by their actual opponent. An opposing captain can review that result only when
@@ -20,10 +27,10 @@ playing as the opponent. Captain-reported results still require the opposing
 captain; player-reported IRL results are saved immediately. Administrative result
 controls remain available. This patch adds no database migrations.
 
-Companion services open on separate subdomains with a shared tournament account.
+Companion services use a shared tournament account.
 Studio supports guest editing and account-owned drafts/publications. Migration
 032 adds only Studio storage; all tournament features from 3.1.4 are retained.
-Configure `COMPANION_ORIGIN`, DNS and HTTPS as described below.
+Configure `COMPANION_ORIGIN` and the root hostname's proxy as described below.
 
 ### Previous tournament releases
 
@@ -67,10 +74,8 @@ npm install
 npm start
 ```
 
-For local subdomains, set `COMPANION_ORIGIN=http://ktcompanion.localhost:3000`
-and open `http://ktcompanion.localhost:3000`. Chrome resolves this hostname and
-its service subdomains to the local machine. Keep its port in sync with `PORT`.
-Without this setting, `http://127.0.0.1:3000` uses legacy paths on one hostname.
+Open `http://127.0.0.1:3000`. All services use paths under this address.
+Leave `COMPANION_ORIGIN` empty locally, or set it to the same origin and port.
 
 ## Configuration
 
@@ -82,7 +87,7 @@ DB_PORT=5432
 DATABASE_URL=postgres://tgtv:your_password@localhost:5432/tgtv_tournament
 PORT=3000
 COMPANION_ORIGIN=https://ktcompanion.ru
-SITE_URL=https://rating.ktcompanion.ru
+SITE_URL=https://ktcompanion.ru
 ```
 
 Set `DB_PORT` to something else if port 5432 is already taken on your machine,
@@ -92,8 +97,9 @@ For managed PostgreSQL services that require SSL, set `PGSSL=true`.
 
 `SITE_URL` is optional locally, but production should set it to the public
 HTTPS origin so canonical URLs, `robots.txt`, and `sitemap.xml` are stable.
-Production subdomains also need DNS and HTTPS for all five hostnames; see
-[the Nginx example](deploy/nginx-companion.conf.example).
+Point the existing root hostname's Nginx proxy at the Node application; see
+[the Nginx example](deploy/nginx-companion.conf.example). A Git update alone
+does not replace an old static site served by that hostname.
 
 The schema is created and upgraded automatically by versioned migrations on
 startup. Applied versions are recorded in the `schema_migrations` table.
@@ -221,12 +227,12 @@ encodes attachments as Base64 inside JSON, so a combined upload can exceed
 accept 100 MiB for image albums. Other application routes retain a 2 MiB limit.
 See [Companion integration](docs/companion-integration.md) for the Studio proxy allowance.
 
-In the existing Nginx `server` block serving `rating.ktcompanion.ru` over
+In the Nginx `server` block serving `ktcompanion.ru` over
 HTTPS, set the following (remove or update any smaller override in its
 API `location` block):
 
 ```nginx
-client_max_body_size 5m;
+client_max_body_size 100m;
 ```
 
 Validate the configuration and reload Nginx:

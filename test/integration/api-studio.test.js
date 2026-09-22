@@ -50,7 +50,7 @@ const save = (user, project, revision = 0, publish = false, headers = {}) => req
 );
 
 test("Studio and the library are public; personal drafts and mutations require a session", async () => {
-  for (const path of ["/", "/killteam-initiative-calculator.html", "/killteam-activation-tracker.html", "/tournament/", "/studio/"]) {
+  for (const path of ["/", "/initiative", "/tracker", "/tournament", "/studio"]) {
     const response = await fetch(origin + path);
     assert.equal(response.status, 200);
     assert.match(await response.text(), /data-companion-nav/);

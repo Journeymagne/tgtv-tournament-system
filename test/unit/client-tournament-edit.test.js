@@ -59,7 +59,7 @@ test("admin tournament rows share the same card button layout for every status",
   for (const status of ["draft", "registration_open", "registration_closed", "in_progress", "completed", "cancelled"]) {
     const html = render({ id: 6, name: "Test", slug: "test-cup", status });
     assert.match(html, /class="row-card tournament-card"/);
-    assert.match(html, /class="tournament-card-actions">\s*<span class="status [^"]+">[^<]+<\/span>\s*<div class="tournament-card-buttons">\s*<a href="\/#\/tournaments\/admin\/6" data-app-link class="small-button" data-admin-tournament-open="6"/);
+    assert.match(html, /class="tournament-card-actions">\s*<span class="status [^"]+">[^<]+<\/span>\s*<div class="tournament-card-buttons">\s*<a href="\/tournament#\/tournaments\/admin\/6" data-app-link class="small-button" data-admin-tournament-open="6"/);
   }
 });
 
@@ -123,7 +123,7 @@ test("Edit converts the canonical public URL into the exact admin detail URL", (
     history: { pushState: (_state, _title, url) => urls.push(url) }
   }, () => "test-cup", () => "", (url) => urls.push(url));
   sync();
-  assert.deepEqual(urls, ["/tournament/#/tournaments/admin/6"]);
+  assert.deepEqual(urls, ["/tournament#/tournaments/admin/6"]);
 });
 
 test("Edit click gives error feedback and re-enables the button after a failed request", async () => {

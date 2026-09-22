@@ -7,7 +7,7 @@ const { siteOrigin } = require("./sites");
 const SITE_NAME = "TGTV Ranking Tournament System";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "4.0.1";
+const ASSET_VERSION = "4.0.2";
 
 function requestOrigin(req) {
   const serviceOrigin = siteOrigin(req);
@@ -186,9 +186,9 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <meta name="twitter:description" content="${escapeHtml(description)}">
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
     <link rel="stylesheet" href="/styles.css?v=${ASSET_VERSION}">
-    <link rel="stylesheet" href="/companion-shell.css?v=4.0">
-    <script src="/companion-sites.js?v=4.0" defer></script>
-    <script src="/companion-shell.js?v=4.0" defer></script>`;
+    <link rel="stylesheet" href="/companion-shell.css?v=4.0.2">
+    <script src="/companion-sites.js?v=4.0.2" defer></script>
+    <script src="/companion-shell.js?v=4.0.2" defer></script>`;
 }
 
 // No locale dictionaries here: theme-boot.js in baseHead() writes a tag for the

@@ -40,7 +40,7 @@
     }
   };
   const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
-  const href = (id = "") => `/#/documentation${id ? `/${encodeURIComponent(id)}` : ""}`;
+  const href = (id = "") => `/tournament#/documentation${id ? `/${encodeURIComponent(id)}` : ""}`;
   const copy = (page) => ({ title: page.title, summary: page.summary, markdown: page.markdown, version: page.version });
   const same = (a, b) => ["title", "summary", "markdown"].every((key) => a[key] === b[key]);
   const drafts = new Map();

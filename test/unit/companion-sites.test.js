@@ -9,64 +9,71 @@ const { sessionCookie, clearedSessionCookie, sessionToken } = require("../../src
 const sites = buildSites("https://ktcompanion.ru");
 const request = (host, url = "/", method = "GET") => ({ headers: { host }, url, method });
 
-test("configured services use separate subdomains with the same parent and local port", () => {
-  assert.equal(sites.urls.tournament, "https://rating.ktcompanion.ru/");
-  assert.equal(sites.urls.studio, "https://studio.ktcompanion.ru/");
-  const local = buildSites("http://ktcompanion.localhost:3002");
-  assert.equal(local.urls.initiative, "http://initiative.ktcompanion.localhost:3002/");
-  assert.equal(local.urls.tracker, "http://tracker.ktcompanion.localhost:3002/");
-  assert.equal(local.domain, "ktcompanion.localhost");
-  for (const invalid of ["https://ktcompanion.ru/path", "https://user:pass@ktcompanion.ru", "http://127.0.0.1:3002", "javascript:alert(1)"]) assert.throws(() => buildSites(invalid));
+test("service paths share a single origin and support ordinary localhost or IP previews", () => {
+  assert.equal(sites.urls.tournament, "https://ktcompanion.ru/tournament");
+  assert.equal(sites.urls.studio, "https://ktcompanion.ru/studio");
+  for (const origin of ["http://localhost:3002", "http://127.0.0.1:3002"]) {
+    const local = buildSites(origin);
+    assert.equal(local.urls.initiative, origin + "/initiative");
+    assert.equal(local.urls.tracker, origin + "/tracker");
+  }
+  for (const invalid of ["https://ktcompanion.ru/path", "https://user:pass@ktcompanion.ru", "javascript:alert(1)"]) assert.throws(() => buildSites(invalid));
 });
 
-test("each hostname serves only its own root page and known hosts are matched exactly", () => {
-  assert.equal(rootDocument(request("ktcompanion.ru"), sites), "home.html");
-  assert.equal(rootDocument(request("initiative.ktcompanion.ru"), sites), "killteam-initiative-calculator.html");
-  assert.equal(rootDocument(request("tracker.ktcompanion.ru"), sites), "killteam-activation-tracker.html");
-  assert.equal(rootDocument(request("rating.ktcompanion.ru"), sites), "index.html");
-  assert.equal(rootDocument(request("studio.ktcompanion.ru"), sites), "studio/index.html");
-  assert.equal(siteName(request("studio.ktcompanion.ru.evil.test"), sites), null);
-  assert.equal(pageDestination(request("studio.ktcompanion.ru"), sites), null);
+test("each service path serves its own entry page without depending on a subdomain", () => {
+  for (const host of ["ktcompanion.ru", "127.0.0.1:3002"]) {
+    for (const [pathname, document] of [["/", "home.html"], ["/initiative", "killteam-initiative-calculator.html"], ["/tracker", "killteam-activation-tracker.html"], ["/tournament", "index.html"], ["/studio", "studio/index.html"]]) {
+      assert.equal(rootDocument(request(host, pathname)), document);
+      assert.equal(pageDestination(request(host, pathname), null), null);
+    }
+  }
+  assert.equal(siteName(request("ktcompanion.ru", "/tournaments/cup")), "tournament");
 });
 
-test("legacy pages move to the right service without redirecting assets or API writes", () => {
-  assert.equal(pageDestination(request("ktcompanion.ru", "/studio/?resume=abc"), sites), "https://studio.ktcompanion.ru/?resume=abc");
-  assert.equal(pageDestination(request("ktcompanion.ru", "/tournaments/team-cup?round=2"), sites), "https://rating.ktcompanion.ru/tournaments/team-cup?round=2");
-  assert.equal(pageDestination(request("127.0.0.1:3002", "/tournament/"), sites), "https://rating.ktcompanion.ru/");
-  assert.equal(pageDestination(request("rating.ktcompanion.ru", "/tournaments/team-cup"), sites), null);
-  assert.equal(pageDestination(request("studio.ktcompanion.ru", "/studio/model.js"), sites), null);
-  assert.equal(pageDestination(request("studio.ktcompanion.ru", "/api/login", "POST"), sites), null);
+test("old paths and service hosts redirect without losing queries or redirecting API writes", () => {
+  assert.equal(pageDestination(request("ktcompanion.ru", "/studio/?resume=abc"), sites), "/studio?resume=abc");
+  assert.equal(pageDestination(request("ktcompanion.ru", "/killteam-activation-tracker.html?q=1"), null), "/tracker?q=1");
+  assert.equal(pageDestination(request("rating.ktcompanion.ru"), sites), "https://ktcompanion.ru/tournament");
+  assert.equal(pageDestination(request("studio.ktcompanion.ru", "/?resume=abc"), sites), "https://ktcompanion.ru/studio?resume=abc");
+  assert.equal(pageDestination(request("rating.ktcompanion.ru", "/tournaments/team-cup?round=2"), sites), "https://ktcompanion.ru/tournaments/team-cup?round=2");
+  assert.equal(pageDestination(request("ktcompanion.ru", "/tournaments/team-cup"), sites), null);
+  assert.equal(pageDestination(request("ktcompanion.ru", "/studio/model.js"), sites), null);
+  assert.equal(pageDestination(request("ktcompanion.ru", "/api/login", "POST"), sites), null);
 });
 
-test("the page configuration is uncached and contains only the configured public origins", () => {
-  let status, headers, body;
-  const handled = handleSiteRequest(request("studio.ktcompanion.ru", "/companion-sites.js?v=test"), {
-    writeHead(code, value) { status = code; headers = value; }, end(value) { body = value; }
-  }, sites);
-  assert.equal(handled, true);
-  assert.equal(status, 200);
-  assert.equal(headers["Cache-Control"], "no-store");
-  const root = { window: {} }; vm.runInNewContext(body, root);
-  assert.equal(root.window.KT_SITES.current, "studio");
-  assert.equal(root.window.KT_SITES.urls.home, "https://ktcompanion.ru/");
+test("uncached page configuration uses clean paths even without environment settings", () => {
+  for (const configured of [sites, null]) {
+    let status, headers, body;
+    assert(handleSiteRequest(request("ktcompanion.ru", "/companion-sites.js?v=test"), {
+      writeHead(code, value) { status = code; headers = value; }, end(value) { body = value; }
+    }, configured));
+    assert.equal(status, 200);
+    assert.equal(headers["Cache-Control"], "no-store");
+    const root = { window: {} }; vm.runInNewContext(body, root);
+    assert.equal(root.window.KT_SITES.subdomains, false);
+    assert.equal(root.window.KT_SITES.urls.studio, configured ? "https://ktcompanion.ru/studio" : "/studio");
+  }
 });
 
-test("shared login, renewal and logout cookies retain the parent domain and ignore legacy host cookies", () => {
-  const cookie = sessionCookie("secret-token", 10000, true, sites.domain);
-  assert.match(cookie, /^kt_sid=secret-token;/);
-  for (const attribute of ["HttpOnly", "Secure", "SameSite=Lax", "Path=/", "Domain=ktcompanion.ru"]) assert(cookie.includes(attribute));
-  const cleared = clearedSessionCookie(true, sites.domain);
-  assert.match(cleared, /^kt_sid=;/);
+test("login and logout use one host-only cookie across all service paths", () => {
+  const cookie = sessionCookie("secret-token", 10000, true);
+  assert.match(cookie, /^sid=secret-token;/);
+  for (const attribute of ["HttpOnly", "Secure", "SameSite=Lax", "Path=/"]) assert(cookie.includes(attribute));
+  assert(!cookie.includes("Domain="));
+  const cleared = clearedSessionCookie(true);
+  assert.match(cleared, /^sid=;/);
   assert(cleared.includes("Max-Age=0"));
-  assert(cleared.includes("Domain=ktcompanion.ru"));
-  assert.equal(sessionToken({ headers: { cookie: "sid=old; kt_sid=shared" } }, sites.domain), "shared");
-  assert.equal(sessionToken({ headers: { cookie: "sid=old" } }, sites.domain), undefined);
+  assert(cleared.includes("Path=/"));
+  assert(!cleared.includes("Domain="));
+  assert.equal(sessionToken({ headers: { cookie: "sid=local; kt_sid=old-shared" } }), "local");
+  assert.equal(sessionToken({ headers: { cookie: "kt_sid=old-shared" } }), undefined);
 });
 
 test("login returns to an exact service origin and rejects external or deceptive destinations", async () => {
   const source = fs.readFileSync(path.join(__dirname, "../../public/companion-shell.js"), "utf8");
   for (const [next, allowed] of [
-    ["https://studio.ktcompanion.ru/?resume=guest#editor", true],
+    ["https://ktcompanion.ru/studio?resume=guest#editor", true],
+    ["https://studio.ktcompanion.ru/", false],
     ["https://ktcompanion.ru/", true],
     ["https://evil.test/", false],
     ["https://studio.ktcompanion.ru.evil.test/", false],
@@ -74,9 +81,9 @@ test("login returns to an exact service origin and rejects external or deceptive
     ["https://user@studio.ktcompanion.ru/", false],
     ["javascript:alert(1)", false]
   ]) {
-    const redirects = [], location = new URL("https://rating.ktcompanion.ru/?next=" + encodeURIComponent(next));
+    const redirects = [], location = new URL("https://ktcompanion.ru/tournament?next=" + encodeURIComponent(next));
     location.replace = value => redirects.push(value);
-    const root = { URL, URLSearchParams, location, KT_SITES: { subdomains: true, urls: sites.urls, current: "tournament" },
+    const root = { URL, URLSearchParams, location, KT_SITES: { subdomains: false, urls: sites.urls, current: "tournament" },
       document: { body: { dataset: { companionSection: "tournament" } }, querySelectorAll: () => [], addEventListener() {} },
       fetch: async () => ({ ok: true, json: async () => ({ user: { id: 7, name: "User" } }) }), addEventListener() {} };
     root.window = root;
