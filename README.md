@@ -12,7 +12,13 @@ with a shared account and a home link in the top right.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 4.0
+## Release 4.0.1
+
+In team TTS games, results reported by a player can only be confirmed or rejected
+by their actual opponent. An opposing captain can review that result only when
+playing as the opponent. Captain-reported results still require the opposing
+captain; player-reported IRL results are saved immediately. Administrative result
+controls remain available. This patch adds no database migrations.
 
 Companion services open on separate subdomains with a shared tournament account.
 Studio supports guest editing and account-owned drafts/publications. Migration

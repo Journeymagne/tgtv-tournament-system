@@ -71,6 +71,33 @@ test("team captain can submit and review even when not playing this game", () =>
   }
 });
 
+test("player-reported team games offer review only to the actual opponent", () => {
+  for (const metadata of [{}, { submittedAs: "player", submittedRosterId: 10 }]) {
+    const game = gameFixture({ sourceType: "team_match_game", status: "pending_confirmation",
+      teamMatch: { rosterA: { id: 10, captainUserId: 33 }, rosterB: { id: 20, captainUserId: 44 } },
+      pendingResult: { submittedBy: 11, result: { scores: {} }, ...metadata }
+    });
+    for (const id of [11, 22, 33, 44, 55]) {
+      const view = renderDetail({ game, me: { id, isAdmin: false } });
+      assert.equal(view.html.includes("data-game-review="), id === 22);
+    }
+    game.teamMatch.rosterB.captainUserId = 22;
+    const opponentCaptain = renderDetail({ game, me: { id: 22, isAdmin: false } });
+    assert.match(opponentCaptain.html, /data-game-review=/);
+  }
+});
+
+test("captain-reported team games still offer review only to the opposing captain", () => {
+  const game = gameFixture({ sourceType: "team_match_game", status: "pending_confirmation",
+    teamMatch: { rosterA: { id: 10, captainUserId: 33 }, rosterB: { id: 20, captainUserId: 44 } },
+    pendingResult: { submittedBy: 33, submittedAs: "captain", submittedRosterId: 10, result: { scores: {} } }
+  });
+  for (const id of [11, 22, 33, 44, 55]) {
+    const view = renderDetail({ game, me: { id, isAdmin: false } });
+    assert.equal(view.html.includes("data-game-review="), id === 44);
+  }
+});
+
 test("long tournament name appears once as text and navigation still works", () => {
   const game = gameFixture();
   const view = renderDetail({ game });

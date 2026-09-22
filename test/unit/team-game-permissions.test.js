@@ -25,11 +25,19 @@ test("captain submissions require the opposing captain, never either ordinary pl
   }
 });
 
-test("player submissions can be reviewed by the opposing player or opposing captain", () => {
-  const pending = { status: "pending_confirmation", pendingResult: { submittedBy: 3 } };
-  assert.equal(access(1, pending).canReview, false);
-  assert.equal(access(2, pending).canReview, true);
-  assert.equal(access(4, pending).canReview, true);
-  assert.equal(access(3, pending).canReview, false);
+test("player submissions can only be reviewed by the opposing player, including legacy results", () => {
+  for (const [submitter, rosterId, opponent] of [[3, 10, 4], [4, 20, 3]]) {
+    for (const metadata of [{}, { submittedAs: "player", submittedRosterId: rosterId }]) {
+      const pending = { status: "pending_confirmation", pendingResult: { submittedBy: submitter, ...metadata } };
+      for (const id of [1, 2, 3, 4, 5, null]) assert.equal(access(id, pending).canReview, id === opponent);
+    }
+  }
   assert.equal(access(4, { status: "completed" }).canSubmit, false);
+});
+
+test("a captain playing as the opponent can review a player submission", () => {
+  assert.equal(access(2, {
+    playerIds: [3, 2], status: "pending_confirmation",
+    pendingResult: { submittedBy: 3, submittedAs: "player", submittedRosterId: 10 }
+  }).canReview, true);
 });

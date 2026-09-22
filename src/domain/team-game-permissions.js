@@ -15,7 +15,7 @@ function teamGamePermissions(game, rosterA, rosterB, user) {
     canView: Boolean(user?.isAdmin || participant || captainRoster || game.status === "completed"),
     canSubmit: canAct && (game.status === "open" || (game.status === "pending_confirmation" && ownSubmission)),
     canReview: game.status === "pending_confirmation" && Boolean(user?.isAdmin || (
-      !ownSubmission && !sameSide && (pendingCaptain ? captainRoster : participant || captainRoster)
+      !ownSubmission && !sameSide && (pendingCaptain ? captainRoster : participant)
     )),
     captainRosterId: captainRoster?.id || null,
     ownRosterId: ownRoster?.id || null

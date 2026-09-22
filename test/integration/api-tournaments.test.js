@@ -1982,6 +1982,7 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
     assert.equal(new Set(ready.teamMatch.games.map((link) => link.tableId)).size, 3);
     await assert.rejects(() => choose(defender, { step: 4, mission: CRIT_OPS[5] }), /phase/);
 
+    let playerReviewChecked = false;
     for (const link of ready.teamMatch.games) {
       const [playerAId, playerBId] = link.game.playerIds;
       const assignedTable = started.tables.find((table) => table.id === link.tableId);
@@ -2006,6 +2007,16 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
         assert.equal(pending.games[link.slot - 1].game.status, "pending_confirmation");
         assert.equal(pending.games[link.slot - 1].gamePointsA, null);
         assert.equal(pending.teamTournamentPointsA, null);
+        if (submitted.game.pendingResult.submittedAs === "player" && captainB.id !== playerBId) {
+          playerReviewChecked = true;
+          const captainView = await gamesApi.getOne({ client, user: captainB, params: gameParams });
+          assert.equal(captainView.game.resultPermissions.canReview, false);
+          for (const action of ["confirm-result", "reject-result"]) {
+            await assert.rejects(() => gamesApi.respondToResult({
+              client, user: captainB, params: { ...gameParams, action }
+            }), { status: 403 });
+          }
+        }
       }
       const confirmed = submitted.game.status === "completed" ? submitted : await gamesApi.respondToResult({
         client,
@@ -2043,6 +2054,7 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
         await teamTournamentsApi.handleGameRequest({ client, user: root, params: gameParams, body: { scores: scores(playerAId, playerBId) } }, "admin-save");
       }
     }
+    assert.equal(playerReviewChecked, venueMode === "tts");
   }
 
   view = await tournamentsApi.getAdmin({

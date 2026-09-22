@@ -3510,7 +3510,7 @@ function teamGameResultPermissions(game) {
   return {
     captainRosterId: captain?.id || null,
     canSubmit: Boolean(state.me?.isAdmin || captain || participant) && (game.status === "open" || (game.status === "pending_confirmation" && ownSubmission)),
-    canReview: game.status === "pending_confirmation" && Boolean(state.me?.isAdmin || (!ownSubmission && !sameSide && (pending?.submittedAs === "captain" ? captain : captain || participant)))
+    canReview: game.status === "pending_confirmation" && Boolean(state.me?.isAdmin || (!ownSubmission && !sameSide && (pending?.submittedAs === "captain" ? captain : participant)))
   };
 }
 

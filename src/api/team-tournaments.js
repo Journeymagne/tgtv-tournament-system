@@ -1379,13 +1379,13 @@ async function handleGameRequest(context, action) {
     }
   } else if (action === "confirm") {
     if (game.status !== "pending_confirmation" || !game.pendingResult?.result) throw new HttpError(409, "There is no submitted result to confirm");
-    if (!permissions.canReview) throw new HttpError(403, game.pendingResult.submittedAs === "captain" ? "The opposing captain must confirm this result" : "The opposing player or captain must confirm this result");
+    if (!permissions.canReview) throw new HttpError(403, game.pendingResult.submittedAs === "captain" ? "The opposing captain must confirm this result" : "The opposing player must confirm this result");
     const pendingResult = calculateSubmittedResult({ ...game.pendingResult.result, tiebreakers: { enabled: false } }, game.playerIds[0], game.playerIds[1]);
     await applyFinalGameResult(client, tournament, game, pendingResult, user.id);
     await recomputeTeamMatch(client, match.id);
   } else if (action === "reject") {
     if (game.status !== "pending_confirmation" || !game.pendingResult?.result) throw new HttpError(409, "There is no submitted result to reject");
-    if (!permissions.canReview) throw new HttpError(403, game.pendingResult.submittedAs === "captain" ? "The opposing captain must reject this result" : "The opposing player or captain must reject this result");
+    if (!permissions.canReview) throw new HttpError(403, game.pendingResult.submittedAs === "captain" ? "The opposing captain must reject this result" : "The opposing player must reject this result");
     await gamesRepo.clearResult(client, game.id);
   } else if (action === "admin-save") {
     if (!user.isAdmin) throw new HttpError(403, "Administrator rights required");
