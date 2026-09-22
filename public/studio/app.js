@@ -54,12 +54,13 @@ function persist(edited=true){
  if(removedProjects.has(data.team.id))return Promise.resolve(false);
  for(const c of data.selectionCards)c.size=c.selectionGroups.reduce((n,g)=>n+g.count,0)||1;
  const revision=++saveRevision,key=STORAGE+':'+data.team.id,value=JSON.stringify(data),team={...data.team};
- $('#save-status').textContent='Сохраняю изменения…';
+ if(edited)window.KTCommunity?.track(JSON.parse(value));
+ if(!KTAccount.id)$('#save-status').textContent='Сохраняю изменения…';
  return KTStorage.save(key,value).then(saved=>{
   if(removedProjects.has(team.id)){void KTStorage.remove(key);return false}
   const currentSave=revision===saveRevision&&team.id===data.team.id;
-  if(saved){rememberProject(team,currentSave);if(edited)window.KTCommunity?.track(JSON.parse(value))}
-  if(currentSave){$('#save-status').textContent=saved?(KTAccount.id?'Локальная копия обновлена':'Правки только в этом браузере · войдите для сохранения'):'Не удалось сохранить локальную копию';if(!saved)toast('Браузер не смог сохранить изменения. Освободите место и повторите попытку.')}
+  if(saved)rememberProject(team,currentSave);
+  if(currentSave){if(KTAccount.id)window.KTCommunity?.status();else{$('#save-status').textContent=saved?'Правки только в этом браузере · войдите для сохранения':'Не удалось сохранить локальную копию';if(!saved)toast('Браузер не смог сохранить изменения. Освободите место и повторите попытку.')}}
   return saved;
  });
 }
@@ -93,23 +94,26 @@ async function createEmptyProject(templateId='empty'){
   rememberProject(next.team);
   if(revision!==teamLoadRevision)return;
   original=structuredClone(next);data=next;section=template?'selectionCards':'project';selected=side=0;pdfReady=false;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
-  rememberProject(data.team,true);render();$('#save-status').textContent=KTAccount.id?'Локальная копия обновлена':'Правки только в этом браузере · войдите для сохранения';
+  rememberProject(data.team,true);render();
   window.KTCommunity?.track(data);window.KTCommunity?.showEditor();$('#create-project-dialog').close();
   const input=$('#editor input[data-field="name"]');input?.focus?.();input?.select?.();toast(template?'Копия шаблона создана.':'Пустой проект создан. Укажите название команды и добавьте карточки.');
  }catch(err){$('#create-project-error').textContent='Не удалось создать проект: '+err.message}finally{button.disabled=false;choices.forEach(item=>item.disabled=false)}
 }
-async function openStoredProject(project){
+async function openStoredProject(project,expected){
  const revision=++teamLoadRevision,next=KTModel.validate(KTModel.migrate(project));
- if(!await persist(false)||revision!==teamLoadRevision)return false;
+ if(!await persist(false)||revision!==teamLoadRevision||expected!==undefined&&JSON.stringify(data)!==expected)return false;
  if(!await KTStorage.save(STORAGE+':'+next.team.id,JSON.stringify(next)))throw Error('Браузер не смог сохранить проект');
- if(revision!==teamLoadRevision)return false;
+ if(revision!==teamLoadRevision||expected!==undefined&&JSON.stringify(data)!==expected)return false;
  data=next;original=structuredClone(next);section='selectionCards';selected=side=0;pdfReady=false;previewOnly=false;
  $('.workspace').classList.toggle('show-preview',false);rememberProject(data.team,true);render();return true;
 }
-async function copyProject(){
- const copy=structuredClone(data);copy.team.id='custom-'+uid();copy.team.name+=' (копия)';
- if(await openStoredProject(copy)){await persist();toast('Ваши правки сохранены отдельным черновиком.');return true}
- return false;
+async function recoverProject(id,project){
+ const active=data.team.id===id,next=KTModel.validate(KTModel.migrate(project));
+ rememberProject(next.team,active);
+ if(active){
+  ++teamLoadRevision;++saveRevision;data=next;original=structuredClone(next);pdfReady=false;side=0;render();
+ }
+ await KTStorage.save(STORAGE+':'+next.team.id,JSON.stringify(next));
 }
 function field(label,key,value,type='text'){
  if(type!=='textarea')return '<label>'+label+'<input type="'+type+'" data-field="'+esc(key)+'" value="'+esc(value)+'"></label>';
@@ -474,7 +478,7 @@ async function init(){
   for(const team of [original,data,...Object.values(window.KT_EXAMPLES||{})])for(const o of [...team.operatives,...team.teamCards,...(team.lorePages||[]).flatMap(p=>p.images)])if(o.image)assets[o.image]=window.KT_ASSETS?.[o.image]||o.image;
   render();if(migrated){persist();toast('Проект обновлён. Ваши правки сохранены.')}
   window.ktStudio={getData:()=>structuredClone(data),toast,validateData:KTModel.validate,buildDefinition:()=>buildTeamPDF(data,assets),preparePDF,exportPDF,prepareTTS,exportTTS,exportROSZ,importOperativeImage,importCardImage,importLoreImages,renderCard:(section,index)=>section==='lorePages'?KTLore.renderPage(data.lorePages[index],data,assets):KTCards.renderCard(data[section][index],data,assets,index)};
-  await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,renameProject,localIds:()=>[...projectList.keys()],copyProject,downloadJSON,toast});
+  await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,renameProject,recoverProject,localIds:()=>[...projectList.keys()],downloadJSON,toast});
   $('#new-project').disabled=false;
  }catch(e){$('#editor').textContent='Не удалось открыть проект: '+e.message}
 }

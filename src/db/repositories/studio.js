@@ -64,13 +64,20 @@ async function rename(client, owner, id, name, revision) {
 
 // The router supplies a transaction. The lock covers first saves as well as
 // existing rows, so two tabs cannot both create revision 1 for the same draft.
-async function save(client, owner, project, revision, publish) {
+async function save(client, owner, project, revision, publish, recoveryId) {
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["studio:" + owner + ":" + project.team.id]);
   const { rows } = await client.query("SELECT * FROM studio_projects WHERE owner_id=$1 AND project_id=$2", [owner, project.team.id]);
   const previous = rows[0];
   if (previous?.deleted_at) throw new HttpError(410, "Команда удалена. Создайте новую команду, чтобы продолжить работу.");
   if ((previous?.revision || 0) !== revision) {
-    throw new HttpError(409, "Команда изменена в другой вкладке. Ваши правки сохранены в браузере; сохраните их отдельной копией.");
+    if (!recoveryId) throw new HttpError(409, "Команда изменена в другой вкладке. Сохраните правки отдельным черновиком в аккаунте.");
+    // Preserve both versions in PostgreSQL. A conflicting publish only creates
+    // a private draft; the existing publication must not change implicitly.
+    const copy = structuredClone(project), suffix = " (копия правок)";
+    copy.team.id = recoveryId;
+    copy.team.name = copy.team.name.slice(0, 200 - suffix.length) + suffix;
+    const recovered = await save(client, owner, copy, 0, false);
+    return { ...recovered, recoveredFrom: project.team.id, original: previous ? summary(previous) : null };
   }
   const now = new Date().toISOString();
   const { rows: saved } = await client.query(`INSERT INTO studio_projects

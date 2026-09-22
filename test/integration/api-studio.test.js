@@ -187,6 +187,50 @@ test('stale names and concurrent autosaves cannot silently overwrite a rename', 
   assert.equal(latest.revision, 2);assert.equal(latest.name, saved.status === 200 ? 'Edited' : 'Renamed');
 });
 
+test('conflicting edits are preserved as an account-owned PostgreSQL draft without changing the original', async () => {
+  const alpha = await account('Alpha'), bravo = await account('Bravo'), project = model.newProject('database-original', 'Original');
+  await save(alpha, project);
+  project.team.subtitle = 'New server content';await save(alpha, project, 1);
+  const local = structuredClone(project);local.team.subtitle = 'Other tab content';
+  const recovered = await request('/api/studio/drafts/' + project.team.id, alpha, {
+    method: 'PUT', body: { project: local, revision: 1, recoveryId: 'database-recovery' }
+  });
+  assert.equal(recovered.status, 200);assert.equal(recovered.body.recoveredFrom, project.team.id);
+  assert.equal(recovered.body.id, 'database-recovery');assert.equal(recovered.body.original.revision, 2);
+  const original = (await request('/api/studio/drafts/' + project.team.id, alpha)).body;
+  const copy = (await request('/api/studio/drafts/database-recovery', alpha)).body;
+  assert.deepEqual(original.project, project);assert.equal(original.revision, 2);
+  assert.equal(copy.project.team.id, 'database-recovery');assert.equal(copy.project.team.subtitle, 'Other tab content');
+  assert.equal(copy.publicationId, null);assert.equal(copy.revision, 1);
+  assert.equal((await request('/api/studio/drafts', alpha)).body.teams.length, 2);
+  assert.equal((await request('/api/studio/drafts/database-recovery', bravo)).status, 404);
+});
+
+test('a conflicting publication saves a private recovery draft and retains the published snapshot', async () => {
+  const alpha = await account('Alpha'), project = model.newProject('published-recovery', 'Original');
+  const published = await save(alpha, project, 0, true);
+  project.team.subtitle = 'Private server changes';await save(alpha, project, 1);
+  project.team.subtitle = 'Stale publish content';
+  const recovered = await request('/api/studio/drafts/published-recovery/publish', alpha, {
+    method: 'POST', body: { project, revision: 1, recoveryId: 'private-recovery' }
+  });
+  assert.equal(recovered.status, 200);assert.equal(recovered.body.publicationId, null);
+  assert.equal((await request('/api/studio/library')).body.total, 1);
+  assert.equal((await request('/api/studio/library/' + published.body.publicationId)).body.project.team.subtitle, '');
+  assert.equal((await request('/api/studio/drafts/private-recovery', alpha)).body.project.team.subtitle, 'Stale publish content');
+});
+
+test('recovery cannot overwrite an existing draft, bypass deletion or accept malformed ids', async () => {
+  const alpha = await account('Alpha'), project = model.newProject('recovery-validation', 'Original');
+  await save(alpha, project);await save(alpha, model.newProject('occupied', 'Keep me'));
+  const send = recoveryId => request('/api/studio/drafts/' + project.team.id, alpha, {method:'PUT',body:{project,revision:0,recoveryId}});
+  for (const id of [null, 7, {}, '', '../invalid', 'x'.repeat(101), project.team.id]) assert.equal((await send(id)).status, 400);
+  assert.equal((await send('occupied')).status, 409);
+  assert.equal((await request('/api/studio/drafts/occupied', alpha)).body.name, 'Keep me');
+  await remove(alpha, project.team.id, 1);assert.equal((await send('deleted-recovery')).status, 410);
+  assert.equal((await request('/api/studio/drafts/deleted-recovery', alpha)).status, 404);
+});
+
 test('deletion requires the owner session, CSRF, matching account, origin and revision', async () => {
   const alpha = await account('Alpha'), bravo = await account('Bravo');
   const project = model.newProject('delete-private', 'Private');

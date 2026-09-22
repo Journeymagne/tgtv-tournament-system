@@ -12,9 +12,15 @@ with a shared account and a home link in the top right.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 4.1
+## Release 4.2
 
-All services now use paths on `ktcompanion.ru`. One host-only session cookie
+Studio uses PostgreSQL as the primary store for signed-in accounts. Edits save
+after an 800 ms pause, and opening Studio loads the saved account draft. Browser
+storage is an optional recovery cache; a full browser store does not block saves.
+Concurrent edits are preserved as a separate private database draft without
+overwriting the original team or its publication. No new migrations are needed.
+
+All services use paths on `ktcompanion.ru`. One host-only session cookie
 works across all sections; new DNS records and subdomain certificates are not
 needed. Existing calculator HTML links and tournament hash links redirect to the
 new addresses.

@@ -74,11 +74,21 @@ owner supplied in the project. Writes require a session-bound CSRF token and a
 matching site Origin when present. The fixed `X-Studio-Account` header rejects requests
 from an editor whose account changed in another tab, even during reconnect.
 
-The editor retains local saves after every edit and uploads edits every minute.
-Local storage and the IndexedDB album database are namespaced by account. Logging
-out preserves that account's offline work without exposing it to the next user.
-Concurrent edits produce a conflict; publishing keeps a separate snapshot so
-later private edits do not change the library until republished.
+PostgreSQL is the primary store for signed-in editors. Opening Studio loads the
+active saved draft, or the most recent account draft on a new device. Edits are
+uploaded after an 800 ms pause; Save team waits for the server response. Browser
+storage is an optional recovery cache, so a full or unavailable browser store
+does not prevent database saves. Each tab uploads its own in-memory snapshot.
+The status reports unsaved edits on network errors and retries on reconnect.
+
+Writes retain revision checks. The editor supplies a new `recoveryId` on saves:
+if another tab has changed the draft, the server saves these edits as a separate
+private PostgreSQL draft and the editor continues on that copy. The original
+draft and its publication remain unchanged. A conflicting Publish also saves a
+private copy and requires a separate Publish action. Requests without a
+`recoveryId` still return 409 on conflicts. Deleted projects cannot be recovered
+through delayed saves. This uses the existing `studio_projects` table and needs
+no migration. Guest editing retains its tab-isolated browser recovery store.
 
 Projects are selected in **My drafts**. The header shows the active project's
 name, and **Create team** opens a choice of an empty team or an independent copy

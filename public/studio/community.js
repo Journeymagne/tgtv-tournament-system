@@ -7,22 +7,22 @@ const date=value=>value?new Date(value).toLocaleString('ru-RU',{day:'numeric',mo
 function status(){
  if(!adapter)return;
  const entry=cloud?.state(adapter.getData().team.id),guest=!root.KTAccount.id;
- $('#cloud-status').textContent=guest?'Гостевой режим · войдите, чтобы сохранить или опубликовать команду':entry?.saving?'Сохраняю черновик…':entry?.conflict?'Есть другая версия · ваши правки в браузере':entry?.error?'Нет сохранения в базе · копия в браузере':entry?.dirty?'Черновик · автосохранение раз в минуту':entry?.updatedAt?'Черновик сохранён · '+date(entry.updatedAt):'Первое изменение создаст черновик';
+ $('#cloud-status').textContent=guest?'Гостевой режим · войдите, чтобы сохранить или опубликовать команду':entry?.saving?'Сохраняю в аккаунт…':entry?.error?'Правки ещё не сохранены в аккаунте · повторите попытку':!cloud?.isReady()?'Подключаю хранилище аккаунта…':entry?.dirty?'Есть правки · сохраняю автоматически':entry?.updatedAt?'Сохранено в аккаунте · '+date(entry.updatedAt):'Первое изменение создаст черновик в аккаунте';
+ $('#save-status').textContent=guest?'Гостевые правки · войдите для сохранения в аккаунте':$('#cloud-status').textContent;
  $('#cloud-status').dataset.state=entry?.error?'error':entry?.dirty?'pending':'saved';
  $('#cloud-status').title=entry?.error||'';
  $('#publish-team').disabled=busy;
  $('#publish-team').textContent=busy&&busyAction==='publish'?'Публикую…':entry?.publicationId?'Обновить публикацию':'Опубликовать';
  $('#save-json').disabled=busy;
  $('#save-json').textContent=busy&&busyAction==='save'?'Сохраняю…':'Сохранить команду';
- $('#retry-cloud').hidden=!entry?.error||!!entry?.conflict;
- $('#copy-conflict').hidden=!entry?.conflict;
+ $('#retry-cloud').hidden=!entry?.error&&!!cloud?.isReady()||guest;
  if(view==='drafts'&&cloud)renderDrafts();
  for(const button of document.querySelectorAll('[data-rename-draft],[data-rename-publication],[data-delete-draft]'))button.disabled=busy;
 }
 function track(project){if(cloud)cloud.track(project);status()}
 function card(team,draft=false){
  const rename=draft||team.canRename?'<button data-rename-'+(draft?'draft':'publication')+'="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Переименовать</button>':'';
- return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div><h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p><div class="team-tile-meta"><span>Оперативников: '+Number(team.operativeCount||0)+'</span><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Не сохранён в базе. Локальная копия доступна.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
+ return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div><h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p><div class="team-tile-meta"><span>Оперативников: '+Number(team.operativeCount||0)+'</span><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
 }
 function showEditor(){view='editor';$('.workspace').hidden=false;$('#community-panel').hidden=true;updateTabs()}
 function renderDrafts(){
@@ -44,7 +44,7 @@ async function show(next){
    let error;try{await cloud.connect(true)}catch(e){error=e}
    if(version!==requestVersion)return;
    renderDrafts();
-   if(error)$('#community-list').insertAdjacentHTML('afterbegin','<p class="community-empty">Хранилище недоступно. Показываю черновики этого браузера.</p>');
+   if(error)$('#community-list').insertAdjacentHTML('afterbegin','<p class="community-empty">Хранилище недоступно. Показываю ранее загруженный список черновиков.</p>');
   }else{
    const result=await api('/api/library?q='+encodeURIComponent(query)+'&offset='+offset);
    if(version!==requestVersion)return;
@@ -130,8 +130,9 @@ async function publish(){
  try{
   if(!await root.KTAccount.requireLogin('publish'))return;
   const snapshot=adapter.getData();if(!snapshot.team.name.trim())throw Error('Укажите название команды перед публикацией.');
-  if(!await adapter.persist())throw Error('Не удалось сохранить локальную копию. Скачайте проект файлом.');
+  if(!await adapter.persist())throw Error('Не удалось подготовить команду к сохранению.');
   const result=await cloud.save(snapshot.team.id,true);
+  if(result.recoveredFrom){adapter.toast('Команда изменена в другой вкладке. Правки сохранены отдельным черновиком в аккаунте; при необходимости опубликуйте его.');return}
   adapter.toast('Команда «'+result.name+'» опубликована в библиотеке.');offset=0;query='';$('#library-search').value='';await show('library');
  }catch(error){adapter.toast('Не удалось опубликовать: '+error.message)}finally{busy=false;status()}
 }
@@ -146,9 +147,9 @@ async function save(){
  busy=true;busyAction='save';status();
  try{
   if(!await root.KTAccount.requireLogin('save'))return;
-  if(!await adapter.persist())throw Error('Не удалось сохранить локальную копию.');
-  await cloud.save(adapter.getData().team.id);
-  adapter.toast('Команда сохранена в вашем аккаунте.');
+  if(!await adapter.persist())throw Error('Не удалось подготовить команду к сохранению.');
+  const result=await cloud.save(adapter.getData().team.id);
+  adapter.toast(result?.recoveredFrom?'Команда изменена в другой вкладке. Ваши правки сохранены отдельным черновиком в аккаунте.':'Команда сохранена в вашем аккаунте.');
  }catch(error){adapter.toast('Не удалось сохранить: '+error.message)}finally{busy=false;status()}
 }
 async function resume(){
@@ -156,7 +157,8 @@ async function resume(){
   const pending=await root.KTAccount.transfer();
   if(!pending)return;
   if(!await adapter.openData(pending.project))throw Error('Не удалось перенести гостевую команду в аккаунт.');
-  if(!await adapter.persist())throw Error('Не удалось сохранить перенесённую команду в браузере.');
+  if(!await adapter.persist())throw Error('Не удалось подготовить перенесённую команду.');
+  await cloud.save(adapter.getData().team.id);
   root.KTAccount.finishTransfer();
   if(pending.action==='publish')await publish();
   else if(pending.action==='save')await save();
@@ -168,33 +170,47 @@ async function resume(){
 async function init(options){
  adapter=options;
  if(root.KTAccount.id&&/^https?:$/.test(root.location?.protocol||'')){
-  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),onChange:status,onRemove:id=>adapter.removeProject(id),onRename:(id,name)=>adapter.renameProject(id,name)});
-  void cloud.connect().then(async()=>{
+  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),onChange:status,onRemove:id=>adapter.removeProject(id),onRename:(id,name)=>adapter.renameProject(id,name),onRecover:async(id,project)=>{await adapter.recoverProject(id,project);adapter.toast('Команда изменена в другой вкладке. Ваши правки сохранены отдельным черновиком в аккаунте.')}});
+  try{
+   await cloud.connect();
+   const localProjects=[];
+   for(const id of adapter.localIds()){
+    try{
+     const saved=await KTStorage.load('kt-studio-cards-v6:'+id);if(!saved)continue;
+     const project=KTModel.validate(KTModel.migrate(JSON.parse(saved))),example=root.KT_EXAMPLES?.[id];
+     if(example&&JSON.stringify(project)===JSON.stringify(KTModel.validate(KTModel.migrate(example))))continue;
+     localProjects.push(project);
+    }catch{}
+   }
+   const active=adapter.getData().team.id,local=localProjects.find(project=>project.team.id===active);
+   const selected=cloud.state(active)||(!local?cloud.list().find(team=>team.revision):null);
+   if(selected&&!selected.dirty){
+    const remote=await cloud.api('/api/drafts/'+encodeURIComponent(selected.id));
+    if(await adapter.openData(remote.project))cloud.accept(remote);
+   }
    // Preserve access to local projects created before the header picker was removed.
-   for(const id of adapter.localIds())if(!cloud.state(id)&&!cloud.isDeleted(id)){
-    try{const saved=await KTStorage.load('kt-studio-cards-v6:'+id);if(saved)cloud.track(JSON.parse(saved))}catch{}
+   for(const project of localProjects)if(!cloud.state(project.team.id)&&!cloud.isDeleted(project.team.id))cloud.track(project);
+   await cloud.flush();
+  }catch(error){adapter.toast('Не удалось подключиться к хранилищу аккаунта: '+error.message);status()}
+  const refresh=()=>void cloud.connect(true).then(async()=>{
+   const snapshot=adapter.getData(),entry=cloud.state(snapshot.team.id);
+   if(entry&&!entry.dirty&&entry.remoteRevision!==entry.revision){
+    const remote=await cloud.api('/api/drafts/'+encodeURIComponent(snapshot.team.id));
+    if(!cloud.state(snapshot.team.id)?.dirty&&await adapter.openData(remote.project,JSON.stringify(snapshot)))cloud.accept(remote);
    }
    await cloud.flush();
   }).catch(()=>status());
-  const refresh=()=>void cloud.connect(true).then(()=>cloud.flush()).catch(()=>status());
   root.addEventListener('online',refresh);root.addEventListener('focus',refresh);
   root.addEventListener('storage',()=>void cloud.syncRemoved().catch(error=>adapter.toast(error.message)));
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();else void cloud.flush()});
+  root.addEventListener('beforeunload',event=>{if(cloud.list().some(team=>team.dirty||team.saving)){event.preventDefault();event.returnValue=''}});
  }
  status();
  document.addEventListener('click',async event=>{
   const button=event.target.closest('button');if(!button)return;
   if(button.dataset.studioView){offset=0;void show(button.dataset.studioView)}
   if(button.id==='publish-team')void publish();
-  if(button.id==='retry-cloud')void cloud.flush();
-  if(button.id==='copy-conflict')try{
-   const id=adapter.getData().team.id;
-   if(await adapter.copyProject()){
-    const remote=await cloud.api('/api/drafts/'+encodeURIComponent(id));
-    if(await KTStorage.save('kt-studio-cards-v6:'+id,JSON.stringify(remote.project)))cloud.accept(remote);
-   }
-   status();
-  }catch(error){adapter.toast(error.message)}
+  if(button.id==='retry-cloud')void cloud.connect(true).then(()=>cloud.flush()).catch(error=>adapter.toast(error.message));
   if(button.id==='community-new')adapter.showCreateProject();
   if(button.id==='reload-community')void show(view);
   if(button.dataset.openDraft)void openDraft(button.dataset.openDraft);

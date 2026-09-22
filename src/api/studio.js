@@ -57,7 +57,11 @@ async function draft(ctx) {
 async function save(ctx, publishing = false) {
   checkWrite(ctx);
   const project = validate(ctx.body, ctx.params.id, publishing);
-  return store.save(ctx.client, ctx.user.id, project, ctx.body.revision, publishing);
+  const recoveryId = ctx.body.recoveryId;
+  if (recoveryId !== undefined && (typeof recoveryId !== "string" || !PROJECT_ID.test(recoveryId) || recoveryId === ctx.params.id)) {
+    throw new HttpError(400, "Некорректный идентификатор копии правок.");
+  }
+  return store.save(ctx.client, ctx.user.id, project, ctx.body.revision, publishing, recoveryId);
 }
 async function library(ctx) {
   const offset = Number(ctx.query.get("offset") || 0);

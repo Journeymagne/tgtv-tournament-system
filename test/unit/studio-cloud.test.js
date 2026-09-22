@@ -54,7 +54,66 @@ test('renaming from a newer listing never advances an old editor past content it
  await h.cloud.rename('team','New name',3);
  assert.equal(h.cloud.state('team').revision,1);assert.equal(h.cloud.state('team').remoteRevision,4);
  assert.equal(h.cloud.state('team').conflict,true);h.cloud.track(h.project);await h.cloud.flush();
- assert.equal(h.calls.filter(c=>c.method==='PUT').length,0);
+ const upload=JSON.parse(h.calls.find(c=>c.method==='PUT').body);
+ assert.equal(upload.revision,1);assert.notEqual(upload.recoveryId,'team');
+});
+
+test('tracked edits upload without reading browser storage or another tab\'s project', async()=>{
+ const uploads=[];
+ const cloud=create({storage:memory(),schedule:null,loadProject:async()=>{throw Error('Quota exceeded')},request:async(url,options)=>{
+  let value=url==='/api/session'?{csrfToken:'token'}:{teams:[]};
+  if(options.method==='PUT'){const body=JSON.parse(options.body);uploads.push(body.project);value={id:body.project.team.id,name:body.project.team.name,revision:1}}
+  return {ok:true,json:async()=>value};
+ }});
+ const project=model.newProject('memory-only','My edits');cloud.track(project);
+ project.team.name='Other tab';await cloud.flush();
+ assert.equal(uploads.length,1);assert.equal(uploads[0].team.name,'My edits');
+ assert.equal(cloud.state('memory-only').dirty,false);
+});
+
+test('autosave debounces edits for less than a second', async()=>{
+ const callbacks=new Map(),uploads=[];let sequence=0,wait;
+ const cloud=create({storage:memory(),schedule:null,delay:(fn,ms)=>{wait=ms;callbacks.set(++sequence,fn);return sequence},cancel:id=>callbacks.delete(id),loadProject:async()=>null,request:async(url,options)=>{
+  let value=url==='/api/session'?{csrfToken:'token'}:{teams:[{id:'team',revision:1}]};
+  if(options.method==='PUT'){uploads.push(JSON.parse(options.body));value={id:'team',revision:2}}
+  return {ok:true,json:async()=>value};
+ }});
+ const project=model.newProject('team','First');await cloud.connect();cloud.track(project);
+ project.team.name='Second';cloud.track(project);assert.equal(callbacks.size,1);assert(wait<1000);
+ callbacks.values().next().value();await cloud.flush();
+ assert.equal(uploads.length,1);assert.equal(uploads[0].project.team.name,'Second');
+});
+
+test('conflict recovery retains edits typed during upload and continues on the database copy', async()=>{
+ const uploads=[],recovered=[];let release,started;
+ const sent=new Promise(resolve=>started=resolve),held=new Promise(resolve=>release=resolve);
+ const cloud=create({storage:memory(),schedule:null,loadProject:async()=>null,onRecover:(id,project)=>recovered.push({id,project}),makeId:()=> 'recovered-team',request:async(url,options)=>{
+  let value=url==='/api/session'?{csrfToken:'token'}:{teams:[{id:'team',name:'Server',revision:1}]};
+  if(options.method==='PUT'){
+   const body=JSON.parse(options.body);uploads.push({url,...body});
+   if(url.endsWith('/team')){started();await held;value={id:'recovered-team',name:'First (копия правок)',revision:1,recoveredFrom:'team',original:{id:'team',name:'Remote edits',revision:2}}}
+   else value={id:'recovered-team',name:body.project.team.name,revision:2};
+  }
+  return {ok:true,json:async()=>value};
+ }});
+ await cloud.connect();const project=model.newProject('team','First');cloud.track(project);
+ const saving=cloud.save('team');await sent;
+ const queuedPublish=cloud.save('team',true);
+ project.team.subtitle='Typed during save';cloud.track(project);release();await saving;
+ assert.equal((await queuedPublish).recoveredFrom,'team');
+ assert.equal(uploads.length,1,'a queued publication must not upload stale content to the original');
+ assert.equal(recovered[0].project.team.subtitle,'Typed during save');
+ assert.equal(recovered[0].project.team.id,'recovered-team');
+ assert.equal(cloud.state('team').revision,2);assert.equal(cloud.state('team').dirty,false);
+ await cloud.flush();assert.equal(uploads[1].url,'/api/drafts/recovered-team');
+ assert.equal(uploads[1].revision,1);assert.equal(uploads[1].project.team.subtitle,'Typed during save');
+ assert.equal(cloud.state('recovered-team').dirty,false);
+});
+
+test('an unversioned local project cannot adopt the server revision before uploading', async()=>{
+ const h=harness();h.project.team.name='Unsynced import';h.cloud.track(h.project);await h.cloud.flush();
+ const upload=JSON.parse(h.calls.find(c=>c.method==='PUT').body);
+ assert.equal(upload.revision,0);assert.equal(upload.project.team.name,'Unsynced import');
 });
 test('a failed deletion preserves the draft for retry', async()=>{
  const h=harness();await h.cloud.connect();h.server.failDelete=true;
