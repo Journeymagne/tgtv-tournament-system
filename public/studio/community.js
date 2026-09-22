@@ -2,7 +2,7 @@
 'use strict';
 const $=selector=>document.querySelector(selector),esc=value=>KTCards.esc(String(value??''));
 const labels={selectionCards:'Состав',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',operatives:'Оперативники',lorePages:'Картинки и лор'};
-let cloud,adapter,view='editor',requestVersion=0,query='',offset=0,publication,publicationSection='selectionCards',busy=false,busyAction='',deleteTarget=null;
+let cloud,adapter,view='editor',requestVersion=0,query='',offset=0,publication,publicationSection='selectionCards',busy=false,busyAction='',deleteTarget=null,renameTarget=null,libraryTeams=[];
 const date=value=>value?new Date(value).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
 function status(){
  if(!adapter)return;
@@ -17,10 +17,12 @@ function status(){
  $('#retry-cloud').hidden=!entry?.error||!!entry?.conflict;
  $('#copy-conflict').hidden=!entry?.conflict;
  if(view==='drafts'&&cloud)renderDrafts();
+ for(const button of document.querySelectorAll('[data-rename-draft],[data-rename-publication],[data-delete-draft]'))button.disabled=busy;
 }
 function track(project){if(cloud)cloud.track(project);status()}
 function card(team,draft=false){
- return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div><h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p><div class="team-tile-meta"><span>Оперативников: '+Number(team.operativeCount||0)+'</span><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Не сохранён в базе. Локальная копия доступна.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
+ const rename=draft||team.canRename?'<button data-rename-'+(draft?'draft':'publication')+'="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Переименовать</button>':'';
+ return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div><h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p><div class="team-tile-meta"><span>Оперативников: '+Number(team.operativeCount||0)+'</span><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Не сохранён в базе. Локальная копия доступна.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
 }
 function showEditor(){view='editor';$('.workspace').hidden=false;$('#community-panel').hidden=true;updateTabs()}
 function renderDrafts(){
@@ -46,6 +48,7 @@ async function show(next){
   }else{
    const result=await api('/api/library?q='+encodeURIComponent(query)+'&offset='+offset);
    if(version!==requestVersion)return;
+   libraryTeams=result.teams;
    $('#community-list').innerHTML=result.teams.length?result.teams.map(team=>card(team)).join(''):'<p class="community-empty">'+(query?'По вашему запросу команд не найдено.':'Пока никто не опубликовал команду. Ваша может стать первой.')+'</p>';
    $('#library-pages').innerHTML=(offset?'<button id="library-prev">← Назад</button>':'')+'<span>Команд: '+result.total+'</span>'+(offset+result.teams.length<result.total?'<button id="library-next">Дальше →</button>':'');
   }
@@ -58,6 +61,35 @@ async function openDraft(id){
   const remote=await cloud.api('/api/drafts/'+encodeURIComponent(id));
   if(await adapter.openData(remote.project)){cloud.accept(remote);showEditor();status()}
  }catch(error){adapter.toast('Не удалось открыть черновик: '+error.message)}
+}
+async function beginRename(id,draft){
+ if(busy||!cloud)return;
+ busy=true;busyAction='rename';status();
+ try{
+  let team=draft?cloud.state(id):libraryTeams.find(team=>team.id===id);
+  if(!team||(!draft&&!team.canRename))return;
+  if(draft&&!team.revision){await cloud.save(id);team=cloud.state(id)}
+  if(!team?.revision)throw Error('Сначала сохраните команду в аккаунте.');
+  renameTarget={id:draft?team.id:team.projectId,revision:team.remoteRevision??team.revision,publicationId:draft?team.publicationId:team.id};
+  $('#rename-project-name').value=team.name||'';
+  $('#rename-project-description').textContent=renameTarget.publicationId?'Новое название появится в черновике и опубликованной команде. Остальные правки черновика останутся личными.':'Новое название появится в ваших черновиках и редакторе.';
+  $('#rename-project-error').textContent='';$('#review-rename-project').hidden=true;
+  $('#rename-project-dialog').showModal();$('#rename-project-name').focus();$('#rename-project-name').select();
+ }catch(error){adapter.toast(error.message)}finally{busy=false;busyAction='';status()}
+}
+async function renameProject(event){
+ event.preventDefault();if(busy||!renameTarget)return;
+ const name=$('#rename-project-name').value.trim();
+ if(!name){$('#rename-project-error').textContent='Введите название команды.';return}
+ busy=true;busyAction='rename';status();
+ for(const field of $('#rename-project-dialog').querySelectorAll('input,button'))field.disabled=true;
+ $('#rename-project-error').textContent='';
+ try{
+  const result=await cloud.rename(renameTarget.id,name,renameTarget.revision);
+  if(publication?.id===renameTarget.publicationId){publication.project.team.name=result.name;publication.name=result.name;renderPublication()}
+  $('#rename-project-dialog').close();renameTarget=null;adapter.toast('Название команды изменено.');await show(view);
+ }catch(error){$('#rename-project-error').textContent=error.message;$('#review-rename-project').hidden=error.status!==409}
+ finally{busy=false;busyAction='';for(const field of $('#rename-project-dialog').querySelectorAll('input,button'))field.disabled=false;status()}
 }
 function confirmDelete(id){
  if(busy)return;
@@ -136,7 +168,7 @@ async function resume(){
 async function init(options){
  adapter=options;
  if(root.KTAccount.id&&/^https?:$/.test(root.location?.protocol||'')){
-  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),onChange:status,onRemove:id=>adapter.removeProject(id)});
+  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),onChange:status,onRemove:id=>adapter.removeProject(id),onRename:(id,name)=>adapter.renameProject(id,name)});
   void cloud.connect().then(async()=>{
    // Preserve access to local projects created before the header picker was removed.
    for(const id of adapter.localIds())if(!cloud.state(id)&&!cloud.isDeleted(id)){
@@ -167,6 +199,10 @@ async function init(options){
   if(button.id==='reload-community')void show(view);
   if(button.dataset.openDraft)void openDraft(button.dataset.openDraft);
   if(button.dataset.deleteDraft)confirmDelete(button.dataset.deleteDraft);
+  if(button.dataset.renameDraft)void beginRename(button.dataset.renameDraft,true);
+  if(button.dataset.renamePublication)void beginRename(button.dataset.renamePublication,false);
+  if(button.id==='cancel-rename-project')$('#rename-project-dialog').close();
+  if(button.id==='review-rename-project'){$('#rename-project-dialog').close();void show(view)}
   if(button.id==='confirm-delete-project')void deleteProject();
   if(button.id==='cancel-delete-project')$('#delete-project-dialog').close();
   if(button.id==='review-delete-project'){$('#delete-project-dialog').close();void show('drafts')}
@@ -178,6 +214,8 @@ async function init(options){
  let searchTimer;
  $('#library-search').addEventListener('input',event=>{query=event.target.value;offset=0;++requestVersion;clearTimeout(searchTimer);searchTimer=setTimeout(()=>show('library'),250)});
  $('#delete-project-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault()});
+ $('#rename-project-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault()});
+ $('#rename-project-form').addEventListener('submit',renameProject);
  await resume();
 }
 root.KTCommunity={init,track,status,save,showEditor,flush:()=>cloud?.flush()};

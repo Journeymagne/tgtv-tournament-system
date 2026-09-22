@@ -1,7 +1,7 @@
 (function(root){
 'use strict';
 const META='kt-studio-cloud-v1',REMOVED='kt-studio-deleted-v1';
-function create({request,storage,loadProject,onChange=()=>{},onRemove=()=>{},schedule=root.setInterval}){
+function create({request,storage,loadProject,onChange=()=>{},onRemove=()=>{},onRename=()=>{},schedule=root.setInterval}){
  let records={};try{records=JSON.parse(storage.getItem(META)||'{}')}catch{}
  if(!records||Array.isArray(records)||typeof records!=='object')records={};
  const entries=new Map(Object.entries(records)),generation=new Map(),deleted=new Set(),removing=new Set();
@@ -35,7 +35,7 @@ function create({request,storage,loadProject,onChange=()=>{},onRemove=()=>{},sch
     // Never adopt a newer revision for an edited local copy: the server must detect a conflict.
     // Even a clean editor may still display an older project. Advance its
     // revision only through accept(), after that project's content is loaded.
-    entries.set(remote.id,{...remote,...local,revision:local?.revision??remote.revision,remoteRevision:remote.revision,
+    entries.set(remote.id,{...remote,...local,name:local?.dirty?local.name:remote.name,revision:local?.revision??remote.revision,remoteRevision:remote.revision,
      publicationId:remote.publicationId,publishedAt:remote.publishedAt,dirty:!!local?.dirty});
    }
    ready=true;notify();
@@ -88,9 +88,25 @@ function create({request,storage,loadProject,onChange=()=>{},onRemove=()=>{},sch
   }).finally(()=>removing.delete(id));
   queue=job.then(()=>{},()=>{});return job;
  }
+ function rename(id,name,revision){
+  const job=queue.then(async()=>{
+   await connect();
+   if(isDeleted(id))throw Error('Команда удалена.');
+   const result=await api('/api/drafts/'+encodeURIComponent(id)+'/name',{method:'PATCH',body:JSON.stringify({name,revision})});
+   await onRename(id,result.name);
+   const local=entries.get(id),sameRevision=!local||local.revision===revision;
+   entries.set(id,{...result,...local,name:result.name,updatedAt:result.updatedAt,
+    publicationId:result.publicationId,publishedAt:result.publishedAt,remoteRevision:result.revision,
+    revision:sameRevision?result.revision:local.revision,dirty:!!local?.dirty,
+    conflict:!sameRevision||!!local?.conflict,
+    error:sameRevision?(local?.error||''):'Есть другая версия команды. Ваши правки сохранены в браузере; сохраните их отдельной копией.'});
+   notify();return result;
+  }).catch(async error=>{if(error.status===410)await forget(id);if(error.status===401||error.status===403)ready=false;throw error});
+  queue=job.then(()=>{},()=>{});return job;
+ }
  function accept(remote){if(isDeleted(remote.id))return;entries.set(remote.id,{...remote,project:undefined,dirty:false,error:'',conflict:false});notify()}
  if(schedule)schedule(flush,60000);
- return {connect,track,save,remove,syncRemoved,isDeleted,flush,api,accept,state:id=>entries.get(id),list:()=>[...entries.values()].filter(entry=>!isDeleted(entry.id)),isReady:()=>ready};
+ return {connect,track,save,remove,rename,syncRemoved,isDeleted,flush,api,accept,state:id=>entries.get(id),list:()=>[...entries.values()].filter(entry=>!isDeleted(entry.id)),isReady:()=>ready};
 }
 root.KTCloud={create};
 if(typeof module!=='undefined')module.exports=root.KTCloud;

@@ -62,7 +62,20 @@ async function save(ctx, publishing = false) {
 async function library(ctx) {
   const offset = Number(ctx.query.get("offset") || 0);
   if (!Number.isSafeInteger(offset) || offset < 0) throw new HttpError(400, "Некорректная страница.");
-  return store.library(ctx.client, (ctx.query.get("q") || "").slice(0, 200), offset);
+  return store.library(ctx.client, (ctx.query.get("q") || "").slice(0, 200), offset, 30, libraryOwner(ctx));
+}
+
+function libraryOwner(ctx) {
+  return ctx.user && ctx.req.headers["x-studio-account"] === String(ctx.user.id) ? ctx.user.id : null;
+}
+
+async function rename(ctx) {
+  checkWrite(ctx);
+  if (!PROJECT_ID.test(ctx.params.id)) throw new HttpError(404, "Команда не найдена.");
+  if (!Number.isSafeInteger(ctx.body?.revision) || ctx.body.revision < 0) throw new HttpError(400, "Некорректная версия черновика.");
+  const name = typeof ctx.body.name === "string" ? ctx.body.name.trim() : "";
+  if (!name || name.length > 200 || /[\u0000-\u001f\u007f]/.test(name)) throw new HttpError(400, "Введите название команды от 1 до 200 символов в одну строку.");
+  return store.rename(ctx.client, ctx.user.id, ctx.params.id, name, ctx.body.revision);
 }
 
 async function remove(ctx) {
@@ -73,9 +86,9 @@ async function remove(ctx) {
 }
 async function publication(ctx) {
   if (!PUBLICATION_ID.test(ctx.params.id)) throw new HttpError(404, "Команда не найдена.");
-  const result = await store.publication(ctx.client, ctx.params.id);
+  const result = await store.publication(ctx.client, ctx.params.id, libraryOwner(ctx));
   if (!result) throw new HttpError(404, "Команда не найдена.");
   return result;
 }
 
-module.exports = { session, drafts, draft, save, remove, publish: ctx => save(ctx, true), library, publication, MAX_BODY };
+module.exports = { session, drafts, draft, save, remove, rename, publish: ctx => save(ctx, true), library, publication, MAX_BODY };

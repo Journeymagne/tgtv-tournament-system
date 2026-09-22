@@ -8,14 +8,17 @@ const memory = () => {
 };
 function harness(storage=memory()) {
  const project=model.newProject('team','Team'), calls=[], cleaned=[];
- const server={teams:[{id:'team',name:'Team',revision:1}],deletedIds:[],failDelete:false};
- const cloud=create({storage,schedule:null,loadProject:async()=>JSON.stringify(project),onRemove:async id=>cleaned.push(id),request:async(url,options)=>{
+ const server={teams:[{id:'team',name:'Team',revision:1}],deletedIds:[],failDelete:false,failRename:false};
+ const cloud=create({storage,schedule:null,loadProject:async()=>JSON.stringify(project),onRemove:async id=>cleaned.push(id),onRename:async(id,name)=>project.team.name=name,request:async(url,options)=>{
   calls.push({url,...options});let value;
   if(url==='/api/session')value={csrfToken:'token'};
   else if(url==='/api/drafts')value={teams:server.teams,deletedIds:server.deletedIds};
   else if(options.method==='DELETE') {
    if(server.failDelete)return {ok:false,status:503,json:async()=>({error:'Unavailable'})};
    server.teams=[];server.deletedIds=['team'];value={id:'team',deleted:true};
+  } else if(options.method==='PATCH'){
+   if(server.failRename)return {ok:false,status:503,json:async()=>({error:'Unavailable'})};
+   const body=JSON.parse(options.body);value={id:'team',name:body.name,revision:body.revision+1};
   } else {value={id:'team',name:'Team',revision:2};}
   return {ok:true,status:200,json:async()=>structuredClone(value)};
  }});
@@ -28,6 +31,30 @@ test('deleted teams are removed from the queue and cannot be tracked or republis
  assert(h.cleaned.includes('team'));
  assert.equal(h.calls.filter(c=>c.method==='PUT'||c.method==='POST').length,0);
  assert.equal(JSON.parse(h.calls.find(c=>c.method==='DELETE').body).revision,1);
+});
+
+test('rename preserves dirty edits and the next autosave uses the new name and revision', async()=>{
+ const h=harness();await h.cloud.connect();h.project.strategicPloys[0].body='Private edit';h.cloud.track(h.project);
+ await h.cloud.rename('team','New name',1);
+ assert.equal(h.cloud.state('team').name,'New name');assert.equal(h.cloud.state('team').dirty,true);
+ assert.equal(h.project.strategicPloys[0].body,'Private edit');
+ await h.cloud.flush();const body=JSON.parse(h.calls.find(c=>c.method==='PUT').body);
+ assert.equal(body.revision,2);assert.equal(body.project.team.name,'New name');assert.equal(body.project.strategicPloys[0].body,'Private edit');
+});
+
+test('a failed rename does not change the local name or revision and allows retry', async()=>{
+ const h=harness();await h.cloud.connect();h.server.failRename=true;
+ await assert.rejects(h.cloud.rename('team','New name',1),/Unavailable/);
+ assert.equal(h.project.team.name,'Team');assert.equal(h.cloud.state('team').revision,1);
+ h.server.failRename=false;await h.cloud.rename('team','New name',1);assert.equal(h.project.team.name,'New name');
+});
+
+test('renaming from a newer listing never advances an old editor past content it has not loaded', async()=>{
+ const h=harness();await h.cloud.connect();h.server.teams[0].revision=3;await h.cloud.connect(true);
+ await h.cloud.rename('team','New name',3);
+ assert.equal(h.cloud.state('team').revision,1);assert.equal(h.cloud.state('team').remoteRevision,4);
+ assert.equal(h.cloud.state('team').conflict,true);h.cloud.track(h.project);await h.cloud.flush();
+ assert.equal(h.calls.filter(c=>c.method==='PUT').length,0);
 });
 test('a failed deletion preserves the draft for retry', async()=>{
  const h=harness();await h.cloud.connect();h.server.failDelete=true;

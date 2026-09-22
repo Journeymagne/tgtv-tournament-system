@@ -123,6 +123,69 @@ test("concurrent saves detect conflicts and the library keeps the last published
 const remove = (user, id, revision, headers = {}) => request('/api/studio/drafts/' + id, user, {
   method: 'DELETE', body: { revision }, headers
 });
+const rename = (user, id, name, revision, headers = {}) => request('/api/studio/drafts/' + id + '/name', user, {
+  method: 'PATCH', body: { name, revision }, headers
+});
+
+test('only the owner can rename a team and receives publication editing controls', async () => {
+  const alpha = await account('Alpha'), bravo = await account('Bravo'), project = model.newProject('rename-own', 'Before');
+  const published = await save(alpha, project, 0, true), id = published.body.publicationId;
+  for (const reader of [null, bravo]) {
+    const tile = (await request('/api/studio/library', reader)).body.teams[0];
+    const detail = (await request('/api/studio/library/' + id, reader)).body;
+    for (const value of [tile, detail]) for (const key of ['canRename', 'projectId', 'revision', 'ownerId']) assert.equal(value[key], undefined);
+  }
+  const tile = (await request('/api/studio/library', alpha)).body.teams[0];
+  assert.equal(tile.canRename, true);assert.equal(tile.projectId, project.team.id);assert.equal(tile.revision, 1);
+  assert.equal((await rename(null, project.team.id, 'Denied', 1)).status, 401);
+  assert.equal((await rename(bravo, project.team.id, 'Denied', 1)).status, 404);
+  assert.equal((await rename({ ...alpha, csrf: 'wrong' }, project.team.id, 'Denied', 1)).status, 403);
+  assert.equal((await rename({ ...alpha, id: bravo.id }, project.team.id, 'Denied', 1)).status, 401);
+  assert.equal((await rename(alpha, project.team.id, 'Denied', 1, { Origin: 'https://other.invalid' })).status, 403);
+  for (const name of ['', '  ', null, 7, 'a'.repeat(201), 'New\nname', 'Bad\u0000name']) assert.equal((await rename(alpha, project.team.id, name, 1)).status, 400);
+  for (const revision of [undefined, -1, 1.5, '1']) assert.equal((await rename(alpha, project.team.id, 'Valid', revision)).status, 400);
+  assert.equal((await remove(alpha, project.team.id, 1)).status, 200);
+  assert.equal((await rename(alpha, project.team.id, 'Deleted', 1)).status, 410);
+});
+
+test('renaming updates draft and publication titles without publishing private edits', async () => {
+  const alpha = await account('Alpha'), project = model.newProject('rename-published', 'Before');
+  project.strategicPloys[0].body = 'Public rule';
+  const published = await save(alpha, project, 0, true), id = published.body.publicationId;
+  const publicSnapshot = (await request('/api/studio/library/' + id)).body.project;
+  project.strategicPloys[0].body = 'Private rule';project.team.subtitle = 'Private subtitle';
+  await save(alpha, project, 1);
+  const renamed = await rename(alpha, project.team.id, '  Новое название <&>  ', 2);
+  assert.equal(renamed.status, 200);assert.equal(renamed.body.revision, 3);
+  assert.equal(renamed.body.publicationId, id);assert.equal(renamed.body.publishedAt, published.body.publishedAt);
+  const draft = (await request('/api/studio/drafts/' + project.team.id, alpha)).body.project;
+  const live = (await request('/api/studio/library/' + id)).body.project;
+  project.team.name = publicSnapshot.team.name = 'Новое название <&>';
+  assert.deepEqual(draft, project);assert.deepEqual(live, publicSnapshot);
+  assert.equal((await request('/api/studio/library?q=' + encodeURIComponent('Новое название'))).body.total, 1);
+  assert.equal((await request('/api/studio/library?q=Before')).body.total, 0);
+});
+
+test('renaming a private draft does not publish it or rename another owner\'s same-id project', async () => {
+  const alpha = await account('Alpha'), bravo = await account('Bravo'), project = model.newProject('rename-private', 'Before');
+  await save(alpha, project);await save(bravo, project);
+  const renamed = await rename(alpha, project.team.id, 'After', 1);
+  assert.equal(renamed.status, 200);assert.equal(renamed.body.publicationId, null);
+  assert.equal((await request('/api/studio/library')).body.total, 0);
+  assert.equal((await request('/api/studio/drafts/' + project.team.id, alpha)).body.project.team.name, 'After');
+  assert.equal((await request('/api/studio/drafts/' + project.team.id, bravo)).body.project.team.name, 'Before');
+});
+
+test('stale names and concurrent autosaves cannot silently overwrite a rename', async () => {
+  const alpha = await account('Alpha'), project = model.newProject('rename-racing', 'Before');
+  await save(alpha, project);
+  assert.equal((await rename(alpha, project.team.id, 'Stale', 0)).status, 409);
+  project.team.name = 'Edited';
+  const [saved, renamed] = await Promise.all([save(alpha, project, 1), rename(alpha, project.team.id, 'Renamed', 1)]);
+  assert.deepEqual([saved.status, renamed.status].sort(), [200, 409]);
+  const latest = (await request('/api/studio/drafts/' + project.team.id, alpha)).body;
+  assert.equal(latest.revision, 2);assert.equal(latest.name, saved.status === 200 ? 'Edited' : 'Renamed');
+});
 
 test('deletion requires the owner session, CSRF, matching account, origin and revision', async () => {
   const alpha = await account('Alpha'), bravo = await account('Bravo');

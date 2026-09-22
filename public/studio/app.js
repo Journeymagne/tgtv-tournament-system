@@ -36,6 +36,20 @@ function showCreateProject(){
  $('#project-templates').innerHTML='<button data-create-project="empty"><strong>Пустая команда</strong><span>Добавьте состав, правила и карточки с нуля.</span></button>'+Object.entries(window.KT_EXAMPLES||{}).map(([id,team])=>'<button data-create-project="'+esc(id)+'"><strong>'+esc(team.team.name)+'</strong><span>Создать копию шаблона · '+esc(team.team.version||'')+'</span></button>').join('');
  $('#create-project-error').textContent='';$('#create-project-dialog').showModal();
 }
+async function renameProject(id,name){
+ const active=data.team.id===id;
+ const saved=active?data:JSON.parse(await KTStorage.load(STORAGE+':'+id)||'null');
+ if(saved){
+  saved.team.name=name;
+  if(!await KTStorage.save(STORAGE+':'+id,JSON.stringify(saved)))throw Error('Название изменено на сервере, но локальную копию обновить не удалось. Перезагрузите Студию.');
+  rememberProject(saved.team);
+ }
+ if(active){
+  original.team.name=name;renderProjectTitle();$('#breadcrumb').textContent=name+(section==='lorePages'?' / АЛЬБОМ':' / КАРТОЧКИ');
+  if(section==='project')$('#editor input[data-field="name"]').value=name;
+  renderPreview();
+ }
+}
 function persist(edited=true){
  if(removedProjects.has(data.team.id))return Promise.resolve(false);
  for(const c of data.selectionCards)c.size=c.selectionGroups.reduce((n,g)=>n+g.count,0)||1;
@@ -125,6 +139,9 @@ function render(){
  $('#navigation').innerHTML=Object.entries(SECTIONS).map(([key,name])=>'<button data-nav="'+key+'" class="'+(key===section?'active':'')+'"><span>'+name+'</span><small>'+(KTModel.fixed.includes(key)?data[key].filter(KTModel.isFilled).length+'/4':Array.isArray(data[key])?data[key].length:'↗')+'</small></button>').join('');
  $('#section-title').textContent=SECTIONS[section];$('#breadcrumb').textContent=data.team.name+(section==='lorePages'?' / АЛЬБОМ':' / КАРТОЧКИ');
  renderProjectTitle();
+ const rosterButton=$('#export-rosz');
+ rosterButton.disabled=typeof KTNewRecruit==='undefined'||!KTNewRecruit.compatible(data);
+ rosterButton.title=rosterButton.disabled?'Для этой команды ещё не загружен образец ростера New Recruit':'Скачать ростер New Recruit (.rosz)';
  const list=Array.isArray(data[section]);if(list)selected=Math.max(0,Math.min(selected,data[section].length-1));
  $('#add-item').hidden=!list||fixed();
  $('#add-item').textContent=section==='lorePages'?'+ Страница':'+ Карточка';
@@ -175,7 +192,7 @@ function renderEditor(){
   out+=panel('ПЕРЕНОС ПРОЕКТА','<div class="row-actions"><button data-action="download-json">Скачать проект</button><label class="import-label">Загрузить проект<input id="import-json" type="file" accept=".json,application/json"></label></div>'+(window.KT_EXAMPLES?.[data.team.id]?'<button class="danger" data-action="restore">Вернуть тестовую команду</button>':''));
   if(typeof KTNewRecruit!=='undefined'&&KTNewRecruit.compatible(data)){
    const roster=KTNewRecruit.summary(data);
-   out+=panel('РОСТЕР ДЛЯ TTS / DATA TEAM','<p>'+roster.count+' оперативников из '+esc(roster.sourceFile)+'. Состав и выбранное оружие взяты из вашего ростера; характеристики, способности и тексты правил — из текущих карточек редактора.</p><details class="nested"><summary>Оперативники и выбранное оружие</summary>'+roster.entries.map(e=>'<p><b>'+e.count+' × '+esc(e.name)+'</b><br><span class="hint">'+e.weaponIds.map(id=>esc(data.operatives.find(o=>o.id===e.operativeId)?.weapons.find(w=>w.id===id)?.name||'Удалённое оружие: '+id)).join('; ')+'</span></p>').join('')+'</details><button id="export-rosz" class="primary">↓ Ростер New Recruit (.rosz)</button><p class="hint">Это полный ростер для выбора моделей перед игрой. Правила выбора боевой команды остаются на карточке состава.</p><p>Загрузите файл в <a href="https://datateamapp.azurewebsites.net/Encode" target="_blank" rel="noopener">DataTeam Encode</a>, затем вставьте полученный код в <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3356996125" target="_blank" rel="noopener">KT Command Node 2024</a>.</p>','Образец New Recruit · KT 2024');
+   out+=panel('РОСТЕР ДЛЯ TTS / DATA TEAM','<p>'+roster.count+' оперативников из '+esc(roster.sourceFile)+'. Состав и выбранное оружие взяты из вашего ростера; характеристики, способности и тексты правил — из текущих карточек редактора.</p><details class="nested"><summary>Оперативники и выбранное оружие</summary>'+roster.entries.map(e=>'<p><b>'+e.count+' × '+esc(e.name)+'</b><br><span class="hint">'+e.weaponIds.map(id=>esc(data.operatives.find(o=>o.id===e.operativeId)?.weapons.find(w=>w.id===id)?.name||'Удалённое оружие: '+id)).join('; ')+'</span></p>').join('')+'</details><p class="hint">Это полный ростер для выбора моделей перед игрой. Правила выбора боевой команды остаются на карточке состава.</p><p>Загрузите файл в <a href="https://datateamapp.azurewebsites.net/Encode" target="_blank" rel="noopener">DataTeam Encode</a>, затем вставьте полученный код в <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3356996125" target="_blank" rel="noopener">KT Command Node 2024</a>.</p>','Образец New Recruit · KT 2024');
   }
  }else if(!c)out=panel('КАРТОЧКИ','<p>Добавьте первую карточку.</p>');
  else if(section==='selectionCards'){
@@ -198,7 +215,7 @@ function renderEditor(){
    out+=imageEditor(c);
    out+=panel('ПРОФИЛЬ','<div class="field-grid">'+Object.entries(c.stats).map(([k,v])=>field(k,'stats.'+k,v,typeof v==='number'?'number':'text')).join('')+'</div>'+field('Ключевые слова через запятую','keywords',c.keywords.join(', '))+select('Расположение правил','rulesLayout',c.rulesLayout||'columns',[['full','На всю ширину'],['columns','В две колонки']])+'<p class="hint">Расстояния указаны в дюймах. Условия выбора редактируются на карточке состава.</p>');
   }
-  out+=panel(c.kind==='operative'?'ДОПОЛНИТЕЛЬНОЕ ПРАВИЛО':'ТЕКСТ КАРТОЧКИ',field('Художественный текст','lore',c.lore||'','textarea')+field('Правило','body',c.body,'textarea')+'<p class="hint">Расстояния в дюймах, например 6″. При вставке старые символы переводятся автоматически.</p>');
+  out+=panel(c.kind==='operative'?'ТЕКСТ ОПЕРАТИВНИКА':'ТЕКСТ КАРТОЧКИ',field('Художественный текст','lore',c.lore||'','textarea')+(c.kind==='operative'?'<p class="hint">Печатается в чёрной шапке под названием оперативника. Длинный текст переносится на следующие стороны.</p>':'')+field('Правило','body',c.body,'textarea')+'<p class="hint">Расстояния в дюймах, например 6″. При вставке старые символы переводятся автоматически.</p>');
   if(section==='teamCards')out+=imageEditor(c);
   out+=nestedEditor(c,'weapons','ОРУЖИЕ')+nestedEditor(c,'abilities','СПОСОБНОСТИ')+nestedEditor(c,'actions','ДЕЙСТВИЯ');
   if(c.kind==='operative')out+=panel('КОМПЛЕКТАЦИИ',c.loadouts.map((l,i)=>'<div class="loadout">'+field('Название','loadouts.'+i+'.name',l.name)+c.weapons.map(w=>'<label class="checkbox"><input type="checkbox" data-loadout="'+i+'" value="'+w.id+'" '+(l.weaponIds.includes(w.id)?'checked':'')+'>'+esc(w.name)+'</label>').join('')+'<button class="danger small" data-remove-loadout="'+i+'">Удалить вариант</button></div>').join('')+'<button data-action="add-loadout">+ Вариант</button>');
@@ -230,6 +247,7 @@ function updateField(el){
  if(key==='size')value=Math.max(1,value);
  if(key.startsWith('archetypes.')){const slot=Number(key.split('.')[1]);if(value&&obj.archetypes[1-slot]===value){toast('Выберите два разных архетипа');renderEditor();return}side=0}
  pathSet(obj,key,value);
+ if(key==='lore'&&obj.kind==='operative')side=0;
  if(key.startsWith('selectionGroups.'))obj.size=obj.selectionGroups.reduce((n,g)=>n+g.count,0)||1;
  if(key==='kind'){
   if(value==='recruitment')obj.groupCaps??=[];
@@ -456,7 +474,7 @@ async function init(){
   for(const team of [original,data,...Object.values(window.KT_EXAMPLES||{})])for(const o of [...team.operatives,...team.teamCards,...(team.lorePages||[]).flatMap(p=>p.images)])if(o.image)assets[o.image]=window.KT_ASSETS?.[o.image]||o.image;
   render();if(migrated){persist();toast('Проект обновлён. Ваши правки сохранены.')}
   window.ktStudio={getData:()=>structuredClone(data),toast,validateData:KTModel.validate,buildDefinition:()=>buildTeamPDF(data,assets),preparePDF,exportPDF,prepareTTS,exportTTS,exportROSZ,importOperativeImage,importCardImage,importLoreImages,renderCard:(section,index)=>section==='lorePages'?KTLore.renderPage(data.lorePages[index],data,assets):KTCards.renderCard(data[section][index],data,assets,index)};
-  await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,localIds:()=>[...projectList.keys()],copyProject,downloadJSON,toast});
+  await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,renameProject,localIds:()=>[...projectList.keys()],copyProject,downloadJSON,toast});
   $('#new-project').disabled=false;
  }catch(e){$('#editor').textContent='Не удалось открыть проект: '+e.message}
 }

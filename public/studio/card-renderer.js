@@ -47,7 +47,7 @@ function blocks(c,d,width,operative=false){
   for(const g of c.selectionGroups||[]){add(g.count+' '+g.description);for(const e of g.entries){add(e.text);for(const option of e.options)add('• '+option)}}
   add(c.selectionRules);add(c.selectionNotes);
  }else{
-  add(c.lore,'RobotoItalic',9);
+  if(!operative)add(c.lore,'RobotoItalic',9);
   add(c.body);
  }
  if(c.restriction)add(c.restriction,'RobotoBold');
@@ -129,10 +129,19 @@ function portrait(c,d,assets={},index=0){
  return sides;
 }
 function operative(c,d,assets={},index=0){
- const w=LONG,h=SHORT,pad=8,inner=w-16,header=33,footer=22,C=d.layout.accent,sides=[];
- const make=()=>{const p=base(w,h,d,false,assets),stats=Object.entries(c.stats),sw=stats.length>4?24:28,start=w-stats.length*sw;
+ const w=LONG,h=SHORT,pad=8,inner=w-16,baseHeader=33,footer=22,C=d.layout.accent,sides=[];
+ const stats=Object.entries(c.stats),sw=stats.length>4?24:28,start=w-stats.length*sw;
+ const uploaded=/^data:image\/(png|jpeg);base64,/.test(c.image||''),portrait=uploaded?c.image:assets[c.image];
+ const nw=start-(portrait?64:8)-8;
+ let size=14;while(measure(c.name,size,face(c.name))>nw&&size>10)size-=.25;
+ const title=wrap(c.name,nw,size,face(c.name)).slice(0,2),loreTop=20+(title.length-1)*11+7;
+ const loreLines=Text.plain(c.lore).trim()?richLines(c.lore,nw,6.8,'RobotoItalic',0):[];
+ let loreCursor=0;
+ const make=()=>{const p=base(w,h,d,false,assets),firstLore=loreCursor;
+  let loreBottom=loreTop;
+  while(loreCursor<loreLines.length&&loreBottom+loreLines[loreCursor].height<=h-footer-16)loreBottom+=loreLines[loreCursor++].height;
+  const header=loreCursor>firstLore?Math.max(baseHeader,loreBottom+4):baseHeader;p.header=header;
   p.s+=rect(0,0,w,header,BLACK);
-  const uploaded=/^data:image\/(png|jpeg);base64,/.test(c.image||''),portrait=uploaded?c.image:assets[c.image];
   if(portrait){
    p.s+='<defs><clipPath id="headerclip"><rect width="'+w+'" height="'+header+'"/></clipPath></defs><g clip-path="url(#headerclip)">';
    if(c.imageCrop&&c.imageWidth&&c.imageHeight){
@@ -142,19 +151,25 @@ function operative(c,d,assets={},index=0){
    }else p.s+='<image x="'+(start-61)+'" y="'+(uploaded?1:-7)+'" width="61" height="'+(uploaded?header-2:44)+'" preserveAspectRatio="xMidYMid meet" xlink:href="'+esc(portrait)+'"/>';
    p.s+='</g>';
   }
-  const nw=start-(portrait?64:8)-8;
-  let size=14;while(measure(c.name,size,face(c.name))>nw&&size>10)size-=.25;
-  wrap(c.name,nw,size,face(c.name)).slice(0,2).forEach((t,i)=>p.s+=txt(t,8,20+i*11,size,'white',face(c.name)));
+  title.forEach((t,i)=>p.s+=txt(t,8,20+i*11,size,'white',face(c.name)));
   p.s+=line(0,24,Math.min(start-4,measure(c.name,size,face(c.name))+9),24,C,.5);
+  if(loreCursor>firstLore){
+   let y=loreTop;p.s+='<g class="operative-lore">';
+   for(const text of loreLines.slice(firstLore,loreCursor)){
+    p.s+=Text.svg(text,pad,y+text.size,'#e6e8e4');p.boxes.push({kind:'operative-lore',x:pad,y,w:text.width,h:text.height});y+=text.height;
+   }
+   p.s+='</g>';
+  }
   stats.forEach(([key,val],i)=>{const x=start+i*sw,hasDistance=/[″"]/.test(String(val));p.s+=rect(x,0,2,header,'#e6e8e4')+txt(key,x+sw/2,12,7,'white','Display','text-anchor="middle"')+(hasDistance?'':icon(key,x+3,20,9,C))+txt(val,hasDistance?x+sw/2:x+sw-3,29,11,'white','Display',hasDistance?'text-anchor="middle"':'text-anchor="end"')});
   p.s+=rect(0,h-footer,w,footer,BLACK);
   wrap(c.keywords.join(', '),inner-16,5.6,'RobotoBold').slice(0,2).forEach((t,i)=>p.s+=txt(t,pad,h-10+i*6,5.6,'white','RobotoBold'));
   return p;
  };
- let p=make(),y=header+3,weaponIndex=0,rowCount=0,lastGroup='';
- const newSide=()=>{p.s+=rect(0,h-footer-8,w,8,C)+txt('RULES CONTINUE ON NEXT SIDE',w-8,h-footer-1.5,6.4,'white','Display','text-anchor="end"');sides.push(finish(p,{id:c.id,kind:c.kind,side:sides.length,index,name:c.name}));p=make();y=header+4;lastGroup=''};
+ let p=make(),y=p.header+3,weaponIndex=0,rowCount=0,lastGroup='';
+ const newSide=()=>{p.s+=rect(0,h-footer-8,w,8,C)+txt(loreCursor<loreLines.length?'TEXT CONTINUES ON NEXT SIDE':'RULES CONTINUE ON NEXT SIDE',w-8,h-footer-1.5,6.4,'white','Display','text-anchor="end"');sides.push(finish(p,{id:c.id,kind:c.kind,side:sides.length,index,name:c.name}));if(sides.length>100)throw Error('Слишком длинная карточка: '+c.name);p=make();y=p.header+4;lastGroup=''};
+ while(loreCursor<loreLines.length)newSide();
  const tableHead=()=>{['NAME','ATK','HIT','DMG','WR'].forEach((t,i)=>p.s+=txt(t,[pad+14,142,163,182,205][i],y+7,8,BLACK,'Display'));y+=10;p.s+=line(pad,y,w-pad,y,C,.5)};
- if(c.weapons.length)tableHead();
+ if(c.weapons.length){if(y+21>h-footer-14)newSide();tableHead()}
  while(weaponIndex<c.weapons.length){
   const weapon=c.weapons[weaponIndex],group=weapon.group&&weapon.group!==lastGroup?weapon.group+' - select one profile':'';
   const columns=[wrap(weapon.mode||weapon.name,118,6.6),[String(weapon.attacks)],[String(weapon.hit)],[String(weapon.damage)],wrap([weapon.special,weapon.critical?'CR: '+weapon.critical:''].filter(Boolean).join('; ')||'-',w-pad-205,6.6)];
@@ -171,7 +186,7 @@ function operative(c,d,assets={},index=0){
  let cursor=0,col=0,top=y;
  while(cursor<items.length){
   const a=items[cursor],bottom=h-footer-12;
-  const keep=a.groupHeight&&a.groupHeight<=h-footer-12-(header+4)?a.groupHeight:a.keepHeight||a.height;
+  const keep=a.groupHeight&&a.groupHeight<=h-footer-12-(baseHeader+4)?a.groupHeight:a.keepHeight||a.height;
   if(y+Math.max(a.height,keep)>bottom){if(!full&&col===0&&keep<=bottom-top){col=1;y=top}else{newSide();col=0;top=y}continue}
   const x=pad+col*(columnWidth+12);
   if(a.actionHeading)p.s+=rect(x,y-1,columnWidth,a.height-1,C);

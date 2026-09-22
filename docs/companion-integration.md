@@ -131,6 +131,14 @@ it in the new one under the intended account if it should be transferred.
 
 ## Verification
 
+Owners can rename a team from My drafts or its library tile. The revision-checked
+`PATCH /api/studio/drafts/:id/name` changes only `team.name` in the draft and any
+existing published snapshot. It does not create a publication, change its URL,
+or publish private card edits. Public library responses expose rename controls
+only to the matching Studio account. Names must contain 1–200 characters on one
+line. Local unsaved edits remain local; stale editors cannot overwrite a newer
+revision after renaming.
+
 Run the existing `npm test` against an explicitly isolated `TEST_DATABASE_URL`.
 `test/integration/api-studio.test.js` exercises public pages/library, common sessions,
 account isolation, stale editors, CSRF, logout, concurrent draft revisions and
