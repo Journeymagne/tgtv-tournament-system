@@ -20,9 +20,14 @@ function status(){
  for(const button of document.querySelectorAll('[data-rename-draft],[data-rename-publication],[data-delete-draft]'))button.disabled=busy;
 }
 function track(project){if(cloud)cloud.track(project);status()}
+function authorLink(team){
+ if(!team.author)return '';
+ const href=(root.KTCompanion?.serviceUrl('tournament')||'/tournament')+'#/players/'+encodeURIComponent(team.author.id);
+ return 'Автор: <a href="'+esc(href)+'">'+esc(team.author.name)+'</a>';
+}
 function card(team,draft=false){
  const rename=draft||team.canRename?'<button data-rename-'+(draft?'draft':'publication')+'="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Переименовать</button>':'';
- return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div><h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p><div class="team-tile-meta"><span>Оперативников: '+Number(team.operativeCount||0)+'</span><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
+ return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div><h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p>'+(!draft?'<p class="team-author">'+authorLink(team)+'</p>':'')+'<div class="team-tile-meta"><span>Оперативников: '+Number(team.operativeCount||0)+'</span><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
 }
 function showEditor(){view='editor';$('.workspace').hidden=false;$('#community-panel').hidden=true;updateTabs()}
 function renderDrafts(){
@@ -112,6 +117,7 @@ function renderPublication(){
  const project=publication.project;
  $('#publication-title').textContent=project.team.name;
  $('#publication-info').textContent='Версия '+(project.team.version||'1.0')+' · опубликовано '+date(publication.updatedAt);
+ $('#publication-author').innerHTML=authorLink(publication);
  $('#publication-nav').innerHTML=Object.entries(labels).map(([key,label])=>'<button data-publication-section="'+key+'" class="'+(key===publicationSection?'active':'')+'">'+label+'</button>').join('');
  const cards=project[publicationSection]||[],assets={'assets/paper.jpg':'assets/paper.jpg'};
  for(const card of [...project.operatives,...project.teamCards,...(project.lorePages||[]).flatMap(page=>page.images)])if(card.image)assets[card.image]=card.image;
@@ -121,8 +127,19 @@ function renderPublication(){
  }).join(''):'<p class="community-empty">В этом разделе нет карточек.</p>';
 }
 async function openPublication(id){
- try{const result=await api('/api/library/'+encodeURIComponent(id));publication={...result,project:KTModel.validate(KTModel.migrate(result.project))};publicationSection='selectionCards';renderPublication();$('#publication-dialog').showModal()}
+ try{const result=await api('/api/library/'+encodeURIComponent(id));publication={...result,project:KTModel.validate(KTModel.migrate(result.project))};publicationSection='selectionCards';$('#publication-export-status').textContent='';renderPublication();$('#publication-dialog').showModal()}
  catch(error){adapter.toast('Не удалось открыть команду: '+error.message)}
+}
+async function exportPublication(button){
+ if(!publication)return;
+ const current=publication,snapshot=structuredClone(current.project),format=button.dataset.publicationExport;
+ $('#publication-export-status').textContent=format==='pdf'?'Собираю PDF…':'';
+ try{
+  if(format==='rosz')root.ktStudio.exportROSZ(snapshot);
+  if(format==='pdf')await root.ktStudio.exportPDF(null,snapshot,button);
+  if(format==='tts'){root.ktStudio.openTTS(snapshot);return}
+  if(publication===current)$('#publication-export-status').textContent='Файл опубликованной команды готов.';
+ }catch(error){if(publication===current)$('#publication-export-status').textContent='Не удалось экспортировать: '+error.message}
 }
 async function publish(){
  if(busy)return;
@@ -223,6 +240,7 @@ async function init(options){
   if(button.id==='cancel-delete-project')$('#delete-project-dialog').close();
   if(button.id==='review-delete-project'){$('#delete-project-dialog').close();void show('drafts')}
   if(button.dataset.openPublication)void openPublication(button.dataset.openPublication);
+  if(button.dataset.publicationExport)void exportPublication(button);
   if(button.id==='close-publication')$('#publication-dialog').close();
   if(button.dataset.publicationSection){publicationSection=button.dataset.publicationSection;renderPublication()}
   if(button.id==='library-prev'||button.id==='library-next'){offset=Math.max(0,offset+(button.id==='library-next'?30:-30));void show('library')}

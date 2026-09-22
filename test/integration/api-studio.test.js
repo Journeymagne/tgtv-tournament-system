@@ -115,8 +115,15 @@ test("concurrent saves detect conflicts and the library keeps the last published
   const library = await request("/api/studio/library?q=Published", bravo);
   assert.equal(library.body.total, 1);
   assert.equal(library.body.teams[0].name, "Published name");
+  assert.deepEqual(library.body.teams[0].author, { id: alpha.id, name: "Alpha" });
   assert.equal((await request("/api/studio/library/" + id, bravo)).body.project.team.name, "Published name");
   assert.equal((await request("/api/studio/library/" + id)).body.project.team.name, "Published name");
+  for (const viewer of [null, alpha, bravo]) {
+    const detail = await request("/api/studio/library/" + id, viewer);
+    assert.deepEqual(detail.body.author, { id: alpha.id, name: "Alpha" });
+    const list = await request("/api/studio/library?q=Published", viewer);
+    assert.deepEqual(list.body.teams[0].author, detail.body.author);
+  }
   assert.equal((await request("/api/studio/drafts/published-team", bravo)).status, 404);
 });
 

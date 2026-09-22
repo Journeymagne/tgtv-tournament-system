@@ -31,20 +31,25 @@ function ownerControls(row, owner) {
     ? { canRename: true, projectId: row.project_id, revision: row.revision } : {};
 }
 
+const author = row => ({ id: row.owner_id, name: row.author_name });
+
 async function library(client, search, offset, limit = 30, owner = null) {
-  const where = "deleted_at IS NULL AND published IS NOT NULL AND strpos(lower((published->'team'->>'name') || ' ' || COALESCE(published->'team'->>'subtitle','')),lower($1))>0";
+  const where = "studio_projects.deleted_at IS NULL AND published IS NOT NULL AND strpos(lower((published->'team'->>'name') || ' ' || COALESCE(published->'team'->>'subtitle','')),lower($1))>0";
   const { rows } = await client.query(`SELECT owner_id, project_id, revision, publication_id, published_at, published->'team' AS team,
-    jsonb_array_length(published->'operatives') AS count, published->'layout'->>'accent' AS accent
-    FROM studio_projects WHERE ${where} ORDER BY published_at DESC, publication_id LIMIT $2 OFFSET $3`, [search, limit, offset]);
+    jsonb_array_length(published->'operatives') AS count, published->'layout'->>'accent' AS accent,
+    users.name AS author_name FROM studio_projects JOIN users ON users.id=studio_projects.owner_id
+    WHERE ${where} ORDER BY published_at DESC, publication_id LIMIT $2 OFFSET $3`, [search, limit, offset]);
   const count = await client.query(`SELECT count(*)::int AS total FROM studio_projects WHERE ${where}`, [search]);
   return { teams: rows.map(row => ({ id: row.publication_id, name: row.team.name, subtitle: row.team.subtitle || "",
     version: row.team.version || "", operativeCount: row.count, accent: row.accent, updatedAt: row.published_at,
-    ...ownerControls(row, owner) })), total: count.rows[0].total };
+    author: author(row), ...ownerControls(row, owner) })), total: count.rows[0].total };
 }
 
 async function publication(client, id, owner = null) {
-  const { rows } = await client.query("SELECT * FROM studio_projects WHERE publication_id=$1 AND published IS NOT NULL AND deleted_at IS NULL", [id]);
-  return rows[0] ? { ...summary(rows[0], true), project: rows[0].published, ...ownerControls(rows[0], owner) } : null;
+  const { rows } = await client.query(`SELECT studio_projects.*, users.name AS author_name FROM studio_projects
+    JOIN users ON users.id=studio_projects.owner_id
+    WHERE publication_id=$1 AND published IS NOT NULL AND studio_projects.deleted_at IS NULL`, [id]);
+  return rows[0] ? { ...summary(rows[0], true), project: rows[0].published, author: author(rows[0]), ...ownerControls(rows[0], owner) } : null;
 }
 
 async function rename(client, owner, id, name, revision) {

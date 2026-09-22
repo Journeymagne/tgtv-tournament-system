@@ -3,7 +3,7 @@ const $=s=>document.querySelector(s),esc=KTCards.esc;
 const SECTIONS={selectionCards:'Состав киллтима',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',operatives:'Оперативники',lorePages:'Картинки и лор',project:'Проект и исходники'};
 const STORAGE='kt-studio-cards-v6',PREVIOUS=[];
 const PROJECTS=STORAGE+':project-list',ACTIVE=STORAGE+':active-project',projectList=new Map();
-let data,original,section='selectionCards',selected=0,side=0,assets={},pdfReady=false,timer;
+let data,original,section='selectionCards',selected=0,side=0,assets={},timer;
 let previewOnly=false;
 let saveRevision=0,teamLoadRevision=0;
 const current=()=>section==='project'?data.team:data[section]?.[selected];
@@ -27,7 +27,7 @@ async function removeProject(id){
  if(data.team.id===id){
   ++teamLoadRevision;++saveRevision;
   data=KTModel.validate(KTModel.newProject('custom-'+uid(),'Новая команда'));original=structuredClone(data);
-  section='project';selected=side=0;pdfReady=false;previewOnly=false;
+  section='project';selected=side=0;previewOnly=false;
   $('.workspace').classList.remove('show-preview');render();
  }
  await KTStorage.remove(STORAGE+':'+id);
@@ -74,7 +74,7 @@ async function openProject(id){
   if(!saved&&!example)throw Error('Сохранённый проект не найден');
   const next=KTModel.validate(KTModel.migrate(saved?JSON.parse(saved):example));
   original=example?KTModel.validate(KTModel.migrate(example)):structuredClone(next);data=next;
-  section='selectionCards';selected=side=0;pdfReady=false;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
+  section='selectionCards';selected=side=0;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
   rememberProject(data.team,true);render();
  }catch(err){toast('Не удалось открыть проект: '+err.message);renderProjectTitle()}
 }
@@ -93,7 +93,7 @@ async function createEmptyProject(templateId='empty'){
   if(!await KTStorage.save(STORAGE+':'+next.team.id,JSON.stringify(next)))throw Error('Браузер не смог сохранить новый проект');
   rememberProject(next.team);
   if(revision!==teamLoadRevision)return;
-  original=structuredClone(next);data=next;section=template?'selectionCards':'project';selected=side=0;pdfReady=false;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
+  original=structuredClone(next);data=next;section=template?'selectionCards':'project';selected=side=0;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
   rememberProject(data.team,true);render();
   window.KTCommunity?.track(data);window.KTCommunity?.showEditor();$('#create-project-dialog').close();
   const input=$('#editor input[data-field="name"]');input?.focus?.();input?.select?.();toast(template?'Копия шаблона создана.':'Пустой проект создан. Укажите название команды и добавьте карточки.');
@@ -104,14 +104,14 @@ async function openStoredProject(project,expected){
  if(!await persist(false)||revision!==teamLoadRevision||expected!==undefined&&JSON.stringify(data)!==expected)return false;
  if(!await KTStorage.save(STORAGE+':'+next.team.id,JSON.stringify(next)))throw Error('Браузер не смог сохранить проект');
  if(revision!==teamLoadRevision||expected!==undefined&&JSON.stringify(data)!==expected)return false;
- data=next;original=structuredClone(next);section='selectionCards';selected=side=0;pdfReady=false;previewOnly=false;
+ data=next;original=structuredClone(next);section='selectionCards';selected=side=0;previewOnly=false;
  $('.workspace').classList.toggle('show-preview',false);rememberProject(data.team,true);render();return true;
 }
 async function recoverProject(id,project){
  const active=data.team.id===id,next=KTModel.validate(KTModel.migrate(project));
  rememberProject(next.team,active);
  if(active){
-  ++teamLoadRevision;++saveRevision;data=next;original=structuredClone(next);pdfReady=false;side=0;render();
+  ++teamLoadRevision;++saveRevision;data=next;original=structuredClone(next);side=0;render();
  }
  await KTStorage.save(STORAGE+':'+next.team.id,JSON.stringify(next));
 }
@@ -145,7 +145,7 @@ function render(){
  renderProjectTitle();
  const rosterButton=$('#export-rosz');
  rosterButton.disabled=typeof KTNewRecruit==='undefined'||!KTNewRecruit.compatible(data);
- rosterButton.title=rosterButton.disabled?'Для этой команды ещё не загружен образец ростера New Recruit':'Скачать ростер New Recruit (.rosz)';
+ rosterButton.title='Скачать ростер команды (.rosz)';
  const list=Array.isArray(data[section]);if(list)selected=Math.max(0,Math.min(selected,data[section].length-1));
  $('#add-item').hidden=!list||fixed();
  $('#add-item').textContent=section==='lorePages'?'+ Страница':'+ Карточка';
@@ -196,7 +196,7 @@ function renderEditor(){
   out+=panel('ПЕРЕНОС ПРОЕКТА','<div class="row-actions"><button data-action="download-json">Скачать проект</button><label class="import-label">Загрузить проект<input id="import-json" type="file" accept=".json,application/json"></label></div>'+(window.KT_EXAMPLES?.[data.team.id]?'<button class="danger" data-action="restore">Вернуть тестовую команду</button>':''));
   if(typeof KTNewRecruit!=='undefined'&&KTNewRecruit.compatible(data)){
    const roster=KTNewRecruit.summary(data);
-   out+=panel('РОСТЕР ДЛЯ TTS / DATA TEAM','<p>'+roster.count+' оперативников из '+esc(roster.sourceFile)+'. Состав и выбранное оружие взяты из вашего ростера; характеристики, способности и тексты правил — из текущих карточек редактора.</p><details class="nested"><summary>Оперативники и выбранное оружие</summary>'+roster.entries.map(e=>'<p><b>'+e.count+' × '+esc(e.name)+'</b><br><span class="hint">'+e.weaponIds.map(id=>esc(data.operatives.find(o=>o.id===e.operativeId)?.weapons.find(w=>w.id===id)?.name||'Удалённое оружие: '+id)).join('; ')+'</span></p>').join('')+'</details><p class="hint">Это полный ростер для выбора моделей перед игрой. Правила выбора боевой команды остаются на карточке состава.</p><p>Загрузите файл в <a href="https://datateamapp.azurewebsites.net/Encode" target="_blank" rel="noopener">DataTeam Encode</a>, затем вставьте полученный код в <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3356996125" target="_blank" rel="noopener">KT Command Node 2024</a>.</p>','Образец New Recruit · KT 2024');
+   out+=panel('РОСТЕР ДЛЯ TTS / DATA TEAM','<p>'+roster.count+' профилей оперативников с вариантами оружия. Характеристики, способности и правила берутся из текущих карточек команды.</p><details class="nested"><summary>Оперативники и выбранное оружие</summary>'+roster.entries.map(e=>'<p><b>'+e.count+' × '+esc(e.name)+'</b><br><span class="hint">'+e.weaponIds.map(id=>esc(data.operatives.find(o=>o.id===e.operativeId)?.weapons.find(w=>w.id===id)?.name||'Удалённое оружие: '+id)).join('; ')+'</span></p>').join('')+'</details><p class="hint">Это полный ростер для выбора моделей перед игрой. Правила выбора боевой команды остаются на карточке состава.</p><p>Загрузите файл в <a href="https://datateamapp.azurewebsites.net/Encode" target="_blank" rel="noopener">DataTeam Encode</a>, затем вставьте полученный код в <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3356996125" target="_blank" rel="noopener">KT Command Node 2024</a>.</p>','Ростер .rosz · KT 2024');
   }
  }else if(!c)out=panel('КАРТОЧКИ','<p>Добавьте первую карточку.</p>');
  else if(section==='selectionCards'){
@@ -282,7 +282,7 @@ function newCard(){
  return {...KTModel.blank(uid(),'faction'),name:'NEW FACTION RULE'};
 }
 function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
-const fileStem=()=>data.team.name.toLowerCase().replace(/[^a-zа-я0-9]+/gi,'-');
+const fileStem=(project=data)=>project.team.name.toLowerCase().replace(/[^a-zа-я0-9]+/gi,'-');
 async function downloadJSON(){try{if(!await KTAccount.requireLogin('download'))return;downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),fileStem()+'-project.json');toast('Файл проекта сохранён')}catch(error){toast(error.message)}}
 async function importJSON(file){
  if(!file)return;const revision=++teamLoadRevision;
@@ -291,7 +291,7 @@ async function importJSON(file){
   const next=KTModel.validate(KTModel.migrate(JSON.parse(await file.text())));
   if(revision!==teamLoadRevision||!await persist()||revision!==teamLoadRevision)return;
   original=window.KT_EXAMPLES?.[next.team.id]?KTModel.validate(KTModel.migrate(window.KT_EXAMPLES[next.team.id])):structuredClone(next);
-  data=next;pdfReady=false;section='selectionCards';selected=side=0;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
+  data=next;section='selectionCards';selected=side=0;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
   persist();render();toast('Проект загружен');
  }catch(e){toast('Не удалось загрузить: '+e.message)}
 }
@@ -313,7 +313,7 @@ document.addEventListener('click',e=>{
  if(b.id==='export'){exportPDF();return}
  if(['choose-operative-image','choose-card-image'].includes(b.id)){$('#'+b.id.replace('choose-','')+'-file').click();return}
  if(b.id==='crop-operative-image'){editOperativeCrop();return}
- if(['remove-operative-image','remove-card-image'].includes(b.id)){const card=current();if(['operative','faction','recruitment'].includes(card?.kind)){portraitJobs.delete(card);card.image='';delete card.imageWidth;delete card.imageHeight;delete card.imageCrop;pdfReady=false;persist();renderEditor();renderPreview();toast('Картинка удалена')}return}
+ if(['remove-operative-image','remove-card-image'].includes(b.id)){const card=current();if(['operative','faction','recruitment'].includes(card?.kind)){portraitJobs.delete(card);card.image='';delete card.imageWidth;delete card.imageHeight;delete card.imageCrop;persist();renderEditor();renderPreview();toast('Картинка удалена')}return}
  if(b.id==='export-rosz'){exportROSZ();return}
  if(b.id==='open-tts'){openTTS();return}
  if(b.id==='close-tts'){$('#tts-dialog').close();return}
@@ -365,7 +365,7 @@ async function importLoreImages(files,replaceId=null){
     if(data!==project||!data.lorePages.includes(page)||loreJobs.get(page)!==token)return;
     const values={image:result.image,imageWidth:result.width,imageHeight:result.height};
     if(target){if(!page.images.includes(target))return;Object.assign(target,values)}else page.images.push({id:uid(),...values,caption:''});
-    added++;pdfReady=false;persist();if(current()===page){side=0;renderPreview()}
+    added++;persist();if(current()===page){side=0;renderPreview()}
    }catch(e){failed.push(file.name+': '+e.message)}
   }
   toast((added?(replaceId?'Картинка заменена. ':'Добавлено картинок: '+added+'. '):'')+(failed.length?failed.join('; '):'Изображения включены в PDF.'));
@@ -382,7 +382,7 @@ async function importCardImage(file){
   card.image=typeof result==='string'?result:result.image;
   delete card.imageCrop;
   if(result.width&&result.height){card.imageWidth=result.width;card.imageHeight=result.height}else{delete card.imageWidth;delete card.imageHeight}
-  pdfReady=false;persist();
+  persist();
   if(current()===card){renderEditor();renderPreview()}
   toast('Картинка добавлена: '+card.name);
   added=true;
@@ -398,7 +398,7 @@ async function editOperativeCrop(){
   const result=await KTOperativeCrop.open(uri,card.imageCrop);
   if(!result||data!==project||!data.operatives.includes(card)||card.image!==source||portraitJobs.get(card)!==token)return;
   card.imageCrop=result.crop;card.imageWidth=result.width;card.imageHeight=result.height;
-  pdfReady=false;persist();if(current()===card){renderEditor();renderPreview()}toast('Выбранная область перенесена на карточку');
+  persist();if(current()===card){renderEditor();renderPreview()}toast('Выбранная область перенесена на карточку');
  }catch(e){toast('Не удалось выбрать область: '+e.message)}
  finally{if(portraitJobs.get(card)===token){portraitJobs.delete(card);if(data===project&&current()===card)renderEditor()}}
 }
@@ -408,39 +408,40 @@ async function base64File(url){
  const response=await fetch(url);if(!response.ok)throw Error('Не удалось загрузить '+url);
  const blob=await response.blob();return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob)});
 }
-async function preparePDF(){
+async function preparePDF(snapshot=data){
  const [display,symbol]=await Promise.all([base64File('vendor/BebasNeue-Regular.ttf'),base64File('vendor/NotoSansSymbols2-Regular.ttf')]);
  pdfMake.addVirtualFileSystem({...vfs,'Display.ttf':display.split(',')[1],'Symbols.ttf':symbol.split(',')[1]});
  pdfMake.fonts={Roboto:{normal:'Roboto-Regular.ttf',bold:'Roboto-Medium.ttf',italics:'Roboto-Italic.ttf',bolditalics:'Roboto-MediumItalic.ttf'},Display:{normal:'Display.ttf',bold:'Display.ttf',italics:'Display.ttf',bolditalics:'Display.ttf'},Symbols:{normal:'Symbols.ttf',bold:'Symbols.ttf',italics:'Symbols.ttf',bolditalics:'Symbols.ttf'}};
- const paths=['assets/paper.jpg',...new Set([...original.operatives,...data.operatives,...data.teamCards,...data.lorePages.flatMap(p=>p.images)].map(o=>o.image).filter(p=>/^assets\/[a-z0-9.-]+\.(png|jpg|jpeg)$/i.test(p||'')))];
- await Promise.all(paths.map(async p=>assets[p]=await base64File(p)));
- pdfReady=true;
+ const paths=['assets/paper.jpg',...new Set([...snapshot.operatives,...snapshot.teamCards,...snapshot.lorePages.flatMap(p=>p.images)].map(o=>o.image).filter(p=>/^assets\/[a-z0-9.-]+\.(png|jpg|jpeg)$/i.test(p||'')))],loaded={};
+ await Promise.all(paths.map(async p=>loaded[p]=await base64File(p)));
+ if(snapshot===data){Object.assign(assets,loaded)}
+ return loaded;
 }
-async function exportPDF(selection=null){
- const lore=selection?.section==='lorePages',button=$(lore?'#export-lore':selection?'#export-selection':'#export');button.disabled=true;button.textContent='Собираю PDF…';
+async function exportPDF(selection=null,project=data,button=$(selection?.section==='lorePages'?'#export-lore':selection?'#export-selection':'#export')){
+ const snapshot=structuredClone(project),external=project!==data,lore=selection?.section==='lorePages',label=button.textContent;button.disabled=true;button.textContent='Собираю PDF…';
  try{
-  KTModel.validate(data);if(!pdfReady)await preparePDF();
-  const snapshot=structuredClone(data);
+  KTModel.validate(snapshot);const loaded=await preparePDF(snapshot);
   await new Promise((resolve,reject)=>{
    let done=false;const finish=error=>{if(done)return;done=true;clearTimeout(timeout);window.removeEventListener('unhandledrejection',failed);error?reject(error):resolve()};
    const failed=e=>finish(Error(String(e.reason?.message||e.reason))),timeout=setTimeout(()=>finish(Error('Экспорт занял слишком много времени')),60000);
    window.addEventListener('unhandledrejection',failed);
-   try{pdfMake.createPdf(buildTeamPDF(snapshot,assets,selection)).getBlob(blob=>{if(done)return;downloadBlob(blob,fileStem()+(lore?'-pictures-and-lore':selection?'-selection':'-cards')+'.pdf');finish()})}catch(e){finish(e)}
+   try{pdfMake.createPdf(buildTeamPDF(snapshot,loaded,selection)).getBlob(blob=>{if(done)return;downloadBlob(blob,fileStem(snapshot)+(lore?'-pictures-and-lore':selection?'-selection':'-cards')+'.pdf');finish()})}catch(e){finish(e)}
   });
-  toast('PDF с текущими правками готов');
- }catch(e){toast('Ошибка экспорта: '+e.message)}finally{button.disabled=false;button.textContent=lore?'↓ PDF раздела':selection?'↓ PDF карточки состава':'↓ PDF для печати'}
+  toast('PDF готов');return true;
+ }catch(e){if(external)throw e;toast('Ошибка экспорта: '+e.message)}finally{button.disabled=false;button.textContent=label}
 }
-let ttsURL=null,ttsBusy=false;
-function exportROSZ(){
- try{const result=KTNewRecruit.archive(data);downloadBlob(new Blob([result.bytes],{type:'application/zip'}),result.filename);toast('Ростер готов: '+result.report.count+' оперативников. Загрузите .rosz в DataTeam Encode.');return result}
- catch(e){toast('Ошибка ростера: '+e.message)}
+let ttsURL=null,ttsBusy=false,ttsSnapshot=null;
+function exportROSZ(project=data){
+ try{const result=KTNewRecruit.archive(project);downloadBlob(new Blob([result.bytes],{type:'application/zip'}),result.filename);toast('Ростер готов: '+result.report.count+' оперативников. Загрузите .rosz в DataTeam Encode.');return result}
+ catch(e){if(project!==data)throw e;toast('Ошибка ростера: '+e.message)}
 }
-function openTTS(){
+function openTTS(project=data){
+ if(ttsBusy)return;
  try{
-  const p=KTTTS.plan(data,assets);$('#tts-summary').textContent=p.team.name+' · '+p.cardCount+' карт · '+p.doubleSided+' двусторонних'+(p.incomplete?' · Есть незаполненные места':'');
+  const snapshot=structuredClone(project),p=KTTTS.plan(snapshot,{});ttsSnapshot=snapshot;$('#tts-summary').textContent=p.team.name+' · '+p.cardCount+' карт · '+p.doubleSided+' двусторонних'+(p.incomplete?' · Есть незаполненные места':'');
   $('#tts-decks').innerHTML=p.decks.map(d=>'<div><span>'+esc(d.name)+'</span><b>'+d.cards.length+'</b></div>').join('');
-  $('#tts-folder').value=KTTTS.defaultFolder(data);$('#tts-status').textContent='';$('#tts-result').hidden=true;$('#tts-dialog').showModal();
- }catch(e){toast('Не удалось подготовить колоды: '+e.message)}
+  $('#tts-folder').value=KTTTS.defaultFolder(snapshot);$('#tts-status').textContent='';$('#tts-result').hidden=true;$('#tts-dialog').showModal();
+ }catch(e){if(project!==data)throw e;toast('Не удалось подготовить колоды: '+e.message)}
 }
 async function prepareTTS(snapshot){
  const paths=['assets/paper.jpg','vendor/BebasNeue-Regular.ttf','vendor/NotoSansSymbols2-Regular.ttf','vendor/Roboto-Regular.ttf','vendor/Roboto-Medium.ttf','vendor/Roboto-Italic.ttf','vendor/Roboto-MediumItalic.ttf',...new Set([...snapshot.operatives,...snapshot.teamCards].map(o=>o.image).filter(Boolean))],result={};
@@ -450,12 +451,12 @@ async function prepareTTS(snapshot){
 async function exportTTS(){
  if(ttsBusy)return;ttsBusy=true;const button=$('#build-tts');button.disabled=true;$('#open-tts').disabled=true;$('#close-tts').disabled=true;$('#tts-folder').disabled=true;$('#tts-result').hidden=true;
  try{
-  const snapshot=structuredClone(data),base=$('#tts-folder').value;KTTTS.assetURL(base,'sheets/check.png');
+  const snapshot=structuredClone(ttsSnapshot||data),base=$('#tts-folder').value;KTTTS.assetURL(base,'sheets/check.png');
   $('#tts-status').textContent='Подготавливаю изображения и шрифты…';
   const loaded=await prepareTTS(snapshot),result=await KTTTS.browserExport(snapshot,loaded,{base,onProgress:(done,total)=>$('#tts-status').textContent='Собираю листы карт: '+done+' / '+total});
   if(ttsURL)URL.revokeObjectURL(ttsURL);ttsURL=URL.createObjectURL(result.blob);
   const link=$('#tts-download');link.href=ttsURL;link.download=result.filename;link.textContent='↓ Скачать '+result.filename+' · '+(result.blob.size/1048576).toFixed(1)+' МБ';
-  $('#tts-status').textContent='Готово: '+result.manifest.cardCount+' карт, '+result.manifest.decks.length+' колод. Все текущие правки включены.';$('#tts-result').hidden=false;
+  $('#tts-status').textContent='Готово: '+result.manifest.cardCount+' карт, '+result.manifest.decks.length+' колод · '+snapshot.team.name;$('#tts-result').hidden=false;
   return result;
  }catch(e){$('#tts-status').textContent='Ошибка экспорта: '+e.message}
  finally{ttsBusy=false;button.disabled=false;$('#open-tts').disabled=false;$('#close-tts').disabled=false;$('#tts-folder').disabled=false}
@@ -477,7 +478,7 @@ async function init(){
   assets={...(window.KT_ASSETS||{}),'assets/paper.jpg':window.KT_ASSETS?.['assets/paper.jpg']||'assets/paper.jpg'};
   for(const team of [original,data,...Object.values(window.KT_EXAMPLES||{})])for(const o of [...team.operatives,...team.teamCards,...(team.lorePages||[]).flatMap(p=>p.images)])if(o.image)assets[o.image]=window.KT_ASSETS?.[o.image]||o.image;
   render();if(migrated){persist();toast('Проект обновлён. Ваши правки сохранены.')}
-  window.ktStudio={getData:()=>structuredClone(data),toast,validateData:KTModel.validate,buildDefinition:()=>buildTeamPDF(data,assets),preparePDF,exportPDF,prepareTTS,exportTTS,exportROSZ,importOperativeImage,importCardImage,importLoreImages,renderCard:(section,index)=>section==='lorePages'?KTLore.renderPage(data.lorePages[index],data,assets):KTCards.renderCard(data[section][index],data,assets,index)};
+  window.ktStudio={getData:()=>structuredClone(data),toast,validateData:KTModel.validate,buildDefinition:()=>buildTeamPDF(data,assets),preparePDF,exportPDF,prepareTTS,openTTS,exportTTS,exportROSZ,importOperativeImage,importCardImage,importLoreImages,renderCard:(section,index)=>section==='lorePages'?KTLore.renderPage(data.lorePages[index],data,assets):KTCards.renderCard(data[section][index],data,assets,index)};
   await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,renameProject,recoverProject,localIds:()=>[...projectList.keys()],downloadJSON,toast});
   $('#new-project').disabled=false;
  }catch(e){$('#editor').textContent='Не удалось открыть проект: '+e.message}
