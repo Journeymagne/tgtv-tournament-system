@@ -79,7 +79,7 @@ test("РЕГРЕСС B1: список не содержит контактов",
   assert.ok(!serialized.includes("AlphaNick"), "ник не должен уезжать анониму");
   assert.deepEqual(
     Object.keys(result.users[0]).sort(),
-    ["avatarUrl", "id", "isAdmin", "name", "rating", "ratings"]
+    ["avatarUrl", "id", "isAdmin", "name", "publicId", "rating", "ratings"]
   );
 });
 

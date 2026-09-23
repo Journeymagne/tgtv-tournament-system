@@ -2354,7 +2354,7 @@ tr:last-child td {
   color: var(--ink);
   background:
     linear-gradient(90deg, rgb(var(--accent-rgb) / 0.16), transparent 58%),
-    var(--surface-medallion);
+    var(--surface-well);
   font-size: 18px;
   font-weight: 950;
 }

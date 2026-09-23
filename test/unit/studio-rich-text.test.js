@@ -5,6 +5,7 @@ const Model = require('../../public/studio/model');
 const Cards = require('../../public/studio/card-renderer');
 const { buildTeamPDF } = require('../../public/studio/pdf-template');
 const TTS = require('../../public/studio/tts-export');
+const Roster = require('../../public/studio/new-recruit');
 const apply = (value, edit) => value.slice(0, edit.from) + edit.text + value.slice(edit.to);
 
 test('orange text combines with bold, italic and size without colouring adjacent text', () => {
@@ -66,4 +67,51 @@ test('card previews, PDF and TTS preserve orange keywords and skulls', () => {
  assert.equal(pdf.content.find(item => item.svg).svg, card.svg);
  const plan = JSON.stringify(TTS.plan(project, {}));
  assert(plan.includes('text-skull'));assert(plan.includes('#f4511e'));
+});
+
+function keywordProject(value) {
+ const project = Model.newProject('keyword-formatting', 'Red Corsairs');
+ project.operatives.push({ ...Model.blank('operative', 'operative'), name: 'Reaver',
+  stats: { APL: 3, MOVE: '6″', SAVE: '3+', WOUNDS: 14 }, baseSize: '32',
+  keywords: value.split(',').map(text => text.trim()), loadouts: [] });
+ return Model.validate(Model.migrate(project));
+}
+
+test('keyword formatting across commas survives project reload, every card side, PDF, TTS and ROSZ', () => {
+ const project = keywordProject('[color=orange]***[size=12]RED CORSAIRS💀, LEADER[/size]***[/color], CHAOS');
+ project.operatives[0].body = 'A long rule that requires several card sides. '.repeat(80);
+ const restored = Model.validate(Model.migrate(JSON.parse(JSON.stringify(project))));
+ assert.deepEqual(restored.operatives[0].keywords, project.operatives[0].keywords);
+ const cards = Cards.renderCard(restored.operatives[0], restored);
+ assert(cards.length > 1);
+ for (const card of cards) {
+  const keywords = card.svg.slice(card.svg.indexOf('<g class="operative-keywords"'));
+  assert.match(keywords, /font-size="12" font-weight="bold" font-style="italic" fill="#f4511e"/);
+  assert.match(keywords, /class="text-skull"/);
+  assert.match(keywords, /class="operative-base-size"/);
+  assert(!keywords.includes('[color=orange]') && !keywords.includes('[size=12]'));
+ }
+ const pdf = buildTeamPDF(restored, {}, { section: 'operatives', index: 0 });
+ assert.deepEqual(pdf.content.filter(item => item.svg).map(item => item.svg), cards.map(card => card.svg));
+ const deck = TTS.plan(restored).decks.find(deck => deck.id === 'operatives');
+ assert.equal((JSON.stringify(deck.cards).match(/operative-keywords/g) || []).length, cards.length);
+ const xml = Roster.build(restored).xml;
+ assert.match(xml, /<category[^>]+name="RED CORSAIRS💀"/);
+ assert.match(xml, /<category[^>]+name="LEADER" primary="true"/);
+ assert.match(xml, /<category[^>]+name="CHAOS"/);
+ assert(!xml.includes('[color=orange]') && !xml.includes('[size=12]') && !xml.includes('***'));
+});
+
+test('large keyword text remains complete and leaves room for the operative rules', () => {
+ const names = Array.from({ length: 35 }, (_, index) => 'KEYWORD' + String(index).padStart(2, '0'));
+ const project = keywordProject('[size=24]' + names.join(', ') + '[/size]');
+ project.operatives[0].body = 'Operative rule still fits.';
+ const cards = Cards.renderCard(project.operatives[0], project);
+ assert.equal(cards.length, 1);
+ for (const name of names) assert(cards[0].svg.includes(name), name);
+ assert(cards[0].svg.includes('Operative rule still fits.'));
+ const transform = cards[0].svg.match(/class="operative-keywords" transform="translate\(8 ([\d.]+)\) scale\(([\d.]+)\)"/);
+ assert(transform);
+ assert(Number(transform[1]) > 80);
+ assert(Number(transform[2]) > 0 && Number(transform[2]) < 1);
 });

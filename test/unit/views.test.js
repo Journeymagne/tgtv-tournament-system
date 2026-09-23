@@ -45,7 +45,7 @@ test("publicUser отдаёт ссылку на аватар и никогда �
 
 test("leaderboardUser не содержит контактов", () => {
   const row = leaderboardUser(user());
-  assert.deepEqual(Object.keys(row).sort(), ["avatarUrl", "id", "isAdmin", "name", "rating", "ratings"]);
+  assert.deepEqual(Object.keys(row).sort(), ["avatarUrl", "id", "isAdmin", "name", "publicId", "rating", "ratings"]);
 });
 
 test("publicUserSummary сохраняет контакты для авторизованных представлений", () => {

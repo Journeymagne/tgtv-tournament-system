@@ -150,6 +150,41 @@ function scores(winnerId, loserId) {
   };
 }
 
+for (const viaAdmin of [false, true]) {
+  test(`winner identity collision is handled through ${viaAdmin ? "admin" : "player game"} result submission`, async () => {
+    const loser = await createUser("Tony Te Amo");
+    const winner = await createUser("corias");
+    const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 1, venueMode: "irl" });
+    // Deliberately overlap the losing participant ID with the winner's user ID.
+    await client.query("SELECT setval('tournament_participants_id_seq', $1, false)", [winner.id]);
+    const a = await addUserParticipant(tournament, loser);
+    await addUserParticipant(tournament, await createUser("Seed Two"));
+    const b = await addUserParticipant(tournament, winner);
+    await addUserParticipant(tournament, await createUser("Seed Four"));
+    assert.equal(a.id, winner.id);
+    const started = await closeAndStart(tournament);
+    const match = activeMatchForUser(started, loser.id);
+    assert.equal(match.participantAId, a.id);
+    assert.equal(match.participantBId, b.id);
+    const body = { scores: scores(winner.id, loser.id) };
+    if (viaAdmin) {
+      await tournamentsApi.saveMatchResultAdmin({ client, user: root,
+        params: { id: String(tournament.id), matchId: String(match.id) }, body });
+    } else {
+      await gamesApi.submitResult({ client, user: winner, params: { id: String(match.gameId) }, body });
+    }
+    const view = await tournamentsApi.getPublic({ client, user: null, params: { slug: tournament.slug } });
+    const completed = view.rounds[0].matches.find(row => row.id === match.id);
+    assert.equal(completed.status, "completed");
+    assert.equal(completed.result.winnerId, winner.id);
+    assert.equal(completed.winnerParticipantId, b.id);
+    assert.deepEqual(completed.matchPoints, { [a.id]: 0, [b.id]: 3 });
+    assert.equal(view.standings.find(row => row.participantId === a.id).wins, 0);
+    assert.equal(view.standings.find(row => row.participantId === b.id).wins, 1);
+    assert.equal((await gamesRepo.findById(client, match.gameId)).result.winnerId, winner.id);
+  });
+}
+
 test("single elimination: результат игрока сразу завершает матч и применяет Elo", async () => {
   const alpha = await createUser("Alpha");
   const tournament = await createPublishedTournament();

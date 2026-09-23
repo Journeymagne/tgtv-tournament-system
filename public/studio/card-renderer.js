@@ -100,6 +100,7 @@ function inlineSVG(svg,scope){
 const category={selection:'KILL TEAM',recruitment:'KILL TEAM SELECTION',faction:'FACTION RULE',strategic:'STRATEGY PLOY',firefight:'FIREFIGHT PLOY',equipment:'FACTION EQUIPMENT'};
 function portrait(c,d,assets={},index=0){
  const w=SHORT,h=LONG,pad=8,inner=w-2*pad,dark=['selection','recruitment'].includes(c.kind),sides=[];
+ const isPloy=['strategic','firefight'].includes(c.kind);
  const ruleImage=['faction','recruitment'].includes(c.kind)?(/^data:image\/(png|jpeg);base64,/.test(c.image||'')?c.image:assets[c.image]):null;
  const imageRatio=c.imageWidth&&c.imageHeight?c.imageWidth/c.imageHeight:1.5;
  let imagePending=!!ruleImage;
@@ -122,13 +123,11 @@ function portrait(c,d,assets={},index=0){
   let y=54;
   const bandFont=c.kind==='faction'?'RobotoBold':face(name),bandLines=wrap(name,inner-(c.cost?35:6),12,bandFont);
   const bh=Math.max(15,bandLines.length*13+3);
-  if(['strategic','firefight'].includes(c.kind)){
-   const fill=c.kind==='strategic'?SAGE:'#232323';
-   p.s+=rect(pad,y,inner,bh,fill);
-  }else if(c.kind==='faction')p.s+=rect(pad,y,inner,bh,Text.ORANGE);
+  if(isPloy)p.s+=rect(pad,y,inner,bh,c.kind==='strategic'?SAGE:'#232323','class="ploy-title-band" stroke="none"');
+  else if(c.kind==='faction')p.s+=rect(pad,y,inner,bh,Text.ORANGE);
   else if(c.kind==='equipment')p.s+=rect(pad,y,inner,bh,'none','stroke="'+BLACK+'" stroke-width=".6"');
-  else p.s+=line(pad,y+bh, w-pad,y+bh,p.C,.7);
-  const titleColor=['strategic','firefight','faction'].includes(c.kind)?'white':dark?'white':c.kind==='equipment'?BLACK:p.C;
+  else if(!isPloy)p.s+=line(pad,y+bh, w-pad,y+bh,p.C,.7);
+  const titleColor=isPloy||c.kind==='faction'||dark?'white':c.kind==='equipment'?BLACK:p.C;
   bandLines.forEach((t,i)=>p.s+=txt(t,pad+2,y+12+i*13,12,titleColor,bandFont));
   if(c.cost)p.s+=txt(c.cost,w-pad-3,y+11,7.5,titleColor,'RobotoBold','text-anchor="end"');
   y+=bh+10;
@@ -158,9 +157,14 @@ function portrait(c,d,assets={},index=0){
  return sides;
 }
 function operative(c,d,assets={},index=0){
- const w=LONG,h=SHORT,pad=8,inner=w-16,baseHeader=33,footer=18,C=d.layout.accent,sides=[];
+ const w=LONG,h=SHORT,pad=8,inner=w-16,baseHeader=33,C=d.layout.accent,sides=[];
  const baseSize=(c.baseSize||'').trim(),baseWidth=baseSize?(/^\d+(?:[.,]\d+)?$/.test(baseSize)?16:Math.max(16,Math.min(48,measure(baseSize,7,'RobotoBold')+6))):0;
  const baseSpace=baseSize?baseWidth+6:0,logoSpace=Model.isLogo(d.team.logo)?24:0;
+ const keywordLines=richLines(c.keywords.join(', '),inner-(baseSize?baseSpace+logoSpace:24),5.6,'RobotoBold',0,true);
+ const keywordHeight=keywordLines.reduce((sum,line)=>sum+line.height,0);
+ // Reserve room for the chosen type size instead of cutting off keywords after
+ // two lines. Extremely long footers scale together to leave usable card space.
+ const keywordScale=Math.min(1,(h-baseHeader-70)/Math.max(1,keywordHeight)),footer=Math.max(18,Math.ceil(keywordHeight*keywordScale+8));
  const stats=Object.entries(c.stats),statWidths=stats.map(([key])=>stats.length>4?26:/^(W|WOUNDS)$/.test(key)?36:28),start=w-statWidths.reduce((a,b)=>a+b,0);
  const uploaded=/^data:image\/(png|jpeg);base64,/.test(c.image||''),portrait=uploaded?c.image:assets[c.image];
  const portraitWidth=Math.min(110,start*.5),portraitX=start-portraitWidth,nw=start-(portrait?portraitWidth+5:8)-8;
@@ -199,7 +203,9 @@ function operative(c,d,assets={},index=0){
    statX+=sw;p.s+='<g class="operative-stat" data-stat="'+esc(key)+'">'+rect(x,0,1.6,header,'#e6e8e4')+txt(key,x+(sw+1.6)/2,12,7.5,'white','Display','text-anchor="middle"')+icon(key,inkX-inset*iconSize/32,18,iconSize,C)+txt(val,inkX+iconWidth+gap+valueWidth/2,29.5,valueSize,'white','Display','text-anchor="middle"')+'</g>';
   });
   p.s+=rect(0,h-footer,w,footer,BLACK);
-  wrap(c.keywords.join(', '),inner-(baseSize?baseSpace+logoSpace:24),5.6,'RobotoBold').slice(0,2).forEach((t,i)=>p.s+=txt(t,pad,h-9+i*6,5.6,'white','RobotoBold'));
+  let keywordY=0;p.s+='<g class="operative-keywords" transform="translate('+pad+' '+(h-footer+4)+') scale('+keywordScale+')">';
+  for(const text of keywordLines){p.s+=Text.svg(text,0,keywordY+text.size,'white');keywordY+=text.height}
+  p.s+='</g>';
   p.s+=teamLogo(d,w-pad-16-baseSpace,h-footer+1,16);
   if(baseSize){
    const x=w-pad-baseWidth,y=h-footer+(footer-16)/2,size=Math.min(7,(baseWidth-4)/Math.max(1,measure(baseSize,1,'RobotoBold')));
@@ -252,7 +258,7 @@ function selectionCard(c,d,assets={},index=0){
  const add=(text,indent=0,bullet='',gap=4,font='Selection')=>{
   if(!text)return;
   const lines=richLines(text,inner-indent,size,font,gap),start=all.length;
-  lines.forEach((line,i)=>all.push({...line,indent,bullet:i===0?bullet:''}));
+  lines.forEach((line,i)=>all.push({...line,listIndent:indent,bullet:i===0?bullet:''}));
   all[start].keepHeight=lines.slice(0,2).reduce((n,line)=>n+line.height,0);
  };
  add(c.lore,0,'',7,'RobotoItalic');add(c.body);
@@ -280,7 +286,7 @@ function selectionCard(c,d,assets={},index=0){
   const bottom=h-23,startY=y,startCursor=cursor;
   while(cursor<all.length&&y+all[cursor].height<=bottom){
    const next=all[cursor];if(cursor>startCursor&&next.keepHeight&&y+next.keepHeight>bottom)break;
-   const a=all[cursor++],x=pad+a.indent;
+   const a=all[cursor++],x=pad+a.listIndent;
    if(a.bullet==='arrow')p.s+='<path d="M'+(x-9)+' '+(y+2)+'l5 5m-5 0h5v-5" fill="none" stroke="'+p.C+'" stroke-width=".7"/>';
    if(a.bullet==='dot'||a.bullet==='ring')p.s+='<circle cx="'+(x-6)+'" cy="'+(y+5)+'" r="1.35" fill="'+(a.bullet==='dot'?p.C:'none')+'" stroke="'+p.C+'" stroke-width=".6"/>';
    p.s+=Text.svg(a,x,y+a.size,'white',p.C,d.team.name);

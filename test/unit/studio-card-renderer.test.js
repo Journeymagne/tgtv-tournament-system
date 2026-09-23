@@ -15,6 +15,24 @@ function project(lore = "") {
 const headerHeight = svg => Number(svg.match(/<rect x="0" y="0" width="[^"]+" height="([^"]+)" fill="#141718"/)[1]);
 const loreGroups = svg => [...svg.matchAll(/<g class="operative-lore">([\s\S]*?)<\/g>/g)].map(match => match[1]);
 
+test("selection list text stays beside its markers at every nesting level", () => {
+  const data = Model.newProject("selection-spacing", "OBSESSION COHORT"), card = data.selectionCards[0];
+  card.selectionGroups = [{ id: "group", count: 3, description: "OBSESSION COHORT operatives selected from the following list:", entries: [
+    { id: "blessing", text: "THE BLADED BLESSING", options: [] },
+    { id: "allure", text: "ALLURESS with one of the following options:", options: ["Slashing claws", "Ravaging claws*"] }
+  ] }];
+  const rendered = Cards.renderCard(card, data), svg = rendered.map(c => c.svg).join("");
+  const items = [...svg.matchAll(/<circle cx="([^"]+)"[^>]*\/><text x="([^"]+)"[^>]*><tspan x="([^"]+)"/g)];
+  assert.equal(items.length, 4);
+  for (const [, markerX, textX, glyphX] of items) {
+    assert.equal(Number(glyphX) - Number(markerX), 6, "text must start 6pt after its marker");
+    assert.equal(Number(glyphX), Number(textX), "list indentation must be applied once");
+  }
+  const textLines = [...svg.matchAll(/<text x="([^"]+)"[^>]*><tspan x="([^"]+)"/g)];
+  for (const [, textX, glyphX] of textLines) assert.equal(Number(glyphX), Number(textX), "wrapped lines retain their list alignment");
+  assert.deepEqual(buildTeamPDF(data, {}, { section: "selectionCards", index: 0 }).content.filter(c => c.svg).map(c => c.svg), rendered.map(c => c.svg));
+});
+
 test("operative lore is in the dark header above weapons, without a duplicate in the rules", () => {
   const team = project("Художественный текст"), card = Cards.renderCard(team.operatives[0], team)[0];
   assert(loreGroups(card.svg).join("").includes("Художественный текст"));

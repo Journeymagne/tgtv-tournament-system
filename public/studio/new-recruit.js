@@ -97,7 +97,8 @@ function build(input,template){
   }
   // The original category IDs are retained for catalogue compatibility; their names follow keyword edits.
   const categories=child(selection,'categories'),known=new Map(categories.children.map(c=>[c.attrs.name.toUpperCase(),c]));
-  categories.children=operative.keywords.map(name=>known.get(name.toUpperCase())||node('category',{id:id(),entryId:id(),name,primary:name.toUpperCase()==='LEADER'?'true':'false'}));
+  const keywords=Text.plain(operative.keywords.join(', ')).split(',').map(name=>name.trim()).filter(Boolean);
+  categories.children=keywords.map(name=>known.get(name.toUpperCase())||node('category',{id:id(),entryId:id(),name,primary:name.toUpperCase()==='LEADER'?'true':'false'}));
   if(!categories.children.some(c=>c.attrs.primary==='true'))categories.children.push(node('category',{id:'cf83-4496-b58e-ac82',entryId:'cf83-4496-b58e-ac82',name:'Operative',primary:'true'}));
   report.operatives.push({name:selection.attrs.name,operativeId:operative.id,count:binding.count,stats,weaponIds:names.map(w=>w.id),weapons:names.map(w=>w.name),abilities:operative.abilities.map(a=>a.name),actions:operative.actions.map(a=>a.name)});
  }

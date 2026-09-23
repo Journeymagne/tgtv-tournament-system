@@ -1,4 +1,6 @@
 const { contentVersion } = require("../domain/data-url");
+const { publicId } = require("../domain/entity-id");
+const { winnerParticipantIdFromResult } = require("../domain/tournaments/results");
 const { buildChallengeTracks } = require("../domain/challenge-progress");
 const { tournamentFactionsHidden } = require("../domain/tournaments/privacy");
 
@@ -14,6 +16,8 @@ function publicUser(user) {
   if (!user) return null;
   return {
     id: user.id,
+    publicId: publicId('user', user.id),
+    userId: user.id,
     name: user.name,
     avatarUrl: user.avatarUrl || null,
     registerNickname: user.registerNickname || "",
@@ -29,6 +33,7 @@ function publicUserSummary(user) {
   if (!user) return null;
   return {
     id: user.id,
+    publicId: publicId('user', user.id),
     name: user.name,
     registerNickname: user.registerNickname || "",
     telegramContact: user.telegramContact || "",
@@ -42,6 +47,7 @@ function publicUserSummary(user) {
 function leaderboardUser(user) {
   return {
     id: user.id,
+    publicId: publicId('user', user.id),
     name: user.name,
     avatarUrl: user.avatarUrl || null,
     rating: user.rating,
@@ -64,6 +70,7 @@ function challengeView(challenge, people) {
 }
 
 function gameView(game, people) {
+  game = { ...game, publicId: publicId('game', game.id) };
   if (Array.isArray(game.players) && game.players.length) {
     return { ...game, players: game.players };
   }
@@ -143,6 +150,8 @@ function tournamentParticipantView(participant, people = []) {
   const user = findUser(people, participant.userId);
   return {
     id: participant.id,
+    publicId: publicId('tournamentParticipant', participant.id),
+    userPublicId: publicId('user', participant.userId),
     tournamentId: participant.tournamentId,
     userId: participant.userId,
     user: user ? publicUser(user) : null,
@@ -160,8 +169,19 @@ function tournamentParticipantView(participant, people = []) {
 }
 
 function tournamentMatchView(match, participantById = new Map()) {
+  const participantA = participantById.get(match.participantAId) || null;
+  const participantB = participantById.get(match.participantBId) || null;
+  // Legacy pending submissions are game results, not completed tournament outcomes.
+  // Convert explicitly for their preview; never make the browser guess the namespace.
+  const pendingResult = match.pendingResult?.result && participantA && participantB
+    ? { ...match.pendingResult, winnerParticipantId: winnerParticipantIdFromResult(
+      match.pendingResult.result, participantA, participantB) }
+    : match.pendingResult;
   return {
     id: match.id,
+    publicId: publicId('tournamentMatch', match.id),
+    winnerParticipantPublicId: publicId('tournamentParticipant', match.winnerParticipantId),
+    gamePublicId: publicId('game', match.gameId),
     tournamentId: match.tournamentId,
     roundId: match.roundId,
     roundNumber: match.roundNumber,
@@ -170,12 +190,12 @@ function tournamentMatchView(match, participantById = new Map()) {
     isBye: match.isBye,
     participantAId: match.participantAId,
     participantBId: match.participantBId,
-    participantA: participantById.get(match.participantAId) || null,
-    participantB: participantById.get(match.participantBId) || null,
+    participantA,
+    participantB,
     sourceMatchAId: match.sourceMatchAId,
     sourceMatchBId: match.sourceMatchBId,
     winnerParticipantId: match.winnerParticipantId,
-    pendingResult: match.pendingResult,
+    pendingResult,
     result: match.result,
     matchPoints: match.matchPoints,
     elo: match.elo,

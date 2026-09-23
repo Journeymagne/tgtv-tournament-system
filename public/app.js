@@ -2626,13 +2626,12 @@ function publicMatchScore(match) {
   const a = match.participantA;
   const b = match.participantB;
   if (!result || !a || !b) return t("tournaments.match.waitingForResult");
-  const scoreA = result.scores?.[a.userId] || result.scores?.[-a.id] || {};
-  const scoreB = result.scores?.[b.userId] || result.scores?.[-b.id] || {};
+  const scoreA = result.scoresByParticipantId?.[a.id] ?? result.scores?.[a.userId ?? -a.id] ?? {};
+  const scoreB = result.scoresByParticipantId?.[b.id] ?? result.scores?.[b.userId ?? -b.id] ?? {};
   const totalA = Number(scoreA.total || 0);
   const totalB = Number(scoreB.total || 0);
-  const winner = match.winnerParticipantId
-    ? [a, b].find((participant) => participant.id === match.winnerParticipantId)
-    : null;
+  const winnerParticipantId = match.result ? match.winnerParticipantId : match.pendingResult?.winnerParticipantId;
+  const winner = [a, b].find((participant) => participant.id === winnerParticipantId);
   return winner
     ? t("tournaments.match.wonSuffix", { score: `${totalA}-${totalB}`, name: winner.displayName })
     : `${totalA}-${totalB}`;
@@ -3066,20 +3065,18 @@ function renderShell() {
             <div class="app-brand-subtitle">${t("nav.brand.subtitle")}</div>
           </div>
         </div>
-        <div class="topbar-user-controls">
-          <button class="menu-toggle" data-sidebar-toggle aria-label="${t("nav.openNavigation")}" aria-expanded="false">
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-          <a href="/tournament#/profile" data-app-link class="mark avatar-button" data-header-profile aria-label="${t("nav.openProfile")}">${avatarMarkup(state.me)}</a>
-        </div>
-        <div class="topbar-player">
-          <div class="topbar-name-row">
-            <h1>${escapeHtml(state.me.name)}</h1>
+        <button class="menu-toggle" type="button" data-sidebar-toggle aria-label="${t("nav.openNavigation")}" aria-expanded="false">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <a href="/tournament#/profile" data-app-link class="tournament-header-profile" data-header-profile aria-label="${t("nav.openProfile")}">
+          <span class="mark avatar-button">${avatarMarkup(state.me)}</span>
+          <span class="tournament-header-identity">
+            <span class="tournament-header-name" data-ui-skip>${escapeHtml(state.me.name)}</span>
             <span class="rating-pill inline-rating">${t("profile.rating.mmr")} ${playerRating(state.me, "combined")}</span>
-          </div>
-        </div>
+          </span>
+        </a>
       </div>
     </header>
     <button class="sidebar-backdrop" data-sidebar-close aria-label="${t("nav.closeNavigation")}"></button>
@@ -3102,6 +3099,8 @@ function renderShell() {
     </main>
   `;
 
+  const header = app.querySelector(".topbar");
+  if (window.KTCompanion?.setTournamentHeader?.(header.querySelector("[data-header-profile]"), header.querySelector("[data-sidebar-toggle]"))) header.remove();
   document.querySelector("[data-sidebar-toggle]").addEventListener("click", () => {
     setSidebarOpen(!document.body.classList.contains("sidebar-open"));
   });
@@ -3500,7 +3499,7 @@ function teamGameResultPermissions(game) {
   const userId = state.me?.id;
   const rosters = [game.teamMatch?.rosterA, game.teamMatch?.rosterB];
   const captain = userId && rosters.find((roster) => roster?.captainUserId === userId);
-  const playerIds = game.playerIds || (game.players || []).map((player) => Number(player.userId || player.id));
+  const playerIds = game.playerIds || (game.players || []).map((player) => Number("userId" in player ? player.userId : player.id));
   const participant = playerIds.includes(userId);
   const ownRoster = captain || rosters[playerIds.indexOf(userId)];
   const pending = game.pendingResult;
@@ -5748,8 +5747,8 @@ function renderGameDetail(live = false) {
   const tournament = game.tournament || {};
   const match = game.tournamentMatch || {};
   const statusLabel = game.status === "completed" ? t("play.game.status.completed") : game.status === "pending_confirmation" ? t("play.game.status.pending") : t("play.game.status.active");
-  const submitter = game.players?.find((player) => player.id === game.pendingResult?.submittedBy || player.id === game.submittedBy);
-  const isParticipant = game.players?.some((player) => Number(player.userId || player.id) === state.me.id);
+  const submitter = game.players?.find((player) => ("userId" in player ? player.userId : player.id) === (game.pendingResult?.submittedBy ?? game.submittedBy));
+  const isParticipant = game.players?.some((player) => Number("userId" in player ? player.userId : player.id) === state.me.id);
   const canDeletePending = isParticipant && game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id;
   const playerAction = state.me.isAdmin && !isParticipant ? "" : isTeamTournamentGame ? teamGameResultAction(game) : isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">${t("play.action.enterResult")}</button>
@@ -6294,6 +6293,7 @@ function participantResultPlayer(participant) {
   if (!participant) return null;
   return {
     id: participant.userId || -participant.id,
+    userId: participant.userId ?? null,
     participantId: participant.id,
     name: participant.displayName || participant.user?.name || t("tournaments.player.fallback"),
     faction: participant.faction || "",

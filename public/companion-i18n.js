@@ -64,7 +64,7 @@
     ["Архетип 1", "Archetype 1"], ["Архетип 2", "Archetype 2"], ["Оба архетипа печатаются одной строкой на цветной плашке.", "Both archetypes print on one line in the colored strip."],
     ["Группы выбора, варианты вооружения и общие ограничения — в формате оригинальной карточки состава.", "Selection groups, weapon options and restrictions in the original selection card format."],
     ["Четыре карточки снаряжения. Оружие и правила редактируются внутри каждой карточки.", "Four equipment cards. Edit weapons and rules inside each card."],
-    ["Четыре карточки Firefight Ploys.", "Four Firefight Ploys cards."], ["Четыре карточки. Зелёно-серые плашки — как в оригинале.", "Four cards with the original green-gray strips."],
+    ["Четыре карточки Firefight Ploys.", "Four Firefight Ploys cards."], ["Четыре карточки Strategic Ploys.", "Four Strategic Ploys cards."],
     ["Любое число карточек правил фракции. Состав находится в отдельной вкладке.", "Any number of faction rule cards. Team selection has its own tab."],
     ["Диорамы, история команды, сборка миниатюр и примеры покраса. Отдельные страницы A4 после карточек в PDF.", "Dioramas, team lore, model assembly and paint examples. Separate A4 pages after the cards in the PDF."],
     ["Название", "Name"], ["Текст", "Text"], ["Тип", "Type"], ["Дальнобойное", "Ranged"], ["Ближний бой", "Melee"],

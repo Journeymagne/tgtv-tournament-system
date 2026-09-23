@@ -118,8 +118,8 @@ test("migration 010 creates a canonical Game for a tournament match with a guest
   const match = await pool.query(
     `INSERT INTO tournament_matches
        (tournament_id, round_id, round_number, status, is_bye,
-        participant_a_id, participant_b_id, result, completed_at)
-     VALUES ($1, $2, 1, 'completed', FALSE, $3, $4, $5::jsonb, NOW())
+        participant_a_id, participant_b_id, result, completed_at, winner_participant_id)
+     VALUES ($1, $2, 1, 'completed', FALSE, $3, $4, $5::jsonb, NOW(), $3)
      RETURNING id`,
     [
       tournament.rows[0].id,

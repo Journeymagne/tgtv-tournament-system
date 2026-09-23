@@ -31,7 +31,9 @@ const MIGRATIONS = [
   require("./migrations/030_tournament_live"),
   require("./migrations/031_guest_rating_docs"),
   require("./migrations/032_studio_projects"),
-  require("./migrations/033_studio_project_deletion")
+  require("./migrations/033_studio_project_deletion"),
+  require("./migrations/034_tournament_winner_identity"),
+  require("./migrations/035_tournament_identity_guards")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

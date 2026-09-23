@@ -18,6 +18,7 @@ const {
 const { attachTournamentGameDetails } = require("./tournament-game-details");
 const { buildTournamentPreview } = require("../domain/tournaments/preview");
 const { buildStandings } = require("../domain/tournaments/standings");
+const { participantResultKey, winnerParticipantIdFromResult, assertMatchWinner, tournamentResultSnapshot } = require("../domain/tournaments/results");
 const { calculateSubmittedResult, parseKillzone } = require("../domain/scoring");
 const { calculateParticipantElo } = require("../domain/elo");
 const { requireKillTeam } = require("../domain/kill-teams");
@@ -1287,37 +1288,14 @@ function requireMatchParticipants(match, participants) {
   return { participantA, participantB };
 }
 
-function participantResultKey(participant) {
-  return participant.userId || -participant.id;
-}
-
 function assertMatchParticipantUser(match, participantA, participantB, user, action) {
   if (![participantA.userId, participantB.userId].includes(user.id)) {
     throw new HttpError(403, `Only a match participant can ${action}`);
   }
 }
 
-function winnerParticipantIdFromResult(result, participantA, participantB) {
-  if (!result.winnerId) return null;
-  const winnerId = Number(result.winnerId);
-  if (
-    winnerId === Number(participantA.userId) ||
-    winnerId === participantA.id ||
-    winnerId === participantResultKey(participantA)
-  ) {
-    return participantA.id;
-  }
-  if (
-    winnerId === Number(participantB.userId) ||
-    winnerId === participantB.id ||
-    winnerId === participantResultKey(participantB)
-  ) {
-    return participantB.id;
-  }
-  throw new ValidationError("Result winner does not match tournament participants");
-}
-
 function matchPointsFor(match, winnerParticipantId) {
+  assertMatchWinner({ ...match, winnerParticipantId });
   if (match.isBye && winnerParticipantId) return { [winnerParticipantId]: 3 };
   const points = {};
   if (!winnerParticipantId) {
@@ -1840,6 +1818,7 @@ async function completeMatch(
   const { replaceCompleted = false } = options;
   const { participantA, participantB } = requireMatchParticipants(match, participants);
   const winnerParticipantId = winnerParticipantIdFromResult(result, participantA, participantB);
+  assertMatchWinner({ ...match, winnerParticipantId }, [participantA, participantB]);
   assertCompletableResult(tournament, result, winnerParticipantId);
 
   const finalResult = resultForTournament(tournament, result, user?.id || null);
@@ -1857,7 +1836,7 @@ async function completeMatch(
   const completed = await matchesRepo.update(client, match.id, {
     status: MATCH_STATUSES.COMPLETED,
     pendingResult: null,
-    result: finalResult,
+    result: tournamentResultSnapshot(finalResult, [participantA, participantB]),
     matchPoints: matchPointsFor(match, winnerParticipantId),
     elo,
     gameId,

@@ -15,6 +15,7 @@
   }
   for (const link of document.querySelectorAll("[data-companion-service]")) link.href = serviceUrl(link.dataset.companionService);
   let user;
+  let tournamentHeader;
   const accounts = [];
   const mounts = [...document.querySelectorAll("[data-companion-nav]")];
   for (const mount of mounts) {
@@ -74,10 +75,17 @@
     }
   }
   if (mounts[0]) {
+    if (active === "tournament") {
+      const menu = document.createElement("div"); menu.className = "companion-tournament-menu"; menu.hidden = true;
+      const profile = document.createElement("div"); profile.className = "companion-tournament-profile"; profile.hidden = true;
+      mounts[0].querySelector(".companion-service-brand").prepend(menu);
+      mounts[0].insertBefore(profile, mounts[0].querySelector(".companion-tools"));
+      tournamentHeader = { mount: mounts[0], menu, profile };
+    }
     const notifications = document.querySelector(".floating-controls");
     if (notifications) {
       notifications.className = "companion-notifications";
-      mounts[0].querySelector(".companion-tools").append(notifications);
+      (tournamentHeader ? mounts[0] : mounts[0].querySelector(".companion-tools")).append(notifications);
     }
     const updateHeight = () => document.documentElement.style.setProperty("--companion-bar-height", mounts[0].offsetHeight + "px");
     updateHeight();
@@ -88,8 +96,18 @@
     destination.searchParams.set("next", new URL(next, location.origin).href);
     return destination.href;
   }
+  function setTournamentHeader(profile = null, menu = null) {
+    if (!tournamentHeader) return false;
+    tournamentHeader.profile.replaceChildren(...(profile ? [profile] : []));
+    tournamentHeader.menu.replaceChildren(...(menu ? [menu] : []));
+    tournamentHeader.profile.hidden = !profile;
+    tournamentHeader.menu.hidden = !menu;
+    tournamentHeader.mount.classList.toggle("companion-tournament-header", Boolean(profile));
+    return true;
+  }
   function setUser(value) {
     user = value;
+    if (!user) setTournamentHeader();
     for (const account of accounts) {
       account.replaceChildren();
       const link = document.createElement("a");
@@ -143,10 +161,12 @@
   }
   const ready = session();
   ready.catch(() => {
+    // The tournament's /api/me may already have supplied a valid account.
+    if (user !== undefined) return;
     setUser(null);
     for (const account of accounts) account.querySelector("a").textContent = "Войти / проверить вход";
   });
-  window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl };
+  window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader };
   const exports = document.querySelector(".studio-export-menu");
   if (exports) {
     document.addEventListener("click", event => {

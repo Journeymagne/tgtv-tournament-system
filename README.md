@@ -14,7 +14,29 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 4.3
+## Release 4.5
+
+The tournament profile, MMR and navigation now share the portal header. Winner
+banners work in both themes, and tournament outcomes use explicit participant
+identities to prevent user/participant ID collisions. Studio adds full formatting
+to operative keywords, fixes selection-list spacing and removes the inner white
+border from ploy title bands while preserving their background.
+
+Migration **035** adds tournament identity guards after the winner repair in 034.
+Tournament winners are read only from `winnerParticipantId`; database checks reject
+out-of-match/cross-tournament identities and incorrect game-to-participant mappings.
+Public ID namespaces are additive; existing numeric URLs and API fields remain.
+See [ID contract, compatibility and upgrade limits](docs/id-namespaces.md).
+
+Release 4.5 applies migration **034** automatically on startup. It repairs
+individual tournament winners and match points when a user's ID was mistaken
+for the opposing tournament participant's ID. Published result statistics and
+opponents' tiebreakers are recalculated; canonical games, Elo, manually published
+places and awards stay intact. Each repair records its before/after values in
+the tournament audit log. Organizers should review published places for affected
+events and downstream pairings for affected elimination brackets.
+
+## Previous Companion releases
 
 All services share light/dark themes, RU/EN language controls and consistent
 navigation. Studio adds team logos, saved weapon profiles, richer rule editing,
