@@ -4,6 +4,7 @@ const Cards=root.KTCards||(typeof require!=='undefined'?require('./card-renderer
 const Text=root.KTText||(typeof require!=='undefined'?require('./rich-text.js'):null);
 const Model=root.KTModel||(typeof require!=='undefined'?require('./model.js'):null);
 const References=root.KTReferences||(typeof require!=='undefined'?require('./reference-renderer.js'):null);
+const Page=root.KTPageBackground||(typeof require!=='undefined'?require('./page-background.js'):null);
 const W=595.276,H=841.89,M=34,GAP=18,BOTTOM=803,INK='#26302c',esc=Cards.esc;
 function text(s,x,y,size=11,color=INK,bold=false){return '<text x="'+x+'" y="'+y+'" font-family="Roboto" font-size="'+size+'" fill="'+color+'"'+(bold?' font-weight="bold"':'')+'>'+esc(s)+'</text>'}
 function renderPage(page,data,assets={}){
@@ -11,9 +12,10 @@ function renderPage(page,data,assets={}){
  const pages=[],width=W-2*M,accent=data.layout.accent,title=page.name||'Картинки и лор';
  let s='',boxes=[],y=0,startY=0;
  const begin=()=>{
-  s='<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'"><rect width="'+W+'" height="'+H+'" fill="#fff"/><rect width="'+W+'" height="76" fill="#141718"/><rect width="5" height="76" fill="'+accent+'"/>';
-  let teamSize=20;while(Cards.measure(data.team.name,teamSize,'RobotoBold')>width&&teamSize>7)teamSize-=.5;
-  s+=text(data.team.name,M,32,teamSize,'#fff',true)+text('КАРТИНКИ И ЛОР / '+Model.loreCategories[page.category].toUpperCase(),M,57,9,accent,true);
+  s='<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">'+Page.svg(assets)+'<rect width="'+W+'" height="76" fill="#141718"/><rect width="5" height="76" fill="'+accent+'"/>';
+  const headerX=Model.isLogo(data.team.logo)?90:M;
+  let teamSize=20;while(Cards.measure(data.team.name,teamSize,'RobotoBold')>W-M-headerX&&teamSize>7)teamSize-=.5;
+  s+=Cards.teamLogo(data,16,12,52)+text(data.team.name,headerX,32,teamSize,'#fff',true)+text('КАРТИНКИ И ЛОР / '+Model.loreCategories[page.category].toUpperCase(),headerX,57,9,accent,true);
   y=106;boxes=[];
   for(const line of Cards.wrap(title,width,22,'RobotoBold')){s+=text(line,M,y,22,INK,true);y+=27}
   if(pages.length){s+=text('ПРОДОЛЖЕНИЕ · '+(pages.length+1),M,y,8,'#788475',true);y+=18}

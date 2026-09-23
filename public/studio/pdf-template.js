@@ -3,16 +3,20 @@
 const Cards=root.KTCards||(typeof require!=='undefined'?require('./card-renderer.js'):null);
 const Model=root.KTModel||(typeof require!=='undefined'?require('./model.js'):null);
 const Lore=root.KTLore||(typeof require!=='undefined'?require('./lore-renderer.js'):null);
+const Page=root.KTPageBackground||(typeof require!=='undefined'?require('./page-background.js'):null);
 function buildTeamPDF(d,assets={},selection=null){
  d=Model.validate(Model.migrate(d));
  const loreOnly=selection?.section==='lorePages';
  const deck=loreOnly?[]:selection?Cards.renderCard(d[selection.section][selection.index],d,assets,selection.index):Cards.renderDeck(d,assets);
  const groups=[deck.filter(c=>['selection','recruitment','faction'].includes(c.kind)),...['strategic','firefight','equipment','operative'].map(kind=>deck.filter(c=>c.kind===kind))],content=[],W=595.276,H=841.89;
- let pages=0;
+ let pages=0;const cardPages=new Set(),images={};
+ if(assets[Page.LIGHT])images.studioPageBackground=assets[Page.LIGHT];
+ if(Model.isLogo(d.team.logo))images.studioPageLogo=d.team.logo;
  for(const cards of groups)for(let i=0;i<cards.length;i+=4){
   const batch=cards.slice(i,i+4),landscape=batch[0].kind==='operative',cw=batch[0].width,ch=batch[0].height;
   const x0=(W-cw*(landscape?1:2))/2,y0=(H-ch*(landscape?4:2))/2,marks=[];
   content.push({text:' ',fontSize:1,margin:0,...(pages++?{pageBreak:'before'}:{})});
+  cardPages.add(pages);
   batch.forEach((card,j)=>{
    const x=x0+(landscape?0:j%2*cw),y=y0+(landscape?j:Math.floor(j/2))*ch;
    content.push({svg:card.svg,width:cw,height:ch,absolutePosition:{x,y}});
@@ -27,7 +31,14 @@ function buildTeamPDF(d,assets={},selection=null){
  }
  if(!content.length)content.push({text:loreOnly?'Добавьте страницу в разделе «Картинки и лор».':'No cards',margin:34});
  const unfilled=selection&&selection.section==='selectionCards'?d.selectionCards[selection.index].archetypes.filter(a=>!a.trim()).length:[...d.strategicPloys,...d.firefightPloys,...d.equipment].filter(c=>!c.name.trim()||!(c.body.trim()||c.weapons.length||c.abilities.length||c.actions.length)).length+d.selectionCards.reduce((n,c)=>n+c.archetypes.filter(a=>!a.trim()).length,0);
- return {pageSize:'A4',pageMargins:[0,0,0,18],defaultStyle:{font:'Roboto'},info:{title:d.team.name+(loreOnly?' / Pictures and lore':' / Printable cards')+' / v.'+d.team.version,author:'Kill Team Studio',subject:loreOnly?'Pictures and lore':'70 x 121 mm cards / '+(unfilled?'draft':'rules')},content,
+ const background=page=>{
+  if(!cardPages.has(page))return null;
+  const layers=[];
+  if(images.studioPageBackground)layers.push({image:'studioPageBackground',width:W,height:H,absolutePosition:{x:0,y:0}});
+  if(images.studioPageLogo)layers.push({image:'studioPageLogo',fit:[72,72],absolutePosition:{x:16,y:20}});
+  return layers.length?{stack:layers}:null;
+ };
+ return {pageSize:'A4',pageMargins:[0,0,0,18],defaultStyle:{font:'Roboto'},images,background,info:{title:d.team.name+(loreOnly?' / Pictures and lore':' / Printable cards')+' / v.'+d.team.version,author:'Kill Team Studio',subject:loreOnly?'Pictures and lore':'70 x 121 mm cards / '+(unfilled?'draft':'rules')},content,
  footer:(n,total)=>({text:d.team.name+' / '+(unfilled&&!loreOnly?'DRAFT: '+unfilled+' UNFILLED SLOTS / ':'')+'PRINT AT 100% / '+n+'-'+total,fontSize:6,color:'#899187',alignment:'center',margin:[0,6,0,0]})};
 }
 root.buildTeamPDF=buildTeamPDF;if(typeof module!=='undefined')module.exports={buildTeamPDF};

@@ -1,6 +1,8 @@
 (function(root){
 'use strict';
 const Cards=root.KTCards||(typeof require!=='undefined'?require('./card-renderer.js'):null);
+const Page=root.KTPageBackground||(typeof require!=='undefined'?require('./page-background.js'):null);
+const Model=root.KTModel||(typeof require!=='undefined'?require('./model.js'):null);
 const W=595.276,H=841.89,CW=148,CH=304,HEAD=26,GAP=14,X=55,Y=118,ORANGE='#f4511e',esc=Cards.esc;
 const svg=(w,h,body)=>'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">'+body+'</svg>';
 const imageUri=(source,assets)=>/^data:image\/(png|jpeg);base64,/.test(source||'')?source:assets[source];
@@ -38,9 +40,9 @@ function renderPage(page,data,assets={}){
  const pages=[],count=Math.max(1,Math.ceil(page.images.length/6));
  for(let side=0;side<count;side++){
   const models=page.images.slice(side*6,side*6+6),boxes=[];
-  let s='<rect width="'+W+'" height="'+H+'" fill="#17191b"/>';
-  if(assets['assets/paper.jpg'])s+='<image width="'+W+'" height="'+H+'" opacity=".07" preserveAspectRatio="xMidYMid slice" xlink:href="'+esc(assets['assets/paper.jpg'])+'"/>';
-  s+=label(data.team.name,X,57,472,21,1,'Display')+label(page.name,X,83,472,11);
+  let s=Page.svg(assets,true)+Cards.teamLogo(data,16,20,72);
+  const headerX=Model.isLogo(data.team.logo)?108:X;
+  s+=label(data.team.name,headerX,57,527-headerX,21,1,'Display')+label(page.name,headerX,83,527-headerX,11);
   s+='<path d="M0 105H527" stroke="'+ORANGE+'" stroke-width="1.1"/>';
   s+='<g transform="translate(562 427) rotate(90)">'+label(data.team.name+' » '+page.name,0,0,600,17,1,'Display','middle')+'</g>';
   models.forEach((model,i)=>{

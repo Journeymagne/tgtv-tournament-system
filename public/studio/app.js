@@ -147,6 +147,10 @@ function check(label,key,value){return '<label class="checkbox"><input type="che
 function panel(title,body,meta=''){return '<section class="panel"><div class="panel-title">'+title+'<span>'+meta+'</span></div>'+body+'</section>'}
 function pathSet(obj,path,value){const keys=path.split('.');let t=obj;for(const key of keys.slice(0,-1))t=t[key];t[keys.at(-1)]=value}
 function pathGet(obj,path){return path.split('.').reduce((o,k)=>o[k],obj)}
+function refreshSectionCount(){
+ const badge=$('#navigation [data-nav="'+section+'"] small');
+ if(badge&&fixed())badge.textContent=data[section].filter(KTModel.isFilled).length+'/4';
+}
 function render(){
  $('#navigation').innerHTML=Object.entries(SECTIONS).map(([key,name])=>'<button data-nav="'+key+'" class="'+(key===section?'active':'')+'"><span>'+name+'</span><small>'+(KTModel.fixed.includes(key)?data[key].filter(KTModel.isFilled).length+'/4':Array.isArray(data[key])?data[key].length:'↗')+'</small></button>').join('');
  $('#section-title').textContent=SECTIONS[section];$('#breadcrumb').textContent=data.team.name+(section==='lorePages'?' / АЛЬБОМ':' / КАРТОЧКИ');
@@ -248,7 +252,7 @@ function renderEditor(options={}){
  if(referenceTarget?.page!==c)referenceTarget=null;
  if(c&&options.openNested){const saved=nestedStates.get(c)||{};saved[options.openNested.type]=new Set([options.openNested.id]);nestedStates.set(c,saved)}
  if(section==='lorePages'){
-  out=logoEditor()+imageOptimizationEditor()+'<div class="row-actions"><button id="export-lore" '+(!data.lorePages.length?'disabled':'')+'>↓ PDF раздела</button></div>';
+  out=logoEditor()+'<div class="row-actions"><button id="export-lore" '+(!data.lorePages.length?'disabled':'')+'>↓ PDF раздела</button></div>';
   if(!c)out+=panel('КАРТИНКИ И ЛОР','<p>Соберите альбом команды: панорамные фото, историю, инструкции по сборке и примеры покраса.</p><p class="hint">Нажмите «+ Страница», добавьте текст и загрузите изображения.</p>');
   else{
    if(c.layout==='references')out+=referenceEditor(c);
@@ -260,7 +264,7 @@ function renderEditor(options={}){
    out+='<div class="row-actions"><button data-action="move-lore-page" data-direction="-1" '+(!selected?'disabled':'')+'>↑ Раньше в PDF</button><button data-action="move-lore-page" data-direction="1" '+(selected===data.lorePages.length-1?'disabled':'')+'>↓ Позже в PDF</button><button data-action="duplicate">Дублировать страницу</button><button class="danger" data-action="delete">Удалить страницу</button></div>';
   }
  }else if(section==='project'){
- out=panel('КОМАНДА',field('Название','name',c.name)+field('Подзаголовок','subtitle',c.subtitle)+field('Версия','version',c.version));
+ out=panel('КОМАНДА',field('Название','name',c.name)+field('Подзаголовок','subtitle',c.subtitle)+field('Версия','version',c.version))+imageOptimizationEditor();
   out+=panel('ПЕЧАТЬ','<p>A4, по четыре стороны на листе, метки реза. Правила: 70 × 121 мм. Оперативники: 121 × 70 мм.</p><p class="hint">Печатайте в масштабе 100%. Стороны с продолжением идут последовательно, как в новом примере. Длинные правила автоматически переходят на следующую сторону.</p>'+field('Акцент','@layout.accent',data.layout.accent,'color')+field('Примечание о стоимости Ploys','@ployNote',data.ployNote,'textarea'));
   out+=panel('ПЕРЕНОС ПРОЕКТА','<div class="row-actions"><button data-action="download-json">Скачать проект</button><label class="import-label">Загрузить проект<input id="import-json" type="file" accept=".json,application/json"></label></div>'+(window.KT_EXAMPLES?.[data.team.id]?'<button class="danger" data-action="restore">Вернуть тестовую команду</button>':''));
   if(typeof KTNewRecruit!=='undefined'&&KTNewRecruit.compatible(data)){
@@ -291,10 +295,10 @@ function renderEditor(options={}){
   out+=panel(c.kind==='operative'?'ТЕКСТ ОПЕРАТИВНИКА':'ТЕКСТ КАРТОЧКИ',field('Художественный текст','lore',c.lore||'','textarea')+(c.kind==='operative'?'<p class="hint">Печатается в чёрной шапке под названием оперативника. Длинный текст переносится на следующие стороны.</p>':'')+field('Правило','body',c.body,'textarea')+'<p class="hint">Расстояния в дюймах, например 6″. При вставке старые символы переводятся автоматически.</p>');
   if(section==='teamCards')out+=imageEditor(c);
   out+=nestedEditor(c,'weapons','ОРУЖИЕ')+nestedEditor(c,'abilities','СПОСОБНОСТИ')+nestedEditor(c,'actions','ДЕЙСТВИЯ');
-  if(c.kind==='operative')out+=panel('КОМПЛЕКТАЦИИ',c.loadouts.map((l,i)=>'<div class="loadout">'+field('Название','loadouts.'+i+'.name',l.name)+c.weapons.map(w=>'<label class="checkbox" data-ui-skip><input type="checkbox" data-loadout="'+i+'" value="'+w.id+'" '+(l.weaponIds.includes(w.id)?'checked':'')+'>'+esc(w.name)+'</label>').join('')+'<button class="danger small" data-remove-loadout="'+i+'">Удалить вариант</button></div>').join('')+'<button data-action="add-loadout">+ Вариант</button>');
   out+='<div class="row-actions">'+(fixed()?'<button class="danger" data-action="clear">Очистить место</button>':'<button data-action="duplicate">Дублировать карточку</button><button class="danger" data-action="delete">Удалить карточку</button>')+'</div>';
  }
  $('#editor').innerHTML=out;
+ refreshSectionCount();
  refreshReferenceThumbs();
  editorCard=c;
  if(options.openNested){
@@ -339,7 +343,7 @@ function updateField(el){
   if(value==='recruitment')obj.groupCaps??=[];
   renderEditor();
  }
- persist();renderPreview();if(fixed())$('#navigation [data-nav="'+section+'"] small').textContent=data[section].filter(KTModel.isFilled).length+'/4';
+ persist();renderPreview();refreshSectionCount();
  if(key==='name')$('#record-list .active')?.replaceChildren(document.createTextNode(value||'Пустая карточка'));
  if(obj===data.team){renderProjectTitle();$('#breadcrumb').textContent=data.team.name+' / КАРТОЧКИ'}
  if(key.startsWith('archetypes.'))renderEditor();
@@ -357,7 +361,6 @@ document.addEventListener('change',async e=>{
  if(e.target.id==='lore-image-files'||e.target.id==='lore-replace-file'){const files=Array.from(e.target.files),replaceId=e.target.id==='lore-replace-file'?e.target.dataset.imageId:null;e.target.value='';importLoreImages(files,replaceId);return}
  if(['operative-image-file','card-image-file'].includes(e.target.id)){const file=e.target.files[0];e.target.value='';importCardImage(file);return}
  if(e.target.dataset.roster!==undefined){const id=e.target.dataset.roster,c=current();c.excludedOperativeIds=c.excludedOperativeIds.filter(v=>v!==id);if(!e.target.checked)c.excludedOperativeIds.push(id);persist();side=0;renderPreview()}
- if(e.target.dataset.loadout!==undefined){const ids=current().loadouts[Number(e.target.dataset.loadout)].weaponIds;const n=ids.indexOf(e.target.value);if(e.target.checked&&n<0)ids.push(e.target.value);if(!e.target.checked&&n>=0)ids.splice(n,1);persist();renderPreview()}
  if(e.target.id==='import-json')importJSON(e.target.files[0]);
 });
 function newCard(){
@@ -463,12 +466,10 @@ document.addEventListener('click',e=>{
   }catch(error){toast(error.message)}return;
  }
  if(b.dataset.removeNested){const type=b.dataset.removeNested,n=Number(b.dataset.index),id=c[type][n].id;c[type].splice(n,1);if(type==='weapons')for(const l of c.loadouts||[])l.weaponIds=l.weaponIds.filter(v=>v!==id);persist();renderEditor();renderPreview();return}
- if(b.dataset.removeLoadout!==undefined){c.loadouts.splice(Number(b.dataset.removeLoadout),1);persist();renderEditor();renderPreview();return}
  if(b.dataset.removeCap!==undefined){c.groupCaps.splice(Number(b.dataset.removeCap),1);persist();renderEditor();renderPreview();return}
  if(b.id==='save-json')void KTCommunity.save();
  if(a==='download-json')void downloadJSON();
  if(a==='archive')downloadBlob(new Blob([JSON.stringify(data.sourceArchive||{},null,2)],{type:'application/json'}),fileStem()+'-source-archive.json');
- if(a==='add-loadout'){c.loadouts.push({name:'New loadout',weaponIds:[]});persist();renderEditor()}
  if(a==='add-cap'){(c.groupCaps??=[]).push({keyword:'GROUP',max:1});persist();renderEditor();renderPreview()}
  if(a==='use-source'){
   const value=$('#source-equipment').value;if(value===''){toast('Выберите предмет из исходника');return}
@@ -493,7 +494,7 @@ async function shrinkProjectImages(){
   if(result.changed){KTModel.validate(project);await persist();renderProjectTitle();renderPreview()}
   toast((result.changed?'Уменьшено картинок: '+result.changed+'. Проект легче на '+(result.saved/1024).toFixed(0)+' КБ.':'Картинки уже достаточно компактные.')+(result.skipped?' Некоторые картинки оставлены без изменений.':''));
  }catch(error){toast('Не удалось уменьшить картинки: '+error.message)}
- finally{if(imageOptimization===project)imageOptimization=null;if(data===project&&section==='lorePages')renderEditor()}
+ finally{if(imageOptimization===project)imageOptimization=null;if(data===project&&section==='project')renderEditor()}
 }
 async function importTeamLogo(file){
  if(!file)return;
@@ -569,7 +570,7 @@ async function preparePDF(snapshot=data){
  const [display,symbol]=await Promise.all([base64File('vendor/BebasNeue-Regular.ttf'),base64File('vendor/NotoSansSymbols2-Regular.ttf')]);
  pdfMake.addVirtualFileSystem({...vfs,'Display.ttf':display.split(',')[1],'Symbols.ttf':symbol.split(',')[1]});
  pdfMake.fonts={Roboto:{normal:'Roboto-Regular.ttf',bold:'Roboto-Medium.ttf',italics:'Roboto-Italic.ttf',bolditalics:'Roboto-MediumItalic.ttf'},Display:{normal:'Display.ttf',bold:'Display.ttf',italics:'Display.ttf',bolditalics:'Display.ttf'},Symbols:{normal:'Symbols.ttf',bold:'Symbols.ttf',italics:'Symbols.ttf',bolditalics:'Symbols.ttf'}};
- const paths=['assets/paper.jpg',...new Set([...snapshot.operatives,...snapshot.teamCards,...snapshot.lorePages.flatMap(p=>p.images)].map(o=>o.image).filter(p=>/^assets\/[a-z0-9.-]+\.(png|jpg|jpeg)$/i.test(p||'')))],loaded={};
+ const paths=['assets/paper.jpg',...KTPageBackground.paths,...new Set([...snapshot.operatives,...snapshot.teamCards,...snapshot.lorePages.flatMap(p=>p.images)].map(o=>o.image).filter(p=>/^assets\/[a-z0-9.-]+\.(png|jpg|jpeg)$/i.test(p||'')))],loaded={};
  await Promise.all(paths.map(async p=>loaded[p]=await base64File(p)));
  if(snapshot===data){Object.assign(assets,loaded)}
  return loaded;
@@ -632,7 +633,7 @@ async function init(){
    original=window.KT_EXAMPLES?.[data.team.id]?KTModel.validate(KTModel.migrate(window.KT_EXAMPLES[data.team.id])):structuredClone(data);
    migrated=!!saved&&saved!==JSON.stringify(data);rememberProject(data.team,true);
   }catch{data=structuredClone(original);toast('Сохранённый проект не удалось прочитать. Исходная копия открыта; прежнее сохранение осталось в браузере.')}
-  assets={...(window.KT_ASSETS||{}),'assets/paper.jpg':window.KT_ASSETS?.['assets/paper.jpg']||'assets/paper.jpg'};
+  assets={...(window.KT_ASSETS||{}),...KTPageBackground.previewAssets(window.KT_ASSETS),'assets/paper.jpg':window.KT_ASSETS?.['assets/paper.jpg']||'assets/paper.jpg'};
   for(const team of [original,data,...Object.values(window.KT_EXAMPLES||{})])for(const o of [...team.operatives,...team.teamCards,...(team.lorePages||[]).flatMap(p=>p.images)])if(o.image)assets[o.image]=window.KT_ASSETS?.[o.image]||o.image;
   render();if(migrated){persist();toast('Проект обновлён. Ваши правки сохранены.')}
   window.ktStudio={getData:()=>structuredClone(data),toast,validateData:KTModel.validate,buildDefinition:()=>buildTeamPDF(data,assets),preparePDF,exportPDF,prepareTTS,openTTS,exportTTS,exportROSZ,importOperativeImage,importCardImage,importLoreImages,renderCard:(section,index)=>section==='lorePages'?KTLore.renderPage(data.lorePages[index],data,assets):KTCards.renderCard(data[section][index],data,assets,index)};

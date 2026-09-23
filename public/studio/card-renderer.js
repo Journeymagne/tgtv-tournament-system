@@ -116,8 +116,7 @@ function portrait(c,d,assets={},index=0){
  do{
   const p=base(w,h,d,dark,assets),side=sides.length;
   p.s+=rect(0,0,w,46,BLACK);
-  const logo=Model.isLogo(d.team.logo),titleX=logo?(w+38)/2:w/2,titleWidth=w-(logo?52:16);
-  p.s+=teamLogo(d,pad,8,30);
+  const titleX=w/2,titleWidth=w-16;
   p.s+=txt(d.team.name,titleX,18,Math.min(10.3,10.3*titleWidth/Math.max(1,measure(d.team.name,10.3,'RobotoBold'))),p.C,'RobotoBold','text-anchor="middle"');
   p.s+=txt(labels,titleX,35,18,'white','Display','text-anchor="middle"');
   let y=54;
@@ -271,8 +270,7 @@ function selectionCard(c,d,assets={},index=0){
   const p=base(w,h,d,true,assets),side=sides.length;
   let y=10;
   if(side===0){
-   const title=wrap(name.replace(/ KILL TEAM$/,'\nKILL TEAM'),inner-(Model.isLogo(d.team.logo)?38:0),18,face(name));
-   p.s+=teamLogo(d,w-pad-32,y,32);
+   const title=wrap(name.replace(/ KILL TEAM$/,'\nKILL TEAM'),inner,18,face(name));
    title.forEach((t,i)=>p.s+=txt(t,pad,y+17+i*19,18,'white',face(name)));y+=title.length*19+6;
    const archetypes='ARCHETYPES: '+c.archetypes.map((value,i)=>value||'SELECT ARCHETYPE '+(i+1)).join(', ');
    let as=9.3;while(measure(archetypes,as,'Display')>inner&&as>6)as-=.2;

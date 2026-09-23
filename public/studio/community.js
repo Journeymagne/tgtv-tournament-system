@@ -125,7 +125,7 @@ function renderPublication(){
  $('#publication-info').textContent='Версия '+(project.team.version||'1.0')+' · опубликовано '+date(publication.updatedAt);
  $('#publication-author').innerHTML=authorLink(publication);
  $('#publication-nav').innerHTML=Object.entries(labels).map(([key,label])=>'<button data-publication-section="'+key+'" class="'+(key===publicationSection?'active':'')+'">'+label+'</button>').join('');
- const cards=project[publicationSection]||[],assets={'assets/paper.jpg':'assets/paper.jpg'};
+ const cards=project[publicationSection]||[],assets={...KTPageBackground.previewAssets(),'assets/paper.jpg':'assets/paper.jpg'};
  for(const card of [...project.operatives,...project.teamCards,...(project.lorePages||[]).flatMap(page=>page.images)])if(card.image)assets[card.image]=card.image;
  $('#publication-cards').innerHTML=cards.length?cards.map((item,index)=>{
   const rendered=publicationSection==='lorePages'?KTLore.renderPage(item,project,assets):KTCards.renderCard(item,project,assets,index);

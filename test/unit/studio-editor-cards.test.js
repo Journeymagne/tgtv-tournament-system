@@ -69,12 +69,14 @@ test('long formatted weapon rules paginate without clipping and survive every ex
  assert(!ros.includes('[color=orange]'));assert(!ros.includes('[size=12]'));
 });
 
-test('logos render across card types and deck backs while unsafe logo sources are rejected', () => {
+test('card headers omit logos while watermarks, operative footers and deck backs retain them', () => {
  const data = project();
  data.teamCards.push({ ...Model.blank('faction', 'faction'), name: 'Coordinate', body: 'When: Select Operatives.', abilities: [{ id: 'extra', name: 'Extra CP', body: 'Gain 1 CP.' }] });
- for (const card of [data.selectionCards[0], data.teamCards[0], data.operatives[0], data.strategicPloys[0]]) {
+ assert(!Cards.renderCard(data.selectionCards[0], data)[0].svg.includes('class="team-logo"'));
+ for (const card of [data.teamCards[0], data.operatives[0], data.strategicPloys[0], data.firefightPloys[0], data.equipment[0]]) {
   const svg = Cards.renderCard(card, data)[0].svg;
   assert(svg.includes('class="team-logo"'));assert(svg.includes(LOGO));
+  for (const image of svg.matchAll(/<image class="team-logo"[^>]*\by="([^"]+)"[^>]*\bopacity="1"/g)) assert(Number(image[1]) >= 46, 'logo must stay outside the card header');
  }
  assert(TTS.plan(data).decks[0].cards[0].back.includes(LOGO));
  for (const logo of ['https://example.com/logo.png', 'data:image/svg+xml;base64,PHN2Zz4=', LOGO.repeat(1000)]) {
