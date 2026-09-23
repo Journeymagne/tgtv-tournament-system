@@ -286,7 +286,6 @@ function renderEditor(options={}){
   if(section==='equipment'){
    const source=data.sourceArchive?.equipment||[];
    if(source.length)out+=panel('ВЫБРАТЬ ИЗ ИСХОДНИКА','<label>Снаряжение '+esc(data.team.name)+'<select id="source-equipment"><option value="">Выберите предмет</option>'+source.map((e,i)=>'<option value="'+i+'">'+esc(e.name)+' · '+esc(e.cost)+'</option>').join('')+'</select></label><button data-action="use-source">Заполнить эту карточку</button><p class="hint">После вставки оружие и правила редактируются прямо здесь.</p>');
-   out+=panel('ОГРАНИЧЕНИЯ',field('Кто может взять','restriction',c.restriction||'')+check('Один на команду','unique',c.unique)+(data.team.id==='murdasport'?check('Разрешено Nob Basha','bashaAllowed',c.bashaAllowed):''));
   }
   if(c.kind==='operative'){
    out+=imageEditor(c);
@@ -642,4 +641,3 @@ async function init(){
  }catch(e){$('#editor').textContent='Не удалось открыть проект: '+e.message}
 }
 window.ktStudioReady=init();
-

@@ -14,6 +14,12 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.6
+
+The Equipment editor no longer shows the Restrictions controls. Existing saved
+equipment data is preserved. Package and client asset versions are updated to 4.6;
+the tournament ID safeguards from 4.5 are retained, with no new migrations.
+
 ## Release 4.5
 
 The tournament profile, MMR and navigation now share the portal header. Winner
