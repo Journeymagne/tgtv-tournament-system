@@ -14,6 +14,12 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.6.1
+
+Published team cards are larger in Studio. Operatives appear one per row with
+vertical scrolling, and portrait cards have more room for readable text.
+The viewer fits desktop and mobile screens. No new migrations are required.
+
 ## Release 4.6
 
 The Equipment editor no longer shows the Restrictions controls. Existing saved

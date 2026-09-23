@@ -127,6 +127,7 @@ function renderPublication(){
  $('#publication-nav').innerHTML=Object.entries(labels).map(([key,label])=>'<button data-publication-section="'+key+'" class="'+(key===publicationSection?'active':'')+'">'+label+'</button>').join('');
  const cards=project[publicationSection]||[],assets={...KTPageBackground.previewAssets(),'assets/paper.jpg':'assets/paper.jpg'};
  for(const card of [...project.operatives,...project.teamCards,...(project.lorePages||[]).flatMap(page=>page.images)])if(card.image)assets[card.image]=card.image;
+ $('#publication-cards').dataset.section=publicationSection;
  $('#publication-cards').innerHTML=cards.length?cards.map((item,index)=>{
   const rendered=publicationSection==='lorePages'?KTLore.renderPage(item,project,assets):KTCards.renderCard(item,project,assets,index);
   return '<section class="published-card"><h3>'+esc(item.name||'Пустая карточка')+'</h3>'+rendered.map((side,sideIndex)=>'<div class="physical-card '+(publicationSection==='lorePages'?'lore-page':item.kind==='operative'?'landscape':'portrait')+'">'+KTCards.inlineSVG(side.svg,'publication-'+publicationSection+'-'+index+'-'+sideIndex)+'</div>').join('')+'</section>';
