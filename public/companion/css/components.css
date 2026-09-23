@@ -3,7 +3,7 @@ section,
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: 0 16px 40px var(--shadow);
+  box-shadow: 0 16px 40px var(--shadow-color);
 }
 
 section {

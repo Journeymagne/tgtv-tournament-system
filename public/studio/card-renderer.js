@@ -2,6 +2,7 @@
 'use strict';
 const F=root.KTFontMetrics||(typeof require!=='undefined'?require('./font-metrics.js'):null);
 const Text=root.KTText||(typeof require!=='undefined'?require('./rich-text.js'):null);
+const Model=root.KTModel||(typeof require!=='undefined'?require('./model.js'):null);
 const MM=72/25.4,SHORT=70*MM,LONG=121*MM,BLACK='#141718',SAGE='#6e7b70';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 const face=s=>/[\u0400-\u04ff]/.test(s)?'RobotoBold':'Display';
@@ -39,7 +40,7 @@ function richLines(value,width,size=8.2,font='Roboto',gap=3){
 }
 function blocks(c,d,width,operative=false){
  const result=[],size=operative?(c.rulesLayout==='full'?6.4:6.8):c.kind==='selection'?7.8:8.2;
- const add=(t,font='Roboto',gap=5,s=size)=>{if(t){const lines=richLines(t,width,s,font,gap);lines[0].groupHeight=lines.reduce((n,l)=>n+l.height,0);lines[0].keepHeight=font==='RobotoBold'||font==='Display'?lines[0].height+size*2.56:0;result.push(...lines)}};
+ const add=(t,font='Roboto',gap=5,s=size,inset=0)=>{if(t){const lines=richLines(t,width-inset,s,font,gap);lines[0].groupHeight=lines.reduce((n,l)=>n+l.height,0);lines[0].keepHeight=font==='RobotoBold'||font==='Display'?lines[0].height+size*2.56:0;result.push(...lines)}};
  if(c.kind==='selection'){
   add(c.lore,'RobotoItalic',7);
   add(c.body);
@@ -53,13 +54,15 @@ function blocks(c,d,width,operative=false){
  if(c.restriction)add(c.restriction,'RobotoBold');
  if(c.unique)add('Maximum once per team.','RobotoItalic');
  if(c.bashaAllowed)add('Available to NOB BASHA.','RobotoItalic');
- for(const a of c.abilities){const start=result.length;add(a.name,'RobotoBold',1);add(a.body);if(result[start])result[start].groupHeight=result.slice(start).reduce((n,l)=>n+l.height,0)}
- for(const a of c.actions){const start=result.length;add(a.name+(a.cost?'  /  '+a.cost:''),'RobotoBold',4);for(let i=start;i<result.length;i++)result[i].actionHeading=true;add(a.body);if(result[start])result[start].groupHeight=result.slice(start).reduce((n,l)=>n+l.height,0)}
+ const heading=(name,band)=>{const start=result.length;add(name,'RobotoBold',band?5:1,size,band?4:0);if(band)for(let i=start;i<result.length;i++){result[i].actionHeading=true;result[i].height+=2;result[i].keepHeight+=2}};
+ for(const a of c.abilities){const start=result.length;heading(a.name,c.kind==='faction');add(a.body);if(result[start])result[start].groupHeight=result.slice(start).reduce((n,l)=>n+l.height,0)}
+ for(const a of c.actions){const start=result.length;heading(a.name+(a.cost?'  /  '+a.cost:''),true);add(a.body);if(result[start])result[start].groupHeight=result.slice(start).reduce((n,l)=>n+l.height,0)}
  if(c.kind==='firefight'&&c.cost?.includes('+')&&d.ployNote)add(d.ployNote,'RobotoItalic');
  if(c.kind==='strategic'&&c.cost?.includes('+')&&d.ployNote)add(d.ployNote,'RobotoItalic');
  let trailing=0;for(let i=result.length-1;i>=0;i--){trailing+=result[i].height;if(result[i].keepHeight)result[i].keepHeight=Math.min(result[i].keepHeight,trailing)}
  return result;
 }
+function teamLogo(d,x,y,size,opacity=1){return Model.isLogo(d.team.logo)?'<image class="team-logo" x="'+x+'" y="'+y+'" width="'+size+'" height="'+size+'" opacity="'+opacity+'" preserveAspectRatio="xMidYMid meet" xlink:href="'+esc(d.team.logo)+'"/>':''}
 function base(w,h,d,dark=false,assets={}){
  const C=d.layout.accent;
  let s='<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">';
@@ -67,10 +70,18 @@ function base(w,h,d,dark=false,assets={}){
  s+=rect(0,0,w,h,dark?BLACK:'#edf0eb');
  if(assets['assets/paper.jpg'])s+='<image x="0" y="0" width="'+w+'" height="'+h+'" preserveAspectRatio="xMidYMid slice" opacity="'+(dark?.07:.5)+'" xlink:href="'+assets['assets/paper.jpg']+'"/>';
  // A neutral team monogram is kept separate from the source faction's insignia.
- if(!dark)s+=txt(d.team.name.slice(0,1),w/2,h*.76,w*.85,'#d2d9d1','Display','text-anchor="middle" opacity=".23"');
+ if(!dark)s+=Model.isLogo(d.team.logo)?teamLogo(d,w*.15,h*.5-w*.25,w*.7,.07):txt(d.team.name.slice(0,1),w/2,h*.76,w*.85,'#d2d9d1','Display','text-anchor="middle" opacity=".23"');
  return {s,C,w,h,dark,boxes:[]};
 }
 function finish(p,meta){return {svg:p.s+'</g></svg>',width:p.w,height:p.h,boxes:p.boxes,...meta}}
+// Inline SVG fragment IDs share the HTML document, even across hidden previews.
+// Scope each mounted instance while keeping standalone PDF/TTS SVGs deterministic.
+function inlineSVG(svg,scope){
+ const prefix='kt-'+String(scope).replace(/[^a-z0-9_-]/gi,'-')+'-',ids=new Map([...svg.matchAll(/\sid="([^"]+)"/g)].map(match=>[match[1],prefix+match[1]]));
+ return svg.replace(/(\sid=")([^"]+)(")/g,(_,before,id,after)=>before+ids.get(id)+after)
+  .replace(/="url\(#([^)]*)\)"/g,(value,id)=>ids.has(id)?'="url(#'+ids.get(id)+')"':value)
+  .replace(/(\s(?:xlink:)?href="#)([^"]+)(")/g,(value,before,id,after)=>ids.has(id)?before+ids.get(id)+after:value);
+}
 const category={selection:'KILL TEAM',recruitment:'KILL TEAM SELECTION',faction:'FACTION RULE',strategic:'STRATEGY PLOY',firefight:'FIREFIGHT PLOY',equipment:'FACTION EQUIPMENT'};
 function portrait(c,d,assets={},index=0){
  const w=SHORT,h=LONG,pad=8,inner=w-2*pad,dark=['selection','recruitment'].includes(c.kind),sides=[];
@@ -84,24 +95,27 @@ function portrait(c,d,assets={},index=0){
  for(const weapon of c.weapons){
   all.push(...richLines(weapon.name,inner,9,'RobotoBold',2));
   all.push(...richLines('ATK '+weapon.attacks+'   HIT '+weapon.hit+'   DMG '+weapon.damage,inner,8.2,'Roboto',3));
-  all.push(...richLines([weapon.special,weapon.critical?'CR: '+weapon.critical:''].filter(Boolean).join('; ')||'-',inner,8.2,'Roboto',8));
+  all.push(...richLines(Model.weaponRules(weapon)||'-',inner,8.2,'Roboto',8));
  }
  let cursor=0;
  do{
   const p=base(w,h,d,dark,assets),side=sides.length;
   p.s+=rect(0,0,w,46,BLACK);
-  p.s+=txt(d.team.name,w/2,18,10.3,p.C,'RobotoBold','text-anchor="middle"');
-  p.s+=txt(labels,w/2,35,18,'white','Display','text-anchor="middle"');
+  const logo=Model.isLogo(d.team.logo),titleX=logo?(w+38)/2:w/2,titleWidth=w-(logo?52:16);
+  p.s+=teamLogo(d,pad,8,30);
+  p.s+=txt(d.team.name,titleX,18,Math.min(10.3,10.3*titleWidth/Math.max(1,measure(d.team.name,10.3,'RobotoBold'))),p.C,'RobotoBold','text-anchor="middle"');
+  p.s+=txt(labels,titleX,35,18,'white','Display','text-anchor="middle"');
   let y=54;
-  const bandLines=wrap(name,inner-(c.cost?35:6),12,face(name));
+  const bandFont=c.kind==='faction'?'RobotoBold':face(name),bandLines=wrap(name,inner-(c.cost?35:6),12,bandFont);
   const bh=Math.max(15,bandLines.length*13+3);
   if(['strategic','firefight'].includes(c.kind)){
    const fill=c.kind==='strategic'?SAGE:'#232323';
-   p.s+=rect(pad,y,inner,bh,fill)+rect(pad+2,y+2,inner-4,bh-2,'none','stroke="#e4e9e1" stroke-width=".6"');
-  }else if(c.kind==='equipment')p.s+=rect(pad,y,inner,bh,'none','stroke="'+BLACK+'" stroke-width=".6"');
+   p.s+=rect(pad,y,inner,bh,fill);
+  }else if(c.kind==='faction')p.s+=rect(pad,y,inner,bh,Text.ORANGE);
+  else if(c.kind==='equipment')p.s+=rect(pad,y,inner,bh,'none','stroke="'+BLACK+'" stroke-width=".6"');
   else p.s+=line(pad,y+bh, w-pad,y+bh,p.C,.7);
-  const titleColor=['strategic','firefight'].includes(c.kind)?'white':dark?'white':c.kind==='equipment'?BLACK:p.C;
-  bandLines.forEach((t,i)=>p.s+=txt(t,pad+2,y+12+i*13,12,titleColor,face(name)));
+  const titleColor=['strategic','firefight','faction'].includes(c.kind)?'white':dark?'white':c.kind==='equipment'?BLACK:p.C;
+  bandLines.forEach((t,i)=>p.s+=txt(t,pad+2,y+12+i*13,12,titleColor,bandFont));
   if(c.cost)p.s+=txt(c.cost,w-pad-3,y+11,7.5,titleColor,'RobotoBold','text-anchor="end"');
   y+=bh+10;
   if(c.subtitle){const sub=wrap(c.subtitle,inner-6,10,'RobotoBold'),sh=sub.length*12+4;p.s+=rect(pad,y-3,inner,sh,p.C);sub.forEach((t,i)=>p.s+=txt(t,pad+3,y+7+i*12,10,'white','RobotoBold'));y+=sh+5}
@@ -109,7 +123,8 @@ function portrait(c,d,assets={},index=0){
   const bottom=h-23,startY=y,startCursor=cursor;
   while(cursor<all.length&&y+all[cursor].height<=bottom){
    const next=all[cursor];if(cursor>startCursor&&((next.keepHeight&&y+next.keepHeight>bottom)||(next.groupHeight<=bottom-startY&&y+next.groupHeight>bottom)))break;
-   const a=all[cursor++];p.s+=Text.svg(a,pad,y+a.size,dark?'white':BLACK);p.boxes.push({x:pad,y,w:a.width,h:a.height});y+=a.height;
+   const a=all[cursor++];if(a.actionHeading)p.s+=rect(pad,y-1,inner,a.height-3,c.kind==='faction'?Text.ORANGE:p.C);
+   p.s+=Text.svg(a,pad+(a.actionHeading?2:0),y+a.size,a.actionHeading||dark?'white':BLACK);p.boxes.push({x:pad,y,w:a.width,h:a.height});y+=a.height;
   }
   if(imagePending&&cursor===all.length){
    const gap=cursor>startCursor?8:0,preferredHeight=Math.min(inner/imageRatio,200,bottom-startY),available=bottom-y-gap;
@@ -130,7 +145,9 @@ function portrait(c,d,assets={},index=0){
 }
 function operative(c,d,assets={},index=0){
  const w=LONG,h=SHORT,pad=8,inner=w-16,baseHeader=33,footer=22,C=d.layout.accent,sides=[];
- const stats=Object.entries(c.stats),sw=stats.length>4?24:28,start=w-stats.length*sw;
+ const baseSize=(c.baseSize||'').trim(),baseWidth=baseSize?(/^\d+(?:[.,]\d+)?$/.test(baseSize)?16:Math.max(16,Math.min(48,measure(baseSize,7,'RobotoBold')+6))):0;
+ const baseSpace=baseSize?baseWidth+6:0,logoSpace=Model.isLogo(d.team.logo)?24:0;
+ const stats=Object.entries(c.stats),sw=stats.length>4?26:32,start=w-stats.length*sw;
  const uploaded=/^data:image\/(png|jpeg);base64,/.test(c.image||''),portrait=uploaded?c.image:assets[c.image];
  const nw=start-(portrait?64:8)-8;
  let size=14;while(measure(c.name,size,face(c.name))>nw&&size>10)size-=.25;
@@ -160,26 +177,40 @@ function operative(c,d,assets={},index=0){
    }
    p.s+='</g>';
   }
-  stats.forEach(([key,val],i)=>{const x=start+i*sw,hasDistance=/[″"]/.test(String(val));p.s+=rect(x,0,2,header,'#e6e8e4')+txt(key,x+sw/2,12,7,'white','Display','text-anchor="middle"')+(hasDistance?'':icon(key,x+3,20,9,C))+txt(val,hasDistance?x+sw/2:x+sw-3,29,11,'white','Display',hasDistance?'text-anchor="middle"':'text-anchor="end"')});
+  stats.forEach(([key,val],i)=>{const x=start+i*sw,iconSize=sw*.43,valueWidth=sw*.42,valueSize=Math.min(12,12*valueWidth/Math.max(1,measure(val,12,'Display')));p.s+='<g class="operative-stat" data-stat="'+esc(key)+'">'+rect(x,0,2,header,'#e6e8e4')+txt(key,x+(sw+2)/2,12,7,'white','Display','text-anchor="middle"')+icon(key,x+3,16,iconSize,C)+txt(val,x+sw*.76,29,valueSize,'white','Display','text-anchor="middle"')+'</g>'});
   p.s+=rect(0,h-footer,w,footer,BLACK);
-  wrap(c.keywords.join(', '),inner-16,5.6,'RobotoBold').slice(0,2).forEach((t,i)=>p.s+=txt(t,pad,h-10+i*6,5.6,'white','RobotoBold'));
+  wrap(c.keywords.join(', '),inner-(baseSize?baseSpace+logoSpace:24),5.6,'RobotoBold').slice(0,2).forEach((t,i)=>p.s+=txt(t,pad,h-10+i*6,5.6,'white','RobotoBold'));
+  p.s+=teamLogo(d,w-pad-18-baseSpace,h-footer+2,18);
+  if(baseSize){
+   const x=w-pad-baseWidth,y=h-footer+(footer-16)/2,size=Math.min(7,(baseWidth-4)/Math.max(1,measure(baseSize,1,'RobotoBold')));
+   p.s+='<g class="operative-base-size">'+rect(x,y,baseWidth,16,'none','rx="8" stroke="white" stroke-width=".7"')+txt(baseSize,x+baseWidth/2,y+8+size*.35,size,'white','RobotoBold','text-anchor="middle"')+'</g>';
+  }
   return p;
  };
  let p=make(),y=p.header+3,weaponIndex=0,rowCount=0,lastGroup='';
  const newSide=()=>{p.s+=rect(0,h-footer-8,w,8,C)+txt(loreCursor<loreLines.length?'TEXT CONTINUES ON NEXT SIDE':'RULES CONTINUE ON NEXT SIDE',w-8,h-footer-1.5,6.4,'white','Display','text-anchor="end"');sides.push(finish(p,{id:c.id,kind:c.kind,side:sides.length,index,name:c.name}));if(sides.length>100)throw Error('Слишком длинная карточка: '+c.name);p=make();y=p.header+4;lastGroup=''};
  while(loreCursor<loreLines.length)newSide();
- const tableHead=()=>{['NAME','ATK','HIT','DMG','WR'].forEach((t,i)=>p.s+=txt(t,[pad+14,142,163,182,205][i],y+7,8,BLACK,'Display'));y+=10;p.s+=line(pad,y,w-pad,y,C,.5)};
+ const columnX=[pad+17,145,166,188,207],columnWidths=[110,19,19,21,w-pad-207];
+ const tableHead=()=>{['NAME','ATK','HIT','DMG','WR'].forEach((t,i)=>p.s+=txt(t,columnX[i],y+7,8,BLACK,'Display',i>0&&i<4?'text-anchor="middle"':''));y+=10;p.s+=line(pad,y,w-pad,y,C,.5)};
  if(c.weapons.length){if(y+21>h-footer-14)newSide();tableHead()}
  while(weaponIndex<c.weapons.length){
   const weapon=c.weapons[weaponIndex],group=weapon.group&&weapon.group!==lastGroup?weapon.group+' - select one profile':'';
-  const columns=[wrap(weapon.mode||weapon.name,118,6.6),[String(weapon.attacks)],[String(weapon.hit)],[String(weapon.damage)],wrap([weapon.special,weapon.critical?'CR: '+weapon.critical:''].filter(Boolean).join('; ')||'-',w-pad-205,6.6)];
-  const height=Math.max(...columns.map(a=>a.length))*8+3,gh=group?10:0;
-  if(y+height+gh>h-footer-14){newSide();tableHead()}
+  const columns=[weapon.mode||weapon.name,String(weapon.attacks),String(weapon.hit),String(weapon.damage),Model.weaponRules(weapon)||'-'].map((text,i)=>richLines(text,columnWidths[i],6.6,'Roboto',0));
+  const height=Math.max(...columns.map(lines=>lines.reduce((n,a)=>n+a.height,0)))+4,gh=group?10:0;
+  if(y+Math.min(height,35)+gh>h-footer-14||(height+gh<=h-footer-14-(baseHeader+14)&&y+height+gh>h-footer-14)){newSide();tableHead()}
   if(group){p.s+=txt(group,pad,y+8,6.4,BLACK,'RobotoItalic');y+=10;lastGroup=weapon.group}
-  if(rowCount%2===0)p.s+=rect(pad,y,inner,height,'#cdd1cc');
-  p.s+=icon(weapon.kind,pad+1,y+1,11,C);
-  columns.forEach((lines,j)=>lines.forEach((t,i)=>{const x=[pad+14,142,163,182,205][j];p.s+=txt(t,x,y+8+i*8,6.6);p.boxes.push({x,y:y+i*8,w:measure(t,6.6),h:8})}));
-  y+=height;weaponIndex++;rowCount++;
+  while(columns.some(lines=>lines.length)){
+   const available=h-footer-14-y-4;
+   if(columns.some(lines=>lines[0]?.height>available)){newSide();tableHead();continue}
+   const segments=columns.map(lines=>{const picked=[];let used=0;while(lines.length&&used+lines[0].height<=available){const a=lines.shift();picked.push(a);used+=a.height}return {lines:picked,height:used}});
+   const chunkHeight=Math.max(13,...segments.map(s=>s.height))+4;
+   if(rowCount%2===0)p.s+=rect(pad,y,inner,chunkHeight,'#cdd1cc');
+   p.s+=icon(weapon.kind,pad+1,y+1,13,C);
+   segments.forEach((segment,j)=>{let yy=y+1;for(const a of segment.lines){const x=columnX[j]-(j>0&&j<4?a.width/2:0);p.s+=Text.svg(a,x,yy+a.size);p.boxes.push({x,y:yy,w:a.width,h:a.height});yy+=a.height}});
+   y+=chunkHeight;
+   if(columns.some(lines=>lines.length)){newSide();tableHead()}
+  }
+  weaponIndex++;rowCount++;
  }
  if(c.weapons.length){p.s+=line(pad,y,w-pad,y,C,.5);y+=5}
  const full=c.rulesLayout==='full',columnWidth=full?inner:(inner-12)/2,items=blocks(c,d,columnWidth,true);
@@ -213,13 +244,14 @@ function selectionCard(c,d,assets={},index=0){
  }
  add(c.selectionRules,0,'',9);add(c.selectionNotes,0,'',7);
  for(const a of [...c.abilities,...c.actions]){add(a.name+(a.cost?' / '+a.cost:''),0,'',2,'RobotoBold');add(a.body)}
- for(const weapon of c.weapons){add(weapon.name,0,'',2,'RobotoBold');add('ATK '+weapon.attacks+'   HIT '+weapon.hit+'   DMG '+weapon.damage);add([weapon.special,weapon.critical].filter(Boolean).join('; '))}
+ for(const weapon of c.weapons){add(weapon.name,0,'',2,'RobotoBold');add('ATK '+weapon.attacks+'   HIT '+weapon.hit+'   DMG '+weapon.damage);add(Model.weaponRules(weapon))}
  let cursor=0;
  do{
   const p=base(w,h,d,true,assets),side=sides.length;
   let y=10;
   if(side===0){
-   const title=wrap(name.replace(/ KILL TEAM$/,'\nKILL TEAM'),inner,18,face(name));
+   const title=wrap(name.replace(/ KILL TEAM$/,'\nKILL TEAM'),inner-(Model.isLogo(d.team.logo)?38:0),18,face(name));
+   p.s+=teamLogo(d,w-pad-32,y,32);
    title.forEach((t,i)=>p.s+=txt(t,pad,y+17+i*19,18,'white',face(name)));y+=title.length*19+6;
    const archetypes='ARCHETYPES: '+c.archetypes.map((value,i)=>value||'SELECT ARCHETYPE '+(i+1)).join(', ');
    let as=9.3;while(measure(archetypes,as,'Display')>inner&&as>6)as-=.2;
@@ -245,7 +277,7 @@ function renderCard(c,d,assets={},index=0){return c.kind==='selection'?selection
 function renderDeck(d,assets={}){
  return [...d.selectionCards,...d.teamCards,...d.strategicPloys,...d.firefightPloys,...d.equipment,...d.operatives].flatMap((c,i)=>renderCard(c,d,assets,(['equipment','firefight','strategic'].includes(c.kind)?d[c.kind==='equipment'?'equipment':c.kind==='firefight'?'firefightPloys':'strategicPloys'].indexOf(c):i)));
 }
-root.KTCards={renderCard,renderDeck,selectionCard,measure,wrap,SHORT,LONG,esc};
+root.KTCards={renderCard,renderDeck,selectionCard,measure,wrap,SHORT,LONG,esc,teamLogo,inlineSVG};
 if(typeof module!=='undefined')module.exports=root.KTCards;
 })(typeof window!=='undefined'?window:globalThis);
 

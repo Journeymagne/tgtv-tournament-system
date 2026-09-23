@@ -4,10 +4,8 @@ const totalSteps = document.querySelector("#totalSteps");
 const counterCount = document.querySelector("#counterCount");
 const firstPlayer = document.querySelector("#firstPlayer");
 
-const names = {
-  me: "Me",
-  opponent: "Opponent"
-};
+const trackerText = (ru, en) => document.documentElement.lang === "en" ? en : ru;
+const names = { get me() { return trackerText("Я", "Me"); }, get opponent() { return trackerText("Соперник", "Opponent"); } };
 
 function clampCount(value) {
   const parsed = Number.parseInt(value, 10);
@@ -36,8 +34,8 @@ function buildSequence(myCount, opponentCount, first) {
         side: turn,
         type: "activation",
         count: used[turn],
-        title: `${names[turn]}: activation ${used[turn]}`,
-        note: ready[turn] === 0 ? "All operatives on this side are expended." : `Ready remaining: ${ready[turn]}`
+        title: `${names[turn]}: ${trackerText("активация", "activation")} ${used[turn]}`,
+        note: ready[turn] === 0 ? trackerText("Все оперативники этой стороны активированы.", "All operatives on this side are expended.") : trackerText(`Готовых осталось: ${ready[turn]}`, `Ready remaining: ${ready[turn]}`)
       });
     } else if (ready[enemy] > 0) {
       counters[turn] += 1;
@@ -45,8 +43,8 @@ function buildSequence(myCount, opponentCount, first) {
         side: turn,
         type: "counter",
         count: counters[turn],
-        title: `${names[turn]}: counteract ${counters[turn]}`,
-        note: "Instead of activating, then play alternates back."
+        title: `${names[turn]}: ${trackerText("контрдействие", "counteract")} ${counters[turn]}`,
+        note: trackerText("Вместо активации, затем ход возвращается сопернику.", "Instead of activating, then play alternates back.")
       });
     }
 
@@ -73,7 +71,7 @@ function render() {
     card.className = `slot ${step.side} ${step.type === "counter" ? "counter" : ""}`;
     card.innerHTML = `
       <div class="slot-top">
-        <span>Step</span>
+        <span>${trackerText("Шаг", "Step")}</span>
         <span class="badge">${index + 1}</span>
       </div>
       <div class="slot-title">${step.title}</div>
@@ -83,5 +81,7 @@ function render() {
   }));
 }
 
+window.addEventListener("kt:locale", render);
 form.addEventListener("input", render);
+window.KTCalculator = { reset() { form.reset(); render(); } };
 render();

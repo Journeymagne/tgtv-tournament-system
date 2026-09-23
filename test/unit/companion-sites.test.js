@@ -84,7 +84,7 @@ test("login returns to an exact service origin and rejects external or deceptive
     const redirects = [], location = new URL("https://ktcompanion.ru/tournament?next=" + encodeURIComponent(next));
     location.replace = value => redirects.push(value);
     const root = { URL, URLSearchParams, location, KT_SITES: { subdomains: false, urls: sites.urls, current: "tournament" },
-      document: { body: { dataset: { companionSection: "tournament" } }, querySelectorAll: () => [], addEventListener() {} },
+      document: { body: { dataset: { companionSection: "tournament" } }, querySelectorAll: () => [], querySelector: () => null, addEventListener() {} },
       fetch: async () => ({ ok: true, json: async () => ({ user: { id: 7, name: "User" } }) }), addEventListener() {} };
     root.window = root;
     vm.runInNewContext(source, root);

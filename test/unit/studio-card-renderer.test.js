@@ -68,3 +68,27 @@ test("operatives without lore retain their header and other card kinds retain th
   assert(card.svg.includes("Ploy lore"));
   assert.equal(loreGroups(card.svg).length, 0);
 });
+
+test("inline card instances keep their own clipping masks beside hidden previews and other sides", () => {
+  const team = project("Lore line.\n".repeat(90)), operative = team.operatives[0];
+  operative.image = 'data:image/png;base64,AAAA';
+  operative.imageWidth = operative.imageHeight = 100;
+  operative.imageCrop = { x: .1, y: .2, width: .5, height: .4 };
+  const cards = Cards.renderCard(operative, team);
+  assert(cards.length > 1);
+  const standalone = cards.map(card => card.svg);
+  const mounted = [Cards.inlineSVG(cards[0].svg, "editor-preview"),
+    ...cards.map((card, side) => Cards.inlineSVG(card.svg, "publication-operatives-0-" + side)),
+    Cards.inlineSVG(cards[0].svg, "publication-operatives-1-0")];
+  const allIds = new Set();
+  for (const svg of mounted) {
+    const ids = new Set([...svg.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]));
+    assert.equal(ids.size, 3, "card outline, header and crop masks are all retained");
+    for (const id of ids) { assert(!allIds.has(id), "IDs must differ even for copies of the same card");allIds.add(id); }
+    for (const match of svg.matchAll(/clip-path="url\(#([^)]*)\)"/g)) assert(ids.has(match[1]), "clip references resolve within this instance");
+    assert(!svg.includes('url(#headerclip)'));
+  }
+  assert.deepEqual(cards.map(card => card.svg), standalone, "mounting does not change standalone export SVGs");
+  const pdf = buildTeamPDF(team, {}, { section: "operatives", index: 0 });
+  assert.deepEqual(pdf.content.filter(item => item.svg).map(item => item.svg), standalone);
+});

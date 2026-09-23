@@ -1,0 +1,77 @@
+/* ======================================================================
+   Design tokens
+   ====================================================================== */
+:root {
+  color-scheme: dark;
+  --bg: #050505;
+  --surface: #101010;
+  --panel: #151515;
+  --panel-2: #202020;
+  --panel-3: #292929;
+  --ink: #f4f4f4;
+  --muted: #b9b9b9;
+  --quiet: #7f7f7f;
+  --line: #3b3b3b;
+  --line-strong: #4a4a4a;
+  --accent: #ff7a1a;
+  --accent-text: #ff7a1a;
+  --accent-hover: #ff8e32;
+  --accent-dark: #9c3e08;
+  --gold: #ffb14a;
+  --good: #39c27f;
+  --danger: #e04f42;
+  --shadow: 0 18px 42px rgba(0, 0, 0, 0.45);
+  --overlay: rgba(0, 0, 0, 0.62);
+  /* Ink printed on accent/gold fills. Deliberately dark in BOTH themes: the
+     fills stay orange when the page goes light, so the text must stay dark. */
+  --on-accent: #050505;
+  /* Channels of --accent, for rgb(var(--accent-rgb) / <alpha>) tints. */
+  --accent-rgb: 255 122 26;
+  /* Inputs, selects, menus, popovers: the recessed field surface. */
+  --surface-input: #0c0c0c;
+  /* Recessed panels: table headers, code blocks, empty states. */
+  --surface-well: #111111;
+  --surface-well-soft: rgba(12, 12, 12, 0.42);
+  /* The dark base inside decorative accent gradients (avatars, medallions,
+     result banners). Stays dark in BOTH themes, like --on-accent: the gradient
+     over it is orange either way. */
+  --surface-medallion: #111111;
+  /* One action-button size, based on Back. Variants change color, not density. */
+  --button-height: 40px;
+  --button-font-size: 16px;
+  --button-font-weight: 900;
+  --button-line-height: 1;
+  --button-padding: 2px 14px 0;
+  --button-radius: 7px;
+  /* Right-hand room reserved for the fixed language/theme/notification controls. */
+  --topbar-controls-gutter: calc(var(--button-height) * 3 + 34px);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f3f5;
+  --surface: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f5f6f8;
+  --panel-3: #e8eaed;
+  --ink: #171717;
+  --muted: #555b63;
+  --quiet: #737983;
+  --line: #d4d7dc;
+  --line-strong: #b9bec6;
+  --accent: #f36d0d;
+  --accent-text: #b74708;
+  --accent-hover: #ff7a1a;
+  --accent-dark: #b74708;
+  --gold: #9b5700;
+  --good: #178653;
+  --danger: #c53d34;
+  --shadow: 0 14px 32px rgba(28, 31, 35, 0.12);
+  --accent-rgb: 243 109 13;
+  --surface-input: var(--surface);
+  --surface-well: var(--panel-2);
+  --surface-well-soft: var(--panel-2);
+}
+
+:root { --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --text: var(--ink); --input-bg: var(--surface-input); --input-bg-alt: var(--surface-input); --shadow-color: rgba(0,0,0,.3); --me: #45c7a4; --me-soft: rgba(69,199,164,.12); --opp: #ef8a80; --opp-soft: rgba(239,111,97,.12); --counter: #f3c969; --counter-soft: rgba(243,201,105,.12); }
+:root[data-theme="light"] { --shadow-color: rgba(28,31,35,.1); --me: #126d52; --opp: #aa3429; --counter: #77510a; }

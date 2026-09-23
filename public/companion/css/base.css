@@ -34,7 +34,7 @@ main {
   border: 1px solid var(--line);
   border-left: 5px solid var(--accent);
   border-radius: 8px;
-  box-shadow: 0 20px 60px var(--shadow);
+  box-shadow: 0 20px 60px var(--shadow-color);
 }
 
 h1 {

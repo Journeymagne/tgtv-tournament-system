@@ -5,7 +5,7 @@ function summary(row, published = false) {
   const project = published ? row.published : row.project;
   return {
     id: published ? row.publication_id : row.project_id,
-    name: project.team.name, subtitle: project.team.subtitle || "", version: project.team.version || "",
+    name: project.team.name, subtitle: project.team.subtitle || "", version: project.team.version || "", logo: project.team.logo || "",
     operativeCount: project.operatives.length, accent: project.layout.accent,
     updatedAt: published ? row.published_at : row.updated_at,
     ...(published ? {} : { revision: row.revision, publicationId: row.publication_id, publishedAt: row.published_at })
@@ -17,7 +17,7 @@ async function drafts(client, owner) {
     project->'team' AS team, jsonb_array_length(project->'operatives') AS count,
     project->'layout'->>'accent' AS accent FROM studio_projects WHERE owner_id=$1 AND deleted_at IS NULL ORDER BY updated_at DESC`, [owner]);
   return rows.map(row => ({ id: row.project_id, name: row.team.name, subtitle: row.team.subtitle || "",
-    version: row.team.version || "", operativeCount: row.count, accent: row.accent, revision: row.revision,
+    version: row.team.version || "", logo: row.team.logo || "", operativeCount: row.count, accent: row.accent, revision: row.revision,
     updatedAt: row.updated_at, publicationId: row.publication_id, publishedAt: row.published_at }));
 }
 
@@ -41,7 +41,7 @@ async function library(client, search, offset, limit = 30, owner = null) {
     WHERE ${where} ORDER BY published_at DESC, publication_id LIMIT $2 OFFSET $3`, [search, limit, offset]);
   const count = await client.query(`SELECT count(*)::int AS total FROM studio_projects WHERE ${where}`, [search]);
   return { teams: rows.map(row => ({ id: row.publication_id, name: row.team.name, subtitle: row.team.subtitle || "",
-    version: row.team.version || "", operativeCount: row.count, accent: row.accent, updatedAt: row.published_at,
+    version: row.team.version || "", logo: row.team.logo || "", operativeCount: row.count, accent: row.accent, updatedAt: row.published_at,
     author: author(row), ...ownerControls(row, owner) })), total: count.rows[0].total };
 }
 

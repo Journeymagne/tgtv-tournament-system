@@ -26,10 +26,15 @@ function authorLink(team){
  return 'Автор: <a href="'+esc(href)+'">'+esc(team.author.name)+'</a>';
 }
 function card(team,draft=false){
+ const logo=KTModel.isLogo(team.logo)?'<img class="team-tile-logo" src="'+esc(team.logo)+'" alt="" width="96" height="96" loading="lazy">':'';
  const rename=draft||team.canRename?'<button data-rename-'+(draft?'draft':'publication')+'="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Переименовать</button>':'';
- return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div><h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p>'+(!draft?'<p class="team-author">'+authorLink(team)+'</p>':'')+'<div class="team-tile-meta"><span>Оперативников: '+Number(team.operativeCount||0)+'</span><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
+ return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div>'+logo+'<h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p>'+(!draft?'<p class="team-author">'+authorLink(team)+'</p>':'')+'<div class="team-tile-meta"><span>Оперативников: '+Number(team.operativeCount||0)+'</span><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
 }
-function showEditor(){view='editor';$('.workspace').hidden=false;$('#community-panel').hidden=true;updateTabs()}
+function syncViewLocation(){
+ const hash='#/'+view;
+ if(root.location.hash!==hash)root.history.replaceState(root.history.state,'',root.location.pathname+root.location.search+hash);
+}
+function showEditor(){++requestVersion;view='editor';$('.workspace').hidden=false;$('#community-panel').hidden=true;updateTabs();syncViewLocation()}
 function renderDrafts(){
  const teams=cloud.list().sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
  $('#community-list').innerHTML=teams.length?teams.map(team=>card(team,true)).join(''):'<p class="community-empty">Пока нет черновиков. Создайте пустую команду и начните её заполнять — сохранение включится автоматически.</p>';
@@ -37,8 +42,9 @@ function renderDrafts(){
 function updateTabs(){for(const tab of document.querySelectorAll('[data-studio-view]')){const active=tab.dataset.studioView===view;tab.classList.toggle('active',active);tab.setAttribute('aria-pressed',String(active))}}
 async function show(next){
  if(next==='editor'){showEditor();return}
- if(next==='drafts'&&!root.KTAccount.id){try{await root.KTAccount.requireLogin('drafts')}catch(error){adapter.toast(error.message)}return}
+ if(next==='drafts'&&!root.KTAccount.id){try{await root.KTAccount.requireLogin('drafts')}catch(error){adapter.toast(error.message)}syncViewLocation();return}
  view=next;$('.workspace').hidden=true;$('#community-panel').hidden=false;updateTabs();
+ syncViewLocation();
  $('#community-title').textContent=next==='drafts'?'Мои черновики':'Библиотека команд';
  $('#community-description').textContent=next==='drafts'?'Личные команды вашего аккаунта. Продолжайте редактирование с любого устройства.':'Все команды, опубликованные на сайте. Откройте команду, чтобы посмотреть состав, правила и карточки.';
  $('#library-search-label').hidden=next!=='library';$('#community-new').hidden=next!=='drafts';
@@ -123,7 +129,7 @@ function renderPublication(){
  for(const card of [...project.operatives,...project.teamCards,...(project.lorePages||[]).flatMap(page=>page.images)])if(card.image)assets[card.image]=card.image;
  $('#publication-cards').innerHTML=cards.length?cards.map((item,index)=>{
   const rendered=publicationSection==='lorePages'?KTLore.renderPage(item,project,assets):KTCards.renderCard(item,project,assets,index);
-  return '<section class="published-card"><h3>'+esc(item.name||'Пустая карточка')+'</h3>'+rendered.map(side=>'<div class="physical-card '+(publicationSection==='lorePages'?'lore-page':item.kind==='operative'?'landscape':'portrait')+'">'+side.svg+'</div>').join('')+'</section>';
+  return '<section class="published-card"><h3>'+esc(item.name||'Пустая карточка')+'</h3>'+rendered.map((side,sideIndex)=>'<div class="physical-card '+(publicationSection==='lorePages'?'lore-page':item.kind==='operative'?'landscape':'portrait')+'">'+KTCards.inlineSVG(side.svg,'publication-'+publicationSection+'-'+index+'-'+sideIndex)+'</div>').join('')+'</section>';
  }).join(''):'<p class="community-empty">В этом разделе нет карточек.</p>';
 }
 async function openPublication(id){
@@ -224,6 +230,9 @@ async function init(options){
  }
  status();
  document.addEventListener('click',async event=>{
+  if(event.target.closest('.companion-service-link')&&event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){
+   event.preventDefault();query='';offset=0;$('#library-search').value='';void show('library');return;
+  }
   const button=event.target.closest('button');if(!button)return;
   if(button.dataset.studioView){offset=0;void show(button.dataset.studioView)}
   if(button.id==='publish-team')void publish();
@@ -250,6 +259,9 @@ async function init(options){
  $('#delete-project-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault()});
  $('#rename-project-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault()});
  $('#rename-project-form').addEventListener('submit',renameProject);
+ const openLocation=()=>show(/^#\/?(editor|drafts|library)$/.exec(root.location.hash)?.[1]||'library');
+ root.addEventListener('hashchange',()=>void openLocation());
+ if(!new URLSearchParams(root.location.search).has('resume'))await openLocation();
  await resume();
 }
 root.KTCommunity={init,track,status,save,showEditor,flush:()=>cloud?.flush()};

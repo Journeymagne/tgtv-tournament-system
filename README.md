@@ -8,11 +8,19 @@ public tournament pages remain available. See [Companion integration](docs/compa
 for routes, imported sources, account-owned drafts and deployment settings.
 The home page is a service selector. Each service opens on its own page under
 the same hostname: `/tournament`, `/initiative`, `/tracker` and `/studio`,
-with a shared account and a home link in the top right.
+with a shared account. The header logo opens the service selector; the service
+name opens its start page (Studio library or tournament My Games).
+Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 4.2
+## Release 4.3
+
+All services share light/dark themes, RU/EN language controls and consistent
+navigation. Studio adds team logos, saved weapon profiles, richer rule editing,
+base sizes on operative cards and smaller uploaded images. Published teams
+include author links and PDF, TTS and ROSZ exports; portrait cropping is isolated
+per card in the library. Existing projects retain their content when opened.
 
 Studio uses PostgreSQL as the primary store for signed-in accounts. Edits save
 after an 800 ms pause, and opening Studio loads the saved account draft. Browser

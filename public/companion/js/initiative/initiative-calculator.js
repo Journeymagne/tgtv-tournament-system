@@ -1,3 +1,4 @@
+const initiativeText = (ru, en) => document.documentElement.lang === "en" ? en : ru;
 const cards = ["reroll", "1", "2", "3"];
 const cardNames = {
   reroll: "Re-roll",
@@ -12,6 +13,7 @@ const abilityNames = {
 };
 
 let latestLog = "";
+let latestResult = null;
 
 function getChecks(player) {
   return [...document.querySelectorAll(`[data-player="${player}"] input[type="checkbox"]`)];
@@ -54,7 +56,7 @@ function validateExclusiveCards(changedInput) {
         const other = getChecks(otherPlayer).find((input) => input.value === card);
         other.checked = false;
       } else {
-        message = `${cardNames[card]} cannot be selected by both players at the same time.`;
+        message = initiativeText(`Карта ${cardNames[card]} не может быть у обоих игроков одновременно.`, `${cardNames[card]} cannot be selected by both players at the same time.`);
       }
     }
   }
@@ -227,19 +229,32 @@ function runSimulation() {
     document.getElementById("simCount").value = count;
     const result = simulate(count);
     latestLog = result.log;
+    latestResult = result;
 
     const p1Percent = (result.p1Wins / count * 100).toFixed(2);
     const p2Percent = (result.p2Wins / count * 100).toFixed(2);
     document.getElementById("p1Chance").textContent = `${p1Percent}%`;
     document.getElementById("p2Chance").textContent = `${p2Percent}%`;
-    document.getElementById("summary").textContent =
-      `Wins: Player 1 - ${result.p1Wins}, Player 2 - ${result.p2Wins}` +
-      (result.unresolvedTies ? `, unresolved ties - ${result.unresolvedTies}.` : ".");
+    renderResultSummary();
     document.getElementById("logPreview").textContent = latestLog.split("\n").slice(0, 80).join("\n");
   } catch (error) {
-    showError(error.message || "Could not calculate.");
+    showError(error.message || initiativeText("Не удалось выполнить расчёт.", "Could not calculate."));
   }
 }
+
+function renderResultSummary() {
+  if (!latestResult) {
+    document.getElementById("summary").textContent = initiativeText("Выполните расчёт, чтобы увидеть шансы игроков.", "Run the simulation to see each player's win chance.");
+    document.getElementById("logPreview").textContent = initiativeText("Здесь появится журнал расчёта.", "The log will appear here.");
+    return;
+  }
+  const result = latestResult;
+  document.getElementById("summary").textContent = initiativeText(
+    `Победы: игрок 1 — ${result.p1Wins}, игрок 2 — ${result.p2Wins}` + (result.unresolvedTies ? `; ничьи — ${result.unresolvedTies}.` : "."),
+    `Wins: Player 1 — ${result.p1Wins}, Player 2 — ${result.p2Wins}` + (result.unresolvedTies ? `; unresolved ties — ${result.unresolvedTies}.` : ".")
+  );
+}
+window.addEventListener("kt:locale", renderResultSummary);
 
 function downloadLog() {
   if (!latestLog) runSimulation();
@@ -270,9 +285,20 @@ document.getElementById("p2Tie").addEventListener("change", (event) => {
 document.getElementById("run").addEventListener("click", runSimulation);
 document.getElementById("download").addEventListener("click", downloadLog);
 
-setPlayerCards("p1", ["reroll", "1"]);
-setPlayerCards("p2", ["2"]);
-validateExclusiveCards();
+function resetCalculator() {
+  for (const input of document.querySelectorAll(".page-shell input")) {
+    if (input.type === "checkbox") input.checked = input.defaultChecked;
+    else input.value = input.defaultValue;
+  }
+  setPlayerCards("p1", ["reroll", "1"]);
+  setPlayerCards("p2", ["2"]);
+  latestLog = ""; latestResult = null;
+  document.getElementById("p1Chance").textContent = "—";
+  document.getElementById("p2Chance").textContent = "—";
+  renderResultSummary(); validateExclusiveCards();
+}
+window.KTCalculator = { reset: resetCalculator };
+resetCalculator();
 
 window.addEventListener("error", (event) => {
   showError(event.message || "Script error.");

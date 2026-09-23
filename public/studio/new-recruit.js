@@ -91,7 +91,7 @@ function build(input,template){
   for(const [i,b] of binding.weapons.entries()){
    const old=sourceNodes.find(n=>n.tag==='profile'&&n.attrs.typeName==='Weapons'&&n.attrs.id===b.profileId),weapon=names[i];
    if(!old)throw Error('Не найден профиль оружия '+b.profileId);
-   const values={ATK:weapon.attacks,HIT:weapon.hit,DMG:weapon.damage,WR:[weapon.special,weapon.critical].filter(Boolean).join(', ')||'-'};
+   const values={ATK:weapon.attacks,HIT:weapon.hit,DMG:weapon.damage,WR:Model.weaponRules(weapon)||'-'};
    const updated=profile('Weapons',(weapon.kind==='melee'?'⚔ ':'⌖ ')+weapon.name,values,old.attrs.id);
    Object.assign(old,updated);
   }
@@ -102,7 +102,7 @@ function build(input,template){
   report.operatives.push({name:selection.attrs.name,operativeId:operative.id,count:binding.count,stats,weaponIds:names.map(w=>w.id),weapons:names.map(w=>w.name),abilities:operative.abilities.map(a=>a.name),actions:operative.actions.map(a=>a.name)});
  }
  const rule=(name,body)=>{report.rules.push(name);return node('rule',{id:id(),name,hidden:'false'},[node('description',{},[],Text.plain(body))])};
- const body=c=>[c.body,c.restriction,...c.abilities.map(a=>a.name+'\n'+a.body),...c.actions.map(a=>a.name+(a.cost?' ('+a.cost+')':'')+'\n'+a.body),...c.weapons.map(w=>w.name+' | ATK '+w.attacks+' | HIT '+w.hit+' | DMG '+w.damage+' | '+[w.special,w.critical].filter(Boolean).join(', '))].filter(Boolean).join('\n\n');
+  const body=c=>[c.body,c.restriction,...c.abilities.map(a=>a.name+'\n'+a.body),...c.actions.map(a=>a.name+(a.cost?' ('+a.cost+')':'')+'\n'+a.body),...c.weapons.map(w=>w.name+' | ATK '+w.attacks+' | HIT '+w.hit+' | DMG '+w.damage+' | '+Model.weaponRules(w))].filter(Boolean).join('\n\n');
  const rules=[];
  for(const c of data.selectionCards){const text=['ARCHETYPES: '+c.archetypes.join(', '),c.body,...c.selectionGroups.map(g=>g.count+' '+g.description+'\n'+g.entries.map(e=>'• '+e.text+(e.options.length?'\n'+e.options.map(o=>'  ◦ '+o).join('\n'):'')).join('\n')),c.selectionRules,c.selectionNotes].filter(Boolean).join('\n\n');rules.push(rule(c.name,text))}
  for(const c of data.teamCards)rules.push(rule(c.name+(c.subtitle?' — '+c.subtitle:''),body(c)));

@@ -6,6 +6,9 @@ const PROJECTS=STORAGE+':project-list',ACTIVE=STORAGE+':active-project',projectL
 let data,original,section='selectionCards',selected=0,side=0,assets={},timer;
 let previewOnly=false;
 let saveRevision=0,teamLoadRevision=0;
+const nestedStates=new WeakMap();
+let editorCard=null,weaponProfileChoice='';
+let imageOptimization=null;
 const current=()=>section==='project'?data.team:data[section]?.[selected];
 const fixed=()=>KTModel.fixed.includes(section);
 const uid=()=>crypto.randomUUID();
@@ -15,7 +18,7 @@ function rememberProject(team,active=false){
  try{KTAccount.storage.setItem(PROJECTS,JSON.stringify([...projectList]));if(active)KTAccount.storage.setItem(ACTIVE,team.id)}catch{}
 }
 function renderProjectTitle(){
- $('.project-name').textContent=data.team.name+' · v.'+data.team.version;
+ $('.project-name').innerHTML=(KTModel.isLogo(data.team.logo)?'<img class="project-logo" src="'+esc(data.team.logo)+'" alt="">':'')+'<span>'+esc(data.team.name+' · v.'+data.team.version)+'</span>';
  window.KTCommunity?.status();
 }
 const removedProjects=new Set();
@@ -121,10 +124,14 @@ function field(label,key,value,type='text'){
  return '<div class="rich-field"><label for="'+id+'">'+label+'</label><div class="rich-toolbar" role="group" aria-label="Форматирование: '+esc(label)+'">'+
   '<button type="button" data-format="bold" title="Жирный (Ctrl+B / ⌘B)" aria-label="Жирный"><b>Ж</b></button>'+
   '<button type="button" data-format="italic" title="Курсив (Ctrl+I / ⌘I)" aria-label="Курсив"><i>К</i></button>'+
+  '<button type="button" data-format="orange" class="rich-orange" title="Оранжевый цвет выделенного текста; повторное нажатие снимает цвет" aria-label="Оранжевый текст">Оранжевый</button>'+
+  '<button type="button" data-format="skull" title="Вставить черепок в позицию курсора" aria-label="Вставить черепок">💀</button>'+
+  '<button type="button" data-format="triangle" class="rich-triangle" title="Вставить зелёный треугольник" aria-label="Вставить зелёный треугольник">▶</button>'+
+  '<button type="button" data-format="diamond" class="rich-diamond" title="Вставить красный ромб" aria-label="Вставить красный ромб">◆</button>'+
   '<label class="rich-size"><span class="visually-hidden">Размер шрифта в пунктах</span><select data-format-size aria-label="Размер шрифта в пунктах"><option value="">Кегль, пт</option>'+[6,7,8,9,10,11,12,14,16,18,20,24].map(n=>'<option value="'+n+'">'+n+' пт</option>').join('')+'</select></label>'+
   '<button type="button" data-format="clear" class="rich-clear" title="Убрать форматирование выделенного текста">Сброс</button></div>'+
   '<textarea id="'+id+'" data-field="'+esc(key)+'" aria-describedby="'+id+'-help">'+esc(value)+'</textarea>'+
-  '<details class="rich-help" id="'+id+'-help"><summary>Как форматировать текст</summary><p>Выделите текст и нажмите Ж, К или выберите кегль. Без выделения кегль применяется ко всему полю. Результат виден на карточке.</p><p>Можно писать вручную: <code>**жирный**</code>, <code>*курсив*</code>, <code>***оба***</code>, <code>[size=12]текст[/size]</code>. Размер — от 6 до 24 пт. Для обычной звёздочки используйте <code>\\*</code>.</p></details></div>';
+  '<details class="rich-help" id="'+id+'-help"><summary>Как форматировать текст</summary><p>Выделите текст и нажмите Ж, К, «Оранжевый» или выберите кегль. Повторное нажатие «Оранжевый» снимает цвет. Кнопки 💀, ▶ и ◆ вставляют черепок, зелёный треугольник и красный ромб в позицию курсора. Для пунктов действия ставьте ▶ или ◆ в начале новой строки — продолжение выровняется по тексту. Без выделения кегль применяется ко всему полю.</p><p>Можно писать вручную: <code>**жирный**</code>, <code>*курсив*</code>, <code>***оба***</code>, <code>[color=orange]оранжевый 💀[/color]</code>, <code>[size=12]текст[/size]</code>. Размер — от 6 до 24 пт. Для обычной звёздочки используйте <code>\\*</code>.</p></details></div>';
 }
 function formatText(el,kind,size){
  const edit=KTText.format(el.value,el.selectionStart,el.selectionEnd,kind,size);if(!edit)return;
@@ -156,15 +163,17 @@ function render(){
  renderEditor();renderPreview();
 }
 function nestedEditor(c,type,title){
- const records=c[type]||[];
+ const records=c[type]||[],opened=nestedStates.get(c)?.[type];
  const body=records.map((r,i)=>{
   const key=type+'.'+i+'.';
   let html=field('Название',key+'name',r.name);
-  if(type==='weapons')html+=select('Тип',key+'kind',r.kind,[['ranged','Дальнобойное'],['melee','Ближний бой']])+'<div class="field-grid">'+field('ATK',key+'attacks',r.attacks,'number')+field('HIT',key+'hit',r.hit)+field('DMG',key+'damage',r.damage)+'</div>'+field('Правила оружия (SR)',key+'special',r.special)+field('Критические правила (CR)',key+'critical',r.critical)+'<div class="two-fields">'+field('Группа режимов',key+'group',r.group)+field('Режим',key+'mode',r.mode)+'</div>';
+  if(type==='weapons')html+=select('Тип',key+'kind',r.kind,[['ranged','Дальнобойное'],['melee','Ближний бой']])+'<div class="field-grid">'+field('ATK',key+'attacks',r.attacks,'number')+field('HIT',key+'hit',r.hit)+field('DMG',key+'damage',r.damage)+'</div>'+field('Правила оружия',key+'rules',KTModel.weaponRules(r),'textarea')+'<div class="two-fields">'+field('Группа режимов',key+'group',r.group)+field('Режим',key+'mode',r.mode)+'</div>';
   else html+=(type==='actions'?field('Стоимость, AP',key+'cost',r.cost):'')+field('Текст',key+'body',r.body,'textarea');
-  return '<details class="nested" '+(i===0?'open':'')+'><summary>'+esc(r.name||'Новый блок')+'</summary>'+html+'<button class="danger small" data-remove-nested="'+type+'" data-index="'+i+'">Удалить из карточки</button></details>';
+  return '<details class="nested" data-nested-type="'+type+'" data-nested-id="'+esc(r.id)+'" '+((opened?opened.has(r.id):i===0)?'open':'')+'><summary>'+esc(r.name||'Новый блок')+'</summary>'+html+(type==='weapons'?'<button class="small" data-save-weapon-profile="'+i+'">Сохранить профиль</button> ':'')+'<button class="danger small" data-remove-nested="'+type+'" data-index="'+i+'">Удалить из карточки</button></details>';
  }).join('');
- return panel(title,body+'<button class="add-inline" data-add-nested="'+type+'">+ '+(type==='weapons'?'Профиль оружия':type==='abilities'?'Способность':'Действие')+'</button>',records.length+' на этой карте');
+ const picker=type==='weapons'?'<div class="weapon-profile-picker"><label for="weapon-profile-select">Добавить оружие<select id="weapon-profile-select"><option value="">Новый профиль с нуля</option>'+(data.weaponProfiles||[]).map(p=>'<option value="'+esc(p.id)+'" '+(p.id===weaponProfileChoice?'selected':'')+'>'+esc(p.name+(p.mode?' / '+p.mode:'')+' · '+(p.kind==='melee'?'Ближний бой':'Дальнобойное')+' · '+p.attacks+' / '+p.hit+' / '+p.damage)+'</option>').join('')+'</select></label></div>':'';
+ const savedHint=type==='weapons'?'<p class="hint">«Сохранить профиль» добавляет оружие в список этого проекта. Повторное сохранение с тем же названием, типом и режимом обновляет профиль. Уже добавленное на карточки оружие редактируется отдельно.</p>'+(data.weaponProfiles?.length?'<button class="small danger" id="delete-weapon-profile" '+(data.weaponProfiles.some(p=>p.id===weaponProfileChoice)?'':'disabled')+'>Удалить из сохранённых</button>':''):'';
+ return panel(title,body+picker+'<button class="add-inline" data-add-nested="'+type+'">+ '+(type==='weapons'?'Добавить оружие':type==='abilities'?'Способность':'Действие')+'</button>'+savedHint,records.length+' на этой карте');
 }
 function selectionEditor(c){return c.selectionGroups.map((g,i)=>{
  const key='selectionGroups.'+i+'.';
@@ -178,10 +187,24 @@ function imageEditor(c){
  const operative=c.kind==='operative',prefix=operative?'operative':'card',label=operative?'оперативника':'правила';
  return panel('КАРТИНКА','<div class="operative-image-editor">'+(uri?'<img class="operative-image-thumb" src="'+esc(uri)+'" alt="Картинка '+label+'">':'<div class="operative-image-empty" aria-hidden="true">＋</div>')+'<div><input id="'+prefix+'-image-file" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" aria-label="Выбрать картинку '+label+'"><button id="choose-'+prefix+'-image">'+(c.image?'Заменить картинку':'Добавить картинку')+'</button>'+(operative&&c.image?'<button id="crop-operative-image">'+(c.imageCrop?'Изменить область':'Выбрать область')+'</button>':'')+(c.image?'<button id="remove-'+prefix+'-image" class="danger">Удалить картинку</button>':'')+'<p class="hint">PNG, JPG или WebP · до 10 МБ.<br>'+(operative?'Выберите область картинки для заголовка профиля. Исходник остаётся доступен для повторной обрезки.':'Картинка появится после текста правила. Если места не хватит, она перейдёт на следующую сторону.')+' Сохраняется в проекте, PDF и TTS.</p></div></div>');
 }
-function renderEditor(){
+function logoEditor(){
+ const logo=KTModel.isLogo(data.team.logo)?data.team.logo:'';
+ return panel('ЛОГОТИП КОМАНДЫ','<div class="operative-image-editor">'+(logo?'<img class="team-logo-thumb" src="'+esc(logo)+'" alt="Логотип команды">':'<div class="operative-image-empty" aria-hidden="true">＋</div>')+'<div><input id="team-logo-file" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" aria-label="Выбрать логотип команды"><button id="choose-team-logo">'+(logo?'Заменить логотип':'Загрузить логотип')+'</button>'+(logo?'<button id="remove-team-logo" class="danger">Удалить логотип</button>':'')+'<p class="hint">PNG, JPG или WebP · до 10 МБ. Логотип целиком вписывается в квадрат, как в Stats. Прозрачность PNG сохраняется. Появится на карточках и в библиотеке, войдёт в PDF и TTS.</p></div></div>');
+}
+function imageOptimizationEditor(){
+ const count=KTOperativeImage.imageEntries(data).length,busy=imageOptimization===data;
+ return panel('РАЗМЕР КАРТИНОК','<button id="shrink-project-images" '+(busy||!count?'disabled':'')+'>'+(busy?'Уменьшаю картинки…':'Уменьшить картинки проекта')+'</button><p class="hint">Загруженных изображений: '+count+'. Уменьшает вес портретов, логотипа, иллюстраций правил и лора. Пропорции и прозрачность сохраняются. Новые загрузки уменьшаются автоматически.</p>');
+}
+function renderEditor(options={}){
+ if(editorCard){
+  const saved={};
+  for(const el of document.querySelectorAll('#editor details[data-nested-type]')){const set=saved[el.dataset.nestedType]??=new Set();if(el.open)set.add(el.dataset.nestedId)}
+  nestedStates.set(editorCard,saved);
+ }
  const c=current();let out='';
+ if(c&&options.openNested){const saved=nestedStates.get(c)||{};saved[options.openNested.type]=new Set([options.openNested.id]);nestedStates.set(c,saved)}
  if(section==='lorePages'){
-  out='<div class="row-actions"><button id="export-lore" '+(!data.lorePages.length?'disabled':'')+'>↓ PDF раздела</button></div>';
+  out=logoEditor()+imageOptimizationEditor()+'<div class="row-actions"><button id="export-lore" '+(!data.lorePages.length?'disabled':'')+'>↓ PDF раздела</button></div>';
   if(!c)out+=panel('КАРТИНКИ И ЛОР','<p>Соберите альбом команды: панорамные фото, историю, инструкции по сборке и примеры покраса.</p><p class="hint">Нажмите «+ Страница», добавьте текст и загрузите изображения.</p>');
   else{
    out+=panel('СТРАНИЦА A4',field('Заголовок','name',c.name)+select('Тема','category',c.category,Object.entries(KTModel.loreCategories))+field('Лор или описание','body',c.body,'textarea')+select('Расположение изображений','layout',c.layout,[['wide','Крупные изображения на всю ширину'],['gallery','Галерея в две колонки']]));
@@ -190,13 +213,12 @@ function renderEditor(){
    out+='<div class="row-actions"><button data-action="move-lore-page" data-direction="-1" '+(!selected?'disabled':'')+'>↑ Раньше в PDF</button><button data-action="move-lore-page" data-direction="1" '+(selected===data.lorePages.length-1?'disabled':'')+'>↓ Позже в PDF</button><button data-action="duplicate">Дублировать страницу</button><button class="danger" data-action="delete">Удалить страницу</button></div>';
   }
  }else if(section==='project'){
-  out=panel('КОМАНДА',field('Название','name',c.name)+field('Подзаголовок','subtitle',c.subtitle)+field('Версия','version',c.version));
+ out=panel('КОМАНДА',field('Название','name',c.name)+field('Подзаголовок','subtitle',c.subtitle)+field('Версия','version',c.version));
   out+=panel('ПЕЧАТЬ','<p>A4, по четыре стороны на листе, метки реза. Правила: 70 × 121 мм. Оперативники: 121 × 70 мм.</p><p class="hint">Печатайте в масштабе 100%. Стороны с продолжением идут последовательно, как в новом примере. Длинные правила автоматически переходят на следующую сторону.</p>'+field('Акцент','@layout.accent',data.layout.accent,'color')+field('Примечание о стоимости Ploys','@ployNote',data.ployNote,'textarea'));
-  out+=panel('ИСХОДНЫЕ МАТЕРИАЛЫ','<p>'+esc(data.team.source||'Исходные материалы команды')+'</p><p class="hint">'+esc(data.team.sourceNote||'В архиве сохранены исходные данные команды.')+'</p><button data-action="archive">Скачать исходные данные</button>');
   out+=panel('ПЕРЕНОС ПРОЕКТА','<div class="row-actions"><button data-action="download-json">Скачать проект</button><label class="import-label">Загрузить проект<input id="import-json" type="file" accept=".json,application/json"></label></div>'+(window.KT_EXAMPLES?.[data.team.id]?'<button class="danger" data-action="restore">Вернуть тестовую команду</button>':''));
   if(typeof KTNewRecruit!=='undefined'&&KTNewRecruit.compatible(data)){
    const roster=KTNewRecruit.summary(data);
-   out+=panel('РОСТЕР ДЛЯ TTS / DATA TEAM','<p>'+roster.count+' профилей оперативников с вариантами оружия. Характеристики, способности и правила берутся из текущих карточек команды.</p><details class="nested"><summary>Оперативники и выбранное оружие</summary>'+roster.entries.map(e=>'<p><b>'+e.count+' × '+esc(e.name)+'</b><br><span class="hint">'+e.weaponIds.map(id=>esc(data.operatives.find(o=>o.id===e.operativeId)?.weapons.find(w=>w.id===id)?.name||'Удалённое оружие: '+id)).join('; ')+'</span></p>').join('')+'</details><p class="hint">Это полный ростер для выбора моделей перед игрой. Правила выбора боевой команды остаются на карточке состава.</p><p>Загрузите файл в <a href="https://datateamapp.azurewebsites.net/Encode" target="_blank" rel="noopener">DataTeam Encode</a>, затем вставьте полученный код в <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3356996125" target="_blank" rel="noopener">KT Command Node 2024</a>.</p>','Ростер .rosz · KT 2024');
+   out+=panel('РОСТЕР ДЛЯ TTS / DATA TEAM','<p>'+roster.count+' профилей оперативников с вариантами оружия. Характеристики, способности и правила берутся из текущих карточек команды.</p><details class="nested"><summary data-ui-label>Оперативники и выбранное оружие</summary>'+roster.entries.map(e=>'<p data-ui-skip><b>'+e.count+' × '+esc(e.name)+'</b><br><span class="hint">'+e.weaponIds.map(id=>esc(data.operatives.find(o=>o.id===e.operativeId)?.weapons.find(w=>w.id===id)?.name||'Удалённое оружие: '+id)).join('; ')+'</span></p>').join('')+'</details><p class="hint">Это полный ростер для выбора моделей перед игрой. Правила выбора боевой команды остаются на карточке состава.</p><p>Загрузите файл в <a href="https://datateamapp.azurewebsites.net/Encode" target="_blank" rel="noopener">DataTeam Encode</a>, затем вставьте полученный код в <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3356996125" target="_blank" rel="noopener">KT Command Node 2024</a>.</p>','Ростер .rosz · KT 2024');
   }
  }else if(!c)out=panel('КАРТОЧКИ','<p>Добавьте первую карточку.</p>');
  else if(section==='selectionCards'){
@@ -205,11 +227,11 @@ function renderEditor(){
   out+=selectionEditor(c);
   out+=panel('ОБЩИЕ ОГРАНИЧЕНИЯ',field('Ограничения состава и сноски','selectionRules',c.selectionRules,'textarea')+field('Пояснения к терминам','selectionNotes',c.selectionNotes,'textarea'));
   out+=panel('ДОПОЛНИТЕЛЬНЫЙ ТЕКСТ',field('Вводный текст','body',c.body,'textarea')+field('Художественный текст','lore',c.lore||'','textarea'));
-  out+='<details class="nested"><summary>Оружие, способности и действия этой карточки</summary>'+nestedEditor(c,'weapons','ОРУЖИЕ')+nestedEditor(c,'abilities','СПОСОБНОСТИ')+nestedEditor(c,'actions','ДЕЙСТВИЯ')+'</details>';
+  out+='<details class="nested"><summary data-ui-label>Оружие, способности и действия этой карточки</summary>'+nestedEditor(c,'weapons','ОРУЖИЕ')+nestedEditor(c,'abilities','СПОСОБНОСТИ')+nestedEditor(c,'actions','ДЕЙСТВИЯ')+'</details>';
   out+='<div class="row-actions"><button data-action="duplicate">Дублировать состав</button>'+(data.selectionCards.length>1?'<button class="danger" data-action="delete">Удалить состав</button>':'')+'</div>';
  }
  else{
-  out=panel('КАРТОЧКА',field('Название','name',c.name)+(section==='teamCards'?select('Тип карточки','kind',c.kind,[['recruitment','Правила набора'],['faction','Faction rule']])+field('Подзаголовок','subtitle',c.subtitle||''):'')+(fixed()?field('Стоимость (если есть)','cost',c.cost):''),c.sourcePage?esc(data.team.name)+' · стр. '+c.sourcePage:'Свободная карточка');
+  out=panel('КАРТОЧКА',field('Название','name',c.name)+(section==='teamCards'?field('Подзаголовок','subtitle',c.subtitle||''):'')+(fixed()?field('Стоимость (если есть)','cost',c.cost):''),c.sourcePage?esc(data.team.name)+' · стр. '+c.sourcePage:'Свободная карточка');
   if(section==='equipment'){
    const source=data.sourceArchive?.equipment||[];
    if(source.length)out+=panel('ВЫБРАТЬ ИЗ ИСХОДНИКА','<label>Снаряжение '+esc(data.team.name)+'<select id="source-equipment"><option value="">Выберите предмет</option>'+source.map((e,i)=>'<option value="'+i+'">'+esc(e.name)+' · '+esc(e.cost)+'</option>').join('')+'</select></label><button data-action="use-source">Заполнить эту карточку</button><p class="hint">После вставки оружие и правила редактируются прямо здесь.</p>');
@@ -217,15 +239,20 @@ function renderEditor(){
   }
   if(c.kind==='operative'){
    out+=imageEditor(c);
-   out+=panel('ПРОФИЛЬ','<div class="field-grid">'+Object.entries(c.stats).map(([k,v])=>field(k,'stats.'+k,v,typeof v==='number'?'number':'text')).join('')+'</div>'+field('Ключевые слова через запятую','keywords',c.keywords.join(', '))+select('Расположение правил','rulesLayout',c.rulesLayout||'columns',[['full','На всю ширину'],['columns','В две колонки']])+'<p class="hint">Расстояния указаны в дюймах. Условия выбора редактируются на карточке состава.</p>');
+   out+=panel('ПРОФИЛЬ','<div class="field-grid">'+Object.entries(c.stats).map(([k,v])=>field(k,'stats.'+k,v,typeof v==='number'?'number':'text')).join('')+'</div><label>Размер базы (мм)<input type="text" data-field="baseSize" maxlength="16" placeholder="25, 28.5, 60×35" value="'+esc(c.baseSize||'')+'"></label><p class="hint">Печатается в правом нижнем углу датакарты. Оставьте пустым, чтобы скрыть.</p>'+field('Ключевые слова через запятую','keywords',c.keywords.join(', '))+select('Расположение правил','rulesLayout',c.rulesLayout||'columns',[['full','На всю ширину'],['columns','В две колонки']])+'<p class="hint">Расстояния указаны в дюймах. Условия выбора редактируются на карточке состава.</p>');
   }
   out+=panel(c.kind==='operative'?'ТЕКСТ ОПЕРАТИВНИКА':'ТЕКСТ КАРТОЧКИ',field('Художественный текст','lore',c.lore||'','textarea')+(c.kind==='operative'?'<p class="hint">Печатается в чёрной шапке под названием оперативника. Длинный текст переносится на следующие стороны.</p>':'')+field('Правило','body',c.body,'textarea')+'<p class="hint">Расстояния в дюймах, например 6″. При вставке старые символы переводятся автоматически.</p>');
   if(section==='teamCards')out+=imageEditor(c);
   out+=nestedEditor(c,'weapons','ОРУЖИЕ')+nestedEditor(c,'abilities','СПОСОБНОСТИ')+nestedEditor(c,'actions','ДЕЙСТВИЯ');
-  if(c.kind==='operative')out+=panel('КОМПЛЕКТАЦИИ',c.loadouts.map((l,i)=>'<div class="loadout">'+field('Название','loadouts.'+i+'.name',l.name)+c.weapons.map(w=>'<label class="checkbox"><input type="checkbox" data-loadout="'+i+'" value="'+w.id+'" '+(l.weaponIds.includes(w.id)?'checked':'')+'>'+esc(w.name)+'</label>').join('')+'<button class="danger small" data-remove-loadout="'+i+'">Удалить вариант</button></div>').join('')+'<button data-action="add-loadout">+ Вариант</button>');
+  if(c.kind==='operative')out+=panel('КОМПЛЕКТАЦИИ',c.loadouts.map((l,i)=>'<div class="loadout">'+field('Название','loadouts.'+i+'.name',l.name)+c.weapons.map(w=>'<label class="checkbox" data-ui-skip><input type="checkbox" data-loadout="'+i+'" value="'+w.id+'" '+(l.weaponIds.includes(w.id)?'checked':'')+'>'+esc(w.name)+'</label>').join('')+'<button class="danger small" data-remove-loadout="'+i+'">Удалить вариант</button></div>').join('')+'<button data-action="add-loadout">+ Вариант</button>');
   out+='<div class="row-actions">'+(fixed()?'<button class="danger" data-action="clear">Очистить место</button>':'<button data-action="duplicate">Дублировать карточку</button><button class="danger" data-action="delete">Удалить карточку</button>')+'</div>';
  }
  $('#editor').innerHTML=out;
+ editorCard=c;
+ if(options.openNested){
+  const block=Array.from(document.querySelectorAll('#editor details[data-nested-type]')).find(el=>el.dataset.nestedType===options.openNested.type&&el.dataset.nestedId===options.openNested.id);
+  if(block){for(let parent=block.parentElement;parent&&parent!==$('#editor');parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;block.querySelector('input')?.focus({preventScroll:true});block.scrollIntoView({block:'nearest'})}
+ }
 }
 function renderPreview(){
  const lore=section==='lorePages';
@@ -234,7 +261,7 @@ function renderPreview(){
  const c=section==='project'?data.strategicPloys[0]:current();
  if(!c){$('#preview').innerHTML=lore?'<div class="lore-empty">A4<br><span>Здесь появится страница вашего альбома</span></div>':'';$('#side-label').textContent='';$('#prev-side').disabled=$('#next-side').disabled=true;$('#card-size').textContent=lore?'210 × 297 мм':'';$('#preview-note').textContent='';return}
  const cards=lore?KTLore.renderPage(c,data,assets):KTCards.renderCard(c,data,assets,selected);side=Math.min(side,cards.length-1);
- $('#preview').innerHTML='<div class="physical-card '+(lore?'lore-page':c.kind==='operative'?'landscape':'portrait')+'">'+cards[side].svg+'</div>';
+ $('#preview').innerHTML='<div class="physical-card '+(lore?'lore-page':c.kind==='operative'?'landscape':'portrait')+'">'+KTCards.inlineSVG(cards[side].svg,'editor-preview')+'</div>';
  $('#side-label').textContent=(lore?'Страница ':'Сторона ')+(side+1)+' / '+cards.length;
  $('#prev-side').disabled=side===0;$('#next-side').disabled=side>=cards.length-1;
  $('#card-size').textContent=lore?'210 × 297 мм':c.kind==='operative'?'121 × 70 мм':'70 × 121 мм';
@@ -251,6 +278,7 @@ function updateField(el){
  if(key==='size')value=Math.max(1,value);
  if(key.startsWith('archetypes.')){const slot=Number(key.split('.')[1]);if(value&&obj.archetypes[1-slot]===value){toast('Выберите два разных архетипа');renderEditor();return}side=0}
  pathSet(obj,key,value);
+ if(/^(weapons|abilities|actions)\.\d+\.name$/.test(key))el.closest('details')?.querySelector('summary')?.replaceChildren(document.createTextNode(value||'Новый блок'));
  if(key==='lore'&&obj.kind==='operative')side=0;
  if(key.startsWith('selectionGroups.'))obj.size=obj.selectionGroups.reduce((n,g)=>n+g.count,0)||1;
  if(key==='kind'){
@@ -268,6 +296,8 @@ document.addEventListener('keydown',e=>{
  const key=e.code==='KeyB'?'b':e.code==='KeyI'?'i':e.key.toLowerCase();if(key==='b'||key==='i'){e.preventDefault();formatText(e.target,key==='b'?'bold':'italic')}
 });
 document.addEventListener('change',async e=>{
+ if(e.target.id==='weapon-profile-select'){weaponProfileChoice=e.target.value;const remove=$('#delete-weapon-profile');if(remove)remove.disabled=!weaponProfileChoice;return}
+ if(e.target.id==='team-logo-file'){const file=e.target.files[0];e.target.value='';void importTeamLogo(file);return}
  if(e.target.matches?.('[data-format-size]')){const size=e.target.value;if(size)formatText(e.target.closest('.rich-field').querySelector('textarea'),'size',size);e.target.value='';return}
  if(e.target.id==='lore-image-files'||e.target.id==='lore-replace-file'){const files=Array.from(e.target.files),replaceId=e.target.id==='lore-replace-file'?e.target.dataset.imageId:null;e.target.value='';importLoreImages(files,replaceId);return}
  if(['operative-image-file','card-image-file'].includes(e.target.id)){const file=e.target.files[0];e.target.value='';importCardImage(file);return}
@@ -278,7 +308,7 @@ document.addEventListener('change',async e=>{
 function newCard(){
  if(section==='lorePages')return KTModel.newLorePage(uid());
  if(section==='selectionCards')return {...KTModel.newSelection(data.team.name+' KILL TEAM'),id:uid()};
- if(section==='operatives')return {...KTModel.blank(uid(),'operative'),name:'NEW OPERATIVE',stats:{APL:2,MOVE:'6″',SAVE:'5+',WOUNDS:8},keywords:[data.team.name],loadouts:[],group:'CUSTOM',maxSelections:1,image:''};
+ if(section==='operatives')return {...KTModel.blank(uid(),'operative'),name:'NEW OPERATIVE',stats:{APL:2,MOVE:'6″',SAVE:'5+',WOUNDS:8},baseSize:'',keywords:[data.team.name],loadouts:[],group:'CUSTOM',maxSelections:1,image:''};
  return {...KTModel.blank(uid(),'faction'),name:'NEW FACTION RULE'};
 }
 function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)}
@@ -289,15 +319,21 @@ async function importJSON(file){
  try{
   if(file.size>100e6)throw Error('Файл проекта больше 100 МБ');
   const next=KTModel.validate(KTModel.migrate(JSON.parse(await file.text())));
+  const optimized=await KTOperativeImage.shrinkProject(next,{isCurrent:()=>revision===teamLoadRevision});
+  if(optimized.aborted)return;
+  KTModel.validate(next);
   if(revision!==teamLoadRevision||!await persist()||revision!==teamLoadRevision)return;
   original=window.KT_EXAMPLES?.[next.team.id]?KTModel.validate(KTModel.migrate(window.KT_EXAMPLES[next.team.id])):structuredClone(next);
   data=next;section='selectionCards';selected=side=0;previewOnly=false;$('.workspace').classList.toggle('show-preview',false);
-  persist();render();toast('Проект загружен');
+  persist();render();toast('Проект загружен'+(optimized.changed?' · картинки уменьшены: '+optimized.changed:'')+(optimized.skipped?' · часть картинок оставлена без изменений':''));
  }catch(e){toast('Не удалось загрузить: '+e.message)}
 }
 document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
  if(b.id==='new-project'){showCreateProject();return}
+ if(b.id==='shrink-project-images'){void shrinkProjectImages();return}
+ if(b.id==='choose-team-logo'){$('#team-logo-file').click();return}
+ if(b.id==='remove-team-logo'){logoJobs.delete(data);data.team.logo='';persist();render();toast('Логотип удалён');return}
  if(b.id==='close-create-project'){$('#create-project-dialog').close();return}
  if(b.dataset.createProject){void createEmptyProject(b.dataset.createProject);return}
  if(b.dataset.format){formatText(b.closest('.rich-field').querySelector('textarea'),b.dataset.format);return}
@@ -322,12 +358,26 @@ document.addEventListener('click',e=>{
  if(b.dataset.editOperative!==undefined){section='operatives';selected=Number(b.dataset.editOperative);side=0;render();return}
  if(b.id==='add-item'){data[section].push(newCard());selected=data[section].length-1;side=0;persist();render();return}
  const c=current(),a=b.dataset.action;
+ if(b.dataset.saveWeaponProfile!==undefined){
+  try{const profile=KTModel.saveWeaponProfile(data,c.weapons[Number(b.dataset.saveWeaponProfile)],uid());weaponProfileChoice=profile.id;persist();renderEditor();toast('Профиль «'+profile.name+'» сохранён в проекте')}catch(error){toast(error.message)}return;
+ }
+ if(b.id==='delete-weapon-profile'){
+  const profile=data.weaponProfiles?.find(p=>p.id===weaponProfileChoice);if(!profile)return;
+  data.weaponProfiles=data.weaponProfiles.filter(p=>p.id!==profile.id);weaponProfileChoice='';persist();renderEditor();toast('Профиль удалён из списка. Оружие на карточках сохранено.');return;
+ }
  if(a==='move-lore-page'&&section==='lorePages'){const to=selected+Number(b.dataset.direction);if(to>=0&&to<data.lorePages.length){[data.lorePages[selected],data.lorePages[to]]=[data.lorePages[to],data.lorePages[selected]];selected=to;persist();render()}return}
  if(a==='add-selection-group'){c.selectionGroups.push({id:uid(),count:1,description:data.team.name+' operatives selected from the following list:',entries:[]});persist();render();return}
  if(b.dataset.removeGroup!==undefined){c.selectionGroups.splice(Number(b.dataset.removeGroup),1);persist();render();return}
  if(b.dataset.addEntry!==undefined){c.selectionGroups[Number(b.dataset.addEntry)].entries.push({id:uid(),operativeId:'',text:'NEW OPERATIVE',options:[]});persist();render();return}
  if(b.dataset.removeEntry!==undefined){c.selectionGroups[Number(b.dataset.removeEntry)].entries.splice(Number(b.dataset.index),1);persist();render();return}
- if(b.dataset.addNested){const type=b.dataset.addNested;c[type].push(type==='weapons'?{id:uid(),name:'New weapon',kind:'ranged',attacks:4,hit:'4+',damage:'3/4',special:'',critical:'',group:'',mode:''}:{id:uid(),name:type==='actions'?'New action':'New ability',body:'',...(type==='actions'?{cost:'1AP'}:{})});persist();renderEditor();renderPreview();return}
+ if(b.dataset.addNested){
+  const type=b.dataset.addNested,id=uid();
+  try{
+   const selectedProfile=type==='weapons'?$('#weapon-profile-select')?.value:'';
+   const record=type==='weapons'?(selectedProfile?KTModel.weaponFromProfile(data,selectedProfile,id):{id,name:'New weapon',kind:'ranged',attacks:4,hit:'4+',damage:'3/4',rules:'',group:'',mode:''}):{id,name:type==='actions'?'New action':'New ability',body:'',...(type==='actions'?{cost:'1AP'}:{})};
+   c[type].push(record);persist();renderEditor({openNested:{type,id}});renderPreview();
+  }catch(error){toast(error.message)}return;
+ }
  if(b.dataset.removeNested){const type=b.dataset.removeNested,n=Number(b.dataset.index),id=c[type][n].id;c[type].splice(n,1);if(type==='weapons')for(const l of c.loadouts||[])l.weaponIds=l.weaponIds.filter(v=>v!==id);persist();renderEditor();renderPreview();return}
  if(b.dataset.removeLoadout!==undefined){c.loadouts.splice(Number(b.dataset.removeLoadout),1);persist();renderEditor();renderPreview();return}
  if(b.dataset.removeCap!==undefined){c.groupCaps.splice(Number(b.dataset.removeCap),1);persist();renderEditor();renderPreview();return}
@@ -349,6 +399,29 @@ document.addEventListener('click',e=>{
  if(a==='restore'&&confirm('Заменить текущую команду исходным примером '+original.team.name+'?')){data=structuredClone(original);section='selectionCards';selected=0;side=0;persist();render()}
 });
 const portraitJobs=new WeakMap();
+const logoJobs=new WeakMap();
+async function shrinkProjectImages(){
+ if(imageOptimization)return;
+ const project=data;imageOptimization=project;renderEditor();
+ try{
+  const result=await KTOperativeImage.shrinkProject(project,{isCurrent:()=>data===project&&!removedProjects.has(project.team.id),onProgress:(done,total)=>{const button=$('#shrink-project-images');if(data===project&&button)button.textContent='Уменьшаю картинки: '+done+' / '+total}});
+  if(result.aborted)return;
+  if(result.changed){KTModel.validate(project);await persist();renderProjectTitle();renderPreview()}
+  toast((result.changed?'Уменьшено картинок: '+result.changed+'. Проект легче на '+(result.saved/1024).toFixed(0)+' КБ.':'Картинки уже достаточно компактные.')+(result.skipped?' Некоторые картинки оставлены без изменений.':''));
+ }catch(error){toast('Не удалось уменьшить картинки: '+error.message)}
+ finally{if(imageOptimization===project)imageOptimization=null;if(data===project&&section==='lorePages')renderEditor()}
+}
+async function importTeamLogo(file){
+ if(!file)return;
+ const project=data,token={};logoJobs.set(project,token);
+ const button=$('#choose-team-logo');button.disabled=true;button.textContent='Загружаю логотип…';
+ try{
+  const logo=await KTOperativeImage.prepare(file,{profile:'logo'});
+  if(data!==project||logoJobs.get(project)!==token)return;
+  project.team.logo=logo;persist();renderProjectTitle();renderPreview();toast('Логотип добавлен');
+ }catch(error){toast('Не удалось загрузить логотип: '+error.message)}
+ finally{if(logoJobs.get(project)===token){logoJobs.delete(project);if(data===project&&section==='lorePages')renderEditor()}}
+}
 const loreJobs=new WeakMap();
 async function importLoreImages(files,replaceId=null){
  const project=data,page=current();if(section!=='lorePages'||!page||!files.length)return;
@@ -377,7 +450,7 @@ async function importCardImage(file){
  const token={};portraitJobs.set(card,token);const button=$('#choose-'+(card.kind==='operative'?'operative':'card')+'-image');button.disabled=true;button.textContent='Загружаю картинку…';
  let added=false;
  try{
-  const result=await KTOperativeImage.prepare(file,{details:true});
+  const result=await KTOperativeImage.prepare(file,{details:true,profile:card.kind==='operative'?'operative':'card'});
   if(data!==project||!data[collection]?.includes(card)||portraitJobs.get(card)!==token)return;
   card.image=typeof result==='string'?result:result.image;
   delete card.imageCrop;

@@ -1,7 +1,9 @@
 # KT Companion
 
 One tournament server serves one hostname. The home page selects a service;
-each service has its own page, internal navigation and a top-right home link.
+each service has its own page and internal navigation. The header logo links to
+the service selector. The service name opens its start page: Studio's library,
+tournament My Games, or a reset calculator. Theme buttons select light or dark.
 There is no cross-service tab bar or sidebar.
 
 | URL | Section | Access |

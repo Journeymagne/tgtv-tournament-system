@@ -36,7 +36,7 @@ function create({request,storage,loadProject,onChange=()=>{},onRemove=()=>{},onR
     // Never adopt a newer revision for an edited local copy: the server must detect a conflict.
     // Even a clean editor may still display an older project. Advance its
     // revision only through accept(), after that project's content is loaded.
-    entries.set(remote.id,{...remote,...local,name:local?.dirty?local.name:remote.name,revision:local?(local.revision??0):remote.revision,remoteRevision:remote.revision,
+    entries.set(remote.id,{...remote,...local,name:local?.dirty?local.name:remote.name,logo:local?.dirty?local.logo:remote.logo,revision:local?(local.revision??0):remote.revision,remoteRevision:remote.revision,
      publicationId:remote.publicationId,publishedAt:remote.publishedAt,dirty:!!local?.dirty});
    }
    ready=true;notify();
@@ -49,7 +49,7 @@ function create({request,storage,loadProject,onChange=()=>{},onRemove=()=>{},onR
   const value=JSON.stringify(project);
   if(snapshots.get(id)===value)return;
   snapshots.set(id,value);
-  entries.set(id,{...previous,id,name:project.team.name,subtitle:project.team.subtitle,version:project.team.version,operativeCount:project.operatives.length,revision:previous?.revision??null,dirty:true,error:previous?.conflict?previous.error:''});
+  entries.set(id,{...previous,id,name:project.team.name,subtitle:project.team.subtitle,version:project.team.version,logo:project.team.logo||'',operativeCount:project.operatives.length,revision:previous?.revision??null,dirty:true,error:previous?.conflict?previous.error:''});
   generation.set(id,(generation.get(id)||0)+1);notify();
   // Upload this tab's snapshot, independent of browser storage and other tabs.
   if(!previous)void save(id).catch(()=>{});else soon();
@@ -84,7 +84,7 @@ function create({request,storage,loadProject,onChange=()=>{},onRemove=()=>{},onR
      await onRecover(id,recovered);
      notify();if(dirty)soon();return result;
     }
-    entries.set(id,{...latest,...result,remoteRevision:result.revision,name:dirty?latest.name:result.name,dirty,error:'',conflict:false,saving:false});
+    entries.set(id,{...latest,...result,remoteRevision:result.revision,name:dirty?latest.name:result.name,logo:dirty?latest.logo:result.logo,dirty,error:'',conflict:false,saving:false});
     notify();if(dirty)soon();return result;
    }catch(error){
     if(error.status===410){await forget(id);throw error}

@@ -32,3 +32,7 @@ header{height:auto;min-height:72px;flex-wrap:wrap;padding-top:10px;padding-botto
 .project-name{display:block;min-width:0;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .team-author a{color:inherit;text-decoration:underline;text-underline-offset:3px}.team-author a:hover{color:#c9370b}.publication-actions{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}.publication-actions button{min-height:44px}#publication-export-status{font-size:13px;line-height:1.5}#publication-export-status:empty{display:none}
+
+.rich-toolbar .rich-orange{color:#c53b12;text-decoration:underline;text-decoration-color:#f4511e;text-decoration-thickness:3px;text-underline-offset:4px}
+.rich-toolbar .rich-triangle{color:#269b48;font-size:20px;line-height:1}.rich-toolbar .rich-diamond{color:#c52b26;font-size:20px;line-height:1}
+.team-logo-thumb{width:116px;height:116px;object-fit:contain;flex-shrink:0;background:#e9ede6;border-radius:6px;padding:8px}.project-name{display:flex;align-items:center;gap:8px}.project-name span{overflow:hidden;text-overflow:ellipsis}.project-logo{width:32px;height:32px;object-fit:contain;flex-shrink:0}.team-tile-logo{display:block;object-fit:contain;margin:12px 0 4px}

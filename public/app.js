@@ -9094,6 +9094,7 @@ function savedThemePreference() {
 }
 
 function applyTheme(theme) {
+  if (window.KTAppearance) { window.KTAppearance.refresh(); return; }
   const selected = theme === "light" ? "light" : "dark";
   document.documentElement.dataset.theme = selected;
   const button = document.querySelector("[data-theme-toggle]");
@@ -9105,6 +9106,7 @@ function applyTheme(theme) {
 }
 
 function wireThemeToggle() {
+  if (window.KTAppearance) return;
   document.querySelector("[data-theme-toggle]")?.addEventListener("click", () => {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     try {
@@ -9123,8 +9125,7 @@ function savedLocalePreference() {
   } catch {
     // Local storage can be unavailable in privacy-restricted browsers.
   }
-  const preferred = window.navigator?.languages?.[0] || window.navigator?.language || "";
-  return String(preferred).toLowerCase().startsWith("ru") ? "ru" : "en";
+  return "ru";
 }
 
 function applyLocale(locale) {
@@ -9169,6 +9170,16 @@ function loadLocaleDictionary(locale) {
 }
 
 function wireLocaleToggle() {
+  if (window.KTAppearance) {
+    window.addEventListener("kt:locale", async (event) => {
+      const next = event.detail.locale;
+      await loadLocaleDictionary(next);
+      if (window.KTAppearance.locale !== next) return;
+      applyLocale(next);
+      render();
+    });
+    return;
+  }
   const button = document.querySelector("[data-lang-toggle]");
   if (!button) return;
   // Start the fetch on hover/focus so the click itself is usually instant.

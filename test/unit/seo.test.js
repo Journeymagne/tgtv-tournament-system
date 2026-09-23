@@ -23,7 +23,7 @@ test("direct public tournament pages load data and translations before the app",
   assert.equal(handled, true);
   assert.equal(status, 200);
   const scripts = [...html.matchAll(/<script src="\/([^?]+)\?[^\"]+" defer><\/script>/g)].map((match) => match[1]);
-  assert.deepEqual(scripts, ["companion-sites.js", "companion-shell.js", "game-data.js", "i18n.js", "live-refresh.js", "app.js"]);
+  assert.deepEqual(scripts, ["companion-sites.js", "companion-i18n.js", "companion-shell.js", "game-data.js", "i18n.js", "live-refresh.js", "app.js"]);
 
   // The dictionaries are no longer in this list: theme-boot.js runs first,
   // parser-blocking, and writes a tag for the one locale the visitor is in.
