@@ -52,7 +52,7 @@ function imageEntries(project){
  const add=(owner,key,profile)=>{if(/^data:image\/(png|jpeg|webp);base64,/.test(owner?.[key]||''))entries.push({owner,key,profile})};
  add(project.team,'logo','logo');
  for(const key of ['selectionCards','teamCards','strategicPloys','firefightPloys','equipment','operatives'])for(const card of project[key]||[])add(card,'image',key==='operatives'?'operative':'card');
- for(const page of project.lorePages||[])for(const img of page.images||[])add(img,'image','page');
+ for(const page of project.lorePages||[])for(const img of page.images||[])add(img,'image',page.layout==='references'?'card':'page');
  return entries;
 }
 function imageFile(uri){const [header,body]=uri.split(','),bytes=Uint8Array.from(atob(body),char=>char.charCodeAt(0));return new Blob([bytes],{type:header.slice(5,-7)})}

@@ -9,6 +9,7 @@ let saveRevision=0,teamLoadRevision=0;
 const nestedStates=new WeakMap();
 let editorCard=null,weaponProfileChoice='';
 let imageOptimization=null;
+let referenceTarget=null;
 const current=()=>section==='project'?data.team:data[section]?.[selected];
 const fixed=()=>KTModel.fixed.includes(section);
 const uid=()=>crypto.randomUUID();
@@ -155,11 +156,12 @@ function render(){
  rosterButton.title='Скачать ростер команды (.rosz)';
  const list=Array.isArray(data[section]);if(list)selected=Math.max(0,Math.min(selected,data[section].length-1));
  $('#add-item').hidden=!list||fixed();
+ $('#add-reference-page').hidden=section!=='lorePages';
  $('#add-item').textContent=section==='lorePages'?'+ Страница':'+ Карточка';
  $('#view-toggle').textContent=previewOnly?(section==='lorePages'?'Редактировать страницу':'Редактировать карточку'):(section==='lorePages'?'Показать страницу':'Показать карточку');
  $('#record-list').innerHTML=list?data[section].map((c,i)=>'<button class="record '+(i===selected?'active':'')+'" data-record="'+i+'"><small>'+String(i+1).padStart(2,'0')+'</small>'+esc(c.name||'Пустая карточка')+'</button>').join(''):'';
  $('#section-note').textContent=section==='selectionCards'?'Группы выбора, варианты вооружения и общие ограничения — в формате оригинальной карточки состава.':section==='equipment'?'Четыре карточки снаряжения. Оружие и правила редактируются внутри каждой карточки.':section==='firefightPloys'?'Четыре карточки Firefight Ploys.':section==='strategicPloys'?'Четыре карточки. Зелёно-серые плашки — как в оригинале.':section==='teamCards'?'Любое число карточек правил фракции. Состав находится в отдельной вкладке.':'';
- if(section==='lorePages')$('#section-note').textContent='Диорамы, история команды, сборка миниатюр и примеры покраса. Отдельные страницы A4 после карточек в PDF.';
+ if(section==='lorePages')$('#section-note').textContent='Лор, фотографии и референсы моделей с подписями оружия. Отдельные страницы A4 после карточек в PDF.';
  renderEditor();renderPreview();
 }
 function nestedEditor(c,type,title){
@@ -195,6 +197,47 @@ function imageOptimizationEditor(){
  const count=KTOperativeImage.imageEntries(data).length,busy=imageOptimization===data;
  return panel('РАЗМЕР КАРТИНОК','<button id="shrink-project-images" '+(busy||!count?'disabled':'')+'>'+(busy?'Уменьшаю картинки…':'Уменьшить картинки проекта')+'</button><p class="hint">Загруженных изображений: '+count+'. Уменьшает вес портретов, логотипа, иллюстраций правил и лора. Пропорции и прозрачность сохраняются. Новые загрузки уменьшаются автоматически.</p>');
 }
+function referenceThumb(img){return '<div class="reference-thumb" data-reference-thumb="'+esc(img.id)+'">'+KTReferences.renderModel(img,assets)+'</div>'}
+function referenceEditor(page){
+ const opened=nestedStates.get(page)?.references;
+ const coordinate=(key,value,label)=>'<label>'+label+'<input type="number" data-field="'+key+'" data-percent min="0" max="100" step="1" value="'+Math.round(value*100)+'"></label>';
+ const models=page.images.map((img,i)=>{
+  const key='images.'+i+'.';
+  const calls=img.callouts.map((c,j)=>{
+   const path=key+'callouts.'+j+'.',active=referenceTarget?.page===page&&referenceTarget.image===img&&referenceTarget.callout===c;
+   return '<div class="reference-callout-editor">'+field('Подпись оружия',path+'text',c.text)+'<div class="two-fields">'+select('Выноска',path+'edge',c.edge,[['top','Сверху'],['bottom','Снизу']])+select('Текст по краю',path+'align',c.align,[['left','Слева'],['right','Справа']])+'</div><div class="row-actions"><button data-reference-target="'+i+'" data-index="'+j+'" aria-pressed="'+active+'">'+(active?'Отменить выбор точки':'Указать на модели')+'</button><button class="danger" data-reference-remove-callout="'+i+'" data-index="'+j+'">Удалить выноску</button></div><div class="two-fields reference-coordinates">'+coordinate(path+'x',c.x,'Точка X, %')+coordinate(path+'y',c.y,'Точка Y, %')+'</div></div>';
+  }).join('');
+  return '<details class="nested reference-editor" data-nested-type="references" data-nested-id="'+esc(img.id)+'" '+((opened?opened.has(img.id):i===0)?'open':'')+'><summary data-ui-skip>'+esc(img.modelName||'Новая модель')+'</summary>'+field('Название модели',key+'modelName',img.modelName)+referenceThumb(img)+'<p class="hint reference-point-hint">'+(referenceTarget?.page===page&&referenceTarget.image===img?'Нажмите на оружие на картинке выше.':'Выберите «Указать на модели» у подписи и нажмите на оружие. Точку также можно задать в процентах.')+'</p>'+calls+'<button data-reference-add-callout="'+i+'" '+(img.callouts.length>=4?'disabled':'')+'>+ Подпись оружия</button><div class="row-actions"><button data-lore-replace="'+esc(img.id)+'">Заменить фото</button><button data-reference-duplicate="'+i+'">Копировать модель</button><button data-lore-move="'+i+'" data-direction="-1" '+(!i?'disabled':'')+' aria-label="Модель выше">↑</button><button data-lore-move="'+i+'" data-direction="1" '+(i===page.images.length-1?'disabled':'')+' aria-label="Модель ниже">↓</button><button class="danger" data-lore-remove="'+esc(img.id)+'">Удалить модель</button></div></details>';
+ }).join('');
+ const operatives=data.operatives.filter(c=>c.image);
+ return panel('СТРАНИЦА РЕФЕРЕНСОВ',field('Заголовок','name',page.name)+'<p class="hint">Сетка 3 × 2 на листе A4. Каждые следующие шесть моделей переходят на новый лист. До четырёх подписей оружия на модель.</p>')+panel('МОДЕЛИ',models+'<label>Из оперативника<select id="reference-operative"><option value="">Выберите оперативника с фото</option>'+operatives.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select></label><button id="reference-from-operative" '+(!operatives.length||page.images.length>=40?'disabled':'')+'>Добавить из оперативника</button><p class="hint">Копируются фото, название и до четырёх названий оружия. Референс редактируется отдельно от датакарты.</p>'+loreUploadControls(page,true),page.images.length+' / 40');
+}
+function loreUploadControls(page,references=false){return '<input id="lore-image-files" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple aria-label="Выбрать изображения для страницы"><input id="lore-replace-file" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" aria-label="Заменить изображение страницы"><button id="choose-lore-images" '+(page.images.length>=40?'disabled':'')+'>'+(references?'+ Загрузить фото моделей':'+ Добавить картинки')+'</button><p class="hint">Можно выбрать несколько файлов. PNG, JPG или WebP, до 10 МБ каждый. Изображения сохраняют пропорции и целиком помещаются на странице.</p>'}
+function refreshReferenceThumbs(){
+ if(section!=='lorePages'||current()?.layout!=='references')return;
+ for(const el of document.querySelectorAll('[data-reference-thumb]')){
+  const img=current().images.find(i=>i.id===el.dataset.referenceThumb);if(!img)continue;
+  el.innerHTML=KTReferences.renderModel(img,assets);el.classList.toggle('is-targeting',referenceTarget?.page===current()&&referenceTarget.image===img);
+ }
+}
+function showReferenceTarget(){
+ if(!referenceTarget)return;
+ const thumb=Array.from(document.querySelectorAll('[data-reference-thumb]')).find(el=>el.dataset.referenceThumb===referenceTarget.image.id);
+ thumb?.scrollIntoView({block:'center'});
+}
+document.addEventListener('click',e=>{
+ const heading=e.target.closest('.reference-editor>summary');
+ if(heading&&section==='lorePages'){
+  const index=current().images.findIndex(img=>img.id===heading.parentElement.dataset.nestedId);
+  if(index>=0){side=Math.floor(index/6);renderPreview()}
+ }
+ const thumb=e.target.closest('[data-reference-thumb]'),target=referenceTarget;
+ if(!thumb||!target||section!=='lorePages'||target.page!==current()||thumb.dataset.referenceThumb!==target.image.id||!current().images.includes(target.image)||!target.image.callouts.includes(target.callout))return;
+ const svg=thumb.querySelector('svg'),point=new DOMPoint(e.clientX,e.clientY).matrixTransform(svg.getScreenCTM().inverse()),g=KTReferences.geometry(target.image);
+ const fraction=n=>Math.round(Math.max(0,Math.min(1,n))*1000)/1000;
+ target.callout.x=fraction((point.x-g.x)/g.w);target.callout.y=fraction((point.y-g.y)/g.h);
+ referenceTarget=null;persist();renderEditor();renderPreview();
+});
 function renderEditor(options={}){
  if(editorCard){
   const saved={};
@@ -202,14 +245,18 @@ function renderEditor(options={}){
   nestedStates.set(editorCard,saved);
  }
  const c=current();let out='';
+ if(referenceTarget?.page!==c)referenceTarget=null;
  if(c&&options.openNested){const saved=nestedStates.get(c)||{};saved[options.openNested.type]=new Set([options.openNested.id]);nestedStates.set(c,saved)}
  if(section==='lorePages'){
   out=logoEditor()+imageOptimizationEditor()+'<div class="row-actions"><button id="export-lore" '+(!data.lorePages.length?'disabled':'')+'>↓ PDF раздела</button></div>';
   if(!c)out+=panel('КАРТИНКИ И ЛОР','<p>Соберите альбом команды: панорамные фото, историю, инструкции по сборке и примеры покраса.</p><p class="hint">Нажмите «+ Страница», добавьте текст и загрузите изображения.</p>');
   else{
-   out+=panel('СТРАНИЦА A4',field('Заголовок','name',c.name)+select('Тема','category',c.category,Object.entries(KTModel.loreCategories))+field('Лор или описание','body',c.body,'textarea')+select('Расположение изображений','layout',c.layout,[['wide','Крупные изображения на всю ширину'],['gallery','Галерея в две колонки']]));
+   if(c.layout==='references')out+=referenceEditor(c);
+   else{
+   out+=panel('СТРАНИЦА A4',field('Заголовок','name',c.name)+select('Тема','category',c.category,Object.entries(KTModel.loreCategories).filter(([key])=>key!=='references'))+field('Лор или описание','body',c.body,'textarea')+select('Расположение изображений','layout',c.layout,[['wide','Крупные изображения на всю ширину'],['gallery','Галерея в две колонки']]));
    const images=c.images.map((img,i)=>'<div class="lore-image-item"><img src="'+esc(/^data:image\//.test(img.image)?img.image:assets[img.image]||img.image)+'" alt="Изображение '+(i+1)+'">'+field('Подпись '+(i+1),'images.'+i+'.caption',img.caption,'textarea')+'<div class="row-actions"><button data-lore-replace="'+esc(img.id)+'">Заменить</button><button data-lore-move="'+i+'" data-direction="-1" '+(!i?'disabled':'')+' aria-label="Изображение '+(i+1)+' выше">↑</button><button data-lore-move="'+i+'" data-direction="1" '+(i===c.images.length-1?'disabled':'')+' aria-label="Изображение '+(i+1)+' ниже">↓</button><button class="danger" data-lore-remove="'+esc(img.id)+'">Удалить изображение</button></div></div>').join('');
-   out+=panel('ИЗОБРАЖЕНИЯ',images+'<input id="lore-image-files" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple aria-label="Выбрать изображения для страницы"><input id="lore-replace-file" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" aria-label="Заменить изображение страницы"><button id="choose-lore-images" '+(c.images.length>=40?'disabled':'')+'>+ Добавить картинки</button><p class="hint">Можно выбрать несколько файлов. PNG, JPG или WebP, до 10 МБ каждый. Изображения сохраняют пропорции и целиком помещаются на странице.</p>',c.images.length+' / 40');
+   out+=panel('ИЗОБРАЖЕНИЯ',images+loreUploadControls(c),c.images.length+' / 40');
+   }
    out+='<div class="row-actions"><button data-action="move-lore-page" data-direction="-1" '+(!selected?'disabled':'')+'>↑ Раньше в PDF</button><button data-action="move-lore-page" data-direction="1" '+(selected===data.lorePages.length-1?'disabled':'')+'>↓ Позже в PDF</button><button data-action="duplicate">Дублировать страницу</button><button class="danger" data-action="delete">Удалить страницу</button></div>';
   }
  }else if(section==='project'){
@@ -248,6 +295,7 @@ function renderEditor(options={}){
   out+='<div class="row-actions">'+(fixed()?'<button class="danger" data-action="clear">Очистить место</button>':'<button data-action="duplicate">Дублировать карточку</button><button class="danger" data-action="delete">Удалить карточку</button>')+'</div>';
  }
  $('#editor').innerHTML=out;
+ refreshReferenceThumbs();
  editorCard=c;
  if(options.openNested){
   const block=Array.from(document.querySelectorAll('#editor details[data-nested-type]')).find(el=>el.dataset.nestedType===options.openNested.type&&el.dataset.nestedId===options.openNested.id);
@@ -269,8 +317,9 @@ function renderPreview(){
 }
 function updateField(el){
  let key=el.dataset.field,value=el.type==='checkbox'?el.checked:el.type==='number'?Math.max(0,Number(el.value)):el.value,obj=current();
+ if(el.hasAttribute('data-percent')){value=Math.min(100,value)/100;el.value=Math.round(value*100)}
  if(typeof value==='string'&&section!=='lorePages'){const converted=KTModel.toInches(value);if(converted!==value){value=converted;el.value=value}}
- if(section==='lorePages'&&typeof value==='string'){const max=key==='name'?200:key==='body'?100000:key.endsWith('.caption')?5000:null;if(max&&value.length>max){value=value.slice(0,max);el.value=value}}
+ if(section==='lorePages'&&typeof value==='string'){const max=key==='name'?200:key==='body'?100000:key.endsWith('.caption')?5000:/^images\.\d+\.(modelName|callouts\.\d+\.text)$/.test(key)?80:null;if(max&&value.length>max){value=value.slice(0,max);el.value=value}}
  if(key.startsWith('@')){obj=data;key=key.slice(1)}
  if(key==='keywords')value=value.split(',').map(v=>v.trim()).filter(Boolean);
  if(/^selectionGroups\.\d+\.entries\.\d+\.options$/.test(key))value=value.split('\n').map(v=>v.trim()).filter(Boolean);
@@ -279,6 +328,11 @@ function updateField(el){
  if(key.startsWith('archetypes.')){const slot=Number(key.split('.')[1]);if(value&&obj.archetypes[1-slot]===value){toast('Выберите два разных архетипа');renderEditor();return}side=0}
  pathSet(obj,key,value);
  if(/^(weapons|abilities|actions)\.\d+\.name$/.test(key))el.closest('details')?.querySelector('summary')?.replaceChildren(document.createTextNode(value||'Новый блок'));
+ if(/^images\.\d+\.modelName$/.test(key))el.closest('details')?.querySelector('summary')?.replaceChildren(document.createTextNode(value||'Новая модель'));
+ if(section==='lorePages'&&obj.layout==='references'){
+  const imageIndex=/^images\.(\d+)\./.exec(key);if(imageIndex)side=Math.floor(Number(imageIndex[1])/6);
+  refreshReferenceThumbs();
+ }
  if(key==='lore'&&obj.kind==='operative')side=0;
  if(key.startsWith('selectionGroups.'))obj.size=obj.selectionGroups.reduce((n,g)=>n+g.count,0)||1;
  if(key==='kind'){
@@ -292,6 +346,7 @@ function updateField(el){
 }
 document.addEventListener('input',e=>{if(e.target.dataset.field)updateField(e.target);if(e.target.id==='tts-folder'){$('#tts-result').hidden=true;$('#tts-status').textContent='Папка изменена. Соберите архив заново.'}});
 document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'&&referenceTarget){referenceTarget=null;renderEditor();return}
  if(!e.target.matches?.('.rich-field textarea')||!(e.ctrlKey||e.metaKey)||e.altKey)return;
  const key=e.code==='KeyB'?'b':e.code==='KeyI'?'i':e.key.toLowerCase();if(key==='b'||key==='i'){e.preventDefault();formatText(e.target,key==='b'?'bold':'italic')}
 });
@@ -342,6 +397,35 @@ document.addEventListener('click',e=>{
  if(b.id==='prev-side'||b.id==='next-side'){side+=b.id==='next-side'?1:-1;renderPreview();return}
  if(b.id==='view-toggle'){previewOnly=!previewOnly;$('.workspace').classList.toggle('show-preview',previewOnly);b.textContent=previewOnly?(section==='lorePages'?'Редактировать страницу':'Редактировать карточку'):(section==='lorePages'?'Показать страницу':'Показать карточку');return}
  if(b.id==='choose-lore-images'){$('#lore-image-files').click();return}
+ if(b.id==='add-reference-page'){
+  if(data.lorePages.length>=100){toast('В проекте может быть до 100 страниц.');return}
+  data.lorePages.push(KTModel.newReferencePage(uid()));selected=data.lorePages.length-1;side=0;persist();render();return;
+ }
+ if(b.id==='reference-from-operative'){
+  const page=current(),source=data.operatives.find(c=>c.id===$('#reference-operative').value);
+  if(!source?.image){toast('Выберите оперативника с фото');return}
+  if(page.images.length>=40)return;
+  const model=KTModel.referenceModel(uid(),source);
+  model.callouts=(source.weapons||[]).slice(0,4).map((weapon,i)=>({...KTModel.referenceCallout(uid(),i),text:weapon.name.slice(0,80)}));
+  page.images.push(model);side=Math.floor((page.images.length-1)/6);persist();renderEditor({openNested:{type:'references',id:model.id}});renderPreview();return;
+ }
+ if(b.dataset.referenceTarget!==undefined){
+  const page=current(),image=page.images[Number(b.dataset.referenceTarget)],callout=image.callouts[Number(b.dataset.index)];
+  referenceTarget=referenceTarget?.callout===callout?null:{page,image,callout};renderEditor();showReferenceTarget();return;
+ }
+ if(b.dataset.referenceAddCallout!==undefined){
+  const image=current().images[Number(b.dataset.referenceAddCallout)];if(image.callouts.length>=4)return;
+  const callout=KTModel.referenceCallout(uid(),image.callouts.length);image.callouts.push(callout);referenceTarget={page:current(),image,callout};
+  persist();renderEditor();renderPreview();showReferenceTarget();return;
+ }
+ if(b.dataset.referenceRemoveCallout!==undefined){
+  current().images[Number(b.dataset.referenceRemoveCallout)].callouts.splice(Number(b.dataset.index),1);referenceTarget=null;persist();renderEditor();renderPreview();return;
+ }
+ if(b.dataset.referenceDuplicate!==undefined){
+  const page=current();if(page.images.length>=40)return;
+  const model=structuredClone(page.images[Number(b.dataset.referenceDuplicate)]);model.id=uid();model.callouts.forEach(c=>c.id=uid());
+  page.images.push(model);side=Math.floor((page.images.length-1)/6);persist();renderEditor({openNested:{type:'references',id:model.id}});renderPreview();return;
+ }
  if(b.id==='export-lore'){exportPDF({section:'lorePages'});return}
  if(b.dataset.loreReplace){const input=$('#lore-replace-file');input.dataset.imageId=b.dataset.loreReplace;input.click();return}
  if(b.dataset.loreRemove){const page=current();loreJobs.delete(page);page.images=page.images.filter(img=>img.id!==b.dataset.loreRemove);side=0;persist();renderEditor();renderPreview();return}
@@ -434,10 +518,10 @@ async function importLoreImages(files,replaceId=null){
    if(data!==project||!data.lorePages.includes(page)||loreJobs.get(page)!==token)return;
    button.textContent='Загружаю '+(added+failed.length+1)+' / '+files.length+'…';
    try{
-    const result=await KTOperativeImage.prepare(file,{details:true,profile:'page'});
+    const result=await KTOperativeImage.prepare(file,{details:true,profile:page.layout==='references'?'card':'page'});
     if(data!==project||!data.lorePages.includes(page)||loreJobs.get(page)!==token)return;
     const values={image:result.image,imageWidth:result.width,imageHeight:result.height};
-    if(target){if(!page.images.includes(target))return;Object.assign(target,values)}else page.images.push({id:uid(),...values,caption:''});
+    if(target){if(!page.images.includes(target))return;Object.assign(target,values)}else page.images.push(page.layout==='references'?KTModel.referenceModel(uid(),{...values,name:file.name.replace(/\.[^.]+$/,'')}):{id:uid(),...values,caption:''});
     added++;persist();if(current()===page){side=0;renderPreview()}
    }catch(e){failed.push(file.name+': '+e.message)}
   }

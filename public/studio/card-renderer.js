@@ -30,17 +30,27 @@ function txt(s,x,y,size=8.2,color=BLACK,font='Roboto',extra=''){
  const runs=font==='Display'?String(s).split(/(″)/g).map(c=>c==='″'?'<tspan font-family="Roboto">″</tspan>':esc(c)).join(''):esc(s);
  return '<text x="'+x+'" y="'+y+'" font-family="'+family+'" font-size="'+size+'" fill="'+color+'"'+attrs+' '+extra+'>'+runs+'</text>';
 }
-// Melee sword: vector contour from the supplied Kasrkin PDF, page 1, in a 32-unit box.
+// Stat contours extracted from the supplied Murderwing PDF, page 1, normalized to 32 units.
+const STAT_ICONS={
+ APL:'M32,4.7171 L16,28.9388 L0,4.7171 L3.2944,4.7171 L15.9139,24.4184 L28.4395,4.7171 Z M15.9134,22.2122 L3.6486,3.0612 L28.0895,3.0612 Z',
+ MOVE:'M32,7.7064 L26.256,29.1563 L24.3169,28.6411 L29.5456,9.1247 L10.0291,3.8988 L10.55,1.9567 Z M0,18.4591 L6.6867,30.0433 L20.5158,22.06 L23.3778,27.017 L27.9215,10.0625 L10.9699,5.5217 L13.8291,10.4759 Z',
+ SAVE:'M15.3485,5.4988 L15.3485,26.3773 L8.104,21.5907 L8.104,5.4988 Z M23.8989,21.5907 L16.6512,26.3773 L16.6512,5.4988 L23.8989,5.4988 Z M3.8099,0 L15.3475,0 L15.3475,4.2125 L6.8161,4.2125 L6.8161,22.2849 L15.3475,27.9198 L15.3475,32 L3.8099,24.3814 Z M28.1901,0 L28.1901,24.3814 L16.6525,32 L16.6525,27.9198 L25.1871,22.2849 L25.1871,4.2125 L16.6525,4.2125 L16.6525,0 Z',
+ WOUNDS:'M16,22.5167 L20.7449,27.2584 L16,32 L11.2584,27.2584 Z M16,20.9762 L10.8681,26.1081 L16,0 L21.1319,26.1081 Z'
+};
 function icon(key,x,y,size,c){
+ const stat=STAT_ICONS[({M:'MOVE',SV:'SAVE',W:'WOUNDS'})[key]||key];
+ if(stat)return '<g class="stat-icon" transform="translate('+x+' '+y+') scale('+(size/32)+')" fill="'+c+'"><path d="'+stat+'"/></g>';
  const paths={APL:'<path d="M2 5h28L16 28z"/><path d="M7 6l9 16L25 6" fill="none" stroke="'+BLACK+'" stroke-width="2"/>',M:'<path d="M2 14L22 5v5l8-3-4 19-5-5-16 7z"/>',MOVE:'<path d="M2 14L22 5v5l8-3-4 19-5-5-16 7z"/>',SV:'<path d="M5 4h22v18L16 29 5 22z" fill="none" stroke="'+c+'" stroke-width="2"/><path d="M10 7h12v13l-6 4-6-4z"/>',W:'<path d="M16 3l7 21-7 6-7-6z"/>',GA:'<path d="M3 8h10v10H3zM19 8h10v10H19zM11 21h10v8H11z"/>',DF:'<path d="M4 6h24v14L16 29 4 20z" fill="none" stroke="'+c+'" stroke-width="3"/><path d="M10 11h12v7l-6 5-6-5z"/>',ranged:'<path d="M3 10l4-6 4 6v19H3zM13 10l4-6 4 6v19h-8zM23 10l4-6 4 6v19h-8z"/>',melee:'<path d="M32 14.187H22.303V8.444H20.95V12.64H3.088L0.05 15.324H20.95V16.681H0L3.088 19.41H20.95V23.556H22.303V17.861H32Z"/>'};
  return '<g transform="translate('+x+' '+y+') scale('+(size/32)+')" fill="'+c+'">'+(paths[key]||paths[key==='SAVE'?'SV':key==='WOUNDS'?'W':'APL'])+'</g>';
 }
-function richLines(value,width,size=8.2,font='Roboto',gap=3){
- return Text.layout(value,width,size,font,gap);
+function richLines(value,width,size=8.2,font='Roboto',gap=3,compact=false){
+ const lines=Text.layout(value,width,size,font,gap,compact?1.14:1.28);
+ if(compact)for(const [i,line] of lines.entries())if(!line.text.trim())line.height=line.size*.4+(i===lines.length-1?gap:0);
+ return lines;
 }
 function blocks(c,d,width,operative=false){
  const result=[],size=operative?(c.rulesLayout==='full'?6.4:6.8):c.kind==='selection'?7.8:8.2;
- const add=(t,font='Roboto',gap=5,s=size,inset=0)=>{if(t){const lines=richLines(t,width-inset,s,font,gap);lines[0].groupHeight=lines.reduce((n,l)=>n+l.height,0);lines[0].keepHeight=font==='RobotoBold'||font==='Display'?lines[0].height+size*2.56:0;result.push(...lines)}};
+ const add=(t,font='Roboto',gap=operative?2.5:5,s=size,inset=0)=>{if(t){const lines=richLines(t,width-inset,s,font,gap,operative);lines[0].groupHeight=lines.reduce((n,l)=>n+l.height,0);lines[0].keepHeight=font==='RobotoBold'||font==='Display'?lines[0].height+size*(operative?2.28:2.56):0;result.push(...lines)}};
  if(c.kind==='selection'){
   add(c.lore,'RobotoItalic',7);
   add(c.body);
@@ -54,8 +64,13 @@ function blocks(c,d,width,operative=false){
  if(c.restriction)add(c.restriction,'RobotoBold');
  if(c.unique)add('Maximum once per team.','RobotoItalic');
  if(c.bashaAllowed)add('Available to NOB BASHA.','RobotoItalic');
- const heading=(name,band)=>{const start=result.length;add(name,'RobotoBold',band?5:1,size,band?4:0);if(band)for(let i=start;i<result.length;i++){result[i].actionHeading=true;result[i].height+=2;result[i].keepHeight+=2}};
- for(const a of c.abilities){const start=result.length;heading(a.name,c.kind==='faction');add(a.body);if(result[start])result[start].groupHeight=result.slice(start).reduce((n,l)=>n+l.height,0)}
+ const heading=(name,band)=>{const start=result.length;add(name,'RobotoBold',band?(operative?1:5):1,size,band?4:0);if(band)for(let i=start;i<result.length;i++){result[i].actionHeading=true;result[i].height+=2;result[i].keepHeight+=2}};
+ for(const a of c.abilities){
+  const start=result.length;
+  if(operative){const name=Text.plain(a.name).trim().replace(/[:：]\s*$/,'').replace(/[\\*\[\]]/g,'\\$&');add((name?'**'+name+':** ':'')+a.body);if(result[start])result[start].keepHeight=result.slice(start,start+2).reduce((n,l)=>n+l.height,0)}
+  else{heading(a.name,c.kind==='faction');add(a.body)}
+  if(result[start])result[start].groupHeight=result.slice(start).reduce((n,l)=>n+l.height,0);
+ }
  for(const a of c.actions){const start=result.length;heading(a.name+(a.cost?'  /  '+a.cost:''),true);add(a.body);if(result[start])result[start].groupHeight=result.slice(start).reduce((n,l)=>n+l.height,0)}
  if(c.kind==='firefight'&&c.cost?.includes('+')&&d.ployNote)add(d.ployNote,'RobotoItalic');
  if(c.kind==='strategic'&&c.cost?.includes('+')&&d.ployNote)add(d.ployNote,'RobotoItalic');
@@ -144,15 +159,15 @@ function portrait(c,d,assets={},index=0){
  return sides;
 }
 function operative(c,d,assets={},index=0){
- const w=LONG,h=SHORT,pad=8,inner=w-16,baseHeader=33,footer=22,C=d.layout.accent,sides=[];
+ const w=LONG,h=SHORT,pad=8,inner=w-16,baseHeader=33,footer=18,C=d.layout.accent,sides=[];
  const baseSize=(c.baseSize||'').trim(),baseWidth=baseSize?(/^\d+(?:[.,]\d+)?$/.test(baseSize)?16:Math.max(16,Math.min(48,measure(baseSize,7,'RobotoBold')+6))):0;
  const baseSpace=baseSize?baseWidth+6:0,logoSpace=Model.isLogo(d.team.logo)?24:0;
- const stats=Object.entries(c.stats),sw=stats.length>4?26:32,start=w-stats.length*sw;
+ const stats=Object.entries(c.stats),statWidths=stats.map(([key])=>stats.length>4?26:/^(W|WOUNDS)$/.test(key)?36:28),start=w-statWidths.reduce((a,b)=>a+b,0);
  const uploaded=/^data:image\/(png|jpeg);base64,/.test(c.image||''),portrait=uploaded?c.image:assets[c.image];
- const nw=start-(portrait?64:8)-8;
+ const portraitWidth=Math.min(110,start*.5),portraitX=start-portraitWidth,nw=start-(portrait?portraitWidth+5:8)-8;
  let size=14;while(measure(c.name,size,face(c.name))>nw&&size>10)size-=.25;
- const title=wrap(c.name,nw,size,face(c.name)).slice(0,2),loreTop=20+(title.length-1)*11+7;
- const loreLines=Text.plain(c.lore).trim()?richLines(c.lore,nw,6.8,'RobotoItalic',0):[];
+ const title=wrap(c.name,nw,size,face(c.name)).slice(0,2),titleY=title.length>1?14:23,loreTop=baseHeader+4;
+ const loreLines=Text.plain(c.lore).trim()?richLines(c.lore,start-pad*2,6.8,'RobotoItalic',0,true):[];
  let loreCursor=0;
  const make=()=>{const p=base(w,h,d,false,assets),firstLore=loreCursor;
   let loreBottom=loreTop;
@@ -160,16 +175,17 @@ function operative(c,d,assets={},index=0){
   const header=loreCursor>firstLore?Math.max(baseHeader,loreBottom+4):baseHeader;p.header=header;
   p.s+=rect(0,0,w,header,BLACK);
   if(portrait){
-   p.s+='<defs><clipPath id="headerclip"><rect width="'+w+'" height="'+header+'"/></clipPath></defs><g clip-path="url(#headerclip)">';
+   p.s+='<defs><clipPath id="headerclip"><rect x="'+portraitX+'" width="'+portraitWidth+'" height="'+baseHeader+'"/></clipPath></defs><g class="operative-portrait" clip-path="url(#headerclip)">';
    if(c.imageCrop&&c.imageWidth&&c.imageHeight){
-    const crop=c.imageCrop,cw=crop.width*c.imageWidth,ch=crop.height*c.imageHeight,scale=Math.min(61/cw,(header-2)/ch);
-    const x=start-61+(61-cw*scale)/2,y=1+(header-2-ch*scale)/2;
+    const crop=c.imageCrop,cw=crop.width*c.imageWidth,ch=crop.height*c.imageHeight,scale=Math.min(portraitWidth/cw,(baseHeader-2)/ch);
+    const x=portraitX+(portraitWidth-cw*scale)/2,y=1+(baseHeader-2-ch*scale)/2;
     p.s+='<defs><clipPath id="operativecrop"><rect x="'+x+'" y="'+y+'" width="'+cw*scale+'" height="'+ch*scale+'"/></clipPath></defs><g class="operative-image-crop" clip-path="url(#operativecrop)"><image x="'+(x-crop.x*c.imageWidth*scale)+'" y="'+(y-crop.y*c.imageHeight*scale)+'" width="'+c.imageWidth*scale+'" height="'+c.imageHeight*scale+'" preserveAspectRatio="none" xlink:href="'+esc(portrait)+'"/></g>';
-   }else p.s+='<image x="'+(start-61)+'" y="'+(uploaded?1:-7)+'" width="61" height="'+(uploaded?header-2:44)+'" preserveAspectRatio="xMidYMid meet" xlink:href="'+esc(portrait)+'"/>';
+   }else p.s+='<image x="'+portraitX+'" y="1" width="'+portraitWidth+'" height="'+(baseHeader-2)+'" preserveAspectRatio="xMidYMid meet" xlink:href="'+esc(portrait)+'"/>';
    p.s+='</g>';
   }
-  title.forEach((t,i)=>p.s+=txt(t,8,20+i*11,size,'white',face(c.name)));
-  p.s+=line(0,24,Math.min(start-4,measure(c.name,size,face(c.name))+9),24,C,.5);
+  title.forEach((t,i)=>p.s+=txt(t,pad,titleY+i*12,size,'white',face(c.name)));
+  const underlineY=titleY+(title.length-1)*12+3;
+  p.s+=line(0,underlineY,Math.min(pad+nw,...title.map(t=>measure(t,size,face(c.name))+pad)),underlineY,C,.5);
   if(loreCursor>firstLore){
    let y=loreTop;p.s+='<g class="operative-lore">';
    for(const text of loreLines.slice(firstLore,loreCursor)){
@@ -177,10 +193,15 @@ function operative(c,d,assets={},index=0){
    }
    p.s+='</g>';
   }
-  stats.forEach(([key,val],i)=>{const x=start+i*sw,iconSize=sw*.43,valueWidth=sw*.42,valueSize=Math.min(12,12*valueWidth/Math.max(1,measure(val,12,'Display')));p.s+='<g class="operative-stat" data-stat="'+esc(key)+'">'+rect(x,0,2,header,'#e6e8e4')+txt(key,x+(sw+2)/2,12,7,'white','Display','text-anchor="middle"')+icon(key,x+3,16,iconSize,C)+txt(val,x+sw*.76,29,valueSize,'white','Display','text-anchor="middle"')+'</g>'});
+  let statX=start;
+  stats.forEach(([key,val],i)=>{
+   const sw=statWidths[i],x=statX,iconSize=12.5,inset=({SAVE:3.8099,SV:3.8099,WOUNDS:10.8681,W:10.8681})[key]||0,iconWidth=(32-2*inset)*iconSize/32,gap=1.5;
+   const valueSize=Math.min(15,15*(sw-3.5-iconWidth-gap)/Math.max(1,measure(val,15,'Display'))),valueWidth=measure(val,valueSize,'Display'),inkX=x+1.6+(sw-1.6-iconWidth-gap-valueWidth)/2;
+   statX+=sw;p.s+='<g class="operative-stat" data-stat="'+esc(key)+'">'+rect(x,0,1.6,header,'#e6e8e4')+txt(key,x+(sw+1.6)/2,12,7.5,'white','Display','text-anchor="middle"')+icon(key,inkX-inset*iconSize/32,18,iconSize,C)+txt(val,inkX+iconWidth+gap+valueWidth/2,29.5,valueSize,'white','Display','text-anchor="middle"')+'</g>';
+  });
   p.s+=rect(0,h-footer,w,footer,BLACK);
-  wrap(c.keywords.join(', '),inner-(baseSize?baseSpace+logoSpace:24),5.6,'RobotoBold').slice(0,2).forEach((t,i)=>p.s+=txt(t,pad,h-10+i*6,5.6,'white','RobotoBold'));
-  p.s+=teamLogo(d,w-pad-18-baseSpace,h-footer+2,18);
+  wrap(c.keywords.join(', '),inner-(baseSize?baseSpace+logoSpace:24),5.6,'RobotoBold').slice(0,2).forEach((t,i)=>p.s+=txt(t,pad,h-9+i*6,5.6,'white','RobotoBold'));
+  p.s+=teamLogo(d,w-pad-16-baseSpace,h-footer+1,16);
   if(baseSize){
    const x=w-pad-baseWidth,y=h-footer+(footer-16)/2,size=Math.min(7,(baseWidth-4)/Math.max(1,measure(baseSize,1,'RobotoBold')));
    p.s+='<g class="operative-base-size">'+rect(x,y,baseWidth,16,'none','rx="8" stroke="white" stroke-width=".7"')+txt(baseSize,x+baseWidth/2,y+8+size*.35,size,'white','RobotoBold','text-anchor="middle"')+'</g>';
@@ -190,36 +211,36 @@ function operative(c,d,assets={},index=0){
  let p=make(),y=p.header+3,weaponIndex=0,rowCount=0,lastGroup='';
  const newSide=()=>{p.s+=rect(0,h-footer-8,w,8,C)+txt(loreCursor<loreLines.length?'TEXT CONTINUES ON NEXT SIDE':'RULES CONTINUE ON NEXT SIDE',w-8,h-footer-1.5,6.4,'white','Display','text-anchor="end"');sides.push(finish(p,{id:c.id,kind:c.kind,side:sides.length,index,name:c.name}));if(sides.length>100)throw Error('Слишком длинная карточка: '+c.name);p=make();y=p.header+4;lastGroup=''};
  while(loreCursor<loreLines.length)newSide();
- const columnX=[pad+17,145,166,188,207],columnWidths=[110,19,19,21,w-pad-207];
+ const columnX=[pad+15,132,151,173,192],columnWidths=[101,18,18,23,w-pad-192];
  const tableHead=()=>{['NAME','ATK','HIT','DMG','WR'].forEach((t,i)=>p.s+=txt(t,columnX[i],y+7,8,BLACK,'Display',i>0&&i<4?'text-anchor="middle"':''));y+=10;p.s+=line(pad,y,w-pad,y,C,.5)};
  if(c.weapons.length){if(y+21>h-footer-14)newSide();tableHead()}
  while(weaponIndex<c.weapons.length){
   const weapon=c.weapons[weaponIndex],group=weapon.group&&weapon.group!==lastGroup?weapon.group+' - select one profile':'';
-  const columns=[weapon.mode||weapon.name,String(weapon.attacks),String(weapon.hit),String(weapon.damage),Model.weaponRules(weapon)||'-'].map((text,i)=>richLines(text,columnWidths[i],6.6,'Roboto',0));
-  const height=Math.max(...columns.map(lines=>lines.reduce((n,a)=>n+a.height,0)))+4,gh=group?10:0;
+  const columns=[weapon.mode||weapon.name,String(weapon.attacks),String(weapon.hit),String(weapon.damage),Model.weaponRules(weapon)||'-'].map((text,i)=>richLines(text,columnWidths[i],6.6,i===0?'RobotoBold':'Roboto',0,true));
+  const height=Math.max(12,Math.max(...columns.map(lines=>lines.reduce((n,a)=>n+a.height,0)))+3),gh=group?9:0;
   if(y+Math.min(height,35)+gh>h-footer-14||(height+gh<=h-footer-14-(baseHeader+14)&&y+height+gh>h-footer-14)){newSide();tableHead()}
-  if(group){p.s+=txt(group,pad,y+8,6.4,BLACK,'RobotoItalic');y+=10;lastGroup=weapon.group}
+  if(group){p.s+=txt(group,pad,y+7,6.4,BLACK,'RobotoItalic');y+=9;lastGroup=weapon.group}
   while(columns.some(lines=>lines.length)){
-   const available=h-footer-14-y-4;
+   const available=h-footer-14-y-3;
    if(columns.some(lines=>lines[0]?.height>available)){newSide();tableHead();continue}
    const segments=columns.map(lines=>{const picked=[];let used=0;while(lines.length&&used+lines[0].height<=available){const a=lines.shift();picked.push(a);used+=a.height}return {lines:picked,height:used}});
-   const chunkHeight=Math.max(13,...segments.map(s=>s.height))+4;
+   const chunkHeight=Math.max(12,...segments.map(s=>s.height+3));
    if(rowCount%2===0)p.s+=rect(pad,y,inner,chunkHeight,'#cdd1cc');
-   p.s+=icon(weapon.kind,pad+1,y+1,13,C);
-   segments.forEach((segment,j)=>{let yy=y+1;for(const a of segment.lines){const x=columnX[j]-(j>0&&j<4?a.width/2:0);p.s+=Text.svg(a,x,yy+a.size);p.boxes.push({x,y:yy,w:a.width,h:a.height});yy+=a.height}});
+   p.s+=icon(weapon.kind,pad+1,y+(chunkHeight-11)/2,11,C);
+   segments.forEach((segment,j)=>{let yy=y+(chunkHeight-segment.height)/2;for(const a of segment.lines){const x=columnX[j]-(j>0&&j<4?a.width/2:0);p.s+=Text.svg(a,x,yy+a.size);p.boxes.push({kind:'weapon',x,y:yy,w:a.width,h:a.height});yy+=a.height}});
    y+=chunkHeight;
    if(columns.some(lines=>lines.length)){newSide();tableHead()}
   }
   weaponIndex++;rowCount++;
  }
- if(c.weapons.length){p.s+=line(pad,y,w-pad,y,C,.5);y+=5}
- const full=c.rulesLayout==='full',columnWidth=full?inner:(inner-12)/2,items=blocks(c,d,columnWidth,true);
+ if(c.weapons.length){p.s+=line(pad,y,w-pad,y,C,.5);y+=3}
+ const full=c.rulesLayout==='full',gutter=8,columnWidth=full?inner:(inner-gutter)/2,items=blocks(c,d,columnWidth,true);
  let cursor=0,col=0,top=y;
  while(cursor<items.length){
-  const a=items[cursor],bottom=h-footer-12;
-  const keep=a.groupHeight&&a.groupHeight<=h-footer-12-(baseHeader+4)?a.groupHeight:a.keepHeight||a.height;
+  const a=items[cursor],bottom=h-footer-10;
+  const keep=a.groupHeight&&a.groupHeight<=bottom-top?a.groupHeight:a.keepHeight||a.height;
   if(y+Math.max(a.height,keep)>bottom){if(!full&&col===0&&keep<=bottom-top){col=1;y=top}else{newSide();col=0;top=y}continue}
-  const x=pad+col*(columnWidth+12);
+  const x=pad+col*(columnWidth+gutter);
   if(a.actionHeading)p.s+=rect(x,y-1,columnWidth,a.height-1,C);
   p.s+=Text.svg(a,x+(a.actionHeading?2:0),y+a.size,a.actionHeading?'white':BLACK);p.boxes.push({x,y,w:a.width,h:a.height});y+=a.height;cursor++;
   if(sides.length>100)throw Error('Слишком длинная карточка: '+c.name);

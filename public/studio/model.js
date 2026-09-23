@@ -53,8 +53,21 @@ function newProject(id,name='Новая команда'){
   strategicPloys:slots('strategic'),firefightPloys:slots('firefight'),equipment:slots('equipment'),
   ployNote:'',equipmentIntro:'',layout:{accent:'#ed4b22',includeCover:false,includeAssembly:false},sourceArchive:{},notes:[]};
 }
-const loreCategories={lore:'Лор',diorama:'Диорама',assembly:'Сборка миниатюр',painting:'Примеры покраса'};
+const loreCategories={lore:'Лор',diorama:'Диорама',assembly:'Сборка миниатюр',painting:'Примеры покраса',references:'Референсы моделей'};
 function newLorePage(id){return {id,name:'Новая страница',category:'lore',body:'',layout:'wide',images:[]}}
+function newReferencePage(id){return {...newLorePage(id),name:'Референсы моделей',category:'references',layout:'references'}}
+function referenceModel(id,source){
+ return {id,image:source.image,...(source.imageWidth?{imageWidth:source.imageWidth,imageHeight:source.imageHeight}:{}),caption:'',modelName:(source.name||'Новая модель').slice(0,80),callouts:[]};
+}
+function referenceCallout(id,index=0){return {id,text:'Оружие',edge:index%2?'bottom':'top',align:'right',x:index%2?.65:.35,y:index%2?.65:.35}}
+function validateReference(img){
+ if(typeof img.modelName!=='string'||img.modelName.length>80||!Array.isArray(img.callouts)||img.callouts.length>4)throw Error('Проверьте название модели и выноски');
+ const ids=new Set();
+ for(const c of img.callouts){
+  if(!c||typeof c.id!=='string'||!c.id||ids.has(c.id)||typeof c.text!=='string'||c.text.length>80||!['top','bottom'].includes(c.edge)||!['left','right'].includes(c.align)||![c.x,c.y].every(n=>Number.isFinite(n)&&n>=0&&n<=1))throw Error('Некорректная выноска модели');
+  ids.add(c.id);
+ }
+}
 function validateImage(c){
  if(c.image!==undefined&&(typeof c.image!=='string'||c.image&&!/^assets\/[a-z0-9.-]+\.(png|jpg|jpeg)$/i.test(c.image)&&!(c.image.length<=2000000&&/^data:image\/(png|jpeg);base64,[a-z0-9+/]+={0,2}$/i.test(c.image))))throw Error('Некорректная картинка: '+(c.name||c.caption||''));
  for(const dimension of ['imageWidth','imageHeight'])if(c[dimension]!==undefined&&(!Number.isInteger(c[dimension])||c[dimension]<1||c[dimension]>40000000))throw Error('Некорректные размеры картинки');
@@ -109,8 +122,8 @@ function validate(d){
  if(d.lorePages!==undefined){
   if(!Array.isArray(d.lorePages)||d.lorePages.length>100)throw Error('Слишком много страниц картинок и лора');
   const ids=new Set();for(const p of d.lorePages){
-   if(typeof p.id!=='string'||ids.has(p.id)||typeof p.name!=='string'||p.name.length>200||typeof p.body!=='string'||p.body.length>100000||!Object.hasOwn(loreCategories,p.category)||!['wide','gallery'].includes(p.layout)||!Array.isArray(p.images)||p.images.length>40)throw Error('Повреждена страница картинок и лора');ids.add(p.id);
-   const images=new Set();for(const img of p.images){if(typeof img.id!=='string'||images.has(img.id)||!img.image||typeof img.caption!=='string'||img.caption.length>5000)throw Error('Повреждено изображение страницы');images.add(img.id);validateImage(img)}
+   if(typeof p.id!=='string'||ids.has(p.id)||typeof p.name!=='string'||p.name.length>200||typeof p.body!=='string'||p.body.length>100000||!Object.hasOwn(loreCategories,p.category)||!['wide','gallery','references'].includes(p.layout)||!Array.isArray(p.images)||p.images.length>40)throw Error('Повреждена страница картинок и лора');ids.add(p.id);
+   const images=new Set();for(const img of p.images){if(typeof img.id!=='string'||images.has(img.id)||!img.image||typeof img.caption!=='string'||img.caption.length>5000)throw Error('Повреждено изображение страницы');images.add(img.id);validateImage(img);if(p.layout==='references')validateReference(img)}
   }
  }
  for(const key of collections){
@@ -141,6 +154,6 @@ function validate(d){
 }
 function isFilled(c){return !!c.name.trim()&&!!(c.body.trim()||c.weapons.length||c.abilities.length||c.actions.length)}
 function incomplete(d){return [...fixed.flatMap(key=>d[key].flatMap((c,i)=>isFilled(c)?[]:[{section:key,index:i}])),...d.selectionCards.flatMap((c,i)=>c.archetypes.flatMap((a,slot)=>a.trim()?[]:[{section:'selectionCards',index:i,slot}]))]}
-root.KTModel={migrate,validate,blank,newProject,newSelection,newLorePage,loreCategories,archetypeOptions,collections,fixed,isFilled,incomplete,toInches,normalizeCard,weaponRules,isLogo,saveWeaponProfile,weaponFromProfile};
+root.KTModel={migrate,validate,blank,newProject,newSelection,newLorePage,newReferencePage,referenceModel,referenceCallout,loreCategories,archetypeOptions,collections,fixed,isFilled,incomplete,toInches,normalizeCard,weaponRules,isLogo,saveWeaponProfile,weaponFromProfile};
 if(typeof module!=='undefined')module.exports=root.KTModel;
 })(typeof window!=='undefined'?window:globalThis);

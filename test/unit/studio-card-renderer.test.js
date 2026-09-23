@@ -92,3 +92,29 @@ test("inline card instances keep their own clipping masks beside hidden previews
   const pdf = buildTeamPDF(team, {}, { section: "operatives", index: 0 });
   assert.deepEqual(pdf.content.filter(item => item.svg).map(item => item.svg), standalone);
 });
+
+test("dense operative rules fill both columns below compact weapons without losing paragraphs", () => {
+  const team = project(), operative = team.operatives[0];
+  operative.weapons = Array.from({ length: 5 }, (_, i) => ({ ...operative.weapons[0], id: 'weapon-' + i, name: 'Weapon ' + i }));
+  const paragraphs = Array.from({ length: 11 }, (_, i) => 'RuleLine' + String(i).padStart(3, '0') + ' remains visible.');
+  operative.abilities = [{ id: 'ability', name: 'Dense ability', body: paragraphs.slice(0, 7).join('\n') }, { id: 'second', name: 'Second ability', body: paragraphs.slice(7).join('\n\n') }];
+  const cards = Cards.renderCard(operative, team);
+  assert.equal(cards.length, 1, 'a block may continue in the second column below the weapons');
+  for (const line of paragraphs) assert.equal(cards[0].svg.split(line).length - 1, 1);
+  assert(cards[0].svg.includes('Dense ability:'));
+  const weapons = cards[0].boxes.filter(box => box.kind === 'weapon');
+  assert(Math.max(...weapons.map(box => box.y + box.h)) - Math.min(...weapons.map(box => box.y)) < 62);
+  assert(cards[0].boxes.filter(box => !box.kind).some(box => box.x > cards[0].width / 2));
+  for (const box of cards[0].boxes) assert(box.x >= 0 && box.x + box.w <= cards[0].width && box.y + box.h < cards[0].height - 18);
+});
+
+test("wide portraits use the top row while long lore keeps its own wider text area", () => {
+  const team = project('Lore below the portrait.\n'.repeat(10)), operative = team.operatives[0];
+  operative.image = 'data:image/png;base64,AAAA';
+  const card = Cards.renderCard(operative, team)[0];
+  assert.match(card.svg, /class="operative-portrait"[^>]*><image[^>]+width="110" height="31"/);
+  const clip = /id="headerclip"><rect[^>]+height="([^"]+)"/.exec(card.svg);
+  assert.equal(Number(clip[1]), 33, 'lore must not expand the portrait beyond the top row');
+  assert(card.boxes.filter(box => box.kind === 'operative-lore').every(box => box.y >= 37));
+  assert.equal((card.svg.match(/class="stat-icon"/g) || []).length, 4);
+});

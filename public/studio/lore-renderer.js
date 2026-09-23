@@ -3,9 +3,11 @@
 const Cards=root.KTCards||(typeof require!=='undefined'?require('./card-renderer.js'):null);
 const Text=root.KTText||(typeof require!=='undefined'?require('./rich-text.js'):null);
 const Model=root.KTModel||(typeof require!=='undefined'?require('./model.js'):null);
+const References=root.KTReferences||(typeof require!=='undefined'?require('./reference-renderer.js'):null);
 const W=595.276,H=841.89,M=34,GAP=18,BOTTOM=803,INK='#26302c',esc=Cards.esc;
 function text(s,x,y,size=11,color=INK,bold=false){return '<text x="'+x+'" y="'+y+'" font-family="Roboto" font-size="'+size+'" fill="'+color+'"'+(bold?' font-weight="bold"':'')+'>'+esc(s)+'</text>'}
 function renderPage(page,data,assets={}){
+ if(page.layout==='references')return References.renderPage(page,data,assets);
  const pages=[],width=W-2*M,accent=data.layout.accent,title=page.name||'Картинки и лор';
  let s='',boxes=[],y=0,startY=0;
  const begin=()=>{
