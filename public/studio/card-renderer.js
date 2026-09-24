@@ -165,10 +165,15 @@ function operative(c,d,assets={},index=0){
  // Reserve room for the chosen type size instead of cutting off keywords after
  // two lines. Extremely long footers scale together to leave usable card space.
  const keywordScale=Math.min(1,(h-baseHeader-70)/Math.max(1,keywordHeight)),footer=Math.max(18,Math.ceil(keywordHeight*keywordScale+8));
- const stats=Object.entries(c.stats),statWidths=stats.map(([key])=>stats.length>4?26:/^(W|WOUNDS)$/.test(key)?36:28),start=w-statWidths.reduce((a,b)=>a+b,0);
+ const stats=Object.entries(c.stats),baseStatWidths=stats.map(([key])=>stats.length>4?26:/^(W|WOUNDS)$/.test(key)?36:28),statsWidth=baseStatWidths.reduce((a,b)=>a+b,0),originalStart=w-statsWidth;
  const uploaded=/^data:image\/(png|jpeg);base64,/.test(c.image||''),portrait=uploaded?c.image:assets[c.image];
- const portraitWidth=Math.min(110,start*.5),portraitX=start-portraitWidth,nw=start-(portrait?portraitWidth+5:8)-8;
+ // Add 50 px on each side at the 640 px reference card width. Keep stat cells
+ // inside the card by sharing the right-hand expansion across their widths.
+ const expansion=portrait?Math.min(50*w/640,statsWidth*.25):0;
+ const statWidths=baseStatWidths.map(width=>width*(statsWidth-expansion)/statsWidth),start=originalStart+expansion;
+ const portraitWidth=Math.min(110,originalStart*.5)+expansion*2,portraitX=start-portraitWidth,nw=start-(portrait?portraitWidth+5:8)-8;
  let size=14;while(measure(c.name,size,face(c.name))>nw&&size>10)size-=.25;
+ while(wrap(c.name,nw,size,face(c.name)).length>2&&size>8)size-=.25;
  const title=wrap(c.name,nw,size,face(c.name)).slice(0,2),titleY=title.length>1?14:23,loreTop=baseHeader+4;
  const loreLines=Text.plain(c.lore).trim()?richLines(c.lore,start-pad*2,6.8,'RobotoItalic',0,true):[];
  let loreCursor=0;
@@ -306,4 +311,3 @@ function renderDeck(d,assets={}){
 root.KTCards={renderCard,renderDeck,selectionCard,measure,wrap,SHORT,LONG,esc,teamLogo,inlineSVG};
 if(typeof module!=='undefined')module.exports=root.KTCards;
 })(typeof window!=='undefined'?window:globalThis);
-

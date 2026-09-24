@@ -118,6 +118,8 @@
     ["Для игры с друзьями загрузите изображения в Steam Cloud через TTS. Инструкция и настройка ссылок входят в архив.", "To play with friends, upload the images to Steam Cloud through TTS. Instructions and link setup are included in the archive."],
     ["Распакуйте архив и откройте", "Extract the archive and open"], ["— там настройка и пошаговый импорт.", "for setup and step-by-step import."],
     ["Область картинки оперативника", "Operative image crop"], ["Всё изображение", "Entire image"], ["Выбранный фрагмент", "Selected area"],
+    ["Масштаб фрагмента", "Crop zoom"], ["Уменьшить масштаб", "Zoom out"], ["Увеличить масштаб", "Zoom in"],
+    ["Выделите область на картинке. Рамку можно двигать и менять за углы. Ползунок и колесо мыши меняют масштаб фрагмента. Исходное изображение сохранится.", "Select an image area. Move the frame or resize its corners. Use the slider or mouse wheel to zoom the crop. The original image is preserved."],
     ["Загружаю картинку…", "Loading image…"], ["Выделите область на картинке. Рамку можно двигать и менять за углы. Исходное изображение сохранится.", "Select an image area. Move the frame or resize its corners. The original image is preserved."],
     ["На карточку попадёт только эта область, с сохранением пропорций.", "Only this area appears on the card, keeping its proportions."],
     ["Имя", "Name"], ["Пароль", "Password"], ["Повторите пароль", "Repeat password"], ["Регистрация", "Register"], ["Вход", "Sign in"],

@@ -3,6 +3,12 @@
 const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
 const full=()=>({x:0,y:0,width:1,height:1});
 function valid(rect){return !!rect&&['x','y','width','height'].every(key=>Number.isFinite(rect[key]))&&rect.x>=0&&rect.y>=0&&rect.width>0&&rect.height>0&&rect.x+rect.width<=1.000001&&rect.y+rect.height<=1.000001}
+function zoom(rect,factor,minWidth=.005,minHeight=.005){
+ if(!valid(rect)||!Number.isFinite(factor)||factor<=0)return {...rect};
+ const scale=clamp(1/factor,Math.max(minWidth/rect.width,minHeight/rect.height),Math.min(1/rect.width,1/rect.height));
+ const width=rect.width*scale,height=rect.height*scale;
+ return {x:clamp(rect.x+(rect.width-width)/2,0,1-width),y:clamp(rect.y+(rect.height-height)/2,0,1-height),width,height};
+}
 function drag(rect,start,end,mode,minWidth=.005,minHeight=.005){
  const dx=end.x-start.x,dy=end.y-start.y;
  if(mode==='move')return {...rect,x:clamp(rect.x+dx,0,1-rect.width),y:clamp(rect.y+dy,0,1-rect.height)};
@@ -25,13 +31,14 @@ function open(src,initial){
   const dialog=document.createElement('dialog'),events=new AbortController(),signal=events.signal;
   dialog.className='crop-dialog';dialog.setAttribute('aria-labelledby','crop-title');
   dialog.innerHTML='<div class="crop-heading"><h2 id="crop-title">Область картинки оперативника</h2><button type="button" data-crop-close aria-label="Закрыть выбор области">✕</button></div>'+
-   '<p class="crop-help" id="crop-help">Выделите область на картинке. Рамку можно двигать и менять за углы. Исходное изображение сохранится.</p>'+
+   '<p class="crop-help" id="crop-help">Выделите область на картинке. Рамку можно двигать и менять за углы. Ползунок и колесо мыши меняют масштаб фрагмента. Исходное изображение сохранится.</p>'+
+   '<div class="crop-zoom"><label for="crop-zoom">Масштаб фрагмента</label><button type="button" data-crop-zoom-out aria-label="Уменьшить масштаб" disabled>−</button><input id="crop-zoom" type="range" min="100" max="800" step="1" value="100" disabled><button type="button" data-crop-zoom-in aria-label="Увеличить масштаб" disabled>+</button><output for="crop-zoom" data-crop-zoom-value>100%</output></div>'+
    '<div class="crop-layout"><div class="crop-board"><div class="crop-stage" tabindex="0" aria-label="Область обрезки. Стрелки перемещают рамку, Shift ускоряет перемещение." aria-describedby="crop-help"><img class="crop-image" alt="Исходное изображение оперативника" draggable="false"><div class="crop-selection" hidden>'+
    [['nw','Верхний левый'],['ne','Верхний правый'],['sw','Нижний левый'],['se','Нижний правый']].map(([handle,label])=>'<button type="button" class="crop-handle crop-'+handle+'" data-crop-handle="'+handle+'" aria-label="'+label+' угол рамки. Стрелки меняют размер."></button>').join('')+'</div></div></div>'+
    '<div class="crop-preview"><span>Выбранный фрагмент</span><canvas aria-label="Предпросмотр выбранной области"></canvas><p class="hint">На карточку попадёт только эта область, с сохранением пропорций.</p></div></div>'+
    '<p class="crop-status" role="status">Загружаю картинку…</p><div class="crop-actions"><button type="button" data-crop-reset disabled>Всё изображение</button><button type="button" data-crop-close>Отмена</button><button type="button" class="primary" data-crop-apply disabled>Применить</button></div>';
   document.body.append(dialog);active=dialog;
-  const find=selector=>dialog.querySelector(selector),stage=find('.crop-stage'),img=find('.crop-image'),selection=find('.crop-selection'),canvas=find('canvas'),status=find('.crop-status');
+  const find=selector=>dialog.querySelector(selector),stage=find('.crop-stage'),img=find('.crop-image'),selection=find('.crop-selection'),canvas=find('canvas'),status=find('.crop-status'),zoomInput=find('#crop-zoom');
   let rect=valid(initial)?{...initial}:full(),pointer=null,ready=false,finished=false,observer,timer;
   const finish=result=>{if(finished)return;finished=true;clearTimeout(timer);events.abort();observer?.disconnect();if(dialog.open)dialog.close();dialog.remove();active=null;resolve(result)};
   const point=event=>{const box=stage.getBoundingClientRect();return {x:clamp((event.clientX-box.left)/box.width,0,1),y:clamp((event.clientY-box.top)/box.height,0,1)}};
@@ -43,7 +50,24 @@ function open(src,initial){
    const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
    ctx.drawImage(img,rect.x*img.naturalWidth,rect.y*img.naturalHeight,w,h,0,0,canvas.width,canvas.height);
    status.textContent='Выбрано '+Math.round(w)+' × '+Math.round(h)+' пикселей';
+   const percent=Math.round(100/Math.max(rect.width,rect.height));
+   zoomInput.disabled=false;zoomInput.max=Math.max(800,percent);zoomInput.value=percent;
+   find('[data-crop-zoom-value]').textContent=percent+'%';
+   find('[data-crop-zoom-out]').disabled=percent<=100;find('[data-crop-zoom-in]').disabled=percent>=Number(zoomInput.max);
   };
+  const setZoom=percent=>{
+   if(!ready||finished||pointer)return;
+   const target=clamp(percent,100,Number(zoomInput.max));
+   rect=zoom(rect,Math.max(rect.width,rect.height)*target/100,Math.min(1,4/img.naturalWidth),Math.min(1,4/img.naturalHeight));draw();
+  };
+  zoomInput.addEventListener('input',()=>setZoom(Number(zoomInput.value)),{signal});
+  find('[data-crop-zoom-out]').addEventListener('click',()=>setZoom(100/Math.max(rect.width,rect.height)/1.25),{signal});
+  find('[data-crop-zoom-in]').addEventListener('click',()=>setZoom(100/Math.max(rect.width,rect.height)*1.25),{signal});
+  stage.addEventListener('wheel',event=>{
+   if(!ready||pointer)return;
+   event.preventDefault();const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?stage.clientHeight:1);
+   setZoom(100/Math.max(rect.width,rect.height)*Math.exp(clamp(-delta*.0015,-1,1)));
+  },{signal,passive:false});
   const fit=()=>{if(!ready||finished)return;const scale=Math.min(1,Math.max(1,find('.crop-board').clientWidth-16)/img.naturalWidth,Math.min(520,innerHeight*.5)/img.naturalHeight);stage.style.width=Math.max(1,Math.round(img.naturalWidth*scale))+'px';stage.style.height=Math.max(1,Math.round(img.naturalHeight*scale))+'px'};
   dialog.addEventListener('cancel',event=>{event.preventDefault();finish(null)},{signal});
   dialog.addEventListener('close',()=>finish(null),{signal});
@@ -81,6 +105,6 @@ function open(src,initial){
   dialog.showModal();timer=setTimeout(failed,20000);img.src=src;
  });
 }
-root.KTOperativeCrop={open,drag,valid};
+root.KTOperativeCrop={open,drag,zoom,valid};
 if(typeof module!=='undefined')module.exports=root.KTOperativeCrop;
 })(typeof window!=='undefined'?window:globalThis);

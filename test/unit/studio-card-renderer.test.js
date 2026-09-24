@@ -130,12 +130,18 @@ test("wide portraits use the top row while long lore keeps its own wider text ar
   const team = project('Lore below the portrait.\n'.repeat(10)), operative = team.operatives[0];
   operative.image = 'data:image/png;base64,AAAA';
   const card = Cards.renderCard(operative, team)[0];
-  assert.match(card.svg, /class="operative-portrait"[^>]*><image[^>]+width="110" height="31"/);
+  const frame = /id="headerclip"><rect x="([^"]+)" width="([^"]+)"/.exec(card.svg);
+  const px = 640 / card.width, oldRight = card.width - 120, oldLeft = oldRight - 110;
+  assert(Math.abs((oldLeft - Number(frame[1])) * px - 50) < 1e-9, '50 reference pixels added to the left');
+  assert(Math.abs((Number(frame[1]) + Number(frame[2]) - oldRight) * px - 50) < 1e-9, '50 reference pixels added to the right');
   assert.match(card.svg, /preserveAspectRatio="xMidYMin slice"/);
   const clip = /id="headerclip"><rect[^>]+height="([^"]+)"/.exec(card.svg);
   assert.equal(Number(clip[1]), 33, 'lore must not expand the portrait beyond the top row');
   assert(card.boxes.filter(box => box.kind === 'operative-lore').every(box => box.y >= 37));
   assert.equal((card.svg.match(/class="stat-icon"/g) || []).length, 4);
+  const statX = [...card.svg.matchAll(/class="operative-stat"[^>]*><rect x="([^"]+)"/g)].map(match => Number(match[1]));
+  assert.equal(statX[0], Number(frame[1]) + Number(frame[2]));
+  assert(statX.every((x, index) => x < card.width && (!index || x > statX[index - 1])));
 });
 
 test("cropped portraits fill the header without stretching or leaking into titles, stats and rules", () => {

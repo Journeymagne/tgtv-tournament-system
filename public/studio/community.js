@@ -4,18 +4,24 @@ const $=selector=>document.querySelector(selector),esc=value=>KTCards.esc(String
 const labels={selectionCards:'Состав',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',operatives:'Оперативники',lorePages:'Картинки и лор'};
 let cloud,adapter,view='editor',requestVersion=0,query='',offset=0,publication,publicationSection='selectionCards',busy=false,busyAction='',deleteTarget=null,renameTarget=null,libraryTeams=[];
 const date=value=>value?new Date(value).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+function statusText(element,value){
+ const text=root.KTUI?.text(value)||value;
+ if(element.textContent!==text)element.textContent=text;
+}
 function status(){
  if(!adapter)return;
  const entry=cloud?.state(adapter.getData().team.id),guest=!root.KTAccount.id;
- $('#cloud-status').textContent=guest?'Гостевой режим · войдите, чтобы сохранить или опубликовать команду':entry?.saving?'Сохраняю в аккаунт…':entry?.error?'Правки ещё не сохранены в аккаунте · повторите попытку':!cloud?.isReady()?'Подключаю хранилище аккаунта…':entry?.dirty?'Есть правки · сохраняю автоматически':entry?.updatedAt?'Сохранено в аккаунте · '+date(entry.updatedAt):'Первое изменение создаст черновик в аккаунте';
- $('#save-status').textContent=guest?'Гостевые правки · войдите для сохранения в аккаунте':$('#cloud-status').textContent;
- $('#cloud-status').dataset.state=entry?.error?'error':entry?.dirty?'pending':'saved';
+ const message=guest?'Гостевой режим · войдите, чтобы сохранить или опубликовать команду':entry?.error?'Правки ещё не сохранены в аккаунте · повторите попытку':'';
+ statusText($('#cloud-status'),message);
+ $('#cloud-status').hidden=!message;
+ $('#cloud-status').dataset.state=entry?.error?'error':'';
  $('#cloud-status').title=entry?.error||'';
  $('#publish-team').disabled=busy;
- $('#publish-team').textContent=busy&&busyAction==='publish'?'Публикую…':entry?.publicationId?'Обновить публикацию':'Опубликовать';
+ statusText($('#publish-team'),busy&&busyAction==='publish'?'Публикую…':entry?.publicationId?'Обновить публикацию':'Опубликовать');
  $('#save-json').disabled=busy;
- $('#save-json').textContent=busy&&busyAction==='save'?'Сохраняю…':'Сохранить команду';
+ statusText($('#save-json'),busy&&busyAction==='save'?'Сохраняю…':'Сохранить команду');
  $('#retry-cloud').hidden=!entry?.error&&!!cloud?.isReady()||guest;
+ $('.cloud-indicator').hidden=!message&&$('#retry-cloud').hidden;
  if(view==='drafts'&&cloud)renderDrafts();
  for(const button of document.querySelectorAll('[data-rename-draft],[data-rename-publication],[data-delete-draft]'))button.disabled=busy;
 }
@@ -28,7 +34,7 @@ function authorLink(team){
 function card(team,draft=false){
  const logo=KTModel.isLogo(team.logo)?'<img class="team-tile-logo" src="'+esc(team.logo)+'" alt="" width="96" height="96" loading="lazy">':'';
  const rename=draft||team.canRename?'<button data-rename-'+(draft?'draft':'publication')+'="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Переименовать</button>':'';
- return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div>'+logo+'<h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p>'+(!draft?'<p class="team-author">'+authorLink(team)+'</p>':'')+'<div class="team-tile-meta"><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.dirty?'Есть правки · ожидают автосохранения':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
+ return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div>'+logo+'<h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p>'+(!draft?'<p class="team-author">'+authorLink(team)+'</p>':'')+'<div class="team-tile-meta"><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
 }
 function syncViewLocation(){
  const hash='#/'+view;
@@ -156,10 +162,12 @@ async function publish(){
  try{
   if(!await root.KTAccount.requireLogin('publish'))return;
   const snapshot=adapter.getData();if(!snapshot.team.name.trim())throw Error('Укажите название команды перед публикацией.');
+  const updating=!!cloud.state(snapshot.team.id)?.publicationId;
   if(!await adapter.persist())throw Error('Не удалось подготовить команду к сохранению.');
   const result=await cloud.save(snapshot.team.id,true);
   if(result.recoveredFrom){adapter.toast('Команда изменена в другой вкладке. Правки сохранены отдельным черновиком в аккаунте; при необходимости опубликуйте его.');return}
-  adapter.toast('Команда «'+result.name+'» опубликована в библиотеке.');offset=0;query='';$('#library-search').value='';await show('library');
+  adapter.toast('Команда «'+result.name+'» опубликована в библиотеке.');
+  if(!updating){offset=0;query='';$('#library-search').value='';await show('library')}
  }catch(error){adapter.toast('Не удалось опубликовать: '+error.message)}finally{busy=false;status()}
 }
 async function api(url){

@@ -59,12 +59,11 @@ function persist(edited=true){
  for(const c of data.selectionCards)c.size=c.selectionGroups.reduce((n,g)=>n+g.count,0)||1;
  const revision=++saveRevision,key=STORAGE+':'+data.team.id,value=JSON.stringify(data),team={...data.team};
  if(edited)window.KTCommunity?.track(JSON.parse(value));
- if(!KTAccount.id)$('#save-status').textContent='Сохраняю изменения…';
  return KTStorage.save(key,value).then(saved=>{
   if(removedProjects.has(team.id)){void KTStorage.remove(key);return false}
   const currentSave=revision===saveRevision&&team.id===data.team.id;
   if(saved)rememberProject(team,currentSave);
-  if(currentSave){if(KTAccount.id)window.KTCommunity?.status();else{$('#save-status').textContent=saved?'Правки только в этом браузере · войдите для сохранения':'Не удалось сохранить локальную копию';if(!saved)toast('Браузер не смог сохранить изменения. Освободите место и повторите попытку.')}}
+  if(currentSave){if(KTAccount.id)window.KTCommunity?.status();else if(!saved)toast('Браузер не смог сохранить изменения. Освободите место и повторите попытку.')}
   return saved;
  });
 }
