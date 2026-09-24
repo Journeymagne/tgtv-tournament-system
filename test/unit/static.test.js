@@ -10,6 +10,8 @@ test("корень отдаёт главную Companion, турнирная с�
   assert.equal(resolveStaticPath("/"), path.join(PUBLIC_DIR, "home.html"));
   assert.equal(resolveStaticPath("/tournament/"), path.join(PUBLIC_DIR, "index.html"));
   assert.equal(resolveStaticPath("/studio/"), path.join(PUBLIC_DIR, "studio", "index.html"));
+  assert.equal(resolveStaticPath("/rygau"), path.join(PUBLIC_DIR, "rygayu.html"));
+  assert.equal(resolveStaticPath("/rygau/"), path.join(PUBLIC_DIR, "rygayu.html"));
 });
 
 test("обычный файл разрешается внутри public", () => {
