@@ -14,6 +14,14 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.7.1
+
+Individual tournament settings now export statistics to Excel, including
+published places, configured tiebreakers and per-round scores. The Challenge
+column has unchecked boxes for manual marking in the downloaded file.
+Export is available to administrators after completion too. No new migrations
+are required. See [Excel export](#excel-export) for details.
+
 ## Release 4.6.1
 
 Published team cards are larger in Studio. Operatives appear one per row with
@@ -324,6 +332,17 @@ new source files or rerunning the seed does not overwrite administrator edits.
 To publish changes to a local Markdown file, import it in the editor and save.
 Include this table in regular database backups. Raw HTML is displayed as text;
 preview and public pages use the same Markdown renderer.
+
+## Excel export
+
+Individual tournament **Settings** include **Export statistics to Excel** (also
+available after completion). The `.xlsx` contains published places, or current
+standings before publication, factions, TP, configured tiebreakers and one group
+of score columns per generated round. `Prim` is the primary-op bonus; pending
+results stay blank and byes carry 3 TP. Published manual placement is retained.
+The **Challenge** column contains unchecked in-cell Excel checkboxes for manual
+marking in the downloaded file. These marks are not saved to the site. Viewers
+without support for Excel's in-cell checkboxes show editable FALSE/TRUE values.
 
 ## Tests
 

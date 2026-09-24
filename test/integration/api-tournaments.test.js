@@ -150,6 +150,53 @@ function scores(winnerId, loserId) {
   };
 }
 
+test("individual Excel export uses persisted results, is admin-only and rejects team events", async () => {
+  const { createRouter } = require("../../src/http/router");
+  const routes = require("../../src/api/routes");
+  const { startApiServer } = require("../helpers/client");
+  const { unzipSync, strFromU8 } = require("../../public/studio/vendor/fflate");
+  const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 1, venueMode: "irl" });
+  for (const name of ["Альфа", "Браво", "Чарли", "Дельта"]) await addUnregisteredParticipant(tournament, name);
+  const started = await closeAndStart(tournament);
+  for (const match of started.rounds[0].matches) {
+    await tournamentsApi.saveMatchResultAdmin({ client, user: root,
+      params: { id: String(tournament.id), matchId: String(match.id) },
+      body: { scores: scores(-match.participantAId, -match.participantBId) }
+    });
+  }
+  const current = await tournamentsApi.getAdmin({ client, user: root, params: { id: String(tournament.id) } });
+  const participantIds = current.standings.map(row => row.participantId).reverse();
+  await tournamentsApi.publishFinalStandingsAdmin({ client, user: root, params: { id: String(tournament.id) }, body: { participantIds } });
+  let viewer = null;
+  const server = await startApiServer(createRouter(routes, {
+    withClient: fn => fn(client), withTransaction: fn => fn(client), loadUser: async () => viewer
+  }));
+  try {
+    const url = `${server.baseUrl}/api/admin/tournaments/${tournament.id}/export.xlsx`;
+    assert.equal((await fetch(url)).status, 401);
+    viewer = { id: 999, isAdmin: false };
+    assert.equal((await fetch(url)).status, 403);
+    viewer = root;
+    const response = await fetch(url);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    assert.match(response.headers.get("content-disposition"), /attachment;.*\.xlsx/);
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+    const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    const sheet = strFromU8(files["xl/worksheets/sheet1.xml"]);
+    const first = current.participants.find(p => p.id === participantIds[0]);
+    assert.ok(sheet.includes(`<c r="C3" s="0" t="inlineStr"><is><t xml:space="preserve">${first.displayName}</t>`));
+    assert.match(sheet, /<c r="B3" s="4" t="b"><v>0<\/v>/);
+    assert.match(sheet, /<v>21<\/v>/);
+    assert.equal((await fetch(`${server.baseUrl}/api/admin/tournaments/999999/export.xlsx`)).status, 404);
+    const team = await tournamentsApi.createAdmin({ client, user: root,
+      body: tournamentBody({ name: "Team Cup", participantMode: "team", format: "swiss" }) });
+    assert.equal((await fetch(`${server.baseUrl}/api/admin/tournaments/${team.body.tournament.id}/export.xlsx`)).status, 400);
+  } finally {
+    await server.close();
+  }
+});
+
 for (const viaAdmin of [false, true]) {
   test(`winner identity collision is handled through ${viaAdmin ? "admin" : "player game"} result submission`, async () => {
     const loser = await createUser("Tony Te Amo");

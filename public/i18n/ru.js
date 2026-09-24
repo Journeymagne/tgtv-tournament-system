@@ -691,6 +691,8 @@ const TGTV_I18N_RU = {
   "admin.tournament.field.noPdfSelected": "PDF не выбран",
   "admin.tournament.field.existingPdf": "Прикреплён существующий PDF",
   "admin.tournament.edit.save": "Сохранить турнир",
+  "admin.tournament.action.exportExcel": "Экспорт статистики в Excel",
+  "admin.tournament.exportFailed": "Не удалось экспортировать статистику турнира",
   "admin.tournament.detail.viewPublic": "Открыть публичную страницу",
   "admin.tournament.detail.copyLink": "Скопировать ссылку",
   "admin.tournament.detail.copied": "Скопировано",

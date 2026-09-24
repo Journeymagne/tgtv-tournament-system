@@ -1423,6 +1423,26 @@ async function recalculateStandingsAdmin({ client, user, params, body = {} }) {
     recalculation: { repairedMatches: repairs.length, publishedPlacesReplaced: published } };
 }
 
+async function exportAdmin({ client, params }) {
+  const tournament = await requireTournament(client, params.id);
+  if (tournament.participantMode === "team") throw new ValidationError("Excel export is available for individual tournaments only");
+  const participants = await participantsRepo.listByTournament(client, tournament.id);
+  const rounds = await roundsRepo.listByTournament(client, tournament.id);
+  const matches = await matchesRepo.listByTournament(client, tournament.id);
+  const tables = await tablesRepo.listByTournament(client, tournament.id);
+  const people = await peopleForParticipants(client, participants);
+  const { tournamentExportXlsx } = require("../domain/tournaments/export");
+  const filename = `${tournament.name || "tournament"}-results.xlsx`;
+  return {
+    buffer: tournamentExportXlsx({ tournament, participants, rounds, matches, tables, people }),
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    headers: {
+      "Cache-Control": "private, no-store",
+      "Content-Disposition": `attachment; filename="tournament-${tournament.id}-results.xlsx"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    }
+  };
+}
+
 async function publishFinalStandingsAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   if (tournament.participantMode === "team") {
@@ -2048,6 +2068,7 @@ module.exports = {
   getRules,
   listAdmin,
   getAdmin,
+  exportAdmin,
   createAdmin,
   updateAdmin,
   deleteAdmin,

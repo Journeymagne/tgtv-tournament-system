@@ -682,6 +682,8 @@ const TGTV_I18N_EN = {
   "admin.tournament.field.noPdfSelected": "No PDF selected",
   "admin.tournament.field.existingPdf": "Existing PDF attached",
   "admin.tournament.edit.save": "Save tournament",
+  "admin.tournament.action.exportExcel": "Export statistics to Excel",
+  "admin.tournament.exportFailed": "Could not export tournament statistics",
   "admin.tournament.detail.viewPublic": "View public",
   "admin.tournament.detail.copyLink": "Copy link",
   "admin.tournament.detail.copied": "Copied",

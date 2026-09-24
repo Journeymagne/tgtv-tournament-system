@@ -22,6 +22,7 @@ function withAction(handler, action) {
 }
 
 module.exports = [
+  { method: "GET", path: "/api/admin/tournaments/:id/export.xlsx", handler: tournaments.exportAdmin, auth: "admin" },
   { method: "GET", path: "/api/teams/:id/members", handler: playerTeams.members, auth: "user" },
   { method: "GET", path: "/api/tournaments/revision", handler: tournamentLive.revision, auth: "none", loadUser: true },
   ...["team", "tournament", "roster"].map(kind => ({ method: "GET", path: "/api/" + kind + "-logos/:id", handler: ctx => tournamentLive.logo({ ...ctx, params: { ...ctx.params, kind } }), auth: "none", loadUser: true })),

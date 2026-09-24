@@ -8,7 +8,11 @@
 // back into.
 
 function adminTournamentSettingsContent(data) {
-  return adminTournamentEditForm(data.tournament || {});
+  const tournament = data.tournament || {};
+  const exportButton = tournament.id && tournament.participantMode !== "team"
+    ? `<div class="admin-save-row"><button type="button" class="small-button" data-admin-tournament-action="export-excel">${t("admin.tournament.action.exportExcel")}</button></div>`
+    : "";
+  return exportButton + adminTournamentEditForm(tournament);
 }
 
 function wireFeedbackAdminActions() {
@@ -1748,7 +1752,10 @@ async function runAdminTournamentAction(action) {
   const tournament = state.adminTournamentDetail?.tournament;
   if (!tournament) return;
   try {
-    if (action === "publish-open") {
+    if (action === "export-excel") {
+      await downloadTournamentExcel(tournament);
+      return;
+    } else if (action === "publish-open") {
       await api(`/api/admin/tournaments/${tournament.id}/publish`, {
         method: "POST",
         body: { status: "registration_open" }
@@ -1820,6 +1827,29 @@ async function runAdminTournamentAction(action) {
     renderTournaments();
   } catch (err) {
     setMessage(err.message, true);
+  }
+}
+
+async function downloadTournamentExcel(tournament) {
+  const button = document.querySelector('[data-admin-tournament-action="export-excel"]');
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch(`/api/admin/tournaments/${tournament.id}/export.xlsx`, { credentials: "same-origin" });
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      throw new Error(error?.error || t("admin.tournament.exportFailed"));
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${tournament.name || "tournament"}-results.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } finally {
+    if (button?.isConnected) button.disabled = false;
   }
 }
 
