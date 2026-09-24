@@ -3,7 +3,7 @@
 const Metrics=root.KTFontMetrics||(typeof require!=='undefined'?require('./font-metrics.js'):null);
 const MIN_SIZE=6,MAX_SIZE=24;
 const ORANGE='#f4511e',SKULL='💀',COLOR_OPEN='[color=orange]',COLOR_CLOSE='[/color]';
-const TRIANGLE='▶',DIAMOND='◆',SYMBOLS={[SKULL]:'Skull',[TRIANGLE]:'Triangle',[DIAMOND]:'Diamond'};
+const TRIANGLE='▶',DIAMOND='◆',BULLET='•',SYMBOLS={[SKULL]:'Skull',[TRIANGLE]:'Triangle',[DIAMOND]:'Diamond',[BULLET]:'Bullet'};
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 const same=(a,b)=>a.bold===b.bold&&a.italic===b.italic&&a.size===b.size&&a.font===b.font&&a.accentKey===b.accentKey&&a.color===b.color;
 function append(runs,text,style){
@@ -43,7 +43,7 @@ function parse(value){
  return segment(0,null,initial,0).runs;
 }
 function plain(value){return parse(value).map(run=>run.text).join('')}
-function glyphWidth(char,size,font){return (SYMBOLS[char]?.85:Metrics[char==='″'&&font==='Display'?'Roboto':font]?.[char]??.56)*size}
+function glyphWidth(char,size,font){return (char===BULLET?.55:SYMBOLS[char]?.85:Metrics[char==='″'&&font==='Display'?'Roboto':font]?.[char]??.56)*size}
 function layout(value,width,size=8.2,font='Roboto',gap=3,leading=1.28){
  const styled=[];
  for(const run of parse(value)){
@@ -64,7 +64,7 @@ function layout(value,width,size=8.2,font='Roboto',gap=3,leading=1.28){
   lines.push({runs,text:runs.map(run=>run.text).join(''),width:used+indent,indent,size:largest,font,height:largest*leading});
   glyphs=[];used=0;indent=hanging;
  };
- const add=glyph=>{if(!paragraphStarted){if(glyph.char===TRIANGLE||glyph.char===DIAMOND)hanging=Math.min(width/2,glyph.width+glyphWidth(' ',glyph.style.size,'Roboto'));paragraphStarted=true}glyphs.push(glyph);used+=glyph.width};
+ const add=glyph=>{if(!paragraphStarted){if(glyph.char===TRIANGLE||glyph.char===DIAMOND||glyph.char===BULLET)hanging=Math.min(width/2,glyph.width+glyphWidth(' ',glyph.style.size,'Roboto'));paragraphStarted=true}glyphs.push(glyph);used+=glyph.width};
  const flushWord=()=>{
   if(!word.length)return;
   const wordWidth=word.reduce((sum,glyph)=>sum+glyph.width,0),spaceWidth=glyphs.length&&space?space.width:0;
@@ -88,6 +88,10 @@ function svg(line,x,y,color='#141718',accent='',team=''){
   const runX=cursor+width(run.text.match(/^\s*/)[0]);cursor+=width(run.text);
   if(!run.text.trim())return '';
   const fillColor=run.color||(accent&&(run.accentKey==='*'||run.accentKey===team)?accent:color);
+  if(run.font==='Bullet'){
+   for(let i=0;i<Array.from(run.text).length;i++)symbols.push('<circle class="text-bullet" cx="'+(runX+(i*.55+.22)*run.size).toFixed(4)+'" cy="'+(y-run.size*.35)+'" r="'+(run.size*.14)+'" fill="'+ORANGE+'"/>');
+   return '';
+  }
   if(run.font==='Skull'){
    // A font-independent skull keeps the same outline in SVG, PDF and TTS.
    for(let i=0;i<Array.from(run.text).length;i++)symbols.push('<g class="text-skull" transform="translate('+(runX+i*run.size*.85).toFixed(4)+' '+(y-run.size*.8)+') scale('+(run.size*.85/16)+')"><path fill="'+esc(fillColor)+'" fill-rule="evenodd" d="M8 1C4 1 1 3.6 1 7c0 2.4 1 4 3 4.6V14h2v-2h1v2h2v-2h1v2h2v-2.4c2-.6 3-2.2 3-4.6C15 3.6 12 1 8 1Z M6.8 7.8a1.9 1.7 0 1 0-3.8 0a1.9 1.7 0 1 0 3.8 0Z M12.9 7.8a1.9 1.7 0 1 0-3.8 0a1.9 1.7 0 1 0 3.8 0Z M8 9l-1 2h2Z"/></g>');
@@ -110,6 +114,24 @@ function svg(line,x,y,color='#141718',accent='',team=''){
 // Return a replacement and selection, leaving the DOM and persistence to the editor.
 function format(value,start,end,kind,size){
  let from=start,to=end;
+ if(kind==='bullet'){
+  from=value.slice(0,start).lastIndexOf('\n')+1;
+  const last=end>start&&value[end-1]==='\n'?end-1:end;
+  to=value.indexOf('\n',last);if(to<0)to=value.length;
+  const lines=value.slice(from,to).split('\n'),prefix=/^([ \t]*)•(?:[ \t]+|$)/;
+  const populated=lines.filter(line=>line.trim()),remove=populated.length>0&&populated.every(line=>prefix.test(line));
+  const text=lines.map(line=>remove?line.replace(prefix,'$1'):prefix.test(line)||!line.trim()&&lines.length>1?line:line.replace(/^([ \t]*)/,'$1• ')).join('\n');
+  if(start===end){const min=text.match(/^(?:[ \t]*•[ \t]*|[ \t]*)/)[0].length,caret=from+Math.max(min,Math.min(text.length,start-from+text.length-(to-from)));return {from,to,text,start:caret,end:caret}}
+  return {from,to,text,start:from,end:from+text.length};
+ }
+ if(kind==='list-enter'){
+  const lineStart=value.slice(0,start).lastIndexOf('\n')+1;
+  let lineEnd=value.indexOf('\n',start);if(lineEnd<0)lineEnd=value.length;
+  const line=value.slice(lineStart,lineEnd),prefix=/^([ \t]*)•[ \t]+/.exec(line);
+  if(!prefix||start<lineStart+prefix[0].length||end>lineEnd)return null;
+  if(!line.slice(prefix[0].length).trim())return {from:lineStart,to:lineEnd,text:'',start:lineStart,end:lineStart};
+  const text='\n'+prefix[1]+BULLET+' ';return {from,to,text,start:from+text.length,end:from+text.length};
+ }
  if(kind==='skull')return {from,to,text:SKULL,start:from+SKULL.length,end:from+SKULL.length};
  if(kind==='triangle'||kind==='diamond'){const text=(kind==='triangle'?TRIANGLE:DIAMOND)+' ';return {from,to,text,start:from+text.length,end:from+text.length}}
  if((kind==='size'||kind==='clear')&&from===to){from=0;to=value.length}
@@ -132,14 +154,14 @@ function format(value,start,end,kind,size){
  // Each list option is stored on its own line; keep wrappers within those lines.
  let text=selected||'текст';
  if(kind==='size')text=text.replace(/\[size=\d+(?:\.\d+)?\]|\[\/size\]/g,'');
- const wrapped=text.split('\n').map(line=>line.trim()?line.replace(/^(\s*)(.*?)(\s*)$/,(_,before,body,after)=>before+open+body+close+after):line).join('\n');
+ const wrapped=text.split('\n').map(line=>line.trim()?line.replace(/^(\s*(?:•[ \t]+)?)(.*?)(\s*)$/,(_,before,body,after)=>before+open+body+close+after):line).join('\n');
  const starsBefore=value.slice(0,from).match(/\*+$/)?.[0].length||0,starsAfter=value.slice(to).match(/^\*+/)?.[0].length||0;
  const surrounding=kind==='bold'?starsBefore>=2&&starsAfter>=2:kind==='italic'?starsBefore%2===1&&starsAfter%2===1:kind==='orange'?value.slice(0,from).endsWith(open)&&value.startsWith(close,to):false;
  if(surrounding)return {from:from-open.length,to:to+close.length,text:selected,start:from-open.length,end:to-open.length};
  if(kind!=='size'&&selected.startsWith(open)&&selected.endsWith(close)&&selected.length>=open.length+close.length){const runs=parse(selected);if(runs.length&&runs.every(run=>kind==='bold'?run.bold:kind==='orange'?run.color===ORANGE:run.italic))return {from,to,text:selected.slice(open.length,-close.length),start:from,end:to-open.length-close.length}}
- const leading=text.match(/^\s*/)[0].length,trailing=text.match(/\s*$/)[0].length;
+ const leading=text.match(/^\s*(?:•[ \t]+)?/)[0].length,trailing=text.match(/\s*$/)[0].length;
  return {from,to,text:wrapped,start:from+(text.includes('\n')?0:leading+open.length),end:from+wrapped.length-(text.includes('\n')?0:trailing+close.length)};
 }
-root.KTText={parse,plain,layout,svg,format,MIN_SIZE,MAX_SIZE,ORANGE,SKULL,TRIANGLE,DIAMOND};
+root.KTText={parse,plain,layout,svg,format,MIN_SIZE,MAX_SIZE,ORANGE,SKULL,TRIANGLE,DIAMOND,BULLET};
 if(typeof module!=='undefined')module.exports=root.KTText;
 })(typeof window!=='undefined'?window:globalThis);

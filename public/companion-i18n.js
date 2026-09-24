@@ -3,6 +3,11 @@
 (function () {
   "use strict";
   const pairs = [
+    ["Подтверждение 1 из 2", "Confirmation 1 of 2"], ["Подтверждение 2 из 2", "Confirmation 2 of 2"],
+    ["Подтвердите действие", "Confirm action"], ["Вы уверены?", "Are you sure?"],
+    ["На следующем шаге потребуется ещё одно подтверждение.", "Another confirmation is required in the next step."],
+    ["Это действие нельзя отменить. Подтвердите ещё раз, чтобы продолжить.", "This action cannot be undone. Confirm again to continue."],
+    ["Продолжить", "Continue"], ["Да, заменить", "Yes, replace"], ["Да, удалить", "Yes, delete"],
     ["Турнирная система", "Tournament system"], ["Калькулятор инициативы", "Initiative Calculator"],
     ["Трекер активаций", "Activation Tracker"], ["КТ Студия", "KT Studio"],
     ["На главную KT Companion", "KT Companion home"], ["Войти", "Sign in"], ["Выйти", "Sign out"],
@@ -76,9 +81,11 @@
     ["+ Способность", "+ Ability"], ["+ Действие", "+ Action"], ["КАРТИНКА", "IMAGE"], ["Добавить картинку", "Add image"],
     ["Заменить картинку", "Replace image"], ["Удалить картинку", "Remove image"], ["Выбрать область", "Crop image"], ["Изменить область", "Adjust crop"],
     ["PNG, JPG или WebP · до 10 МБ.", "PNG, JPG or WebP · up to 10 MB."], ["Сохраняется в проекте, PDF и TTS.", "Saved in the project, PDF and TTS."],
-    ["Выберите область картинки для заголовка профиля. Исходник остаётся доступен для повторной обрезки.", "Choose the image area for the profile header. The original remains available for recropping."],
+    ["Портрет заполняет шапку по ширине; лишнее снизу обрезается. Кнопка «Выбрать область» задаёт нужный фрагмент. Исходник сохраняется.", "The portrait fills the header width, cropping the bottom. Use Choose area to adjust the framing. The original image is preserved."],
     ["Картинка появится после текста правила. Если места не хватит, она перейдёт на следующую сторону.", "The image appears after the rule text and continues on the next side if needed."],
     ["Ж", "B"], ["К", "I"], ["Оранжевый", "Orange"], ["Кегль, пт", "Size, pt"], ["Сброс", "Clear"],
+    ["Список", "List"], ["Маркированный список", "Bulleted list"], ["Добавить или убрать маркированный список", "Toggle bulleted list"],
+    ["Кнопка «Список» добавляет или убирает оранжевые маркеры у выделенных строк. Enter добавляет пункт; Enter в пустом пункте завершает список.", "The List button adds or removes orange bullets on selected lines. Enter adds an item; Enter on an empty item ends the list."],
     ["Как форматировать текст", "Text formatting help"], ["Размер шрифта в пунктах", "Font size in points"],
     ["Можно писать вручную:", "You can type formatting manually:"], ["Размер — от 6 до 24 пт. Для обычной звёздочки используйте", "Size: 6 to 24 pt. For a literal asterisk, use"],
     ["Загрузить проект", "Import project"], ["Скачать проект", "Download project"], ["Скачать исходные данные", "Download source data"],

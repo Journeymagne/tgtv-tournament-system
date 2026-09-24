@@ -131,8 +131,36 @@ test("wide portraits use the top row while long lore keeps its own wider text ar
   operative.image = 'data:image/png;base64,AAAA';
   const card = Cards.renderCard(operative, team)[0];
   assert.match(card.svg, /class="operative-portrait"[^>]*><image[^>]+width="110" height="31"/);
+  assert.match(card.svg, /preserveAspectRatio="xMidYMin slice"/);
   const clip = /id="headerclip"><rect[^>]+height="([^"]+)"/.exec(card.svg);
   assert.equal(Number(clip[1]), 33, 'lore must not expand the portrait beyond the top row');
   assert(card.boxes.filter(box => box.kind === 'operative-lore').every(box => box.y >= 37));
   assert.equal((card.svg.match(/class="stat-icon"/g) || []).length, 4);
+});
+
+test("cropped portraits fill the header without stretching or leaking into titles, stats and rules", () => {
+  for (const [width, height] of [[300, 600], [600, 160]]) {
+    const team = project('Lore below the portrait.'), operative = team.operatives[0];
+    operative.image = 'data:image/png;base64,AAAA';
+    operative.imageWidth = width;operative.imageHeight = height;
+    operative.imageCrop = { x: .1, y: .15, width: .75, height: .75 };
+    const saved = JSON.parse(JSON.stringify(team));
+    const cards = Cards.renderCard(operative, team), svg = cards[0].svg;
+    const attrs = tag => Object.fromEntries([...tag.matchAll(/([a-zA-Z]+)="([^"]+)"/g)].map(([, key, value]) => [key, Number(value)]));
+    const frame = attrs(svg.match(/id="headerclip"><rect[^>]+/)[0]);
+    const crop = attrs(svg.match(/id="operativecrop"><rect[^>]+/)[0]);
+    const image = attrs(svg.match(/class="operative-image-crop"[^>]+><image[^>]+/)[0]);
+    assert(crop.width >= frame.width && crop.height >= frame.height - 2);
+    assert.equal(crop.y, 1, 'keep the top of the chosen crop visible');
+    assert(Math.abs(image.width / image.height - width / height) < 1e-9, 'preserve the source proportions');
+    assert(Math.abs(image.y + operative.imageCrop.y * image.height - crop.y) < 1e-9);
+    const firstStat = attrs(svg.match(/class="operative-stat"[^>]+><rect[^>]+/)[0]);
+    assert.equal(frame.x + frame.width, firstStat.x, 'clip portraits at the first stat');
+    assert.equal(frame.height, 33, 'portrait stays in the original header row');
+    assert.deepEqual(team, saved, 'rendering does not rewrite the saved crop');
+    const pdf = buildTeamPDF(team, {}, { section: 'operatives', index: 0 });
+    assert.deepEqual(pdf.content.filter(item => item.svg).map(item => item.svg), cards.map(card => card.svg));
+    const tts = require('../../public/studio/tts-export').plan(team, {});
+    assert(JSON.stringify(tts).includes('operative-image-crop'));
+  }
 });

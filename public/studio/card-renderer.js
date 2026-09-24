@@ -178,12 +178,13 @@ function operative(c,d,assets={},index=0){
   const header=loreCursor>firstLore?Math.max(baseHeader,loreBottom+4):baseHeader;p.header=header;
   p.s+=rect(0,0,w,header,BLACK);
   if(portrait){
+   // Fill the header with a close-up, keeping the top of the chosen crop visible.
    p.s+='<defs><clipPath id="headerclip"><rect x="'+portraitX+'" width="'+portraitWidth+'" height="'+baseHeader+'"/></clipPath></defs><g class="operative-portrait" clip-path="url(#headerclip)">';
    if(c.imageCrop&&c.imageWidth&&c.imageHeight){
-    const crop=c.imageCrop,cw=crop.width*c.imageWidth,ch=crop.height*c.imageHeight,scale=Math.min(portraitWidth/cw,(baseHeader-2)/ch);
-    const x=portraitX+(portraitWidth-cw*scale)/2,y=1+(baseHeader-2-ch*scale)/2;
+    const crop=c.imageCrop,cw=crop.width*c.imageWidth,ch=crop.height*c.imageHeight,scale=Math.max(portraitWidth/cw,(baseHeader-2)/ch);
+    const x=portraitX+(portraitWidth-cw*scale)/2,y=1;
     p.s+='<defs><clipPath id="operativecrop"><rect x="'+x+'" y="'+y+'" width="'+cw*scale+'" height="'+ch*scale+'"/></clipPath></defs><g class="operative-image-crop" clip-path="url(#operativecrop)"><image x="'+(x-crop.x*c.imageWidth*scale)+'" y="'+(y-crop.y*c.imageHeight*scale)+'" width="'+c.imageWidth*scale+'" height="'+c.imageHeight*scale+'" preserveAspectRatio="none" xlink:href="'+esc(portrait)+'"/></g>';
-   }else p.s+='<image x="'+portraitX+'" y="1" width="'+portraitWidth+'" height="'+(baseHeader-2)+'" preserveAspectRatio="xMidYMid meet" xlink:href="'+esc(portrait)+'"/>';
+   }else p.s+='<image x="'+portraitX+'" y="1" width="'+portraitWidth+'" height="'+(baseHeader-2)+'" preserveAspectRatio="xMidYMin slice" xlink:href="'+esc(portrait)+'"/>';
    p.s+='</g>';
   }
   title.forEach((t,i)=>p.s+=txt(t,pad,titleY+i*12,size,'white',face(c.name)));

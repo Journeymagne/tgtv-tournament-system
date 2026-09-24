@@ -129,18 +129,20 @@ function field(label,key,value,type='text'){
   '<button type="button" data-format="skull" title="Вставить черепок в позицию курсора" aria-label="Вставить черепок">💀</button>'+
   '<button type="button" data-format="triangle" class="rich-triangle" title="Вставить зелёный треугольник" aria-label="Вставить зелёный треугольник">▶</button>'+
   '<button type="button" data-format="diamond" class="rich-diamond" title="Вставить красный ромб" aria-label="Вставить красный ромб">◆</button>'+
+  '<button type="button" data-format="bullet" title="Добавить или убрать маркированный список" aria-label="Маркированный список"><span class="rich-bullet" aria-hidden="true">•</span> <span>Список</span></button>'+
   '<label class="rich-size"><span class="visually-hidden">Размер шрифта в пунктах</span><select data-format-size aria-label="Размер шрифта в пунктах"><option value="">Кегль, пт</option>'+[6,7,8,9,10,11,12,14,16,18,20,24].map(n=>'<option value="'+n+'">'+n+' пт</option>').join('')+'</select></label>'+
   '<button type="button" data-format="clear" class="rich-clear" title="Убрать форматирование выделенного текста">Сброс</button></div>'+
   '<textarea id="'+id+'" data-field="'+esc(key)+'" aria-describedby="'+id+'-help">'+esc(value)+'</textarea>'+
-  '<details class="rich-help" id="'+id+'-help"><summary>Как форматировать текст</summary><p>Выделите текст и нажмите Ж, К, «Оранжевый» или выберите кегль. Повторное нажатие «Оранжевый» снимает цвет. Кнопки 💀, ▶ и ◆ вставляют черепок, зелёный треугольник и красный ромб в позицию курсора. Для пунктов действия ставьте ▶ или ◆ в начале новой строки — продолжение выровняется по тексту. Без выделения кегль применяется ко всему полю.</p><p>Можно писать вручную: <code>**жирный**</code>, <code>*курсив*</code>, <code>***оба***</code>, <code>[color=orange]оранжевый 💀[/color]</code>, <code>[size=12]текст[/size]</code>. Размер — от 6 до 24 пт. Для обычной звёздочки используйте <code>\\*</code>.</p></details></div>';
+  '<details class="rich-help" id="'+id+'-help"><summary>Как форматировать текст</summary><p>Выделите текст и нажмите Ж, К, «Оранжевый» или выберите кегль. Повторное нажатие «Оранжевый» снимает цвет. Кнопки 💀, ▶ и ◆ вставляют черепок, зелёный треугольник и красный ромб в позицию курсора. Для пунктов действия ставьте ▶ или ◆ в начале новой строки — продолжение выровняется по тексту. Без выделения кегль применяется ко всему полю.</p><p>Кнопка «Список» добавляет или убирает оранжевые маркеры у выделенных строк. Enter добавляет пункт; Enter в пустом пункте завершает список.</p><p>Можно писать вручную: <code>**жирный**</code>, <code>*курсив*</code>, <code>***оба***</code>, <code>[color=orange]оранжевый 💀[/color]</code>, <code>[size=12]текст[/size]</code>. Размер — от 6 до 24 пт. Для обычной звёздочки используйте <code>\\*</code>.</p></details></div>';
 }
 function formatText(el,kind,size){
- const edit=KTText.format(el.value,el.selectionStart,el.selectionEnd,kind,size);if(!edit)return;
+ const edit=KTText.format(el.value,el.selectionStart,el.selectionEnd,kind,size);if(!edit)return false;
  el.focus();el.setSelectionRange(edit.from,edit.to);
  // Use the browser's editing operation so toolbar changes participate in Undo.
  // Older browsers can still apply the same replacement through setRangeText.
  if(!document.execCommand?.('insertText',false,edit.text)){el.setRangeText(edit.text,edit.from,edit.to,'select');updateField(el)}
  el.setSelectionRange(edit.start,edit.end);
+ return true;
 }
 function select(label,key,value,items){return '<label>'+label+'<select data-field="'+key+'">'+items.map(([k,v])=>'<option value="'+esc(k)+'" '+(k===value?'selected':'')+'>'+esc(v)+'</option>').join('')+'</select></label>'}
 function check(label,key,value){return '<label class="checkbox"><input type="checkbox" data-field="'+key+'" '+(value?'checked':'')+'>'+label+'</label>'}
@@ -191,7 +193,7 @@ function selectionEditor(c){return c.selectionGroups.map((g,i)=>{
 function imageEditor(c){
  const uri=/^data:image\/(png|jpeg);base64,/.test(c.image||'')?c.image:assets[c.image];
  const operative=c.kind==='operative',prefix=operative?'operative':'card',label=operative?'оперативника':'правила';
- return panel('КАРТИНКА','<div class="operative-image-editor">'+(uri?'<img class="operative-image-thumb" src="'+esc(uri)+'" alt="Картинка '+label+'">':'<div class="operative-image-empty" aria-hidden="true">＋</div>')+'<div><input id="'+prefix+'-image-file" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" aria-label="Выбрать картинку '+label+'"><button id="choose-'+prefix+'-image">'+(c.image?'Заменить картинку':'Добавить картинку')+'</button>'+(operative&&c.image?'<button id="crop-operative-image">'+(c.imageCrop?'Изменить область':'Выбрать область')+'</button>':'')+(c.image?'<button id="remove-'+prefix+'-image" class="danger">Удалить картинку</button>':'')+'<p class="hint">PNG, JPG или WebP · до 10 МБ.<br>'+(operative?'Выберите область картинки для заголовка профиля. Исходник остаётся доступен для повторной обрезки.':'Картинка появится после текста правила. Если места не хватит, она перейдёт на следующую сторону.')+' Сохраняется в проекте, PDF и TTS.</p></div></div>');
+ return panel('КАРТИНКА','<div class="operative-image-editor">'+(uri?'<img class="operative-image-thumb" src="'+esc(uri)+'" alt="Картинка '+label+'">':'<div class="operative-image-empty" aria-hidden="true">＋</div>')+'<div><input id="'+prefix+'-image-file" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" aria-label="Выбрать картинку '+label+'"><button id="choose-'+prefix+'-image">'+(c.image?'Заменить картинку':'Добавить картинку')+'</button>'+(operative&&c.image?'<button id="crop-operative-image">'+(c.imageCrop?'Изменить область':'Выбрать область')+'</button>':'')+(c.image?'<button id="remove-'+prefix+'-image" class="danger">Удалить картинку</button>':'')+'<p class="hint">PNG, JPG или WebP · до 10 МБ.<br>'+(operative?'Портрет заполняет шапку по ширине; лишнее снизу обрезается. Кнопка «Выбрать область» задаёт нужный фрагмент. Исходник сохраняется.':'Картинка появится после текста правила. Если места не хватит, она перейдёт на следующую сторону.')+' Сохраняется в проекте, PDF и TTS.</p></div></div>');
 }
 function logoEditor(){
  const logo=KTModel.isLogo(data.team.logo)?data.team.logo:'';
@@ -350,7 +352,9 @@ function updateField(el){
 document.addEventListener('input',e=>{if(e.target.dataset.field)updateField(e.target);if(e.target.id==='tts-folder'){$('#tts-result').hidden=true;$('#tts-status').textContent='Папка изменена. Соберите архив заново.'}});
 document.addEventListener('keydown',e=>{
  if(e.key==='Escape'&&referenceTarget){referenceTarget=null;renderEditor();return}
- if(!e.target.matches?.('.rich-field textarea')||!(e.ctrlKey||e.metaKey)||e.altKey)return;
+ if(!e.target.matches?.('.rich-field textarea')||e.isComposing)return;
+ if(e.key==='Enter'&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey&&!e.altKey){if(formatText(e.target,'list-enter'))e.preventDefault();return}
+ if(!(e.ctrlKey||e.metaKey)||e.altKey)return;
  const key=e.code==='KeyB'?'b':e.code==='KeyI'?'i':e.key.toLowerCase();if(key==='b'||key==='i'){e.preventDefault();formatText(e.target,key==='b'?'bold':'italic')}
 });
 document.addEventListener('change',async e=>{
@@ -385,8 +389,28 @@ async function importJSON(file){
   persist();render();toast('Проект загружен'+(optimized.changed?' · картинки уменьшены: '+optimized.changed:'')+(optimized.skipped?' · часть картинок оставлена без изменений':''));
  }catch(e){toast('Не удалось загрузить: '+e.message)}
 }
-document.addEventListener('click',e=>{
+function deletionIntent(button){
+ const c=current(),d=button.dataset,a=d.action;
+ let target;
+ if(d.removeNested)target=c[d.removeNested]?.[Number(d.index)]?.name;
+ else if(d.removeGroup!==undefined)target=c.selectionGroups[Number(d.removeGroup)]?.description;
+ else if(d.removeEntry!==undefined)target=c.selectionGroups[Number(d.removeEntry)]?.entries[Number(d.index)]?.text;
+ else if(d.removeCap!==undefined)target=c.groupCaps[Number(d.removeCap)]?.keyword;
+ else if(d.referenceRemoveCallout!==undefined)target=c.images[Number(d.referenceRemoveCallout)]?.callouts[Number(d.index)]?.text;
+ else if(d.loreRemove){const image=c.images.find(item=>item.id===d.loreRemove);target=image?.modelName||image?.caption}
+ else if(button.id==='delete-weapon-profile')target=data.weaponProfiles.find(profile=>profile.id===weaponProfileChoice)?.name;
+ else if(button.id==='remove-team-logo'||a==='restore')target=data.team.name;
+ else if(['remove-operative-image','remove-card-image'].includes(button.id)||['clear','confirm-delete'].includes(a))target=c?.name;
+ else return null;
+ return {subject:button.textContent.trim()+(target?' — '+target:''),alreadyConfirmed:a==='confirm-delete',replace:a==='restore'||a==='clear'};
+}
+document.addEventListener('click',async e=>{
  const b=e.target.closest('button');if(!b)return;
+ const deletion=deletionIntent(b);
+ if(deletion){
+  const project=data,card=current();
+  if(!await KTDelete.confirm(deletion)||data!==project||current()!==card||!b.isConnected)return;
+ }
  if(b.id==='new-project'){showCreateProject();return}
  if(b.id==='shrink-project-images'){void shrinkProjectImages();return}
  if(b.id==='choose-team-logo'){$('#team-logo-file').click();return}
@@ -475,12 +499,12 @@ document.addEventListener('click',e=>{
   if(KTModel.isFilled(c)&&!confirm('Заменить содержимое этой карточки выбранным предметом?'))return;
   const source=data.sourceArchive.equipment[Number(value)];data.equipment[selected]={...KTModel.normalizeCard(source),id:c.id};side=0;persist();render();toast('Предмет добавлен в эту карточку');
  }
- if(a==='clear'&&confirm('Очистить выбранное место?')){data[section][selected]=KTModel.blank(c.id,c.kind);side=0;persist();render()}
+ if(a==='clear'){data[section][selected]=KTModel.blank(c.id,c.kind);side=0;persist();render()}
  if(a==='duplicate'){const copy=structuredClone(c);copy.id=uid();copy.name+=' (copy)';data[section].push(copy);selected=data[section].length-1;side=0;persist();render()}
  if(a==='delete'){b.closest('.row-actions').innerHTML='<span>Удалить '+(section==='lorePages'?'страницу':'карточку')+' «'+esc(c.name)+'»?</span><button data-action="cancel-delete">Отмена</button><button class="danger" data-action="confirm-delete" data-card-id="'+esc(c.id)+'">Да, удалить</button>';return}
  if(a==='cancel-delete'){renderEditor();return}
  if(a==='confirm-delete'&&b.dataset.cardId===c.id){if(section==='operatives')for(const selection of data.selectionCards){selection.excludedOperativeIds=selection.excludedOperativeIds.filter(id=>id!==c.id);for(const g of selection.selectionGroups)for(const e of g.entries)if(e.operativeId===c.id)e.operativeId=''}data[section].splice(selected,1);side=0;persist();render()}
- if(a==='restore'&&confirm('Заменить текущую команду исходным примером '+original.team.name+'?')){data=structuredClone(original);section='selectionCards';selected=0;side=0;persist();render()}
+ if(a==='restore'){data=structuredClone(original);section='selectionCards';selected=0;side=0;persist();render()}
 });
 const portraitJobs=new WeakMap();
 const logoJobs=new WeakMap();

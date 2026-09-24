@@ -8,6 +8,74 @@ const TTS = require('../../public/studio/tts-export');
 const Roster = require('../../public/studio/new-recruit');
 const apply = (value, edit) => value.slice(0, edit.from) + edit.text + value.slice(edit.to);
 
+test('list formatting toggles whole selected lines without changing adjacent paragraphs or inline formatting', () => {
+ const source = 'Intro\n**First item**\nSecond item\n\nAfter';
+ const edit = Text.format(source, source.indexOf('First'), source.indexOf('\n\n') + 1, 'bullet');
+ const listed = apply(source, edit);
+ assert.equal(listed, 'Intro\n• **First item**\n• Second item\n\nAfter');
+ assert.equal(apply(listed, Text.format(listed, edit.start, edit.end, 'bullet')), source);
+ const mixed = '• Already listed\n\n  New item';
+ assert.equal(apply(mixed, Text.format(mixed, 0, mixed.length, 'bullet')), '• Already listed\n\n  • New item');
+ assert.equal(apply('', Text.format('', 0, 0, 'bullet')), '• ');
+ const caret = Text.format('Before\nItem text', 10, 10, 'bullet');
+ assert.equal(apply('Before\nItem text', caret), 'Before\n• Item text');
+ assert.equal(caret.start, 12);assert.equal(caret.end, 12);
+});
+
+test('Enter continues or splits a list item and exits an empty item without consuming surrounding text', () => {
+ const source = '  • First item';
+ assert.equal(apply(source, Text.format(source, source.length, source.length, 'list-enter')), source + '\n  • ');
+ const split = '• First second';
+ assert.equal(apply(split, Text.format(split, 8, 8, 'list-enter')), '• First \n• second');
+ const empty = '• First\n  • \nAfter';
+ const end = empty.indexOf('\nAfter');
+ assert.equal(apply(empty, Text.format(empty, end, end, 'list-enter')), '• First\n\nAfter');
+ assert.equal(Text.format('Ordinary paragraph', 4, 4, 'list-enter'), null);
+ assert.equal(Text.format('• Item', 0, 0, 'list-enter'), null);
+ assert.equal(Text.format('• First\nSecond', 4, 11, 'list-enter'), null);
+});
+
+test('formatting a whole list item keeps its marker outside inline markup so list editing still works', () => {
+ const source = '• First item';
+ const edit = Text.format(source, 0, source.length, 'bold');
+ const styled = apply(source, edit);
+ assert.equal(styled, '• **First item**');
+ assert.equal(styled.slice(edit.start, edit.end), 'First item');
+ assert.equal(apply(styled, Text.format(styled, edit.start, edit.end, 'bold')), source);
+ assert.equal(apply(styled, Text.format(styled, styled.length, styled.length, 'list-enter')), styled + '\n• ');
+ assert.equal(apply(styled, Text.format(styled, 0, styled.length, 'bullet')), '**First item**');
+});
+
+test('orange bullet vectors keep body colours and hanging indents on wrapped items', () => {
+ const source = '• Enemy operatives cannot assist.\n• If incapacitated, strike before removing the operative.\n• Normal damage inflicts one less damage.';
+ const lines = Text.layout(source, 90, 10);
+ assert(lines.every(line => line.width <= 90));
+ assert.equal(lines.filter(line => line.text.startsWith('•')).length, 3);
+ for (const line of lines) assert.equal(line.indent > 0, !line.text.startsWith('•'));
+ assert.equal(lines.map(line => line.text).join('').replace(/\s/g, ''), source.replace(/\s/g, ''));
+ const svg = lines.map((line, i) => Text.svg(line, 0, 12 + 14 * i, 'white')).join('');
+ assert.equal((svg.match(/<circle class="text-bullet"[^>]+fill="#f4511e"/g) || []).length, 3);
+ assert(svg.includes('fill="white"'));assert(!svg.includes('font-family="Bullet"'));
+ assert.equal(Text.plain('• **Item**'), '• Item');
+});
+
+test('bullets survive saved projects and pagination in card, PDF, TTS and ROSZ exports', () => {
+ const project = keywordProject('CHAOS, LEADER');
+ const body = Array.from({ length: 36 }, (_, i) => '• **Item ' + i + '**: Friendly operatives can perform this action.').join('\n');
+ project.operatives[0].body = body;
+ const restored = Model.validate(Model.migrate(JSON.parse(JSON.stringify(project))));
+ assert.equal(restored.operatives[0].body, body);
+ const cards = Cards.renderCard(restored.operatives[0], restored);
+ assert(cards.length > 1);
+ const svgs = cards.map(card => card.svg);
+ assert.equal((svgs.join('').match(/class="text-bullet"/g) || []).length, 36);
+ const pdf = buildTeamPDF(restored, {}, { section: 'operatives', index: 0 });
+ assert.deepEqual(pdf.content.filter(item => item.svg).map(item => item.svg), svgs);
+ assert(JSON.stringify(TTS.plan(restored, {})).includes('text-bullet'));
+ const ros = Roster.build(restored).xml;
+ assert(ros.includes('• Item 35'));assert(!ros.includes('**Item'));
+});
+
 test('orange text combines with bold, italic and size without colouring adjacent text', () => {
  const source = 'Before [color=orange]***[size=12]KEYWORD💀[/size]***[/color] after';
  const runs = Text.parse(source), keyword = runs.find(run => run.text.includes('KEYWORD'));
