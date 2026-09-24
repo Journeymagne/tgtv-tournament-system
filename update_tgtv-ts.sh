@@ -6,6 +6,16 @@ set -e
 #   bash update_tgtv-ts.sh production
 #   bash update_tgtv-ts.sh staging
 
+# Отключаем tty и говорим ssh использовать askpass
+unset SSH_ASKPASS 2>/dev/null || true
+export SSH_ASKPASS=/root/.ssh/askpass.sh
+export SSH_ASKPASS_REQUIRE=force      # OpenSSH 8.4+
+export DISPLAY=:0                     # нужен для старых версий OpenSSH
+export GIT_TERMINAL_PROMPT=0          # чтобы git не лез в терминал
+
+# Отключаем запрос через tty — обязательно, иначе ssh спросит в консоли
+export GIT_SSH_COMMAND="setsid -w ssh -o StrictHostKeyChecking=accept-new"
+
 ENV="${1:-production}"
 
 case "$ENV" in
