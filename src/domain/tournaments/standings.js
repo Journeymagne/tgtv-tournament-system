@@ -96,9 +96,9 @@ function trimmedBuchholz(opponentMatchPoints) {
 }
 
 function buildStandings(participants, matches, tiebreakerOrder = []) {
-  const active = participants.filter((participant) => !["withdrawn", "removed"].includes(participant.status));
   const participantsById = new Map(participants.map((participant) => [participant.id, participant]));
-  const rows = active.map((participant) => {
+  // Withdrawn players still contribute earned points to their opponents' SoS.
+  const allRows = participants.map((participant) => {
     const row = {
       participant,
       wins: 0,
@@ -126,7 +126,8 @@ function buildStandings(participants, matches, tiebreakerOrder = []) {
     return row;
   });
 
-  const byParticipantId = new Map(rows.map((row) => [row.participant.id, row]));
+  const byParticipantId = new Map(allRows.map((row) => [row.participant.id, row]));
+  const rows = allRows.filter(row => !["withdrawn", "removed"].includes(row.participant.status));
   for (const row of rows) {
     const opponentMatchPoints = row.opponents.map((opponentId) =>
       Number(byParticipantId.get(opponentId)?.matchPoints || 0)

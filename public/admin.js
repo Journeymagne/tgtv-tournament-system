@@ -598,6 +598,9 @@ function adminTournamentActionButtons(data) {
       }
     }
   }
+  if (tournament.participantMode !== "team" && ["in_progress", "completed"].includes(tournament.status)) {
+    buttons.push(`<button class="small-button" data-admin-tournament-action="recalculate-standings">${t("admin.tournament.action.recalculateStandings")}</button>`);
+  }
   return buttons.length ? buttons.join("") : `<span class="muted">${t("admin.tournament.action.locked")}</span>`;
 }
 
@@ -1765,6 +1768,26 @@ async function runAdminTournamentAction(action) {
       state.tournamentInfoTab = "matches";
     } else if (action === "generate-next-round") {
       await openNextRoundSetupModal(tournament.id);
+      return;
+    } else if (action === "recalculate-standings") {
+      if (state.adminStandingsRecalculating) return;
+      state.adminStandingsRecalculating = true;
+      try {
+        const replacePublished = tournament.status === "completed" || Boolean(tournament.finalResults?.length);
+        if (!await confirmAction({
+          message: t(replacePublished ? "dialog.admin.recalculatePublishedStandings" : "dialog.admin.recalculateStandings"),
+          confirmLabel: t("admin.tournament.action.recalculateStandings"), danger: replacePublished
+        })) return;
+        const data = await api(`/api/admin/tournaments/${tournament.id}/standings/recalculate`, {
+          method: "POST", body: { replacePublished }
+        });
+        state.adminTournamentDetail = data;
+        state.tournamentInfoTab = "standings";
+        renderTournaments();
+        setMessage(t("admin.tournament.standingsRecalculated", { count: data.recalculation.repairedMatches }));
+      } finally {
+        state.adminStandingsRecalculating = false;
+      }
       return;
     } else if (action === "close-tournament") {
       if (!await confirmAction({ message: t("dialog.admin.closeTournament"), confirmLabel: t("admin.tournament.action.closeTournament"), danger: false })) return;

@@ -413,6 +413,13 @@ module.exports = [
   },
   {
     method: "POST",
+    path: "/api/admin/tournaments/:id/standings/recalculate",
+    handler: tournaments.recalculateStandingsAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "POST",
     path: "/api/admin/tournaments/:id/standings/publish",
     handler: tournaments.publishFinalStandingsAdmin,
     auth: "admin",

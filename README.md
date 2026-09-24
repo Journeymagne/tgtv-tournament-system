@@ -39,6 +39,9 @@ Tournament winners are read only from `winnerParticipantId`; database checks rej
 out-of-match/cross-tournament identities and incorrect game-to-participant mappings.
 Public ID namespaces are additive; existing numeric URLs and API fields remain.
 See [ID contract, compatibility and upgrade limits](docs/id-namespaces.md).
+Administrators can now use **Recalculate standings** in an individual tournament
+to rebuild results, points, tiebreakers and places. Replacing published places and
+podium awards requires confirmation. See [standings recalculation](docs/standings-recalculation.md).
 
 Release 4.5 applies migration **034** automatically on startup. It repairs
 individual tournament winners and match points when a user's ID was mistaken

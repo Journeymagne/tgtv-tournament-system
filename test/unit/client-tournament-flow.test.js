@@ -105,7 +105,7 @@ test("completed rounds replace Generate next round with Close tournament", () =>
 
   assert.match(markup, /data-admin-tournament-action="close-tournament"/);
   assert.doesNotMatch(markup, /generate-next-round/);
-  assert.deepEqual(translatedKeys, ["admin.tournament.action.closeTournament"]);
+  assert.deepEqual(translatedKeys, ["admin.tournament.action.closeTournament", "admin.tournament.action.recalculateStandings"]);
 });
 
 test("the admin standings tab reuses the existing standings table only", () => {

@@ -1368,6 +1368,61 @@ async function applyTournamentElo(client, tournament, participantA, participantB
   return { ...venueElo, combined };
 }
 
+async function recalculateStandingsAdmin({ client, user, params, body = {} }) {
+  if (!user?.isAdmin) throw new HttpError(403, "Administrator access required");
+  const tournament = await requireTournament(client, params.id, { forUpdate: true });
+  if (tournament.participantMode === "team") throw new HttpError(409, "This action is for individual tournaments");
+  if (!["in_progress", "completed"].includes(tournament.status)) {
+    throw new HttpError(409, "Start the tournament before recalculating standings");
+  }
+  const published = tournament.status === "completed" || Boolean(tournament.finalResults?.length);
+  if (published && body.replacePublished !== true) {
+    throw new HttpError(409, "Confirm replacing published places and podium awards");
+  }
+  const participants = await participantsRepo.lockByTournament(client, tournament.id);
+  await client.query("SELECT id FROM tournament_matches WHERE tournament_id=$1 ORDER BY id FOR UPDATE", [tournament.id]);
+  const matches = await matchesRepo.listByTournament(client, tournament.id);
+  const completed = matches.filter(match => match.status === "completed");
+  if (!completed.length) throw new HttpError(409, "No completed matches to recalculate");
+  const gameIds = completed.map(match => match.gameId).filter(Number.isInteger);
+  const games = new Map((await gamesRepo.listByIds(client, gameIds)).map(game => [game.id, game]));
+  const gameParticipants = await require("../db/repositories/game-participants").listByGameIds(client, gameIds);
+  const { recalculateMatch } = require("../domain/tournaments/recalculate");
+  const { isDeepStrictEqual } = require("node:util");
+  // Build and validate the whole plan before changing any match. The route also
+  // runs in one transaction under the same tournament lock as result submission.
+  const repairs = completed.map(match => ({ match, patch: recalculateMatch(match, participants,
+    games.get(match.gameId), gameParticipants.filter(p => p.gameId === match.gameId)) }))
+    .filter(({ match, patch }) => Object.entries(patch).some(([key, value]) => !isDeepStrictEqual(match[key], value)));
+  for (const { match, patch } of repairs) {
+    if (tournament.format === "single_elimination" && patch.winnerParticipantId !== match.winnerParticipantId &&
+        matches.some(child => (child.sourceMatchAId === match.id && child.participantAId !== patch.winnerParticipantId) ||
+          (child.sourceMatchBId === match.id && child.participantBId !== patch.winnerParticipantId))) {
+      throw new HttpError(409, `Match ${match.id}: correct the downstream elimination bracket before recalculating`);
+    }
+  }
+  const before = { finalResults: tournament.finalResults, matches: repairs.map(({ match, patch }) =>
+    ({ id: match.id, ...Object.fromEntries(Object.keys(patch).map(key => [key, match[key]])) })) };
+  for (const { match, patch } of repairs) {
+    await matchesRepo.update(client, match.id, patch);
+    Object.assign(match, patch);
+  }
+  const standings = buildStandings(participants, matches, tournament.tiebreakerOrder);
+  const previous = new Map((tournament.finalResults || []).map(row => [row.participantId, row]));
+  const finalResults = published ? standings.map(row => ({
+    ...previous.get(row.participant.id), ...finalResultFromStanding(row, row.rank)
+  })) : tournament.finalResults;
+  const updated = await tournamentsRepo.update(client, tournament.id, { finalResults });
+  if (published) await require("../db/repositories/achievements").syncPodium(client, updated, user.id);
+  await audit(client, updated, user, "standings_recalculated", {
+    entityType: "tournament", entityId: tournament.id, before,
+    after: { finalResults, matches: repairs.map(({ match, patch }) => ({ id: match.id, ...patch })) },
+    metadata: { repairedMatches: repairs.length, publishedPlacesReplaced: published }
+  });
+  return { ...await fullView(client, updated, user, { includeAudit: true }),
+    recalculation: { repairedMatches: repairs.length, publishedPlacesReplaced: published } };
+}
+
 async function publishFinalStandingsAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   if (tournament.participantMode === "team") {
@@ -2015,6 +2070,7 @@ module.exports = {
   updateTableAdmin,
   deleteTableAdmin,
   publishFinalStandingsAdmin,
+  recalculateStandingsAdmin,
   submitResult,
   confirmResult,
   rejectResult,
