@@ -133,7 +133,7 @@ test("wide portraits use the top row while long lore keeps its own wider text ar
   const frame = /id="headerclip"><rect x="([^"]+)" width="([^"]+)"/.exec(card.svg);
   const px = 640 / card.width, oldRight = card.width - 120, oldLeft = oldRight - 110;
   assert(Math.abs((oldLeft - Number(frame[1])) * px - 50) < 1e-9, '50 reference pixels added to the left');
-  assert(Math.abs((Number(frame[1]) + Number(frame[2]) - oldRight) * px - 50) < 1e-9, '50 reference pixels added to the right');
+  assert(Math.abs(Number(frame[1]) + Number(frame[2]) - oldRight) < 1e-9, 'portrait leaves the reference stat widths intact');
   assert.match(card.svg, /preserveAspectRatio="xMidYMin slice"/);
   const clip = /id="headerclip"><rect[^>]+height="([^"]+)"/.exec(card.svg);
   assert.equal(Number(clip[1]), 33, 'lore must not expand the portrait beyond the top row');
@@ -141,6 +141,8 @@ test("wide portraits use the top row while long lore keeps its own wider text ar
   assert.equal((card.svg.match(/class="stat-icon"/g) || []).length, 4);
   const statX = [...card.svg.matchAll(/class="operative-stat"[^>]*><rect x="([^"]+)"/g)].map(match => Number(match[1]));
   assert.equal(statX[0], Number(frame[1]) + Number(frame[2]));
+  const noPortrait = Cards.renderCard({ ...operative, image: '' }, team)[0];
+  assert.deepEqual(statX, [...noPortrait.svg.matchAll(/class="operative-stat"[^>]*><rect x="([^"]+)"/g)].map(match => Number(match[1])), 'portraits do not compress the stat columns');
   assert(statX.every((x, index) => x < card.width && (!index || x > statX[index - 1])));
 });
 

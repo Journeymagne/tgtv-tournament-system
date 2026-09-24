@@ -37,6 +37,8 @@ const STAT_ICONS={
  SAVE:'M15.3485,5.4988 L15.3485,26.3773 L8.104,21.5907 L8.104,5.4988 Z M23.8989,21.5907 L16.6512,26.3773 L16.6512,5.4988 L23.8989,5.4988 Z M3.8099,0 L15.3475,0 L15.3475,4.2125 L6.8161,4.2125 L6.8161,22.2849 L15.3475,27.9198 L15.3475,32 L3.8099,24.3814 Z M28.1901,0 L28.1901,24.3814 L16.6525,32 L16.6525,27.9198 L25.1871,22.2849 L25.1871,4.2125 L16.6525,4.2125 L16.6525,0 Z',
  WOUNDS:'M16,22.5167 L20.7449,27.2584 L16,32 L11.2584,27.2584 Z M16,20.9762 L10.8681,26.1081 L16,0 L21.1319,26.1081 Z'
 };
+// Visible contour bounds, excluding the padding in the normalized icon square.
+const STAT_ICON_BOUNDS={APL:[0,3.0612,32,28.9388],MOVE:[0,1.9567,32,30.0433],SAVE:[3.8099,0,28.1901,32],WOUNDS:[10.8681,0,21.1319,32]};
 function icon(key,x,y,size,c){
  const stat=STAT_ICONS[({M:'MOVE',SV:'SAVE',W:'WOUNDS'})[key]||key];
  if(stat)return '<g class="stat-icon" transform="translate('+x+' '+y+') scale('+(size/32)+')" fill="'+c+'"><path d="'+stat+'"/></g>';
@@ -157,12 +159,11 @@ function portrait(c,d,assets={},index=0){
  return sides;
 }
 function operativeHeader(c,hasPortrait){
- const stats=Object.entries(c.stats),baseStatWidths=stats.map(([key])=>stats.length>4?26:/^(W|WOUNDS)$/.test(key)?36:28),statsWidth=baseStatWidths.reduce((a,b)=>a+b,0),originalStart=LONG-statsWidth;
- // Add 50 px on each side at the 640 px reference card width. Keep stat cells
- // inside the card by sharing the right-hand expansion across their widths.
+ const stats=Object.entries(c.stats),statWidths=stats.map(([key])=>stats.length>4?26:/^(W|WOUNDS)$/.test(key)?36:28),statsWidth=statWidths.reduce((a,b)=>a+b,0),start=LONG-statsWidth;
+ // Keep the reference stat widths. The portrait may extend left into the title
+ // area, but must not borrow room from the icons and values on its right.
  const expansion=hasPortrait?Math.min(50*LONG/640,statsWidth*.25):0;
- const statWidths=baseStatWidths.map(width=>width*(statsWidth-expansion)/statsWidth),start=originalStart+expansion;
- const portraitWidth=Math.min(110,originalStart*.5)+expansion*2;
+ const portraitWidth=Math.min(110,start*.5)+expansion;
  return {stats,statWidths,start,portraitWidth,portraitX:start-portraitWidth};
 }
 function portraitFrame(c){return {width:operativeHeader(c,true).portraitWidth,height:OPERATIVE_HEADER}}
@@ -212,9 +213,9 @@ function operative(c,d,assets={},index=0){
   }
   let statX=start;
   stats.forEach(([key,val],i)=>{
-   const sw=statWidths[i],x=statX,iconSize=12.5,inset=({SAVE:3.8099,SV:3.8099,WOUNDS:10.8681,W:10.8681})[key]||0,iconWidth=(32-2*inset)*iconSize/32,gap=1.5;
+   const sw=statWidths[i],x=statX,statKey=({M:'MOVE',SV:'SAVE',W:'WOUNDS'})[key]||key,[left,top,right,bottom]=STAT_ICON_BOUNDS[statKey]||[0,0,32,32],iconSize=10*32/(bottom-top),iconWidth=(right-left)*iconSize/32,gap=1.5;
    const valueSize=Math.min(15,15*(sw-3.5-iconWidth-gap)/Math.max(1,measure(val,15,'Display'))),valueWidth=measure(val,valueSize,'Display'),inkX=x+1.6+(sw-1.6-iconWidth-gap-valueWidth)/2;
-   statX+=sw;p.s+='<g class="operative-stat" data-stat="'+esc(key)+'">'+rect(x,0,1.6,header,'#e6e8e4')+txt(key,x+(sw+1.6)/2,12,7.5,'white','Display','text-anchor="middle"')+icon(key,inkX-inset*iconSize/32,18,iconSize,C)+txt(val,inkX+iconWidth+gap+valueWidth/2,29.5,valueSize,'white','Display','text-anchor="middle"')+'</g>';
+   statX+=sw;p.s+='<g class="operative-stat" data-stat="'+esc(key)+'">'+rect(x,0,1.6,header,'#e6e8e4')+txt(key,x+(sw+1.6)/2,14,7.5,'white','Display','text-anchor="middle"')+icon(key,inkX-left*iconSize/32,19.5-top*iconSize/32,iconSize,C)+txt(val,inkX+iconWidth+gap+valueWidth/2,29.5,valueSize,'white','Display','text-anchor="middle"')+'</g>';
   });
   p.s+=rect(0,h-footer,w,footer,BLACK);
   let keywordY=0;p.s+='<g class="operative-keywords" transform="translate('+pad+' '+(h-footer+4)+') scale('+keywordScale+')">';

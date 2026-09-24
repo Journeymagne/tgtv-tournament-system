@@ -14,6 +14,12 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.7.5
+
+Operative stat columns retain the reference card widths even with a portrait.
+Standard values use a consistent font size, and icons share the same visible
+height in Studio, PDF and TTS. No new database migrations are required.
+
 ## Release 4.7.4
 
 Studio deletion uses one confirmation dialog for teams, cards, weapons,
