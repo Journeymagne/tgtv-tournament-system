@@ -116,9 +116,7 @@ function confirmDelete(id){
  $('#delete-project-error').textContent='';$('#review-delete-project').hidden=true;$('#delete-project-dialog').showModal();
 }
 async function deleteProject(){
- if(busy||!deleteTarget)return;
- const target=deleteTarget;
- if(!await KTDelete.confirm({subject:target.name,alreadyConfirmed:true})||busy||deleteTarget!==target||!$('#delete-project-dialog').open)return;
+ if(busy||!deleteTarget||!$('#delete-project-dialog').open)return;
  const {id,revision}=deleteTarget;busy=true;busyAction='delete';
  $('#confirm-delete-project').disabled=true;$('#cancel-delete-project').disabled=true;$('#delete-project-error').textContent='';status();
  try{

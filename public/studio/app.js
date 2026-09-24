@@ -399,9 +399,9 @@ function deletionIntent(button){
  else if(d.loreRemove){const image=c.images.find(item=>item.id===d.loreRemove);target=image?.modelName||image?.caption}
  else if(button.id==='delete-weapon-profile')target=data.weaponProfiles.find(profile=>profile.id===weaponProfileChoice)?.name;
  else if(button.id==='remove-team-logo'||a==='restore')target=data.team.name;
- else if(['remove-operative-image','remove-card-image'].includes(button.id)||['clear','confirm-delete'].includes(a))target=c?.name;
+ else if(['remove-operative-image','remove-card-image'].includes(button.id)||['clear','delete'].includes(a))target=c?.name;
  else return null;
- return {subject:button.textContent.trim()+(target?' — '+target:''),alreadyConfirmed:a==='confirm-delete',replace:a==='restore'||a==='clear'};
+ return {subject:button.textContent.trim()+(target?' — '+target:''),replace:a==='restore'||a==='clear'};
 }
 document.addEventListener('click',async e=>{
  const b=e.target.closest('button');if(!b)return;
@@ -500,9 +500,7 @@ document.addEventListener('click',async e=>{
  }
  if(a==='clear'){data[section][selected]=KTModel.blank(c.id,c.kind);side=0;persist();render()}
  if(a==='duplicate'){const copy=structuredClone(c);copy.id=uid();copy.name+=' (copy)';data[section].push(copy);selected=data[section].length-1;side=0;persist();render()}
- if(a==='delete'){b.closest('.row-actions').innerHTML='<span>Удалить '+(section==='lorePages'?'страницу':'карточку')+' «'+esc(c.name)+'»?</span><button data-action="cancel-delete">Отмена</button><button class="danger" data-action="confirm-delete" data-card-id="'+esc(c.id)+'">Да, удалить</button>';return}
- if(a==='cancel-delete'){renderEditor();return}
- if(a==='confirm-delete'&&b.dataset.cardId===c.id){if(section==='operatives')for(const selection of data.selectionCards){selection.excludedOperativeIds=selection.excludedOperativeIds.filter(id=>id!==c.id);for(const g of selection.selectionGroups)for(const e of g.entries)if(e.operativeId===c.id)e.operativeId=''}data[section].splice(selected,1);side=0;persist();render()}
+ if(a==='delete'){if(section==='operatives')for(const selection of data.selectionCards){selection.excludedOperativeIds=selection.excludedOperativeIds.filter(id=>id!==c.id);for(const g of selection.selectionGroups)for(const e of g.entries)if(e.operativeId===c.id)e.operativeId=''}data[section].splice(selected,1);side=0;persist();render()}
  if(a==='restore'){data=structuredClone(original);section='selectionCards';selected=0;side=0;persist();render()}
 });
 const portraitJobs=new WeakMap();

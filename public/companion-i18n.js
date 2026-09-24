@@ -3,10 +3,8 @@
 (function () {
   "use strict";
   const pairs = [
-    ["Подтверждение 1 из 2", "Confirmation 1 of 2"], ["Подтверждение 2 из 2", "Confirmation 2 of 2"],
     ["Подтвердите действие", "Confirm action"], ["Вы уверены?", "Are you sure?"],
-    ["На следующем шаге потребуется ещё одно подтверждение.", "Another confirmation is required in the next step."],
-    ["Это действие нельзя отменить. Подтвердите ещё раз, чтобы продолжить.", "This action cannot be undone. Confirm again to continue."],
+    ["Это действие нельзя отменить.", "This action cannot be undone."],
     ["Продолжить", "Continue"], ["Да, заменить", "Yes, replace"], ["Да, удалить", "Yes, delete"],
     ["Турнирная система", "Tournament system"], ["Калькулятор инициативы", "Initiative Calculator"],
     ["Трекер активаций", "Activation Tracker"], ["КТ Студия", "KT Studio"],

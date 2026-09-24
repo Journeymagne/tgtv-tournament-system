@@ -14,6 +14,12 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.7.4
+
+Studio deletion uses one confirmation dialog for teams, cards, weapons,
+abilities, images and other elements. Cancellation and deletion conflict
+handling are preserved. No new database migrations are required.
+
 ## Release 4.7.2
 
 Studio portrait framing supports vertical shifts beyond the top of the card and
