@@ -9,7 +9,7 @@ const image = (id, uri = large) => ({ ...Model.blank(id, 'operative'), image: ur
 test('project resizing covers all uploaded images, shares encodes and keeps crop framing', async () => {
  const project = Model.newProject('resize');project.team.logo = large;
  project.operatives = [image('one'), image('two')];
- const crop = { x: .2, y: .1, width: .5, height: .5 };project.operatives[0].imageCrop = crop;
+ const crop = { x: .2, y: .1, width: .5, height: .5, offsetY: -.4, scale: .5 };project.operatives[0].imageCrop = crop;
  project.teamCards = [{ ...image('rule'), kind: 'faction' }, { ...image('asset', 'assets/rule.png'), kind: 'faction' }];
  project.lorePages = [{ images: [{ id: 'photo', image: large }] }];
  const calls = [];

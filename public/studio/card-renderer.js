@@ -3,7 +3,7 @@
 const F=root.KTFontMetrics||(typeof require!=='undefined'?require('./font-metrics.js'):null);
 const Text=root.KTText||(typeof require!=='undefined'?require('./rich-text.js'):null);
 const Model=root.KTModel||(typeof require!=='undefined'?require('./model.js'):null);
-const MM=72/25.4,SHORT=70*MM,LONG=121*MM,BLACK='#141718',SAGE='#6e7b70';
+const MM=72/25.4,SHORT=70*MM,LONG=121*MM,OPERATIVE_HEADER=33,BLACK='#141718',SAGE='#6e7b70';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 const face=s=>/[\u0400-\u04ff]/.test(s)?'RobotoBold':'Display';
 const characterFont=(c,font)=>c==='″'&&font==='Display'?'Roboto':font;
@@ -156,8 +156,22 @@ function portrait(c,d,assets={},index=0){
  }while(cursor<all.length||imagePending);
  return sides;
 }
+function operativeHeader(c,hasPortrait){
+ const stats=Object.entries(c.stats),baseStatWidths=stats.map(([key])=>stats.length>4?26:/^(W|WOUNDS)$/.test(key)?36:28),statsWidth=baseStatWidths.reduce((a,b)=>a+b,0),originalStart=LONG-statsWidth;
+ // Add 50 px on each side at the 640 px reference card width. Keep stat cells
+ // inside the card by sharing the right-hand expansion across their widths.
+ const expansion=hasPortrait?Math.min(50*LONG/640,statsWidth*.25):0;
+ const statWidths=baseStatWidths.map(width=>width*(statsWidth-expansion)/statsWidth),start=originalStart+expansion;
+ const portraitWidth=Math.min(110,originalStart*.5)+expansion*2;
+ return {stats,statWidths,start,portraitWidth,portraitX:start-portraitWidth};
+}
+function portraitFrame(c){return {width:operativeHeader(c,true).portraitWidth,height:OPERATIVE_HEADER}}
+function portraitPlacement(crop,imageWidth,imageHeight,frame){
+ const width=crop.width*imageWidth,height=crop.height*imageHeight,scale=Math.max(frame.width/width,(frame.height-2)/height)*(crop.scale??1);
+ return {x:(frame.width-width*scale)/2,y:1+(crop.offsetY||0)*height*scale,width:width*scale,height:height*scale,scale};
+}
 function operative(c,d,assets={},index=0){
- const w=LONG,h=SHORT,pad=8,inner=w-16,baseHeader=33,C=d.layout.accent,sides=[];
+ const w=LONG,h=SHORT,pad=8,inner=w-16,baseHeader=OPERATIVE_HEADER,C=d.layout.accent,sides=[];
  const baseSize=(c.baseSize||'').trim(),baseWidth=baseSize?(/^\d+(?:[.,]\d+)?$/.test(baseSize)?16:Math.max(16,Math.min(48,measure(baseSize,7,'RobotoBold')+6))):0;
  const baseSpace=baseSize?baseWidth+6:0,logoSpace=Model.isLogo(d.team.logo)?24:0;
  const keywordLines=richLines(c.keywords.join(', '),inner-(baseSize?baseSpace+logoSpace:24),5.6,'RobotoBold',0,true);
@@ -165,13 +179,8 @@ function operative(c,d,assets={},index=0){
  // Reserve room for the chosen type size instead of cutting off keywords after
  // two lines. Extremely long footers scale together to leave usable card space.
  const keywordScale=Math.min(1,(h-baseHeader-70)/Math.max(1,keywordHeight)),footer=Math.max(18,Math.ceil(keywordHeight*keywordScale+8));
- const stats=Object.entries(c.stats),baseStatWidths=stats.map(([key])=>stats.length>4?26:/^(W|WOUNDS)$/.test(key)?36:28),statsWidth=baseStatWidths.reduce((a,b)=>a+b,0),originalStart=w-statsWidth;
  const uploaded=/^data:image\/(png|jpeg);base64,/.test(c.image||''),portrait=uploaded?c.image:assets[c.image];
- // Add 50 px on each side at the 640 px reference card width. Keep stat cells
- // inside the card by sharing the right-hand expansion across their widths.
- const expansion=portrait?Math.min(50*w/640,statsWidth*.25):0;
- const statWidths=baseStatWidths.map(width=>width*(statsWidth-expansion)/statsWidth),start=originalStart+expansion;
- const portraitWidth=Math.min(110,originalStart*.5)+expansion*2,portraitX=start-portraitWidth,nw=start-(portrait?portraitWidth+5:8)-8;
+ const {stats,statWidths,start,portraitWidth,portraitX}=operativeHeader(c,!!portrait),nw=start-(portrait?portraitWidth+5:8)-8;
  let size=14;while(measure(c.name,size,face(c.name))>nw&&size>10)size-=.25;
  while(wrap(c.name,nw,size,face(c.name)).length>2&&size>8)size-=.25;
  const title=wrap(c.name,nw,size,face(c.name)).slice(0,2),titleY=title.length>1?14:23,loreTop=baseHeader+4;
@@ -183,12 +192,11 @@ function operative(c,d,assets={},index=0){
   const header=loreCursor>firstLore?Math.max(baseHeader,loreBottom+4):baseHeader;p.header=header;
   p.s+=rect(0,0,w,header,BLACK);
   if(portrait){
-   // Fill the header with a close-up, keeping the top of the chosen crop visible.
+   // Move the chosen fragment independently of the fixed header clipping frame.
    p.s+='<defs><clipPath id="headerclip"><rect x="'+portraitX+'" width="'+portraitWidth+'" height="'+baseHeader+'"/></clipPath></defs><g class="operative-portrait" clip-path="url(#headerclip)">';
    if(c.imageCrop&&c.imageWidth&&c.imageHeight){
-    const crop=c.imageCrop,cw=crop.width*c.imageWidth,ch=crop.height*c.imageHeight,scale=Math.max(portraitWidth/cw,(baseHeader-2)/ch);
-    const x=portraitX+(portraitWidth-cw*scale)/2,y=1;
-    p.s+='<defs><clipPath id="operativecrop"><rect x="'+x+'" y="'+y+'" width="'+cw*scale+'" height="'+ch*scale+'"/></clipPath></defs><g class="operative-image-crop" clip-path="url(#operativecrop)"><image x="'+(x-crop.x*c.imageWidth*scale)+'" y="'+(y-crop.y*c.imageHeight*scale)+'" width="'+c.imageWidth*scale+'" height="'+c.imageHeight*scale+'" preserveAspectRatio="none" xlink:href="'+esc(portrait)+'"/></g>';
+    const crop=c.imageCrop,placement=portraitPlacement(crop,c.imageWidth,c.imageHeight,{width:portraitWidth,height:baseHeader}),{scale,y}=placement,x=portraitX+placement.x;
+    p.s+='<defs><clipPath id="operativecrop"><rect x="'+x+'" y="'+y+'" width="'+placement.width+'" height="'+placement.height+'"/></clipPath></defs><g class="operative-image-crop" clip-path="url(#operativecrop)"><image x="'+(x-crop.x*c.imageWidth*scale)+'" y="'+(y-crop.y*c.imageHeight*scale)+'" width="'+c.imageWidth*scale+'" height="'+c.imageHeight*scale+'" preserveAspectRatio="none" xlink:href="'+esc(portrait)+'"/></g>';
    }else p.s+='<image x="'+portraitX+'" y="1" width="'+portraitWidth+'" height="'+(baseHeader-2)+'" preserveAspectRatio="xMidYMin slice" xlink:href="'+esc(portrait)+'"/>';
    p.s+='</g>';
   }
@@ -308,6 +316,6 @@ function renderCard(c,d,assets={},index=0){return c.kind==='selection'?selection
 function renderDeck(d,assets={}){
  return [...d.selectionCards,...d.teamCards,...d.strategicPloys,...d.firefightPloys,...d.equipment,...d.operatives].flatMap((c,i)=>renderCard(c,d,assets,(['equipment','firefight','strategic'].includes(c.kind)?d[c.kind==='equipment'?'equipment':c.kind==='firefight'?'firefightPloys':'strategicPloys'].indexOf(c):i)));
 }
-root.KTCards={renderCard,renderDeck,selectionCard,measure,wrap,SHORT,LONG,esc,teamLogo,inlineSVG};
+root.KTCards={renderCard,renderDeck,selectionCard,measure,wrap,SHORT,LONG,esc,teamLogo,inlineSVG,portraitFrame,portraitPlacement};
 if(typeof module!=='undefined')module.exports=root.KTCards;
 })(typeof window!=='undefined'?window:globalThis);

@@ -3523,7 +3523,10 @@ function gameCard(game) {
   const players = game.players || [];
   const isTournamentGame = game.sourceType === "tournament_match";
   const playerUserId = (player) => Number(player.userId || (player.hasProfile === false ? 0 : player.id));
-  const title = players.map((player) => playerUserId(player) === state.me.id ? t("play.game.you") : player.name).join(" vs ");
+  const title = players.map((player) => playerProfileLink({
+    ...player,
+    name: playerUserId(player) === state.me.id ? t("play.game.you") : player.name
+  })).join(" vs ");
   const isParticipant = players.some((player) => playerUserId(player) === state.me.id);
   const isPending = game.status === "pending_confirmation";
   const status = game.status === "completed" ? "completed" : isPending ? "pending" : "open";
@@ -3558,7 +3561,7 @@ function gameCard(game) {
   return `
     <div class="row-card">
       <div class="row-main">
-        <div class="row-title">${escapeHtml(title)}</div>
+        <div class="row-title">${title}</div>
         <div class="row-meta">${escapeHtml(meta)}</div>
       </div>
       <div class="row-actions">
@@ -6042,6 +6045,7 @@ function wireGameButtons() {
   document.querySelectorAll("[data-game-exit]").forEach((button) => {
     onLive(button, "click", () => exitOpenGame(Number(button.dataset.gameExit)));
   });
+  wireLeaderboardProfiles();
 }
 
 async function exitOpenGame(gameId) {
@@ -6187,6 +6191,7 @@ function renderResultForm(gameId, options = {}) {
   document.querySelector("[data-tiebreaker-enabled]")?.addEventListener("change", refreshResultPreview);
   wireComboFields();
   const resultForm = document.querySelector("[data-result-form]");
+  wireLeaderboardProfiles();
   resultForm.querySelector("[data-debug-random-result]")?.addEventListener("click", () => {
     fillDebugRandomResult(game.players);
     refreshResultPreview();
@@ -6424,6 +6429,7 @@ function renderTournamentResultForm(data, match, options = {}) {
   document.querySelector("[data-tiebreaker-enabled]").addEventListener("change", refreshResultPreview);
   wireComboFields();
   const resultForm = document.querySelector("[data-tournament-result-form]");
+  wireLeaderboardProfiles();
   resultForm.querySelector("[data-debug-random-result]")?.addEventListener("click", () => {
     fillDebugRandomResult(game.players);
     refreshResultPreview();
@@ -6654,7 +6660,7 @@ function tieValueLine(game, values = {}) {
 function scoreCard(player, score = {}) {
   return `
     <div class="score-card" data-score-card="${player.id}">
-      <h4>${escapeHtml(player.name)}</h4>
+      <h4>${playerProfileLink(player)}</h4>
       <div class="score-meta-grid">
         ${comboField(t("games.filter.teamLabel"), `faction-${player.id}`, "faction", score.faction || player.faction || "", t("tournaments.score.searchKillTeam"))}
         ${comboField(t("op.tac"), `tac-op-${player.id}`, "tacOp", score.tacOp, t("tournaments.score.searchTacOp"))}

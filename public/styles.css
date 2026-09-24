@@ -2258,6 +2258,14 @@ tr:last-child td {
   text-transform: uppercase;
 }
 
+.score-card h4 .inline-profile-link {
+  color: inherit;
+}
+
+.score-card h4 .inline-profile-link:hover {
+  text-decoration: underline;
+}
+
 .score-meta-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

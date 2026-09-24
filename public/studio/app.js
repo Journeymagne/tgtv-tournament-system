@@ -575,7 +575,7 @@ async function editOperativeCrop(){
  const source=card.image,token={},button=$('#crop-operative-image');portraitJobs.set(card,token);if(button)button.disabled=true;
  try{
   const uri=/^data:image\//.test(source)?source:assets[source]||source;
-  const result=await KTOperativeCrop.open(uri,card.imageCrop);
+  const result=await KTOperativeCrop.open(uri,card.imageCrop,KTCards.portraitFrame(card));
   if(!result||data!==project||!data.operatives.includes(card)||card.image!==source||portraitJobs.get(card)!==token)return;
   card.imageCrop=result.crop;card.imageWidth=result.width;card.imageHeight=result.height;
   persist();if(current()===card){renderEditor();renderPreview()}toast('Выбранная область перенесена на карточку');

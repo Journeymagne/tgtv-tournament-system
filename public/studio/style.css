@@ -44,3 +44,4 @@ header{height:auto;min-height:72px;flex-wrap:wrap;padding-top:10px;padding-botto
 .cloud-indicator[hidden]{display:none}.sidebar-bottom{overflow-anchor:none}
 
 .crop-zoom{display:flex;align-items:center;gap:10px;margin:12px 0 20px;flex-wrap:wrap}.crop-zoom label{margin:0}.crop-zoom input[type=range]{width:auto;min-width:80px;max-width:360px;flex:1;padding:0;accent-color:#f4511e}.crop-zoom button{padding:5px 10px;min-width:34px}.crop-zoom output{min-width:5ch;text-align:right;font-variant-numeric:tabular-nums}
+.crop-preview canvas.crop-header-preview{height:auto;max-height:none;background:#141718}

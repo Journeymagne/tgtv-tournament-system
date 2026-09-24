@@ -14,6 +14,13 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.7.2
+
+Studio portrait framing supports vertical shifts beyond the top of the card and
+zooming out to 10%. The preview shows the actual card header; saved projects,
+PDF and TTS retain the framing. Player names in game cards and result forms
+link to their profiles. No new database migrations are required.
+
 ## Release 4.7.1
 
 Individual tournament settings now export statistics to Excel, including

@@ -170,3 +170,51 @@ test("cropped portraits fill the header without stretching or leaking into title
     assert(JSON.stringify(tts).includes('operative-image-crop'));
   }
 });
+
+test("portraits can shrink below original size while preserving proportions, offsets and exports", () => {
+  const team = project(), operative = team.operatives[0];
+  operative.image = 'data:image/png;base64,AAAA';operative.imageWidth = 400;operative.imageHeight = 240;
+  operative.imageCrop = { x: 0, y: 0, width: 1, height: 1, offsetY: -.25 };
+  const frame = Cards.portraitFrame(operative), original = Cards.portraitPlacement(operative.imageCrop, 400, 240, frame);
+  const normal = Cards.renderCard(operative, team)[0].svg;
+  for (const factor of [.1, .5, 1]) {
+    operative.imageCrop.scale = factor;
+    const placement = Cards.portraitPlacement(operative.imageCrop, 400, 240, frame);
+    assert.equal(placement.scale, original.scale * factor);
+    assert(Math.abs(placement.width / placement.height - 400 / 240) < 1e-9);
+    assert(Math.abs(placement.x + placement.width / 2 - frame.width / 2) < 1e-9);
+    assert.equal(placement.y, 1 - .25 * placement.height);
+    const cards = Cards.renderCard(operative, team), svg = cards[0].svg;
+    assert.equal(svg.match(/id="headerclip"><rect[^>]+/)[0], normal.match(/id="headerclip"><rect[^>]+/)[0]);
+    assert(svg.includes('width="' + 400 * placement.scale + '" height="' + 240 * placement.scale + '" preserveAspectRatio="none"'));
+    const pdf = buildTeamPDF(team, {}, { section: 'operatives', index: 0 });
+    assert.deepEqual(pdf.content.filter(item => item.svg).map(item => item.svg), cards.map(card => card.svg));
+    assert(JSON.stringify(require('../../public/studio/tts-export').plan(team, {})).includes('width=\\"' + 400 * placement.scale + '\\"'));
+  }
+});
+
+test("vertical portrait offsets remove space above the model without changing crop scale or the header frame", () => {
+  const team = project(), operative = team.operatives[0];
+  operative.image = 'data:image/png;base64,AAAA';operative.imageWidth = 400;operative.imageHeight = 240;
+  operative.imageCrop = { x: 0, y: 0, width: 1, height: 1 };
+  const frame = Cards.portraitFrame(operative), initial = Cards.portraitPlacement(operative.imageCrop, 400, 240, frame);
+  const normal = Cards.renderCard(operative, team)[0].svg;
+  assert(initial.y + initial.height / 2 > frame.height, 'a model below transparent top padding starts outside the header');
+  operative.imageCrop.offsetY = -.4;
+  const shifted = Cards.portraitPlacement(operative.imageCrop, 400, 240, frame), saved = structuredClone(team);
+  assert(shifted.y < 0, 'the portrait can move above the top of the card');
+  assert(shifted.y + shifted.height / 2 > 0 && shifted.y + shifted.height / 2 < frame.height, 'model under the empty area becomes visible');
+  assert.equal(shifted.width, initial.width);assert.equal(shifted.height, initial.height);assert.equal(shifted.scale, initial.scale);
+  const cards = Cards.renderCard(operative, team), svg = cards[0].svg;
+  const attributes = tag => Object.fromEntries([...tag.matchAll(/([a-zA-Z]+)="([^"]+)"/g)].map(([, key, value]) => [key, Number(value)]));
+  const crop = attributes(svg.match(/id="operativecrop"><rect[^>]+/)[0]);
+  assert.equal(crop.y, shifted.y);
+  assert.equal(svg.match(/id="headerclip"><rect[^>]+/)[0], normal.match(/id="headerclip"><rect[^>]+/)[0], 'card clipping stays fixed');
+  const pdf = buildTeamPDF(team, {}, { section: 'operatives', index: 0 });
+  assert.deepEqual(pdf.content.filter(item => item.svg).map(item => item.svg), cards.map(card => card.svg));
+  const tts = require('../../public/studio/tts-export').plan(team, {});
+  assert(JSON.stringify(tts).includes('y=\\"' + shifted.y + '\\"'));
+  assert.deepEqual(team, saved, 'rendering leaves saved framing untouched');
+  const down = Cards.portraitPlacement({ ...operative.imageCrop, offsetY: .25 }, 400, 240, frame);
+  assert(down.y > initial.y);assert.equal(down.scale, initial.scale);
+});

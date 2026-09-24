@@ -74,6 +74,8 @@ function validateImage(c){
  if(c.imageCrop!==undefined){
   const crop=c.imageCrop;
   if(c.kind!=='operative'||!c.image||!c.imageWidth||!c.imageHeight||!crop||!['x','y','width','height'].every(key=>Number.isFinite(crop[key]))||crop.x<0||crop.y<0||crop.width*c.imageWidth<.999999||crop.height*c.imageHeight<.999999||crop.x+crop.width>1.000001||crop.y+crop.height>1.000001)throw Error('Некорректная область картинки оперативника');
+  if(crop.offsetY!==undefined&&(!Number.isFinite(crop.offsetY)||Math.abs(crop.offsetY)>1))throw Error('Некорректный сдвиг картинки оперативника');
+  if(crop.scale!==undefined&&(!Number.isFinite(crop.scale)||crop.scale<.1||crop.scale>1))throw Error('Некорректный масштаб картинки оперативника');
  }
 }
 function selectionGroups(d){
