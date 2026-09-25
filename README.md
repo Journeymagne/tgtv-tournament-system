@@ -14,6 +14,19 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.8.1
+
+Tokens have individual fill colours and a searchable gallery of 100 vector
+symbols in ten categories. Uploaded images replace only the central symbol;
+the token shape, colour and physical size stay intact. Symbol scaling applies
+to built-in and uploaded artwork. Old whole-token images become central symbols
+on circles when a project opens, retaining the artwork and physical size.
+Preview, library, PDF and TTS share the same rendering. No new database migration
+is required. TTS export remains the existing PNG deck ZIP; the separate importer
+and export of individual playing tokens are deferred.
+See [token guide documentation](docs/studio-token-guides.md) and
+[the full changelog](CHANGELOG.md).
+
 ## Release 4.8.0
 
 Studio adds token guide cards with 20 mm circles by default, adjustable printed

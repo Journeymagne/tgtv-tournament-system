@@ -3,6 +3,9 @@
 (function () {
   "use strict";
   const pairs = [
+    ["Цвет жетона", "Token color"], ["Проверьте цвет жетона", "Check the token color"],
+    ["Символ в центре", "Central symbol"],
+    ["PNG, JPG или WebP · до 10 МБ. Картинка заменяет только символ в центре. Форма, цвет и размер жетона сохраняются.", "PNG, JPG or WebP · up to 10 MB. The image replaces only the central symbol. Token shape, colour and size stay the same."],
     ["Подтвердите действие", "Confirm action"], ["Вы уверены?", "Are you sure?"],
     ["Это действие нельзя отменить.", "This action cannot be undone."],
     ["Продолжить", "Continue"], ["Да, заменить", "Yes, replace"], ["Да, удалить", "Yes, delete"],

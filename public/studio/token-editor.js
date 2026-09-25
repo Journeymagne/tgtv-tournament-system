@@ -9,10 +9,11 @@ function html(card,{field,panel,opened}){
  let out=panel('КАРТОЧКА ЖЕТОНОВ',field('Название карточки','name',card.name)+options('Раскладка','layout',card.layout,[['grid2','2 колонки'],['grid3','3 колонки'],['compact','Список']])+range('Кегль подписей, пт','fontSize',card.fontSize,6,14,.5,'')+range('Размер остальных изображений, мм','sizeMm',card.sizeMm,8,40,.5,'')+check('Фоновый знак команды','watermark',card.watermark)+'<p class="hint">Название команды и акцент берутся из проекта. Круги сохраняют заданный диаметр; крупные жетоны переносятся без уменьшения. Печатайте PDF в масштабе 100%, без подгонки.</p><button id="export-tokens">↓ PDF карточки жетонов</button>');
  const records=card.tokens.map((t,i)=>{
   const upload=(key,label)=>'<input class="visually-hidden" type="file" data-token-upload-file="'+key+'" accept="image/png,image/jpeg,image/webp"><button data-token-action="upload-'+key+'">'+label+'</button>';
-  let body=input('Подпись','label',t.label,'text','maxlength="160"')+options('Форма','shape',t.shape,Tokens.shapeOptions.filter(([key])=>key!=='image'||t.image));
+  let body=input('Подпись','label',t.label,'text','maxlength="160"')+options('Форма','shape',t.shape,Tokens.shapeOptions);
+  body+=input('Цвет жетона','color',t.color||'#28515b','color');
   if(t.shape==='circle')body+=input('Диаметр круга, мм','diameterMm',t.diameterMm,'number','min="5" max="60" step="0.5"')+'<p class="hint">По умолчанию 20 мм. Можно увеличить до 60 мм.</p>';
-  if(t.shape!=='image')body+=options('Символ','symbol',t.symbol,Tokens.symbolOptions.filter(([key])=>key!=='custom'||t.symbolImage))+range('Размер символа','symbolSize',t.symbolSize,20,100,1,'%')+'<div class="token-image-controls">'+(t.symbolImage?'<img src="'+esc(t.symbolImage)+'" alt="Свой символ">':'')+upload('symbolImage','Загрузить символ в центр')+(t.symbolImage?'<button class="danger" data-token-action="remove-symbolImage">Удалить свой символ</button>':'')+'</div>';
-  body+=input('Значения через запятую','variants',t.variants,'text','maxlength="100" placeholder="0, 1, 2, 3, 4"')+'<p class="hint">Значения заменяют символ. Оставьте пустым, чтобы показать символ.</p>'+check('На всю ширину карточки','fullWidth',t.fullWidth)+'<div class="token-image-controls">'+(t.image?'<img src="'+esc(t.image)+'" alt="Картинка жетона">':'')+upload('image','Загрузить картинку жетона')+(t.image?'<button class="danger" data-token-action="remove-image">Удалить картинку жетона</button>':'')+'</div><p class="hint">PNG, JPG или WebP · до 10 МБ. Пропорции и прозрачность сохраняются.</p>';
+  body+=root.KTTokenIconPicker.button(t)+range('Размер символа','symbolSize',t.symbolSize,20,100,1,'%')+'<div class="token-image-controls">'+upload('symbolImage','Загрузить символ в центр')+(t.symbolImage?'<button class="danger" data-token-action="remove-symbolImage">Удалить свой символ</button>':'')+'</div><p class="hint">PNG, JPG или WebP · до 10 МБ. Картинка заменяет только символ в центре. Форма, цвет и размер жетона сохраняются.</p>';
+  body+=input('Значения через запятую','variants',t.variants,'text','maxlength="100" placeholder="0, 1, 2, 3, 4"')+'<p class="hint">Значения заменяют символ. Оставьте пустым, чтобы показать символ.</p>'+check('На всю ширину карточки','fullWidth',t.fullWidth);
   body+='<div class="row-actions"><button data-token-action="duplicate" '+(card.tokens.length>=80?'disabled':'')+'>Дублировать жетон</button><button data-token-action="up" '+(!i?'disabled':'')+' aria-label="Жетон выше">↑</button><button data-token-action="down" '+(i===card.tokens.length-1?'disabled':'')+' aria-label="Жетон ниже">↓</button><button class="danger" data-token-action="delete">Удалить жетон</button></div>';
   return '<details class="nested token-item" data-nested-type="tokens" data-nested-id="'+esc(t.id)+'" '+((opened?opened.has(t.id):i===0)?'open':'')+'><summary data-token-drag draggable="'+(card.tokens.length>1)+'" title="Перетащите, чтобы изменить порядок. С клавиатуры: Alt + ↑ / ↓." aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"><span class="nested-name" data-ui-skip>'+esc(t.label||'—')+'</span><span class="token-grip" aria-hidden="true">⠿</span></summary>'+body+'</details>';
  }).join('');
@@ -38,13 +39,13 @@ function bind(adapter){
  });
  host.addEventListener('focusout',e=>{const el=e.target,ctx=context();if(el.dataset.tokenField&&el.type==='number'&&ctx.card)el.value=(tokenFor(el,ctx)||ctx.card)[el.dataset.tokenField]});
  host.addEventListener('change',async e=>{
-  const el=e.target,key=el.dataset.tokenUploadFile,ctx=context();if(!key||!ctx.card)return;
+  const el=e.target,key=el.dataset.tokenUploadFile,ctx=context();if(key!=='symbolImage'||!ctx.card)return;
   const token=tokenFor(el,ctx),file=el.files[0];el.value='';if(!file||!token)return;
   const request={},pending=jobs.get(token)||{};pending[key]=request;jobs.set(token,pending);
   try{
    const uri=await root.KTOperativeImage.prepare(file,{profile:'card'});
    if(context().project!==ctx.project||!ctx.project.tokenCards.includes(ctx.card)||!ctx.card.tokens.includes(token)||jobs.get(token)?.[key]!==request)return;
-   token[key]=uri;if(key==='image')token.shape='image';else token.symbol='custom';
+   token.symbolImage=uri;token.symbol='custom';token.variants='';
    if(active(ctx))changed(true,token);else adapter.persist();
   }catch(error){adapter.toast(error.message)}finally{if(jobs.get(token)?.[key]===request)delete jobs.get(token)[key]}
  });
@@ -53,11 +54,18 @@ function bind(adapter){
   const action=button.dataset.tokenAction,token=tokenFor(button,ctx);
   if(action==='add'){if(ctx.card.tokens.length>=80)return;const added=Tokens.newToken(adapter.uid());ctx.card.tokens.push(added);changed(true,added);return}
   if(!token)return;
+  if(action==='choose-symbol'){
+   root.KTTokenIconPicker.open(token,id=>{
+    if(!active(ctx)||!ctx.card.tokens.includes(token))return;
+    jobs.delete(token);token.symbol=id;token.variants='';changed(true,token);
+    blockFor(token)?.querySelector('[data-token-action="choose-symbol"]')?.focus({preventScroll:true});
+   });return;
+  }
   if(action.startsWith('upload-')){button.closest('details').querySelector('[data-token-upload-file="'+action.slice(7)+'"]').click();return}
   if(action==='delete'||action.startsWith('remove-')){
    if(!await root.KTDelete.confirm({subject:button.textContent+' — '+token.label})||!active(ctx)||!ctx.card.tokens.includes(token)||!button.isConnected)return;
    if(action==='delete'){jobs.delete(token);ctx.card.tokens.splice(ctx.card.tokens.indexOf(token),1);changed(true);return}
-   const key=action.slice(7);if(jobs.has(token))delete jobs.get(token)[key];token[key]='';if(key==='image'&&token.shape==='image')token.shape='circle';if(key==='symbolImage'&&token.symbol==='custom')token.symbol='skull';changed(true,token);return;
+   const key=action.slice(7);if(jobs.has(token))delete jobs.get(token)[key];token[key]='';if(key==='symbolImage'&&token.symbol==='custom')token.symbol='skull';changed(true,token);return;
   }
   if(action==='duplicate'&&ctx.card.tokens.length<80){const copy={...token,id:adapter.uid()};ctx.card.tokens.splice(ctx.card.tokens.indexOf(token)+1,0,copy);changed(true,copy);return}
   if(action==='up'||action==='down')move(ctx,token,ctx.card.tokens.indexOf(token)+(action==='up'?-1:1));

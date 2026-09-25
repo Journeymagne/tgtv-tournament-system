@@ -2,20 +2,18 @@
 'use strict';
 const MM=72/25.4,UNIT=MM/6,WIDTH=420,HEIGHT=726,AREA=376,GAP=14;
 const FILL='#28515b',INK='#eef1da';
+const Icons=root.KTTokenIcons||(typeof require!=='undefined'?require('./token-icons.js'):null);
+const validColor=value=>typeof value==='string'&&/^#[0-9a-f]{6}$/i.test(value);
+function symbolInk(color){
+ const luminance=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+ const light=luminance(INK),dark=luminance('#141718'),background=luminance(color);
+ const contrast=value=>(Math.max(value,background)+.05)/(Math.min(value,background)+.05);
+ return contrast(light)>=contrast(dark)?INK:'#141718';
+}
 const shapes={circle:'<circle cx="50" cy="50" r="50"/>',trapezoid:'<path d="M27 7Q50 12 73 7L94 86Q95 95 50 95T6 86Z"/>',diamond:'<path d="m50 2 48 48-48 48L2 50Z"/>',octagon:'<path d="M29 3h42l26 26v42L71 97H29L3 71V29Z"/>'};
-const symbols={
- skull:'<path d="M50 20c-18 0-28 13-28 27 0 11 6 16 13 19v12h9V68h5v10h6V68h5v10h8V65c7-4 10-10 10-19 0-15-11-26-28-26Z"/><path fill="'+FILL+'" d="M33 41h13v12H33zm22 0h13v12H55zM50 54l-5 8h10z"/>',
- bolt:'<path d="M57 14 26 55h23l-8 32 35-47H54z"/>',
- shield:'<g fill="none" stroke="'+INK+'"><path stroke-width="7" d="m50 18 25 9v24c0 15-25 31-25 31S25 66 25 51V27Z"/><path stroke-width="5" d="M50 29v37m-13-21h26"/></g>',
- target:'<g fill="none" stroke="'+INK+'" stroke-width="5"><circle cx="50" cy="50" r="23"/><circle cx="50" cy="50" r="9"/><path d="M50 15v15m0 40v15M15 50h15m40 0h15"/></g>',
- drop:'<path d="M50 15C42 31 29 43 29 59a21 21 0 0 0 42 0C71 43 58 31 50 15Z"/><path stroke="'+FILL+'" stroke-width="4" fill="none" d="M39 54c-3 11 1 17 10 18"/>',
- swords:'<path d="m23 19 13 5 31 43-6 6-33-39zM20 70l13-10 4 5-13 10zm6-2 5 4-8 12-6-5zM77 19l-13 5-31 43 6 6 33-39zM80 70 67 60l-4 5 13 10zm-6-2-5 4 8 12 6-5z"/>',
- star:'<path d="m50 10 7 24 21-12-12 21 24 7-24 7 12 21-21-12-7 24-7-24-21 12 12-21-24-7 24-7-12-21 21 12Z"/>',
- waves:'<g fill="none" stroke="'+INK+'" stroke-width="5"><circle cx="50" cy="50" r="13"/><path d="M30 30a28 28 0 0 0 0 40m40-40a28 28 0 0 1 0 40M21 20a41 41 0 0 0 0 60m58-60a41 41 0 0 1 0 60M50 37v26m-6-23v20m12-20v20"/></g>',none:''
-};
-const shapeOptions=[['circle','Круг'],['trapezoid','Трапеция'],['diamond','Ромб'],['octagon','Восьмиугольник'],['image','Своя картинка']];
-const symbolOptions=[['skull','Череп'],['bolt','Молния'],['shield','Щит'],['target','Прицел'],['drop','Капля'],['swords','Клинки'],['star','Звезда'],['waves','Сигнал'],['none','Без символа'],['custom','Свой символ']];
-function newToken(id){return {id,label:'Новый жетон',shape:'circle',symbol:'skull',diameterMm:20,symbolSize:65,variants:'',fullWidth:false,image:'',symbolImage:''}}
+const shapeOptions=[['circle','Круг'],['trapezoid','Трапеция'],['diamond','Ромб'],['octagon','Восьмиугольник']];
+const symbolOptions=[...Icons.icons.map(icon=>[icon.id,icon.ru]),['none','Без символа'],['custom','Свой символ']];
+function newToken(id){return {id,label:'Новый жетон',shape:'circle',color:FILL,symbol:'skull',diameterMm:20,symbolSize:65,variants:'',fullWidth:false,image:'',symbolImage:''}}
 function newCard(id){return {id,kind:'token-guide',name:'MARKER/TOKEN GUIDE',layout:'grid2',fontSize:8.5,sizeMm:24,watermark:true,tokens:[]}}
 function validImage(value){return typeof value==='string'&&(!value||value.length<=2000000&&/^data:image\/(png|jpeg);base64,[a-z0-9+/]+={0,2}$/i.test(value))}
 function validateCard(c){
@@ -23,7 +21,16 @@ function validateCard(c){
  if(!c||typeof c.id!=='string'||!c.id||c.id.length>100||c.kind!=='token-guide'||typeof c.name!=='string'||c.name.length>200||!['grid2','grid3','compact'].includes(c.layout)||!bounded(c.fontSize,6,14)||!bounded(c.sizeMm,8,40)||typeof c.watermark!=='boolean'||!Array.isArray(c.tokens)||c.tokens.length>80)throw Error('Некорректная карточка жетонов');
  const ids=new Set();
  for(const t of c.tokens){
-  if(!t||typeof t.id!=='string'||!t.id||t.id.length>100||ids.has(t.id)||typeof t.label!=='string'||t.label.length>160||!shapeOptions.some(([key])=>key===t.shape)||!symbolOptions.some(([key])=>key===t.symbol)||!bounded(t.diameterMm,5,60)||!bounded(t.symbolSize,20,100)||typeof t.variants!=='string'||t.variants.length>100||typeof t.fullWidth!=='boolean'||!validImage(t.image)||!validImage(t.symbolImage)||t.shape==='image'&&!t.image||t.symbol==='custom'&&!t.symbolImage)throw Error('Проверьте форму, размер и изображение жетона');
+  if(!t||typeof t.id!=='string'||!t.id||t.id.length>100||ids.has(t.id)||typeof t.label!=='string'||t.label.length>160||!(t.shape==='image'||shapeOptions.some(([key])=>key===t.shape))||!symbolOptions.some(([key])=>key===t.symbol)||!bounded(t.diameterMm,5,60)||!bounded(t.symbolSize,20,100)||typeof t.variants!=='string'||t.variants.length>100||typeof t.fullWidth!=='boolean'||!validImage(t.image)||!validImage(t.symbolImage)||t.shape==='image'&&!t.image||t.symbol==='custom'&&!t.symbolImage)throw Error('Проверьте форму, размер и изображение жетона');
+  if(t.color===undefined)t.color=FILL;
+  if(!validColor(t.color))throw Error('Проверьте цвет жетона');
+  // Older projects allowed whole-token images. Preserve that artwork as the
+  // central symbol, along with its previous physical size and colour.
+  if(t.shape==='image'){
+   t.shape='circle';t.diameterMm=c.sizeMm;t.symbol='custom';t.variants='';
+   if(!t.symbolImage||t.symbolImage===t.image){t.symbolImage=t.image;t.image=''}
+   else [t.symbolImage,t.image]=[t.image,t.symbolImage];
+  }
   ids.add(t.id);
  }
  return c;
@@ -71,11 +78,10 @@ function prepareRows(group,c,Cards){
 }
 function art(t,x,y,size,value,suffix,esc){
  const image=(uri,px,py,w,h)=>'<image x="'+px+'" y="'+py+'" width="'+w+'" height="'+h+'" preserveAspectRatio="xMidYMid meet" xlink:href="'+esc(uri)+'"/>';
- if(t.shape==='image')return image(t.image,x,y,size,size);
- const clip='token-'+suffix,shape=shapes[t.shape],scale=t.symbolSize/80;
- let symbol=value?'<text x="50" y="65" text-anchor="middle" font-family="Display" font-size="'+(value.length<3?49:Math.max(12,54/value.length*1.7))+'">'+esc(value)+'</text>':symbols[t.symbol]||'';
+ const clip='token-'+suffix,shape=shapes[t.shape],scale=t.symbolSize/80,fill=validColor(t.color)?t.color:FILL,ink=symbolInk(fill);
+ let symbol=value?'<text x="50" y="65" text-anchor="middle" font-family="Display" font-size="'+(value.length<3?49:Math.max(12,54/value.length*1.7))+'">'+esc(value)+'</text>':Icons.artwork(t.symbol,fill,ink);
  symbol=t.symbol==='custom'&&!value?image(t.symbolImage,(100-t.symbolSize)/2,(100-t.symbolSize)/2,t.symbolSize,t.symbolSize):'<g transform="translate('+((100-100*scale)/2)+' '+((100-100*scale)/2)+') scale('+scale+')">'+symbol+'</g>';
- return '<g transform="translate('+x+' '+y+') scale('+(size/100)+')"><defs><clipPath id="'+clip+'">'+shape+'</clipPath></defs><g clip-path="url(#'+clip+')"><g fill="'+FILL+'">'+shape+'</g><path d="M0 0h52L12 59zm63 0 37 36-47 5zM0 76l45-22 25 46H0z" fill="#fff" opacity=".12"/><path d="m66 0 34 40-22 48-17-31-25-8zM0 38l18 5-3 24z" fill="#000" opacity=".14"/><g fill="'+INK+'">'+symbol+'</g></g></g>';
+ return '<g transform="translate('+x+' '+y+') scale('+(size/100)+')"><defs><clipPath id="'+clip+'">'+shape+'</clipPath></defs><g clip-path="url(#'+clip+')"><g fill="'+fill+'">'+shape+'</g><path d="M0 0h52L12 59zm63 0 37 36-47 5zM0 76l45-22 25 46H0z" fill="#fff" opacity=".12"/><path d="m66 0 34 40-22 48-17-31-25-8zM0 38l18 5-3 24z" fill="#000" opacity=".14"/><g fill="'+ink+'">'+symbol+'</g></g></g>';
 }
 function rowSVG(row,y,sequence,Cards){
  const total=row.items.length*row.width+(row.items.length-1)*row.gap,start=(WIDTH-total)/2,boxes=[];

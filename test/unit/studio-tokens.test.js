@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Model = require('../../public/studio/model');
 const Tokens = require('../../public/studio/tokens');
+const Icons = require('../../public/studio/token-icons');
 const Cards = require('../../public/studio/card-renderer');
 const TTS = require('../../public/studio/tts-export');
 const { buildTeamPDF } = require('../../public/studio/pdf-template');
@@ -84,4 +85,60 @@ test('invalid sizes, removed templates and unsafe uploaded images are rejected',
   const data=project();Object.assign(data.tokenCards[0].tokens[0],patch);assert.throws(()=>Model.validate(data));
  }
  const data=project();data.tokenCards[0].tokens.push({...data.tokenCards[0].tokens[0]});assert.throws(()=>Model.validate(data));
+});
+
+test('all 100 built-in symbols survive saving and appear in preview, PDF and deck export', () => {
+ assert.equal(Icons.icons.length, 100);
+ assert.equal(new Set(Icons.icons.map(icon => icon.id)).size, 100);
+ assert.equal(new Set(Icons.icons.map(icon => icon.svg)).size, 100);
+ const data = project(), token = data.tokenCards[0].tokens[0];
+ for (const icon of Icons.icons) {
+  token.symbol = icon.id;
+  const restored = Model.validate(Model.migrate(JSON.parse(JSON.stringify(data))));
+  const card = restored.tokenCards[0], svg = Cards.renderCard(card, restored)[0].svg;
+  assert.equal(card.tokens[0].symbol, icon.id);
+  assert(svg.includes(Icons.artwork(icon.id)), icon.id);
+  assert(buildTeamPDF(restored, {}, {section:'tokenCards',index:0}).content.some(item => item.svg === svg));
+  assert.equal(TTS.plan(restored).cards.find(item => item.groupId === 'tokens').face, svg);
+ }
+ token.symbol = 'unknown-icon';
+ assert.throws(() => Model.validate(data));
+});
+
+test('legacy whole-token images become central symbols without losing artwork or physical size', () => {
+ const data = project(), card = data.tokenCards[0], token = card.tokens[0];
+ card.sizeMm = 32;
+ const otherImage = 'data:image/png;base64,iVBORw0KGgo=';
+ Object.assign(token, {shape:'image',image:IMAGE,symbolImage:otherImage,color:'#f0a500',variants:'1,2'});
+ const restored = Model.validate(Model.migrate(data)), result = restored.tokenCards[0].tokens[0];
+ assert.equal(result.shape, 'circle'); assert.equal(result.symbol, 'custom');
+ assert.equal(result.symbolImage, IMAGE); assert.equal(result.image, otherImage);
+ assert.equal(result.color, '#f0a500'); assert.equal(result.diameterMm, 32); assert.equal(result.variants, '');
+ const page = Cards.renderCard(restored.tokenCards[0], restored)[0];
+ assert(page.svg.includes(IMAGE)); assert(page.svg.includes('<g fill="#f0a500"><circle'));
+ assert(page.svg.includes('x="17.5" y="17.5" width="65" height="65"'));
+ assert(Math.abs(page.boxes[0].w / MM - 32) < 1e-8);
+ assert.deepEqual(Model.validate(Model.migrate(restored)), restored);
+ assert.equal(token.shape, 'image');
+});
+
+test('token colours persist and symbols and numbers contrast against light and dark fills', () => {
+ const data = project(), card = data.tokenCards[0], token = card.tokens[0];
+ delete token.color;
+ assert.equal(Model.validate(Model.migrate(data)).tokenCards[0].tokens[0].color, '#28515b');
+ for (const [color, ink] of [['#eef1da','#141718'],['#ffffff','#141718'],['#000000','#eef1da']]) {
+  token.color = color;
+  const restored = Model.validate(Model.migrate(data));
+  assert.equal(restored.tokenCards[0].tokens[0].color, color);
+  const svg = Cards.renderCard(card, data)[0].svg;
+  assert(svg.includes('<g fill="'+color+'"><circle'));
+  assert(svg.includes(Icons.artwork('skull',color,ink)));
+  assert(svg.includes('<g fill="'+ink+'">'));
+  token.variants = '1,2';
+  assert(Cards.renderCard(card, data)[0].svg.includes('<g fill="'+ink+'">'));
+  token.variants = '';
+ }
+ for (const color of ['orange','#fff','url(https://example.com)',null]) {
+  token.color = color; assert.throws(() => Model.validate(data));
+ }
 });
