@@ -105,7 +105,7 @@ function build(input,template){
  const rule=(name,body)=>{report.rules.push(name);return node('rule',{id:id(),name,hidden:'false'},[node('description',{},[],Text.plain(body))])};
   const body=c=>[c.body,c.restriction,...c.abilities.map(a=>a.name+'\n'+a.body),...c.actions.map(a=>a.name+(a.cost?' ('+a.cost+')':'')+'\n'+a.body),...c.weapons.map(w=>w.name+' | ATK '+w.attacks+' | HIT '+w.hit+' | DMG '+w.damage+' | '+Model.weaponRules(w))].filter(Boolean).join('\n\n');
  const rules=[];
- for(const c of data.selectionCards){const text=['ARCHETYPES: '+c.archetypes.join(', '),c.body,...c.selectionGroups.map(g=>g.count+' '+g.description+'\n'+g.entries.map(e=>'• '+e.text+(e.options.length?'\n'+e.options.map(o=>'  ◦ '+o).join('\n'):'')).join('\n')),c.selectionRules,c.selectionNotes].filter(Boolean).join('\n\n');rules.push(rule(c.name,text))}
+ for(const c of data.selectionCards){const archetypes=c.archetypes.filter(a=>a.trim()).join(', '),text=[archetypes?'ARCHETYPES: '+archetypes:'',c.body,...c.selectionGroups.map(g=>g.count+' '+g.description+'\n'+g.entries.map(e=>'• '+e.text+(e.options.length?'\n'+e.options.map(o=>'  ◦ '+o).join('\n'):'')).join('\n')),c.selectionRules,c.selectionNotes].filter(Boolean).join('\n\n');rules.push(rule(c.name,text))}
  for(const c of data.teamCards)rules.push(rule(c.name+(c.subtitle?' — '+c.subtitle:''),body(c)));
  for(const [key,label] of [['strategicPloys','STRATEGY PLOY'],['firefightPloys','FIREFIGHT PLOY'],['equipment','EQUIPMENT']])for(const c of data[key])if(Model.isFilled(c))rules.push(rule(label+': '+c.name+(c.cost?' ('+c.cost+')':''),body(c)));
  child(force,'rules').children=rules;

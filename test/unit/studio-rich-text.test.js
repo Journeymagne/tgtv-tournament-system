@@ -161,8 +161,8 @@ test('keyword formatting across commas survives project reload, every card side,
  }
  const pdf = buildTeamPDF(restored, {}, { section: 'operatives', index: 0 });
  assert.deepEqual(pdf.content.filter(item => item.svg).map(item => item.svg), cards.map(card => card.svg));
- const deck = TTS.plan(restored).decks.find(deck => deck.id === 'operatives');
- assert.equal((JSON.stringify(deck.cards).match(/operative-keywords/g) || []).length, cards.length);
+ const deck = TTS.plan(restored).cards.filter(card => card.groupId === 'operatives');
+ assert.equal((JSON.stringify(deck).match(/operative-keywords/g) || []).length, cards.length);
  const xml = Roster.build(restored).xml;
  assert.match(xml, /<category[^>]+name="RED CORSAIRS💀"/);
  assert.match(xml, /<category[^>]+name="LEADER" primary="true"/);

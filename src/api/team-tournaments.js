@@ -1366,26 +1366,26 @@ async function handleGameRequest(context, action) {
     if (game.status === "completed") throw new HttpError(409, "This game result has already been saved");
     if (!permissions.canSubmit) throw new HttpError(409, "This result is waiting for confirmation");
     const result = calculateSubmittedResult(resultBody, game.playerIds[0], game.playerIds[1]);
-    if (tournament.venueMode === "irl" && !permissions.captainRosterId) {
+    if (tournament.venueMode === "irl" && !permissions.submitsAsCaptain) {
       await applyFinalGameResult(client, tournament, game, result, user.id);
       await recomputeTeamMatch(client, match.id);
     } else {
       await gamesRepo.savePendingResult(client, game.id, { submittedBy: user.id, pendingResult: {
         submittedBy: user.id, submittedAt: nowIso(), result,
-        submittedAs: permissions.captainRosterId ? "captain" : "player",
+        submittedAs: permissions.submitsAsCaptain ? "captain" : "player",
         submittedRosterId: permissions.ownRosterId,
         submittedByName: user.name
       } });
     }
   } else if (action === "confirm") {
     if (game.status !== "pending_confirmation" || !game.pendingResult?.result) throw new HttpError(409, "There is no submitted result to confirm");
-    if (!permissions.canReview) throw new HttpError(403, game.pendingResult.submittedAs === "captain" ? "The opposing captain must confirm this result" : "The opposing player must confirm this result");
+    if (!permissions.canReview) throw new HttpError(403, permissions.requiresCaptainReview ? "The opposing captain must confirm this result" : "The opposing player or captain must confirm this result");
     const pendingResult = calculateSubmittedResult({ ...game.pendingResult.result, tiebreakers: { enabled: false } }, game.playerIds[0], game.playerIds[1]);
     await applyFinalGameResult(client, tournament, game, pendingResult, user.id);
     await recomputeTeamMatch(client, match.id);
   } else if (action === "reject") {
     if (game.status !== "pending_confirmation" || !game.pendingResult?.result) throw new HttpError(409, "There is no submitted result to reject");
-    if (!permissions.canReview) throw new HttpError(403, game.pendingResult.submittedAs === "captain" ? "The opposing captain must reject this result" : "The opposing player must reject this result");
+    if (!permissions.canReview) throw new HttpError(403, permissions.requiresCaptainReview ? "The opposing captain must reject this result" : "The opposing player or captain must reject this result");
     await gamesRepo.clearResult(client, game.id);
   } else if (action === "admin-save") {
     if (!user.isAdmin) throw new HttpError(403, "Administrator rights required");

@@ -24,14 +24,17 @@
   and team ratings are recalculated. Audit records retain the previous state.
   A match cannot be undone after a later round has been generated or the tournament
   has closed; later rounds must first be rolled back by an administrator.
-- Both captains can open and report all three personal games, including games
-  they do not play in. Captain submissions remain pending for both TTS and IRL
-  tournaments until the opposing captain confirms or rejects each result.
-  An ordinary player cannot confirm a captain submission, and a captain cannot
-  confirm a teammate's submission. Administrators retain their existing override.
-- Personal player submissions retain the existing IRL behaviour. TTS player
-  submissions may be confirmed by the opponent or the opposing captain.
-  Completed results remain editable through the administrator's existing controls.
+- Both captains can open and report all three personal games. When reporting a
+  teammate's game, the result remains pending in both TTS and IRL until the opposing
+  captain confirms or rejects it. Neither ordinary player can review that submission.
+- Anyone reporting their own game acts as a player, including a roster captain.
+  In TTS, either the actual opponent or the opposing roster captain can confirm or
+  reject it; one review is sufficient. In IRL, the result saves immediately.
+  Existing pending results marked as captain submissions follow the same rule when
+  the author actually plays in that game. No resubmission is needed.
+- Authors, their own captain and other teammates cannot review their own side's
+  submissions. Administrators retain their existing override, including editing
+  completed results.
 
 Validation covers manual dice and ties, every pairing boundary and undo, stale
 revisions, hidden choices/history, captain access to all three games, confirmation

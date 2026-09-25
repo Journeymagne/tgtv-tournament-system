@@ -61,7 +61,7 @@ body[data-companion-section="studio"] dialog :is(p,.hint,.project-templates span
 #studio-login-submit { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
 .crop-board { background:var(--surface-well); }
 .crop-preview canvas { border-color:var(--line); }
-#tts-decks { border-color:var(--line); }
+.tts-sheet { border-color:var(--line); }
 .download-button { background:var(--accent); color:var(--on-accent); border-radius:var(--button-radius); }
 #toast { background:var(--panel-3); color:var(--ink); border:1px solid var(--line-strong); box-shadow:var(--shadow); }
 .project-dialog-error,#studio-login-error { color:var(--danger); }

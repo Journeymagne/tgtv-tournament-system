@@ -1,13 +1,14 @@
 (function(root){
 'use strict';
 const clone=x=>JSON.parse(JSON.stringify(x));
+const Tokens=root.KTTokens||(typeof require!=='undefined'?require('./tokens.js'):null);
 const collections=['selectionCards','teamCards','strategicPloys','firefightPloys','equipment','operatives'];
 const fixed=['strategicPloys','firefightPloys','equipment'];
 const archetypeOptions=['SEEK & DESTROY','SECURITY','RECON','INFILTRATION'];
 const distanceUnits={'○':2,'▲':1,'■':3,'⬟':6};
 function toInches(text){return String(text).replace(/(?:(\d+(?:[.,]\d+)?)\s*(?:[x×]\s*)?)?([○▲■⬟])/g,(_,count,symbol)=>Number(((count===undefined?1:Number(count.replace(',','.')))*distanceUnits[symbol]).toFixed(6))+'″')}
 function normalizeCard(card){
- const untouched=new Set(['id','image','weaponIds','excludedOperativeIds','operativeId','sourcePage']);
+ const untouched=new Set(['id','image','weaponIds','excludedOperativeIds','operativeId','sourcePage','teamKeyword']);
  const convert=x=>typeof x==='string'?toInches(x):Array.isArray(x)?x.map(convert):x&&typeof x==='object'?Object.fromEntries(Object.entries(x).map(([k,v])=>[k,untouched.has(k)?clone(v):convert(v)])):x;
  const result=convert(card);
  for(const weapon of result.weapons||[]){weapon.rules=weaponRules(weapon);delete weapon.special;delete weapon.critical}
@@ -45,11 +46,28 @@ function normalizeDistances(d){
  return d;
 }
 function blank(id,kind){return {id,kind,name:'',body:'',lore:'',cost:'',weapons:[],abilities:[],actions:[]}}
-function newSelection(name='KILL TEAM'){return {...blank('team-selection','selection'),name,size:8,archetypes:['',''],excludedOperativeIds:[],selectionGroups:[{id:'group-1',count:8,description:'operatives selected from the following list:',entries:[]}],selectionRules:'',selectionNotes:''}}
+function newSelection(name='KILL TEAM'){return {...blank('team-selection','selection'),name,size:8,archetypes:['','','',''],excludedOperativeIds:[],selectionGroups:[{id:'group-1',count:8,description:'operatives selected from the following list:',entries:[]}],selectionRules:'',selectionNotes:''}}
+function teamKeyword(name){
+ const text=String(name||'').trim().replace(/💀[\ufe0e\ufe0f]?\s*$/u,'').trim();
+ return text?'[color=orange]'+text.replace(/[\\*\[\]]/g,'\\$&')+'💀[/color]':'';
+}
+function operativeKeywords(card,name){
+ const Text=root.KTText||(typeof require!=='undefined'?require('./rich-text.js'):null);
+ const key=value=>String(value||'').replace(/💀[\ufe0e\ufe0f]?/gu,'').trim().toUpperCase();
+ const managed=new Set([key(name),key(card.teamKeyword)].filter(Boolean));
+ const keywords=(card.keywords||[]).filter(value=>!managed.has(key(Text.plain(value)))),first=teamKeyword(name);
+ return first?[first,...keywords]:keywords;
+}
+function syncTeamKeywords(data){
+ for(const card of data.operatives||[])if(Array.isArray(card.keywords)){
+  card.keywords=operativeKeywords(card,data.team.name);card.teamKeyword=data.team.name;
+ }
+ return data;
+}
 function newProject(id,name='Новая команда'){
  const slots=kind=>Array.from({length:4},(_,i)=>blank(kind+'-'+(i+1),kind));
- return {schemaVersion:4,team:{id,name,subtitle:'',version:'1.0',logo:'',profileSystem:'APL / MOVE / SAVE / WOUNDS'},
-  selectionCards:[{...newSelection(''),size:1,selectionGroups:[]}],teamCards:[],operatives:[],lorePages:[],weaponProfiles:[],
+ return {schemaVersion:5,team:{id,name,subtitle:'',version:'1.0',logo:'',profileSystem:'APL / MOVE / SAVE / WOUNDS'},
+  selectionCards:[{...newSelection(''),size:1,selectionGroups:[]}],teamCards:[],operatives:[],tokenCards:[],lorePages:[],weaponProfiles:[],
   strategicPloys:slots('strategic'),firefightPloys:slots('firefight'),equipment:slots('equipment'),
   ployNote:'',equipmentIntro:'',layout:{accent:'#ed4b22',includeCover:false,includeAssembly:false},sourceArchive:{},notes:[]};
 }
@@ -79,26 +97,28 @@ function validateImage(c){
  }
 }
 function selectionGroups(d){
+ d.tokenCards??=[];
  d.lorePages??=[];
  d.weaponProfiles??=[];
  // Older recruitment cards remain editable without a separate card type.
  for(const card of d.teamCards)if(card.kind==='recruitment')card.kind='faction';
  for(const c of d.selectionCards){
+  c.archetypes??=[];
+  if(Array.isArray(c.archetypes))while(c.archetypes.length<4)c.archetypes.push('');
   if(!c.selectionGroups)c.selectionGroups=[{id:'group-1',count:c.size,description:d.team.name+' operatives selected from the following list:',entries:d.operatives.filter(o=>!c.excludedOperativeIds.includes(o.id)).map(o=>({id:o.id,operativeId:o.id,text:o.name,options:o.loadouts.map(l=>l.weaponIds.map(id=>o.weapons.find(w=>w.id===id)?.name||id).join('; '))}))}];
   c.selectionRules??='';c.selectionNotes??='';c.size=c.selectionGroups.reduce((n,g)=>n+g.count,0)||1;
  }
- d.schemaVersion=4;return normalizeDistances(d);
+ d.schemaVersion=5;return syncTeamKeywords(normalizeDistances(d));
 }
 function migrate(input){
- if(input.schemaVersion===4||input.schemaVersion===3)return selectionGroups(clone(input));
+ if([3,4,5].includes(input.schemaVersion))return selectionGroups(clone(input));
  if(input.schemaVersion===2){
   const d=clone(input),old=d.teamCards.filter(c=>c.kind==='selection');
   d.sourceArchive??={};d.sourceArchive.selectionBeforeMigration??=clone(old);
   d.selectionCards=old.length?old:[newSelection(d.team.name+' KILL TEAM')];
   for(const c of d.selectionCards){
    const values=Array.isArray(c.archetypes)?c.archetypes:[c.archetype||''];
-   c.archetypes=[String(values[0]||''),String(values[1]||'')];
-   if(c.archetypes[0]===c.archetypes[1])c.archetypes[1]='';
+   c.archetypes=values.map(value=>String(value||''));
    c.excludedOperativeIds??=[];c.size??=8;delete c.archetype;
   }
   d.teamCards=d.teamCards.filter(c=>c.kind!=='selection');d.schemaVersion=3;return selectionGroups(d);
@@ -117,7 +137,9 @@ function migrate(input){
   sourceArchive:{equipment:d.equipment.map(o=>nested(o,'equipment')),tacOps:d.tacOps.map(o=>nested(o,'tacOp')),extraPloys:[...strategic.slice(4),...firefight.slice(4)].map(o=>nested(o,o.category==='Strategic'?'strategic':'firefight')),legacyProject:d},notes:clone(d.notes||[])});
 }
 function validate(d){
- if(!d||d.schemaVersion!==4||!d.team||typeof d.team.name!=='string'||!d.layout||!/^#[0-9a-f]{6}$/i.test(d.layout.accent))throw Error('Неверный формат проекта');
+ if(!d||d.schemaVersion!==5||!d.team||typeof d.team.name!=='string'||!d.layout||!/^#[0-9a-f]{6}$/i.test(d.layout.accent))throw Error('Неверный формат проекта');
+ if(!Array.isArray(d.tokenCards)||d.tokenCards.length>100)throw Error('В проекте может быть не больше 100 карточек жетонов');
+ const tokenIds=new Set();for(const card of d.tokenCards){Tokens.validateCard(card);if(tokenIds.has(card.id))throw Error('Повторяется карточка жетонов');tokenIds.add(card.id)}
  if(d.team.logo!==undefined&&d.team.logo!==''&&!isLogo(d.team.logo))throw Error('Некорректный логотип команды');
  if(d.weaponProfiles!==undefined)validateWeaponProfiles(d.weaponProfiles);
  for(const pool of ['weapons','abilities','actions'])if(pool in d)throw Error('Оружие, способности и действия должны находиться внутри карточек');
@@ -140,12 +162,12 @@ function validate(d){
    validateImage(c);
    if(c.kind==='operative'){
     if(!c.stats||!Object.keys(c.stats).length||!Array.isArray(c.keywords)||!Array.isArray(c.loadouts))throw Error('Повреждён профиль');
+    if(c.nameFontSize!==undefined&&(!Number.isInteger(c.nameFontSize)||c.nameFontSize<6||c.nameFontSize>24))throw Error('Кегль имени оперативника должен быть от 6 до 24 пт');
     if(c.baseSize!==undefined&&(typeof c.baseSize!=='string'||c.baseSize.length>16||/[\r\n\x00-\x1f]/.test(c.baseSize)))throw Error('Размер базы должен быть короткой строкой, например 25 или 60×35');
     for(const l of c.loadouts)if(typeof l.name!=='string'||!Array.isArray(l.weaponIds)||l.weaponIds.some(id=>!c.weapons.some(w=>w.id===id)))throw Error('Оружие комплектации должно принадлежать этой карточке');
    }
    if(c.kind==='selection'){
-    if(!Array.isArray(c.archetypes)||c.archetypes.length!==2||c.archetypes.some(a=>typeof a!=='string'))throw Error('У состава должно быть ровно два места для архетипов');
-    if(c.archetypes[0].trim()&&c.archetypes[0].trim().toLowerCase()===c.archetypes[1].trim().toLowerCase())throw Error('Выберите два разных архетипа');
+    if(!Array.isArray(c.archetypes)||c.archetypes.length>4||c.archetypes.some(a=>typeof a!=='string'||a.length>200))throw Error('У состава может быть до четырёх архетипов, до 200 символов каждый');
     if(!Number.isInteger(c.size)||c.size<1||!Array.isArray(c.excludedOperativeIds)||c.excludedOperativeIds.some(id=>!d.operatives.some(o=>o.id===id)))throw Error('Некорректный состав команды');
     if(!Array.isArray(c.selectionGroups)||c.selectionGroups.length>30||typeof c.selectionRules!=='string'||typeof c.selectionNotes!=='string')throw Error('Некорректные группы выбора');
     for(const g of c.selectionGroups){if(!Number.isInteger(g.count)||g.count<1||typeof g.description!=='string'||!Array.isArray(g.entries)||g.entries.length>100)throw Error('Некорректная группа выбора');for(const e of g.entries)if(typeof e.text!=='string'||!Array.isArray(e.options)||e.options.some(t=>typeof t!=='string')||e.operativeId&&!d.operatives.some(o=>o.id===e.operativeId))throw Error('Некорректный вариант выбора')}
@@ -155,7 +177,7 @@ function validate(d){
  return d;
 }
 function isFilled(c){return !!c.name.trim()&&!!(c.body.trim()||c.weapons.length||c.abilities.length||c.actions.length)}
-function incomplete(d){return [...fixed.flatMap(key=>d[key].flatMap((c,i)=>isFilled(c)?[]:[{section:key,index:i}])),...d.selectionCards.flatMap((c,i)=>c.archetypes.flatMap((a,slot)=>a.trim()?[]:[{section:'selectionCards',index:i,slot}]))]}
-root.KTModel={migrate,validate,blank,newProject,newSelection,newLorePage,newReferencePage,referenceModel,referenceCallout,loreCategories,archetypeOptions,collections,fixed,isFilled,incomplete,toInches,normalizeCard,weaponRules,isLogo,saveWeaponProfile,weaponFromProfile};
+function incomplete(d){return fixed.flatMap(key=>d[key].flatMap((c,i)=>isFilled(c)?[]:[{section:key,index:i}]))}
+root.KTModel={migrate,validate,blank,newProject,newSelection,newLorePage,newReferencePage,referenceModel,referenceCallout,loreCategories,archetypeOptions,collections,fixed,isFilled,incomplete,toInches,normalizeCard,weaponRules,isLogo,saveWeaponProfile,weaponFromProfile,teamKeyword,operativeKeywords,syncTeamKeywords};
 if(typeof module!=='undefined')module.exports=root.KTModel;
 })(typeof window!=='undefined'?window:globalThis);

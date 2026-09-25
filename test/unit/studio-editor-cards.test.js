@@ -78,7 +78,7 @@ test('card headers omit logos while watermarks, operative footers and deck backs
   assert(svg.includes('class="team-logo"'));assert(svg.includes(LOGO));
   for (const image of svg.matchAll(/<image class="team-logo"[^>]*\by="([^"]+)"[^>]*\bopacity="1"/g)) assert(Number(image[1]) >= 46, 'logo must stay outside the card header');
  }
- assert(TTS.plan(data).decks[0].cards[0].back.includes(LOGO));
+ assert(TTS.plan(data).cards[0].back.includes(LOGO));
  for (const logo of ['https://example.com/logo.png', 'data:image/svg+xml;base64,PHN2Zz4=', LOGO.repeat(1000)]) {
   data.team.logo = logo;
   assert.throws(() => Model.validate(data), /логотип/);
@@ -123,6 +123,6 @@ test('base size appears on every operative side and is retained by PDF and TTS e
  }
  const pdf = buildTeamPDF(data, {}, { section: 'operatives', index: 0 });
  assert.deepEqual(pdf.content.filter(item => item.svg).map(item => item.svg), rendered.map(card => card.svg));
- const tts = TTS.plan(data, {}).decks.find(deck => deck.id === 'operatives');
- assert.equal((JSON.stringify(tts.cards).match(/operative-base-size/g) || []).length, rendered.length);
+ const tts = TTS.plan(data, {}).cards.filter(card => card.groupId === 'operatives');
+ assert.equal((JSON.stringify(tts).match(/operative-base-size/g) || []).length, rendered.length);
 });

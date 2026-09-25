@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="ru">
 <head><script src="/theme-boot.js?v=4.6" data-companion-only></script><base href="/studio/"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kill Team Studio — редактор карточек</title><link rel="icon" type="image/png" href="/companion/assets/thundergrounds-logo.png"><link rel="stylesheet" href="/companion-tokens.css?v=4.6">
-<link rel="stylesheet" href="style.css?v=4.7.5"><link rel="stylesheet" href="/studio/theme.css?v=4.6"><link rel="stylesheet" href="/companion-shell.css?v=4.6"><script src="/companion-sites.js?v=4.6" defer></script>
-<script src="/companion-i18n.js?v=4.7.5" defer></script>
-<script src="/companion-shell.js?v=4.6" defer></script><script src="/studio/account.js?v=4.7.5" defer></script></head>
+<link rel="stylesheet" href="style.css?v=4.8.0"><link rel="stylesheet" href="/studio/theme.css?v=4.8.0"><link rel="stylesheet" href="/companion-shell.css?v=4.6"><script src="/companion-sites.js?v=4.6" defer></script>
+<script src="/companion-i18n.js?v=4.8.0" defer></script>
+<script src="/companion-shell.js?v=4.6" defer></script><script src="/studio/account.js?v=4.8.0" defer></script></head>
 <body data-companion-section="studio"><div data-companion-nav></div><section class="companion-gate" id="studio-gate" aria-live="polite">Открываем Студию…</section><div id="studio-workspace" hidden>
 <header><a class="brand" data-companion-service="studio" href="/studio">◈ <span>KILL TEAM <b>STUDIO</b></span></a><div class="project-picker"><button id="new-project" type="button" disabled>+ Создать команду</button></div><span class="project-name">KASRKIN</span><div class="header-actions"><button id="publish-team" class="primary" disabled>Опубликовать</button><button id="save-json">Сохранить команду</button><details class="studio-export-menu"><summary>Экспорт</summary><div class="studio-export-options"><button id="export-rosz" type="button" disabled>Сохранить ростер в .rosz</button><button id="open-tts">↓ Tabletop Simulator</button><button id="export">↓ PDF для печати</button></div></details></div></header>
 <div class="studio-bar"><nav class="studio-tabs" aria-label="Разделы студии"><button data-studio-view="editor" class="active" aria-pressed="true">Редактор</button><button data-studio-view="drafts" aria-pressed="false">Мои черновики</button><button data-studio-view="library" aria-pressed="false">Библиотека</button></nav><div class="cloud-indicator" hidden><span id="cloud-status" role="status" aria-live="polite" hidden></span><button id="retry-cloud" hidden>Повторить</button></div></div>
@@ -40,12 +40,22 @@
 <dialog id="create-project-dialog" class="project-dialog" aria-labelledby="create-project-title"><div class="project-dialog-heading"><h2 id="create-project-title">Создать команду</h2><button id="close-create-project" aria-label="Закрыть">✕</button></div><p>Начните с пустой команды или создайте свою копию готового шаблона.</p><div id="project-templates" class="project-templates"></div><p id="create-project-error" class="project-dialog-error" role="alert"></p></dialog>
 <dialog id="delete-project-dialog" class="project-dialog" aria-labelledby="delete-project-title" aria-describedby="delete-project-description"><h2 id="delete-project-title">Удалить команду?</h2><p id="delete-project-description"></p><p id="delete-project-error" class="project-dialog-error" role="alert"></p><button id="review-delete-project" hidden>Обновить список</button><div class="project-dialog-actions"><button id="cancel-delete-project" autofocus>Отмена</button><button id="confirm-delete-project" class="danger">Удалить команду</button></div></dialog>
 <dialog id="publication-dialog" aria-labelledby="publication-title"><div class="publication-heading"><div><div class="eyebrow">КОМАНДА ИЗ БИБЛИОТЕКИ</div><h2 id="publication-title"></h2><p id="publication-info"></p><p id="publication-author" class="team-author"></p></div><button id="close-publication" aria-label="Закрыть просмотр команды">✕</button></div><div class="publication-actions" aria-label="Экспорт опубликованной команды"><button data-publication-export="rosz">Сохранить ростер в .rosz</button><button data-publication-export="tts">↓ Tabletop Simulator</button><button data-publication-export="pdf" class="primary">↓ PDF для печати</button></div><p id="publication-export-status" role="status" aria-live="polite"></p><nav id="publication-nav" aria-label="Карточки опубликованной команды"></nav><div id="publication-cards"></div></dialog>
-<dialog id="tts-dialog" aria-labelledby="tts-title"><div class="tts-heading"><div><div class="eyebrow">ЭКСПОРТ КОЛОДЫ</div><h2 id="tts-title">Tabletop Simulator</h2></div><button id="close-tts" aria-label="Закрыть экспорт">✕</button></div><p id="tts-summary"></p><div id="tts-decks"></div><label>Куда распакуете архив?<input id="tts-folder" placeholder="C:/TTS/kasrkin" spellcheck="false"></label><p class="hint">Изображения останутся в этой папке. Если перенесёте её, откройте IMPORT.html из архива, чтобы обновить пути в колодах.</p><p class="hint">Для игры с друзьями загрузите изображения в Steam Cloud через TTS. Инструкция и настройка ссылок входят в архив.</p><button id="build-tts" class="primary">Собрать ZIP с колодами</button><p id="tts-status" role="status" aria-live="polite"></p><div id="tts-result" hidden><a id="tts-download" class="download-button">↓ Скачать ZIP</a><p>Распакуйте архив и откройте <b>IMPORT.html</b> — там настройка и пошаговый импорт.</p></div></dialog>
+<dialog id="tts-dialog" aria-labelledby="tts-title">
+ <div class="tts-heading"><div><div class="eyebrow">ЭКСПОРТ КОМАНДЫ</div><h2 id="tts-title">Tabletop Simulator</h2></div><button id="close-tts" aria-label="Закрыть экспорт">✕</button></div>
+ <p id="tts-summary"></p>
+ <p>Все карты команды в одной колоде: PNG лиц и PNG оборотов. Продолжения правил находятся на оборотах.</p>
+ <p id="tts-limit" class="hint" hidden>В TTS один лист вмещает до 69 карт. Набор разделён только по этому лимиту: импортируйте каждую пару PNG и сложите колоды вместе на столе.</p>
+ <button id="build-tts" class="primary">Собрать ZIP с картами</button>
+ <p id="tts-status" role="status" aria-live="polite"></p>
+ <div id="tts-result" hidden><a id="tts-download" class="download-button">↓ Скачать ZIP</a></div>
+ <h3>Как загрузить колоду</h3>
+ <ol class="tts-instructions"><li>Распакуйте ZIP. В TTS откройте Objects → Components → Custom → Deck.</li><li>Выберите PNG лиц в Face, PNG оборотов в Back. Для игры с друзьями выберите Cloud при загрузке обоих изображений.</li><li>Выставьте параметры ниже и нажмите Import.</li></ol>
+ <div id="tts-sheets"></div>
+ <p data-ui-skip><b>Unique Backs:</b> ON · <b>Back is Hidden:</b> OFF · <b>Sideways:</b> OFF</p>
+ <p class="hint">Оперативники повёрнуты на 90°, чтобы поместиться в ту же колоду без искажения. На столе поверните их для чтения.</p>
+ <p class="hint">Для колоды TTS принимает изображения PNG/JPG, а не многостраничный PDF.</p>
+</dialog>
 
 </div></body></html>
-
-
-
-
 
 

@@ -1,7 +1,7 @@
 (function(root){
 'use strict';
 const $=selector=>document.querySelector(selector),esc=value=>KTCards.esc(String(value??''));
-const labels={selectionCards:'Состав',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',operatives:'Оперативники',lorePages:'Картинки и лор'};
+const labels={selectionCards:'Состав',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',tokenCards:'Жетоны и маркеры',operatives:'Оперативники',lorePages:'Картинки и лор'};
 let cloud,adapter,view='editor',requestVersion=0,query='',offset=0,publication,publicationSection='selectionCards',busy=false,busyAction='',deleteTarget=null,renameTarget=null,libraryTeams=[];
 const date=value=>value?new Date(value).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
 function statusText(element,value){

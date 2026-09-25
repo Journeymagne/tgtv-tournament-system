@@ -1,19 +1,29 @@
 'use strict';
 const $=s=>document.querySelector(s),esc=KTCards.esc;
-const SECTIONS={selectionCards:'Состав киллтима',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',operatives:'Оперативники',lorePages:'Картинки и лор',project:'Проект и исходники'};
+const SECTIONS={selectionCards:'Состав киллтима',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',tokenCards:'Жетоны и маркеры',operatives:'Оперативники',lorePages:'Картинки и лор',project:'Проект и исходники'};
 const STORAGE='kt-studio-cards-v6',PREVIOUS=[];
 const PROJECTS=STORAGE+':project-list',ACTIVE=STORAGE+':active-project',projectList=new Map();
-let data,original,section='selectionCards',selected=0,side=0,assets={},timer;
+let data,original,section=new URLSearchParams(location.search).get('section')==='tokenCards'?'tokenCards':'selectionCards',selected=0,side=0,assets={},timer;
 let previewOnly=false;
 let saveRevision=0,teamLoadRevision=0;
 const nestedStates=new WeakMap();
+const customArchetypes=new WeakMap();
 let editorCard=null,weaponProfileChoice='';
 let imageOptimization=null;
 let referenceTarget=null;
+let recordDrag=null,recordClickSuppressed=false;
+let weaponDrag=null,weaponClickSuppressed=false;
 const current=()=>section==='project'?data.team:data[section]?.[selected];
 const fixed=()=>KTModel.fixed.includes(section);
 const uid=()=>crypto.randomUUID();
 function toast(t){$('#toast').textContent=t;$('#toast').style.display='block';clearTimeout(timer);timer=setTimeout(()=>$('#toast').style.display='none',4500)}
+KTTokensEditor.bind({context:()=>({project:data,card:section==='tokenCards'?current():null}),uid,toast,persist,
+ changed:({rebuild,token})=>{
+  persist();
+  if(rebuild)renderEditor(token?{openNested:{type:'tokens',id:token.id}}:{});
+  if(token){const pages=KTCards.renderCard(current(),data,assets,selected),target=pages.findIndex(p=>p.boxes.some(box=>box.id===token.id));if(target>=0)side=target}
+  renderPreview();
+ }});
 function rememberProject(team,active=false){
  projectList.set(team.id,team.name);
  try{KTAccount.storage.setItem(PROJECTS,JSON.stringify([...projectList]));if(active)KTAccount.storage.setItem(ACTIVE,team.id)}catch{}
@@ -44,7 +54,9 @@ async function renameProject(id,name){
  const active=data.team.id===id;
  const saved=active?data:JSON.parse(await KTStorage.load(STORAGE+':'+id)||'null');
  if(saved){
+  KTModel.syncTeamKeywords(saved);
   saved.team.name=name;
+  KTModel.syncTeamKeywords(saved);
   if(!await KTStorage.save(STORAGE+':'+id,JSON.stringify(saved)))throw Error('Название изменено на сервере, но локальную копию обновить не удалось. Перезагрузите Студию.');
   rememberProject(saved.team);
  }
@@ -56,6 +68,7 @@ async function renameProject(id,name){
 }
 function persist(edited=true){
  if(removedProjects.has(data.team.id))return Promise.resolve(false);
+ KTModel.syncTeamKeywords(data);
  for(const c of data.selectionCards)c.size=c.selectionGroups.reduce((n,g)=>n+g.count,0)||1;
  const revision=++saveRevision,key=STORAGE+':'+data.team.id,value=JSON.stringify(data),team={...data.team};
  if(edited)window.KTCommunity?.track(JSON.parse(value));
@@ -93,6 +106,8 @@ async function createEmptyProject(templateId='empty'){
   const baseName=name;while([...projectList.values()].includes(name))name=baseName+' '+number++;
   const id='custom-'+uid(),next=KTModel.validate(template?KTModel.migrate(template):KTModel.newProject(id,name));
   next.team.id=id;next.team.name=name;
+  if(template)for(const card of next.selectionCards)card.archetypes=['','','',''];
+  KTModel.syncTeamKeywords(next);
   if(!await KTStorage.save(STORAGE+':'+next.team.id,JSON.stringify(next)))throw Error('Браузер не смог сохранить новый проект');
   rememberProject(next.team);
   if(revision!==teamLoadRevision)return;
@@ -152,6 +167,68 @@ function refreshSectionCount(){
  const badge=$('#navigation [data-nav="'+section+'"] small');
  if(badge&&fixed())badge.textContent=data[section].filter(KTModel.isFilled).length+'/4';
 }
+function clearRecordDrop(){
+ $('#record-list').querySelectorAll('.record-drop-before,.record-drop-after').forEach(el=>el.classList.remove('record-drop-before','record-drop-after','record-drop-vertical'));
+}
+function cancelRecordDrag(){
+ recordDrag=null;clearRecordDrop();
+ $('#record-list .record-dragging')?.classList.remove('record-dragging');
+}
+function renderRecordList(){
+ cancelRecordDrag();
+ const cards=data[section],movable=Array.isArray(cards)&&cards.length>1;
+ $('#record-list').innerHTML=Array.isArray(cards)?cards.map((c,i)=>'<button type="button" class="record '+(i===selected?'active':'')+'" data-record="'+i+'" aria-pressed="'+(i===selected)+'"'+(movable?' draggable="true" title="Перетащите, чтобы изменить порядок. С клавиатуры: Alt + ↑ / ↓." aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"':'')+'><small>'+String(i+1).padStart(2,'0')+'</small><span class="record-name">'+esc(c.name||'Пустая карточка')+'</span>'+(movable?'<span class="record-grip" aria-hidden="true">⠿</span>':'')+'</button>').join(''):'';
+}
+function moveRecord(from,to){
+ const cards=data[section];
+ if(!Array.isArray(cards)||!Number.isInteger(from)||!Number.isInteger(to)||from<0||to<0||from>=cards.length||to>=cards.length||from===to)return;
+ const active=current(),[moved]=cards.splice(from,1);
+ cards.splice(to,0,moved);selected=cards.indexOf(active);
+ persist();renderRecordList();renderPreview();
+ if(section==='lorePages'){
+  $('#editor [data-action="move-lore-page"][data-direction="-1"]').disabled=selected===0;
+  $('#editor [data-action="move-lore-page"][data-direction="1"]').disabled=selected===cards.length-1;
+ }
+ $('#record-list [data-record="'+to+'"]').focus({preventScroll:true});
+}
+function recordDropTarget(e){
+ const drag=recordDrag,button=e.target.closest('#record-list [data-record]');
+ if(!drag||drag.project!==data||drag.section!==section||drag.cards!==data[section]||!button)return null;
+ const from=drag.cards.indexOf(drag.card),index=Number(button.dataset.record);
+ if(from<0||!drag.cards[index])return null;
+ const rect=button.getBoundingClientRect(),vertical=getComputedStyle($('#record-list')).gridTemplateColumns.trim().split(/\s+/).length===1;
+ const after=vertical?e.clientY>rect.top+rect.height/2:e.clientX>rect.left+rect.width/2;
+ const insertion=index+(after?1:0),to=insertion-(from<insertion?1:0);
+ return {button,from,to,after,vertical};
+}
+$('#record-list').addEventListener('pointerdown',()=>{recordClickSuppressed=false});
+$('#record-list').addEventListener('keydown',e=>{
+ recordClickSuppressed=false;
+ const button=e.target.closest('[data-record]');
+ if(!button||!e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||!['ArrowUp','ArrowDown'].includes(e.key))return;
+ e.preventDefault();
+ const from=Number(button.dataset.record);moveRecord(from,from+(e.key==='ArrowUp'?-1:1));
+});
+$('#record-list').addEventListener('dragstart',e=>{
+ const button=e.target.closest('[data-record]'),cards=data[section],card=cards?.[Number(button?.dataset.record)];
+ if(!button||!Array.isArray(cards)||cards.length<2||!card||!e.dataTransfer){e.preventDefault();return}
+ recordDrag={project:data,section,cards,card};recordClickSuppressed=true;
+ e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('application/x-kt-studio-card',card.id);
+ button.classList.add('record-dragging');
+});
+$('#record-list').addEventListener('dragover',e=>{
+ const target=recordDropTarget(e);clearRecordDrop();
+ if(!target)return;
+ e.preventDefault();e.dataTransfer.dropEffect='move';
+ if(target.from!==target.to){target.button.classList.add(target.after?'record-drop-after':'record-drop-before');target.button.classList.toggle('record-drop-vertical',target.vertical)}
+});
+$('#record-list').addEventListener('dragleave',e=>{if(!$('#record-list').contains(e.relatedTarget))clearRecordDrop()});
+$('#record-list').addEventListener('drop',e=>{
+ const target=recordDropTarget(e);cancelRecordDrag();
+ if(!target)return;
+ e.preventDefault();moveRecord(target.from,target.to);
+});
+document.addEventListener('dragend',cancelRecordDrag);
 function render(){
  $('#navigation').innerHTML=Object.entries(SECTIONS).map(([key,name])=>'<button data-nav="'+key+'" class="'+(key===section?'active':'')+'"><span>'+name+'</span><small>'+(KTModel.fixed.includes(key)?data[key].filter(KTModel.isFilled).length+'/4':Array.isArray(data[key])?data[key].length:'↗')+'</small></button>').join('');
  $('#section-title').textContent=SECTIONS[section];$('#breadcrumb').textContent=data.team.name+(section==='lorePages'?' / АЛЬБОМ':' / КАРТОЧКИ');
@@ -164,30 +241,110 @@ function render(){
  $('#add-reference-page').hidden=section!=='lorePages';
  $('#add-item').textContent=section==='lorePages'?'+ Страница':'+ Карточка';
  $('#view-toggle').textContent=previewOnly?(section==='lorePages'?'Редактировать страницу':'Редактировать карточку'):(section==='lorePages'?'Показать страницу':'Показать карточку');
- $('#record-list').innerHTML=list?data[section].map((c,i)=>'<button class="record '+(i===selected?'active':'')+'" data-record="'+i+'"><small>'+String(i+1).padStart(2,'0')+'</small>'+esc(c.name||'Пустая карточка')+'</button>').join(''):'';
+ renderRecordList();
  $('#section-note').textContent=section==='selectionCards'?'Группы выбора, варианты вооружения и общие ограничения — в формате оригинальной карточки состава.':section==='equipment'?'Четыре карточки снаряжения. Оружие и правила редактируются внутри каждой карточки.':section==='firefightPloys'?'Четыре карточки Firefight Ploys.':section==='strategicPloys'?'Четыре карточки Strategic Ploys.':section==='teamCards'?'Любое число карточек правил фракции. Состав находится в отдельной вкладке.':'';
  if(section==='lorePages')$('#section-note').textContent='Лор, фотографии и референсы моделей с подписями оружия. Отдельные страницы A4 после карточек в PDF.';
+ if(section==='tokenCards')$('#section-note').textContent='Карточки жетонов для PDF и TTS. Круги по умолчанию 20 мм; размеры сохраняются при печати PDF в масштабе 100%.';
  renderEditor();renderPreview();
 }
 function nestedEditor(c,type,title){
- const records=c[type]||[],opened=nestedStates.get(c)?.[type];
+ const records=c[type]||[],opened=nestedStates.get(c)?.[type],movable=type==='weapons'&&records.length>1;
  const body=records.map((r,i)=>{
   const key=type+'.'+i+'.';
   let html=field('Название',key+'name',r.name);
   if(type==='weapons')html+=select('Тип',key+'kind',r.kind,[['ranged','Дальнобойное'],['melee','Ближний бой']])+'<div class="field-grid">'+field('ATK',key+'attacks',r.attacks,'number')+field('HIT',key+'hit',r.hit)+field('DMG',key+'damage',r.damage)+'</div>'+field('Правила оружия',key+'rules',KTModel.weaponRules(r),'textarea')+'<div class="two-fields">'+field('Группа режимов',key+'group',r.group)+field('Режим',key+'mode',r.mode)+'</div>';
   else html+=(type==='actions'?field('Стоимость, AP',key+'cost',r.cost):'')+field('Текст',key+'body',r.body,'textarea');
-  return '<details class="nested" data-nested-type="'+type+'" data-nested-id="'+esc(r.id)+'" '+((opened?opened.has(r.id):i===0)?'open':'')+'><summary>'+esc(r.name||'Новый блок')+'</summary>'+html+(type==='weapons'?'<button class="small" data-save-weapon-profile="'+i+'">Сохранить профиль</button> ':'')+'<button class="danger small" data-remove-nested="'+type+'" data-index="'+i+'">Удалить из карточки</button></details>';
+  return '<details class="nested" data-nested-type="'+type+'" data-nested-id="'+esc(r.id)+'" '+((opened?opened.has(r.id):i===0)?'open':'')+'><summary'+(movable?' data-weapon-drag draggable="true" title="Перетащите, чтобы изменить порядок. С клавиатуры: Alt + ↑ / ↓." aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"':'')+'><span class="nested-name">'+esc(r.name||'Новый блок')+'</span>'+(movable?'<span class="weapon-grip" aria-hidden="true">⠿</span>':'')+'</summary>'+html+(type==='weapons'?'<button class="small" data-save-weapon-profile="'+i+'">Сохранить профиль</button> ':'')+'<button class="danger small" data-remove-nested="'+type+'" data-index="'+i+'">Удалить из карточки</button></details>';
  }).join('');
  const picker=type==='weapons'?'<div class="weapon-profile-picker"><label for="weapon-profile-select">Добавить оружие<select id="weapon-profile-select"><option value="">Новый профиль с нуля</option>'+(data.weaponProfiles||[]).map(p=>'<option value="'+esc(p.id)+'" '+(p.id===weaponProfileChoice?'selected':'')+'>'+esc(p.name+(p.mode?' / '+p.mode:'')+' · '+(p.kind==='melee'?'Ближний бой':'Дальнобойное')+' · '+p.attacks+' / '+p.hit+' / '+p.damage)+'</option>').join('')+'</select></label></div>':'';
  const savedHint=type==='weapons'?'<p class="hint">«Сохранить профиль» добавляет оружие в список этого проекта. Повторное сохранение с тем же названием, типом и режимом обновляет профиль. Уже добавленное на карточки оружие редактируется отдельно.</p>'+(data.weaponProfiles?.length?'<button class="small danger" id="delete-weapon-profile" '+(data.weaponProfiles.some(p=>p.id===weaponProfileChoice)?'':'disabled')+'>Удалить из сохранённых</button>':''):'';
  return panel(title,body+picker+'<button class="add-inline" data-add-nested="'+type+'">+ '+(type==='weapons'?'Добавить оружие':type==='abilities'?'Способность':'Действие')+'</button>'+savedHint,records.length+' на этой карте');
+}
+function clearWeaponDrop(){
+ $('#editor').querySelectorAll('.weapon-drop-before,.weapon-drop-after').forEach(el=>el.classList.remove('weapon-drop-before','weapon-drop-after'));
+}
+function cancelWeaponDrag(){
+ weaponDrag=null;clearWeaponDrop();
+ $('#editor .weapon-dragging')?.classList.remove('weapon-dragging');
+}
+function moveWeapon(from,to){
+ const weapons=current()?.weapons;
+ if(!Array.isArray(weapons)||!Number.isInteger(from)||!Number.isInteger(to)||from<0||to<0||from>=weapons.length||to>=weapons.length||from===to)return;
+ const [weapon]=weapons.splice(from,1);weapons.splice(to,0,weapon);
+ // Rebuild indexed field paths while keeping expanded sections by weapon ID.
+ persist();renderEditor();renderPreview();
+ const block=Array.from($('#editor').querySelectorAll('[data-nested-type="weapons"]')).find(el=>el.dataset.nestedId===weapon.id);
+ block?.querySelector('summary').focus({preventScroll:true});
+}
+function weaponDropTarget(e){
+ const drag=weaponDrag,block=e.target.closest('#editor [data-nested-type="weapons"]');
+ if(!drag||drag.project!==data||drag.card!==current()||drag.weapons!==current()?.weapons||!block)return null;
+ const from=drag.weapons.indexOf(drag.weapon),index=drag.weapons.findIndex(w=>w.id===block.dataset.nestedId);
+ if(from<0||index<0)return null;
+ const rect=block.getBoundingClientRect(),after=e.clientY>rect.top+rect.height/2;
+ const insertion=index+(after?1:0),to=insertion-(from<insertion?1:0);
+ return {block,from,to,after};
+}
+$('#editor').addEventListener('pointerdown',()=>{weaponClickSuppressed=false});
+$('#editor').addEventListener('click',e=>{
+ if(weaponClickSuppressed&&e.target.closest('summary[data-weapon-drag]')){weaponClickSuppressed=false;e.preventDefault();e.stopPropagation()}
+},true);
+$('#editor').addEventListener('keydown',e=>{
+ weaponClickSuppressed=false;
+ const heading=e.target.closest('summary[data-weapon-drag]');
+ if(!heading||!e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||!['ArrowUp','ArrowDown'].includes(e.key))return;
+ e.preventDefault();
+ const from=current().weapons.findIndex(w=>w.id===heading.parentElement.dataset.nestedId);
+ moveWeapon(from,from+(e.key==='ArrowUp'?-1:1));
+});
+$('#editor').addEventListener('dragstart',e=>{
+ const heading=e.target.closest('summary[data-weapon-drag]');if(!heading)return;
+ const card=current(),weapons=card?.weapons,weapon=weapons?.find(w=>w.id===heading.parentElement.dataset.nestedId);
+ if(!weapon||weapons.length<2||!e.dataTransfer){e.preventDefault();return}
+ weaponDrag={project:data,card,weapons,weapon};weaponClickSuppressed=true;
+ e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('application/x-kt-studio-weapon',weapon.id);
+ heading.parentElement.classList.add('weapon-dragging');
+});
+$('#editor').addEventListener('dragover',e=>{
+ const target=weaponDropTarget(e);clearWeaponDrop();
+ if(!target)return;
+ e.preventDefault();e.dataTransfer.dropEffect='move';
+ if(target.from!==target.to)target.block.classList.add(target.after?'weapon-drop-after':'weapon-drop-before');
+});
+$('#editor').addEventListener('dragleave',e=>{if(!$('#editor').contains(e.relatedTarget))clearWeaponDrop()});
+$('#editor').addEventListener('drop',e=>{
+ const target=weaponDropTarget(e);cancelWeaponDrag();
+ if(!target)return;
+ e.preventDefault();moveWeapon(target.from,target.to);
+});
+document.addEventListener('dragend',cancelWeaponDrag);
+function archetypeFields(c){
+ const custom=customArchetypes.get(c)||new Set();customArchetypes.set(c,custom);
+ return Array.from({length:4},(_,i)=>{
+  const value=c.archetypes[i]||'';
+  if(value&&!KTModel.archetypeOptions.includes(value))custom.add(i);
+  const own=custom.has(i),selected=own?'custom':value;
+  const options=[['','Пусто'],...KTModel.archetypeOptions.map(name=>[name,name]),...(own?[['custom','Кастомный архетип']]:[])];
+  return '<div class="archetype-slot"><div class="archetype-choice"><label for="archetype-choice-'+i+'">Архетип '+(i+1)+'<select id="archetype-choice-'+i+'" data-archetype-choice="'+i+'">'+options.map(([key,label])=>'<option value="'+esc(key)+'" '+(key===selected?'selected':'')+'>'+esc(label)+'</option>').join('')+'</select></label>'+(!own?'<button type="button" data-archetype-custom="'+i+'">Создать кастом</button>':'')+'</div>'+(own?'<label>Кастомный архетип<input type="text" data-field="archetypes.'+i+'" maxlength="200" value="'+esc(value)+'"></label>':'')+'</div>';
+ }).join('');
+}
+function setArchetype(slot,value,custom=false){
+ const c=current();if(section!=='selectionCards'||!c||!Number.isInteger(slot)||slot<0||slot>3)return;
+ if(!custom&&value!==''&&!KTModel.archetypeOptions.includes(value))return;
+ const modes=customArchetypes.get(c)||new Set();customArchetypes.set(c,modes);
+ if(custom)modes.add(slot);else modes.delete(slot);
+ c.archetypes[slot]=value;side=0;persist();
+ $('#editor .archetype-fields').innerHTML=archetypeFields(c);
+ $('#archetype-count').textContent=c.archetypes.filter(a=>a.trim()).length+' / 4';
+ renderPreview();
+ $(custom?'#editor input[data-field="archetypes.'+slot+'"]':'#archetype-choice-'+slot)?.focus({preventScroll:true});
 }
 function selectionEditor(c){return c.selectionGroups.map((g,i)=>{
  const key='selectionGroups.'+i+'.';
  return panel('ГРУППА ВЫБОРА '+(i+1),field('Число оперативников',key+'count',g.count,'number')+field('Формулировка после числа',key+'description',g.description,'textarea')+g.entries.map((e,j)=>{
   const p=key+'entries.'+j+'.';
   return '<details class="nested"><summary>'+esc(e.text||'Новый вариант')+'</summary>'+field('Строка списка',p+'text',e.text,'textarea')+field('Вложенные варианты — по одному на строку',p+'options',e.options.join('\n'),'textarea')+select('Связанная карточка оперативника',p+'operativeId',e.operativeId||'',[['','Без ссылки'],...data.operatives.map(o=>[o.id,o.name])])+'<button class="danger small" data-remove-entry="'+i+'" data-index="'+j+'">Удалить строку</button></details>';
- }).join('')+'<div class="row-actions"><button data-add-entry="'+i+'">+ Строка списка</button><button class="danger" data-remove-group="'+i+'">Удалить группу</button></div>');
+ }).join('')+'<div class="row-actions"><button data-add-entry="'+i+'">+ Пункт в список</button><button class="danger" data-remove-group="'+i+'">Удалить группу</button></div>');
 }).join('')+'<button data-action="add-selection-group">+ Группа выбора</button>'}
 function imageEditor(c){
  const uri=/^data:image\/(png|jpeg);base64,/.test(c.image||'')?c.image:assets[c.image];
@@ -244,6 +401,7 @@ document.addEventListener('click',e=>{
  referenceTarget=null;persist();renderEditor();renderPreview();
 });
 function renderEditor(options={}){
+ cancelWeaponDrag();
  if(editorCard){
   const saved={};
   for(const el of document.querySelectorAll('#editor details[data-nested-type]')){const set=saved[el.dataset.nestedType]??=new Set();if(el.open)set.add(el.dataset.nestedId)}
@@ -273,17 +431,19 @@ function renderEditor(options={}){
    out+=panel('РОСТЕР ДЛЯ TTS / DATA TEAM','<p>'+roster.count+' профилей оперативников с вариантами оружия. Характеристики, способности и правила берутся из текущих карточек команды.</p><details class="nested"><summary data-ui-label>Оперативники и выбранное оружие</summary>'+roster.entries.map(e=>'<p data-ui-skip><b>'+e.count+' × '+esc(e.name)+'</b><br><span class="hint">'+e.weaponIds.map(id=>esc(data.operatives.find(o=>o.id===e.operativeId)?.weapons.find(w=>w.id===id)?.name||'Удалённое оружие: '+id)).join('; ')+'</span></p>').join('')+'</details><p class="hint">Это полный ростер для выбора моделей перед игрой. Правила выбора боевой команды остаются на карточке состава.</p><p>Загрузите файл в <a href="https://datateamapp.azurewebsites.net/Encode" target="_blank" rel="noopener">DataTeam Encode</a>, затем вставьте полученный код в <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3356996125" target="_blank" rel="noopener">KT Command Node 2024</a>.</p>','Ростер .rosz · KT 2024');
   }
  }else if(!c)out=panel('КАРТОЧКИ','<p>Добавьте первую карточку.</p>');
+ else if(section==='tokenCards')out=KTTokensEditor.html(c,{field,panel,opened:nestedStates.get(c)?.tokens});
  else if(section==='selectionCards'){
   out=panel('СОСТАВ КИЛЛТИМА',field('Название карточки','name',c.name)+'<p>Всего в группах: '+c.selectionGroups.reduce((n,g)=>n+g.count,0)+' оперативников</p><button id="export-selection" class="primary">↓ PDF карточки состава</button>', 'Шаблон состава · 70 × 121 мм');
-  out+=panel('ДВА АРХЕТИПА','<div class="two-fields">'+c.archetypes.map((value,i)=>select('Архетип '+(i+1),'archetypes.'+i,value,[['','Не выбран'],...[...new Set([...KTModel.archetypeOptions,...c.archetypes.filter(Boolean)])].filter(a=>a!==c.archetypes[1-i]).map(a=>[a,a])])).join('')+'</div><p class="hint">Оба архетипа печатаются одной строкой на цветной плашке.</p>',c.archetypes.filter(Boolean).length+' / 2');
+  out+='<details class="panel introduction-panel"><summary class="panel-title" data-ui-label>ВВЕДЕНИЕ</summary>'+field('Вводный текст','body',c.body,'textarea')+field('Художественный текст','lore',c.lore||'','textarea')+'</details>';
+  out+=panel('АРХЕТИПЫ','<div class="archetype-fields">'+archetypeFields(c)+'</div><p class="hint">Выберите стандартный архетип или создайте кастомный. Пустые поля не печатаются.</p>','<span id="archetype-count">'+c.archetypes.filter(a=>a.trim()).length+' / 4</span>');
   out+=selectionEditor(c);
   out+=panel('ОБЩИЕ ОГРАНИЧЕНИЯ',field('Ограничения состава и сноски','selectionRules',c.selectionRules,'textarea')+field('Пояснения к терминам','selectionNotes',c.selectionNotes,'textarea'));
-  out+=panel('ДОПОЛНИТЕЛЬНЫЙ ТЕКСТ',field('Вводный текст','body',c.body,'textarea')+field('Художественный текст','lore',c.lore||'','textarea'));
   out+='<details class="nested"><summary data-ui-label>Оружие, способности и действия этой карточки</summary>'+nestedEditor(c,'weapons','ОРУЖИЕ')+nestedEditor(c,'abilities','СПОСОБНОСТИ')+nestedEditor(c,'actions','ДЕЙСТВИЯ')+'</details>';
   out+='<div class="row-actions"><button data-action="duplicate">Дублировать состав</button>'+(data.selectionCards.length>1?'<button class="danger" data-action="delete">Удалить состав</button>':'')+'</div>';
  }
  else{
-  out=panel('КАРТОЧКА',field('Название','name',c.name)+(section==='teamCards'?field('Подзаголовок','subtitle',c.subtitle||''):'')+(fixed()?field('Стоимость (если есть)','cost',c.cost):''),c.sourcePage?esc(data.team.name)+' · стр. '+c.sourcePage:'Свободная карточка');
+  const nameField=field('Название','name',c.name),nameEditor=c.kind==='operative'?'<div class="two-fields">'+nameField+select('Кегль имени, пт','nameFontSize',c.nameFontSize??14,Array.from({length:19},(_,i)=>[i+6,String(i+6)]))+'</div><p class="hint">По умолчанию — 14 пт. Крупное имя в две строки увеличивает шапку.</p>':nameField;
+  out=panel('КАРТОЧКА',nameEditor+(section==='teamCards'?field('Подзаголовок','subtitle',c.subtitle||''):'')+(fixed()?field('Стоимость (если есть)','cost',c.cost):''),c.sourcePage?esc(data.team.name)+' · стр. '+c.sourcePage:'Свободная карточка');
   if(section==='equipment'){
    const source=data.sourceArchive?.equipment||[];
    if(source.length)out+=panel('ВЫБРАТЬ ИЗ ИСХОДНИКА','<label>Снаряжение '+esc(data.team.name)+'<select id="source-equipment"><option value="">Выберите предмет</option>'+source.map((e,i)=>'<option value="'+i+'">'+esc(e.name)+' · '+esc(e.cost)+'</option>').join('')+'</select></label><button data-action="use-source">Заполнить эту карточку</button><p class="hint">После вставки оружие и правила редактируются прямо здесь.</p>');
@@ -292,7 +452,7 @@ function renderEditor(options={}){
    out+=imageEditor(c);
    out+=panel('ПРОФИЛЬ','<div class="field-grid">'+Object.entries(c.stats).map(([k,v])=>field(k,'stats.'+k,v,typeof v==='number'?'number':'text')).join('')+'</div><label>Размер базы (мм)<input type="text" data-field="baseSize" maxlength="16" placeholder="25, 28.5, 60×35" value="'+esc(c.baseSize||'')+'"></label><p class="hint">Печатается в правом нижнем углу датакарты. Оставьте пустым, чтобы скрыть.</p>'+field('Ключевые слова через запятую','keywords',c.keywords.join(', '),'textarea')+select('Расположение правил','rulesLayout',c.rulesLayout||'columns',[['full','На всю ширину'],['columns','В две колонки']])+'<p class="hint">Расстояния указаны в дюймах. Условия выбора редактируются на карточке состава.</p>');
   }
-  out+=panel(c.kind==='operative'?'ТЕКСТ ОПЕРАТИВНИКА':'ТЕКСТ КАРТОЧКИ',field('Художественный текст','lore',c.lore||'','textarea')+(c.kind==='operative'?'<p class="hint">Печатается в чёрной шапке под названием оперативника. Длинный текст переносится на следующие стороны.</p>':'')+field('Правило','body',c.body,'textarea')+'<p class="hint">Расстояния в дюймах, например 6″. При вставке старые символы переводятся автоматически.</p>');
+  if(c.kind!=='operative')out+=panel('ТЕКСТ КАРТОЧКИ',field('Художественный текст','lore',c.lore||'','textarea')+field('Правило','body',c.body,'textarea')+'<p class="hint">Расстояния в дюймах, например 6″. При вставке старые символы переводятся автоматически.</p>');
   if(section==='teamCards')out+=imageEditor(c);
   out+=nestedEditor(c,'weapons','ОРУЖИЕ')+nestedEditor(c,'abilities','СПОСОБНОСТИ')+nestedEditor(c,'actions','ДЕЙСТВИЯ');
   out+='<div class="row-actions">'+(fixed()?'<button class="danger" data-action="clear">Очистить место</button>':'<button data-action="duplicate">Дублировать карточку</button><button class="danger" data-action="delete">Удалить карточку</button>')+'</div>';
@@ -318,38 +478,46 @@ function renderPreview(){
  $('#prev-side').disabled=side===0;$('#next-side').disabled=side>=cards.length-1;
  $('#card-size').textContent=lore?'210 × 297 мм':c.kind==='operative'?'121 × 70 мм':'70 × 121 мм';
  $('#preview-note').textContent=lore?(cards.length>1?'Материал занимает '+cards.length+' стр. A4. Все страницы войдут в PDF.':'Эта страница войдёт в PDF после карточек.'):(cards.length>1?'Текст продолжается на следующей стороне. Все стороны войдут в PDF.':'Та же карточка будет напечатана в PDF.');
+ if(c.kind==='token-guide')$('#preview-note').textContent='Нажмите на жетон, чтобы изменить его. PDF: масштаб 100%, без подгонки; диаметр круга сохраняется.';
 }
 function updateField(el){
  let key=el.dataset.field,value=el.type==='checkbox'?el.checked:el.type==='number'?Math.max(0,Number(el.value)):el.value,obj=current();
+ if(key==='nameFontSize'){value=Number(value);if(!Number.isInteger(value)||value<6||value>24)return;side=0}
+ if(section==='tokenCards'&&key==='name'){value=value.slice(0,200);el.value=value}
  if(el.hasAttribute('data-percent')){value=Math.min(100,value)/100;el.value=Math.round(value*100)}
  if(typeof value==='string'&&section!=='lorePages'){const converted=KTModel.toInches(value);if(converted!==value){value=converted;el.value=value}}
  if(section==='lorePages'&&typeof value==='string'){const max=key==='name'?200:key==='body'?100000:key.endsWith('.caption')?5000:/^images\.\d+\.(modelName|callouts\.\d+\.text)$/.test(key)?80:null;if(max&&value.length>max){value=value.slice(0,max);el.value=value}}
  if(key.startsWith('@')){obj=data;key=key.slice(1)}
- if(key==='keywords')value=value.split(',').map(v=>v.trim()).filter(Boolean);
+ if(key==='keywords'){
+  const automatic=KTModel.teamKeyword(data.team.name);
+  if(automatic&&value.startsWith(automatic))value=value.slice(automatic.length).replace(/^\s*,\s*/,'');
+  value=value.split(',').map(v=>v.trim()).filter(Boolean);
+ }
  if(/^selectionGroups\.\d+\.entries\.\d+\.options$/.test(key))value=value.split('\n').map(v=>v.trim()).filter(Boolean);
  if(/^selectionGroups\.\d+\.count$/.test(key))value=Math.max(1,value);
  if(key==='size')value=Math.max(1,value);
- if(key.startsWith('archetypes.')){const slot=Number(key.split('.')[1]);if(value&&obj.archetypes[1-slot]===value){toast('Выберите два разных архетипа');renderEditor();return}side=0}
+ if(key.startsWith('archetypes.')){value=value.slice(0,200);side=0}
  pathSet(obj,key,value);
- if(/^(weapons|abilities|actions)\.\d+\.name$/.test(key))el.closest('details')?.querySelector('summary')?.replaceChildren(document.createTextNode(value||'Новый блок'));
+ if(/^(weapons|abilities|actions)\.\d+\.name$/.test(key))el.closest('details')?.querySelector('.nested-name')?.replaceChildren(document.createTextNode(value||'Новый блок'));
  if(/^images\.\d+\.modelName$/.test(key))el.closest('details')?.querySelector('summary')?.replaceChildren(document.createTextNode(value||'Новая модель'));
  if(section==='lorePages'&&obj.layout==='references'){
   const imageIndex=/^images\.(\d+)\./.exec(key);if(imageIndex)side=Math.floor(Number(imageIndex[1])/6);
   refreshReferenceThumbs();
  }
- if(key==='lore'&&obj.kind==='operative')side=0;
  if(key.startsWith('selectionGroups.'))obj.size=obj.selectionGroups.reduce((n,g)=>n+g.count,0)||1;
  if(key==='kind'){
   if(value==='recruitment')obj.groupCaps??=[];
   renderEditor();
  }
  persist();renderPreview();refreshSectionCount();
- if(key==='name')$('#record-list .active')?.replaceChildren(document.createTextNode(value||'Пустая карточка'));
+ if(key==='name')$('#record-list .active .record-name')?.replaceChildren(document.createTextNode(value||'Пустая карточка'));
  if(obj===data.team){renderProjectTitle();$('#breadcrumb').textContent=data.team.name+' / КАРТОЧКИ'}
- if(key.startsWith('archetypes.'))renderEditor();
+ if(key.startsWith('archetypes.'))$('#archetype-count').textContent=obj.archetypes.filter(a=>a.trim()).length+' / 4';
 }
-document.addEventListener('input',e=>{if(e.target.dataset.field)updateField(e.target);if(e.target.id==='tts-folder'){$('#tts-result').hidden=true;$('#tts-status').textContent='Папка изменена. Соберите архив заново.'}});
+document.addEventListener('input',e=>{if(e.target.dataset.field)updateField(e.target)});
 document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'&&recordDrag){cancelRecordDrag();return}
+ if(e.key==='Escape'&&weaponDrag){cancelWeaponDrag();return}
  if(e.key==='Escape'&&referenceTarget){referenceTarget=null;renderEditor();return}
  if(!e.target.matches?.('.rich-field textarea')||e.isComposing)return;
  if(e.key==='Enter'&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey&&!e.altKey){if(formatText(e.target,'list-enter'))e.preventDefault();return}
@@ -357,6 +525,8 @@ document.addEventListener('keydown',e=>{
  const key=e.code==='KeyB'?'b':e.code==='KeyI'?'i':e.key.toLowerCase();if(key==='b'||key==='i'){e.preventDefault();formatText(e.target,key==='b'?'bold':'italic')}
 });
 document.addEventListener('change',async e=>{
+ if(e.target.dataset.archetypeChoice!==undefined){if(e.target.value!=='custom')setArchetype(Number(e.target.dataset.archetypeChoice),e.target.value);return}
+ if(e.target.dataset.field==='keywords'&&current()?.kind==='operative')e.target.value=current().keywords.join(', ');
  if(e.target.id==='weapon-profile-select'){weaponProfileChoice=e.target.value;const remove=$('#delete-weapon-profile');if(remove)remove.disabled=!weaponProfileChoice;return}
  if(e.target.id==='team-logo-file'){const file=e.target.files[0];e.target.value='';void importTeamLogo(file);return}
  if(e.target.matches?.('[data-format-size]')){const size=e.target.value;if(size)formatText(e.target.closest('.rich-field').querySelector('textarea'),'size',size);e.target.value='';return}
@@ -366,6 +536,7 @@ document.addEventListener('change',async e=>{
  if(e.target.id==='import-json')importJSON(e.target.files[0]);
 });
 function newCard(){
+ if(section==='tokenCards')return KTTokens.newCard(uid());
  if(section==='lorePages')return KTModel.newLorePage(uid());
  if(section==='selectionCards')return {...KTModel.newSelection(data.team.name+' KILL TEAM'),id:uid()};
  if(section==='operatives')return {...KTModel.blank(uid(),'operative'),name:'NEW OPERATIVE',stats:{APL:2,MOVE:'6″',SAVE:'5+',WOUNDS:8},baseSize:'',keywords:[data.team.name],loadouts:[],group:'CUSTOM',maxSelections:1,image:''};
@@ -417,8 +588,9 @@ document.addEventListener('click',async e=>{
  if(b.id==='close-create-project'){$('#create-project-dialog').close();return}
  if(b.dataset.createProject){void createEmptyProject(b.dataset.createProject);return}
  if(b.dataset.format){formatText(b.closest('.rich-field').querySelector('textarea'),b.dataset.format);return}
+ if(b.dataset.archetypeCustom!==undefined){setArchetype(Number(b.dataset.archetypeCustom),'',true);return}
  if(b.dataset.nav){section=b.dataset.nav;selected=0;side=0;render();return}
- if(b.dataset.record!==undefined){selected=Number(b.dataset.record);side=0;render();return}
+ if(b.dataset.record!==undefined){if(recordClickSuppressed){recordClickSuppressed=false;return}selected=Number(b.dataset.record);side=0;render();return}
  if(b.id==='prev-side'||b.id==='next-side'){side+=b.id==='next-side'?1:-1;renderPreview();return}
  if(b.id==='view-toggle'){previewOnly=!previewOnly;$('.workspace').classList.toggle('show-preview',previewOnly);b.textContent=previewOnly?(section==='lorePages'?'Редактировать страницу':'Редактировать карточку'):(section==='lorePages'?'Показать страницу':'Показать карточку');return}
  if(b.id==='choose-lore-images'){$('#lore-image-files').click();return}
@@ -465,7 +637,8 @@ document.addEventListener('click',async e=>{
  if(b.id==='build-tts'){exportTTS();return}
  if(b.id==='export-selection'){exportPDF({section:'selectionCards',index:selected});return}
  if(b.dataset.editOperative!==undefined){section='operatives';selected=Number(b.dataset.editOperative);side=0;render();return}
- if(b.id==='add-item'){data[section].push(newCard());selected=data[section].length-1;side=0;persist();render();return}
+ if(b.id==='export-tokens'){exportPDF({section:'tokenCards',index:selected},data,b);return}
+ if(b.id==='add-item'){if(section==='tokenCards'&&data.tokenCards.length>=100){toast('В проекте может быть не больше 100 карточек жетонов');return}data[section].push(newCard());selected=data[section].length-1;side=0;persist();render();return}
  const c=current(),a=b.dataset.action;
  if(b.dataset.saveWeaponProfile!==undefined){
   try{const profile=KTModel.saveWeaponProfile(data,c.weapons[Number(b.dataset.saveWeaponProfile)],uid());weaponProfileChoice=profile.id;persist();renderEditor();toast('Профиль «'+profile.name+'» сохранён в проекте')}catch(error){toast(error.message)}return;
@@ -499,7 +672,7 @@ document.addEventListener('click',async e=>{
   const source=data.sourceArchive.equipment[Number(value)];data.equipment[selected]={...KTModel.normalizeCard(source),id:c.id};side=0;persist();render();toast('Предмет добавлен в эту карточку');
  }
  if(a==='clear'){data[section][selected]=KTModel.blank(c.id,c.kind);side=0;persist();render()}
- if(a==='duplicate'){const copy=structuredClone(c);copy.id=uid();copy.name+=' (copy)';data[section].push(copy);selected=data[section].length-1;side=0;persist();render()}
+ if(a==='duplicate'){if(section==='tokenCards'&&data.tokenCards.length>=100){toast('В проекте может быть не больше 100 карточек жетонов');return}const copy=structuredClone(c);copy.id=uid();copy.name=(section==='tokenCards'?copy.name.slice(0,193):copy.name)+' (copy)';data[section].push(copy);selected=data[section].length-1;side=0;persist();render()}
  if(a==='delete'){if(section==='operatives')for(const selection of data.selectionCards){selection.excludedOperativeIds=selection.excludedOperativeIds.filter(id=>id!==c.id);for(const g of selection.selectionGroups)for(const e of g.entries)if(e.operativeId===c.id)e.operativeId=''}data[section].splice(selected,1);side=0;persist();render()}
  if(a==='restore'){data=structuredClone(original);section='selectionCards';selected=0;side=0;persist();render()}
 });
@@ -603,7 +776,7 @@ async function exportPDF(selection=null,project=data,button=$(selection?.section
    let done=false;const finish=error=>{if(done)return;done=true;clearTimeout(timeout);window.removeEventListener('unhandledrejection',failed);error?reject(error):resolve()};
    const failed=e=>finish(Error(String(e.reason?.message||e.reason))),timeout=setTimeout(()=>finish(Error('Экспорт занял слишком много времени')),60000);
    window.addEventListener('unhandledrejection',failed);
-   try{pdfMake.createPdf(buildTeamPDF(snapshot,loaded,selection)).getBlob(blob=>{if(done)return;downloadBlob(blob,fileStem(snapshot)+(lore?'-pictures-and-lore':selection?'-selection':'-cards')+'.pdf');finish()})}catch(e){finish(e)}
+   try{pdfMake.createPdf(buildTeamPDF(snapshot,loaded,selection)).getBlob(blob=>{if(done)return;downloadBlob(blob,fileStem(snapshot)+(lore?'-pictures-and-lore':selection?.section==='tokenCards'?'-tokens':selection?'-selection':'-cards')+'.pdf');finish()})}catch(e){finish(e)}
   });
   toast('PDF готов');return true;
  }catch(e){if(external)throw e;toast('Ошибка экспорта: '+e.message)}finally{button.disabled=false;button.textContent=label}
@@ -617,9 +790,10 @@ function openTTS(project=data){
  if(ttsBusy)return;
  try{
   const snapshot=structuredClone(project),p=KTTTS.plan(snapshot,{});ttsSnapshot=snapshot;$('#tts-summary').textContent=p.team.name+' · '+p.cardCount+' карт · '+p.doubleSided+' двусторонних'+(p.incomplete?' · Есть незаполненные места':'');
-  $('#tts-decks').innerHTML=p.decks.map(d=>'<div><span>'+esc(d.name)+'</span><b>'+d.cards.length+'</b></div>').join('');
-  $('#tts-folder').value=KTTTS.defaultFolder(snapshot);$('#tts-status').textContent='';$('#tts-result').hidden=true;$('#tts-dialog').showModal();
- }catch(e){if(project!==data)throw e;toast('Не удалось подготовить колоды: '+e.message)}
+  $('#tts-sheets').innerHTML=p.sheets.map(s=>'<section class="tts-sheet"><p data-ui-skip><b>Face:</b> '+s.faceFile+'<br><b>Back:</b> '+s.backFile+'</p><p data-ui-skip><b>Width:</b> '+s.columns+' · <b>Height:</b> '+s.rows+' · <b>Number:</b> '+s.count+'</p></section>').join('');
+  $('#tts-limit').hidden=p.sheets.length===1;
+  $('#tts-status').textContent='';$('#tts-result').hidden=true;$('#tts-dialog').showModal();
+ }catch(e){if(project!==data)throw e;toast('Не удалось подготовить колоду: '+e.message)}
 }
 async function prepareTTS(snapshot){
  const paths=['assets/paper.jpg','vendor/BebasNeue-Regular.ttf','vendor/NotoSansSymbols2-Regular.ttf','vendor/Roboto-Regular.ttf','vendor/Roboto-Medium.ttf','vendor/Roboto-Italic.ttf','vendor/Roboto-MediumItalic.ttf',...new Set([...snapshot.operatives,...snapshot.teamCards].map(o=>o.image).filter(Boolean))],result={};
@@ -627,17 +801,17 @@ async function prepareTTS(snapshot){
  return result;
 }
 async function exportTTS(){
- if(ttsBusy)return;ttsBusy=true;const button=$('#build-tts');button.disabled=true;$('#open-tts').disabled=true;$('#close-tts').disabled=true;$('#tts-folder').disabled=true;$('#tts-result').hidden=true;
+ if(ttsBusy)return;ttsBusy=true;const button=$('#build-tts');button.disabled=true;$('#open-tts').disabled=true;$('#close-tts').disabled=true;$('#tts-result').hidden=true;
  try{
-  const snapshot=structuredClone(ttsSnapshot||data),base=$('#tts-folder').value;KTTTS.assetURL(base,'sheets/check.png');
+  const snapshot=structuredClone(ttsSnapshot||data);
   $('#tts-status').textContent='Подготавливаю изображения и шрифты…';
-  const loaded=await prepareTTS(snapshot),result=await KTTTS.browserExport(snapshot,loaded,{base,onProgress:(done,total)=>$('#tts-status').textContent='Собираю листы карт: '+done+' / '+total});
+  const loaded=await prepareTTS(snapshot),result=await KTTTS.browserExport(snapshot,loaded,{onProgress:(done,total)=>$('#tts-status').textContent='Собираю листы карт: '+done+' / '+total});
   if(ttsURL)URL.revokeObjectURL(ttsURL);ttsURL=URL.createObjectURL(result.blob);
   const link=$('#tts-download');link.href=ttsURL;link.download=result.filename;link.textContent='↓ Скачать '+result.filename+' · '+(result.blob.size/1048576).toFixed(1)+' МБ';
-  $('#tts-status').textContent='Готово: '+result.manifest.cardCount+' карт, '+result.manifest.decks.length+' колод · '+snapshot.team.name;$('#tts-result').hidden=false;
+  $('#tts-status').textContent='Готово: '+result.cardCount+' карт · '+snapshot.team.name;$('#tts-result').hidden=false;
   return result;
  }catch(e){$('#tts-status').textContent='Ошибка экспорта: '+e.message}
- finally{ttsBusy=false;button.disabled=false;$('#open-tts').disabled=false;$('#close-tts').disabled=false;$('#tts-folder').disabled=false}
+ finally{ttsBusy=false;button.disabled=false;$('#open-tts').disabled=false;$('#close-tts').disabled=false}
 }
 $('#tts-dialog').addEventListener('cancel',e=>{if(ttsBusy)e.preventDefault()});
 async function init(){
@@ -658,6 +832,7 @@ async function init(){
   render();if(migrated){persist();toast('Проект обновлён. Ваши правки сохранены.')}
   window.ktStudio={getData:()=>structuredClone(data),toast,validateData:KTModel.validate,buildDefinition:()=>buildTeamPDF(data,assets),preparePDF,exportPDF,prepareTTS,openTTS,exportTTS,exportROSZ,importOperativeImage,importCardImage,importLoreImages,renderCard:(section,index)=>section==='lorePages'?KTLore.renderPage(data.lorePages[index],data,assets):KTCards.renderCard(data[section][index],data,assets,index)};
   await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,renameProject,recoverProject,localIds:()=>[...projectList.keys()],downloadJSON,toast});
+  if(new URLSearchParams(location.search).get('section')==='tokenCards'&&section!=='tokenCards'){section='tokenCards';selected=side=0;render()}
   $('#new-project').disabled=false;
  }catch(e){$('#editor').textContent='Не удалось открыть проект: '+e.message}
 }

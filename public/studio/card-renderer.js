@@ -3,6 +3,7 @@
 const F=root.KTFontMetrics||(typeof require!=='undefined'?require('./font-metrics.js'):null);
 const Text=root.KTText||(typeof require!=='undefined'?require('./rich-text.js'):null);
 const Model=root.KTModel||(typeof require!=='undefined'?require('./model.js'):null);
+const Tokens=root.KTTokens||(typeof require!=='undefined'?require('./tokens.js'):null);
 const MM=72/25.4,SHORT=70*MM,LONG=121*MM,OPERATIVE_HEADER=33,BLACK='#141718',SAGE='#6e7b70';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 const face=s=>/[\u0400-\u04ff]/.test(s)?'RobotoBold':'Display';
@@ -52,7 +53,7 @@ function richLines(value,width,size=8.2,font='Roboto',gap=3,compact=false){
 }
 function blocks(c,d,width,operative=false){
  const result=[],size=operative?(c.rulesLayout==='full'?6.4:6.8):c.kind==='selection'?7.8:8.2;
- const add=(t,font='Roboto',gap=operative?2.5:5,s=size,inset=0)=>{if(t){const lines=richLines(t,width-inset,s,font,gap,operative);lines[0].groupHeight=lines.reduce((n,l)=>n+l.height,0);lines[0].keepHeight=font==='RobotoBold'||font==='Display'?lines[0].height+size*(operative?2.28:2.56):0;result.push(...lines)}};
+ const add=(t,font='Roboto',gap=operative?2.5:5,s=size,inset=0)=>{if(t){const lines=richLines(t,width-inset,s,font,gap/2,operative);if(!operative)for(const line of lines)if(!line.text.trim())line.height/=2;lines[0].groupHeight=lines.reduce((n,l)=>n+l.height,0);lines[0].keepHeight=font==='RobotoBold'||font==='Display'?lines[0].height+size*(operative?2.28:2.56):0;result.push(...lines)}};
  if(c.kind==='selection'){
   add(c.lore,'RobotoItalic',7);
   add(c.body);
@@ -175,22 +176,25 @@ function operative(c,d,assets={},index=0){
  const w=LONG,h=SHORT,pad=8,inner=w-16,baseHeader=OPERATIVE_HEADER,C=d.layout.accent,sides=[];
  const baseSize=(c.baseSize||'').trim(),baseWidth=baseSize?(/^\d+(?:[.,]\d+)?$/.test(baseSize)?16:Math.max(16,Math.min(48,measure(baseSize,7,'RobotoBold')+6))):0;
  const baseSpace=baseSize?baseWidth+6:0,logoSpace=Model.isLogo(d.team.logo)?24:0;
- const keywordLines=richLines(c.keywords.join(', '),inner-(baseSize?baseSpace+logoSpace:24),5.6,'RobotoBold',0,true);
+ const keywordLines=richLines(Model.operativeKeywords(c,d.team.name).join(', '),inner-(baseSize?baseSpace+logoSpace:24),5.6,'RobotoBold',0,true);
  const keywordHeight=keywordLines.reduce((sum,line)=>sum+line.height,0);
  // Reserve room for the chosen type size instead of cutting off keywords after
  // two lines. Extremely long footers scale together to leave usable card space.
  const keywordScale=Math.min(1,(h-baseHeader-70)/Math.max(1,keywordHeight)),footer=Math.max(18,Math.ceil(keywordHeight*keywordScale+8));
  const uploaded=/^data:image\/(png|jpeg);base64,/.test(c.image||''),portrait=uploaded?c.image:assets[c.image];
- const {stats,statWidths,start,portraitWidth,portraitX}=operativeHeader(c,!!portrait),nw=start-(portrait?portraitWidth+5:8)-8;
- let size=14;while(measure(c.name,size,face(c.name))>nw&&size>10)size-=.25;
- while(wrap(c.name,nw,size,face(c.name)).length>2&&size>8)size-=.25;
- const title=wrap(c.name,nw,size,face(c.name)).slice(0,2),titleY=title.length>1?14:23,loreTop=baseHeader+4;
+ // Names share the full header up to the stats and render above the portrait.
+ const {stats,statWidths,start,portraitWidth,portraitX}=operativeHeader(c,!!portrait),nw=start-pad*2;
+ let size=c.nameFontSize??14;
+ if(c.nameFontSize===undefined)while(wrap(c.name,nw,size,face(c.name)).length>2&&size>8)size-=.25;
+ const titleLines=wrap(c.name,nw,size,face(c.name)),title=titleLines.slice(0,2);
+ if(titleLines.length>2){let last=title[1];while(measure(last+'…',size,face(c.name))>nw)last=last.slice(0,-1);title[1]=last.trimEnd()+'…'}
+ const titleStep=size>14?size:12,titleY=title.length>1?Math.max(14,size):Math.max(23,size+2),underlineY=titleY+(title.length-1)*titleStep+3,nameHeader=Math.max(baseHeader,underlineY+3),loreTop=nameHeader+4;
  const loreLines=Text.plain(c.lore).trim()?richLines(c.lore,start-pad*2,6.8,'RobotoItalic',0,true):[];
  let loreCursor=0;
  const make=()=>{const p=base(w,h,d,false,assets),firstLore=loreCursor;
   let loreBottom=loreTop;
   while(loreCursor<loreLines.length&&loreBottom+loreLines[loreCursor].height<=h-footer-16)loreBottom+=loreLines[loreCursor++].height;
-  const header=loreCursor>firstLore?Math.max(baseHeader,loreBottom+4):baseHeader;p.header=header;
+  const header=loreCursor>firstLore?Math.max(nameHeader,loreBottom+4):nameHeader;p.header=header;
   p.s+=rect(0,0,w,header,BLACK);
   if(portrait){
    // Move the chosen fragment independently of the fixed header clipping frame.
@@ -201,9 +205,9 @@ function operative(c,d,assets={},index=0){
    }else p.s+='<image x="'+portraitX+'" y="1" width="'+portraitWidth+'" height="'+(baseHeader-2)+'" preserveAspectRatio="xMidYMin slice" xlink:href="'+esc(portrait)+'"/>';
    p.s+='</g>';
   }
-  title.forEach((t,i)=>p.s+=txt(t,pad,titleY+i*12,size,'white',face(c.name)));
-  const underlineY=titleY+(title.length-1)*12+3;
-  p.s+=line(0,underlineY,Math.min(pad+nw,...title.map(t=>measure(t,size,face(c.name))+pad)),underlineY,C,.5);
+  p.s+='<g class="operative-name">';
+  title.forEach((t,i)=>p.s+=txt(t,pad,titleY+i*titleStep,size,'white',face(c.name)));
+  p.s+=line(0,underlineY,Math.min(pad+nw,...title.map(t=>measure(t,size,face(c.name))+pad)),underlineY,C,.5)+'</g>';
   if(loreCursor>firstLore){
    let y=loreTop;p.s+='<g class="operative-lore">';
    for(const text of loreLines.slice(firstLore,loreCursor)){
@@ -272,7 +276,8 @@ function selectionCard(c,d,assets={},index=0){
  const w=SHORT,h=LONG,pad=8,inner=w-pad*2,sides=[],all=[],name=c.name||d.team.name+' KILL TEAM',size=7.8;
  const add=(text,indent=0,bullet='',gap=4,font='Selection')=>{
   if(!text)return;
-  const lines=richLines(text,inner-indent,size,font,gap),start=all.length;
+  const lines=richLines(text,inner-indent,size,font,gap/2),start=all.length;
+  for(const line of lines)if(!line.text.trim())line.height/=2;
   lines.forEach((line,i)=>all.push({...line,listIndent:indent,bullet:i===0?bullet:''}));
   all[start].keepHeight=lines.slice(0,2).reduce((n,line)=>n+line.height,0);
  };
@@ -281,7 +286,7 @@ function selectionCard(c,d,assets={},index=0){
   const start=all.length;add(group.count+' '+group.description,10,'arrow',5);
   if(all[start])all[start].keepHeight+=size*1.28;
   for(const entry of group.entries){if(entry.operativeId&&c.excludedOperativeIds.includes(entry.operativeId))continue;add(entry.text,19,'dot',2);for(const option of entry.options)add(option,28,'ring',2)}
-  if(all.length)all[all.length-1].height+=8;
+  if(all.length)all[all.length-1].height+=4;
  }
  add(c.selectionRules,0,'',9);add(c.selectionNotes,0,'',7);
  for(const a of [...c.abilities,...c.actions]){add(a.name+(a.cost?' / '+a.cost:''),0,'',2,'RobotoBold');add(a.body)}
@@ -293,9 +298,15 @@ function selectionCard(c,d,assets={},index=0){
   if(side===0){
    const title=wrap(name.replace(/ KILL TEAM$/,'\nKILL TEAM'),inner,18,face(name));
    title.forEach((t,i)=>p.s+=txt(t,pad,y+17+i*19,18,'white',face(name)));y+=title.length*19+6;
-   const archetypes='ARCHETYPES: '+c.archetypes.map((value,i)=>value||'SELECT ARCHETYPE '+(i+1)).join(', ');
-   let as=9.3;while(measure(archetypes,as,'Display')>inner&&as>6)as-=.2;
-   p.s+='<g class="archetype-band">'+rect(0,y,w,14,p.C)+txt(archetypes,pad,y+10.6,as,'white','Display')+'</g>';y+=29;
+   const archetypes=c.archetypes.map(value=>value.trim()).filter(Boolean);
+   if(archetypes.length){
+    const text='ARCHETYPES: '+archetypes.join(', '),font=face(text);
+    const rows=Text.layout(text.replace(/[\\*\[\]]/g,'\\$&'),inner,9.3,font,0,1.15),bandHeight=Math.max(14,rows.reduce((n,row)=>n+row.height,0)+3.4);
+    p.s+='<g class="archetype-band">'+rect(0,y,w,bandHeight,p.C);
+    let rowY=y+10.6;for(const row of rows){p.s+=Text.svg(row,pad,rowY,'white');rowY+=row.height}
+    p.s+='</g>';y+=bandHeight;
+   }
+   y+=15;
    p.s+=txt('OPERATIVES',pad,y,13,'white','Display')+line(pad,y+4,w-pad,y+4,p.C,.7);y+=13;
   }
   const bottom=h-23,startY=y,startCursor=cursor;
@@ -313,9 +324,9 @@ function selectionCard(c,d,assets={},index=0){
  }while(cursor<all.length);
  return sides;
 }
-function renderCard(c,d,assets={},index=0){return c.kind==='selection'?selectionCard(c,d,assets,index):c.kind==='operative'?operative(c,d,assets,index):portrait(c,d,assets,index)}
+function renderCard(c,d,assets={},index=0){return c.kind==='token-guide'?Tokens.renderCard(c,d,assets,index,root.KTCards):c.kind==='selection'?selectionCard(c,d,assets,index):c.kind==='operative'?operative(c,d,assets,index):portrait(c,d,assets,index)}
 function renderDeck(d,assets={}){
- return [...d.selectionCards,...d.teamCards,...d.strategicPloys,...d.firefightPloys,...d.equipment,...d.operatives].flatMap((c,i)=>renderCard(c,d,assets,(['equipment','firefight','strategic'].includes(c.kind)?d[c.kind==='equipment'?'equipment':c.kind==='firefight'?'firefightPloys':'strategicPloys'].indexOf(c):i)));
+ return [...d.selectionCards,...d.teamCards,...(d.tokenCards||[]),...d.strategicPloys,...d.firefightPloys,...d.equipment,...d.operatives].flatMap((c,i)=>renderCard(c,d,assets,(['equipment','firefight','strategic'].includes(c.kind)?d[c.kind==='equipment'?'equipment':c.kind==='firefight'?'firefightPloys':'strategicPloys'].indexOf(c):i)));
 }
 root.KTCards={renderCard,renderDeck,selectionCard,measure,wrap,SHORT,LONG,esc,teamLogo,inlineSVG,portraitFrame,portraitPlacement};
 if(typeof module!=='undefined')module.exports=root.KTCards;

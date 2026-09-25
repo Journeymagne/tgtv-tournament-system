@@ -71,7 +71,7 @@ test("team captain can submit and review even when not playing this game", () =>
   }
 });
 
-test("player-reported team games offer review only to the actual opponent", () => {
+test("player-reported team games offer review to the opponent or opposing captain", () => {
   for (const metadata of [{}, { submittedAs: "player", submittedRosterId: 10 }]) {
     const game = gameFixture({ sourceType: "team_match_game", status: "pending_confirmation",
       teamMatch: { rosterA: { id: 10, captainUserId: 33 }, rosterB: { id: 20, captainUserId: 44 } },
@@ -79,11 +79,25 @@ test("player-reported team games offer review only to the actual opponent", () =
     });
     for (const id of [11, 22, 33, 44, 55]) {
       const view = renderDetail({ game, me: { id, isAdmin: false } });
-      assert.equal(view.html.includes("data-game-review="), id === 22);
+      assert.equal(view.html.includes("data-game-review="), [22, 44].includes(id));
+      assert.match(view.html, /Awaiting confirmation from the opponent or their roster captain/);
     }
     game.teamMatch.rosterB.captainUserId = 22;
     const opponentCaptain = renderDetail({ game, me: { id: 22, isAdmin: false } });
     assert.match(opponentCaptain.html, /data-game-review=/);
+  }
+});
+
+test("a captain's own pending game offers review to the opponent or opposing captain", () => {
+  for (const submittedAs of [undefined, "player", "captain"]) {
+    const game = gameFixture({ sourceType: "team_match_game", status: "pending_confirmation",
+      teamMatch: { rosterA: { id: 10, captainUserId: 11 }, rosterB: { id: 20, captainUserId: 44 } },
+      pendingResult: { submittedBy: 11, submittedAs, submittedRosterId: 10, result: { scores: {} } }
+    });
+    for (const id of [11, 22, 33, 44, 55]) {
+      const view = renderDetail({ game, me: { id, isAdmin: false } });
+      assert.equal(view.html.includes("data-game-review="), [22, 44].includes(id));
+    }
   }
 });
 
@@ -95,6 +109,7 @@ test("captain-reported team games still offer review only to the opposing captai
   for (const id of [11, 22, 33, 44, 55]) {
     const view = renderDetail({ game, me: { id, isAdmin: false } });
     assert.equal(view.html.includes("data-game-review="), id === 44);
+    assert.match(view.html, /Awaiting confirmation from the opposing captain/);
   }
 });
 

@@ -42,7 +42,7 @@ After the second table is chosen, the third pairing automatically receives the r
 
 ## After pairing
 
-Every player now has an opponent, Killzone, deployment and Crit Op, and the games can begin. In TTS, a submitted result becomes final once the other player confirms it. In-person results are saved immediately. An administrator can help correct a result if needed.
+Every player now has an opponent, Killzone, deployment and Crit Op, and the games can begin. When a participant reports their own TTS game, either their opponent or the opponent's roster captain can confirm it; one confirmation is enough. A captain reporting their own game acts as a player. In-person results for one's own game are saved immediately. When a captain reports a teammate's game, the opposing captain must confirm it in both TTS and in-person events. An administrator can help correct a result if needed.
 
 Team tournament points are awarded once all three games in the match have finished. After every team match in the round is complete, the organizer opens the next round. Final standings are published after the last round.
 

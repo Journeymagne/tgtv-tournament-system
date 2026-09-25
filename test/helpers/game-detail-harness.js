@@ -51,7 +51,7 @@ function renderDetail({ game = gameFixture(), me = { id: 11, isAdmin: true }, lo
     exitOpenGame: () => {}
   });
   for (const name of ["escapeHtml", "playerProfileLink", "gamePlayerLinks", "gameTeamMatchId",
-    "teamGameResultPermissions", "teamGameResultAction", "renderGameDetail"]) {
+    "teamGameResultPermissions", "teamGamePendingMessage", "teamGameResultAction", "renderGameDetail"]) {
     const body = source.match(new RegExp(`function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];
     if (!body) throw new Error(`Missing function: ${name}`);
     vm.runInContext(body, context);

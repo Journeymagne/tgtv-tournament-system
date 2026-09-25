@@ -16,7 +16,8 @@ const escape = value => String(value).replaceAll("&", "&amp;").replaceAll("<", "
 function previewRenderer(me) {
   return new Function("state", "t", "escapeHtml", "teamRosterLabel", "teamTournamentTables", [
     "teamTournamentMatchPreviewMarkup", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "teamMatchPhaseLabel",
-    "teamRosterMemberLabel", "teamPairingMemberLabel", "teamMissionLabel", "tableLabel"
+    "teamRosterMemberLabel", "teamPairingMemberLabel", "teamMissionLabel", "tableLabel",
+    "teamGameResultPermissions", "teamGamePendingMessage"
   ].map(sourceOf).join("\n") + ";return teamTournamentMatchPreviewMarkup;")(
     { me }, translate, escape, roster => escape(roster.name), () => []);
 }

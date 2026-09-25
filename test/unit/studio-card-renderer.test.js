@@ -15,6 +15,40 @@ function project(lore = "") {
 const headerHeight = svg => Number(svg.match(/<rect x="0" y="0" width="[^"]+" height="([^"]+)" fill="#141718"/)[1]);
 const loreGroups = svg => [...svg.matchAll(/<g class="operative-lore">([\s\S]*?)<\/g>/g)].map(match => match[1]);
 
+test('operative name size survives project round trips and validates the supported range', () => {
+  const team = project();
+  for (const size of [6, 14, 18, 24]) {
+    team.operatives[0].nameFontSize = size;
+    const restored = Model.validate(Model.migrate(JSON.parse(JSON.stringify(team))));
+    assert.equal(restored.operatives[0].nameFontSize, size);
+  }
+  for (const size of [0, 5, 25, 14.5, '18', null, Infinity, NaN]) {
+    team.operatives[0].nameFontSize = size;
+    assert.throws(() => Model.validate(team), /Кегль имени/);
+  }
+  delete team.operatives[0].nameFontSize;
+  assert.doesNotThrow(() => Model.validate(team), 'old projects do not need a name size');
+});
+
+test('explicit name sizes remain exact and large two-line names leave room for lore and weapons in exports', () => {
+  const team = project('Lore stays below the complete name.'), card = team.operatives[0];
+  card.name = 'HEAVY INTERCESSOR SERGEANT';
+  for (const size of [6, 14, 18, 24]) {
+    card.nameFontSize = size;
+    const cards = Cards.renderCard(card, team), svg = cards[0].svg;
+    const title = svg.match(/<g class="operative-name">([\s\S]*?)<\/g>/)[1];
+    const textTags = [...title.matchAll(/<text[^>]*font-size="([^"]+)"[^>]*>([^<]*)<\/text>/g)];
+    assert(textTags.length > 0);assert(textTags.every(match => Number(match[1]) === size));
+    assert.equal(textTags.map(match => match[2]).join(' '), card.name);
+    if (size === 24) assert.equal(textTags.length, 2);
+    const underline = Number(title.match(/<line[^>]*y1="([^"]+)"/)[1]);
+    assert(cards[0].boxes.filter(box => box.kind === 'operative-lore').every(box => box.y > underline));
+    assert(cards[0].boxes.filter(box => !box.kind).every(box => box.y >= headerHeight(svg)));
+    assert.deepEqual(buildTeamPDF(team, {}, { section: 'operatives', index: 0 }).content.filter(item => item.svg).map(item => item.svg), cards.map(card => card.svg));
+    assert(JSON.stringify(require('../../public/studio/tts-export').plan(team, {})).includes('font-size=\\"' + size + '\\"'));
+  }
+});
+
 test("selection list text stays beside its markers at every nesting level", () => {
   const data = Model.newProject("selection-spacing", "OBSESSION COHORT"), card = data.selectionCards[0];
   card.selectionGroups = [{ id: "group", count: 3, description: "OBSESSION COHORT operatives selected from the following list:", entries: [

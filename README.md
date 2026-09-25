@@ -14,6 +14,18 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.8.0
+
+Studio adds token guide cards with 20 mm circles by default, adjustable printed
+diameters and symbol sizes, custom artwork, numeric variants and drag ordering.
+Team names and accents come from the project. Token guides share the preview,
+library, PDF and TTS renderer. Print PDFs at 100% to preserve physical sizes.
+Project schema 5 migrates older projects with an empty token section; opening
+schema 5 saves requires Studio 4.8.0 or newer.
+TTS export remains a ZIP of deck face/back PNG sheets. No new database migration is required.
+See [token guide documentation](docs/studio-token-guides.md) and
+[the full changelog](CHANGELOG.md) for this release.
+
 ## Release 4.7.5
 
 Operative stat columns retain the reference card widths even with a portrait.
@@ -106,13 +118,15 @@ startup and records deleted project identities without retaining their content,
 so delayed saves cannot recreate them. See the integration guide for rollback
 requirements after deletion has been used.
 
-The result-confirmation rules from 4.0.1 are retained:
+Team game result confirmation:
 
-In team TTS games, results reported by a player can only be confirmed or rejected
-by their actual opponent. An opposing captain can review that result only when
-playing as the opponent. Captain-reported results still require the opposing
-captain; player-reported IRL results are saved immediately. Administrative result
-controls remain available. This patch adds no database migrations.
+A player reporting their own TTS game, including a captain playing that game,
+needs confirmation from either their actual opponent or the opposing roster's
+captain. The same people can reject the result. A captain reporting a teammate's
+game still needs the opposing captain in both TTS and IRL. Reporting one's own
+IRL game saves it immediately. These rules also apply to existing pending results
+that marked a playing captain as a captain submitter; no migration or resubmission
+is required. Administrative result controls remain available.
 
 Companion services use a shared tournament account.
 Studio supports guest editing and account-owned drafts/publications. Migration

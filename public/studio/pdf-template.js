@@ -8,7 +8,7 @@ function buildTeamPDF(d,assets={},selection=null){
  d=Model.validate(Model.migrate(d));
  const loreOnly=selection?.section==='lorePages';
  const deck=loreOnly?[]:selection?Cards.renderCard(d[selection.section][selection.index],d,assets,selection.index):Cards.renderDeck(d,assets);
- const groups=[deck.filter(c=>['selection','recruitment','faction'].includes(c.kind)),...['strategic','firefight','equipment','operative'].map(kind=>deck.filter(c=>c.kind===kind))],content=[],W=595.276,H=841.89;
+ const groups=[deck.filter(c=>['selection','recruitment','faction'].includes(c.kind)),...['token-guide','strategic','firefight','equipment','operative'].map(kind=>deck.filter(c=>c.kind===kind))],content=[],W=595.276,H=841.89;
  let pages=0;const cardPages=new Set(),images={};
  if(assets[Page.LIGHT])images.studioPageBackground=assets[Page.LIGHT];
  if(Model.isLogo(d.team.logo))images.studioPageLogo=d.team.logo;
@@ -30,7 +30,7 @@ function buildTeamPDF(d,assets={},selection=null){
   content.push({svg:page.svg,width:W,height:H,absolutePosition:{x:0,y:0}});
  }
  if(!content.length)content.push({text:loreOnly?'Добавьте страницу в разделе «Картинки и лор».':'No cards',margin:34});
- const unfilled=selection&&selection.section==='selectionCards'?d.selectionCards[selection.index].archetypes.filter(a=>!a.trim()).length:[...d.strategicPloys,...d.firefightPloys,...d.equipment].filter(c=>!c.name.trim()||!(c.body.trim()||c.weapons.length||c.abilities.length||c.actions.length)).length+d.selectionCards.reduce((n,c)=>n+c.archetypes.filter(a=>!a.trim()).length,0);
+ const unfilled=selection&&['selectionCards','tokenCards'].includes(selection.section)?0:Model.incomplete(d).length;
  const background=page=>{
   if(!cardPages.has(page))return null;
   const layers=[];

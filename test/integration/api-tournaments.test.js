@@ -1600,18 +1600,32 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
     await assert.rejects(() => gamesApi.getOne({ client, user: outsider, params: gameParams }), { status: 403 });
     const submitted = await gamesApi.submitResult({ client, user: submitter, params: gameParams, body: { scores: scores(...link.game.playerIds) } });
     assert.equal(submitted.game.status, "pending_confirmation");
-    assert.equal(submitted.game.pendingResult.submittedAs, "captain");
+    const ownGame = link.game.playerIds.includes(submitter.id);
+    assert.equal(submitted.game.pendingResult.submittedAs, ownGame ? "player" : "captain");
     assert.equal(submitted.game.pendingResult.submittedBy, submitter.id);
     assert.equal((await preview(captainA)).progress.completed, confirmedGames, "pending results must not count in the preview");
     await assert.rejects(() => gamesApi.respondToResult({ client, user: submitter, params: { ...gameParams, action: "confirm-result" } }), { status: 403 });
     const ordinaryPlayer = people.get(link.game.playerIds.find((id) => id !== captainA.id && id !== captainB.id));
-    await assert.rejects(() => gamesApi.respondToResult({ client, user: ordinaryPlayer, params: { ...gameParams, action: "confirm-result" } }), { status: 403 });
+    if (ownGame) {
+      // Results saved before this change marked a captain's own game as captain-reported.
+      await gamesRepo.savePendingResult(client, link.gameId, { submittedBy: submitter.id,
+        pendingResult: { ...submitted.game.pendingResult, submittedAs: "captain" } });
+      assert.equal((await gamesApi.getOne({ client, user: ordinaryPlayer, params: gameParams })).game.resultPermissions.canReview, true);
+      assert.equal((await gamesApi.getOne({ client, user: confirmer, params: gameParams })).game.resultPermissions.canReview, true);
+      await gamesApi.respondToResult({ client, user: ordinaryPlayer, params: { ...gameParams, action: "reject-result" } });
+      await gamesApi.submitResult({ client, user: submitter, params: gameParams, body: { scores: scores(...link.game.playerIds) } });
+    } else {
+      for (const action of ["confirm-result", "reject-result"]) {
+        await assert.rejects(() => gamesApi.respondToResult({ client, user: ordinaryPlayer, params: { ...gameParams, action } }), { status: 403 });
+      }
+    }
     await assert.rejects(() => gamesApi.submitResult({ client, user: confirmer, params: gameParams, body: { scores: scores(...link.game.playerIds) } }), /waiting for confirmation/);
     if (link.slot === 1) {
       await gamesApi.respondToResult({ client, user: confirmer, params: { ...gameParams, action: "reject-result" } });
       await gamesApi.submitResult({ client, user: submitter, params: gameParams, body: { scores: scores(...link.game.playerIds) } });
     }
-    await gamesApi.respondToResult({ client, user: confirmer, params: { ...gameParams, action: "confirm-result" } });
+    await gamesApi.respondToResult({ client, user: ownGame && link.slot === 1 ? ordinaryPlayer : confirmer, params: { ...gameParams, action: "confirm-result" } });
+    await assert.rejects(() => gamesApi.respondToResult({ client, user: confirmer, params: { ...gameParams, action: "confirm-result" } }), { status: 409 });
     confirmedGames += 1;
     if (confirmedGames < 3) {
       const { completed, total, gpA, gpB } = (await read()).progress;
@@ -1637,8 +1651,8 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
   assert.deepEqual((await preview(captainB)).progress, { completed: 0, total: 3, gpA: 0, gpB: 0 });
   for (const link of ready.games) assert.equal(await gamesRepo.findById(client, link.gameId), null);
   const resultLog = await readLog();
-  assert.equal(resultLog.filter(event => event.type === "team_game_result_submit").length, 4);
-  assert.equal(resultLog.filter(event => event.type === "team_game_result_reject").length, 1);
+  assert.equal(resultLog.filter(event => event.type === "team_game_result_submit").length, 6);
+  assert.equal(resultLog.filter(event => event.type === "team_game_result_reject").length, 3);
   assert.equal(resultLog.filter(event => event.type === "team_game_result_confirm").length, 3);
   assert.deepEqual(resultLog.filter(event => event.type === "team_game_result_confirm").map(event => event.slot).sort(), [1, 2, 3]);
   for (const id of [...original.rosterA.members, ...original.rosterB.members].map((member) => member.userId)) {
@@ -2076,12 +2090,30 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
       const invalidBody = { scores: scores(playerAId, playerBId), tiebreakers: { enabled: true } };
       await assert.rejects(() => gamesApi.submitResult({ client, user: usersById.get(playerAId), params: gameParams, body: invalidBody }), /Individual tiebreakers/);
       await assert.rejects(() => teamTournamentsApi.handleGameRequest({ client, user: root, params: gameParams, body: invalidBody }, "admin-save"), /Individual tiebreakers/);
+      if (link.slot === 3) {
+        const onBehalf = playerAId !== captainA.id ? captainA : captainB;
+        assert.equal(link.game.playerIds.includes(onBehalf.id), false);
+        const otherCaptain = onBehalf.id === captainA.id ? captainB : captainA;
+        const reported = await gamesApi.submitResult({ client, user: onBehalf, params: gameParams,
+          body: { scores: scores(playerAId, playerBId) } });
+        assert.equal(reported.game.status, "pending_confirmation", "reporting a teammate's game needs captain review in TTS and IRL");
+        assert.equal(reported.game.pendingResult.submittedAs, "captain");
+        const ordinaryOpponent = usersById.get(onBehalf.id === captainA.id ? playerBId : playerAId);
+        if (ordinaryOpponent.id !== otherCaptain.id) {
+          for (const action of ["confirm-result", "reject-result"]) {
+            await assert.rejects(() => gamesApi.respondToResult({ client, user: ordinaryOpponent, params: { ...gameParams, action } }), { status: 403 });
+          }
+        }
+        await gamesApi.respondToResult({ client, user: otherCaptain, params: { ...gameParams, action: "reject-result" } });
+      }
       const submitted = await gamesApi.submitResult({
         client,
         user: usersById.get(playerAId),
         params: { id: String(link.gameId) },
         body: { scores: scores(playerAId, playerBId), killzone: { killzone: "Octarius", layout: 4, critOp: CRIT_OPS[8] } }
       });
+      assert.equal(submitted.game.status, venueMode === "tts" ? "pending_confirmation" : "completed");
+      if (venueMode === "tts") assert.equal(submitted.game.pendingResult.submittedAs, "player", "playing captains submit as players");
       if (submitted.game.status === "pending_confirmation") {
         const pending = (await teamTournamentsApi.getPairingMatch({ client, user: null, params })).teamMatch;
         assert.equal(pending.progress.completed, link.slot - 1);
@@ -2092,12 +2124,10 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
         if (submitted.game.pendingResult.submittedAs === "player" && captainB.id !== playerBId) {
           playerReviewChecked = true;
           const captainView = await gamesApi.getOne({ client, user: captainB, params: gameParams });
-          assert.equal(captainView.game.resultPermissions.canReview, false);
-          for (const action of ["confirm-result", "reject-result"]) {
-            await assert.rejects(() => gamesApi.respondToResult({
-              client, user: captainB, params: { ...gameParams, action }
-            }), { status: 403 });
-          }
+          assert.equal(captainView.game.resultPermissions.canReview, true);
+          await gamesApi.respondToResult({ client, user: captainB, params: { ...gameParams, action: "reject-result" } });
+          await gamesApi.submitResult({ client, user: usersById.get(playerAId), params: gameParams,
+            body: { scores: scores(playerAId, playerBId) } });
         }
       }
       const confirmed = submitted.game.status === "completed" ? submitted : await gamesApi.respondToResult({

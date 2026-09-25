@@ -3501,16 +3501,36 @@ function teamGameResultPermissions(game) {
   const captain = userId && rosters.find((roster) => roster?.captainUserId === userId);
   const playerIds = game.playerIds || (game.players || []).map((player) => Number("userId" in player ? player.userId : player.id));
   const participant = playerIds.includes(userId);
-  const ownRoster = captain || rosters[playerIds.indexOf(userId)];
+  const ownRoster = rosters[playerIds.indexOf(userId)] || captain;
   const pending = game.pendingResult;
-  const submittedRosterId = pending?.submittedRosterId || rosters[playerIds.indexOf(pending?.submittedBy)]?.id;
+  const submitterCaptain = pending?.submittedBy && rosters.find((roster) => roster?.captainUserId === pending.submittedBy);
+  const submittedRosterId = rosters[playerIds.indexOf(pending?.submittedBy)]?.id || pending?.submittedRosterId || submitterCaptain?.id;
   const ownSubmission = pending?.submittedBy === userId;
   const sameSide = Boolean(ownRoster && ownRoster.id === submittedRosterId);
+  const pendingCaptain = !playerIds.includes(pending?.submittedBy) && Boolean(pending?.submittedAs === "captain" || submitterCaptain);
   return {
     captainRosterId: captain?.id || null,
+    submitsAsCaptain: Boolean(captain && !participant),
+    requiresCaptainReview: pendingCaptain,
     canSubmit: Boolean(state.me?.isAdmin || captain || participant) && (game.status === "open" || (game.status === "pending_confirmation" && ownSubmission)),
-    canReview: game.status === "pending_confirmation" && Boolean(state.me?.isAdmin || (!ownSubmission && !sameSide && (pending?.submittedAs === "captain" ? captain : participant)))
+    canReview: game.status === "pending_confirmation" && Boolean(state.me?.isAdmin || (!ownSubmission && !sameSide && (captain || (!pendingCaptain && participant))))
   };
+}
+
+function teamGamePendingMessage(game) {
+  return t(teamGameResultPermissions(game).requiresCaptainReview ? "teams.results.awaitingCaptain" : "teams.results.awaitingOpponentOrCaptain");
+}
+
+function gameResultFormHint(game, adminEdit = false) {
+  if (game.sourceType !== "team_match_game" || adminEdit) return t("games.result.hint");
+  if (teamGameResultPermissions(game).submitsAsCaptain) return t("teams.results.captainHint");
+  return t((game.venueMode || game.tournament?.venueMode) === "irl" ? "teams.results.playerIrlHint" : "teams.results.playerHint");
+}
+
+function gameResultSubmissionMessage(game) {
+  if (game.status === "completed") return t("message.games.matchResultSaved");
+  if (game.sourceType === "team_match_game") return teamGamePendingMessage(game);
+  return t("message.games.resultSubmittedPending");
 }
 
 function teamGameResultAction(game, permissions = teamGameResultPermissions(game)) {
@@ -3616,7 +3636,7 @@ function pendingResultSummary(game) {
   const submitterName = pending?.submittedBy === state.me.id
     ? t("play.game.you")
     : submitter?.name || pending?.submittedByName || t("games.pendingResult.opponentFallback");
-  const waiting = players.some((player) => player.hasProfile === false || Number(player.id) < 0)
+  const waiting = game.sourceType === "team_match_game" ? teamGamePendingMessage(game) : players.some((player) => player.hasProfile === false || Number(player.id) < 0)
     ? t("games.pendingResult.waitingForAdmin")
     : t("games.pendingResult.waitingForConfirmation");
   return t("games.pendingResult.summary", { name: submitterName, score, waiting });
@@ -5785,6 +5805,7 @@ function renderGameDetail(live = false) {
         </div>
         <span class="status ${game.status === "completed" ? "completed" : game.status === "pending_confirmation" ? "pending" : "open"}">${statusLabel}</span>
       </div>
+      ${isTeamTournamentGame && game.status === "pending_confirmation" ? `<p class="muted">${escapeHtml(teamGamePendingMessage(game))}</p>` : ""}
       <div class="game-detail-toolbar">
         <div class="row-actions game-detail-navigation">
           <button class="ghost-button" data-back-games>${t("common.back")}</button>
@@ -6094,7 +6115,7 @@ function renderResultForm(gameId, options = {}) {
       <div class="panel-header">
         <div>
           <h2>${adminEdit ? t("games.result.editTitle") : t("games.result.title")}</h2>
-          <p class="muted">${t(game.sourceType === "team_match_game" && teamGameResultPermissions(game).captainRosterId && !adminEdit ? "teams.results.captainHint" : "games.result.hint")}</p>
+          <p class="muted">${gameResultFormHint(game, adminEdit)}</p>
         </div>
         <div class="row-actions">
           ${canExitFromForm ? `<button class="danger-button" type="button" data-exit-game="${game.id}">${game.status === "pending_confirmation" ? t("play.action.deletePending") : t("play.action.exitGame")}</button>` : ""}
@@ -6200,11 +6221,9 @@ function renderResultForm(gameId, options = {}) {
     event.preventDefault();
     try {
       const path = adminEdit ? `/api/admin/games/${game.id}/result` : `/api/games/${game.id}/result`;
-      await api(path, { method: "POST", body: approvedOpsPayloadFromForm(game.players) });
+      const submitted = await api(path, { method: "POST", body: approvedOpsPayloadFromForm(game.players) });
       if (!adminEdit) {
-        window.alert(t(game.sourceType === "tournament_match"
-          ? "message.games.tournamentMatchSubmitted"
-          : "message.games.resultSubmittedPending"));
+        window.alert(gameResultSubmissionMessage(submitted.game));
       }
       await refresh();
       await loadTop();
@@ -8139,9 +8158,9 @@ function teamMatchGamesMarkup(match, options = {}) {
     const resultAction = options.readOnly ? "" : link?.permissions?.canSubmit
       ? `<button class="primary-button" data-team-game-result="${game?.id}">${t(game?.status === "pending_confirmation" ? "play.action.editResult" : "play.action.enterResult")}</button>`
       : link?.permissions?.canReview ? `<button class="primary-button" data-team-game-review="${game?.id}">${t("play.action.reviewResult")}</button>` : "";
-    const awaitingCaptain = game?.status === "pending_confirmation" && game.pendingResult?.submittedAs === "captain"
-      ? `<p class="row-meta">${t("teams.results.awaitingCaptain")}</p>` : "";
-    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${tableImage}${result}${awaitingCaptain}</div>${state.me && game?.id ? `<div class="row-actions team-game-actions">${resultAction}<a href="/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</a></div>` : ""}</div>`;
+    const awaitingReview = game?.status === "pending_confirmation"
+      ? `<p class="row-meta">${teamGamePendingMessage({ ...game, teamMatch: match, resultPermissions: link.permissions })}</p>` : "";
+    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${tableImage}${result}${awaitingReview}</div>${state.me && game?.id ? `<div class="row-actions team-game-actions">${resultAction}<a href="/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</a></div>` : ""}</div>`;
   }).join("")}</div>`;
 }
 

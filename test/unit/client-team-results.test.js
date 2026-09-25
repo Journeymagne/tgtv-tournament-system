@@ -73,7 +73,7 @@ test("admin polling preserves independent Shield drafts for both sides", () => {
 
 test("anonymous pairing shows finished VP/GP and distinguishes pending and unplayed games", () => {
   const render = new Function("state", "t", "escapeHtml", "teamMissionLabel", "teamRosterMemberLabel",
-    `${sourceOf("teamMatchProgressMarkup")}\n${sourceOf("teamMatchGamesMarkup")}; return teamMatchGamesMarkup;`
+    ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
   )({ me: null }, (key, values) => key === "teams.results.progress"
     ? `${values.count}/${values.total}: ${values.a}:${values.b}` : key, String, () => "Volkus", () => "Player");
   const match = { progress: { completed: 1, total: 3, gpA: 14, gpB: 6 }, games: [
@@ -93,7 +93,7 @@ test("anonymous pairing shows finished VP/GP and distinguishes pending and unpla
 test("each game keeps one card as pairings, partial environment choices and results arrive", () => {
   const messages = require("../../public/i18n/en.js");
   const render = new Function("state", "t", "escapeHtml", "teamTournamentTables",
-    ["teamMatchProgressMarkup", "teamMatchGamesMarkup", "teamMissionLabel", "tableLabel", "teamRosterMemberLabel", "teamPairingMemberLabel"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
+    ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "teamMissionLabel", "tableLabel", "teamRosterMemberLabel", "teamPairingMemberLabel"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
   )({ me: { id: 1 } }, (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name]), String,
     () => assert.fail("use the match's table snapshot"));
   const match = {
