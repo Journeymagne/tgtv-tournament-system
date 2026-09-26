@@ -61,12 +61,12 @@ function fontCSS(assets){
  const fonts=[['Roboto','Roboto-Regular.ttf','normal','normal'],['Roboto','Roboto-Medium.ttf','bold','normal'],['Roboto','Roboto-Italic.ttf','normal','italic'],['Roboto','Roboto-MediumItalic.ttf','bold','italic'],['Display','BebasNeue-Regular.ttf','normal','normal'],['Symbols','NotoSansSymbols2-Regular.ttf','normal','normal']];
  return fonts.map(([family,file,weight,style])=>{const uri=assets['vendor/'+file];if(!uri?.startsWith('data:'))throw Error('Не загружен шрифт '+file);return '@font-face{font-family:'+family+';src:url('+uri+');font-weight:'+weight+';font-style:'+style+'}'}).join('');
 }
-async function raster(svg,width,height,css){
+async function raster(svg,width,height,css,transparent=false){
  const source=svg.replace(/(<svg[^>]*>)/,'$1<style>'+css+'</style>');
  const url=URL.createObjectURL(new Blob([source],{type:'image/svg+xml;charset=utf-8'}));
  try{
   const img=new Image();await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Не удалось отрисовать карточку')),20000);img.onload=()=>{clearTimeout(timeout);resolve()};img.onerror=()=>{clearTimeout(timeout);reject(Error('Ошибка изображения карточки'))};img.src=url});
-  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;const context=canvas.getContext('2d');context.fillStyle='#141718';context.fillRect(0,0,width,height);context.drawImage(img,0,0,width,height);return canvas;
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;const context=canvas.getContext('2d');if(!transparent){context.fillStyle='#141718';context.fillRect(0,0,width,height)}context.drawImage(img,0,0,width,height);return canvas;
  }finally{URL.revokeObjectURL(url)}
 }
 async function renderSheets(p,css,onProgress=()=>{}){
@@ -99,6 +99,30 @@ async function browserExport(input,assets,options={}){
  const files=await renderSheets(p,css,options.onProgress);
  const bytes=ziplib.zipSync(files,{level:0});return {blob:new Blob([bytes],{type:'application/zip'}),cardCount:p.cardCount,sheetCount:p.sheets.length,filename:p.slug+'-tts.zip'};
 }
-root.KTTTS={GROUPS,MAX_CARDS,slug,plan,browserExport,fontCSS};
+async function browserPack(input,assets,options={}){
+ const p=plan(input,assets),css=fontCSS(assets),data=Model.validate(Model.migrate(input)),Tokens=root.KTTokens;
+ const tokens=Tokens.playableTokens(data);
+ if(p.cardCount>690||tokens.length>300)throw Error('В наборе TTS может быть до 690 карт и до 300 жетонов.');
+ const total=p.sheets.length*2+tokens.length;
+ const files=await renderSheets(p,css,done=>options.onProgress?.(done,total));
+ for(const [index,token] of tokens.entries()){
+  const canvas=await raster(token.svg,512,512,css,true);
+  const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('Не удалось сохранить жетон')),'image/png'));
+  token.image='token-'+(index+1)+'.png';files[token.image]=new Uint8Array(await blob.arrayBuffer());
+  canvas.width=canvas.height=1;options.onProgress?.(p.sheets.length*2+index+1,total);
+ }
+ const bytes=Object.values(files).reduce((sum,file)=>sum+file.length,0);
+ if(bytes>64*1024*1024)throw Error('Набор TTS больше 64 МБ. Уменьшите изображения.');
+ const encoded=[];
+ for(const [name,file] of Object.entries(files)){
+  const result=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(new Blob([file],{type:'image/png'}))});
+  encoded.push({name,data:result});
+ }
+ return {version:1,team:{id:p.team.id,name:p.team.name,version:p.team.version||''},
+  sheets:p.sheets.map(s=>({columns:s.columns,rows:s.rows,face:s.faceFile,back:s.backFile})),
+  cards:p.sheets.flatMap((s,sheet)=>s.cards.map((c,slot)=>({name:c.name,sheet,slot,landscape:c.landscape}))),
+  tokens:tokens.map(({svg,...token})=>token),assets:encoded};
+}
+root.KTTTS={GROUPS,MAX_CARDS,slug,plan,browserExport,browserPack,fontCSS};
 if(typeof module!=='undefined')module.exports=root.KTTTS;
 })(typeof window!=='undefined'?window:globalThis);

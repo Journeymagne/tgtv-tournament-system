@@ -25,10 +25,10 @@ server {
     ssl_certificate /etc/letsencrypt/live/ktcompanion.ru/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/ktcompanion.ru/privkey.pem;
 
-    # Studio projects can include image albums; Node enforces per-route limits.
+    # Studio albums and TTS image exports; Node enforces per-route limits.
     client_max_body_size 100m;
 
-    # /, /tournament, /initiative, /tracker, /studio, API and assets all use Node.
+    # /, /tournament, /initiative, /tracker, /studio, /dice, API and assets use Node.
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;

@@ -95,4 +95,4 @@ async function publication(ctx) {
   return result;
 }
 
-module.exports = { session, drafts, draft, save, remove, rename, publish: ctx => save(ctx, true), library, publication, MAX_BODY };
+module.exports = { session, drafts, draft, save, remove, rename, publish: ctx => save(ctx, true), library, publication, MAX_BODY, checkWrite, checkAccount };

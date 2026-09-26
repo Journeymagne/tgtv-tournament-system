@@ -48,7 +48,12 @@ function renderDrafts(){
 function updateTabs(){for(const tab of document.querySelectorAll('[data-studio-view]')){const active=tab.dataset.studioView===view;tab.classList.toggle('active',active);tab.setAttribute('aria-pressed',String(active))}}
 async function show(next){
  if(next==='editor'){showEditor();return}
- if(next==='drafts'&&!root.KTAccount.id){try{await root.KTAccount.requireLogin('drafts')}catch(error){adapter.toast(error.message)}syncViewLocation();return}
+ if(next==='drafts'&&!root.KTAccount.id){
+  // Startup reveals the workspace after init resolves. Do not make it wait
+  // for a login dialog inside that still-hidden workspace.
+  void (async()=>{try{await root.KTAccount.requireLogin('drafts')}catch(error){adapter.toast(error.message)}finally{syncViewLocation()}})();
+  return;
+ }
  view=next;$('.workspace').hidden=true;$('#community-panel').hidden=false;updateTabs();
  syncViewLocation();
  $('#community-title').textContent=next==='drafts'?'Мои черновики':'Библиотека команд';
@@ -127,6 +132,9 @@ async function deleteProject(){
 }
 function renderPublication(){
  const project=publication.project;
+ let diceButton=$('#publication-dice');
+ if(!diceButton){diceButton=document.createElement('button');diceButton.id='publication-dice';diceButton.textContent='Кубик с логотипом';$('.publication-actions').append(diceButton)}
+ diceButton.disabled=!KTModel.isLogo(project.team.logo);
  $('#publication-title').textContent=project.team.name;
  $('#publication-info').textContent='Версия '+(project.team.version||'1.0')+' · опубликовано '+date(publication.updatedAt);
  $('#publication-author').innerHTML=authorLink(publication);
@@ -259,6 +267,7 @@ async function init(options){
   if(button.id==='review-delete-project'){$('#delete-project-dialog').close();void show('drafts')}
   if(button.dataset.openPublication)void openPublication(button.dataset.openPublication);
   if(button.dataset.publicationExport)void exportPublication(button);
+  if(button.id==='publication-dice'&&publication)root.location.href=(root.KTCompanion?.serviceUrl('dice')||'/dice')+'?team='+encodeURIComponent(publication.id);
   if(button.id==='close-publication')$('#publication-dialog').close();
   if(button.dataset.publicationSection){publicationSection=button.dataset.publicationSection;renderPublication()}
   if(button.id==='library-prev'||button.id==='library-next'){offset=Math.max(0,offset+(button.id==='library-next'?30:-30));void show('library')}

@@ -13,6 +13,7 @@ There is no cross-service tab bar or sidebar.
 | `ktcompanion.ru/initiative` | Initiative calculator | Public |
 | `ktcompanion.ru/tracker` | Activation tracker | Public |
 | `ktcompanion.ru/studio` | KT Studio editor and published library | Public; saving and publishing require the tournament account |
+| `ktcompanion.ru/dice` | D6 dice generator with published team logos | Public editor and PNG export; saved TTS links require the tournament account |
 
 Existing `/tournaments/:slug` and `/teams/:slug` pages keep their public access
 on the same hostname. Legacy calculator HTML URLs, `/tournament/`, `/studio/`
@@ -24,7 +25,7 @@ an alias for the tournament application.
 ## Running and deployment
 
 The existing `npm start` command, PostgreSQL connection, session store and user
-accounts serve all four sections. No second server, account database or frontend
+accounts serve all five sections. No second server, account database or frontend
 build is needed. Migration `032_studio_projects` creates account-owned drafts and
 published snapshots in the existing database on startup. It does not alter
 tournament data or copy drafts from a standalone Studio installation.
@@ -40,7 +41,7 @@ is sufficient because all sections run in the same application. See
 The deployment script does not change proxy rules. Update the external environment
 file used by that script (normally `/app/tgtv-ts.env`), deploy the new code and
 restart the app with those settings. Check `nginx -t` before reloading Nginx.
-Verify `/`, all four service URLs and `/api/session` over public HTTPS. Updating
+Verify `/`, all five service URLs and `/api/session` over public HTTPS. Updating
 Git alone leaves the old root website in place until its proxy is switched.
 
 Keep `rating.ktcompanion.ru` as a redirect for existing links, using its existing
@@ -61,10 +62,17 @@ Locally, open `http://127.0.0.1:3000` and use `COOKIE_SECURE=false`. Leave
 supplies the URLs to all pages and is not cached.
 
 Studio projects may include image albums, so `/api/studio/drafts/` accepts up to
-100 MiB of JSON. Raise the reverse proxy body allowance to `100m` for that path,
+100 MiB of JSON. TTS snapshots at `POST /api/studio/tts/exports` accept up to
+96 MiB of JSON containing PNG images. Raise the reverse proxy body allowance to `100m` for these paths,
 or for its existing API proxy block. The application still enforces the existing
 2 MiB default and 5 MiB tournament limits on other routes. The deployment script
 does not modify the host's reverse proxy configuration.
+
+The TTS importer uses public manifest, PNG and token OBJ URLs backed by migration 036.
+See [Studio TTS import](studio-tts-import.md) for link ownership, immutable
+snapshots, deletion, asset storage and importer installation.
+The [D6 generator](dice-generator.md) shares this export storage and importer.
+Its team-logo catalog always reads the published library of the current site.
 
 ## Studio identity and saving
 

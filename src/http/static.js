@@ -48,6 +48,7 @@ function resolveStaticPath(pathname) {
   if (requested === "/tracker" || requested === "/tracker/") requested = "/killteam-activation-tracker.html";
   if (requested === "/tournament" || requested === "/tournament/") requested = "/index.html";
   if (requested === "/studio" || requested === "/studio/") requested = "/studio/index.html";
+  if (requested === "/dice" || requested === "/dice/") requested = "/dice/index.html";
   if (requested === "/rygau" || requested === "/rygau/") requested = "/rygayu.html";
   // Team profiles use client-side rendering, including on direct visits/reloads.
   if (/^\/teams\/[^/\\]+\/?$/.test(requested)) return path.join(PUBLIC_DIR, "index.html");

@@ -13,7 +13,7 @@ function symbolInk(color){
 const shapes={circle:'<circle cx="50" cy="50" r="50"/>',trapezoid:'<path d="M27 7Q50 12 73 7L94 86Q95 95 50 95T6 86Z"/>',diamond:'<path d="m50 2 48 48-48 48L2 50Z"/>',octagon:'<path d="M29 3h42l26 26v42L71 97H29L3 71V29Z"/>'};
 const shapeOptions=[['circle','Круг'],['trapezoid','Трапеция'],['diamond','Ромб'],['octagon','Восьмиугольник']];
 const symbolOptions=[...Icons.icons.map(icon=>[icon.id,icon.ru]),['none','Без символа'],['custom','Свой символ']];
-function newToken(id){return {id,label:'Новый жетон',shape:'circle',color:FILL,symbol:'skull',diameterMm:20,symbolSize:65,variants:'',fullWidth:false,image:'',symbolImage:''}}
+function newToken(id){return {id,label:'Новый жетон',shape:'circle',color:FILL,symbol:'skull',diameterMm:20,symbolSize:65,variants:'',fullWidth:false,image:'',symbolImage:'',ttsMode:'marker',ttsStackable:false,ttsRangeInches:1}}
 function newCard(id){return {id,kind:'token-guide',name:'MARKER/TOKEN GUIDE',layout:'grid2',fontSize:8.5,sizeMm:24,watermark:true,tokens:[]}}
 function validImage(value){return typeof value==='string'&&(!value||value.length<=2000000&&/^data:image\/(png|jpeg);base64,[a-z0-9+/]+={0,2}$/i.test(value))}
 function validateCard(c){
@@ -31,6 +31,13 @@ function validateCard(c){
    if(!t.symbolImage||t.symbolImage===t.image){t.symbolImage=t.image;t.image=''}
    else [t.symbolImage,t.image]=[t.image,t.symbolImage];
   }
+  if(t.ttsMode===undefined)t.ttsMode='marker';if(t.ttsStackable===undefined)t.ttsStackable=false;
+  if(!['marker','effect','both'].includes(t.ttsMode)||typeof t.ttsStackable!=='boolean')throw Error('Проверьте назначение жетона в TTS');
+  // Preserve the attachment settings of legacy hybrid tokens in the new presets.
+  if(t.ttsMode==='both')t.ttsMode='effect';
+  if(t.ttsMode==='marker')t.ttsStackable=false;
+  if(t.ttsRangeInches===undefined)t.ttsRangeInches=1;
+  if(!bounded(t.ttsRangeInches,0,12))throw Error('Дистанция маркера должна быть от 0 до 12 дюймов');
   ids.add(t.id);
  }
  return c;
@@ -117,6 +124,18 @@ function renderCard(card,project,assets,index,Cards){
   return {svg,width:Cards.SHORT,height:Cards.LONG,boxes:layout.boxes,id:card.id,kind:card.kind,side,index,name:card.name};
  });
 }
-root.KTTokens={newToken,newCard,validateCard,shapeOptions,symbolOptions,renderCard};
+function playableTokens(project){
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ return project.tokenCards.flatMap(card=>card.tokens.flatMap(token=>{
+  const variants=values({...token,displayValues:undefined});
+  return (variants.length?variants:['']).map((value,index)=>({
+   key:card.id+':'+token.id+':'+index,name:(token.label||'Token')+(value?' · '+value:''),
+   sizeMm:token.shape==='circle'?token.diameterMm:card.sizeMm,mode:token.ttsMode||'marker',stackable:!!token.ttsStackable,
+   shape:token.shape,rangeInches:token.ttsMode==='effect'?0:token.ttsRangeInches??1,
+   svg:'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512" viewBox="-2 -2 104 104">'+art(token,0,0,100,value,'export',esc)+'</svg>'
+  }));
+ }));
+}
+root.KTTokens={newToken,newCard,validateCard,shapeOptions,symbolOptions,renderCard,playableTokens};
 if(typeof module!=='undefined')module.exports=root.KTTokens;
 })(typeof window!=='undefined'?window:globalThis);

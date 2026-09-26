@@ -2,7 +2,7 @@
   "use strict";
   const sites = window.KT_SITES || { subdomains: false, urls: {
     home: "/", initiative: "/initiative", tracker: "/tracker",
-    tournament: "/tournament", studio: "/studio"
+    tournament: "/tournament", studio: "/studio", dice: "/dice"
   } };
   const serviceUrl = name => new URL(sites.urls[name], location.origin).href;
   const path = location.pathname;
@@ -35,7 +35,7 @@
       document.querySelectorAll(".page-shell details[open]").forEach(details => { details.open = false; });
       window.scrollTo(0, 0);
     });
-    title.textContent = ({ home: "KT Companion", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия" })[active] || "KT Companion";
+    title.textContent = ({ home: "KT Companion", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Кубики D6" })[active] || "KT Companion";
     brand.append(home, title); mount.append(brand);
     const controls = document.createElement("div"); controls.className = "companion-tools"; mount.append(controls);
     if (window.KTAppearance) {

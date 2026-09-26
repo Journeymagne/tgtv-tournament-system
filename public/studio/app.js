@@ -760,6 +760,7 @@ async function base64File(url){
  const blob=await response.blob();return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob)});
 }
 async function preparePDF(snapshot=data){
+ await KTAccount.ensurePDF();
  const [display,symbol]=await Promise.all([base64File('vendor/BebasNeue-Regular.ttf'),base64File('vendor/NotoSansSymbols2-Regular.ttf')]);
  pdfMake.addVirtualFileSystem({...vfs,'Display.ttf':display.split(',')[1],'Symbols.ttf':symbol.split(',')[1]});
  pdfMake.fonts={Roboto:{normal:'Roboto-Regular.ttf',bold:'Roboto-Medium.ttf',italics:'Roboto-Italic.ttf',bolditalics:'Roboto-MediumItalic.ttf'},Display:{normal:'Display.ttf',bold:'Display.ttf',italics:'Display.ttf',bolditalics:'Display.ttf'},Symbols:{normal:'Symbols.ttf',bold:'Symbols.ttf',italics:'Symbols.ttf',bolditalics:'Symbols.ttf'}};
@@ -787,12 +788,12 @@ function exportROSZ(project=data){
  catch(e){if(project!==data)throw e;toast('Ошибка ростера: '+e.message)}
 }
 function openTTS(project=data){
- if(ttsBusy)return;
+ if(ttsBusy||window.KTTTSShare?.isBusy())return;
  try{
   const snapshot=structuredClone(project),p=KTTTS.plan(snapshot,{});ttsSnapshot=snapshot;$('#tts-summary').textContent=p.team.name+' · '+p.cardCount+' карт · '+p.doubleSided+' двусторонних'+(p.incomplete?' · Есть незаполненные места':'');
   $('#tts-sheets').innerHTML=p.sheets.map(s=>'<section class="tts-sheet"><p data-ui-skip><b>Face:</b> '+s.faceFile+'<br><b>Back:</b> '+s.backFile+'</p><p data-ui-skip><b>Width:</b> '+s.columns+' · <b>Height:</b> '+s.rows+' · <b>Number:</b> '+s.count+'</p></section>').join('');
   $('#tts-limit').hidden=p.sheets.length===1;
-  $('#tts-status').textContent='';$('#tts-result').hidden=true;$('#tts-dialog').showModal();
+  $('#tts-status').textContent='';$('#tts-result').hidden=true;$('#tts-dialog').showModal();window.KTTTSShare?.open(snapshot);
  }catch(e){if(project!==data)throw e;toast('Не удалось подготовить колоду: '+e.message)}
 }
 async function prepareTTS(snapshot){
@@ -801,7 +802,7 @@ async function prepareTTS(snapshot){
  return result;
 }
 async function exportTTS(){
- if(ttsBusy)return;ttsBusy=true;const button=$('#build-tts');button.disabled=true;$('#open-tts').disabled=true;$('#close-tts').disabled=true;$('#tts-result').hidden=true;
+ if(ttsBusy||window.KTTTSShare?.isBusy())return;ttsBusy=true;const button=$('#build-tts');button.disabled=true;$('#tts-share-create').disabled=true;$('#open-tts').disabled=true;$('#close-tts').disabled=true;$('#tts-result').hidden=true;
  try{
   const snapshot=structuredClone(ttsSnapshot||data);
   $('#tts-status').textContent='Подготавливаю изображения и шрифты…';
@@ -811,7 +812,7 @@ async function exportTTS(){
   $('#tts-status').textContent='Готово: '+result.cardCount+' карт · '+snapshot.team.name;$('#tts-result').hidden=false;
   return result;
  }catch(e){$('#tts-status').textContent='Ошибка экспорта: '+e.message}
- finally{ttsBusy=false;button.disabled=false;$('#open-tts').disabled=false;$('#close-tts').disabled=false}
+ finally{ttsBusy=false;button.disabled=false;$('#tts-share-create').disabled=false;$('#open-tts').disabled=false;$('#close-tts').disabled=false}
 }
 $('#tts-dialog').addEventListener('cancel',e=>{if(ttsBusy)e.preventDefault()});
 async function init(){

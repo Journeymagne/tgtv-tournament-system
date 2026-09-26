@@ -14,6 +14,11 @@ function html(card,{field,panel,opened}){
   if(t.shape==='circle')body+=input('Диаметр круга, мм','diameterMm',t.diameterMm,'number','min="5" max="60" step="0.5"')+'<p class="hint">По умолчанию 20 мм. Можно увеличить до 60 мм.</p>';
   body+=root.KTTokenIconPicker.button(t)+range('Размер символа','symbolSize',t.symbolSize,20,100,1,'%')+'<div class="token-image-controls">'+upload('symbolImage','Загрузить символ в центр')+(t.symbolImage?'<button class="danger" data-token-action="remove-symbolImage">Удалить свой символ</button>':'')+'</div><p class="hint">PNG, JPG или WebP · до 10 МБ. Картинка заменяет только символ в центре. Форма, цвет и размер жетона сохраняются.</p>';
   body+=input('Значения через запятую','variants',t.variants,'text','maxlength="100" placeholder="0, 1, 2, 3, 4"')+'<p class="hint">Значения заменяют символ. Оставьте пустым, чтобы показать символ.</p>'+check('На всю ширину карточки','fullWidth',t.fullWidth);
+  const behavior=!t.ttsMode||t.ttsMode==='marker'?'marker':t.ttsStackable?'counter':'effect';
+  body+=options('Свойства жетона в TTS','ttsBehavior',behavior,[['marker','Аура расстояния — без прикрепления'],['effect','Прикрепление к модели'],['counter','Прикрепление к модели со счётчиком']]);
+  const behaviorHint=behavior==='marker'?'Жетон остаётся на поле, показывает ауру и не прикрепляется к моделям.':behavior==='counter'?'Жетон прикрепляется к модели с Kill Team UI. Каждая следующая копия этого жетона увеличивает его счётчик.':'Жетон прикрепляется к модели с Kill Team UI как эффект без счётчика.';
+  body+='<p class="hint">'+behaviorHint+'</p>';
+  if(behavior==='marker')body+=input('Дистанция маркера, дюймы','ttsRangeInches',t.ttsRangeInches??1,'number','min="0" max="12" step="0.5"')+'<p class="hint">Кольцо отсчитывает дистанцию от края круглого жетона. В TTS наведите курсор и нажмите цифру; 0 скрывает кольцо. Дробную дистанцию можно вернуть через ПКМ → Default range.</p>';
   body+='<div class="row-actions"><button data-token-action="duplicate" '+(card.tokens.length>=80?'disabled':'')+'>Дублировать жетон</button><button data-token-action="up" '+(!i?'disabled':'')+' aria-label="Жетон выше">↑</button><button data-token-action="down" '+(i===card.tokens.length-1?'disabled':'')+' aria-label="Жетон ниже">↓</button><button class="danger" data-token-action="delete">Удалить жетон</button></div>';
   return '<details class="nested token-item" data-nested-type="tokens" data-nested-id="'+esc(t.id)+'" '+((opened?opened.has(t.id):i===0)?'open':'')+'><summary data-token-drag draggable="'+(card.tokens.length>1)+'" title="Перетащите, чтобы изменить порядок. С клавиатуры: Alt + ↑ / ↓." aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"><span class="nested-name" data-ui-skip>'+esc(t.label||'—')+'</span><span class="token-grip" aria-hidden="true">⠿</span></summary>'+body+'</details>';
  }).join('');
@@ -32,10 +37,13 @@ function bind(adapter){
   const token=tokenFor(el,ctx),target=token||ctx.card;
   let value=el.type==='checkbox'?el.checked:el.type==='number'||el.type==='range'?Number(el.value):el.value;
   if(el.type==='number'||el.type==='range'){if(el.value===''||!Number.isFinite(value)||value<Number(el.min)||value>Number(el.max))return}
-  target[key]=value;
+  if(key==='ttsBehavior'){
+   if(!token||!['marker','effect','counter'].includes(value))return;
+   token.ttsMode=value==='marker'?'marker':'effect';token.ttsStackable=value==='counter';
+  }else target[key]=value;
   if(el.type==='range')el.parentElement.querySelector('output').textContent=value+el.dataset.suffix;
   if(key==='label')el.closest('details').querySelector('.nested-name').textContent=value||'—';
-  changed(['shape','symbol'].includes(key),token);
+  changed(['shape','symbol','ttsBehavior'].includes(key),token);
  });
  host.addEventListener('focusout',e=>{const el=e.target,ctx=context();if(el.dataset.tokenField&&el.type==='number'&&ctx.card)el.value=(tokenFor(el,ctx)||ctx.card)[el.dataset.tokenField]});
  host.addEventListener('change',async e=>{

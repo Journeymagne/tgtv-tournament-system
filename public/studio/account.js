@@ -1,6 +1,28 @@
 (async function () {
   "use strict";
   const gate = document.getElementById("studio-gate");
+  const assetVersion = "4.9.0";
+  const pdfScripts = ["vendor/pdfmake.min.js", "vendor/vfs_fonts.js"];
+  const loadedScripts = new Map();
+  function loadScript(src) {
+    const filename = src.split("?")[0];
+    if (loadedScripts.has(filename)) return loadedScripts.get(filename);
+    const pending = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      // Fetch together, but execute in manifest order so dependencies exist.
+      script.async = false;
+      script.src = "/studio/" + filename + "?v=" + assetVersion;
+      script.onload = resolve;
+      script.onerror = () => {
+        loadedScripts.delete(filename);
+        script.remove();
+        reject(Error("Не удалось загрузить Студию. Обновите страницу."));
+      };
+      document.body.append(script);
+    });
+    loadedScripts.set(filename, pending);
+    return pending;
+  }
   try {
     const { user } = await window.KTCompanion.ready.catch(() => ({ user: null }));
     const pendingKey = "kt-studio-login-transfer";
@@ -75,6 +97,7 @@
       id: user?.id ?? null,
       ...scope(user ? "user-" + user.id : "guest-" + guestId),
       requireLogin, transfer, finishTransfer,
+      ensurePDF: () => Promise.all(pdfScripts.map(loadScript)),
       request: (url, options = {}) => fetch(url.replace(/^\/api\//, "/api/studio/"), {
         ...options, credentials: "same-origin", headers: { ...options.headers, ...(user ? { "X-Studio-Account": String(user.id) } : {}) }
       })
@@ -84,18 +107,10 @@
       event.preventDefault();
       void requireLogin().catch(error => window.ktStudio.toast(error.message));
     });
-    const response = await fetch("/studio/scripts.json?v=4.8.1");
+    const response = await fetch("/studio/scripts.json?v=" + assetVersion);
     if (!response.ok) throw Error("Не удалось загрузить Студию.");
     const scripts = await response.json();
-    for (const src of scripts) {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "/studio/" + src.split("?")[0] + "?v=4.8.1";
-        script.onload = resolve;
-        script.onerror = () => reject(Error("Не удалось загрузить Студию. Обновите страницу."));
-        document.body.append(script);
-      });
-    }
+    await Promise.all(scripts.filter(src => !pdfScripts.includes(src.split("?")[0])).map(loadScript));
     await window.ktStudioReady;
     gate.hidden = true;
     document.getElementById("studio-workspace").hidden = false;

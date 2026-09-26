@@ -4,9 +4,10 @@ const { SECURITY_HEADERS } = require("./io");
 
 const ROOT_DOCUMENTS = {
   home: "home.html", initiative: "killteam-initiative-calculator.html",
-  tracker: "killteam-activation-tracker.html", tournament: "index.html", studio: "studio/index.html"
+  tracker: "killteam-activation-tracker.html", tournament: "index.html", studio: "studio/index.html", dice: "dice/index.html"
 };
 const ALIASES = {
+  "/dice/": "dice", "/dice/index.html": "dice",
   "/home.html": "home", "/index.html": "tournament", "/tournament/": "tournament",
   "/studio/": "studio", "/studio/index.html": "studio", "/initiative/": "initiative", "/tracker/": "tracker",
   "/killteam-initiative-calculator.html": "initiative", "/killteam-activation-tracker.html": "tracker"

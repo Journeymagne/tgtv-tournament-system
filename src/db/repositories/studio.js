@@ -109,6 +109,7 @@ async function remove(client, owner, id, revision) {
   if (previous?.deleted_at) return { id, deleted: true };
   if (!previous && revision > 0) throw new HttpError(404, "Команда не найдена.");
   if ((previous?.revision || 0) !== revision) throw new HttpError(409, "Команда изменена в другой вкладке. Обновите список черновиков и проверьте её перед удалением.");
+  await client.query("DELETE FROM studio_tts_exports WHERE owner_id=$1 AND project_id=$2", [owner, id]);
   // Also protects local-only drafts whose first upload has not completed yet.
   await client.query(`INSERT INTO studio_projects (owner_id, project_id, project, revision, deleted_at)
     VALUES ($1,$2,'{}'::jsonb,1,NOW()) ON CONFLICT (owner_id,project_id) DO UPDATE SET

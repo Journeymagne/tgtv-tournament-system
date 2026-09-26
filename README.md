@@ -1,18 +1,37 @@
 # KT Companion / TGTV Ranking Tournament System
 
-The site opens on the Companion home page with four sections: initiative
-calculator, activation tracker, tournament system and KT Studio. The calculators,
-Studio editor and published team library are public. Saving or publishing a team
+The site opens on the Companion home page with five sections: initiative
+calculator, activation tracker, tournament system, KT Studio and the D6 dice generator. The calculators,
+Studio editor, published team library and dice editor are public. Saving or publishing a team
 requires the same account and session as the tournament system. Existing
 public tournament pages remain available. See [Companion integration](docs/companion-integration.md)
 for routes, imported sources, account-owned drafts and deployment settings.
 The home page is a service selector. Each service opens on its own page under
-the same hostname: `/tournament`, `/initiative`, `/tracker` and `/studio`,
+the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio` and `/dice`,
 with a shared account. The header logo opens the service selector; the service
 name opens its start page (Studio library or tournament My Games).
 Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
+
+## Release 4.9.0
+
+Studio exports cards and playable tokens through immutable TTS links. Install
+KT Studio Importer once, paste an export link, then use PLACE/PACK on the bags.
+Infinite token containers match each token's shape and artwork. Token presets
+provide range auras without attachment, KTUI effects, or effects with counters.
+
+The separate `/dice` tool creates a single native D6 with an interactive preview,
+colors, pips or numbers, and a logo on any face. Logos come from the current
+site's published teams or an uploaded image. Number/pip and logo sizes are
+adjustable up to 200%. Export a PNG texture, a Saved Object, or an importer link.
+Studio startup loads core scripts together and defers PDF libraries until needed.
+
+Migration **036_studio_tts_exports** runs automatically at startup and stores
+export manifests and images. Back up both new tables. Keep the proxy upload
+allowance at `100m` and configure the public HTTPS origin for shared asset URLs.
+See [TTS import](docs/studio-tts-import.md), [D6 generator](docs/dice-generator.md)
+and [the full changelog](CHANGELOG.md).
 
 ## Release 4.8.1
 

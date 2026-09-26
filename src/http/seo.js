@@ -7,7 +7,7 @@ const { siteOrigin } = require("./sites");
 const SITE_NAME = "TGTV Ranking Tournament System";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "4.8.1";
+const ASSET_VERSION = "4.9.0";
 
 function requestOrigin(req) {
   const serviceOrigin = siteOrigin(req);

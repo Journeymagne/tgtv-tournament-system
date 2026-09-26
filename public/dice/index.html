@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Кубики D6 · KT Companion</title>
+  <script src="/theme-boot.js?v=4.9.0" data-companion-only></script>
+  <link rel="icon" href="/companion/assets/thundergrounds-logo.png">
+  <link rel="stylesheet" href="/companion-tokens.css?v=4.9.0">
+  <link rel="stylesheet" href="/companion-shell.css?v=4.9.0">
+  <link rel="stylesheet" href="/dice/dice.css?v=4.9.0">
+  <script src="/companion-sites.js?v=4.9.0" defer></script>
+  <script src="/companion-i18n.js?v=4.9.0" defer></script>
+  <script src="/companion-shell.js?v=4.9.0" defer></script>
+  <script src="/dice/dice.js?v=4.9.0" defer></script>
+</head>
+<body data-companion-section="dice">
+  <div data-companion-nav></div>
+  <main class="dice-page">
+    <header class="dice-heading">
+      <div><a class="back-link" href="/" data-companion-service="home">← Все инструменты</a><p class="eyebrow">TABLETOP SIMULATOR</p><h1>Твой кубик. Твоя команда.</h1><p class="subtitle">Настрой D6, добавь логотип и перенеси кубик на стол.</p></div>
+      <span class="format-badge">D6 <small>1 — 6</small></span>
+    </header>
+    <div class="dice-layout">
+      <div class="dice-controls">
+        <section class="dice-panel">
+          <h2><span class="step">01</span> Оформление</h2>
+          <div id="design-fields">
+            <label>Название кубика<input id="die-name" data-setting="name" maxlength="120" value="Мой D6" autocomplete="off"></label>
+            <div class="field-row">
+              <label>Цвет кубика<input type="color" data-setting="body" value="#202b30"></label>
+              <label>Цвет точек<input type="color" data-setting="ink" value="#ff8a24"></label>
+            </div>
+            <div class="field-row">
+              <label>Обозначения<select data-setting="style"><option value="pips">Точки</option><option value="numbers">Цифры</option></select></label>
+              <label>Логотип на грани<select data-setting="logoFace"><option value="0">Без логотипа</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6" selected>6</option></select></label>
+            </div>
+            <label>Размер цифр и точек <output id="value-scale-value">100%</output><input type="range" data-setting="valueScale" min="30" max="200" value="100"></label>
+            <label>Размер логотипа <output id="logo-scale-value">65%</output><input type="range" data-setting="logoScale" min="30" max="200" value="65"></label>
+            <p class="hint">Логотип можно увеличить до 200%. Части за краями грани обрезаются.</p>
+            <label class="check-label"><input type="checkbox" data-setting="tintLogo">Перекрасить логотип в цвет точек</label>
+            <label>Размер, мм<input type="number" data-setting="sizeMm" min="12" max="30" step="1" value="16"></label>
+          </div>
+        </section>
+        <section class="dice-panel">
+          <h2><span class="step">02</span> Логотип команды</h2>
+          <div class="selected-logo"><img id="selected-logo" alt="Выбранный логотип" hidden><div><strong id="logo-name" data-ui-skip>Логотип не выбран</strong><p class="hint">Логотип заменит обозначение выбранной грани.</p></div></div>
+          <form id="team-search-form" class="inline-field"><input id="team-search" type="search" placeholder="Найти опубликованную команду" aria-label="Найти опубликованную команду" maxlength="200"><button type="submit">Найти</button></form>
+          <div id="team-list" class="team-list" aria-live="polite"></div>
+          <nav id="team-pagination" class="pagination" aria-label="Страницы каталога команд"><button id="teams-prev" type="button" aria-label="Предыдущая страница команд" disabled>←</button><span id="team-count" class="hint" data-ui-skip></span><button id="teams-next" type="button" aria-label="Следующая страница команд" disabled>→</button></nav>
+          <details><summary>Загрузить по ссылке</summary><form id="team-link-form" class="link-form"><label>Ссылка на опубликованную команду<input id="team-link" type="text" placeholder="https://…/dice?team=…" autocomplete="off"></label><button type="submit">Загрузить логотип</button></form></details>
+          <div class="button-row"><button id="upload-logo" type="button">Загрузить свой PNG / JPG</button><button id="clear-logo" type="button">Убрать</button></div>
+          <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+          <p id="logo-status" class="hint" role="status"></p>
+        </section>
+      </div>
+      <div class="dice-preview-column">
+        <section class="dice-panel preview-panel">
+          <div class="panel-title"><h2>Предпросмотр</h2><button id="reset-view" type="button">Сбросить ракурс</button></div>
+          <div id="cube-stage" class="cube-stage" tabindex="0" role="img" aria-label="Предпросмотр кубика. Перетаскивайте мышью или используйте стрелки для вращения.">
+            <div class="cube-shadow"></div><div id="cube" class="cube" aria-hidden="true">
+              <canvas width="384" height="384" data-face="1" class="cube-face face-front"></canvas><canvas width="384" height="384" data-face="2" class="cube-face face-top"></canvas>
+              <canvas width="384" height="384" data-face="3" class="cube-face face-right"></canvas><canvas width="384" height="384" data-face="4" class="cube-face face-left"></canvas>
+              <canvas width="384" height="384" data-face="5" class="cube-face face-bottom"></canvas><canvas width="384" height="384" data-face="6" class="cube-face face-back"></canvas>
+            </div>
+          </div>
+          <p class="preview-caption hint">Потяни кубик, чтобы повернуть. Все шесть граней — ниже.</p>
+          <div id="face-grid" class="face-grid"></div>
+        </section>
+        <section class="dice-panel export-panel">
+          <h2><span class="step">03</span> Перенести в TTS</h2>
+          <p class="hint">Ссылка сохраняет текущий дизайн. После правок создай новую.</p>
+          <div class="button-row"><button id="create-link" class="primary" type="button">Подготовить кубик для TTS</button><button id="download-png" type="button">Скачать развёртку PNG</button></div>
+          <p id="export-status" role="status" aria-live="polite"></p>
+          <a id="login-link" hidden>Войти и продолжить</a>
+          <div id="export-result" hidden>
+            <label>PNG для Custom Dice → Image<input id="texture-url" readonly aria-label="PNG для Custom Dice → Image"></label>
+            <div class="button-row"><button id="copy-texture" class="primary" type="button">Копировать PNG-ссылку</button><a id="texture-link" class="button" target="_blank" rel="noopener">Открыть текстуру</a></div>
+            <p class="hint">Вставь эту ссылку в поле Image у Custom Dice и выбери D6. Получится один кубик.</p>
+            <details><summary>Импортировать весь набор</summary>
+              <label>Ссылка для KT Studio Importer → IMPORT TEAM<input id="export-url" readonly aria-label="Ссылка для KT Studio Importer → IMPORT TEAM"></label>
+              <p class="hint">Эта ссылка загружает набор через блок импортёра. В поле Image нужна PNG-ссылка выше.</p>
+              <div class="button-row"><button id="copy-link" type="button">Копировать ссылку набора</button><a id="download-object" class="button" download>Скачать объект TTS</a></div>
+            </details>
+          </div>
+          <p id="local-note" class="hint" hidden>Локальная ссылка работает на этом компьютере, пока запущен компаньон.</p>
+          <details class="instructions"><summary>Как импортировать кубик</summary>
+            <ol><li>Создай ссылку и скопируй её.</li><li>На блоке KT Studio Importer нажми IMPORT TEAM и вставь ссылку кубика — этот импортёр уже поддерживает новый набор.</li><li>Нажми PLACE на появившемся мешке. Кубики можно бросать клавишей R.</li></ol>
+            <p class="hint">Если импортёра ещё нет, скачай его объект и положи файл в Documents/My Games/Tabletop Simulator/Saves/Saved Objects. Затем открой Objects → Saved Objects в TTS.</p>
+            <a class="button" href="/api/studio/tts/importer" download>Скачать импортёр TTS</a>
+            <p class="hint">«Скачать объект TTS» — такой же прямой импорт через Saved Objects. PNG можно импортировать вручную через Objects → Components → Custom → Custom Dice, выбрав D6.</p>
+          </details>
+          <details id="history"><summary>Мои сохранённые кубики</summary><div id="history-list" class="history-list"></div></details>
+        </section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -15,6 +15,7 @@ const tournamentLive = require("./tournament-live");
 const documentation = require("./documentation");
 const account = require("./account");
 const studio = require("./studio");
+const studioTts = require("./studio-tts");
 const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
 
 function withAction(handler, action) {
@@ -46,6 +47,14 @@ module.exports = [
   { method: "POST", path: "/api/studio/drafts/:id/publish", handler: studio.publish, auth: "user", tx: true, maxBodyBytes: studio.MAX_BODY },
   { method: "GET", path: "/api/studio/library", handler: studio.library, auth: "none", loadUser: true },
   { method: "GET", path: "/api/studio/library/:id", handler: studio.publication, auth: "none", loadUser: true },
+  { method: "POST", path: "/api/studio/tts/exports", handler: studioTts.create, auth: "user", tx: true, maxBodyBytes: studioTts.MAX_BODY },
+  { method: "GET", path: "/api/studio/tts/exports", handler: studioTts.list, auth: "user" },
+  { method: "DELETE", path: "/api/studio/tts/exports/:id", handler: studioTts.remove, auth: "user", tx: true },
+  { method: "GET", path: "/api/studio/tts/exports/:id/manifest", handler: studioTts.manifest, auth: "none" },
+  { method: "GET", path: "/api/studio/tts/exports/:id/object.json", handler: studioTts.downloadObject, auth: "none" },
+  { method: "GET", path: "/api/studio/tts/exports/:id/assets/:name", handler: studioTts.asset, auth: "none" },
+  { method: "GET", path: "/api/studio/tts/importer", handler: studioTts.downloadImporter, auth: "none" },
+  { method: "GET", path: "/api/studio/tts/importer.lua", handler: studioTts.downloadImporter, auth: "none" },
   { method: "GET", path: "/api/documentation/:locale", handler: documentation.list, auth: "none" },
   { method: "GET", path: "/api/documentation/:locale/:id", handler: documentation.get, auth: "none" },
   { method: "POST", path: "/api/admin/documentation/preview", handler: documentation.preview, auth: "admin", tx: true },
