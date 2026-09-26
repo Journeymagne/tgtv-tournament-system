@@ -6,7 +6,7 @@ body { font-family:var(--font-ui); color:var(--ink); background-color:var(--bg);
 .companion-service-brand { display:flex; align-items:center; gap:10px; font-weight:750; min-width:0; }
 .companion-service-brand img { border-radius:50%; flex:none; }
 .companion-logo-link { display:grid; place-items:center; width:44px; height:44px; flex:none; border-radius:50%; }
-.companion-service-link { display:flex; align-items:center; min-height:44px; overflow-wrap:anywhere; }
+.companion-service-link { display:flex; align-items:center; min-height:44px; overflow-wrap:anywhere; font:700 clamp(20px,2vw,28px)/1.2 var(--font-ui); text-transform:uppercase; }
 .companion-tools { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px 12px; }
 .companion-utility button { box-sizing:border-box; min-height:40px; border:1px solid var(--line-strong); border-radius:var(--button-radius); padding:8px 10px; font:600 14px/1.4 var(--font-ui); background:var(--panel-2); color:var(--ink); cursor:pointer; box-shadow:none; text-transform:none; margin:0; width:auto; }
 .companion-theme-switch { display:flex; gap:4px; }
@@ -97,7 +97,7 @@ body[data-companion-section="studio"] .workspace { min-height:calc(100vh - var(-
   .companion-tournament-header .companion-tools { grid-area:2 / 2; width:auto; justify-content:flex-end; gap:4px; }
   .companion-tournament-header .companion-notifications { grid-area:1 / 2; justify-self:end; }
   .companion-tournament-header .companion-account { display:none; }
-  .companion-tournament-header .companion-service-link { font-size:13px; }
+  .companion-tournament-header .companion-service-link { font-size:20px; }
   .companion-tournament-header .tournament-header-profile { gap:8px; }
   .companion-tournament-header .tournament-header-name { max-width:100%; }
   .companion-tournament-header .tournament-header-identity { overflow:hidden; }
