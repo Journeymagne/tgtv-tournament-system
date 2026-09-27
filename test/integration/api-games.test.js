@@ -352,3 +352,54 @@ test("список завершённых игр фильтруется по п�
   assert.deepEqual(irl.games.map((game) => game.id), [irlGame.id]);
   assert.equal(irl.games[0].venueMode, "irl");
 });
+
+test("game history pages contain 25 games and filters search beyond the loaded page", async () => {
+  const charlie = await usersRepo.insert(client, {
+    name: "Чарли-Тест", passwordHash: "s:h", registerNickname: "", telegramContact: "@c",
+    rating: 1000, isAdmin: false
+  });
+  const ids = [];
+  for (let index = 0; index < 52; index++) {
+    const player = index < 2 ? charlie : alpha;
+    const game = await gamesRepo.insert(client, {
+      playerIds: [player.id, bravo.id], venueMode: index < 2 ? "irl" : "tts"
+    });
+    const resultScores = scores(player.id, bravo.id);
+    if (index < 3) resultScores[player.id].faction = "Imperial Navy Breachers";
+    await gamesRepo.saveFinalResult(client, game.id, {
+      result: { winnerId: player.id, scores: resultScores }, elo: {}
+    });
+    ids.push(game.id);
+  }
+  await openGame(); // Active games must not affect page counts.
+  await client.query("UPDATE games SET submitted_at = '2026-09-28T12:00:00Z' WHERE status = 'completed'");
+  const list = (params) => api.listCompleted({ client, query: new URLSearchParams(params) });
+  const first = await list({ page: 1 });
+  const second = await list({ page: 2 });
+  const last = await list({ page: 999 });
+  assert.deepEqual(first.pagination, { currentPage: 1, totalPages: 3, total: 52, pageSize: 25, start: 0, end: 25 });
+  assert.equal(second.games.length, 25);
+  assert.equal(last.pagination.currentPage, 3);
+  assert.equal(last.games.length, 2);
+  assert.deepEqual([...first.games, ...second.games, ...last.games].map(game => game.id), [...ids].reverse());
+  assert.equal((await api.listCompleted({ client })).games.length, 52, "statistics still loads every completed game");
+
+  const searched = await list({ page: 1, playerQuery: "чАрЛи тЕст" });
+  assert.equal(searched.totalCompleted, 52);
+  assert.deepEqual(searched.games.map(game => game.id), ids.slice(0, 2).reverse());
+  assert.deepEqual(searched.players, [{ id: charlie.id, name: charlie.name, games: 2 }]);
+  const selected = await list({ page: 1, playerId: charlie.id, team: "Navy Breachers", venue: "irl" });
+  assert.equal(selected.pagination.total, 2);
+  const faction = await list({ page: 1, team: "Navy Breachers" });
+  assert.equal(faction.pagination.total, 3, "legacy faction aliases remain searchable");
+  const empty = await list({ page: 2, playerQuery: "No such player" });
+  assert.equal(empty.games.length, 0);
+  assert.deepEqual(empty.pagination, { currentPage: 1, totalPages: 1, total: 0, pageSize: 25, start: 0, end: 0 });
+});
+
+test("invalid game history page and player filters return 400", async () => {
+  for (const params of [{ page: 0 }, { page: -1 }, { page: 1.5 }, { page: "abc" },
+    { page: Number.MAX_SAFE_INTEGER + 1 }, { page: 1, playerId: "abc" }, { page: 1, playerId: 2147483648 }]) {
+    await assert.rejects(() => api.listCompleted({ client, query: new URLSearchParams(params) }), err => err.status === 400);
+  }
+});

@@ -619,6 +619,19 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.games-filter-row {
+  scroll-margin-top: 90px;
+}
+
+[data-games-pagination]:not(:empty) {
+  margin-bottom: 14px;
+}
+
+.games-history-list[aria-busy="true"] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .text-link-button {
   min-height: 0;
   padding: 0;
@@ -1073,13 +1086,8 @@ button:disabled {
   text-transform: uppercase;
 }
 
-.tournament-faction-picks .hint {
+.tournament-stat-table .hint {
   margin: 0;
-}
-
-.tournament-faction-picks th,
-.tournament-faction-picks td {
-  white-space: normal;
 }
 
 .admin-table-form,
@@ -3750,6 +3758,13 @@ tr:last-child td {
 .team-table-choice-images { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
 .team-table-choice-images figure { margin: 0; max-width: 100%; }
 .team-table-choice-images figcaption { color: var(--muted); font-size: 0.85rem; }
+
+.team-pairing-tables-preview { margin: 16px 0; }
+.team-pairing-table-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.team-pairing-table-preview { display: grid; align-content: start; gap: 10px; min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.team-pairing-table-preview figcaption { font-weight: 700; overflow-wrap: anywhere; }
+.team-pairing-table-preview .team-table-image { width: 100%; height: 220px; margin: 0; object-fit: contain; background: var(--surface-well); }
+.team-pairing-table-no-image { display: grid; place-items: center; height: 220px; text-align: center; background: var(--surface-well); border-radius: 6px; }
 
 .team-mission-pool { margin: 16px 0; }
 .team-mission-options { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -37,6 +37,14 @@ const state = {
   authMode: "login",
   users: [],
   allGames: [],
+  statisticsGames: [],
+  gamesPageItems: [],
+  gamesPage: 1,
+  gamesPagination: null,
+  gamesTotalCompleted: 0,
+  gamesPlayerSuggestions: [],
+  gamesSuggestionsQuery: "",
+  gamesLoading: false,
   gamesError: "",
   selectedGameId: null,
   gameDetailMode: "",
@@ -105,6 +113,8 @@ const state = {
 
 let searchDebounce = null;
 let searchRequestId = 0;
+let gamesRequestId = 0;
+let gamesFilterDebounce = null;
 let publicTournamentRequestId = 0;
 const tournamentRoundSelections = new Map();
 let teamPairingRequestId = 0;
@@ -1446,7 +1456,7 @@ async function applyAppRoute(route) {
     else await loadTeamsDashboard();
   } else if (route.view === "statistics") {
     state.statisticsVenue = route.statisticsVenue || "combined";
-    await loadGames();
+    await loadStatisticsGames();
   } else if (route.view === "profile") {
     await loadChallengeProgress(state.me.id);
   } else if (route.view === "player") {
@@ -3244,7 +3254,7 @@ function renderShell() {
         if (targetView === "games") await loadGames();
         if (targetView === "tournaments") await loadTournaments();
         if (targetView === "teams") await loadTeamsDashboard();
-        if (targetView === "statistics") await loadGames();
+        if (targetView === "statistics") await loadStatisticsGames();
         if (targetView === "profile") await loadChallengeProgress(state.me.id);
         if (targetView === "challenge") await loadChallengeProgress(state.selectedChallengeUserId || state.me.id);
         if (targetView === "top") await loadTop();
@@ -4735,14 +4745,35 @@ function wireChallengeProgressButtons() {
 }
 
 async function loadGames() {
+  window.clearTimeout(gamesFilterDebounce);
+  const requestId = ++gamesRequestId;
+  const filters = { ...state.gameFilters };
+  const query = new URLSearchParams({ page: state.gamesPage, ...filters });
+  state.gamesLoading = true;
   try {
-    const data = await api("/api/games");
-    state.allGames = data.games || [];
+    const data = await api(`/api/games?${query}`);
+    if (requestId !== gamesRequestId) return;
+    state.gamesPageItems = data.games || [];
+    state.allGames = [...state.gamesPageItems];
+    state.gamesPagination = data.pagination;
+    state.gamesPage = data.pagination.currentPage;
+    state.gamesTotalCompleted = data.totalCompleted;
+    state.gamesPlayerSuggestions = data.players || [];
+    state.gamesSuggestionsQuery = filters.playerQuery;
     state.gamesError = "";
   } catch (err) {
-    state.allGames = [];
+    if (requestId !== gamesRequestId) return;
+    state.gamesPageItems = [];
+    state.gamesPlayerSuggestions = [];
     state.gamesError = err.message;
+  } finally {
+    if (requestId === gamesRequestId) state.gamesLoading = false;
   }
+}
+
+async function loadStatisticsGames() {
+  const data = await api("/api/games");
+  state.statisticsGames = data.games || [];
 }
 
 async function loadGame(gameId) {
@@ -4811,8 +4842,6 @@ async function openGameDetail(gameId) {
 
 function renderGames(live = false) {
   const content = document.querySelector("[data-content]");
-  const completedGames = state.allGames.filter((game) => game.status === "completed");
-  const filteredGames = filterGames(completedGames);
   const activeTab = state.administrationContext && state.me?.isAdmin ? state.gamesTab : "history";
   if (state.gamesTab !== activeTab) state.gamesTab = activeTab;
   setLiveContent(content, `
@@ -4841,8 +4870,10 @@ function renderGames(live = false) {
           </select>
         </div>
       </div>
-      <div class="filter-summary" data-games-filter-summary>${gamesFilterSummary(filteredGames.length, completedGames.length)}</div>
-      <div class="list" data-games-list>${gamesListMarkup(filteredGames)}</div>
+      <div class="filter-summary" data-games-filter-summary aria-live="polite">${gamesFilterSummary()}</div>
+      <div data-games-pagination>${gamesPaginationMarkup()}</div>
+      <div class="list games-history-list" data-games-list aria-busy="${state.gamesLoading}">${gamesListMarkup(state.gamesPageItems)}</div>
+      <div data-games-pagination>${gamesPaginationMarkup()}</div>
       </section>
     `}
   `, live);
@@ -4852,62 +4883,28 @@ function renderGames(live = false) {
   } else {
     wireGameFilters();
     wireGameButtons();
+    wireGamesPagination();
   }
   liveRefresh.schedule();
 }
 
-function filterGames(games) {
-  const playerId = Number(state.gameFilters.playerId);
-  const hasPlayerFilter = Number.isInteger(playerId) && playerId > 0;
-  const playerNeedle = state.gameFilters.playerQuery.trim();
-  const teamFilter = state.gameFilters.team;
-  return games.filter((game) => {
-    const playerMatch = hasPlayerFilter
-      ? (game.players || []).some((player) => Number(player.id) === playerId)
-      : !playerNeedle || (game.players || []).some((player) => searchTextMatches(player.name, playerNeedle));
-    const teamMatch = !teamFilter || gameScoreEntries(game).some((entry) => entry.team === teamFilter);
-    return playerMatch && teamMatch;
-  });
+function gamesFilterSummary() {
+  if (state.gamesLoading) return t("common.loading");
+  if (state.gamesError) return "";
+  return plural("games.filterSummary", state.gamesTotalCompleted, { count: state.gamesPagination?.total || 0 });
 }
 
-function gamePlayerFilterOptions(games) {
-  const players = new Map();
-  for (const game of games) {
-    const seenInGame = new Set();
-    for (const player of game.players || []) {
-      const id = Number(player.id);
-      if (!Number.isInteger(id) || id <= 0 || seenInGame.has(id)) continue;
-      seenInGame.add(id);
-      if (!players.has(id)) {
-        const name = String(player.name || "").trim() || t("games.filter.playerFallback", { id });
-        players.set(id, { id, name, games: 0 });
-      }
-      players.get(id).games += 1;
-    }
-  }
-  return [...players.values()].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
-}
-
-function gamePlayerSuggestionOptions(games, query) {
-  const needle = query.trim();
-  return gamePlayerFilterOptions(games)
-    .filter((player) => !needle || searchTextMatches(player.name, needle))
-    .sort((a, b) => {
-      const aStarts = searchTextStartsWith(a.name, needle);
-      const bStarts = searchTextStartsWith(b.name, needle);
-      return Number(!aStarts) - Number(!bStarts) || b.games - a.games || a.name.localeCompare(b.name) || a.id - b.id;
-    })
-    .slice(0, 8);
-}
-
-function gamesFilterSummary(count, total) {
-  return plural("games.filterSummary", total, { count });
+function gamesPaginationMarkup() {
+  return state.gamesPagination && !state.gamesError
+    ? paginationMarkup("games", state.gamesPagination, "games.pagination.games", state.gamesLoading) : "";
 }
 
 function gamesListMarkup(games) {
   if (state.gamesError) {
-    return `<div class="empty">${t("games.list.loadError", { error: escapeHtml(state.gamesError) })}</div>`;
+    return `<div class="empty">${t("games.list.loadError", { error: escapeHtml(state.gamesError) })}
+      <button class="small-button" data-games-retry>${t("games.list.retry")}</button></div>`;
   }
+  if (state.gamesLoading && !games.length) return `<div class="empty">${t("common.loading")}</div>`;
   return games.length ? games.map(gameCard).join("") : `<div class="empty">${t("games.list.empty")}</div>`;
 }
 
@@ -4915,8 +4912,16 @@ function renderGamePlayerSuggestions() {
   const box = document.querySelector("[data-games-player-suggestions]");
   const input = document.querySelector("[data-games-player-filter]");
   if (!box || !input) return;
-  const completedGames = state.allGames.filter((game) => game.status === "completed");
-  const options = gamePlayerSuggestionOptions(completedGames, input.value);
+  if (state.gamesError && !state.gamesLoading) {
+    box.hidden = true;
+    return;
+  }
+  if (state.gamesLoading || state.gamesSuggestionsQuery !== input.value) {
+    box.innerHTML = `<div class="filter-suggestion-empty">${t("common.loading")}</div>`;
+    box.hidden = false;
+    return;
+  }
+  const options = state.gamesPlayerSuggestions;
   box.innerHTML = options.length
     ? options.map((player) => `
       <button class="filter-suggestion" type="button" data-games-player-suggestion="${player.id}" data-games-player-name="${escapeHtml(player.name)}">
@@ -4936,12 +4941,48 @@ function closeGamePlayerSuggestions() {
 function refreshGamesList() {
   const list = document.querySelector("[data-games-list]");
   if (!list) return;
-  const completedGames = state.allGames.filter((game) => game.status === "completed");
-  const filteredGames = filterGames(completedGames);
-  list.innerHTML = gamesListMarkup(filteredGames);
+  list.innerHTML = gamesListMarkup(state.gamesPageItems);
+  list.setAttribute("aria-busy", String(state.gamesLoading));
   const summary = document.querySelector("[data-games-filter-summary]");
-  if (summary) summary.textContent = gamesFilterSummary(filteredGames.length, completedGames.length);
+  if (summary) summary.textContent = gamesFilterSummary();
+  document.querySelectorAll("[data-games-pagination]").forEach((element) => {
+    element.innerHTML = gamesPaginationMarkup();
+  });
   wireGameButtons();
+  wireGamesPagination();
+}
+
+async function reloadGamesPage({ scroll = false, suggestions = false } = {}) {
+  const loading = loadGames();
+  const requestId = gamesRequestId;
+  refreshGamesList();
+  await loading;
+  if (requestId !== gamesRequestId || state.view !== "games" || state.gamesLoading) return;
+  refreshGamesList();
+  if (suggestions && document.activeElement?.matches("[data-games-player-filter]")) renderGamePlayerSuggestions();
+  if (scroll && !state.gamesError) document.querySelector(".games-filter-row")?.scrollIntoView({ block: "start" });
+}
+
+function scheduleGamesFilter() {
+  window.clearTimeout(gamesFilterDebounce);
+  ++gamesRequestId;
+  state.gamesPage = 1;
+  state.gamesLoading = true;
+  refreshGamesList();
+  renderGamePlayerSuggestions();
+  gamesFilterDebounce = window.setTimeout(() => reloadGamesPage({ suggestions: true }), 250);
+}
+
+function wireGamesPagination() {
+  document.querySelectorAll('[data-pagination-target="games"]').forEach((button) => {
+    button.addEventListener("click", () => {
+      if (state.gamesLoading) return;
+      state.gamesPage = Number(button.dataset.paginationPage);
+      closeGamePlayerSuggestions();
+      reloadGamesPage({ scroll: true });
+    });
+  });
+  document.querySelector("[data-games-retry]")?.addEventListener("click", () => reloadGamesPage());
 }
 
 function wireGameFilters() {
@@ -4950,8 +4991,7 @@ function wireGameFilters() {
   playerInput?.addEventListener("input", (event) => {
     state.gameFilters.playerQuery = event.target.value;
     state.gameFilters.playerId = "";
-    refreshGamesList();
-    renderGamePlayerSuggestions();
+    scheduleGamesFilter();
   });
   playerInput?.addEventListener("focus", () => renderGamePlayerSuggestions());
   playerInput?.addEventListener("keydown", (event) => {
@@ -4973,7 +5013,8 @@ function wireGameFilters() {
   });
   document.querySelector("[data-games-team-filter]")?.addEventListener("change", (event) => {
     state.gameFilters.team = event.target.value;
-    refreshGamesList();
+    state.gamesPage = 1;
+    reloadGamesPage();
   });
 }
 
@@ -4983,14 +5024,15 @@ function chooseGamePlayerSuggestion(button) {
   state.gameFilters.playerQuery = button.dataset.gamesPlayerName || "";
   if (input) input.value = state.gameFilters.playerQuery;
   closeGamePlayerSuggestions();
-  refreshGamesList();
+  state.gamesPage = 1;
+  reloadGamesPage();
 }
 
 function renderStatistics() {
   const content = document.querySelector("[data-content]");
   const games = state.statisticsVenue === "combined"
-    ? (state.allGames || [])
-    : (state.allGames || []).filter((game) => game.venueMode === state.statisticsVenue);
+    ? (state.statisticsGames || [])
+    : (state.statisticsGames || []).filter((game) => game.venueMode === state.statisticsVenue);
   const season = activeSeason();
   const seasonGames = filterGamesBySeason(games, season);
   const showSeasonSelector = ["killTeamWinrates", "teams"].includes(state.statisticsTab);
@@ -7447,8 +7489,8 @@ function paginate(items, page, pageSize = LEADERBOARD_PAGE_SIZE) {
   };
 }
 
-function paginationMarkup(target, pageData, itemLabelKey = "leaderboard.pagination.players") {
-  if (pageData.total <= LEADERBOARD_PAGE_SIZE) return "";
+function paginationMarkup(target, pageData, itemLabelKey = "leaderboard.pagination.players", disabled = false) {
+  if (pageData.totalPages <= 1) return "";
   const first = pageData.total ? pageData.start + 1 : 0;
   return `
     <div class="pagination-row">
@@ -7457,8 +7499,8 @@ function paginationMarkup(target, pageData, itemLabelKey = "leaderboard.paginati
         <span class="pagination-current">${t("leaderboard.pagination.page", { current: pageData.currentPage, total: pageData.totalPages })}</span>
       </div>
       <div class="pagination-actions">
-        <button class="small-button" data-pagination-target="${escapeHtml(target)}" data-pagination-page="${pageData.currentPage - 1}" ${pageData.currentPage <= 1 ? "disabled" : ""}>${t("leaderboard.pagination.previous")}</button>
-        <button class="small-button" data-pagination-target="${escapeHtml(target)}" data-pagination-page="${pageData.currentPage + 1}" ${pageData.currentPage >= pageData.totalPages ? "disabled" : ""}>${t("leaderboard.pagination.next")}</button>
+        <button class="small-button" data-pagination-target="${escapeHtml(target)}" data-pagination-page="${pageData.currentPage - 1}" ${disabled || pageData.currentPage <= 1 ? "disabled" : ""}>${t("leaderboard.pagination.previous")}</button>
+        <button class="small-button" data-pagination-target="${escapeHtml(target)}" data-pagination-page="${pageData.currentPage + 1}" ${disabled || pageData.currentPage >= pageData.totalPages ? "disabled" : ""}>${t("leaderboard.pagination.next")}</button>
       </div>
     </div>
   `;
@@ -7628,7 +7670,8 @@ function nextRoundActionState(data) {
 function tournamentStatsContent(data) {
   // Personal results count as soon as confirmed, even while their team match is in progress.
   const games = (data.tournamentGames || []).filter((game) => game.status === "completed" && game.result);
-  const teams = tournamentKillTeamStats(games);
+  const factionPicks = tournamentFactionPicks(data);
+  const teams = tournamentKillTeamStats(games, factionPicks.rows);
   const tacOps = tournamentTacOpStats(games);
   return `
     <div class="tournament-stats">
@@ -7641,9 +7684,8 @@ function tournamentStatsContent(data) {
       <div class="tournament-stats-grid">
         ${games.length ? `
           ${tournamentTacOpStatsTable(tacOps)}
-          ${tournamentStatsTable(t("tournaments.stats.killTeamTableTitle"), teams, "team")}
         ` : `<div class="empty">${t("tournaments.stats.empty")}</div>`}
-        ${tournamentFactionPicksTable(tournamentFactionPicks(data))}
+        ${tournamentKillTeamStatsTable(teams, factionPicks.hidden)}
       </div>
     </div>
   `;
@@ -7669,53 +7711,37 @@ function tournamentFactionPicks(data) {
   };
 }
 
-function tournamentFactionPicksTable({ hidden, rows }) {
-  return `
-    <section class="admin-subpanel tournament-stat-table tournament-faction-picks">
-      <h4>${t("tournaments.stats.factionPicksTitle")}</h4>
-      <p class="hint">${t(hidden ? "tournaments.stats.factionPicksHidden" : "tournaments.stats.factionPicksHint")}</p>
-      ${hidden ? "" : `
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>${t("games.filter.teamLabel")}</th><th>${t("tournaments.stats.factionPicksCount")}</th></tr></thead>
-            <tbody>
-              ${rows.length ? rows.map((row) => `<tr><td>${escapeHtml(row.name)}</td><td>${row.picks}</td></tr>`).join("")
-                : `<tr><td colspan="2">${t("tournaments.stats.factionPicksEmpty")}</td></tr>`}
-            </tbody>
-          </table>
-        </div>
-      `}
-    </section>
-  `;
-}
-
 function tournamentTacOpStats(games) {
   return tacOpWinrateSummary(games, { classification: "all", team: "" }).rows;
 }
 
-function tournamentKillTeamStats(games) {
+function tournamentKillTeamStats(games, picks = []) {
   const byTeam = new Map();
+  const rowForFaction = (faction) => {
+    const team = faction || t("tournaments.participant.factionMissing");
+    if (!byTeam.has(team)) {
+      byTeam.set(team, {
+        key: team,
+        name: team,
+        picks: 0,
+        matches: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        totalVp: 0,
+        vpDiff: 0,
+        eloDelta: 0
+      });
+    }
+    return byTeam.get(team);
+  };
+  // Keep picked factions visible even before their first completed game.
+  for (const { name, picks: count } of picks) rowForFaction(name).picks = count;
   for (const game of games) {
     const [a, b] = game.players || [];
     if (!a || !b) continue;
-    for (const player of [a, b]) {
-      const team = player.faction || t("tournaments.participant.factionMissing");
-      if (!byTeam.has(team)) {
-        byTeam.set(team, {
-          key: team,
-          name: team,
-          matches: 0,
-          wins: 0,
-          draws: 0,
-          losses: 0,
-          totalVp: 0,
-          vpDiff: 0,
-          eloDelta: 0
-        });
-      }
-    }
-    addTournamentStatLine(byTeam.get(a.faction || t("tournaments.participant.factionMissing")), a, b, game);
-    addTournamentStatLine(byTeam.get(b.faction || t("tournaments.participant.factionMissing")), b, a, game);
+    addTournamentStatLine(rowForFaction(a.faction), a, b, game);
+    addTournamentStatLine(rowForFaction(b.faction), b, a, game);
   }
   return [...byTeam.values()].sort((a, b) =>
     b.wins * 3 + b.draws - (a.wins * 3 + a.draws) ||
@@ -7773,16 +7799,17 @@ function tournamentTacOpStatsTable(rows) {
   `;
 }
 
-function tournamentStatsTable(title, rows, kind) {
+function tournamentKillTeamStatsTable(rows, picksHidden) {
   return `
     <section class="admin-subpanel tournament-stat-table">
-      <h4>${escapeHtml(title)}</h4>
+      <h4>${t("tournaments.stats.killTeamTableTitle")}</h4>
+      <p class="hint">${t(picksHidden ? "tournaments.stats.factionPicksHidden" : "tournaments.stats.factionPicksHint")}</p>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>${kind === "player" ? t("tournaments.player.fallback") : t("games.filter.teamLabel")}</th>
-              ${kind === "player" ? `<th>${t("games.filter.teamLabel")}</th>` : ""}
+              <th>${t("games.filter.teamLabel")}</th>
+              <th>${t("tournaments.stats.factionPicksCount")}</th>
               <th>${t("tournaments.standings.column.wdl")}</th>
               <th>${t("profile.metric.winRate")}</th>
               <th>${t("tournaments.standings.totalVp")}</th>
@@ -7791,17 +7818,17 @@ function tournamentStatsTable(title, rows, kind) {
             </tr>
           </thead>
           <tbody>
-            ${rows.map((row) => `
+            ${rows.length ? rows.map((row) => `
               <tr>
                 <td>${escapeHtml(row.name)}</td>
-                ${kind === "player" ? `<td>${escapeHtml(row.faction || "-")}</td>` : ""}
+                <td>${picksHidden ? "—" : row.picks}</td>
                 <td>${row.wins}-${row.draws}-${row.losses}</td>
-                <td>${row.matches ? Math.round((row.wins / row.matches) * 100) : 0}%</td>
+                <td>${row.matches ? `${Math.round((row.wins / row.matches) * 100)}%` : "—"}</td>
                 <td>${row.totalVp}</td>
                 <td>${signed(row.vpDiff)}</td>
                 <td>${signed(row.eloDelta)}</td>
               </tr>
-            `).join("")}
+            `).join("") : `<tr><td colspan="7">${t(picksHidden ? "tournaments.stats.factionPicksHidden" : "tournaments.stats.factionPicksEmpty")}</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -8206,10 +8233,23 @@ function teamPairingSideMarkup(match, side) {
 }
 
 function teamPairingSelectionsMarkup(match) {
-  const selections = `${teamRollHistoryMarkup(match)}<div class="team-pairing-selections">${teamPairingSideMarkup(match, "a")}${teamPairingSideMarkup(match, "b")}</div>${teamMissionPoolMarkup(match)}`;
+  const selections = `${teamRollHistoryMarkup(match)}<div class="team-pairing-selections">${teamPairingSideMarkup(match, "a")}${teamPairingSideMarkup(match, "b")}</div>${teamPairingTablesPreviewMarkup(match)}${teamMissionPoolMarkup(match)}`;
   return ["in_progress", "completed"].includes(match.phase)
     ? `<details class="team-pairing-details" data-team-pairing-details="${match.id}"><summary>${t("teams.pairing.details")}</summary>${selections}</details>`
     : selections;
+}
+
+function teamPairingTablesPreviewMarkup(match) {
+  const tables = (match.tables || teamTournamentTables(match.tournamentId))
+    .filter((table) => !match.tableIds?.length || match.tableIds.includes(table.id));
+  if (!tables.length) return "";
+  return `<section class="team-pairing-tables-preview" data-live-key="pairing-tables-${match.id}">
+    <h4>${t("teams.pairing.tablesPreview")}</h4>
+    <div class="team-pairing-table-grid">${tables.map((table) => `<figure class="team-pairing-table-preview" data-live-key="table-${table.id}">
+      <figcaption>${escapeHtml(tableLabel(table))}</figcaption>
+      ${teamTableImageMarkup(table) || `<div class="team-pairing-table-no-image muted">${t("teams.pairing.tableNoImage")}</div>`}
+    </figure>`).join("")}</div>
+  </section>`;
 }
 
 function teamRollHistoryMarkup(match) {
@@ -8221,7 +8261,7 @@ function teamRollHistoryMarkup(match) {
 }
 
 function teamMissionPoolMarkup(match) {
-  if (match.pairingVersion !== 2) return "";
+  if (!(match.missions || []).length) return "";
   const bans = match.missionBans || [];
   const used = new Set((match.environment?.assignments || []).map((item) => item.mission?.critOp));
   const turn = match.nextAction;

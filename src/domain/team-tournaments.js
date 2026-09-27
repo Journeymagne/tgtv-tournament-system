@@ -1,5 +1,7 @@
 const { ValidationError } = require("../http/io");
 const { CRIT_OPS, KILLZONES } = require("./kill-teams");
+const { pairScoreBrackets } = require("./tournaments/swiss");
+const { shuffledIds } = require("./tournaments/seeding");
 
 function validateTeamTables(tables) {
   if (!Array.isArray(tables) || tables.length !== 3 ||
@@ -169,7 +171,7 @@ function teamStandings(rosters, matches) {
   return rows.map((row, index) => ({ rank: index + 1, ...row }));
 }
 
-function buildNextTeamRound(tournament, rosters, matches, roundNumber) {
+function buildNextTeamRound(tournament, rosters, matches, roundNumber, random = Math.random) {
   validateTeamTournament(tournament, rosters);
   if (!Number.isInteger(roundNumber) || roundNumber < 2 || roundNumber > tournament.swissRoundCount) {
     throw new ValidationError("Team Swiss round number is out of range");
@@ -188,9 +190,16 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber) {
     ? [{ bracketPosition: pairings.length + 1, rosterAId: bye.roster.id, rosterBId: null }] : []);
   const history = new Set(matches.map((match) => pairKey(match.rosterAId, match.rosterBId)));
   const standingsIndex = new Map(standings.map((row, index) => [row.roster.id, index]));
+  // TP defines the draw groups. Personal wins, VP and seed only rank the table;
+  // they must not select opponents within a group.
+  const bracketPairs = pairScoreBrackets(standings.map((row) => ({
+    ...row, participant: row.roster, matchPoints: row.teamTournamentPoints
+  })), history, random);
+  const randomizedStandings = shuffledIds(standings, random)
+    .sort((a, b) => b.teamTournamentPoints - a.teamTournamentPoints);
 
-  // Prefer a complete matching without rematches. Choosing the most constrained
-  // roster first prevents an early greedy choice from trapping the final pair.
+  // If the groups force a rematch, look across groups before accepting it.
+  // Choosing the most constrained roster first avoids a greedy rematch trap.
   let searchSteps = 0;
   function freshMatching(remaining) {
     searchSteps += 1;
@@ -214,8 +223,8 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber) {
       .map((candidate, candidateIndex) => ({ candidate, candidateIndex }))
       .filter(({ candidate }) => !history.has(pairKey(selected.roster.id, candidate.roster.id)))
       .sort((left, right) =>
-        Math.abs(standingsIndex.get(selected.roster.id) - standingsIndex.get(left.candidate.roster.id)) -
-        Math.abs(standingsIndex.get(selected.roster.id) - standingsIndex.get(right.candidate.roster.id))
+        Math.abs(selected.teamTournamentPoints - left.candidate.teamTournamentPoints) -
+        Math.abs(selected.teamTournamentPoints - right.candidate.teamTournamentPoints)
       );
     for (const { candidateIndex } of selectedCandidates) {
       const next = [...remaining];
@@ -226,7 +235,8 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber) {
     return null;
   }
 
-  const freshPairs = freshMatching([...standings]);
+  const freshPairs = bracketPairs.some(([a, b]) => history.has(pairKey(a.roster.id, b.roster.id)))
+    ? freshMatching([...randomizedStandings]) : bracketPairs;
   if (freshPairs) {
     freshPairs.sort((left, right) =>
       Math.min(standingsIndex.get(left[0].roster.id), standingsIndex.get(left[1].roster.id)) -
@@ -243,7 +253,7 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber) {
     };
   }
 
-  const remaining = [...standings];
+  const remaining = [...randomizedStandings];
   const pairings = [];
   while (remaining.length) {
     const a = remaining.shift();

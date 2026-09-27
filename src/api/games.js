@@ -8,6 +8,7 @@ const { calculateElo, ELO_K } = require("../domain/elo");
 const { gameView } = require("./views");
 const { requirePositiveIntId } = require("./params");
 const { teamGamePermissions } = require("../domain/team-game-permissions");
+const { killTeamSearchKeys } = require("../domain/kill-teams");
 const {
   attachTournamentGameDetails,
   sortGameViews
@@ -167,6 +168,21 @@ async function cancelGame(client, game) {
 
 async function listCompleted({ client, query = new URLSearchParams() }) {
   const venue = ["tts", "irl"].includes(query.get("venue")) ? query.get("venue") : null;
+  if (query.has("page")) {
+    const page = requirePositiveIntId(query.get("page"), 400, "Invalid page");
+    const playerId = query.get("playerId")
+      ? requirePositiveIntId(query.get("playerId"), 400, "Invalid player") : null;
+    if (!Number.isSafeInteger(page)) throw new HttpError(400, "Invalid page");
+    if (playerId > 2147483647) throw new HttpError(400, "Invalid player");
+    const playerQuery = String(query.get("playerQuery") || "").trim().slice(0, 256);
+    const factionKeys = query.get("team") ? killTeamSearchKeys(query.get("team")) : [];
+    const result = await gamesRepo.listCompletedPage(client, { page, venue, playerId, playerQuery, factionKeys });
+    const completed = await attachTournamentGameDetails(client, result.games);
+    const people = await usersRepo.findByIds(client, [...new Set(completed.flatMap((game) => game.playerIds))]);
+    const players = await gamesRepo.completedPlayerSuggestions(client, { venue, playerQuery });
+    return { ...result, games: completed.map((game) => gameView(game, people)), players };
+  }
+  // The statistics screen still needs the complete result set.
   const completed = await attachTournamentGameDetails(client, await gamesRepo.listCompleted(client, venue));
   const peopleIds = new Set();
   for (const game of completed) {

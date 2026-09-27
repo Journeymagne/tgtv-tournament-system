@@ -17,3 +17,10 @@ instruction; do not ask again whether to create a local test administrator or si
   instead of a list of accounts with unknown passwords or a manual login requirement.
 - If the user explicitly requests anonymous access or testing another role, follow
   that request for the relevant preview.
+
+# Automated tests
+
+Run automated test suites only when merging changes into the repository, unless
+the user explicitly requests a test run. Do not run them for routine edits or
+local previews. Visual inspection and local page/API availability checks remain
+part of the preview workflow.

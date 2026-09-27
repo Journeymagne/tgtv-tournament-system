@@ -129,15 +129,50 @@ test("revision observes committed changes and stale admin edits are rejected", a
 const roundTables = require("../../src/api/round-tables");
 const rounds = require("../../src/db/repositories/tournament-rounds");
 const roundTableInput = selected => selected.map(({ id, tableNumber, killzone, deployment, imageId }) => ({ id, tableNumber, killzone, deployment, imageId }));
-async function preparedRound() {
+async function preparedRound(rosterCount = 4) {
   const tournament = await cup();
-  for (let n = 0; n < 4; n++) { const group = await club(n); await teams.registerRoster(context(tournament, group.body)); }
+  for (let n = 0; n < rosterCount; n++) { const group = await club(n); await teams.registerRoster(context(tournament, group.body)); }
   await cups.closeRegistration(context(tournament));
   const data = await cups.generateNextRoundAdmin(context(tournament, { tables: tableSetup }));
   const request = { ...context(tournament, {}, otherAdmin), params: { id: tournament.id, roundId: data.rounds[0].id } };
   const preview = await roundTables.getAdmin(request);
   return { tournament, data, request, preview };
 }
+
+test("team round previews draw within TP groups and generating preserves the selected preview", async (t) => {
+  const { tournament, data } = await preparedRound(8);
+  await cups.startAdmin(context(tournament));
+  const winners = new Set();
+  for (const match of data.teamMatches) {
+    winners.add(match.rosterAId);
+    await matches.update(client, match.id, { phase: "completed", teamTournamentPointsA: 2, teamTournamentPointsB: 0,
+      teamGamePointsA: 40, teamGamePointsB: 20, completedAt: new Date().toISOString() });
+  }
+  await rounds.update(client, data.rounds[0].id, { status: "completed", completedAt: new Date().toISOString() });
+  let randomState = 1;
+  t.mock.method(Math, "random", () => {
+    randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
+    return randomState / 0x100000000;
+  });
+  const signatures = new Set();
+  let selected;
+  for (let seed = 1; seed <= 12; seed++) {
+    randomState = seed;
+    const preview = await cups.previewNextRoundAdmin(context(tournament));
+    const pairs = preview.round.matches;
+    selected ||= pairs.map(({ rosterAId, rosterBId }) => ({ rosterAId, rosterBId }));
+    assert.ok(pairs.every(pair => winners.has(pair.rosterAId) === winners.has(pair.rosterBId)));
+    signatures.add(pairs.map(pair => [pair.rosterAId, pair.rosterBId].sort((a, b) => a - b).join(":")).sort().join("|"));
+  }
+  assert.ok(signatures.size > 1, "fresh previews must draw different opponents");
+  assert.equal((await rounds.listByTournament(client, tournament.id)).length, 1, "preview must not persist or alter rounds");
+  randomState = 999;
+  await cups.generateNextRoundAdmin(context(tournament, { matchups: selected, tables: tableSetup }));
+  const saved = await cups.getAdmin(context(tournament));
+  const actual = saved.teamMatches.filter(match => match.roundNumber === 2)
+    .map(({ rosterAId, rosterBId }) => ({ rosterAId, rosterBId }));
+  assert.deepEqual(actual, selected, "saving must preserve the reviewed pairs, not draw again");
+});
 
 test("statistics expose each confirmed personal game before its team match finishes, with a new live revision", async () => {
   const { tournament, data } = await preparedRound();

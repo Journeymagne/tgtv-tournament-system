@@ -249,12 +249,14 @@ const TGTV_I18N_RU = {
   "games.filter.noPlayersFound": "Игроки не найдены",
   "games.filter.playerFallback": "Игрок #{id}",
   "games.filterSummary": {
-    one: "Показано {count} из {n} завершённой игры.",
-    few: "Показано {count} из {n} завершённых игр.",
-    many: "Показано {count} из {n} завершённых игр.",
-    other: "Показано {count} из {n} завершённых игр."
+    one: "Найдено {count} из {n} завершённой игры.",
+    few: "Найдено {count} из {n} завершённых игр.",
+    many: "Найдено {count} из {n} завершённых игр.",
+    other: "Найдено {count} из {n} завершённых игр."
   },
-  "games.list.loadError": "Не удалось загрузить игры: {error}. Перезапустите локальный сервер и обновите страницу.",
+  "games.pagination.games": { one: "игры", few: "игр", many: "игр", other: "игры" },
+  "games.list.retry": "Повторить",
+  "games.list.loadError": "Не удалось загрузить игры: {error}.",
   "games.list.empty": "Нет игр, соответствующих этим фильтрам.",
   "games.count": { one: "{n} игра", few: "{n} игры", many: "{n} игр", other: "{n} игры" },
 
@@ -465,9 +467,8 @@ const TGTV_I18N_RU = {
   "tournaments.stats.killTeamTableTitle": "Статистика Kill Team",
   "tournaments.stats.tacOpTableTitle": "Статистика Tac Op",
   "tournaments.stats.tacOpEmpty": "Пока нет данных по Tac Op.",
-  "tournaments.stats.factionPicksTitle": "Пики фракций",
   "tournaments.stats.factionPicksHint": "По текущим участникам турнира: один игрок — один пик, независимо от числа игр.",
-  "tournaments.stats.factionPicksCount": "Количество пиков",
+  "tournaments.stats.factionPicksCount": "Пики",
   "tournaments.stats.factionPicksEmpty": "Участники пока не выбрали фракции.",
   "tournaments.stats.factionPicksHidden": "Пики фракций станут доступны после начала первого раунда.",
 
@@ -950,6 +951,8 @@ const TGTV_I18N_RU = {
   "teams.tournament.startWithTables": "Столы по умолчанию для первого раунда",
   "teams.pairing.phase.ban": "Капитаны банят Crit Ops",
   "teams.pairing.pool": "Пул Crit Ops",
+  "teams.pairing.tablesPreview": "Столы паринга",
+  "teams.pairing.tableNoImage": "Изображение не загружено",
   "teams.pairing.details": "Детали паринга",
   "teams.pairing.rollOffResult": "Roll-off {round}: {nameA} — {a}; {nameB} — {b}",
   "teams.pairing.reroll": "Ничья — оба капитана бросают снова",

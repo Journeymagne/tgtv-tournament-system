@@ -14,6 +14,15 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.9.5
+
+Game history loads 25 games per page, with player and faction filters applied
+across the entire history. Tournament Kill Team Stats includes participant pick
+counts, including factions without completed games. Captain pairing previews
+show table images and missions before the D6 roll. Team Swiss pairings randomize
+opponents within equal-TP groups and preserve the selected preview when saved.
+See [the changelog](CHANGELOG.md) for details.
+
 ## Release 4.9.3
 
 Startup migration **038_journey_platform_owner** assigns the existing Journey

@@ -303,4 +303,4 @@ function buildSwissNextRound(tournament, participants, matches, roundNumber, ran
   return { roundNumber, status: ROUND_STATUSES.ACTIVE, matches: roundMatches };
 }
 
-module.exports = { buildSwissRoundOne, buildSwissNextRound, playedPairKey };
+module.exports = { buildSwissRoundOne, buildSwissNextRound, playedPairKey, pairScoreBrackets };

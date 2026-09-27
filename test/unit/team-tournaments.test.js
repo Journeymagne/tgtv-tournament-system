@@ -59,6 +59,77 @@ function pairKeyForTest(a, b) {
   return [a, b].sort((left, right) => left - right).join(":");
 }
 
+function seededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
+function winningFirstRound(count) {
+  return Array.from({ length: count / 2 }, (_, index) => ({
+    phase: "completed", rosterAId: index + 1, rosterBId: index + count / 2 + 1,
+    teamTournamentPointsA: 2, teamTournamentPointsB: 0,
+    gamePoints: [{ winnerSide: "a", vpA: 30 - index, vpB: index, tacA: 6, tacB: 0 }]
+  }));
+}
+
+test("team pairings randomize opponents inside each TP group despite different tiebreakers", () => {
+  const field = Array.from({ length: 8 }, (_, index) => ({ id: index + 1, seed: index + 1 }));
+  const matches = winningFirstRound(field.length);
+  const before = structuredClone({ field, matches });
+  const signatures = new Set();
+  const opponents = new Set();
+  for (let seed = 1; seed <= 24; seed++) {
+    const { pairings } = buildNextTeamRound(tournament, field, matches, 2, seededRandom(seed));
+    signatures.add(pairings.map(pair => pairKeyForTest(pair.rosterAId, pair.rosterBId)).sort().join("|"));
+    assert.deepEqual(pairings.flatMap(pair => [pair.rosterAId, pair.rosterBId]).sort((a, b) => a - b), field.map(row => row.id));
+    assert.ok(pairings.every(pair => (pair.rosterAId <= 4) === (pair.rosterBId <= 4)));
+    const first = pairings.find(pair => pair.rosterAId === 1 || pair.rosterBId === 1);
+    opponents.add(first.rosterAId === 1 ? first.rosterBId : first.rosterAId);
+  }
+  assert.ok(signatures.size > 1, "changing the random seed must change opponents, not just table order or sides");
+  assert.deepEqual([...opponents].sort(), [2, 3, 4]);
+  assert.deepEqual({ field, matches }, before, "drawing opponents must not change seeds, standings or past results");
+});
+
+test("odd team TP groups need only one cross-group pair and avoid previous opponents", () => {
+  const field = Array.from({ length: 6 }, (_, index) => ({ id: index + 1, seed: index + 1 }));
+  const matches = winningFirstRound(field.length);
+  const history = new Set(matches.map(match => pairKeyForTest(match.rosterAId, match.rosterBId)));
+  for (let seed = 1; seed <= 12; seed++) {
+    const { pairings } = buildNextTeamRound(tournament, field, matches, 2, seededRandom(seed));
+    assert.equal(pairings.filter(pair => (pair.rosterAId <= 3) !== (pair.rosterBId <= 3)).length, 1);
+    assert.ok(pairings.every(pair => !history.has(pairKeyForTest(pair.rosterAId, pair.rosterBId))));
+    assert.equal(new Set(pairings.flatMap(pair => [pair.rosterAId, pair.rosterBId])).size, 6);
+  }
+});
+
+test("team groups may cross when necessary to avoid an otherwise forced rematch", () => {
+  const matches = [
+    { phase: "completed", rosterAId: 1, rosterBId: 2, teamTournamentPointsA: 1, teamTournamentPointsB: 1 },
+    { phase: "awaiting_roll", rosterAId: 3, rosterBId: 4 }
+  ];
+  for (let seed = 1; seed <= 8; seed++) {
+    const { pairings } = buildNextTeamRound(tournament, rosters, matches, 2, seededRandom(seed));
+    assert.ok(pairings.every(pair => !["1:2", "3:4"].includes(pairKeyForTest(pair.rosterAId, pair.rosterBId))));
+  }
+});
+
+test("team draw completes with unavoidable repeats and with the maximum field of 128 rosters", () => {
+  const playedEveryone = rosters.flatMap(a => rosters.filter(b => b.id > a.id).map(b => ({
+    phase: "completed", rosterAId: a.id, rosterBId: b.id, teamTournamentPointsA: 1, teamTournamentPointsB: 1
+  })));
+  const repeated = buildNextTeamRound(tournament, rosters, playedEveryone, 3, seededRandom(8));
+  assert.deepEqual(repeated.pairings.flatMap(pair => [pair.rosterAId, pair.rosterBId]).sort(), [1, 2, 3, 4]);
+  const field = Array.from({ length: 128 }, (_, index) => ({ id: index + 1, seed: index + 1 }));
+  const { pairings } = buildNextTeamRound(tournament, field, winningFirstRound(field.length), 2, seededRandom(9));
+  assert.equal(pairings.length, 64);
+  assert.equal(new Set(pairings.flatMap(pair => [pair.rosterAId, pair.rosterBId])).size, 128);
+  assert.ok(pairings.every(pair => (pair.rosterAId <= 64) === (pair.rosterBId <= 64)));
+});
+
 test("started tournaments keep pairing after withdrawals, including odd fields and a single roster", () => {
   const started = { ...tournament, status: "in_progress" };
   for (const count of [1, 2, 3]) {

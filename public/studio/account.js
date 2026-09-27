@@ -1,7 +1,7 @@
 (async function () {
   "use strict";
   const gate = document.getElementById("studio-gate");
-  const assetVersion = "4.9.4";
+  const assetVersion = "4.9.5";
   const pdfScripts = ["vendor/pdfmake.min.js", "vendor/vfs_fonts.js"];
   const loadedScripts = new Map();
   function loadScript(src) {

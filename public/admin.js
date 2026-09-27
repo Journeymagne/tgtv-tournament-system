@@ -219,6 +219,7 @@ async function adminRecalculateGameRating(gameId, button) {
     await api(`/api/admin/games/${gameId}/recalculate-rating`, { method: "POST" });
     await refresh();
     await Promise.all([loadTop(), loadGames()]);
+    await loadGame(gameId);
     if (isCurrent()) {
       renderShell();
       setMessage(t("message.games.ratingRecalculated"));
@@ -247,6 +248,7 @@ async function adminForceConfirmGame(gameId, profileUserId = null) {
     }
     if (state.view === "gameDetail") {
       state.selectedGameId = gameId;
+      await loadGame(gameId);
     }
     renderShell();
   } catch (err) {

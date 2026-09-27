@@ -40,6 +40,92 @@ async function listCompletedForUser(client, userId, venueMode = null) {
   return rows.map(mapGame);
 }
 
+// Match the names shown by gameView, including tournament guests and snapshots.
+const PARTICIPANT_NAME = `CASE WHEN g.source_type = 'team_match_game'
+  THEN gp.display_name_snapshot ELSE COALESCE(u.name, gp.display_name_snapshot) END`;
+
+function playerSearchSql(query, values) {
+  const raw = String(query || "").trim().toLowerCase();
+  if (!raw) return "TRUE";
+  values.push(raw);
+  const conditions = [`strpos(lower(${PARTICIPANT_NAME}), $${values.length}) > 0`];
+  const compact = raw.normalize("NFKC").replace(/[^\p{L}\p{N}]/gu, "");
+  if (compact) {
+    values.push(compact);
+    conditions.push(`strpos(regexp_replace(lower(normalize(${PARTICIPANT_NAME}, NFKC)), '[^[:alnum:]]', '', 'g'), $${values.length}) > 0`);
+  }
+  return `(${conditions.join(" OR ")})`;
+}
+
+async function listCompletedPage(client, { page, venue, playerId, playerQuery, factionKeys }) {
+  const pageSize = 25;
+  const values = [venue];
+  const base = `g.status = 'completed' AND ($1::text IS NULL OR g.venue_mode = $1)`;
+  const filters = [];
+  if (playerId || playerQuery) {
+    let playerCondition;
+    if (playerId) {
+      values.push(playerId);
+      playerCondition = `gp.result_key = $${values.length}`;
+    } else {
+      playerCondition = playerSearchSql(playerQuery, values);
+    }
+    filters.push(`EXISTS (
+      SELECT 1 FROM game_participants gp LEFT JOIN users u ON u.id = gp.user_id
+      WHERE gp.game_id = g.id AND ${playerCondition}
+    )`);
+  }
+  if (factionKeys.length) {
+    values.push(factionKeys);
+    filters.push(`EXISTS (
+      SELECT 1 FROM jsonb_each(COALESCE(g.result->'scores', '{}'::jsonb)) score
+      WHERE trim(regexp_replace(replace(replace(lower(COALESCE(
+        NULLIF(score.value->>'faction', ''), NULLIF(score.value->>'killTeam', ''), score.value->>'team', ''
+      )), chr(39), ''), chr(96), ''), '[^a-z0-9]+', ' ', 'g')) = ANY($${values.length}::text[])
+    )`);
+  }
+  const filter = filters.join(" AND ") || "TRUE";
+  const { rows: counts } = await client.query(
+    `SELECT COUNT(*)::int AS total_completed, COUNT(*) FILTER (WHERE ${filter})::int AS total
+     FROM games g WHERE ${base}`, values
+  );
+  const total = counts[0].total;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * pageSize;
+  const { rows } = await client.query(
+    `SELECT ${COLUMNS} FROM games g WHERE ${base} AND ${filter}
+     ORDER BY COALESCE(submitted_at, created_at) DESC, id DESC
+     LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+    [...values, pageSize, start]
+  );
+  return {
+    games: rows.map(mapGame),
+    totalCompleted: counts[0].total_completed,
+    pagination: { currentPage, totalPages, total, pageSize, start, end: start + rows.length }
+  };
+}
+
+async function completedPlayerSuggestions(client, { venue, playerQuery }) {
+  const values = [venue];
+  const search = playerSearchSql(playerQuery, values);
+  values.push(String(playerQuery || "").trim().toLowerCase());
+  const { rows } = await client.query(
+    `SELECT gp.result_key AS id,
+       (array_agg(${PARTICIPANT_NAME} ORDER BY COALESCE(g.submitted_at, g.created_at) DESC, g.id DESC))[1] AS name,
+       COUNT(DISTINCT g.id)::int AS games
+     FROM games g JOIN game_participants gp ON gp.game_id = g.id
+     LEFT JOIN users u ON u.id = gp.user_id
+     WHERE g.status = 'completed' AND ($1::text IS NULL OR g.venue_mode = $1)
+       AND gp.result_key > 0 AND ${search}
+     GROUP BY gp.result_key
+     ORDER BY bool_or(strpos(lower(${PARTICIPANT_NAME}), $${values.length}) = 1) DESC,
+       games DESC, name, id
+     LIMIT 8`, values
+  );
+  return rows;
+}
+
 async function listCompletedForRatingReplay(client) {
   const { rows } = await client.query(
     `SELECT ${COLUMNS} FROM games
@@ -211,6 +297,8 @@ module.exports = {
   listByIds,
   lockById,
   listCompleted,
+  listCompletedPage,
+  completedPlayerSuggestions,
   listCompletedForUser,
   listCompletedForRatingReplay,
   listForUser,

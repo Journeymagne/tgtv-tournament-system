@@ -154,6 +154,11 @@ function requireKillTeam(value) {
   return team;
 }
 
+function killTeamSearchKeys(value) {
+  const team = requireKillTeam(value);
+  return [...BY_KEY].filter(([, canonical]) => canonical === team).map(([key]) => key);
+}
+
 // HIGH 1: restores the pre-refactor tolerance (server.js's
 // resultKillTeamInput returned "" for blank input instead of throwing). A
 // game result's faction may be left blank -- a legacy pending_result stored
@@ -176,5 +181,6 @@ module.exports = {
   teamKey,
   canonicalKillTeam,
   requireKillTeam,
+  killTeamSearchKeys,
   optionalKillTeam
 };
