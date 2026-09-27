@@ -847,31 +847,6 @@ function profileInfoMarkup(user) {
   `;
 }
 
-function profileContactsCard(user) {
-  const rows = [
-    [t("auth.field.registerNickname"), user?.registerNickname],
-    [t("auth.field.telegramContact"), user?.telegramContact]
-  ];
-  return `
-    <div class="card panel">
-      <div class="panel-header">
-        <div>
-          <h3>${t("profile.contacts.title")}</h3>
-          <p class="muted">${t("profile.contacts.subtitle")}</p>
-        </div>
-      </div>
-      <div class="contact-list">
-        ${rows.map(([label, value]) => `
-          <div class="contact-row">
-            <span>${escapeHtml(label)}</span>
-            <strong>${value ? escapeHtml(value) : t("profile.contacts.notFilled")}</strong>
-          </div>
-        `).join("")}
-      </div>
-    </div>
-  `;
-}
-
 function notificationIcon(type) {
   if (type === "tournament_started") return "▶";
   if (type === "game_challenge") return "⚔";
@@ -4463,7 +4438,6 @@ function renderPlayerProfile() {
     </section>
 
     <section class="grid-2">
-      ${profileContactsCard(user)}
       ${state.administrationContext && state.me.isAdmin && user.id !== state.me.id ? adminUi().adminPlayerToolsCard(user) : ""}
       <div class="card panel">
         <div class="panel-header">
