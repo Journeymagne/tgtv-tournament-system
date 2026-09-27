@@ -149,6 +149,7 @@ test("pairing choices collapse only after pairing ends, while games and undo rem
     const teamMatchPhaseLabel = phase => phase;
     const teamRollHistoryMarkup = () => 'ROLL HISTORY';
     const teamPairingSideMarkup = (_match, side) => 'SHIELD AND SWORD ' + side;
+    const teamPairingTablesPreviewMarkup = () => 'TABLE PREVIEW';
     const teamMissionPoolMarkup = () => 'CRIT OPS POOL';
     const teamMatchGamesMarkup = () => 'PERSONAL GAMES';
     const teamCaptainPairingControl = () => '';
@@ -163,6 +164,7 @@ test("pairing choices collapse only after pairing ends, while games and undo rem
     const html = render({ ...match, phase }, { status: "in_progress" });
     assert.doesNotMatch(html, /<details/);
     assert.match(html, /ROLL HISTORY/);
+    assert.match(html, /TABLE PREVIEW/);
     assert.match(html, /CRIT OPS POOL/);
   }
   for (const phase of ["in_progress", "completed"]) {
@@ -170,6 +172,7 @@ test("pairing choices collapse only after pairing ends, while games and undo rem
     assert.match(html, /<details class="team-pairing-details" data-team-pairing-details="7">/);
     assert.match(html, /<summary>teams.pairing.details<\/summary>ROLL HISTORY/);
     assert.match(html, /CRIT OPS POOL<\/details>PERSONAL GAMES/);
+    assert.ok(html.indexOf('TABLE PREVIEW') < html.indexOf('</details>'));
     assert.match(html.slice(html.indexOf('</details>')), /data-team-match-undo="7"/);
     assert.doesNotMatch(html, new RegExp(`<div class="row-meta">${phase}`));
   }

@@ -6,9 +6,9 @@ const { createI18n } = require("../../public/i18n.js");
 
 const source = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf8");
 const i18n = createI18n({ en: require("../../public/i18n/en.js"), ru: require("../../public/i18n/ru.js") });
-const names = ["tournamentStatsContent", "tournamentFactionPicks", "tournamentFactionPicksTable",
+const names = ["tournamentStatsContent", "tournamentFactionPicks", "tournamentKillTeamStatsTable",
   "tournamentKillTeamStats", "addTournamentStatLine", "tournamentTacOpStats", "tournamentTacOpStatsTable",
-  "tournamentStatsTable", "tacOpWinrateSummary", "gameScoreEntries", "statsTeamFilterMatchesWithFilters", "statNumber", "formatAverage"];
+  "tacOpWinrateSummary", "gameScoreEntries", "statsTeamFilterMatchesWithFilters", "statNumber", "formatAverage"];
 const functions = names.map(name => {
   const body = source.match(new RegExp(`function ${name}\\([^]*?\\r?\\n\\}`))?.[0];
   assert.ok(body, name);
@@ -59,15 +59,21 @@ test("team picks count current roster members once, including players with no co
   assert.deepEqual(picks(data), { hidden: false, rows: [
     { name: "Kommandos", picks: 2 }, { name: "Death Korps", picks: 1 }
   ] });
+  const kommandos = results(data.tournamentGames, picks(data).rows).find(row => row.name === "Kommandos");
+  assert.equal(kommandos.picks, 2);
+  assert.equal(kommandos.matches, 3);
   data.tournamentGames = [];
   assert.equal(picks(data).rows[0].picks, 2);
-  for (const [locale, title, empty] of [["en", "Faction picks", "No completed tournament games yet"],
-    ["ru", "Пики фракций", "Пока нет завершённых турнирных игр"]]) {
+  for (const [locale, title, pickLabel, empty] of [["en", "Kill Team stats", "Picks", "No completed tournament games yet"],
+    ["ru", "Статистика Kill Team", "Пики", "Пока нет завершённых турнирных игр"]]) {
     i18n.setLocale(locale);
     const html = render(data);
     assert.ok(html.includes(title));
     assert.ok(html.includes(empty));
-    assert.match(html, /Kommandos<\/td><td>2/);
+    assert.equal((html.match(/class="admin-subpanel tournament-stat-table"/g) || []).length, 1);
+    assert.match(html, new RegExp(`<th>Kill Team</th>\\s*<th>${pickLabel}</th>`));
+    assert.match(html, /Kommandos<\/td>\s*<td>2<\/td>\s*<td>0-0-0<\/td>/);
+    assert.doesNotMatch(html, /tournament-faction-picks/);
   }
 });
 
@@ -91,7 +97,7 @@ test("hidden factions never produce a misleading partial pick table", () => {
   }
 });
 
-test("empty tournaments still render a pick block and faction labels are escaped", () => {
+test("empty tournaments still render the combined statistics table and faction labels are escaped", () => {
   i18n.setLocale("en");
   assert.match(render({}), /Participants have not picked any factions yet/);
   const html = render({ participants: [{ faction: "<img src=x>" }] });
