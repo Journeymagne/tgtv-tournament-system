@@ -2552,7 +2552,36 @@ function defaultTournamentRoundNumber(rounds = []) {
   return Number((active.at(-1) || ordered.at(-1))?.roundNumber || 0);
 }
 
-function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "") {
+function tournamentRoundMatchCounts(round, tournament = {}) {
+  const counts = { total: 0, completed: 0, pending: 0, unplayed: 0 };
+  const countStatus = (status) => {
+    counts.total += 1;
+    counts[status === "completed" ? "completed" : status === "pending_confirmation" ? "pending" : "unplayed"] += 1;
+  };
+  for (const match of round.matches || []) {
+    if (match.isBye || match.resolution === "bye" || match.status === "cancelled") continue;
+    if (tournament.participantMode !== "team") {
+      countStatus(match.status);
+      continue;
+    }
+    const games = new Map((match.games || []).map((link) => [Number(link.slot), link.game]));
+    for (let slot = 1; slot <= (tournament.teamSize || 3); slot += 1) {
+      const game = games.get(slot);
+      const completed = game?.status === "completed" && game.result;
+      // A forfeit keeps played results but does not leave unplayed games to finish.
+      if (match.resolution && !completed) continue;
+      countStatus(completed ? "completed" : game?.status === "pending_confirmation" ? "pending_confirmation" : "open");
+    }
+  }
+  return counts;
+}
+
+function tournamentRoundProgressMarkup(round, tournament = {}) {
+  const counts = tournamentRoundMatchCounts(round, tournament);
+  return `<p class="round-match-summary" aria-live="polite" aria-atomic="true">${escapeHtml(plural("tournaments.round.matchCount", counts.total))} (<span class="match-result-state" data-result-state="completed">${escapeHtml(t("tournaments.round.playedCount", { count: counts.completed }))}</span>, <span class="match-result-state" data-result-state="pending">${escapeHtml(t("tournaments.round.pendingCount", { count: counts.pending }))}</span>, <span class="match-result-state" data-result-state="unplayed">${escapeHtml(t("tournaments.round.unplayedCount", { count: counts.unplayed }))}</span>)</p>`;
+}
+
+function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "", tournament = {}) {
   const ordered = [...rounds].sort((a, b) => Number(a.roundNumber) - Number(b.roundNumber));
   const saved = selectionKey ? tournamentRoundSelections.get(String(selectionKey)) : null;
   const selectedRoundNumber = ordered.some((round) => Number(round.roundNumber) === saved) ? saved : defaultTournamentRoundNumber(ordered);
@@ -2576,6 +2605,7 @@ function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "") {
             <strong>${t("tournaments.round.title", { number: round.roundNumber })}</strong>
             <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(round.status))}</span>
           </div>
+          ${tournamentRoundProgressMarkup(round, tournament)}
           <div class="list">
             ${(round.matches || []).map(matchMarkup).join("")}
           </div>
@@ -8145,15 +8175,16 @@ function teamMatchGamesMarkup(match, options = {}) {
     const details = [pairing?.shieldOwner && !options.preview && !["in_progress", "completed"].includes(match.phase) ? t("teams.pairing.shieldOwner", { side: pairing.shieldOwner.toUpperCase() }) : "", teamMissionLabel(mission)];
     if (table) details.push(mission.killzone ? t("tournaments.match.table", { number: table.tableNumber }) : tableLabel(table));
     const environment = details.filter(Boolean).join(" · ");
-    let result = "";
+    let result = match.resolution ? "" : `<span class="match-result-state" data-result-state="unplayed">${escapeHtml(t("teams.results.unplayed"))}</span>`;
     if (game) {
       const completed = game.status === "completed" && game.result;
-      const status = t(completed ? "teams.results.completed" : game.status === "pending_confirmation" ? "teams.results.pending" : "teams.results.unplayed");
+      const resultState = completed ? "completed" : game.status === "pending_confirmation" ? "pending" : "unplayed";
+      const status = t(`teams.results.${resultState}`);
       const [playerAId, playerBId] = game.playerIds || [];
       const vpA = completed ? game.result.scores?.[playerAId]?.total ?? 0 : null;
       const vpB = completed ? game.result.scores?.[playerBId]?.total ?? 0 : null;
       const score = completed ? `${vpA}:${vpB} VP · ${link.gamePointsA}:${link.gamePointsB} GP` : t("teams.results.notCounted");
-      result = `<span>${escapeHtml(status)} · ${escapeHtml(score)}</span>`;
+      result = `<span class="match-result-state" data-result-state="${resultState}">${escapeHtml(status)} · ${escapeHtml(score)}</span>`;
     }
     const resultAction = options.readOnly ? "" : link?.permissions?.canSubmit
       ? `<button class="primary-button" data-team-game-result="${game?.id}">${t(game?.status === "pending_confirmation" ? "play.action.editResult" : "play.action.enterResult")}</button>`
@@ -8449,7 +8480,7 @@ function teamTournamentMatchPreviewMarkup(match, tournament) {
 function teamTournamentMatchPreviewsMarkup(data) {
   const rounds = data.rounds || [];
   if (!rounds.length) return `<div class="empty">${t("tournaments.matches.empty")}</div>`;
-  return tournamentRoundsTabbedMarkup(rounds, (match) => teamTournamentMatchPreviewMarkup(match, data.tournament || {}), data.tournament?.id);
+  return tournamentRoundsTabbedMarkup(rounds, (match) => teamTournamentMatchPreviewMarkup(match, data.tournament || {}), data.tournament?.id, data.tournament);
 }
 
 function teamTournamentRoundsMarkup(data) {

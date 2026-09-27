@@ -1319,6 +1319,53 @@ button:disabled {
   text-transform: uppercase;
 }
 
+.round-match-summary {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.875rem;
+  line-height: 2;
+}
+
+.match-result-state {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.match-result-state[data-result-state="completed"] {
+  color: #b6e1bd;
+  background: #203829;
+}
+
+.match-result-state[data-result-state="pending"] {
+  color: #f2d896;
+  background: #3f351f;
+}
+
+.match-result-state[data-result-state="unplayed"] {
+  color: #efb6b6;
+  background: #442a2a;
+}
+
+:root[data-theme="light"] .match-result-state[data-result-state="completed"] {
+  color: #255936;
+  background: #e8f3e9;
+}
+
+:root[data-theme="light"] .match-result-state[data-result-state="pending"] {
+  color: #715414;
+  background: #fff3cf;
+}
+
+:root[data-theme="light"] .match-result-state[data-result-state="unplayed"] {
+  color: #813638;
+  background: #fbe7e7;
+}
+
 .tournament-sections {
   display: grid;
   gap: 22px;

@@ -46,6 +46,9 @@ test("tournament previews show every game and confirmed scores, without pairing 
     assert.match(html, /18:14 VP · 14:6 GP/);
     assert.match(html, /Awaiting confirmation/);
     assert.match(html, /Not played yet/);
+    for (const resultState of ["completed", "pending", "unplayed"]) {
+      assert.match(html, new RegExp(`class="match-result-state" data-result-state="${resultState}"`));
+    }
     assert.match(html, /A1 \(Novitiates\) vs B4 \(Kasrkin\)/);
     assert.match(html, /Orb · Volkus · Layout 6/);
     assert.equal((html.match(/class="team-match-game"/g) || []).length, 3);

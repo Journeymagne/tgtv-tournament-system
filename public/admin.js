@@ -987,7 +987,13 @@ function adminActiveGamesPanel() {
 function filterAdminUsers(users, query) {
   const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
   if (!normalizedQuery) return users;
-  return users.filter((user) => String(user.name || "").toLocaleLowerCase().includes(normalizedQuery));
+  const telegramUsername = (value) => String(value || "").trim().toLocaleLowerCase()
+    .replace(/^(?:https?:\/\/)?(?:t\.me\/)?@?/, "").replace(/\/$/, "");
+  const telegramQuery = telegramUsername(normalizedQuery);
+  return users.filter((user) =>
+    String(user.name || "").toLocaleLowerCase().includes(normalizedQuery) ||
+    (telegramQuery && telegramUsername(user.telegramContact).includes(telegramQuery))
+  );
 }
 
 function adminTeamRostersContent(data) {
@@ -1198,7 +1204,7 @@ function adminUsersPanel() {
       <div class="filter-row">
         <div class="field compact-field">
           <label for="admin-users-search">${t("leaderboard.users.searchLabel")}</label>
-          <input id="admin-users-search" type="search" value="${escapeHtml(state.adminUsersQuery)}" placeholder="${t("leaderboard.users.searchPlaceholder")}" autocomplete="off" data-admin-users-search>
+          <input id="admin-users-search" type="search" value="${escapeHtml(state.adminUsersQuery)}" placeholder="${t("leaderboard.users.searchPlaceholderTelegram")}" autocomplete="off" data-admin-users-search>
           <span class="field-help">${t("leaderboard.users.searchHint")}</span>
         </div>
       </div>
