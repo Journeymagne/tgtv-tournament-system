@@ -14,6 +14,21 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.9.3
+
+Startup migration **038_journey_platform_owner** assigns the existing Journey
+account as the sole platform owner. It checks user ID `2`, normalized name
+`journey` and Telegram `@Journeymagne` before replacing any previous ownership.
+The change is transactional, audited and visible in existing sessions.
+Other accounts retain their ordinary administrator permissions.
+
+If the account is missing or does not match, the migration logs a warning and
+records completion without assigning anyone. Later registrations cannot claim
+ownership by choosing this name. Successful ownership stays attached to the
+account ID after renaming; restarts do not repeat the assignment.
+Deploy and restart 4.9.3 to apply it. Pushing the Git tag alone does not update
+the running production database.
+
 ## Release 4.9.2
 
 Tournament administration has four destinations: Overview, Tournaments,
