@@ -456,6 +456,11 @@ const TGTV_I18N_EN = {
   "tournaments.stats.killTeamTableTitle": "Kill Team stats",
   "tournaments.stats.tacOpTableTitle": "Tac Op stats",
   "tournaments.stats.tacOpEmpty": "No Tac Op data yet.",
+  "tournaments.stats.factionPicksTitle": "Faction picks",
+  "tournaments.stats.factionPicksHint": "Current tournament participants: one pick per player, regardless of games played.",
+  "tournaments.stats.factionPicksCount": "Picks",
+  "tournaments.stats.factionPicksEmpty": "Participants have not picked any factions yet.",
+  "tournaments.stats.factionPicksHidden": "Faction picks will be available after the first round starts.",
 
   // -- stats ----------------------------------------------------------------
   "stats.title": "Stats",

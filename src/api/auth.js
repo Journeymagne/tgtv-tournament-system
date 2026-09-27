@@ -4,6 +4,7 @@ const { SESSION_TTL_MS, SESSION_RENEW_AFTER_MS, INITIAL_RATING, COOKIE_SECURE } 
 const { HttpError, ValidationError, sessionToken, sessionCookie, clearedSessionCookie } = require("../http/io");
 const users = require("../db/repositories/users");
 const sessions = require("../db/repositories/sessions");
+const access = require("../db/repositories/access");
 const challenges = require("../db/repositories/challenges");
 const games = require("../db/repositories/games");
 const teamMatches = require("../db/repositories/team-matches");
@@ -37,7 +38,9 @@ async function loadUserFromRequest(client, req) {
     req.renewedSessionCookie = sessionCookie(token, SESSION_TTL_MS, COOKIE_SECURE);
   }
 
-  return session.user;
+  const user = await access.hydrate(client, session.user);
+  access.assertActive(user);
+  return user;
 }
 
 async function startSession(client, userId) {
@@ -49,6 +52,7 @@ async function startSession(client, userId) {
 }
 
 async function buildUserSummary(client, user) {
+  user = await access.hydrate(client, user);
   // A route-scoped pg Client executes one query at a time. Keep these reads
   // sequential so a busy dashboard refresh never overlaps operations on it.
   const userChallenges = await challenges.listForUser(client, user.id);
@@ -171,24 +175,13 @@ async function applyProfilePatch(client, id, patch) {
 
 // Serializes the first-admin check-and-insert via a transaction-scoped lock.
 // Must not open its own transaction: callers below are tx: true routes already inside one.
-const FIRST_ADMIN_LOCK_KEY = 847362951;
-
-async function withFirstAdminLock(client, run) {
-  await client.query("SELECT pg_advisory_xact_lock($1)", [FIRST_ADMIN_LOCK_KEY]);
-  return run(await users.hasAdmin(client));
-}
-
 async function register({ client, body }) {
   const credentials = readCredentials(body, 6, "Password must be at least 6 characters");
-  return withFirstAdminLock(client, (hasAdmin) => createAccount(client, credentials, !hasAdmin));
+  return createAccount(client, credentials, false);
 }
 
-async function setupAdmin({ client, body }) {
-  return withFirstAdminLock(client, (hasAdmin) => {
-    if (hasAdmin) throw new HttpError(409, "An administrator already exists");
-    const credentials = readCredentials(body, 8, "Administrator password must be at least 8 characters");
-    return createAccount(client, credentials, true);
-  });
+async function setupAdmin() {
+  throw new HttpError(410, "Register an account, then initialize its owner role using the local setup command");
 }
 
 // Заглушка нужной длины: verifyPassword на ней всё равно считает scrypt, так что время ответа не выдаёт существование учётной записи.
@@ -200,6 +193,8 @@ async function login({ client, body }) {
   const stored = user ? user.passwordHash : ABSENT_USER_HASH;
   const matches = await verifyPassword(String(body.password || ""), stored);
   if (!user || !matches) throw new HttpError(401, "Invalid name or password");
+
+  access.assertActive(await access.hydrate(client, user));
 
   const token = await startSession(client, user.id);
   return {

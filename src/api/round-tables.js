@@ -1,3 +1,4 @@
+const { canManageTournament } = require("../domain/access");
 const { HttpError, ValidationError } = require("../http/io");
 const { requirePositiveIntId } = require("./params");
 const tournaments = require("../db/repositories/tournaments");
@@ -10,7 +11,7 @@ const { saveTableImage } = require("./tournament-table-images");
 const { tournamentTableView } = require("./views");
 
 async function context(client, user, params, forUpdate = false) {
-  if (!user?.isAdmin) throw new HttpError(403, "Only administrators can edit round tables");
+  if (!canManageTournament(user, params.id)) throw new HttpError(403, "Only administrators can edit round tables");
   const id = requirePositiveIntId(params.id, 404, "Tournament not found");
   const tournament = forUpdate ? await tournaments.lockById(client, id) : await tournaments.findById(client, id);
   if (!tournament) throw new HttpError(404, "Tournament not found");

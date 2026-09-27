@@ -27,12 +27,12 @@ function harness(state = {}) {
   return { ...factory(state, { querySelector: () => content }, (key) => key, (key) => key, () => "logo"), content, state };
 }
 
-test("every user sees Teams beside the player leaderboard while administration stays restricted", () => {
+test("player leaderboard offers team rankings without administrative tabs", () => {
   for (const isAdmin of [false, true]) {
     const ui = harness({ me: { isAdmin }, leaderboardTab: "teams", leaderboardVenue: "combined", teamLeaderboard: [] });
     ui.renderTop();
     assert.match(ui.content.innerHTML, /data-page-tab-value="teams"/);
-    assert.equal(ui.content.innerHTML.includes('data-page-tab-value="users"'), isAdmin);
+    assert.equal(ui.content.innerHTML.includes('data-page-tab-value="users"'), false);
     assert.match(ui.content.innerHTML, /teams.leaderboard.title/);
     assert.equal(ui.state.leaderboardTab, "teams");
     assert.equal(Boolean(ui.pageTabs("games", [{ id: "sessions", label: "admin" }], "sessions")), isAdmin);
@@ -73,13 +73,12 @@ test("team leaderboard venue and administration links round-trip through routing
   }
   const url = hash({ view: "teams", teamsTab: "admin", me: { isAdmin: true } })();
   assert.equal(url, "#/teams/admin");
-  assert.equal(parse(() => ["teams", "admin"])().teamsTab, "admin");
-  assert.equal(parse(() => ["teams", "admin"])().teamSlug, "");
+  assert.deepEqual(parse(() => ["teams", "admin"])(), { view: "administration", adminHubTab: "people", adminPeopleTab: "teams", administrationContext: true });
 });
 
 test("opening teams uses the shared navigation history", () => {
   const destinations = [];
-  const navigate = new Function("pushAppLocation", "playerTeamPublicPath", "leavePublicTournamentRoute", "renderPlayerTeamRoute", `${extract("navigateToPlayerTeam")}; return navigateToPlayerTeam;`)(
+  const navigate = new Function("pushAppLocation", "playerTeamPublicPath", "leavePublicTournamentRoute", "renderPlayerTeamRoute", `const state = {}; ${extract("navigateToPlayerTeam")}; return navigateToPlayerTeam;`)(
     (url) => destinations.push(url), (slug) => `/teams/${slug}`, () => {}, () => {}
   );
   navigate("amber");

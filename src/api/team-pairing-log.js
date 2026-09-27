@@ -1,3 +1,4 @@
+const { canManageTournament } = require("../domain/access");
 const { toIso } = require("../db/rows");
 const EVENT_TYPES = [
   "team_match_roll", "mission_ban", "shield_select", "shields_reveal", "sword_select", "swords_reveal",
@@ -55,7 +56,7 @@ function eventView(row, match, rosterA, rosterB, user) {
   const isReveal = ["shields_reveal", "swords_reveal"].includes(row.event_type);
   // Private attempts stay private even after a later choice is revealed or undone.
   // Reveal events store only the two choices that were actually made public.
-  const canReadChoice = isReveal || Boolean(user?.isAdmin) || Boolean(user?.id && roster?.captainUserId === user.id);
+  const canReadChoice = isReveal || Boolean(canManageTournament(user, match.tournamentId)) || Boolean(user?.id && roster?.captainUserId === user.id);
   const view = { id: row.id, type: row.event_type, at: toIso(row.created_at),
     actorName: metadata.actorName || row.actor_name || null,
     actorRole: (metadata.actorIsAdmin ?? row.actor_is_admin) ? "admin" : side ? "captain" : "player",

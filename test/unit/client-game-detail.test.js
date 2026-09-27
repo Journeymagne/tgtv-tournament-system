@@ -2,6 +2,19 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { gameFixture, renderDetail } = require("../helpers/game-detail-harness");
 
+test("public game details hide staff actions while preserving the admin's own player actions", () => {
+  for (const sourceType of ["tournament_match", "team_match_game", "challenge"]) {
+    for (const status of ["open", "pending_confirmation", "completed"]) {
+      const game = gameFixture({ sourceType, status });
+      const spectator = renderDetail({ game, me: { id: 33, isAdmin: true }, administrationContext: false });
+      assert.doesNotMatch(spectator.html, /data-admin-|data-game-result=|data-game-review=/);
+      const participant = renderDetail({ game, administrationContext: false });
+      assert.doesNotMatch(participant.html, /data-admin-/);
+      if (status === "open") assert.match(participant.html, /data-game-result=/);
+    }
+  }
+});
+
 for (const sourceType of ["tournament_match", "team_match_game", "challenge"]) {
   for (const status of ["open", "pending_confirmation", "completed"]) {
     test(`admin participant has one result editor: ${sourceType}, ${status}`, () => {

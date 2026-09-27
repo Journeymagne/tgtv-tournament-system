@@ -14,6 +14,7 @@ const notifications = require("./notifications");
 const tournamentLive = require("./tournament-live");
 const documentation = require("./documentation");
 const account = require("./account");
+const accessManagement = require("./access-management");
 const studio = require("./studio");
 const studioTts = require("./studio-tts");
 const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
@@ -23,6 +24,13 @@ function withAction(handler, action) {
 }
 
 module.exports = [
+  { method: "PATCH", path: "/api/admin/tournaments/:id/owner", handler: accessManagement.transferOwner, auth: "user", permission: "super", tx: true },
+  { method: "GET", path: "/api/admin/audit", handler: accessManagement.auditLog, auth: "admin" },
+  { method: "PATCH", path: "/api/admin/users/:id/permissions", handler: accessManagement.setPermissions, auth: "user", permission: "super", tx: true },
+  { method: "PATCH", path: "/api/admin/users/:id/suspension", handler: accessManagement.suspendUser, auth: "admin", tx: true },
+  { method: "GET", path: "/api/admin/tournaments/:id/staff", handler: accessManagement.staff, auth: "user", permission: "tournament.manage" },
+  { method: "POST", path: "/api/admin/tournaments/:id/judges", handler: accessManagement.assignJudge, auth: "user", permission: "judges.manage", tx: true },
+  { method: "DELETE", path: "/api/admin/tournaments/:id/judges/:userId", handler: accessManagement.revokeJudge, auth: "user", permission: "judges.manage", tx: true },
   { method: "GET", path: "/api/admin/tournaments/:id/export.xlsx", handler: tournaments.exportAdmin, auth: "admin" },
   { method: "GET", path: "/api/teams/:id/members", handler: playerTeams.members, auth: "user" },
   { method: "GET", path: "/api/tournaments/revision", handler: tournamentLive.revision, auth: "none", loadUser: true },
@@ -466,4 +474,12 @@ module.exports = [
   },
   { method: "PATCH", path: "/api/admin/users/:id", handler: admin.updateUser, auth: "admin", tx: true },
   { method: "DELETE", path: "/api/admin/users/:id", handler: admin.deleteUser, auth: "admin", tx: true }
-];
+].map(route => {
+  if (route.permission) return route;
+  if (route.path.startsWith("/api/admin/tournaments/:id")) return { ...route, auth: "user", permission: "tournament.manage" };
+  if (route.path === "/api/admin/tournaments") return { ...route, auth: "user",
+    permission: route.method === "POST" ? "tournaments.create" : "administration" };
+  if (/^\/api\/admin\/games\/:id\/(result|confirm-result)$/.test(route.path)) return { ...route, auth: "user", permission: "game.manage" };
+  if (route.path === "/api/tournaments/:slug/rules") return { ...route, loadUser: true };
+  return route;
+});

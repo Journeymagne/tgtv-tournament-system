@@ -24,6 +24,7 @@ test.before(async () => {
     const response = await http.post("/api/register", { name, password: "password123", confirmPassword: "password123", telegramContact: `@${name}` });
     assert.equal(response.status, 201); userId = response.body.user.id;
   }
+  await require("../helpers/access").grantOwner(getPool(), admin);
   const team = await player.post("/api/teams", { name: "Medal team", description: "Team" });
   assert.equal(team.status, 201); teamId = team.body.team.id;
 });

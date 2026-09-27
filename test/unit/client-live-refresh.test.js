@@ -5,7 +5,7 @@ const path = require("node:path");
 const { liveHarness } = require("../helpers/live-refresh");
 const { on, blocked } = require("../../public/live-refresh");
 const source = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf8");
-const sourceOf = (name) => source.match(new RegExp(`function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\n\\}`, "m"))[0];
+const sourceOf = (name) => require("../helpers/client-access-source") + "\n" + source.match(new RegExp(`function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\n\\}`, "m"))[0];
 
 test("unchanged responses leave the DOM alone; changed data renders once", async () => {
   const h = liveHarness();
@@ -135,7 +135,7 @@ test("both tournament formats poll before the first round and between rounds unt
     h.slug("cup");
     for (const teamMatches of [[], [{ phase: "completed" }]]) {
       h.state.publicTournamentDetail = { tournament: { participantMode, status: "in_progress" }, teamMatches };
-      for (const [tab, interval] of [["matches", 5000], ["standings", 15000], ["stats", 45000]]) {
+      for (const [tab, interval] of [["matches", 5000], ["standings", 15000], ["stats", 5000]]) {
         h.state.tournamentInfoTab = tab;
         assert.equal(h.target().interval, interval);
       }

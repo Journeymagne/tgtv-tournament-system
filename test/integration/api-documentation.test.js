@@ -29,6 +29,7 @@ test.before(async () => {
     const response = await client.post("/api/register", { name, password: "docs-test-password", confirmPassword: "docs-test-password", telegramContact: `@${name}` });
     assert.equal(response.status, 201);
   }
+  await require("../helpers/access").grantOwner(pool, admin);
 });
 test.after(async () => { await server?.close(); await pool?.end(); });
 test.beforeEach(async () => {

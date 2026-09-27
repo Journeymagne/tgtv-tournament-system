@@ -1,3 +1,4 @@
+const { canManageTournament } = require("../domain/access");
 const { HttpError } = require("../http/io");
 const { requirePositiveIntId } = require("./params");
 const rosters = require("../db/repositories/team-rosters");
@@ -7,7 +8,7 @@ const { teamNameKey } = require("../domain/player-teams");
 const { clearPreparedRounds } = require("./tournament-preparation");
 
 function requireReservationAccess(tournament, user) {
-  if (!user.isAdmin) throw new HttpError(403, "Administrator rights required");
+  if (!canManageTournament(user, tournament)) throw new HttpError(403, "Administrator rights required");
   if (!["draft", "registration_open", "registration_closed"].includes(tournament.status) || tournament.startedAt) {
     throw new HttpError(409, "Fill reserved rosters before tournament start");
   }

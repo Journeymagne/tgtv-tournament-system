@@ -138,6 +138,7 @@ function createRouter(routes, deps) {
           user = await loadUser(client, req);
         }
 
+        if (route.permission) user = await require("../api/authorization").authorize({ client, user, params, route });
         return route.handler({ params, query: url.searchParams, body, user, client, req });
       });
 

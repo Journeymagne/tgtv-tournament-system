@@ -67,7 +67,7 @@ test("регистрация возвращает 201 и ставит cookie", a
 
   assert.equal(result.status, 201);
   assert.equal(result.body.user.name, "Alpha");
-  assert.equal(result.body.user.isAdmin, true);
+  assert.equal(result.body.user.isAdmin, false);
   assert.ok(result.headers["Set-Cookie"].startsWith("sid="));
   assert.ok(result.headers["Set-Cookie"].includes("HttpOnly"));
   assert.ok(result.headers["Set-Cookie"].includes("SameSite=Lax"));
@@ -110,22 +110,9 @@ test("Telegram обязателен", async () => {
   );
 });
 
-test("setup-admin требует пароль от 8 символов и работает только пока админов нет", async () => {
-  await assert.rejects(
-    () => auth.setupAdmin({ client, body: body("Root", { password: "1234567", confirmPassword: "1234567" }) }),
-    (err) => err.status === 400
-  );
-
-  const created = await auth.setupAdmin({
-    client,
-    body: body("Root", { password: "password1234", confirmPassword: "password1234" })
-  });
-  assert.equal(created.body.user.isAdmin, true);
-
-  await assert.rejects(
-    () => auth.setupAdmin({ client, body: body("Second", { password: "password1234", confirmPassword: "password1234" }) }),
-    (err) => err.status === 409
-  );
+test("setup-admin отключён: владелец назначается локальной командой", async () => {
+  await assert.rejects(() => auth.setupAdmin({client,body:body("Root")}), err=>err.status===410);
+  assert.equal(await users.hasAdmin(client), false);
 });
 
 test("вход по верному паролю выдаёт сессию", async () => {
@@ -180,7 +167,10 @@ test("me без сессии сообщает только о наличии а�
 
   await auth.register({ client, body: body("Alpha") });
   const withAdmin = await auth.me({ client, user: null });
-  assert.equal(withAdmin.hasAdmin, true);
+  assert.equal(withAdmin.hasAdmin, false);
+  const first = await users.findByNameKey(client, "alpha");
+  await require("../../src/db/repositories/access").initializeOwner(client, first.id);
+  assert.equal((await auth.me({client,user:null})).hasAdmin, true);
 });
 
 test("updateMe меняет профиль и требует текущий пароль для смены пароля", async () => {
@@ -234,7 +224,7 @@ test("конкурентная первая регистрация не созд
     ]);
 
     const admins = [alpha.body.user.isAdmin, bravo.body.user.isAdmin].filter(Boolean);
-    assert.equal(admins.length, 1);
+    assert.equal(admins.length, 0);
   } finally {
     clientA.release();
     clientB.release();

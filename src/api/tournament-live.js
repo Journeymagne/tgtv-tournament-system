@@ -7,7 +7,9 @@ async function revision({ client, user }) {
   // Sequence increments are visible before commit. The snapshot also changes
   // when a pending writer commits, so polling cannot miss that writer's data.
   const { rows: [row] } = await client.query("SELECT last_value::text || ':' || pg_current_snapshot()::text AS revision FROM tournament_feed_revision");
-  return { revision: row.revision, isAdmin: Boolean(user?.isAdmin) };
+  return { revision: row.revision, isAdmin: Boolean(user?.isAdmin),
+    isSuperAdmin: Boolean(user?.isSuperAdmin), managedTournamentIds: user?.managedTournamentIds || [],
+    capabilities: user?.capabilities || {} };
 }
 
 async function logo({ client, params, user, req, query }) {
@@ -15,10 +17,10 @@ async function logo({ client, params, user, req, query }) {
   const sql = params.kind === "team"
     ? "SELECT logo_data FROM player_teams WHERE id = $1"
     : params.kind === "tournament"
-      ? "SELECT logo_data, status FROM tournaments WHERE id = $1"
-      : "SELECT r.team_logo_snapshot AS logo_data, t.status FROM tournament_team_rosters r JOIN tournaments t ON t.id = r.tournament_id WHERE r.id = $1";
+      ? "SELECT logo_data, status, id AS tournament_id FROM tournaments WHERE id = $1"
+      : "SELECT r.team_logo_snapshot AS logo_data, t.status, t.id AS tournament_id FROM tournament_team_rosters r JOIN tournaments t ON t.id = r.tournament_id WHERE r.id = $1";
   const { rows: [row] } = await client.query(sql, [id]);
-  if (!row || (row.status && !user?.isAdmin && !PUBLISHED_STATUSES.includes(row.status))) throw new HttpError(404, "Logo not found");
+  if (!row || (row.status && !require("../domain/access").canManageTournament(user, row.tournament_id) && !PUBLISHED_STATUSES.includes(row.status))) throw new HttpError(404, "Logo not found");
   const file = decodeDataUrl(row.logo_data);
   if (!file) throw new HttpError(404, "Logo not found");
   const version = contentVersion(row.logo_data);

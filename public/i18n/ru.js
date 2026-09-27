@@ -465,6 +465,11 @@ const TGTV_I18N_RU = {
   "tournaments.stats.killTeamTableTitle": "Статистика Kill Team",
   "tournaments.stats.tacOpTableTitle": "Статистика Tac Op",
   "tournaments.stats.tacOpEmpty": "Пока нет данных по Tac Op.",
+  "tournaments.stats.factionPicksTitle": "Пики фракций",
+  "tournaments.stats.factionPicksHint": "По текущим участникам турнира: один игрок — один пик, независимо от числа игр.",
+  "tournaments.stats.factionPicksCount": "Количество пиков",
+  "tournaments.stats.factionPicksEmpty": "Участники пока не выбрали фракции.",
+  "tournaments.stats.factionPicksHidden": "Пики фракций станут доступны после начала первого раунда.",
 
   // -- stats ----------------------------------------------------------------
   "stats.title": "Статистика",

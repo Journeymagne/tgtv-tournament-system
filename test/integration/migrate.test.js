@@ -75,7 +75,8 @@ test("migrate на живой базе не ломает данные", async ()
      VALUES ($1, 'saved-image-data', 'saved-image-hash') RETURNING *`, [tournament.id]
   );
 
-  await pool.query("DELETE FROM schema_migrations");
+  // Historical replayable migrations; newer migrations are ledger-driven.
+  await pool.query("DELETE FROM schema_migrations WHERE version <= 35");
   const applied = await migrate(pool);
   assert.ok(applied.includes(1));
 

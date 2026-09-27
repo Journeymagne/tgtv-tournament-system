@@ -28,7 +28,7 @@ const loadTournamentAdminSource = adminSource.match(
   /async function loadTournamentAdmin\(\) \{[\s\S]*?\r?\n\}/
 )?.[0];
 const appRouteFromHashSource = appSource.match(
-  /function appRouteFromHash\(\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nasync function applyAppRouteFromHash)/
+  /function appRouteFromHash\([^)]*\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nasync function applyAppRouteFromHash)/
 )?.[0];
 const appHashForStateSource = appSource.match(
   /function appHashForState\(\) \{[\s\S]*?\r?\n\}(?=\r?\n\r?\nfunction syncAppHash)/

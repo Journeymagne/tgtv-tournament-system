@@ -12,10 +12,10 @@ const appSource = ["app.js", "admin.js"]
 function sourceOf(name) {
   const source = appSource.match(new RegExp(`(?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];
   assert.ok(source, `could not find ${name} in public/app.js`);
-  return source;
+  return require("../helpers/client-access-source") + "\n" + source;
 }
 
-test("public tournament Edit is available only to authenticated admins", () => {
+test("public tournament pages never offer administrative shortcuts", () => {
   for (const me of [null, { id: 2 }, { id: 2, isAdmin: false }, { id: 1, isAdmin: true }]) {
     const button = new Function("state", "t", `${sourceOf("tournamentEditButton")}; return tournamentEditButton;`)(
       { me }, () => "Edit"
@@ -23,8 +23,7 @@ test("public tournament Edit is available only to authenticated admins", () => {
     for (const participantMode of ["individual", "team"]) {
       for (const status of ["draft", "registration_open", "registration_closed", "in_progress", "completed", "cancelled"]) {
         const html = button({ id: 6, participantMode, status, viewer: { canAdmin: true } });
-        if (me?.isAdmin) assert.match(html, /data-tournament-edit="6">Edit<\/a>/);
-        else assert.equal(html, "");
+        assert.equal(html, "");
       }
     }
     for (const id of [undefined, null, "", 0, -1, 1.5, "6<script>", Infinity, Number.MAX_SAFE_INTEGER + 1]) {
@@ -33,7 +32,7 @@ test("public tournament Edit is available only to authenticated admins", () => {
   }
 });
 
-test("every public tournament category groups Open/Edit separately from its status", () => {
+test("every public tournament category offers only Open beside its status", () => {
   for (const isAdmin of [false, true]) {
     const render = new Function("state", "t", "escapeHtml", "tournamentFormatLabel", "tournamentStatusLabel", "tournamentStatusClass", "tournamentParticipantCountLabel", "tournamentRoundCountLabel", "fmtDate",
       `${sourceOf("tournamentEditButton")}; ${sourceOf("tournamentCardFact")}; ${sourceOf("publicTournamentCard")}; return publicTournamentCard;`
@@ -44,8 +43,8 @@ test("every public tournament category groups Open/Edit separately from its stat
         assert.match(html, /class="tournament-card-actions">\s*<span class="status [^"]+">[^<]+<\/span>\s*<div class="tournament-card-buttons">/);
         const buttons = html.match(/class="tournament-card-buttons">([\s\S]*?)<\/div>/)[1];
         assert.match(buttons, /data-tournament-open="test-cup"/);
-        assert.equal(buttons.includes('data-tournament-edit="6"'), isAdmin);
-        assert.equal((buttons.match(/<a /g) || []).length, isAdmin ? 2 : 1);
+        assert.equal(buttons.includes('data-tournament-edit="6"'), false);
+        assert.equal((buttons.match(/<a /g) || []).length, 1);
         assert.doesNotMatch(buttons, /class="status/);
       }
     }
@@ -59,7 +58,7 @@ test("admin tournament rows share the same card button layout for every status",
   for (const status of ["draft", "registration_open", "registration_closed", "in_progress", "completed", "cancelled"]) {
     const html = render({ id: 6, name: "Test", slug: "test-cup", status });
     assert.match(html, /class="row-card tournament-card"/);
-    assert.match(html, /class="tournament-card-actions">\s*<span class="status [^"]+">[^<]+<\/span>\s*<div class="tournament-card-buttons">\s*<a href="\/tournament#\/tournaments\/admin\/6" data-app-link class="small-button" data-admin-tournament-open="6"/);
+    assert.match(html, /class="tournament-card-actions">\s*<span class="status [^"]+">[^<]+<\/span>\s*<div class="tournament-card-buttons">\s*<a href="\/tournament#\/administration\/tournaments\/admin\/6" data-app-link class="small-button" data-admin-tournament-open="6"/);
   }
 });
 

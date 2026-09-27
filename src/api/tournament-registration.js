@@ -1,3 +1,4 @@
+const { canManageTournament } = require("../domain/access");
 const { HttpError, ValidationError } = require("../http/io");
 const { requirePositiveIntId } = require("./params");
 const tournaments = require("../db/repositories/tournaments");
@@ -8,7 +9,7 @@ const teams = require("../db/repositories/player-teams");
 
 function paymentHandler(team) {
   return async ({ client, user, params, body }) => {
-    if (!user?.isAdmin) throw new HttpError(403, "Administrator rights required");
+    if (!canManageTournament(user, params.id)) throw new HttpError(403, "Administrator rights required");
     if (typeof body.paid !== "boolean") throw new ValidationError("Paid must be true or false");
     const id = requirePositiveIntId(params.id, 404, "Tournament not found");
     const tournament = await tournaments.lockById(client, id);

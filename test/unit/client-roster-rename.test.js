@@ -29,7 +29,7 @@ function harness({ canRename = true, error = null, request = null } = {}) {
     async (url, options) => { calls.push({ url, ...options }); if (request) await request(); if (error) throw new Error(error); },
     state, async (...args) => calls.push({ refresh: args })
   );
-  open({ roster: { id: 9, teamId: 7, name: 'Roster "one" <test>' }, tournament: { id: 5 }, viewer: { canRename } });
+  open({ roster: { id: 9, teamId: 7, name: 'Roster "one" <test>' }, tournament: { id: 5 }, viewer: { canRename, isCaptain: true } });
   return { calls, dialog, state, message, button, input, events, submit: () => events.submit({ preventDefault() {} }) };
 }
 

@@ -6,13 +6,13 @@ const vm = require("node:vm");
 const { teamGamePermissions } = require("../../src/domain/team-game-permissions");
 
 const source = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf8");
-function clientRules(me, locale = "en") {
+function clientRules(me, locale = "en", administrationContext = true) {
   const dictionary = require(`../../public/i18n/${locale}.js`);
-  const context = vm.createContext({ state: { me }, t: key => dictionary[key] || key });
+  const context = vm.createContext({ state: { me, administrationContext }, t: key => dictionary[key] || key });
   for (const name of ["teamGameResultPermissions", "teamGamePendingMessage", "gameResultFormHint", "gameResultSubmissionMessage"]) {
     const body = source.match(new RegExp(`function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];
     assert.ok(body, name);
-    vm.runInContext(body, context);
+    vm.runInContext(require("../helpers/client-access-source") + "\n" + body, context);
   }
   return context;
 }
@@ -24,6 +24,15 @@ const ownGame = {
   teamMatch: { rosterA, rosterB },
   pendingResult: { submittedBy: 11, submittedAs: "captain", submittedRosterId: 10 }
 };
+
+test("public games do not use staff result permissions returned by the server", () => {
+  const game = { ...ownGame, status: "open", resultPermissions: { canSubmit: true, canReview: true } };
+  const spectator = clientRules({ id: 55, isAdmin: true }, "en", false).teamGameResultPermissions(game);
+  assert.equal(spectator.canSubmit, false);
+  assert.equal(spectator.canReview, false);
+  const participant = clientRules({ id: 11, isAdmin: true }, "en", false).teamGameResultPermissions(game);
+  assert.equal(participant.canSubmit, true);
+});
 
 test("client and server agree for players, captains, admins and old pending results", () => {
   for (const me of [null, ...[11, 22, 33, 44, 55].map(id => ({ id })), { id: 55, isAdmin: true }]) {

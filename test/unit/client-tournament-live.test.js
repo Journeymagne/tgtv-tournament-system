@@ -61,15 +61,28 @@ test("in-flight revision responses cannot overwrite a later edit or target chang
 });
 
 test("navigation preserves native new-tab gestures but routes ordinary left clicks inside the app", () => {
-  const click = new Function(`${extract("handleAppLinkClick")}; return handleAppLinkClick;`)();
+  const routes = [];
+  let renders = 0;
+  const click = new Function("pushAppLocation", "handleHashNavigation", `${extract("handleAppLinkClick")}; return handleAppLinkClick;`)(
+    url => routes.push(url), () => { renders += 1; }
+  );
+  const destination = { href: "/tournament#/administration/people", hasAttribute: name => name === "data-app-route" };
   for (const gesture of [{ button: 1 }, { button: 0, ctrlKey: true }, { button: 0, metaKey: true }, { button: 0, shiftKey: true }]) {
     let prevented = false, stopped = false;
-    click({ ...gesture, target: { closest: () => ({ href: "/#/team-matches/1" }) }, preventDefault: () => { prevented = true; }, stopImmediatePropagation: () => { stopped = true; } });
+    click({ ...gesture, target: { closest: () => destination }, preventDefault: () => { prevented = true; }, stopImmediatePropagation: () => { stopped = true; } });
     assert.equal(prevented, false); assert.equal(stopped, true);
+    assert.equal(routes.length, 0);
+    assert.equal(renders, 0);
   }
   let prevented = false;
-  click({ button: 0, target: { closest: () => ({}) }, preventDefault: () => { prevented = true; } });
+  click({ button: 0, target: { closest: () => ({ hasAttribute: () => false }) }, preventDefault: () => { prevented = true; } });
   assert.equal(prevented, true);
+  assert.equal(routes.length, 0, "existing action links keep their own handlers");
+  prevented = false;
+  click({ button: 0, target: { closest: () => destination }, preventDefault: () => { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.deepEqual(routes, [destination.href]);
+  assert.equal(renders, 1);
 });
 
 test("new tournament logos preserve proportions within 640 pixels without upscaling", async () => {

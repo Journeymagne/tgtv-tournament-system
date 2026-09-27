@@ -1059,6 +1059,10 @@ button:disabled {
 }
 
 .tournament-stats-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
   align-items: start;
 }
 
@@ -1067,6 +1071,15 @@ button:disabled {
   color: var(--accent);
   font-size: 14px;
   text-transform: uppercase;
+}
+
+.tournament-faction-picks .hint {
+  margin: 0;
+}
+
+.tournament-faction-picks th,
+.tournament-faction-picks td {
+  white-space: normal;
 }
 
 .admin-table-form,
@@ -4219,3 +4232,22 @@ tr:last-child td {
 @media (max-width: 640px) {
   .team-pairing-log-list > li { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 }
+
+/* Administration: four destinations, contextual actions. */
+.administration-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
+.administration-heading h2 { margin:0 0 8px; }
+.administration-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; }
+.administration-tile { display:block; color:inherit; text-decoration:none; padding:24px; }
+.administration-tile h3 { margin:0 0 10px; }
+.administration-tile:hover { border-color:var(--accent); }
+.administration-tabs { display:flex; gap:8px; overflow-x:auto; margin:0 0 20px; }
+.administration-tabs .tab { white-space:nowrap; }
+.admin-settings-section { margin:16px 0; padding:16px; border:1px solid var(--border); border-radius:12px; }
+.admin-settings-section > summary { cursor:pointer; font-weight:700; margin-bottom:12px; }
+.administration-dialog { background:var(--panel, #18202a); color:var(--text, #eee); border:1px solid var(--border, #475569); border-radius:16px; padding:24px; width:min(620px,calc(100vw - 32px)); max-height:85vh; overflow:auto; }
+.administration-dialog::backdrop { background:#0009; }
+.administration-dialog label { display:block; margin:12px 0; }
+.administration-dialog input:not([type=checkbox]),.administration-dialog select { width:100%; }
+.administration-dialog [data-dialog-error] { color:#fb7185; }
+.administration-dialog .row-actions { margin-top:20px; flex-wrap:wrap; }
+@media(max-width:600px) { .administration-heading { align-items:flex-start; flex-direction:column; } }

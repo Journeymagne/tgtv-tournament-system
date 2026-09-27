@@ -7,10 +7,10 @@ const appSource = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "
 function sourceOf(name) {
   const source = appSource.match(new RegExp(`(?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`, "m"))?.[0];
   assert.ok(source, `could not find ${name} in public/app.js`);
-  return source;
+  return require("../helpers/client-access-source") + "\n" + source;
 }
 
-function captainControls(user, overrides = {}) {
+function captainControls(user, overrides = {}, administrationContext = true) {
   const roster = (id, captainUserId) => ({ id, name: `Roster ${id}`, captainUserId,
     members: [1, 2, 3].map((n) => ({ id: id * 10 + n, displayNameSnapshot: `Player ${id}-${n}`, factionSnapshot: "Kasrkin" })) });
   const match = { id: 7, tournamentId: 4, pairingVersion: 2, phase: "awaiting_roll", rollRound: 1,
@@ -18,9 +18,16 @@ function captainControls(user, overrides = {}) {
     missionBans: [], tableIds: [1, 2, 3], ...overrides };
   const render = new Function("state", "t", "escapeHtml", "teamEnvironmentStep", "tableLabel", "teamTournamentTables",
     ["teamCaptainPairingControl", "teamPairingControlForSide", "teamMemberChoiceForm", "teamEnvironmentChoiceForm", "teamPairingMemberLabel", "teamRosterMemberLabel", "teamPairingMatchupLabel"].map(sourceOf).join("\n") + "; return teamCaptainPairingControl;"
-  )({ me: user }, (key, values) => values?.name || key, String, (m) => m.nextAction, (table) => `Table ${table.tableNumber}`, () => []);
+  )({ me: user, administrationContext }, (key, values) => values?.name || key, String, (m) => m.nextAction, (table) => `Table ${table.tableNumber}`, () => []);
   return render(match, { status: "in_progress" });
 }
+
+test("public pairing permits an admin to act only as their team's captain", () => {
+  assert.equal(captainControls({ id: 999, isAdmin: true }, {}, false), "");
+  const ownSide = captainControls({ id: 101, isAdmin: true }, {}, false);
+  assert.match(ownSide, /data-team-pair-action="roll"/);
+  assert.doesNotMatch(ownSide, /data-admin-captain-side|data-side="b"/);
+});
 
 test("non-captain admin sees both sides; captains and spectators cannot act for the other side", () => {
   const admin = captainControls({ id: 999, isAdmin: true });

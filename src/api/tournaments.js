@@ -1,4 +1,5 @@
 const { HttpError, ValidationError } = require("../http/io");
+const { canManageTournament, canCreateTournament, tournamentPermissions } = require("../domain/access");
 const tournamentsRepo = require("../db/repositories/tournaments");
 const participantsRepo = require("../db/repositories/tournament-participants");
 const roundsRepo = require("../db/repositories/tournament-rounds");
@@ -101,8 +102,7 @@ function viewerFor(tournament, participants, user) {
   if (!user) return { role: "spectator", canAdmin: false, participantId: null };
   const participant = participants.find((item) => item.userId === user.id && isListedParticipant(item)) || null;
   return {
-    role: user.isAdmin ? "admin" : participant ? "participant" : "spectator",
-    canAdmin: Boolean(user.isAdmin),
+    ...tournamentPermissions(user, tournament),
     participantId: participant?.id || null
   };
 }
@@ -371,16 +371,16 @@ async function listPublic({ client }) {
 
 async function getPublic({ client, user, params, query }) {
   const tournament = await tournamentsRepo.findBySlug(client, params.slug);
-  if (!tournament || !publicStatuses(tournament)) throw new HttpError(404, "Tournament not found");
+  if (!tournament || (!publicStatuses(tournament) && !canManageTournament(user, tournament))) throw new HttpError(404, "Tournament not found");
   return require("./tournament-payload").tournamentPayload(await fullView(client, tournament, user), query);
 }
 
 // The uploaded rules PDF, served as a file. It used to travel inside every
 // JSON response that mentioned the tournament; now it is fetched once, on the
 // click that actually wants it, and cached by content hash.
-async function getRules({ client, params, req }) {
+async function getRules({ client, user, params, req }) {
   const tournament = await tournamentsRepo.findBySlug(client, params.slug);
-  if (!tournament || !publicStatuses(tournament)) throw new HttpError(404, "Tournament not found");
+  if (!tournament || (!publicStatuses(tournament) && !canManageTournament(user, tournament))) throw new HttpError(404, "Tournament not found");
   const file = decodeDataUrl(tournament.rulesLink);
   if (!file) throw new HttpError(404, "This tournament has no rules file");
   const etag = `"${contentVersion(tournament.rulesLink)}"`;
@@ -388,24 +388,29 @@ async function getRules({ client, params, req }) {
     ETag: etag,
     // Immutable only when the caller asked for this exact version: the
     // unversioned URL must stay revalidatable so a replaced file is picked up.
-    "Cache-Control": req?.url && req.url.includes("v=") ? "public, max-age=604800, immutable" : "public, max-age=0, must-revalidate",
+    "Cache-Control": publicStatuses(tournament) ? (req?.url?.includes("v=") ? "public, max-age=604800, immutable" : "public, max-age=0, must-revalidate") : "private, no-store",
     "Content-Disposition": `attachment; filename="${tournament.slug}-rules.pdf"`
   };
   if (req?.headers?.["if-none-match"] === etag) return { status: 304, buffer: null, headers };
   return { buffer: file.bytes, contentType: file.contentType, headers };
 }
 
-async function listAdmin({ client }) {
+async function listAdmin({ client, user }) {
   const tournaments = await tournamentsRepo.listAdmin(client);
-  return { tournaments: tournaments.map(tournamentSummaryView) };
+  return { tournaments: tournaments.filter(tournament => canManageTournament(user, tournament))
+    .map(tournament => ({ ...tournamentSummaryView(tournament), viewer: tournamentPermissions(user, tournament) })) };
 }
 
 async function getAdmin({ client, user, params, query }) {
   const tournament = await requireTournament(client, params.id);
-  return require("./tournament-payload").tournamentPayload(await fullView(client, tournament, user, { includeAudit: query?.get("audit") === "1" }), query);
+  if (!canManageTournament(user, tournament)) throw new HttpError(403, "Tournament access required");
+  const result = require("./tournament-payload").tournamentPayload(await fullView(client, tournament, user, { includeAudit: query?.get("audit") === "1" }), query);
+  result.staff = await require("./access-management").staff({client,user,params});
+  return result;
 }
 
 async function createAdmin({ client, user, body }) {
+  if (!canCreateTournament(user)) throw new HttpError(403, "Tournament creation permission required");
   const slug = await uniqueSlug(body.slug || body.name, (candidate) =>
     tournamentsRepo.isSlugTaken(client, candidate)
   );
@@ -424,6 +429,7 @@ function assertEditableSetup(tournament) {
 }
 
 async function updateAdmin({ client, user, params, body }) {
+  if (Object.hasOwn(body, "ownerUserId") || Object.hasOwn(body, "owner_user_id")) throw new HttpError(403, "Tournament ownership cannot be changed here");
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   assertEditableSetup(tournament);
   if (body.expectedUpdatedAt && body.expectedUpdatedAt !== tournament.updatedAt) throw new HttpError(409, "Tournament was changed by another administrator. Reload its settings before saving.");
@@ -1369,7 +1375,7 @@ async function applyTournamentElo(client, tournament, participantA, participantB
 }
 
 async function recalculateStandingsAdmin({ client, user, params, body = {} }) {
-  if (!user?.isAdmin) throw new HttpError(403, "Administrator access required");
+  if (!canManageTournament(user, params.id)) throw new HttpError(403, "Tournament access required");
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   if (tournament.participantMode === "team") throw new HttpError(409, "This action is for individual tournaments");
   if (!["in_progress", "completed"].includes(tournament.status)) {

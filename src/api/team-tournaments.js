@@ -1,3 +1,4 @@
+const { canManageTournament, tournamentPermissions } = require("../domain/access");
 const crypto = require("node:crypto");
 const { HttpError, ValidationError } = require("../http/io");
 const { requirePositiveIntId } = require("./params");
@@ -46,7 +47,7 @@ async function audit(client, tournament, user, eventType, details = {}) {
     actorUserId: user?.id || null,
     eventType,
     ...details,
-    metadata: { ...details.metadata, actorName: user?.name || null, actorIsAdmin: Boolean(user?.isAdmin) }
+    metadata: { ...details.metadata, actorName: user?.name || null, actorIsAdmin: Boolean(canManageTournament(user, tournament)) }
   });
 }
 
@@ -74,7 +75,7 @@ function rosterById(rosters, id) {
 
 function canEditRoster(user, roster, teamMembership) {
   if (!user) return false;
-  if (user.isAdmin) return true;
+  if (canManageTournament(user, roster.tournamentId)) return true;
   return roster.captainUserId === user.id || teamMembership?.role === "leader";
 }
 
@@ -105,7 +106,7 @@ async function normalizeRosterMembers(client, team, values) {
 
 async function registerRoster({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, true);
-  const registrationStatuses = user.isAdmin
+  const registrationStatuses = canManageTournament(user, tournament)
     ? ["draft", "registration_open", "registration_closed"]
     : ["registration_open"];
   if (!registrationStatuses.includes(tournament.status)) throw new HttpError(409, "Team registration is not open");
@@ -115,9 +116,9 @@ async function registerRoster({ client, user, params, body }) {
   if (!team) throw new HttpError(404, "Team not found");
   if (team.archivedAt) throw new HttpError(409, "Archived teams cannot register rosters");
   const registrarMembership = await teamsRepo.activeMembership(client, team.id, user.id);
-  if (!registrarMembership && !user.isAdmin) throw new HttpError(403, "Only a current team member can register a roster");
+  if (!registrarMembership && !canManageTournament(user, tournament)) throw new HttpError(403, "Only a current team member can register a roster");
   const members = await normalizeRosterMembers(client, team, body.members);
-  if (!user.isAdmin && !members.some((member) => member.userId === user.id)) {
+  if (!canManageTournament(user, tournament) && !members.some((member) => member.userId === user.id)) {
     throw new ValidationError("The registering player must be included in the roster");
   }
   const captainUserId = requirePositiveIntId(body.captainUserId, 400, "Choose a captain");
@@ -162,7 +163,7 @@ async function updateRoster({ client, user, params, body }) {
   const membership = await teamsRepo.activeMembership(client, roster.teamId, user.id);
   if (!canEditRoster(user, roster, membership)) throw new HttpError(403, "Captain, team leader, or administrator rights required");
   const nameOnly = Object.keys(body).length === 1 && Object.hasOwn(body, "name");
-  if (tournament.status === "in_progress" && !user.isAdmin && !nameOnly) {
+  if (tournament.status === "in_progress" && !canManageTournament(user, tournament) && !nameOnly) {
     throw new HttpError(403, "Only an administrator can change a roster after tournament start");
   }
   if (["completed", "cancelled"].includes(tournament.status)) throw new HttpError(409, "This tournament is read-only");
@@ -220,7 +221,7 @@ async function updateRoster({ client, user, params, body }) {
     // A display-name change must not discard the organizer's prepared pairings.
     if (!nameOnly) await clearPreparedRounds(client, tournament);
     await audit(client, tournament, user, "roster_update", { teamId: roster.teamId, entityType: "roster", entityId: roster.id, before, after: updated });
-    return { roster: { ...updated, paid: user.isAdmin ? updated.paid : undefined } };
+    return { roster: { ...updated, paid: canManageTournament(user, tournament) ? updated.paid : undefined } };
   } catch (err) {
     if (err.code === "23505") throw new HttpError(409, "Roster name, seed, or player is already used in this tournament");
     throw err;
@@ -239,13 +240,13 @@ async function withdrawRoster({ client, user, params }) {
   const updated = await rostersRepo.update(client, roster.id, { status: "withdrawn", withdrawnAt: nowIso(), seed: null });
   await clearPreparedRounds(client, tournament);
   await audit(client, tournament, user, "roster_withdraw", { teamId: roster.teamId, entityType: "roster", entityId: roster.id, before: roster, after: updated });
-  return { roster: { ...updated, paid: user.isAdmin ? updated.paid : undefined } };
+  return { roster: { ...updated, paid: canManageTournament(user, tournament) ? updated.paid : undefined } };
 }
 
 async function deleteRoster({ client, user, params }) {
   const tournament = await requireTournament(client, params.id, true);
   const started = Boolean(tournament.startedAt) || ["in_progress", "completed"].includes(tournament.status);
-  if (started && !user.isAdmin) throw new HttpError(403, "Only an administrator can remove a roster after tournament start");
+  if (started && !canManageTournament(user, tournament)) throw new HttpError(403, "Only an administrator can remove a roster after tournament start");
   const roster = await rostersRepo.findById(client, requirePositiveIntId(params.rosterId, 404, "Roster not found"), true);
   if (!roster || roster.tournamentId !== tournament.id) throw new HttpError(404, "Roster not found");
   const membership = await teamsRepo.activeMembership(client, roster.teamId, user.id);
@@ -317,7 +318,7 @@ async function reseedRosters(client, tournament, user, eventType = "roster_seed_
 
 async function updateRosterSeedsAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, true);
-  if (!user.isAdmin) throw new HttpError(403, "Administrator rights required");
+  if (!canManageTournament(user, params.id)) throw new HttpError(403, "Administrator rights required");
   if (["in_progress", "completed", "cancelled"].includes(tournament.status)) {
     throw new HttpError(409, "Roster seeds are locked after tournament start");
   }
@@ -537,7 +538,7 @@ async function requireMatchContext(client, params, user, phase = null) {
     throw new HttpError(409, "Pairing is closed because a roster was removed or received a bye");
   }
   const side = rosterA?.captainUserId === user.id ? "a" : rosterB?.captainUserId === user.id ? "b" : null;
-  if (!user.isAdmin && !side) throw new HttpError(403, "Only a roster captain can perform this pairing action");
+  if (!canManageTournament(user, tournament) && !side) throw new HttpError(403, "Only a roster captain can perform this pairing action");
   return { tournament, match, rosterA, rosterB, side };
 }
 
@@ -545,7 +546,7 @@ async function getRoster({ client, user, params }) {
   const storedRoster = await rostersRepo.findById(client, requirePositiveIntId(params.rosterId, 404, "Roster not found"));
   if (!storedRoster) throw new HttpError(404, "Roster not found");
   const tournament = await requireTournament(client, storedRoster.tournamentId);
-  if (!user?.isAdmin && !tournamentsRepo.PUBLISHED_STATUSES.includes(tournament.status)) {
+  if (!canManageTournament(user, tournament) && !tournamentsRepo.PUBLISHED_STATUSES.includes(tournament.status)) {
     throw new HttpError(404, "Roster not found");
   }
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
@@ -568,6 +569,8 @@ async function getRoster({ client, user, params }) {
     tournament: tournamentSummaryView(tournament),
     roster,
     viewer: {
+      isTeamLeader: teamLeader,
+      isCaptain: Boolean(user && roster.captainUserId === user.id),
       canRename: !roster.isReserve && !["withdrawn", "finished"].includes(roster.status)
         && !["completed", "cancelled"].includes(tournament.status)
         && canEditRoster(user, roster, teamLeader ? { role: "leader" } : null)
@@ -588,7 +591,7 @@ async function getPairingMatch({ client, user, params }) {
   );
   if (!match) throw new HttpError(404, "Team match not found");
   const tournament = await requireTournament(client, match.tournamentId);
-  if (!user?.isAdmin && !tournamentsRepo.PUBLISHED_STATUSES.includes(tournament.status)) {
+  if (!canManageTournament(user, tournament) && !tournamentsRepo.PUBLISHED_STATUSES.includes(tournament.status)) {
     throw new HttpError(404, "Team match not found");
   }
   const storedRosters = await rostersRepo.listByTournament(client, tournament.id, {
@@ -610,10 +613,10 @@ async function getPairingMatch({ client, user, params }) {
   return {
     tournament: {
       ...tournamentSummaryView(tournament),
-      roundDraft: user?.isAdmin ? tournament.roundDraft : undefined,
+      roundDraft: canManageTournament(user, tournament) ? tournament.roundDraft : undefined,
       viewer: {
-        role: user?.isAdmin ? "admin" : user ? "player" : "spectator",
-        canAdmin: Boolean(user?.isAdmin),
+        role: canManageTournament(user, tournament) ? "admin" : user ? "player" : "spectator",
+        ...tournamentPermissions(user, tournament),
         captainRosterIds: [rosterA, rosterB]
           .filter((roster) => roster && roster.captainUserId === user?.id)
           .map((roster) => roster.id)
@@ -625,8 +628,8 @@ async function getPairingMatch({ client, user, params }) {
   };
 }
 
-function actionSide(user, body, captainSide) {
-  if (!user.isAdmin) return captainSide;
+function actionSide(user, body, captainSide, tournamentId) {
+  if (!canManageTournament(user, tournamentId)) return captainSide;
   const side = body.side || captainSide;
   if (!["a", "b"].includes(side)) throw new ValidationError("Administrator actions must specify side a or b");
   return side;
@@ -774,7 +777,7 @@ async function roll({ client, user, params, body = {} }) {
     throw new ValidationError("Enter a D6 result from 1 to 6");
   }
   if (context.match.pairingVersion === 2) {
-    const side = actionSide(user, body, context.side);
+    const side = actionSide(user, body, context.side, context.tournament.id);
     const round = teamRollRound(context.match);
     if (Number(body.rollRound) !== round) throw new HttpError(409, "Refresh the pairing before rolling again");
     const history = (context.match.rollHistory || []).map((item) => ({ ...item }));
@@ -813,7 +816,7 @@ async function roll({ client, user, params, body = {} }) {
 
 async function banMission({ client, user, params, body = {} }) {
   const context = await requireMatchContext(client, params, user, "mission_ban");
-  const side = actionSide(user, body, context.side);
+  const side = actionSide(user, body, context.side, context.tournament.id);
   if (teamNextAction(context.match)?.side !== side) throw new HttpError(403, "Waiting for the other captain's ban");
   const mission = String(body.mission || "");
   if (!context.match.missions.some((item) => item.critOp === mission) ||
@@ -830,12 +833,12 @@ async function banMission({ client, user, params, body = {} }) {
 
 async function selectShield({ client, user, params, body }) {
   const context = await requireMatchContext(client, params, user, "shield_selection");
-  const side = actionSide(user, body, context.side);
+  const side = actionSide(user, body, context.side, context.tournament.id);
   const roster = side === "a" ? context.rosterA : context.rosterB;
   const memberId = requirePositiveIntId(body.memberId, 400, "Choose a shield");
   if (!rosterMember(roster, memberId)) throw new ValidationError("The shield must be a current player in this roster");
   const confirmedField = side === "a" ? "shieldAConfirmed" : "shieldBConfirmed";
-  if (context.match[confirmedField] && !user.isAdmin) throw new HttpError(409, "This shield choice is already confirmed");
+  if (context.match[confirmedField] && !canManageTournament(user, context.tournament)) throw new HttpError(409, "This shield choice is already confirmed");
   const patch = side === "a"
     ? { shieldAMemberId: memberId, shieldAConfirmed: body.confirm !== false }
     : { shieldBMemberId: memberId, shieldBConfirmed: body.confirm !== false };
@@ -850,7 +853,7 @@ async function selectShield({ client, user, params, body }) {
 
 async function selectSword({ client, user, params, body }) {
   const context = await requireMatchContext(client, params, user, "sword_selection");
-  const side = actionSide(user, body, context.side);
+  const side = actionSide(user, body, context.side, context.tournament.id);
   const opponent = side === "a" ? context.rosterB : context.rosterA;
   const opponentShieldId = side === "a" ? context.match.shieldBMemberId : context.match.shieldAMemberId;
   const memberId = requirePositiveIntId(body.memberId, 400, "Choose an opponent sword");
@@ -858,7 +861,7 @@ async function selectSword({ client, user, params, body }) {
     throw new ValidationError("Choose one of the two remaining opponent players as the sword");
   }
   const confirmedField = side === "a" ? "swordAConfirmed" : "swordBConfirmed";
-  if (context.match[confirmedField] && !user.isAdmin) throw new HttpError(409, "This sword choice is already confirmed");
+  if (context.match[confirmedField] && !canManageTournament(user, context.tournament)) throw new HttpError(409, "This sword choice is already confirmed");
   const patch = side === "a"
     ? { swordAMemberId: memberId, swordAConfirmed: body.confirm !== false }
     : { swordBMemberId: memberId, swordBConfirmed: body.confirm !== false };
@@ -929,14 +932,14 @@ async function selectEnvironment({ client, user, params, body }) {
   const context = await requireMatchContext(client, params, user, "environment_selection");
   if (context.match.pairingVersion === 2) return selectTeamEnvironment(client, context, user, body);
   let assignments;
-  if (user.isAdmin && Array.isArray(body.assignments)) {
+  if (canManageTournament(user, context.tournament) && Array.isArray(body.assignments)) {
     assignments = validateDirectAssignments(context, body.assignments);
   } else {
     const state = context.match.environment || { step: 0, assignments: [] };
     const plan = environmentPlan(context);
     const step = plan[Number(state.step || 0)];
     if (!step) throw new HttpError(409, "Environment selection is already complete");
-    const side = actionSide(user, body, context.side);
+    const side = actionSide(user, body, context.side, context.tournament.id);
     if (side !== step.side) throw new HttpError(403, "Waiting for the other captain's environment choice");
     assignments = [...(state.assignments || [])];
     let assignment = assignments.find((item) => item.slot === step.slot);
@@ -987,7 +990,7 @@ async function selectTeamEnvironment(client, context, user, body) {
   const state = match.environment || { step: 0, assignments: [] };
   const step = teamNextAction(match);
   if (!step) throw new HttpError(409, "Environment selection is already complete");
-  if (actionSide(user, body, context.side) !== step.side) throw new HttpError(403, "Waiting for the other captain's environment choice");
+  if (actionSide(user, body, context.side, context.tournament.id) !== step.side) throw new HttpError(403, "Waiting for the other captain's environment choice");
   if (Number(body.step) !== Number(state.step)) throw new HttpError(409, "Refresh the pairing before making this choice");
   const assignments = (state.assignments || []).map((item) => ({ ...item, mission: { ...item.mission } }));
   let assignment = assignments.find((item) => item.slot === step.slot);
@@ -1075,7 +1078,7 @@ async function createPersonalGames(client, context, assignments, user) {
 }
 
 function redactTeamMatch(match, rosterA, rosterB, user) {
-  const admin = Boolean(user?.isAdmin);
+  const admin = Boolean(canManageTournament(user, match.tournamentId));
   const side = rosterA?.captainUserId === user?.id ? "a" : rosterB?.captainUserId === user?.id ? "b" : null;
   const shieldsRevealed = match.shieldAConfirmed && match.shieldBConfirmed;
   const swordsRevealed = match.swordAConfirmed && match.swordBConfirmed;
@@ -1105,7 +1108,7 @@ function redactTeamMatch(match, rosterA, rosterB, user) {
 async function tournamentData(client, tournament, user, { includeAudit = false } = {}) {
   const storedRosters = await rostersRepo.listByTournament(client, tournament.id, {
     includeWithdrawn: true,
-    includeHistory: includeAudit || Boolean(user?.isAdmin)
+    includeHistory: includeAudit || Boolean(canManageTournament(user, tournament))
   });
   const myTeams = user ? await teamsRepo.listForUser(client, user.id) : [];
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
@@ -1151,11 +1154,11 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
     tournament: {
       ...tournamentSummaryView(tournament),
       viewer: {
-        role: user?.isAdmin ? "admin" : "spectator",
-        canAdmin: Boolean(user?.isAdmin),
+        role: canManageTournament(user, tournament) ? "admin" : "spectator",
+        ...tournamentPermissions(user, tournament),
         captainRosterIds: activeRosters.filter((roster) => roster.captainUserId === user?.id).map((roster) => roster.id)
       },
-      roundDraft: user?.isAdmin ? tournament.roundDraft : undefined
+      roundDraft: canManageTournament(user, tournament) ? tournament.roundDraft : undefined
     },
     participants: [],
     rosters,
@@ -1242,7 +1245,7 @@ function matchIdForLink(matches, link) {
 
 async function resetMatchAdmin({ client, user, params, body }) {
   const context = await requireMatchContext(client, params, user);
-  if (!user.isAdmin) throw new HttpError(403, "Administrator rights required");
+  if (!canManageTournament(user, context.tournament)) throw new HttpError(403, "Administrator rights required");
   const targetPhase = String(body.phase || "awaiting_roll");
   const allowed = ["awaiting_roll", "shield_selection", "sword_selection", "environment_selection"];
   if (context.match.pairingVersion === 2) allowed.push("mission_ban");
@@ -1294,7 +1297,7 @@ async function resetMatchAdmin({ client, user, params, body }) {
 
 async function overridePairingsAdmin({ client, user, params, body }) {
   const context = await requireMatchContext(client, params, user);
-  if (!user.isAdmin) throw new HttpError(403, "Administrator rights required");
+  if (!canManageTournament(user, context.tournament)) throw new HttpError(403, "Administrator rights required");
   if (!["environment_selection", "in_progress"].includes(context.match.phase)) throw new HttpError(409, "Player pairings are not available yet");
   if ((context.match.games || []).length) throw new HttpError(409, "Reset personal games before changing player pairings");
   const pairings = Array.isArray(body.pairings) ? body.pairings.map((pairing, index) => ({
@@ -1355,7 +1358,7 @@ async function handleGameRequest(context, action) {
   const isParticipant = game.playerIds.includes(user.id);
   const rosters = await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: true });
   const permissions = teamGamePermissions(game, rosterById(rosters, match.rosterAId), rosterById(rosters, match.rosterBId), user);
-  if (!user.isAdmin && !isParticipant && !permissions.captainRosterId) throw new HttpError(403, "Only a game participant or roster captain can change this result");
+  if (!canManageTournament(user, tournament) && !isParticipant && !permissions.captainRosterId) throw new HttpError(403, "Only a game participant or roster captain can change this result");
   const link = match.games.find((item) => item.gameId === game.id);
   if (!link || !["in_progress", "completed"].includes(match.phase)) throw new HttpError(409, "Complete captain pairing before reporting results");
   if (body.tiebreakers?.enabled && ["submit", "admin-save"].includes(action)) {
@@ -1388,7 +1391,7 @@ async function handleGameRequest(context, action) {
     if (!permissions.canReview) throw new HttpError(403, permissions.requiresCaptainReview ? "The opposing captain must reject this result" : "The opposing player or captain must reject this result");
     await gamesRepo.clearResult(client, game.id);
   } else if (action === "admin-save") {
-    if (!user.isAdmin) throw new HttpError(403, "Administrator rights required");
+    if (!canManageTournament(user, tournament)) throw new HttpError(403, "Administrator rights required");
     if (!["open", "pending_confirmation", "completed"].includes(game.status)) throw new HttpError(409, "This game result cannot be edited");
     const result = calculateSubmittedResult(resultBody, game.playerIds[0], game.playerIds[1]);
     await applyFinalGameResult(client, tournament, game, result, user.id, game.status === "completed");

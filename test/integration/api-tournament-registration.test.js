@@ -23,6 +23,7 @@ test.beforeEach(async () => {
   await getPool().query("TRUNCATE games, tournaments, player_teams, users RESTART IDENTITY CASCADE");
   authLimiter.reset();
   admin = await register("Admin");
+  await require("../helpers/access").grantOwner(getPool(), admin);
 });
 async function expect(request, status = 200) {
   const response = await request;

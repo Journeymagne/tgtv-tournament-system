@@ -34,6 +34,7 @@ test.beforeEach(async () => {
     name: "Root", passwordHash: "s:h", registerNickname: "", telegramContact: "@root",
     rating: 1000, isAdmin: true
   });
+  await require("../helpers/access").grantOwner(client, root);
   player = await usersRepo.insert(client, {
     name: "Player", passwordHash: "s:h", registerNickname: "", telegramContact: "@player",
     rating: 1000, isAdmin: false

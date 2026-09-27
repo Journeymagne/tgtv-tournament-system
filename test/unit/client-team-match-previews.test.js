@@ -8,7 +8,7 @@ const messages = require("../../public/i18n/en.js");
 function sourceOf(name) {
   const result = source.match(new RegExp(`(?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];
   assert.ok(result, name);
-  return result;
+  return require("../helpers/client-access-source") + "\n" + result;
 }
 const translate = (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name]);
 const escape = value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");

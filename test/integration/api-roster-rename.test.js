@@ -35,6 +35,7 @@ test.beforeEach(async () => {
   await getPool().query("TRUNCATE games, tournaments, player_teams, users RESTART IDENTITY CASCADE");
   authLimiter.reset();
   admin = await register("RenameAdmin");
+  await require("../helpers/access").grantOwner(getPool(), admin);
   leader = await register("RenameLeader");
   const { team } = await expect(leader.http.post("/api/teams", { name: "Rename Team" }), 201);
   players = [];

@@ -139,6 +139,43 @@ async function preparedRound() {
   return { tournament, data, request, preview };
 }
 
+test("statistics expose each confirmed personal game before its team match finishes, with a new live revision", async () => {
+  const { tournament, data } = await preparedRound();
+  await cups.startAdmin(context(tournament));
+  const match = data.teamMatches[0];
+  await matches.update(client, match.id, { phase: "in_progress" });
+  const personal = [];
+  for (let index = 0; index < 3; index++) {
+    const a = match.rosterA.members[index];
+    const b = match.rosterB.members[index];
+    const game = await games.insert(client, { sourceType: "team_match_game", sourceId: match.id, playerIds: [a.userId, b.userId] });
+    await matches.insertGameLink(client, { teamMatchId: match.id, gameId: game.id, slot: index + 1,
+      rosterAMemberId: a.id, rosterBMemberId: b.id, mission: {} });
+    personal.push(game);
+  }
+  const [a, b] = personal[0].playerIds;
+  const result = { winnerId: a, scores: { [a]: { total: 16 }, [b]: { total: 12 } } };
+  const before = await live.revision({ client });
+  await games.saveFinalResult(client, personal[0].id, { result, elo: null });
+  await client.query("UPDATE games SET status='pending_confirmation', pending_result=$2::jsonb WHERE id=$1",
+    [personal[1].id, JSON.stringify({ result })]);
+  assert.notEqual((await live.revision({ client })).revision, before.revision);
+  for (const query of [new URLSearchParams(), new URLSearchParams("compact=1")]) {
+    for (const view of [await cups.getAdmin({ ...context(tournament), query }),
+      await cups.getPublic({ ...context(tournament, {}, null), params: { slug: tournament.slug }, query })]) {
+      assert.equal(view.teamMatches.find(item => item.id === match.id).phase, "in_progress");
+      const completed = view.tournamentGames.filter(game => game.status === "completed" && game.result);
+      assert.deepEqual(completed.map(game => game.id), [personal[0].id]);
+      assert.deepEqual(completed[0].result, result);
+      assert.equal(completed[0].players.length, 2);
+      assert.ok(completed[0].players.every(player => player.faction === "Kommandos"));
+    }
+  }
+  await games.clearResult(client, personal[0].id);
+  const reopened = await cups.getAdmin(context(tournament));
+  assert.equal(reopened.tournamentGames.filter(game => game.status === "completed" && game.result).length, 0);
+});
+
 test("editing prepared tables retains the round and pairings; Undo restores an editable numbered draft", async () => {
   const { tournament, data, request, preview } = await preparedRound();
   const selected = roundTableInput(preview.tables).map((table, index) => ({ ...table, tableNumber: 10 + index, deployment: 6 - index }));

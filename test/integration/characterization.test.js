@@ -59,15 +59,15 @@ function approvedOps(faction, { crit, kill, tac, primary }) {
   return { crit, kill, tac, primary, faction, tacOp: "" };
 }
 
-test("первый зарегистрированный становится администратором", async () => {
+test("первый зарегистрированный остаётся обычным игроком", async () => {
   const client = createClient(server.baseUrl);
   const res = await client.post("/api/register", registration("Alpha"));
 
   assert.equal(res.status, 201);
   assert.equal(res.body.user.name, "Alpha");
-  assert.equal(res.body.user.isAdmin, true);
+  assert.equal(res.body.user.isAdmin, false);
   assert.equal(res.body.user.rating, 1000);
-  assert.equal(res.body.hasAdmin, true);
+  assert.equal(res.body.hasAdmin, false);
 });
 
 test("второй зарегистрированный администратором не становится", async () => {

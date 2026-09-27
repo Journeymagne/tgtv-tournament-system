@@ -10,11 +10,13 @@ function extract(name) {
 }
 
 test("team deletion is shown only to managers and explains blocked actions", () => {
-  const render = (me, viewer) => new Function("state", "t", `${extract("teamDeletionPanel")}; return teamDeletionPanel;`)(
-    { me }, (key) => key
+  const render = (me, viewer, administrationContext = true) => new Function("state", "t", `${extract("teamDeletionPanel")}; return teamDeletionPanel;`)(
+    { me, administrationContext }, (key) => key
   )({ id: 7, archivedAt: "2026-09-01", viewer });
   assert.equal(render(null, { canDelete: true }), "");
   assert.equal(render({}, { isMember: true }), "");
+  assert.equal(render({}, { canAdmin: true, canDelete: true }, false), "");
+  assert.match(render({}, { isLeader: true, canDelete: true }, false), /data-team-delete/);
   for (const role of ["isLeader", "canAdmin"]) {
     const allowed = render({}, { [role]: true, canDelete: true });
     assert.match(allowed, /data-team-delete="7"/);

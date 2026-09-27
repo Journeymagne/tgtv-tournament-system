@@ -11,7 +11,7 @@ const source = ["app.js", "admin.js"]
 function sourceOf(name) {
   const result = source.match(new RegExp(`(?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];
   assert.ok(result, name);
-  return result;
+  return "function adminLabel(ru,en){return en;}\n" + require("../helpers/client-access-source") + "\n" + result;
 }
 
 function publicRosterUi(me = null) {

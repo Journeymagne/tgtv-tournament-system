@@ -1,6 +1,7 @@
 const { HttpError, ValidationError } = require("../http/io");
 const usersRepo = require("../db/repositories/users");
 const sessionsRepo = require("../db/repositories/sessions");
+const access = require("../db/repositories/access");
 const gamesRepo = require("../db/repositories/games");
 const games = require("./games");
 const { publicUser, publicUserSummary, gameView, challengeProgressView } = require("./views");
@@ -116,8 +117,14 @@ async function saveGameResult({ client, user, params, body }) {
 
 async function listUsers({ client }) {
   const rows = await usersRepo.listWithGameCounts(client);
+  const owner = await access.ownerId(client);
+  const { rows: roles } = await client.query("SELECT id,can_create_tournaments,suspended_until,suspension_reason FROM users");
+  const byId = new Map(roles.map(row => [row.id,row]));
   return {
-    users: rows.map((row) => ({ ...publicUserSummary(row), gamesPlayed: row.gamesPlayed }))
+    users: rows.map((row) => ({ ...publicUserSummary(row), gamesPlayed: row.gamesPlayed,
+      isSuperAdmin: row.id === owner, canCreateTournaments: byId.get(row.id)?.can_create_tournaments || false,
+      suspendedUntil: byId.get(row.id)?.suspended_until || null,
+      suspensionReason: byId.get(row.id)?.suspension_reason || "" }))
   };
 }
 
@@ -141,6 +148,7 @@ async function recalculateGameRating({ client, user, params }) {
 
 async function updateUser({ client, user, params, body }) {
   const target = await requireTarget(client, params.id);
+  await access.assertTarget(client, user, target, { ownerOnly: true });
 
   // D2 fix: server.js:1958 wrote isAdmin before rejecting self-demotion, dropping
   // a bundled rating change. Validate the whole patch before writing anything.
@@ -172,7 +180,8 @@ async function updateUser({ client, user, params, body }) {
 
   let isAdmin = null;
   if (body.isAdmin !== undefined) {
-    isAdmin = Boolean(body.isAdmin);
+    if (typeof body.isAdmin !== "boolean") throw new ValidationError("Invalid administrator value");
+    isAdmin = body.isAdmin;
     if (target.id === user.id && !isAdmin) {
       throw new ValidationError("You cannot remove administrator rights from yourself");
     }
@@ -184,18 +193,26 @@ async function updateUser({ client, user, params, body }) {
   if (ratingCombined !== null) updated = await usersRepo.setRating(client, target.id, ratingCombined, "combined");
   if (isAdmin !== null) updated = await usersRepo.setAdmin(client, target.id, isAdmin);
 
+  await access.audit(client,user,"user_updated","user",target.id,
+    { ratings: target.ratings, isAdmin: target.isAdmin },
+    { ratings: updated.ratings, isAdmin: updated.isAdmin },body.reason);
+
   return { user: publicUser(updated) };
 }
 
 async function deleteUser({ client, user, params }) {
   const target = await requireTarget(client, params.id);
+  const owner = await access.assertTarget(client, user, target, { ownerOnly: true });
+  if (target.id === owner) throw new ValidationError("The platform owner cannot be deleted");
   if (target.id === user.id) throw new ValidationError("You cannot delete yourself");
+  await access.audit(client,user,"user_deleted","user",target.id,{ name:target.name },null);
   await usersRepo.remove(client, target.id);
   return { ok: true };
 }
 
 async function resetPassword({ client, user, params }) {
   const target = await requireTarget(client, params.id);
+  await access.assertTarget(client, user, target);
   if (target.id === user.id) {
     throw new ValidationError("You cannot reset your own password here");
   }
@@ -203,6 +220,7 @@ async function resetPassword({ client, user, params }) {
   const password = generateTemporaryPassword();
   const updated = await usersRepo.setPasswordHash(client, target.id, await hashPassword(password));
   await sessionsRepo.deleteByUserId(client, target.id);
+  await access.audit(client,user,"password_reset","user",target.id,null,{ sessionsRevoked:true });
 
   return { user: publicUser(updated), password };
 }

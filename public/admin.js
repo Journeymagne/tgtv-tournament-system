@@ -1,4 +1,5 @@
 // Administration UI, loaded on demand.
+// Event organizers and judges also load this UI; the API enforces resource scope.
 //
 // Nothing here runs for a player who is not an administrator, and it was a
 // fifth of the client bundle -- so app.js fetches this file only after /api/me
@@ -12,7 +13,7 @@ function adminTournamentSettingsContent(data) {
   const exportButton = tournament.id && tournament.participantMode !== "team"
     ? `<div class="admin-save-row"><button type="button" class="small-button" data-admin-tournament-action="export-excel">${t("admin.tournament.action.exportExcel")}</button></div>`
     : "";
-  return exportButton + adminTournamentEditForm(tournament);
+  return adminTournamentStaffContent(data) + adminTournamentEditForm(tournament) + ((tournament.venueMode === "irl" || tournament.participantMode === "team") ? `<details class="admin-settings-section"><summary>${t("tournaments.tab.tables")}</summary>${adminTournamentTablesContent(data)}</details>` : "") + exportButton;
 }
 
 function wireFeedbackAdminActions() {
@@ -120,7 +121,7 @@ function adminPendingGamesCard(profile) {
               <div class="row-meta">${escapeHtml(pendingResultSummary(game))}</div>
             </div>
             <div class="row-actions">
-              <a href="/tournament#/games/game/${game.id}" data-app-link class="small-button" data-admin-pending-open="${game.id}">${t("tournaments.card.open")}</a>
+              <a href="/tournament#/administration/games/game/${game.id}" data-app-link class="small-button" data-admin-pending-open="${game.id}">${t("tournaments.card.open")}</a>
               <button class="small-button" data-admin-pending-confirm="${game.id}">${t("games.detail.forceConfirm")}</button>
               <button class="danger-button" data-admin-pending-delete="${game.id}">${t("common.delete")}</button>
             </div>
@@ -286,7 +287,7 @@ function wireAdminTeams() {
 }
 
 async function loadAdminUsers() {
-  const data = await api("/api/admin/users");
+  const data = await api(state.me?.isAdmin ? "/api/admin/users" : "/api/users");
   state.adminUsers = data.users || [];
 }
 
@@ -320,6 +321,7 @@ async function loadTournamentAdmin() {
 async function loadAdminTournamentDetail(id) {
   state.selectedTournamentId = Number(id);
   state.adminTournamentDetail = await api(`/api/admin/tournaments/${state.selectedTournamentId}`);
+  await loadAdminUsers();
 }
 
 function adminTournamentAdminView() {
@@ -337,7 +339,7 @@ function adminTournamentsPanel() {
           <h2>${t("tournaments.tab.adminList")}</h2>
           <p class="muted">${t("admin.tournament.list.hint")}</p>
         </div>
-        <button class="primary-button" data-admin-tournament-new>${t("admin.tournament.list.create")}</button>
+        ${state.me?.capabilities?.canCreateTournaments ? `<button class="primary-button" data-admin-tournament-new>${t("admin.tournament.list.create")}</button>` : ""}
       </div>
       <div class="list admin-tournament-list">
         ${tournaments.length ? tournaments.map(adminTournamentRow).join("") : `<div class="empty">${t("admin.tournament.list.empty")}</div>`}
@@ -513,14 +515,14 @@ function adminTournamentRow(tournament) {
       <div class="row-main tournament-card-heading">
         ${tournament.logoData ? tournamentLogoMarkup(tournament) : ""}
         <div>
-        <a href="/tournament#/tournaments/admin/${tournament.id}" data-app-link class="text-button row-title" data-admin-tournament-open="${tournament.id}">${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</a>
+        <a href="/tournament#/administration/tournaments/admin/${tournament.id}" data-app-link class="text-button row-title" data-admin-tournament-open="${tournament.id}">${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</a>
         <div class="row-meta">${escapeHtml(tournamentFormatLabel(tournament))} / ${escapeHtml(tournament.slug)} / ${tournament.startsAt ? fmtDate(tournament.startsAt) : t("tournaments.date.none")}</div>
         </div>
       </div>
       <div class="tournament-card-actions">
         <span class="status ${tournamentStatusClass(tournament.status)}">${escapeHtml(tournamentStatusLabel(tournament.status))}</span>
         <div class="tournament-card-buttons">
-          <a href="/tournament#/tournaments/admin/${tournament.id}" data-app-link class="small-button" data-admin-tournament-open="${tournament.id}">${t("admin.action.open")}</a>
+          <a href="/tournament#/administration/tournaments/admin/${tournament.id}" data-app-link class="small-button" data-admin-tournament-open="${tournament.id}">${t("admin.action.open")}</a>
         </div>
       </div>
     </div>
@@ -545,6 +547,7 @@ function adminTournamentDetailPanel(data) {
           <a href="/tournaments/${tournament.slug}" data-app-link class="small-button" data-admin-tournament-public="${tournament.slug}">${t("admin.tournament.detail.viewPublic")}</a>
           <button class="small-button" data-admin-tournament-copy="${escapeHtml(publicUrl)}">${t("admin.tournament.detail.copyLink")}</button>
           <button class="danger-button" data-admin-tournament-action="delete">${t("admin.tournament.detail.delete")}</button>
+          <button class="small-button" data-tournament-history>${adminLabel("История", "History")}</button>
           <button class="ghost-button" data-admin-tournament-close>${t("common.back")}</button>
         </div>
       </div>
@@ -972,7 +975,7 @@ function adminActiveGamesPanel() {
               </div>
               <div class="row-actions">
                 <span class="status ${pending ? "pending" : "open"}">${pending ? t("play.game.status.pending") : t("admin.games.status.open")}</span>
-                <a href="/tournament#/games/game/${game.id}" data-app-link class="small-button" data-admin-game-open="${game.id}">${t("admin.action.open")}</a>
+                <a href="/tournament#/administration/games/game/${game.id}" data-app-link class="small-button" data-admin-game-open="${game.id}">${t("admin.action.open")}</a>
                 ${pending && game.pendingResult?.result ? `<button class="small-button" data-admin-game-confirm="${game.id}">${t("games.detail.forceConfirm")}</button>` : ""}
                 <button class="danger-button" data-admin-game-delete="${game.id}">${t("common.delete")}</button>
               </div>
@@ -1231,43 +1234,11 @@ function adminTeamPairingOverrideForm(match) {
 function adminUsersResultsMarkup(users) {
   const pageData = paginate(users, state.adminUsersPage);
   state.adminUsersPage = pageData.currentPage;
-  return `
-    <div class="table-wrap">
-      ${pageData.total ? `<table>
-          <thead>
-            <tr><th>${t("leaderboard.users.column.name")}</th><th>${t("leaderboard.users.column.contacts")}</th><th>${t("leaderboard.users.column.venueRatings")}</th><th>${t("profile.metric.matches")}</th><th>${t("leaderboard.users.column.admin")}</th><th></th></tr>
-          </thead>
-          <tbody>
-            ${pageData.items.map((user) => `
-              <tr>
-                <td><a href="/tournament#/players/${user.id}" data-app-link class="text-link-button inline-profile-link" data-profile-user="${user.id}">${escapeHtml(user.name)}</a></td>
-                <td>
-                  <div class="admin-contact-cell">
-                    <span>${t("leaderboard.users.contact.register", { value: escapeHtml(user.registerNickname || "-") })}</span>
-                    <span>${t("leaderboard.users.contact.telegram", { value: escapeHtml(user.telegramContact || "-") })}</span>
-                  </div>
-                </td>
-                <td>
-                  <div class="admin-controls">
-                    <label>${t("venue.combined")} <input class="rating-input" type="number" min="0" max="5000" value="${playerRating(user, "combined")}" data-rating-combined="${user.id}"></label>
-                    <label>TTS <input class="rating-input" type="number" min="0" max="5000" value="${playerRating(user, "tts")}" data-rating-tts="${user.id}"></label>
-                    <label>${t("venue.irl")} <input class="rating-input" type="number" min="0" max="5000" value="${playerRating(user, "irl")}" data-rating-irl="${user.id}"></label>
-                    <button class="small-button" data-save-rating="${user.id}">${t("common.save")}</button>
-                  </div>
-                </td>
-                <td>${user.gamesPlayed}</td>
-                <td><input type="checkbox" ${user.isAdmin ? "checked" : ""} ${user.id === state.me.id ? "disabled" : ""} data-admin-toggle="${user.id}"></td>
-                <td><button class="danger-button" ${user.id === state.me.id ? "disabled" : ""} data-delete-user="${user.id}">${t("common.delete")}</button></td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>` : `<div class="empty">${t(state.adminUsersQuery ? "leaderboard.users.searchEmpty" : "leaderboard.empty")}</div>`}
-    </div>
-    ${paginationMarkup("admin-users", pageData, "leaderboard.users.pagination.users")}
-  `;
+  return '<div class="list">' + pageData.items.map(user => `<div class="row-card"><div class="row-main"><a href="/tournament#/administration/players/${user.id}" data-app-link class="text-link-button" data-profile-user="${user.id}">${escapeHtml(user.name)}</a><div class="row-meta">${user.isSuperAdmin ? adminLabel("Супер-администратор", "Super administrator") : user.isAdmin ? adminLabel("Администратор · судья всех турниров", "Administrator · judge of all tournaments") : user.canCreateTournaments ? adminLabel("Игрок · может создавать турниры", "Player · can create tournaments") : adminLabel("Игрок", "Player")}${user.suspendedUntil && new Date(user.suspendedUntil) > new Date() ? ' · ' + adminLabel("Заблокирован", "Suspended") : ''}</div></div><button class="small-button" data-role-user="${user.id}">${adminLabel("Управление", "Manage")}</button></div>`).join('') + '</div>' + paginationMarkup("admin-users", pageData, "leaderboard.users.pagination.users");
 }
 
 function renderAdmin() {
+  state.administrationContext = true;
   state.view = "tournaments";
   state.tournamentsTab = "admin";
   renderTournaments();
@@ -1287,6 +1258,7 @@ function wireAdminUserControls() {
 }
 
 function wireAdminUserRowControls() {
+  wireRoleUserButtons();
   document.querySelectorAll("[data-save-rating]").forEach((button) => {
     button.addEventListener("click", async () => {
       const id = button.dataset.saveRating;
@@ -1550,10 +1522,19 @@ function wireTournamentParticipantAdminControls() {
 }
 
 function wireAdminTournamentControls() {
+  wireAdminTournamentStaff();
+  document.querySelector('[data-tournament-history]')?.addEventListener('click', async () => {
+    try {
+      const data = await api(`/api/admin/tournaments/${state.selectedTournamentId}?audit=1`);
+      showAuditEvents(data.auditEvents || []);
+    } catch (err) { setMessage(err.message, true); }
+  });
   wireAdminTournamentFormBehavior();
   wireTournamentInfoControls(state.adminTournamentDetail, { admin: true });
 
   onLive(document.querySelector("[data-admin-tournament-new]"), "click", () => {
+    state.view = "tournaments";
+    state.tournamentsTab = "admin";
     state.adminTournamentMode = "create";
     state.selectedTournamentId = null;
     state.adminTournamentDetail = null;
@@ -1563,7 +1544,7 @@ function wireAdminTournamentControls() {
 
   onLive(document.querySelector("[data-admin-tournament-create-cancel]"), "click", async () => {
     try {
-      await navigateBack("/tournament#/tournaments/admin");
+      await navigateBack("/tournament#/administration/tournaments");
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -1588,8 +1569,10 @@ function wireAdminTournamentControls() {
   document.querySelectorAll("[data-admin-tournament-open]").forEach((button) => {
     onLive(button, "click", async () => {
       try {
+        state.view = "tournaments";
+        state.tournamentsTab = "admin";
         state.adminTournamentMode = "detail";
-        state.tournamentInfoTab = "settings";
+        state.tournamentInfoTab = "standings";
         await loadAdminTournamentDetail(Number(button.dataset.adminTournamentOpen));
         syncAppHash();
         renderTournaments();
@@ -1601,7 +1584,7 @@ function wireAdminTournamentControls() {
 
   onLive(document.querySelector("[data-admin-tournament-close]"), "click", async () => {
     try {
-      await navigateBack("/tournament#/tournaments/admin");
+      await navigateBack("/tournament#/administration/tournaments");
     } catch (err) {
       setMessage(err.message, true);
     }
@@ -2163,3 +2146,138 @@ window.TGTV_ADMIN = {
   wireTournamentParticipantAdminControls,
   wireTournamentTableAdminControls
 };
+
+async function loadAdministration() {
+  if (!canOpenAdministration()) return;
+  const allowed = state.me.isAdmin ? ["overview", "tournaments", "people", "content"] : ["overview", "tournaments"];
+  if (!allowed.includes(state.adminHubTab)) state.adminHubTab = "overview";
+  await loadAdminTournaments();
+  if (state.adminHubTab === "people") {
+    await loadAdminUsers();
+    await loadAdminTeams();
+  }
+}
+
+function renderAdministration() {
+  const content = document.querySelector('[data-content]');
+  if (!content || !canOpenAdministration()) return;
+  const tab = state.adminHubTab || 'overview';
+  const tabs = [['overview', adminLabel('Обзор', 'Overview')], ['tournaments', t('nav.tournaments')],
+    ...(state.me.isAdmin ? [['people', adminLabel('Игроки и команды', 'Players and teams')], ['content', adminLabel('Контент', 'Content')]] : [])];
+  const tile = (href, title, hint) => `<a href="/tournament#/${href}" data-app-link data-app-route class="card administration-tile"><h3>${title}</h3><p class="muted">${hint}</p></a>`;
+  let body = '';
+  if (tab === 'tournaments') body = adminTournamentsPanel();
+  else if (tab === 'people' && state.me.isAdmin) body = `<div class="row-actions"><button class="small-button" data-admin-people="players">${adminLabel('Игроки', 'Players')}</button><button class="small-button" data-admin-people="teams">${t('nav.teams')}</button></div>${state.adminPeopleTab === 'teams' ? adminTeamsPanel() : adminUsersPanel()}`;
+  else if (tab === 'content' && state.me.isAdmin) body = `<div class="administration-tiles">${tile('administration/documentation', adminLabel('Документация', 'Documentation'), adminLabel('Редактирование инструкций и страниц помощи', 'Edit instructions and help pages'))}${tile('administration/achievements', t('nav.achievements'), adminLabel('Достижения, награды и зал славы', 'Achievements, awards and hall of fame'))}${tile('administration/people', adminLabel('Kill Team Challenge', 'Kill Team Challenge'), adminLabel('Выберите игрока и откройте его прогресс Challenge', 'Choose a player and open their Challenge progress'))}</div>`;
+  else {
+    const events = state.adminTournaments || [];
+    body = `<div class="administration-tiles">${tile('administration/tournaments', `${events.length} · ${t('nav.tournaments')}`, adminLabel('Доступные турниры, участники, раунды и судьи', 'Available tournaments, participants, rounds and judges'))}${state.me.isAdmin ? tile('administration/people', adminLabel('Игроки и команды', 'Players and teams'), adminLabel('Аккаунты, доступы, блокировки и команды', 'Accounts, permissions, suspensions and teams')) + tile('administration/feedback', adminLabel('Обращения', 'Feedback'), adminLabel('Сообщения игроков и статусы обработки', 'Player messages and resolution status')) + tile('administration/games/sessions', adminLabel('Игровые сессии', 'Game sessions'), adminLabel('Подтверждение результатов и разбор спорных игр', 'Review results and disputed games')) : ''}</div><section class="card panel"><h3>${adminLabel('Ваш доступ', 'Your access')}</h3><p>${state.me.isSuperAdmin ? adminLabel('Супер-администратор платформы. Управление глобальными ролями и всеми турнирами.', 'Platform super administrator. Manage global roles and every tournament.') : state.me.isAdmin ? adminLabel('Администратор платформы. Вы автоматически судья каждого турнира. Назначение судей доступно только в ваших турнирах.', 'Platform administrator. You automatically judge every tournament. You can appoint judges only in tournaments you own.') : adminLabel('Доступ ограничен вашими турнирами и турнирами, где вы назначены судьёй.', 'Access is limited to tournaments you own or judge.')}</p></section>`;
+  }
+  content.innerHTML = `<div class="administration-heading"><div><h2>${adminLabel('Администрирование', 'Administration')}</h2><p class="muted">${adminLabel('Управление турнирной платформой', 'Tournament platform management')}</p></div>${state.me.isAdmin ? `<button class="small-button" data-admin-audit>${adminLabel('История действий', 'Activity log')}</button>` : ''}</div><div class="administration-tabs">${tabs.map(([id,label]) => `<button class="tab ${id===tab?'active':''}" data-admin-hub="${id}">${label}</button>`).join('')}</div>${body}<div class="message" data-message></div>`;
+  document.querySelectorAll('[data-admin-hub]').forEach(button => button.onclick = async () => {
+    try { state.adminHubTab=button.dataset.adminHub; await loadAdministration(); syncAppHash(); renderAdministration(); } catch(err) {setMessage(err.message,true);}
+  });
+  document.querySelectorAll('[data-admin-people]').forEach(button => button.onclick = () => {state.adminPeopleTab=button.dataset.adminPeople; renderAdministration();});
+  document.querySelector('[data-admin-audit]')?.addEventListener('click', showAdministrativeAudit);
+  if(tab==='tournaments') wireAdminTournamentControls();
+  if(tab==='people') {wireAdminUserControls(); wireAdminTeams(); wirePaginationControls();}
+}
+
+function administrationDialog(title, body) {
+  document.querySelector('[data-administration-dialog]')?.remove();
+  const dialog = document.createElement('dialog');
+  dialog.className='administration-dialog'; dialog.dataset.administrationDialog='';
+  dialog.innerHTML=`<h3>${escapeHtml(title)}</h3>${body}<p data-dialog-error role="alert"></p><div class="row-actions"><button type="button" class="small-button" data-dialog-close>${adminLabel('Закрыть', 'Close')}</button></div>`;
+  document.body.appendChild(dialog);
+  dialog.querySelector('[data-dialog-close]').onclick=()=>dialog.close();
+  dialog.addEventListener('close',()=>dialog.remove());
+  dialog.showModal();
+  return dialog;
+}
+
+function adminTournamentStaffContent(data) {
+  const roster = data.staff;
+  if(!roster) return '';
+  return `<details class="admin-settings-section" open><summary>${adminLabel('Организатор и судьи', 'Organizer and judges')}</summary><p class="muted">${adminLabel('Организатор назначает судей. Судьи управляют проведением турнира, но не назначают других судей. Администраторы платформы получают судейский доступ автоматически.', 'The organizer appoints judges. Judges manage the tournament but cannot appoint other judges. Platform administrators receive judge access automatically.')}</p><div class="list">${roster.staff.filter(person=>person.active).map(person=>`<div class="row-card"><div class="row-main"><strong>${escapeHtml(person.name)}</strong><div class="row-meta">${person.role==='organizer'?adminLabel('Организатор', 'Organizer'):person.role==='super_admin'?adminLabel('Супер-администратор', 'Super administrator'):adminLabel('Судья', 'Judge')}${person.automatic?' · '+adminLabel('Доступ через роль платформы', 'Platform role access'):''}${person.expiresAt?' · '+fmtDate(person.expiresAt):''}</div></div>${person.canRevoke&&!person.automatic?`<button class="danger-button" data-judge-revoke="${person.userId}">${adminLabel('Снять судью', 'Remove judge')}</button>`:''}</div>`).join('')}</div>${roster.canManageJudges?`<button type="button" class="small-button" data-judge-assign>${adminLabel('Назначить судью', 'Assign judge')}</button>`:''}${state.me.isSuperAdmin?`<button type="button" class="small-button" data-transfer-owner>${adminLabel('Передать организатору', 'Transfer ownership')}</button>`:''}</details>`;
+}
+
+function wireAdminTournamentStaff() {
+  const data=state.adminTournamentDetail; if(!data?.tournament) return;
+  document.querySelector('[data-judge-assign]')?.addEventListener('click',async()=> {
+    try { await loadAdminUsers(); } catch (err) { setMessage(err.message,true); return; }
+    const assigned=new Set(data.staff.staff.filter(person=>person.active).map(person=>person.userId));
+    const candidates=state.adminUsers.filter(user=>!assigned.has(user.id));
+    const dialog=administrationDialog(adminLabel('Назначить судью', 'Assign judge'), `<form data-judge-form><label>${adminLabel("Поиск игрока", "Find player")}<input type="search" data-judge-search></label><p class="muted">${adminLabel("Судья получит все права проведения турнира, кроме назначения судей.", "The judge receives full tournament management rights except appointing judges.")}</p><label>${adminLabel('Игрок', 'Player')}<select name="userId" required><option value="">${adminLabel('Выберите игрока', 'Choose a player')}</option>${candidates.map(user=>`<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}</select></label><label>${adminLabel('Доступ до (необязательно)', 'Access until (optional)')}<input type="datetime-local" name="expiresAt"></label><button class="primary-button">${adminLabel('Назначить', 'Assign')}</button></form>`);
+    dialog.querySelector('[data-judge-search]').oninput=event=>{ const q=event.target.value.trim().toLowerCase(); dialog.querySelectorAll('select option').forEach(option=>{option.hidden=Boolean(option.value&&!option.textContent.toLowerCase().includes(q));}); };
+    dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();try{const form=new FormData(event.currentTarget);await api(`/api/admin/tournaments/${data.tournament.id}/judges`,{method:'POST',body:{userId:Number(form.get('userId')),expiresAt:form.get('expiresAt')?new Date(form.get('expiresAt')).toISOString():null}});await loadAdminTournamentDetail(data.tournament.id);dialog.close();renderTournaments();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
+  });
+  document.querySelectorAll('[data-judge-revoke]').forEach(button=>button.onclick=async()=>{if(!await confirmAction({message:adminLabel('Снять судью? Доступ к управлению турниром будет отозван.', 'Remove this judge? Tournament management access will be revoked.'),confirmLabel:adminLabel('Снять', 'Remove')}))return;try{await api(`/api/admin/tournaments/${data.tournament.id}/judges/${button.dataset.judgeRevoke}`,{method:'DELETE'});await loadAdminTournamentDetail(data.tournament.id);renderTournaments();}catch(err){setMessage(err.message,true);}});
+  document.querySelector('[data-transfer-owner]')?.addEventListener('click',()=> {
+    const dialog=administrationDialog(adminLabel('Передать турнир', 'Transfer tournament'),`<form><p>${adminLabel('Новый организатор получит право назначать судей. Предыдущий потеряет права организатора.', 'The new organizer can appoint judges. The previous owner loses organizer access.')}</p><label>${adminLabel('Новый организатор', 'New organizer')}<select name="userId">${state.adminUsers.filter(user=>user.id!==data.tournament.ownerUserId).map(user=>`<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}</select></label><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><button class="danger-button">${adminLabel('Подтвердить передачу', 'Confirm transfer')}</button></form>`);
+    dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();try{const form=new FormData(event.currentTarget);await api(`/api/admin/tournaments/${data.tournament.id}/owner`,{method:'PATCH',body:{userId:Number(form.get('userId')),reason:form.get('reason')}});await loadAdminTournamentDetail(data.tournament.id);dialog.close();renderTournaments();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
+  });
+}
+
+function wireRoleUserButtons() {
+  document.querySelectorAll('[data-role-user]').forEach(button=>button.onclick=()=>showRoleUser(Number(button.dataset.roleUser)));
+}
+
+function showRoleUser(id) {
+  const user=state.adminUsers.find(item=>item.id===id); if(!user)return;
+  const canManage=state.me.isSuperAdmin || (!user.isAdmin&&!user.isSuperAdmin);
+  const roleForm=state.me.isSuperAdmin?`<form data-user-permissions><h4>${adminLabel('Доступы', 'Permissions')}</h4><label><input type="checkbox" name="isAdmin" ${user.isAdmin?'checked':''} ${user.isSuperAdmin?'disabled':''}> ${adminLabel('Администратор платформы (судья всех турниров)', 'Platform administrator (judge of every tournament)')}</label><label><input type="checkbox" name="canCreateTournaments" ${user.canCreateTournaments?'checked':''}> ${adminLabel('Может создавать турниры', 'Can create tournaments')}</label><label>${adminLabel('Причина изменения', 'Reason for change')}<input name="reason" required maxlength="1000"></label><button class="primary-button">${t('common.save')}</button></form>`:'';
+  const dialog=administrationDialog(user.name,`<p>${escapeHtml(user.telegramContact||'')} · ${escapeHtml(user.registerNickname||'')}</p>${user.isSuperAdmin?`<p>${adminLabel('Владелец платформы. Супер-администратора нельзя удалить или понизить.', 'Platform owner. The super administrator cannot be deleted or demoted.')}</p>`:''}${roleForm}${canManage&&id!==state.me.id?`<details class="admin-settings-section"><summary>${adminLabel('Безопасность аккаунта', 'Account security')}</summary><button class="small-button" data-role-reset>${t('profile.admin.resetPassword')}</button><p data-role-password></p><form data-user-suspension><label>${adminLabel('Заблокировать до', 'Suspend until')}<input name="until" type="datetime-local" required></label><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><button class="danger-button">${adminLabel('Заблокировать', 'Suspend')}</button> <button type="button" class="small-button" data-role-restore>${adminLabel('Снять блокировку', 'Restore account')}</button></form></details>`:''}${state.me.isSuperAdmin?`<details class="admin-settings-section"><summary>${adminLabel('Коррекция рейтинга', 'Rating correction')}</summary><form data-user-rating>${['Combined','Tts','Irl'].map(mode=>`<label>${mode}<input type="number" min="0" max="5000" name="rating${mode}" value="${playerRating(user,mode.toLowerCase())}" required></label>`).join('')}<label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><button class="danger-button">${adminLabel('Подтвердить коррекцию', 'Confirm correction')}</button></form></details>`:''}`);
+  const run=async action=>{try{await action();await loadAdminUsers();renderShell();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
+  if (state.me.isSuperAdmin && !user.isSuperAdmin && id !== state.me.id) {
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.className = 'danger-button';
+    remove.textContent = adminLabel('Удалить аккаунт', 'Delete account');
+    dialog.querySelector('.row-actions').appendChild(remove);
+    remove.onclick = async () => {
+      if (!await confirmDelete(t('dialog.admin.deleteUser', { name: user.name }))) return;
+      await run(async () => { await api(`/api/admin/users/${id}`, { method: 'DELETE' }); dialog.close(); });
+    };
+  }
+  dialog.querySelector('[data-user-permissions]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}/permissions`,{method:'PATCH',body:{isAdmin:user.isSuperAdmin||form.has('isAdmin'),canCreateTournaments:form.has('canCreateTournaments'),reason:form.get('reason')}});dialog.close();});});
+  dialog.querySelector('[data-role-reset]')?.addEventListener('click',async()=>{if(!await confirmAction({message:t('dialog.admin.resetPassword'),confirmLabel:t('profile.admin.resetPassword')}))return;run(async()=>{const result=await api(`/api/admin/users/${id}/reset-password`,{method:'POST'});dialog.querySelector('[data-role-password]').textContent=result.password;});});
+  dialog.querySelector('[data-user-suspension]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}/suspension`,{method:'PATCH',body:{until:new Date(form.get('until')).toISOString(),reason:form.get('reason')}});dialog.close();});});
+  dialog.querySelector('[data-role-restore]')?.addEventListener('click',()=>run(async()=>{await api(`/api/admin/users/${id}/suspension`,{method:'PATCH',body:{until:null,reason:'Restored by administrator'}});dialog.close();}));
+  dialog.querySelector('[data-user-rating]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}`,{method:'PATCH',body:{ratingCombined:Number(form.get('ratingCombined')),ratingTts:Number(form.get('ratingTts')),ratingIrl:Number(form.get('ratingIrl')),reason:form.get('reason')}});dialog.close();});});
+}
+
+async function showAdministrativeAudit() {
+  try {
+    const {events}=await api('/api/admin/audit');
+    showAuditEvents(events);
+  } catch(err){setMessage(err.message,true);}
+}
+
+function showAuditEvents(events) {
+  const normalized = events.map(event => ({
+    actor: event.actor_name || event.metadata?.actorName || `#${event.actorUserId || '—'}`,
+    type: event.event_type || event.eventType,
+    entity: event.entity_id || event.entityId,
+    date: event.created_at || event.createdAt,
+    before: event.before, after: event.after,
+    reason: event.reason || event.metadata?.reason || ''
+  }));
+  const dialog = administrationDialog(adminLabel('История действий', 'Activity log'), `
+    <label>${adminLabel('Поиск по сотруднику, действию или объекту', 'Search actor, action or entity')}
+      <input type="search" data-audit-search>
+    </label><div class="list" data-audit-entries></div>`);
+  const render = () => {
+    const query = dialog.querySelector('[data-audit-search]').value.trim().toLowerCase();
+    dialog.querySelector('[data-audit-entries]').innerHTML = normalized
+      .filter(event => `${event.actor} ${event.type} ${event.entity} ${event.reason}`.toLowerCase().includes(query))
+      .map(event => `<div class="row-card"><div class="row-main">
+        <strong>${escapeHtml(event.actor)}</strong><div>${escapeHtml(event.type)} · #${event.entity || '—'}</div>
+        <p class="muted">${fmtDate(event.date)} · ${escapeHtml(event.reason)}</p>
+        <details><summary>${adminLabel('Изменения', 'Changes')}</summary>
+          <pre>${escapeHtml(JSON.stringify({before:event.before, after:event.after}, null, 2))}</pre>
+        </details></div></div>`).join('') || adminLabel('Нет записей', 'No entries');
+  };
+  dialog.querySelector('[data-audit-search]').addEventListener('input', render);
+  render();
+}
+
+Object.assign(window.TGTV_ADMIN, {loadAdministration,renderAdministration});

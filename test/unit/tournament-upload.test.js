@@ -10,6 +10,8 @@ async function upload(method, url, body, user = { id: 1, isAdmin: true }) {
   let handled = false;
   const router = createRouter(routes.map((route) => ({
     ...route,
+    auth: route.path.startsWith("/api/admin/") ? "admin" : route.auth,
+    permission: undefined, // This unit tests upload limits; real authorization is covered by api-access-roles.
     handler: ({ body: input }) => {
       handled = true;
       assert.deepEqual(input, body);

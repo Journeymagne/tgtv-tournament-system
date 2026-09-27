@@ -103,7 +103,9 @@ function challengeProgressView(games, user) {
 
 function userSummary({ user, hasAdmin, challenges, games, teamPairings = [], people }) {
   return {
-    user: publicUser(user),
+    user: { ...publicUser(user), isSuperAdmin: Boolean(user.isSuperAdmin),
+      canCreateTournaments: Boolean(user.canCreateTournaments),
+      capabilities: user.capabilities || {}, managedTournamentIds: user.managedTournamentIds || [] },
     hasAdmin,
     challenges: challenges.map((challenge) => challengeView(challenge, people)),
     games: games.map((game) => gameView(game, people)),

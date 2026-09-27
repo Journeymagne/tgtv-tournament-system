@@ -14,6 +14,32 @@ Sun and moon buttons select a shared light or dark theme.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 4.9.2
+
+Tournament administration has four destinations: Overview, Tournaments,
+Players and teams, and Content. Administrative sessions, accounts, team tools
+and content editors open from this area; normal pages retain player, captain
+and own-team management actions. Studio keeps its own administration.
+
+The platform owner manages global roles. Tournament organizers appoint judges;
+judges run their assigned events without appointing other judges. Platform
+administrators automatically act as judges in all events. Server permissions
+honour revoked and expired assignments. Tournament statistics also include
+faction picks, with hidden selections protected before round one.
+
+Back up PostgreSQL before deployment. Migration **037_access_roles** applies on
+startup and preserves existing users, tournaments and global administrators.
+After verifying the intended owner's account ID, run from the deployed app:
+
+```sh
+node scripts/set-platform-owner.js <user-id>
+```
+
+Registration never grants administrative privileges. The command refuses to
+replace an existing owner with another account. Local preview sessions and
+test data are excluded from the release. See [role implementation](docs/access-roles-implementation.md)
+and [the full changelog](CHANGELOG.md).
+
 ## Release 4.9.0
 
 Studio exports cards and playable tokens through immutable TTS links. Install

@@ -1,3 +1,4 @@
+const { canManageTournament } = require("./access");
 function teamGamePermissions(game, rosterA, rosterB, user) {
   game = game || {};
   const playerIds = game.playerIds || [];
@@ -10,14 +11,14 @@ function teamGamePermissions(game, rosterA, rosterB, user) {
   const submittedRoster = [rosterA, rosterB][playerIds.indexOf(pending?.submittedBy)]?.id || pending?.submittedRosterId || submitterCaptain?.id;
   const ownSubmission = pending?.submittedBy === userId;
   const sameSide = Boolean(ownRoster && submittedRoster === ownRoster.id);
-  const canAct = Boolean(user?.isAdmin || participant || captainRoster);
+  const canAct = Boolean(canManageTournament(user, rosterA?.tournamentId || rosterB?.tournamentId || game.tournament?.id) || participant || captainRoster);
   // Older results marked a playing captain's own game as a captain submission.
   // Match participation determines the role, so those pending results work too.
   const pendingCaptain = !playerIds.includes(pending?.submittedBy) && Boolean(pending?.submittedAs === "captain" || submitterCaptain);
   return {
-    canView: Boolean(user?.isAdmin || participant || captainRoster || game.status === "completed"),
+    canView: Boolean(canManageTournament(user, rosterA?.tournamentId || rosterB?.tournamentId || game.tournament?.id) || participant || captainRoster || game.status === "completed"),
     canSubmit: canAct && (game.status === "open" || (game.status === "pending_confirmation" && ownSubmission)),
-    canReview: game.status === "pending_confirmation" && Boolean(user?.isAdmin || (
+    canReview: game.status === "pending_confirmation" && Boolean(canManageTournament(user, rosterA?.tournamentId || rosterB?.tournamentId || game.tournament?.id) || (
       !ownSubmission && !sameSide && (captainRoster || (!pendingCaptain && participant))
     )),
     submitsAsCaptain: Boolean(captainRoster && !participant),

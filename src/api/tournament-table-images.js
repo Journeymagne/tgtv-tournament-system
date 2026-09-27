@@ -39,9 +39,9 @@ async function saveTableImage(client, tournamentId, selection, previous) {
 
 async function image({ client, params, user }) {
   const id = requirePositiveIntId(params.id, 404, "Killzone image not found");
-  const { rows: [row] } = await client.query(`SELECT i.image_data, i.content_hash, t.status
+  const { rows: [row] } = await client.query(`SELECT i.image_data, i.content_hash, t.status, t.id AS tournament_id
     FROM tournament_table_images i JOIN tournaments t ON t.id = i.tournament_id WHERE i.id = $1`, [id]);
-  if (!row || (!user?.isAdmin && !PUBLISHED_STATUSES.includes(row.status))) throw new HttpError(404, "Killzone image not found");
+  if (!row || (!require("../domain/access").canManageTournament(user, row.tournament_id) && !PUBLISHED_STATUSES.includes(row.status))) throw new HttpError(404, "Killzone image not found");
   const file = decodeDataUrl(row.image_data);
   return { buffer: file.bytes, contentType: file.contentType,
     headers: { ETag: `"${row.content_hash}"`, "Cache-Control": "private, max-age=3600" } };

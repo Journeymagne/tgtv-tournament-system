@@ -104,9 +104,9 @@ test("result and review URLs restore their screen on reload or Forward", () => {
     const parse = new Function("tournamentSlugFromLocation", "sharedChallengeTokenFromHash", "hashSegments",
       `${sourceOf("appRouteFromHash")}; return appRouteFromHash;`)(() => "", () => "", () => segments);
     const route = parse();
-    assert.deepEqual(route, { view: "gameDetail", selectedGameId: 42, gameDetailMode: mode });
+    assert.deepEqual(route, { view: "gameDetail", selectedGameId: 42, gameDetailMode: mode, ...(mode === "edit" ? { administrationContext: true } : {}) });
     const hash = new Function("state", "tournamentMatchIdFromGameId",
       `${sourceOf("appHashForState")}; return appHashForState;`)(route, () => 0);
-    assert.equal(hash(), `#/games/game/42${mode ? `/${mode}` : ""}`);
+    assert.equal(hash(), `#/${mode === "edit" ? "administration/" : ""}games/game/42${mode ? `/${mode}` : ""}`);
   }
 });

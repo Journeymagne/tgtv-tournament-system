@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.join(__dirname, "../../public/admin.js"), "u
 function sourceOf(name) {
   const code = source.match(new RegExp(`(?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];
   assert.ok(code);
-  return code;
+  return "function adminTournamentStaffContent(){return '';} function adminTournamentTablesContent(){return '';}\n" + code;
 }
 
 test("Excel export appears in individual settings even after completion, outside the save form", () => {
@@ -17,7 +17,7 @@ test("Excel export appears in individual settings even after completion, outside
     const html = render({ tournament: { id: 6, participantMode: "individual", status } });
     assert.match(html, /type="button".*data-admin-tournament-action="export-excel"/);
     assert.doesNotMatch(html, /disabled/);
-    assert.ok(html.indexOf("export-excel") < html.indexOf("<form>"));
+    assert.ok(html.indexOf("export-excel") > html.indexOf("</form>"));
     assert.doesNotMatch(render({ tournament: { id: 6, participantMode: "team", status } }), /export-excel/);
   }
 });

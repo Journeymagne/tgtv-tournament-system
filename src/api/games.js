@@ -180,17 +180,17 @@ async function listCompleted({ client, query = new URLSearchParams() }) {
 
 async function getOne({ client, user, params }) {
   const game = await findGame(client, params.id);
+  const view = await viewOf(client, game);
   if (game.sourceType === "team_match_game") {
-    const view = await viewOf(client, game);
-    const permissions = teamGamePermissions(game, view.teamMatch?.rosterA, view.teamMatch?.rosterB, user);
+    const permissions = teamGamePermissions(view, view.teamMatch?.rosterA, view.teamMatch?.rosterB, user);
     if (!permissions.canView) throw new HttpError(403, "You cannot view this game");
     return { game: { ...view, resultPermissions: permissions } };
   }
   const isParticipant = game.playerIds.includes(user.id);
-  if (game.status !== "completed" && !user.isAdmin && !isParticipant) {
+  if (game.status !== "completed" && !require("../domain/access").canManageTournament(user, view.tournament) && !isParticipant) {
     throw new HttpError(403, "You cannot view this game");
   }
-  return { game: await viewOf(client, game) };
+  return { game: view };
 }
 
 async function getByTournamentMatch({ client, user, params }) {

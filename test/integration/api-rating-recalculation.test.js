@@ -44,6 +44,7 @@ test.beforeEach(async () => {
     people.push(response.body.user);
   }
   [root, alpha] = people;
+  await require("../helpers/access").grantOwner(pool, root);
 });
 const scores = (a, b, draw = false) => ({
   [a]: { crit: 6, tac: 6, kill: 6, primary: "crit" },
