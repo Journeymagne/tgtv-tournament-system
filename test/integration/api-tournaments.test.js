@@ -2020,6 +2020,20 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
     });
     assert.equal(hiddenPairingScreen.teamMatch.shieldAMemberId, null);
     assert.equal(hiddenPairingScreen.teamMatch.shieldAConfirmed, true);
+    const adminCaptainB = { ...captainB, isAdmin: true };
+    const adminPairing = await teamTournamentsApi.getPairingMatch({ client, user: adminCaptainB, params });
+    assert.equal(adminPairing.teamMatch.shieldAMemberId, null);
+    assert.equal(adminPairing.eventLog.find(event => event.type === "shield_select").choice, null);
+    const adminAudit = await teamTournamentsApi.tournamentData(client, tournament, adminCaptainB, { includeAudit: true });
+    const privateEvent = adminAudit.auditEvents.find(event => event.entity_id === originalMatch.id && event.event_type === "shield_select");
+    assert.equal(privateEvent.metadata.choice, null);
+    assert.equal(privateEvent.before, null);
+    assert.equal(privateEvent.after, null);
+    assert.equal((await teamTournamentsApi.getPairingMatch({ client, user: root, params })).teamMatch.shieldAMemberId, membersA[0].id);
+    await assert.rejects(() => teamTournamentsApi.selectShield({ client, user: adminCaptainB, params,
+      body: { side: "a", memberId: membersA[0].id } }), /current player/);
+    await assert.rejects(() => teamTournamentsApi.selectShield({ client, user: { ...captainA, isAdmin: true }, params,
+      body: { memberId: membersA[1].id } }), /already confirmed/);
     const anonymousPairing = await teamTournamentsApi.getPairingMatch({ client, user: null, params });
     assert.equal(anonymousPairing.teamMatch.shieldAMemberId, null);
     assert.deepEqual(anonymousPairing.tournament.viewer.captainRosterIds, []);
@@ -2046,6 +2060,10 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
     assert.equal(spectatorMatch.shieldAMemberId, membersA[0].id);
     assert.equal(spectatorMatch.swordAMemberId, null);
     assert.equal(spectatorMatch.swordAConfirmed, true);
+    const hiddenSword = await teamTournamentsApi.getPairingMatch({ client, user: adminCaptainB, params });
+    assert.equal(hiddenSword.teamMatch.shieldAMemberId, membersA[0].id);
+    assert.equal(hiddenSword.teamMatch.swordAMemberId, null);
+    assert.equal(hiddenSword.eventLog.find(event => event.type === "sword_select").choice, null);
     const paired = await teamTournamentsApi.selectSword({
       client,
       user: captainB,

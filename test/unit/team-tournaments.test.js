@@ -242,6 +242,25 @@ test("captain choices stay hidden from the opponent until both are confirmed", (
   assert.equal(revealed.shieldBMemberId, 21);
 });
 
+test("administrators who captain either side cannot inspect the opponent's pending choices", () => {
+  const rosterA = { captainUserId: 101 }, rosterB = { captainUserId: 202 };
+  for (const privilege of [{ isAdmin: true }, { isSuperAdmin: true }, { managedTournamentIds: [7] }]) {
+    for (const [id, side, opponent] of [[101, "A", "B"], [202, "B", "A"]]) {
+      for (const kind of ["shield", "sword"]) {
+        const match = { tournamentId: 7, [`${kind}AMemberId`]: 11, [`${kind}BMemberId`]: 21,
+          [`${kind}${opponent}Confirmed`]: true, [`${kind}${side}Confirmed`]: false };
+        const viewer = { id, ...privilege };
+        const hidden = redactTeamMatch(match, rosterA, rosterB, viewer);
+        assert.equal(hidden[`${kind}${opponent}MemberId`], null);
+        assert.equal(hidden[`${kind}${side}MemberId`], match[`${kind}${side}MemberId`]);
+        assert.equal(redactTeamMatch(match, rosterA, rosterB, { id: 303, ...privilege })[`${kind}${opponent}MemberId`], match[`${kind}${opponent}MemberId`]);
+        const revealed = redactTeamMatch({ ...match, [`${kind}${side}Confirmed`]: true }, rosterA, rosterB, viewer);
+        assert.equal(revealed[`${kind}${opponent}MemberId`], match[`${kind}${opponent}MemberId`]);
+      }
+    }
+  }
+});
+
 test("game points are clamped to 0-20 and always sum to 20", () => {
   assert.deepEqual(gamePointsForTotals(30, 10), { a: 20, b: 0 });
   assert.deepEqual(gamePointsForTotals(10, 30), { a: 0, b: 20 });

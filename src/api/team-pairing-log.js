@@ -54,9 +54,10 @@ function eventView(row, match, rosterA, rosterB, user) {
   const roster = side === "a" ? rosterA : side === "b" ? rosterB : null;
   const rosters = [rosterA, rosterB];
   const isReveal = ["shields_reveal", "swords_reveal"].includes(row.event_type);
+  const isCaptain = Boolean(user?.id && rosters.some(item => item?.captainUserId === user.id));
   // Private attempts stay private even after a later choice is revealed or undone.
   // Reveal events store only the two choices that were actually made public.
-  const canReadChoice = isReveal || Boolean(canManageTournament(user, match.tournamentId)) || Boolean(user?.id && roster?.captainUserId === user.id);
+  const canReadChoice = isReveal || (!isCaptain && canManageTournament(user, match.tournamentId)) || Boolean(user?.id && roster?.captainUserId === user.id);
   const view = { id: row.id, type: row.event_type, at: toIso(row.created_at),
     actorName: metadata.actorName || row.actor_name || null,
     actorRole: (metadata.actorIsAdmin ?? row.actor_is_admin) ? "admin" : side ? "captain" : "player",
@@ -116,4 +117,38 @@ async function read(client, match, rosterA, rosterB, user) {
   return rows.map(row => eventView(row, match, rosterA, rosterB, user));
 }
 
-module.exports = { choiceDetails, assignmentDetails, eventView, read };
+function auditForViewer(rows, matches, rosters, user) {
+  const captainRosterIds = new Set(rosters.filter(roster => user?.id && roster.captainUserId === user.id).map(roster => roster.id));
+  if (!captainRosterIds.size) return rows;
+  const ownMatch = match => captainRosterIds.has(match.rosterAId) || captainRosterIds.has(match.rosterBId);
+  const knownMatches = new Map(matches.map(match => [match.id, match]));
+  // Rolled-back rounds keep snapshots of matches that no longer exist in the live table.
+  for (const row of rows) {
+    for (const snapshot of [row.before, row.after]) {
+      for (const match of [snapshot, ...(snapshot?.matches || [])]) {
+        if (match?.id && match.rosterAId && !knownMatches.has(match.id)) knownMatches.set(match.id, match);
+      }
+    }
+  }
+  const snapshotForViewer = value => {
+    if (!value || typeof value !== "object") return value;
+    if (Array.isArray(value)) return value.map(snapshotForViewer);
+    if (value.rosterAId && ownMatch(value)) {
+      // Raw snapshots can contain private attempts inside pairingHistory.
+      return { id: value.id, roundId: value.roundId, phase: value.phase,
+        rosterAId: value.rosterAId, rosterBId: value.rosterBId };
+    }
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, snapshotForViewer(item)]));
+  };
+  return rows.map(row => {
+    const match = row.entity_type === "team_match" ? knownMatches.get(row.entity_id) : null;
+    if (row.entity_type === "team_match" && (!match || ownMatch(match))) {
+      const metadata = match ? eventView({ ...row, target_phase: row.after?.phase, roll_result: row.after?.rollResult }, match,
+        rosters.find(roster => roster.id === match.rosterAId), rosters.find(roster => roster.id === match.rosterBId), user) : {};
+      return { ...row, before: null, after: null, metadata };
+    }
+    return { ...row, before: snapshotForViewer(row.before), after: snapshotForViewer(row.after), metadata: snapshotForViewer(row.metadata) };
+  });
+}
+
+module.exports = { choiceDetails, assignmentDetails, eventView, read, auditForViewer };

@@ -41,6 +41,21 @@ test("non-captain admin sees both sides; captains and spectators cannot act for 
   assert.equal(captainControls(null), "");
 });
 
+test("admin captains retain only their own controls in administration and cannot replace confirmed choices", () => {
+  for (const [id, side, opponent] of [[101, "a", "b"], [202, "b", "a"]]) {
+    for (const kind of ["shield", "sword"]) {
+      const match = { phase: kind + "_selection", shieldAMemberId: 11, shieldBMemberId: 21 };
+      const user = { id, isAdmin: true };
+      const controls = captainControls(user, match);
+      assert.match(controls, new RegExp(`data-side="${side}"`));
+      assert.doesNotMatch(controls, new RegExp(`data-admin-captain-side|data-side="${opponent}"`));
+      const waiting = captainControls(user, { ...match, [kind + side.toUpperCase() + "Confirmed"]: true });
+      assert.match(waiting, /teams.pairing.waitingOpponent/);
+      assert.doesNotMatch(waiting, /data-team-pairing-form/);
+    }
+  }
+});
+
 test("admin controls carry the chosen side through every phase and keep turn order", () => {
   const user = { id: 999, isAdmin: true };
   const rolled = captainControls(user, { rollHistory: [{ a: 4, b: null }] });

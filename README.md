@@ -19,11 +19,13 @@ moderation. Startup migrations **039_studio_reviews** and
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 4.9.6.2
+## Release 4.9.6-2
 
-Release 4.9.6.2 packages the 4.9.6 functionality below with refreshed asset
-versions. The npm-compatible package version is `4.9.6-2`. No additional
-database migrations or behavior changes are introduced by this release.
+Administrators who captain a roster cannot inspect the opponent's pending shield
+or sword choices in their own match, including pairing logs and raw audit
+snapshots. They act only for their own side and cannot overwrite a confirmed
+choice by submitting it again. Administrative access to other matches is retained.
+Client asset versions are refreshed. No additional database migrations are required.
 
 ### Included from 4.9.6
 

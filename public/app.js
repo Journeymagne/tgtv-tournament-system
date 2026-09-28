@@ -8361,18 +8361,20 @@ function teamEnvironmentStep(match, tournament) {
 
 function teamCaptainPairingControl(match, tournament) {
   if (!state.me || tournament.status !== "in_progress" || ["in_progress", "completed"].includes(match.phase)) return "";
-  if (state.administrationContext && canManageTournamentUi(tournament)) {
+  const side = match.rosterA?.captainUserId === state.me.id ? "a" : match.rosterB?.captainUserId === state.me.id ? "b" : null;
+  if (!side && state.administrationContext && canManageTournamentUi(tournament)) {
     return `<section class="team-admin-pairing"><h4>${t("teams.pairing.adminControls")}</h4><p class="muted">${t("teams.pairing.adminHint")}</p><div class="team-pairing-selections">${["a", "b"].map((side) => `
       <section class="team-pairing-side" data-admin-captain-side="${side}"><h4>${escapeHtml(t("teams.pairing.actingFor", { name: (side === "a" ? match.rosterA : match.rosterB)?.name || side.toUpperCase() }))}</h4>${teamPairingControlForSide(match, tournament, side)}</section>
     `).join("")}</div></section>`;
   }
-  const side = match.rosterA?.captainUserId === state.me.id ? "a" : match.rosterB?.captainUserId === state.me.id ? "b" : null;
   return side ? teamPairingControlForSide(match, tournament, side) : "";
 }
 
 function teamPairingControlForSide(match, tournament, side) {
   const ownRoster = side === "a" ? match.rosterA : match.rosterB;
   const opponent = side === "a" ? match.rosterB : match.rosterA;
+  const adminControls = state.administrationContext && canManageTournamentUi(tournament)
+    && ![ownRoster, opponent].some(roster => roster?.captainUserId === state.me?.id);
   if (match.phase === "awaiting_roll") {
     const current = (match.rollHistory || [])[Number(match.rollRound || 1) - 1];
     if (match.pairingVersion === 2 && current?.[side]) return `<span class="muted">${t("teams.pairing.rolledWaiting", { result: current[side] })}</span>`;
@@ -8389,12 +8391,12 @@ function teamPairingControlForSide(match, tournament, side) {
   }
   if (match.phase === "shield_selection") {
     const confirmed = side === "a" ? match.shieldAConfirmed : match.shieldBConfirmed;
-    if (confirmed && !(state.administrationContext && canManageTournamentUi(tournament))) return `<span class="muted">${t("teams.pairing.waitingOpponent")}</span>`;
+    if (confirmed && !adminControls) return `<span class="muted">${t("teams.pairing.waitingOpponent")}</span>`;
     return teamMemberChoiceForm(match, "shield", ownRoster, t("teams.pairing.chooseShield"), side, side === "a" ? match.shieldAMemberId : match.shieldBMemberId);
   }
   if (match.phase === "sword_selection") {
     const confirmed = side === "a" ? match.swordAConfirmed : match.swordBConfirmed;
-    if (confirmed && !(state.administrationContext && canManageTournamentUi(tournament))) return `<span class="muted">${t("teams.pairing.waitingOpponent")}</span>`;
+    if (confirmed && !adminControls) return `<span class="muted">${t("teams.pairing.waitingOpponent")}</span>`;
     const shieldId = side === "a" ? match.shieldBMemberId : match.shieldAMemberId;
     return teamMemberChoiceForm(match, "sword", { ...opponent, members: (opponent.members || []).filter((member) => member.id !== shieldId) }, t("teams.pairing.chooseSword"), side, side === "a" ? match.swordAMemberId : match.swordBMemberId);
   }

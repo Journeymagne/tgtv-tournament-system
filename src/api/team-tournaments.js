@@ -629,6 +629,7 @@ async function getPairingMatch({ client, user, params }) {
 }
 
 function actionSide(user, body, captainSide, tournamentId) {
+  if (captainSide) return captainSide;
   if (!canManageTournament(user, tournamentId)) return captainSide;
   const side = body.side || captainSide;
   if (!["a", "b"].includes(side)) throw new ValidationError("Administrator actions must specify side a or b");
@@ -838,7 +839,7 @@ async function selectShield({ client, user, params, body }) {
   const memberId = requirePositiveIntId(body.memberId, 400, "Choose a shield");
   if (!rosterMember(roster, memberId)) throw new ValidationError("The shield must be a current player in this roster");
   const confirmedField = side === "a" ? "shieldAConfirmed" : "shieldBConfirmed";
-  if (context.match[confirmedField] && !canManageTournament(user, context.tournament)) throw new HttpError(409, "This shield choice is already confirmed");
+  if (context.match[confirmedField] && (context.side || !canManageTournament(user, context.tournament))) throw new HttpError(409, "This shield choice is already confirmed");
   const patch = side === "a"
     ? { shieldAMemberId: memberId, shieldAConfirmed: body.confirm !== false }
     : { shieldBMemberId: memberId, shieldBConfirmed: body.confirm !== false };
@@ -861,7 +862,7 @@ async function selectSword({ client, user, params, body }) {
     throw new ValidationError("Choose one of the two remaining opponent players as the sword");
   }
   const confirmedField = side === "a" ? "swordAConfirmed" : "swordBConfirmed";
-  if (context.match[confirmedField] && !canManageTournament(user, context.tournament)) throw new HttpError(409, "This sword choice is already confirmed");
+  if (context.match[confirmedField] && (context.side || !canManageTournament(user, context.tournament))) throw new HttpError(409, "This sword choice is already confirmed");
   const patch = side === "a"
     ? { swordAMemberId: memberId, swordAConfirmed: body.confirm !== false }
     : { swordBMemberId: memberId, swordBConfirmed: body.confirm !== false };
@@ -1080,6 +1081,7 @@ async function createPersonalGames(client, context, assignments, user) {
 function redactTeamMatch(match, rosterA, rosterB, user) {
   const admin = Boolean(canManageTournament(user, match.tournamentId));
   const side = rosterA?.captainUserId === user?.id ? "a" : rosterB?.captainUserId === user?.id ? "b" : null;
+  const canInspectChoices = admin && !side;
   const shieldsRevealed = match.shieldAConfirmed && match.shieldBConfirmed;
   const swordsRevealed = match.swordAConfirmed && match.swordBConfirmed;
   const progress = teamMatchProgress(match);
@@ -1096,10 +1098,10 @@ function redactTeamMatch(match, rosterA, rosterB, user) {
     }),
     nextAction: teamNextAction(match),
     rollRound: teamRollRound(match),
-    shieldAMemberId: admin || shieldsRevealed || side === "a" ? match.shieldAMemberId : null,
-    shieldBMemberId: admin || shieldsRevealed || side === "b" ? match.shieldBMemberId : null,
-    swordAMemberId: admin || swordsRevealed || side === "a" ? match.swordAMemberId : null,
-    swordBMemberId: admin || swordsRevealed || side === "b" ? match.swordBMemberId : null,
+    shieldAMemberId: canInspectChoices || shieldsRevealed || side === "a" ? match.shieldAMemberId : null,
+    shieldBMemberId: canInspectChoices || shieldsRevealed || side === "b" ? match.shieldBMemberId : null,
+    swordAMemberId: canInspectChoices || swordsRevealed || side === "a" ? match.swordAMemberId : null,
+    swordBMemberId: canInspectChoices || swordsRevealed || side === "b" ? match.swordBMemberId : null,
     rosterA: rosterA ? { ...rosterA, paid: admin ? rosterA.paid : undefined } : rosterA,
     rosterB: rosterB ? { ...rosterB, paid: admin ? rosterB.paid : undefined } : rosterB
   };
@@ -1148,7 +1150,7 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
       "SELECT * FROM player_team_audit_events WHERE tournament_id = $1 ORDER BY created_at DESC, id DESC LIMIT 500",
       [tournament.id]
     );
-    auditEvents = rows;
+    auditEvents = pairingLog.auditForViewer(rows, rawMatches, rosters, user);
   }
   return {
     tournament: {
@@ -1292,7 +1294,7 @@ async function resetMatchAdmin({ client, user, params, body }) {
   await recalculateCompletedGameRatings(client);
   await recalculateTeamRatings(client);
   await audit(client, context.tournament, user, "team_match_reset", { entityType: "team_match", entityId: context.match.id, before: context.match, after: updated });
-  return { teamMatch: updated };
+  return { teamMatch: redactTeamMatch(updated, context.rosterA, context.rosterB, user) };
 }
 
 async function overridePairingsAdmin({ client, user, params, body }) {

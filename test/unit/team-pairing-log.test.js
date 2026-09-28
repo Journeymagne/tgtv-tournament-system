@@ -31,6 +31,39 @@ test("hidden choices never reach the opponent, spectators or old public entries 
   }
 });
 
+test("captain privileges take precedence over administrator access to private log entries", () => {
+  for (const privilege of [{ isAdmin: true }, { isSuperAdmin: true }, { managedTournamentIds: [7] }]) {
+    for (const kind of ["shield", "sword"]) {
+      const source = row(kind + "_select");
+      source.metadata = { side: "a", ...log.choiceDetails({ rosterA: a, rosterB: b }, "a", kind === "shield" ? 11 : 21, kind, {}) };
+      assert.equal(log.eventView(source, { tournamentId: 7 }, a, b, { id: 20, ...privilege }).choice, null);
+      assert.ok(log.eventView(source, { tournamentId: 7 }, a, b, { id: 10, ...privilege }).choice);
+      assert.ok(log.eventView(source, { tournamentId: 7 }, a, b, { id: 99, ...privilege }).choice);
+    }
+  }
+});
+
+test("captain audit hides private entries and nested snapshots while preserving other matches", () => {
+  const match = { id: 7, tournamentId: 8, rosterAId: a.id, rosterBId: b.id, shieldAMemberId: 11,
+    pairingHistory: [{ before: { shieldAMemberId: 11, secret: "PRIVATE" } }] };
+  const unrelated = { ...match, id: 9, rosterAId: 3, rosterBId: 4 };
+  const source = { ...row(), entity_type: "team_match", entity_id: 7, before: match, after: match };
+  const rollback = { id: 51, event_type: "team_round_rollback", entity_type: "round", before: { matches: [match, unrelated] } };
+  const other = { ...source, id: 52, entity_id: 9, before: unrelated, after: unrelated };
+  const rows = [source, rollback, other];
+  // A removed match can still be identified by its rollback snapshot.
+  const view = log.auditForViewer(rows, [unrelated], [a, b], { id: 20, isAdmin: true });
+  assert.equal(view[0].metadata.choice, null);
+  assert.equal(view[0].before, null);
+  assert.equal(view[0].after, null);
+  assert.equal(JSON.stringify(view[1].before.matches[0]).includes("shieldAMemberId"), false);
+  assert.equal(JSON.stringify(view[1].before.matches[0]).includes("PRIVATE"), false);
+  assert.deepEqual(view[1].before.matches[1], unrelated);
+  assert.deepEqual(view[2], other);
+  assert.deepEqual(log.auditForViewer(rows, [match, unrelated], [a, b], { id: 99, isAdmin: true }), rows);
+  assert.ok(source.before.pairingHistory, "redaction must not mutate stored snapshots");
+});
+
 test("reveal events contain the choices actually revealed, even after undo or renaming, and respect faction privacy", () => {
   const event = log.eventView(row("shields_reveal"), { shieldAConfirmed: false }, { ...a, name: "New Alpha" }, b, null);
   assert.deepEqual(event.revealedChoices.map(item => [item.rosterName, item.choice.playerName, item.choice.faction]),
