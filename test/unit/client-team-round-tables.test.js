@@ -36,9 +36,9 @@ test("round generation submits all three new table selections alongside team pai
 });
 
 test("captain table choices use the match's round snapshot, not a cached tournament's latest tables", () => {
-  const form = new Function("t", "escapeHtml", "tableLabel", "teamTournamentTables", "teamEnvironmentStep",
+  const form = new Function("state", "t", "escapeHtml", "tableLabel", "teamTournamentTables", "teamEnvironmentStep",
     `${sourceOf("teamPairingMemberLabel")}; ${sourceOf("teamRosterMemberLabel")}; ${sourceOf("teamPairingMatchupLabel")}; ${sourceOf("teamEnvironmentChoiceForm")}; ${sourceOf("teamPairingControlForSide")}; return teamPairingControlForSide;`
-  )((key) => key, String, (table) => `${table.killzone}/${table.deployment}`, () => [{ id: 1, killzone: "Wrong round", deployment: 1 }],
+  )({ administrationContext: false, me: { id: 101 } }, (key) => key, String, (table) => `${table.killzone}/${table.deployment}`, () => [{ id: 1, killzone: "Wrong round", deployment: 1 }],
     () => ({ kind: "table", side: "a", slot: 1 }));
   const html = form({ id: 7, tournamentId: 4, phase: "environment_selection", tableIds: [1], tables: [{ id: 1, killzone: "Volkus", deployment: 6 }], environment: { step: 0, assignments: [] } }, {}, "a");
   assert.match(html, /Volkus\/6/);
