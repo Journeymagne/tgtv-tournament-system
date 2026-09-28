@@ -19,7 +19,13 @@ moderation. Startup migrations **039_studio_reviews** and
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
-## Release 4.9.6
+## Release 4.9.6.2
+
+Release 4.9.6.2 packages the 4.9.6 functionality below with refreshed asset
+versions. The npm-compatible package version is `4.9.6-2`. No additional
+database migrations or behavior changes are introduced by this release.
+
+### Included from 4.9.6
 
 Tournament administration groups ongoing, future and ended tournaments, including
 drafts under future events. Studio publications support reviews, Theme/Balance/Lore
