@@ -654,7 +654,7 @@ const TGTV_I18N_EN = {
 
   // -- admin --------------------------------------------------------------
   "admin.action.open": "Open",
-  "admin.tournament.list.hint": "Current tournaments.",
+  "admin.tournament.list.hint": "Current, future and past tournaments.",
   "admin.tournament.list.create": "Create",
   "admin.tournament.list.empty": "No tournaments yet.",
   "admin.tournament.create.title": "Create tournament",

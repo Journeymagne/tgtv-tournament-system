@@ -34,7 +34,7 @@ function authorLink(team){
 function card(team,draft=false){
  const logo=KTModel.isLogo(team.logo)?'<img class="team-tile-logo" src="'+esc(team.logo)+'" alt="" width="96" height="96" loading="lazy">':'';
  const rename=draft||team.canRename?'<button data-rename-'+(draft?'draft':'publication')+'="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Переименовать</button>':'';
- return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div>'+logo+'<h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p>'+(!draft?'<p class="team-author">'+authorLink(team)+'</p>':'')+'<div class="team-tile-meta"><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
+ return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div>'+logo+'<h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p>'+(!draft?'<p class="team-author">'+authorLink(team)+'</p>'+root.KTReviews.summary(team.ratingSummary,team.id):'')+'<div class="team-tile-meta"><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
 }
 function syncViewLocation(){
  const hash='#/'+view;
@@ -138,7 +138,11 @@ function renderPublication(){
  $('#publication-title').textContent=project.team.name;
  $('#publication-info').textContent='Версия '+(project.team.version||'1.0')+' · опубликовано '+date(publication.updatedAt);
  $('#publication-author').innerHTML=authorLink(publication);
- $('#publication-nav').innerHTML=Object.entries(labels).map(([key,label])=>'<button data-publication-section="'+key+'" class="'+(key===publicationSection?'active':'')+'">'+label+'</button>').join('');
+ $('#publication-nav').innerHTML=Object.entries({...labels,reviews:(root.KTUI?.text('Обзоры')||'Обзоры')+' · '+(publication.ratingSummary?.count||0)}).map(([key,label])=>'<button data-publication-section="'+key+'" class="'+(key===publicationSection?'active':'')+'">'+label+'</button>').join('');
+ let reviewPanel=$('#publication-reviews');
+ if(!reviewPanel){reviewPanel=document.createElement('section');reviewPanel.id='publication-reviews';$('#publication-cards').after(reviewPanel)}
+ reviewPanel.hidden=publicationSection!=='reviews';$('#publication-cards').hidden=publicationSection==='reviews';
+ if(publicationSection==='reviews')return;
  const cards=project[publicationSection]||[],assets={...KTPageBackground.previewAssets(),'assets/paper.jpg':'assets/paper.jpg'};
  for(const card of [...project.operatives,...project.teamCards,...(project.lorePages||[]).flatMap(page=>page.images)])if(card.image)assets[card.image]=card.image;
  $('#publication-cards').dataset.section=publicationSection;
@@ -147,9 +151,23 @@ function renderPublication(){
   return '<section class="published-card"><h3>'+esc(item.name||'Пустая карточка')+'</h3>'+rendered.map((side,sideIndex)=>'<div class="physical-card '+(publicationSection==='lorePages'?'lore-page':item.kind==='operative'?'landscape':'portrait')+'">'+KTCards.inlineSVG(side.svg,'publication-'+publicationSection+'-'+index+'-'+sideIndex)+'</div>').join('')+'</section>';
  }).join(''):'<p class="community-empty">В этом разделе нет карточек.</p>';
 }
-async function openPublication(id){
- try{const result=await api('/api/library/'+encodeURIComponent(id));publication={...result,project:KTModel.validate(KTModel.migrate(result.project))};publicationSection='selectionCards';$('#publication-export-status').textContent='';renderPublication();$('#publication-dialog').showModal()}
+async function openPublication(id,section='selectionCards',focusId=null){
+ if(!root.KTReviews.canLeave())return;
+ root.KTReviews.reset();
+ try{const result=await api('/api/library/'+encodeURIComponent(id));publication={...result,project:KTModel.validate(KTModel.migrate(result.project))};publicationSection=section;$('#publication-export-status').textContent='';renderPublication();if(!$('#publication-dialog').open)$('#publication-dialog').showModal();if(section==='reviews')openReviews(focusId)}
  catch(error){adapter.toast('Не удалось открыть команду: '+error.message)}
+}
+function openReviews(focusId=null){
+ const id=publication.id;
+ const hash='#/library/'+id+'/reviews'+(focusId?'?review='+encodeURIComponent(focusId):'');
+ history.replaceState(history.state,'',location.pathname+location.search+hash);
+ void root.KTReviews.open($('#publication-reviews'),publication,value=>{
+  if(publication?.id!==id)return;
+  publication.ratingSummary=value;
+  const button=$('[data-publication-section="reviews"]');if(button)button.textContent=(root.KTUI?.text('Обзоры')||'Обзоры')+' · '+value.count;
+  const team=libraryTeams.find(item=>item.id===id);if(team)team.ratingSummary=value;
+  const tile=$('#community-list [data-open-reviews="'+id+'"]');if(tile)tile.outerHTML=root.KTReviews.summary(value,id);
+ },focusId);
 }
 async function exportPublication(button){
  if(!publication)return;
@@ -266,10 +284,11 @@ async function init(options){
   if(button.id==='cancel-delete-project')$('#delete-project-dialog').close();
   if(button.id==='review-delete-project'){$('#delete-project-dialog').close();void show('drafts')}
   if(button.dataset.openPublication)void openPublication(button.dataset.openPublication);
+  if(button.dataset.openReviews){if(publication?.id===button.dataset.openReviews&&$('#publication-dialog').open&&publicationSection==='reviews')return;void openPublication(button.dataset.openReviews,'reviews')}
   if(button.dataset.publicationExport)void exportPublication(button);
   if(button.id==='publication-dice'&&publication)root.location.href=(root.KTCompanion?.serviceUrl('dice')||'/dice')+'?team='+encodeURIComponent(publication.id);
-  if(button.id==='close-publication')$('#publication-dialog').close();
-  if(button.dataset.publicationSection){publicationSection=button.dataset.publicationSection;renderPublication()}
+  if(button.id==='close-publication'&&root.KTReviews.canLeave())$('#publication-dialog').close();
+  if(button.dataset.publicationSection&&root.KTReviews.canLeave()){root.KTReviews.reset();publicationSection=button.dataset.publicationSection;renderPublication();if(publicationSection==='reviews')openReviews();else syncViewLocation()}
   if(button.id==='library-prev'||button.id==='library-next'){offset=Math.max(0,offset+(button.id==='library-next'?30:-30));void show('library')}
  });
  let searchTimer;
@@ -277,7 +296,16 @@ async function init(options){
  $('#delete-project-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault()});
  $('#rename-project-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault()});
  $('#rename-project-form').addEventListener('submit',renameProject);
- const openLocation=()=>show(/^#\/?(editor|drafts|library)$/.exec(root.location.hash)?.[1]||'library');
+ $('#publication-dialog').addEventListener('cancel',event=>{if(!root.KTReviews.canLeave())event.preventDefault()});
+ $('#publication-dialog').addEventListener('close',()=>{root.KTReviews.reset();if(/^#\/library\//.test(location.hash))syncViewLocation()});
+ const openLocation=async()=>{
+  const match=/^#\/library\/([0-9a-f-]{36})\/reviews(?:\?(.*))?$/.exec(location.hash);
+  if(!root.KTReviews.canLeave()){if(publication)history.replaceState(history.state,'',location.pathname+location.search+'#/library/'+publication.id+'/reviews');return}
+  root.KTReviews.reset();if($('#publication-dialog').open)$('#publication-dialog').close();
+  await show(match?'library':/^#\/?(editor|drafts|library)$/.exec(root.location.hash)?.[1]||'library');
+  if(match)await openPublication(match[1],'reviews',new URLSearchParams(match[2]||'').get('review'));
+ };
+ root.addEventListener('kt:locale',()=>{if(view==='library')for(const team of libraryTeams){const tile=$('#community-list [data-open-reviews="'+team.id+'"]');if(tile)tile.outerHTML=root.KTReviews.summary(team.ratingSummary,team.id)}});
  root.addEventListener('hashchange',()=>void openLocation());
  if(!new URLSearchParams(root.location.search).has('resume'))await openLocation();
  await resume();

@@ -17,6 +17,7 @@ const account = require("./account");
 const accessManagement = require("./access-management");
 const studio = require("./studio");
 const studioTts = require("./studio-tts");
+const studioReviews = require("./studio-reviews");
 const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
 
 function withAction(handler, action) {
@@ -24,6 +25,20 @@ function withAction(handler, action) {
 }
 
 module.exports = [
+  { method:"GET", path:"/api/studio/library/:id/reviews", handler:studioReviews.list, loadUser:true },
+  { method:"GET", path:"/api/studio/library/:id/reviews/:reviewId", handler:studioReviews.get, loadUser:true },
+  { method:"POST", path:"/api/studio/library/:id/reviews", handler:studioReviews.create, auth:"user", tx:true, maxBodyBytes:32768 },
+  { method:"PATCH", path:"/api/studio/library/:id/reviews/:reviewId", handler:studioReviews.update, auth:"user", tx:true, maxBodyBytes:32768 },
+  { method:"DELETE", path:"/api/studio/library/:id/reviews/:reviewId", handler:studioReviews.remove, auth:"user", tx:true },
+  { method:"POST", path:"/api/studio/library/:id/reviews/:reviewId/reports", handler:studioReviews.report, auth:"user", tx:true },
+  { method:"GET", path:"/api/studio/review-preferences", handler:studioReviews.preferences, auth:"user" },
+  { method:"PATCH", path:"/api/studio/review-preferences", handler:studioReviews.updatePreferences, auth:"user", tx:true },
+  { method:"GET", path:"/api/studio/admin/review-reports", handler:studioReviews.reports, auth:"admin" },
+  { method:"PATCH", path:"/api/studio/admin/review-reports/:reportId", handler:studioReviews.resolve, auth:"admin", tx:true },
+  { method:"GET", path:"/api/studio/admin/library/:id/reviews", handler:studioReviews.adminList, auth:"admin" },
+  { method:"GET", path:"/api/studio/admin/library/:id/reviews/:reviewId/history", handler:studioReviews.history, auth:"admin" },
+  { method:"POST", path:"/api/studio/admin/library/:id/reviews/:reviewId/moderation", handler:studioReviews.moderate, auth:"admin", tx:true },
+  { method:"PATCH", path:"/api/studio/admin/library/:id/discussion", handler:studioReviews.lock, auth:"admin", tx:true },
   { method: "PATCH", path: "/api/admin/tournaments/:id/owner", handler: accessManagement.transferOwner, auth: "user", permission: "super", tx: true },
   { method: "GET", path: "/api/admin/audit", handler: accessManagement.auditLog, auth: "admin" },
   { method: "PATCH", path: "/api/admin/users/:id/permissions", handler: accessManagement.setPermissions, auth: "user", permission: "super", tx: true },

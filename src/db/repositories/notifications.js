@@ -231,6 +231,12 @@ async function rememberItems(client, userId, items, lastSeenAt) {
 }
 
 async function listRecent(client, userId) {
+  // A deleted reviewer/publication or a hidden review must not leave stale
+  // names or links in a recipient's remembered inbox.
+  await client.query(`DELETE FROM notification_inbox_items n WHERE n.user_id=$1 AND n.payload->>'type'='studio_review'
+    AND NOT EXISTS (SELECT 1 FROM studio_reviews r JOIN studio_projects p ON p.publication_id=r.publication_id
+      WHERE n.notification_id='studio_review:'||r.id::text AND r.deleted_at IS NULL AND r.hidden_at IS NULL
+      AND p.published IS NOT NULL AND p.deleted_at IS NULL AND p.owner_id=n.user_id AND r.author_id<>p.owner_id)`,[userId]);
   const { rows } = await client.query(
     `SELECT payload, read_at FROM notification_inbox_items
      WHERE user_id = $1

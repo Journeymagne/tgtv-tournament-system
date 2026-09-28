@@ -1,5 +1,6 @@
 const { randomUUID } = require("node:crypto");
 const { HttpError } = require("../../http/io");
+const reviews = require("./studio-reviews");
 
 function summary(row, published = false) {
   const project = published ? row.published : row.project;
@@ -40,16 +41,18 @@ async function library(client, search, offset, limit = 30, owner = null) {
     users.name AS author_name FROM studio_projects JOIN users ON users.id=studio_projects.owner_id
     WHERE ${where} ORDER BY published_at DESC, publication_id LIMIT $2 OFFSET $3`, [search, limit, offset]);
   const count = await client.query(`SELECT count(*)::int AS total FROM studio_projects WHERE ${where}`, [search]);
+  const ratings = await reviews.summaries(client, rows.map(row=>row.publication_id));
   return { teams: rows.map(row => ({ id: row.publication_id, name: row.team.name, subtitle: row.team.subtitle || "",
     version: row.team.version || "", logo: row.team.logo || "", operativeCount: row.count, accent: row.accent, updatedAt: row.published_at,
-    author: author(row), ...ownerControls(row, owner) })), total: count.rows[0].total };
+    author: author(row), ratingSummary: ratings[row.publication_id], ...ownerControls(row, owner) })), total: count.rows[0].total };
 }
 
 async function publication(client, id, owner = null) {
   const { rows } = await client.query(`SELECT studio_projects.*, users.name AS author_name FROM studio_projects
     JOIN users ON users.id=studio_projects.owner_id
     WHERE publication_id=$1 AND published IS NOT NULL AND studio_projects.deleted_at IS NULL`, [id]);
-  return rows[0] ? { ...summary(rows[0], true), project: rows[0].published, author: author(rows[0]), ...ownerControls(rows[0], owner) } : null;
+  return rows[0] ? { ...summary(rows[0], true), project: rows[0].published, author: author(rows[0]), publishedRevision: rows[0].published_revision,
+    ratingSummary: (await reviews.summaries(client,[id]))[id], ...ownerControls(rows[0], owner) } : null;
 }
 
 async function rename(client, owner, id, name, revision) {
@@ -86,14 +89,14 @@ async function save(client, owner, project, revision, publish, recoveryId) {
   }
   const now = new Date().toISOString();
   const { rows: saved } = await client.query(`INSERT INTO studio_projects
-    (owner_id, project_id, project, revision, updated_at, publication_id, published, published_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (owner_id,project_id) DO UPDATE SET
+    (owner_id, project_id, project, revision, updated_at, publication_id, published, published_at, published_revision)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (owner_id,project_id) DO UPDATE SET
     project=EXCLUDED.project, revision=EXCLUDED.revision, updated_at=EXCLUDED.updated_at,
-    publication_id=EXCLUDED.publication_id, published=EXCLUDED.published, published_at=EXCLUDED.published_at
+    publication_id=EXCLUDED.publication_id, published=EXCLUDED.published, published_at=EXCLUDED.published_at, published_revision=EXCLUDED.published_revision
     RETURNING *`, [owner, project.team.id, project, revision + 1, now,
     previous?.publication_id || (publish ? randomUUID() : null),
     publish ? project : previous?.published || null,
-    publish ? now : previous?.published_at || null]);
+    publish ? now : previous?.published_at || null, (previous?.published_revision || 0) + (publish ? 1 : 0)]);
   return summary(saved[0]);
 }
 
@@ -104,12 +107,17 @@ async function deletedIds(client, owner) {
 
 async function remove(client, owner, id, revision) {
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["studio:" + owner + ":" + id]);
-  const { rows } = await client.query("SELECT revision, deleted_at FROM studio_projects WHERE owner_id=$1 AND project_id=$2", [owner, id]);
+  const { rows } = await client.query("SELECT revision, deleted_at, publication_id FROM studio_projects WHERE owner_id=$1 AND project_id=$2 FOR UPDATE", [owner, id]);
   const previous = rows[0];
   if (previous?.deleted_at) return { id, deleted: true };
   if (!previous && revision > 0) throw new HttpError(404, "Команда не найдена.");
   if ((previous?.revision || 0) !== revision) throw new HttpError(409, "Команда изменена в другой вкладке. Обновите список черновиков и проверьте её перед удалением.");
   await client.query("DELETE FROM studio_tts_exports WHERE owner_id=$1 AND project_id=$2", [owner, id]);
+  if (previous?.publication_id) {
+    await client.query("DELETE FROM notification_inbox_items WHERE payload->>'type'='studio_review' AND payload->>'href' LIKE $1",["/studio#/library/"+previous.publication_id+"/%"]);
+    await client.query("DELETE FROM studio_reviews WHERE publication_id=$1",[previous.publication_id]);
+    await client.query("DELETE FROM studio_discussion_state WHERE publication_id=$1",[previous.publication_id]);
+  }
   // Also protects local-only drafts whose first upload has not completed yet.
   await client.query(`INSERT INTO studio_projects (owner_id, project_id, project, revision, deleted_at)
     VALUES ($1,$2,'{}'::jsonb,1,NOW()) ON CONFLICT (owner_id,project_id) DO UPDATE SET

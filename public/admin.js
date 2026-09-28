@@ -343,9 +343,7 @@ function adminTournamentsPanel() {
         </div>
         ${state.me?.capabilities?.canCreateTournaments ? `<button class="primary-button" data-admin-tournament-new>${t("admin.tournament.list.create")}</button>` : ""}
       </div>
-      <div class="list admin-tournament-list">
-        ${tournaments.length ? tournaments.map(adminTournamentRow).join("") : `<div class="empty">${t("admin.tournament.list.empty")}</div>`}
-      </div>
+      ${tournamentListSections(tournaments, { admin: true, renderCard: adminTournamentRow })}
       <div class="message" data-message></div>
     </section>
   `;

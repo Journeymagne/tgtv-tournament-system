@@ -20,7 +20,7 @@ async function list({ client, user }) {
 async function markRead({ client, user, body }) {
   if (Object.hasOwn(body, "id")) {
     if (typeof body.id !== "string" || body.id.length > 100 ||
-        !/^(game_challenge|team_invitation|tournament_started|tournament_pairing|team_tournament_pairing):[1-9]\d*$/.test(body.id)) {
+        !/^(?:(game_challenge|team_invitation|tournament_started|tournament_pairing|team_tournament_pairing):[1-9]\d*|studio_review:[0-9a-f-]{36})$/.test(body.id)) {
       throw new ValidationError("Choose a valid notification");
     }
     const item = await notificationsRepo.markItemRead(client, user.id, body.id);

@@ -198,7 +198,7 @@ function createRouter(routes, deps) {
     } catch (err) {
       if (err instanceof HttpError) {
         status = err.status;
-        sendJson(res, err.status, { error: err.message });
+        sendJson(res, err.status, { error: err.message }, err.headers || {});
       } else {
         status = 500;
         logError(`unhandled error on ${method} ${pathname}`, err);

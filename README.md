@@ -12,7 +12,23 @@ with a shared account. The header logo opens the service selector; the service
 name opens its start page (Studio library or tournament My Games).
 Sun and moon buttons select a shared light or dark theme.
 
+Published teams also have [reviews and ratings](docs/studio-reviews.md): Theme,
+Balance and Lore scores, library averages, editable reviews and administrator
+moderation. Startup migrations **039_studio_reviews** and
+**040_studio_review_versions** store reviews and ratings by team version.
+
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
+
+## Release 4.9.6
+
+Tournament administration groups ongoing, future and ended tournaments, including
+drafts under future events. Studio publications support reviews, Theme/Balance/Lore
+ratings, author notifications and administrator moderation. Reviews retain their
+publication revision when teams are updated, with current-version and all-version
+rating summaries. Startup migrations **039_studio_reviews** and
+**040_studio_review_versions** add reviews and rating history; no additional
+environment variables are required. See [Studio reviews](docs/studio-reviews.md)
+and [the changelog](CHANGELOG.md) for details.
 
 ## Release 4.9.5
 

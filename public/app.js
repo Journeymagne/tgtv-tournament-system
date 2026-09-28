@@ -858,6 +858,7 @@ function profileInfoMarkup(user) {
 }
 
 function notificationIcon(type) {
+  if (type === "studio_review") return "★";
   if (type === "tournament_started") return "▶";
   if (type === "game_challenge") return "⚔";
   if (type === "team_invitation") return "+";
@@ -866,6 +867,7 @@ function notificationIcon(type) {
 }
 
 function notificationTitle(item) {
+  if (item.type === "studio_review") return (document.documentElement.lang === "en" ? "New review: " : "Новый обзор: ") + (item.teamName || "");
   if (item.type === "tournament_started") return t("notifications.tournamentStarted.title", { tournament: item.tournament?.name || "" });
   const unknown = t("notifications.unknownPlayer");
   if (item.type === "game_challenge") {
@@ -884,6 +886,7 @@ function notificationTitle(item) {
 }
 
 function notificationMetadata(item) {
+  if (item.type === "studio_review") return item.authorName || "";
   const parts = [];
   if (item.opponent?.name) parts.push(t("notifications.opponent", { name: item.opponent.name }));
   if (item.opponentTeam?.name) parts.push(t("notifications.opponentTeam", { name: item.opponentTeam.name }));
@@ -1031,6 +1034,10 @@ async function openNotificationItem(item) {
   if (item.unread && !await markNotificationRead(item)) return;
   state.notificationsOpen = false;
   renderNotificationControl();
+  if (item.type === "studio_review" && /^\/studio#\/library\/[0-9a-f-]{36}\/reviews\?review=[0-9a-f-]{36}$/.test(item.href || "")) {
+    location.href = item.href;
+    return;
+  }
   if (item.type === "tournament_started") {
     navigateToPublicTournament(item.tournament.slug, { tab: "matches", force: true });
     return;
@@ -2856,7 +2863,7 @@ function renderTournaments(live = false) {
         </div>
       </div>
       ${state.tournamentsError ? `<div class="empty">${escapeHtml(state.tournamentsError)}</div>` : `
-        ${publicTournamentSections(tournaments)}
+        ${tournamentListSections(tournaments)}
       `}
       </section>
     `}
@@ -2876,14 +2883,14 @@ function renderTournaments(live = false) {
   liveRefresh.schedule();
 }
 
-function publicTournamentSections(tournaments) {
-  if (!tournaments.length) return `<div class="empty">${t("tournaments.list.empty")}</div>`;
+function tournamentListSections(tournaments, { admin = false, renderCard = publicTournamentCard } = {}) {
+  if (!tournaments.length) return `<div class="empty">${t(admin ? "admin.tournament.list.empty" : "tournaments.list.empty")}</div>`;
   const sections = [
     { title: t("tournaments.section.ongoing"), items: tournaments.filter((tournament) => tournament.status === "in_progress") },
     {
       title: t("tournaments.section.future"),
       items: tournaments.filter((tournament) =>
-        ["registration_open", "registration_closed"].includes(tournament.status)
+        ["registration_open", "registration_closed"].includes(tournament.status) || (admin && tournament.status === "draft")
       )
     },
     {
@@ -2899,8 +2906,8 @@ function publicTournamentSections(tournaments) {
             <h3>${escapeHtml(section.title)}</h3>
             <span>${section.items.length}</span>
           </div>
-          <div class="list tournament-card-list">
-            ${section.items.length ? section.items.map(publicTournamentCard).join("") : `<div class="empty compact-empty">${t("tournaments.section.empty")}</div>`}
+          <div class="list ${admin ? "admin-tournament-list" : "tournament-card-list"}">
+            ${section.items.length ? section.items.map(renderCard).join("") : `<div class="empty compact-empty">${t("tournaments.section.empty")}</div>`}
           </div>
         </section>
       `).join("")}

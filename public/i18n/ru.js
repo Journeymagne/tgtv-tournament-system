@@ -663,7 +663,7 @@ const TGTV_I18N_RU = {
 
   // -- admin --------------------------------------------------------------
   "admin.action.open": "Открыть",
-  "admin.tournament.list.hint": "Текущие турниры.",
+  "admin.tournament.list.hint": "Текущие, будущие и прошлые турниры.",
   "admin.tournament.list.create": "Создать",
   "admin.tournament.list.empty": "Пока нет турниров.",
   "admin.tournament.create.title": "Создать турнир",

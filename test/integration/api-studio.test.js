@@ -9,6 +9,7 @@ const { sendStatic } = require("../../src/http/static");
 const { loadUserFromRequest } = require("../../src/api/auth");
 const routes = require("../../src/api/routes");
 const model = require("../../public/studio/model");
+const { randomUUID } = require("node:crypto");
 
 let pool, server, origin;
 test.before(async () => {
@@ -48,6 +49,103 @@ const save = (user, project, revision = 0, publish = false, headers = {}) => req
   "/api/studio/drafts/" + project.team.id + (publish ? "/publish" : ""), user,
   { method: publish ? "POST" : "PUT", body: { project, revision }, headers }
 );
+
+const reviewBody = (overrides = {}) => ({ body: "Thoughtful review", themeScore: 4, balanceScore: 3,
+  loreScore: 5, clientRequestId: randomUUID(), ...overrides });
+async function ageReviewWrites(user) {
+  await pool.query("UPDATE studio_review_audit SET created_at=NOW()-INTERVAL '20 seconds' WHERE actor_id=$1", [user.id]);
+}
+
+test("Studio reviews enforce identity, ownership and one vote, with idempotent notifications", async () => {
+  const owner = await account("Owner"), reviewer = await account("Reviewer"), outsider = await account("Outsider");
+  const publication = (await save(owner, model.newProject("review-team", "Review team"), 0, true)).body.publicationId;
+  const path = `/api/studio/library/${publication}/reviews`, body = reviewBody();
+  const empty = (await request(path)).body;
+  assert.equal(empty.ratingSummary.count, 0);
+  assert.equal(empty.ratingSummary.overallAverage, null);
+  for (const [actor, options, status] of [
+    [null, {}, 401], [owner, {}, 403], [{ ...reviewer, csrf: "bad" }, {}, 403],
+    [{ ...reviewer, id: owner.id }, {}, 401], [reviewer, { headers: { Origin: "https://other.invalid" } }, 403]
+  ]) assert.equal((await request(path, actor, { method: "POST", body, ...options })).status, status);
+  assert.equal((await request(path, reviewer, { method: "POST", body: { ...body, themeScore: 6 } })).status, 400);
+  const created = await request(path, reviewer, { method: "POST", body });
+  assert.equal(created.status, 200);
+  assert.equal(created.body.ratingSummary.overallAverage, 4);
+  const retried = await request(path, reviewer, { method: "POST", body });
+  assert.equal(retried.body.id, created.body.id);
+  assert.equal((await request(path, reviewer, { method: "POST", body: reviewBody() })).status, 409);
+  const list = (await request(path)).body;
+  assert.equal(list.items.length, 1);
+  assert.equal(list.items[0].body, body.body);
+  assert.equal((await request(path + '/' + created.body.id, outsider, { method: "PATCH", body: { ...body, revision: 1 } })).status, 403);
+  const notifications = (await request('/api/notifications', owner)).body;
+  assert.equal(notifications.items.filter(item => item.id === `studio_review:${created.body.id}`).length, 1);
+  assert.equal((await request('/api/notifications/read', owner, { method: "POST", body: { id: `studio_review:${created.body.id}` } })).status, 200);
+});
+
+test("review edits replace ratings, track republished versions and respect rate limits", async () => {
+  const owner = await account("Owner"), reviewer = await account("Reviewer");
+  const project = model.newProject("versioned-reviews", "Versioned team");
+  const publication = (await save(owner, project, 0, true)).body.publicationId;
+  const path = `/api/studio/library/${publication}/reviews`, body = reviewBody();
+  const created = (await request(path, reviewer, { method: "POST", body })).body;
+  const itemPath = path + '/' + created.id;
+  const edited = { ...body, revision: 1, themeScore: 5, balanceScore: 5, loreScore: 5, reevaluate: true };
+  const limited = await request(itemPath, reviewer, { method: "PATCH", body: edited });
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get('retry-after')) > 0);
+  project.team.version = "2.0";
+  assert.equal((await save(owner, project, 1, true)).status, 200);
+  assert.equal((await request(itemPath)).body.previousVersion, true);
+  const newVersion = (await request(path)).body.ratingSummary;
+  assert.equal(newVersion.currentVersion.count, 0);
+  assert.equal(newVersion.currentVersion.overallAverage, null);
+  assert.equal(newVersion.overall.overallAverage, 4);
+  await ageReviewWrites(reviewer);
+  const updated = await request(itemPath, reviewer, { method: "PATCH", body: edited });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.body.ratingSummary.count, 1);
+  assert.equal(updated.body.ratingSummary.currentVersion.overallAverage, 5);
+  assert.equal(updated.body.ratingSummary.overall.overallAverage, 4.5);
+  assert.equal(updated.body.ratingSummary.overall.count, 2);
+  const detail = (await request(itemPath)).body;
+  assert.equal(detail.versionLabel, '2.0');
+  assert.equal(detail.previousVersion, false);
+  assert.equal(detail.versionRatings.length, 2);
+  assert.equal((await request(itemPath, reviewer, { method: "PATCH", body: edited })).status, 409);
+  await ageReviewWrites(reviewer);
+  assert.equal((await request(itemPath, reviewer, { method: "DELETE", body: { revision: 2 } })).status, 200);
+  assert.equal((await request(path)).body.ratingSummary.overallAverage, null);
+  assert.equal((await request('/api/studio/library')).body.teams[0].ratingSummary.count, 0);
+});
+
+test("review moderation hides votes, resolves reports and locks discussion without blocking deletion", async () => {
+  const owner = await account("Owner"), reviewer = await account("Reviewer"), reporter = await account("Reporter");
+  await pool.query('UPDATE users SET is_admin=TRUE WHERE id=$1', [owner.id]);
+  const publication = (await save(owner, model.newProject("moderated-reviews", "Moderated team"), 0, true)).body.publicationId;
+  const path = `/api/studio/library/${publication}/reviews`, body = reviewBody();
+  const created = (await request(path, reviewer, { method: "POST", body })).body;
+  const itemPath = path + '/' + created.id, adminPath = `/api/studio/admin/library/${publication}`;
+  assert.equal((await request(adminPath + '/reviews', reporter)).status, 403);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    assert.equal((await request(itemPath + '/reports', reporter, { method: 'POST', body: { reason: 'spam', details: 'Please review' } })).status, 200);
+  }
+  assert.equal((await request('/api/studio/admin/review-reports', owner)).body.items.length, 1);
+  const moderation = adminPath + '/reviews/' + created.id + '/moderation';
+  assert.equal((await request(moderation, owner, { method: 'POST', body: { hidden: true, revision: 1, reason: 'Spam' } })).status, 200);
+  assert.equal((await request(path)).body.ratingSummary.count, 0);
+  assert.equal((await request(itemPath)).status, 404);
+  assert.equal((await request(path, reviewer)).body.myReview.body, null);
+  assert.equal((await request(itemPath, reviewer, { method: 'PATCH', body: { ...body, revision: 2 } })).status, 403);
+  assert.equal((await request(path, reviewer, { method: 'POST', body: reviewBody() })).status, 409);
+  assert.equal((await request('/api/studio/admin/review-reports', owner)).body.items.length, 0);
+  assert.equal((await request(moderation, owner, { method: 'POST', body: { hidden: false, revision: 2, reason: 'Reviewed' } })).status, 200);
+  assert.equal((await request(path)).body.ratingSummary.count, 1);
+  assert.equal((await request(adminPath + '/discussion', owner, { method: 'PATCH', body: { locked: true, reason: 'Closed' } })).status, 200);
+  assert.equal((await request(path, reporter, { method: 'POST', body: reviewBody() })).status, 403);
+  await ageReviewWrites(reviewer);
+  assert.equal((await request(itemPath, reviewer, { method: 'DELETE', body: { revision: 3 } })).status, 200);
+});
 
 test("Studio and the library are public; personal drafts and mutations require a session", async () => {
   for (const path of ["/", "/initiative", "/tracker", "/tournament", "/studio"]) {
