@@ -1,6 +1,7 @@
 const { randomUUID } = require("node:crypto");
 const { HttpError } = require("../../http/io");
 const reviews = require("./studio-reviews");
+const comments = require("./studio-comments");
 
 function summary(row, published = false) {
   const project = published ? row.published : row.project;
@@ -42,9 +43,10 @@ async function library(client, search, offset, limit = 30, owner = null) {
     WHERE ${where} ORDER BY published_at DESC, publication_id LIMIT $2 OFFSET $3`, [search, limit, offset]);
   const count = await client.query(`SELECT count(*)::int AS total FROM studio_projects WHERE ${where}`, [search]);
   const ratings = await reviews.summaries(client, rows.map(row=>row.publication_id));
+  const commentCounts = await comments.counts(client, rows.map(row=>row.publication_id));
   return { teams: rows.map(row => ({ id: row.publication_id, name: row.team.name, subtitle: row.team.subtitle || "",
     version: row.team.version || "", logo: row.team.logo || "", operativeCount: row.count, accent: row.accent, updatedAt: row.published_at,
-    author: author(row), ratingSummary: ratings[row.publication_id], ...ownerControls(row, owner) })), total: count.rows[0].total };
+    author: author(row), ratingSummary: ratings[row.publication_id], commentCount:commentCounts[row.publication_id]||0, ...ownerControls(row, owner) })), total: count.rows[0].total };
 }
 
 async function publication(client, id, owner = null) {
@@ -52,7 +54,7 @@ async function publication(client, id, owner = null) {
     JOIN users ON users.id=studio_projects.owner_id
     WHERE publication_id=$1 AND published IS NOT NULL AND studio_projects.deleted_at IS NULL`, [id]);
   return rows[0] ? { ...summary(rows[0], true), project: rows[0].published, author: author(rows[0]), publishedRevision: rows[0].published_revision,
-    ratingSummary: (await reviews.summaries(client,[id]))[id], ...ownerControls(rows[0], owner) } : null;
+    ratingSummary: (await reviews.summaries(client,[id]))[id], commentCount:(await comments.counts(client,[id]))[id]||0, ...ownerControls(rows[0], owner) } : null;
 }
 
 async function rename(client, owner, id, name, revision) {
@@ -114,7 +116,8 @@ async function remove(client, owner, id, revision) {
   if ((previous?.revision || 0) !== revision) throw new HttpError(409, "Команда изменена в другой вкладке. Обновите список черновиков и проверьте её перед удалением.");
   await client.query("DELETE FROM studio_tts_exports WHERE owner_id=$1 AND project_id=$2", [owner, id]);
   if (previous?.publication_id) {
-    await client.query("DELETE FROM notification_inbox_items WHERE payload->>'type'='studio_review' AND payload->>'href' LIKE $1",["/studio#/library/"+previous.publication_id+"/%"]);
+    await client.query("DELETE FROM notification_inbox_items WHERE payload->>'type' IN ('studio_review','studio_comment') AND payload->>'href' LIKE $1",["/studio#/library/"+previous.publication_id+"/%"]);
+    await client.query("DELETE FROM studio_comments WHERE publication_id=$1",[previous.publication_id]);
     await client.query("DELETE FROM studio_reviews WHERE publication_id=$1",[previous.publication_id]);
     await client.query("DELETE FROM studio_discussion_state WHERE publication_id=$1",[previous.publication_id]);
   }

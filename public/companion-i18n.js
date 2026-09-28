@@ -15,7 +15,7 @@
     ["Эта ссылка загружает набор через блок импортёра. В поле Image нужна PNG-ссылка выше.", "This link loads the pack through the importer block. The Image field needs the PNG link above."],
     ["Копировать ссылку набора", "Copy pack link"], ["Открыть экспорт", "Open export"],
     ["Кубик готов. Выбери PNG для Custom Dice или импорт всего набора.", "Die ready. Choose PNG for Custom Dice or import the whole pack."],
-    ["Обзоры", "Reviews"], ["Dice Generator", "Dice Generator"], ["Кубик с логотипом", "Die with team logo"],
+    ["Обсуждение", "Discussion"], ["Обзоры", "Reviews"], ["Dice Generator", "Dice Generator"], ["Кубик с логотипом", "Die with team logo"],
     ["Соберите кубик с логотипом команды, выберите цвета и импортируйте его в Tabletop Simulator.", "Build a die with your team logo, choose its colors and import it into Tabletop Simulator."],
     ["← Все инструменты", "← All tools"], ["Custom Dice", "Custom Dice"],
     ["Настрой D6, добавь логотип и перенеси кубик на стол.", "Customize a D6, add a logo and bring it to the table."],

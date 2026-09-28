@@ -858,6 +858,7 @@ function profileInfoMarkup(user) {
 }
 
 function notificationIcon(type) {
+  if (type === "studio_comment") return "☏";
   if (type === "studio_review") return "★";
   if (type === "tournament_started") return "▶";
   if (type === "game_challenge") return "⚔";
@@ -867,6 +868,7 @@ function notificationIcon(type) {
 }
 
 function notificationTitle(item) {
+  if (item.type === "studio_comment") return (document.documentElement.lang === "en" ? (item.isReply ? "New reply: " : "New question: ") : (item.isReply ? "Новый ответ: " : "Новый вопрос: ")) + (item.teamName || "");
   if (item.type === "studio_review") return (document.documentElement.lang === "en" ? "New review: " : "Новый обзор: ") + (item.teamName || "");
   if (item.type === "tournament_started") return t("notifications.tournamentStarted.title", { tournament: item.tournament?.name || "" });
   const unknown = t("notifications.unknownPlayer");
@@ -886,6 +888,7 @@ function notificationTitle(item) {
 }
 
 function notificationMetadata(item) {
+  if (item.type === "studio_comment") return [item.authorName,item.excerpt].filter(Boolean).join(" · ");
   if (item.type === "studio_review") return item.authorName || "";
   const parts = [];
   if (item.opponent?.name) parts.push(t("notifications.opponent", { name: item.opponent.name }));
@@ -1034,6 +1037,10 @@ async function openNotificationItem(item) {
   if (item.unread && !await markNotificationRead(item)) return;
   state.notificationsOpen = false;
   renderNotificationControl();
+  if (item.type === "studio_comment" && /^\/studio#\/library\/[0-9a-f-]{36}\/discussion\?comment=[0-9a-f-]{36}$/.test(item.href || "")) {
+    location.href = item.href;
+    return;
+  }
   if (item.type === "studio_review" && /^\/studio#\/library\/[0-9a-f-]{36}\/reviews\?review=[0-9a-f-]{36}$/.test(item.href || "")) {
     location.href = item.href;
     return;

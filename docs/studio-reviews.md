@@ -4,8 +4,8 @@ Published teams have a Reviews tab and a rating summary on each library tile.
 Reviews require an authenticated, active account, text (1–5000 characters) and
 integer scores from 1 to 5 for Theme, Balance and Lore. The publication owner
 cannot review their own team. A user has one non-deleted review per publication,
-including a review hidden by moderation. Ordinary threaded comments are a
-separate feature and are not implemented by this change.
+including a review hidden by moderation. Questions without ratings are available
+in the adjacent [Discussion tab](studio-discussion.md).
 
 Library tiles show two sets of category averages and an equally weighted overall
 score: the current author-defined version and all versions. They are computed without

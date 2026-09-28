@@ -16,8 +16,20 @@ Published teams also have [reviews and ratings](docs/studio-reviews.md): Theme,
 Balance and Lore scores, library averages, editable reviews and administrator
 moderation. Startup migrations **039_studio_reviews** and
 **040_studio_review_versions** store reviews and ratings by team version.
+The adjacent [Discussion tab](docs/studio-discussion.md) supports questions and
+threaded replies without ratings, author notifications and moderation. Startup
+migration **041_studio_comments** stores comments, reports and audit history.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
+
+## Release 4.9.6-3
+
+Studio publications have a Discussion tab beside Reviews for questions and
+threaded replies without ratings. Team authors have a badge and receive in-app
+notifications; reply recipients can open the exact message from their inbox.
+Comments support editing, deletion, reports and administrator moderation, with
+a counter in the library. Startup migration **041_studio_comments** adds comments,
+reports and audit history. No new environment variables are required.
 
 ## Release 4.9.6-2
 

@@ -143,5 +143,5 @@ document.addEventListener('click',async event=>{
 });
 root.addEventListener('beforeunload',event=>{if(dirty()||working){event.preventDefault();event.returnValue=''}});
 root.addEventListener('kt:locale',()=>{if(host&&data&&!reportMode){updateSummary(data.ratingSummary);render()}});
-root.KTReviews={open,summary,canLeave,reset};
+root.KTReviews={open,summary,canLeave,reset,transport:{identity,request},reasonDialog};
 })(window);

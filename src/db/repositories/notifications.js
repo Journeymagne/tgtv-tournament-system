@@ -231,6 +231,12 @@ async function rememberItems(client, userId, items, lastSeenAt) {
 }
 
 async function listRecent(client, userId) {
+  await client.query(`DELETE FROM notification_inbox_items n WHERE n.user_id=$1 AND n.payload->>'type'='studio_comment'
+    AND NOT EXISTS(SELECT 1 FROM studio_comments c JOIN studio_projects p USING(publication_id)
+      WHERE n.notification_id='studio_comment:'||c.id::text AND c.deleted_at IS NULL AND c.hidden_at IS NULL
+      AND p.deleted_at IS NULL AND p.published IS NOT NULL)`,[userId]);
+  await client.query(`UPDATE notification_inbox_items n SET payload=jsonb_set(n.payload,'{authorName}',to_jsonb('Удалённый пользователь'::text))
+    FROM studio_comments c WHERE n.user_id=$1 AND n.notification_id='studio_comment:'||c.id::text AND c.author_id IS NULL`,[userId]);
   // A deleted reviewer/publication or a hidden review must not leave stale
   // names or links in a recipient's remembered inbox.
   await client.query(`DELETE FROM notification_inbox_items n WHERE n.user_id=$1 AND n.payload->>'type'='studio_review'

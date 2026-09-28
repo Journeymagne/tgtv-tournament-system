@@ -38,7 +38,8 @@ const MIGRATIONS = [
   require("./migrations/037_access_roles"),
   require("./migrations/038_journey_platform_owner"),
   require("./migrations/039_studio_reviews"),
-  require("./migrations/040_studio_review_versions")
+  require("./migrations/040_studio_review_versions"),
+  require("./migrations/041_studio_comments")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

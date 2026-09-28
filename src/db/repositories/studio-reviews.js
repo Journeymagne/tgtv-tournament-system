@@ -88,7 +88,9 @@ async function rate(client, actor, reporting = false) {
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["studio-reviews-user:"+actor]);
   const actions = reporting ? ["report"] : ["create","update","delete"];
   const { rows: [row] } = await client.query(`SELECT count(*)::int AS count,
-    EXTRACT(EPOCH FROM (NOW()-MAX(created_at)))::float8 AS age FROM studio_review_audit
+    EXTRACT(EPOCH FROM (NOW()-MAX(created_at)))::float8 AS age FROM
+    (SELECT actor_id,action,created_at FROM studio_review_audit UNION ALL
+     SELECT actor_id,action,created_at FROM studio_comment_audit) activity
     WHERE actor_id=$1 AND action=ANY($2::text[]) AND created_at>NOW()-INTERVAL '1 hour'`,[actor,actions]);
   if (row.count >= (reporting ? 10 : 30) || (!reporting && row.age !== null && row.age < 10)) {
     const error = new HttpError(429,"Слишком часто. Подождите перед повторной отправкой.");
@@ -220,4 +222,4 @@ async function preferences(client,user,enabled) {
   const {rows:[row]}=await client.query("SELECT notifications FROM studio_review_preferences WHERE user_id=$1",[user.id]);
   return { notifications:row?.notifications ?? true };
 }
-module.exports={summaries,publication,list,get,create,change,report,moderate,adminList,reports,resolve,history,lock,preferences};
+module.exports={summaries,publication,list,get,create,change,report,moderate,adminList,reports,resolve,history,lock,preferences,rate};

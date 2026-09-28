@@ -18,6 +18,7 @@ const accessManagement = require("./access-management");
 const studio = require("./studio");
 const studioTts = require("./studio-tts");
 const studioReviews = require("./studio-reviews");
+const studioComments = require("./studio-comments");
 const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
 
 function withAction(handler, action) {
@@ -25,6 +26,20 @@ function withAction(handler, action) {
 }
 
 module.exports = [
+  { method:"GET", path:"/api/studio/library/:id/comments", handler:studioComments.list, loadUser:true },
+  { method:"GET", path:"/api/studio/library/:id/comments/:commentId/context", handler:studioComments.context, loadUser:true },
+  { method:"GET", path:"/api/studio/library/:id/comments/:commentId/replies", handler:studioComments.replies, loadUser:true },
+  { method:"POST", path:"/api/studio/library/:id/comments", handler:studioComments.create, auth:"user", tx:true, maxBodyBytes:16384 },
+  { method:"PATCH", path:"/api/studio/library/:id/comments/:commentId", handler:studioComments.update, auth:"user", tx:true, maxBodyBytes:16384 },
+  { method:"DELETE", path:"/api/studio/library/:id/comments/:commentId", handler:studioComments.remove, auth:"user", tx:true },
+  { method:"POST", path:"/api/studio/library/:id/comments/:commentId/reports", handler:studioComments.report, auth:"user", tx:true },
+  { method:"GET", path:"/api/studio/admin/library/:id/comments", handler:studioComments.adminList, auth:"admin" },
+  { method:"GET", path:"/api/studio/admin/library/:id/comments/:commentId/replies", handler:studioComments.adminReplies, auth:"admin" },
+  { method:"GET", path:"/api/studio/admin/library/:id/comments/:commentId/context", handler:studioComments.adminContext, auth:"admin" },
+  { method:"GET", path:"/api/studio/admin/library/:id/comments/:commentId/history", handler:studioComments.history, auth:"admin" },
+  { method:"POST", path:"/api/studio/admin/library/:id/comments/:commentId/moderation", handler:studioComments.moderate, auth:"admin", tx:true },
+  { method:"GET", path:"/api/studio/admin/comment-reports", handler:studioComments.reports, auth:"admin" },
+  { method:"PATCH", path:"/api/studio/admin/comment-reports/:reportId", handler:studioComments.resolve, auth:"admin", tx:true },
   { method:"GET", path:"/api/studio/library/:id/reviews", handler:studioReviews.list, loadUser:true },
   { method:"GET", path:"/api/studio/library/:id/reviews/:reviewId", handler:studioReviews.get, loadUser:true },
   { method:"POST", path:"/api/studio/library/:id/reviews", handler:studioReviews.create, auth:"user", tx:true, maxBodyBytes:32768 },

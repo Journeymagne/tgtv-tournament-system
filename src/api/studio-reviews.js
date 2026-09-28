@@ -3,7 +3,7 @@ const { checkWrite } = require("./studio");
 const store = require("../db/repositories/studio-reviews");
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function ids(ctx) {
-  for (const key of ["id","reviewId","reportId"]) if(ctx.params[key] && !UUID.test(ctx.params[key])) throw new HttpError(404,"Объект не найден.");
+  for (const key of ["id","reviewId","commentId","reportId"]) if(ctx.params[key] && !UUID.test(ctx.params[key])) throw new HttpError(404,"Объект не найден.");
 }
 function cursor(ctx) {
   const value=ctx.query.get("cursor");
@@ -16,7 +16,7 @@ function cursor(ctx) {
   } catch { throw new HttpError(400,"Некорректная страница."); }
 }
 function revision(body) {
-  if(!Number.isSafeInteger(body.revision)||body.revision<1) throw new HttpError(400,"Некорректная ревизия обзора.");
+  if(!Number.isSafeInteger(body.revision)||body.revision<1) throw new HttpError(400,"Некорректная ревизия.");
 }
 function text(value,max) {
   if(typeof value!=="string"||!value.trim()||value.trim().length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value)) throw new HttpError(400,"Проверьте текст и его длину.");
@@ -32,6 +32,7 @@ function review(body) {
 const read = fn => async ctx => { ids(ctx); return {body:await fn(ctx),headers:{"Cache-Control":"no-store"}}; };
 const write = fn => async ctx => { ids(ctx); checkWrite(ctx); return fn(ctx); };
 module.exports={
+  validation:{UUID,cursor,revision,text,read,write},
   list:read(ctx=>store.list(ctx.client,ctx.params.id,ctx.user,cursor(ctx))),
   get:read(ctx=>store.get(ctx.client,ctx.params.id,ctx.params.reviewId,ctx.user)),
   create:write(ctx=>{const input=review(ctx.body);if(!UUID.test(input.clientRequestId||""))throw new HttpError(400,"Некорректный идентификатор запроса.");return store.create(ctx.client,ctx.params.id,ctx.user,input)}),
