@@ -81,6 +81,10 @@ function fakeClient(options = {}) {
         }
         return { rows: [] };
       }
+      // These fixtures contain no Studio review notifications to prune.
+      if (sql.includes("DELETE FROM notification_inbox_items n") && sql.includes("n.payload->>'type'='studio_review'")) {
+        return { rows: [] };
+      }
       if (sql.includes("SELECT payload, read_at FROM notification_inbox_items")) {
         return { rows: [...stored.values()].sort((a, b) => b.payload.createdAt.localeCompare(a.payload.createdAt) || b.payload.id.localeCompare(a.payload.id)).slice(0, 5) };
       }
