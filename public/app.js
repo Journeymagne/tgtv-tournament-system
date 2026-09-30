@@ -1716,7 +1716,7 @@ function preserveTeamPairingDrafts() {
   const logPositions = [...document.querySelectorAll("[data-team-pairing-log-list]")].map(list => ({ top: list.scrollTop, height: list.scrollHeight }));
   const expandedDetails = new Set([...document.querySelectorAll("[data-team-pairing-details][open]")]
     .map((details) => details.dataset.teamPairingDetails));
-  const key = (form) => `${form.dataset.teamMatchId || form.dataset.teamPairingsOverride}:${form.dataset.teamPairingForm || "override"}:${form.dataset.side || ""}:${form.dataset.step || form.dataset.rollRound || form.dataset.pairingPhase || ""}`;
+  const key = (form) => `${form.dataset.teamMatchId || form.dataset.teamPairingsOverride}:${form.dataset.teamPairingForm || "override"}:${form.dataset.kind || ""}:${form.dataset.side || ""}:${form.dataset.step || form.dataset.rollRound || form.dataset.pairingPhase || ""}`;
   const drafts = new Map([...document.querySelectorAll("[data-team-pairing-form], [data-team-pairings-override]")].map((form) =>
     [key(form), [...form.querySelectorAll("select[name], input[name]")].map((input) => [input.name, input.value])]));
   return () => {
@@ -2328,7 +2328,7 @@ function tournamentFormatSummary(tournament) {
   return [
     t("tournaments.participantMode.team"),
     t("tournaments.teamVariant.teamsOfThree"),
-    t("tournaments.pairingType.shieldSword")
+    t(tournament.pairingType === "sword_shield_classic" ? "classic.name" : "tournaments.pairingType.shieldSword")
   ].join(" · ");
 }
 
@@ -3548,11 +3548,11 @@ function teamPairingCard(pairing) {
   const own = pairing.captainSide === "a" ? pairing.rosterA : pairing.rosterB;
   const opponent = pairing.captainSide === "a" ? pairing.rosterB : pairing.rosterA;
   const progress = pairing.progress || { completed: 0, total: 3, gpA: 0, gpB: 0 };
-  const status = pairing.phase === "in_progress" ? t("teams.results.progress", {
+  const status = pairing.phase === "in_progress" ? t(pairing.pairingType === "sword_shield_classic" ? "classic.progress" : "teams.results.progress", {
     count: progress.completed, total: progress.total,
-    a: pairing.captainSide === "a" ? progress.gpA : progress.gpB,
-    b: pairing.captainSide === "a" ? progress.gpB : progress.gpA
-  }) : teamMatchPhaseLabel(pairing.phase);
+    a: pairing.pairingType === "sword_shield_classic" ? (pairing.captainSide === "a" ? progress.winsA : progress.winsB) : pairing.captainSide === "a" ? progress.gpA : progress.gpB,
+    b: pairing.pairingType === "sword_shield_classic" ? (pairing.captainSide === "a" ? progress.winsB : progress.winsA) : pairing.captainSide === "a" ? progress.gpB : progress.gpA
+  }) : teamPairingPhaseLabel(pairing);
   return `<article class="row-card captain-pairing-card">
     <div class="row-main">
       <div class="row-title">${escapeHtml(own?.name || "")} vs ${escapeHtml(opponent?.name || "")}</div>
@@ -8012,13 +8012,13 @@ function rosterMatchHistoryMarkup(data) {
   return matches.map((match) => {
     const status = data.tournament.status === "registration_closed" ? t("admin.roundSetup.awaitingStart")
       : match.resolution === "bye" ? t("teams.pairing.bye")
-      : match.resolution === "forfeit" ? t("teams.pairing.forfeit") : teamMatchPhaseLabel(match.phase);
+      : match.resolution === "forfeit" ? t("teams.pairing.forfeit") : teamPairingPhaseLabel(match);
     const score = match.phase === "completed"
-      ? `${match.teamTournamentPointsA}:${match.teamTournamentPointsB} TTP · ${match.teamGamePointsA}:${match.teamGamePointsB} GP` : "";
+      ? teamMatchScoreLabel(match) : "";
     return `<article class="row-card team-match-card" data-roster-history-match="${match.id}">
       <div class="row-main"><p class="profile-label">${t("notifications.round", { number: match.roundNumber })}</p>
         <h3>${teamRosterLabel(match.rosterA)}${match.rosterB ? ` vs ${teamRosterLabel(match.rosterB)}` : ""}</h3>
-        <p class="row-meta">${escapeHtml([status, score].filter(Boolean).join(" · "))}</p>
+        <p class="row-meta">${escapeHtml([match.lineNumber ? t("classic.line", { number: match.lineNumber }) : "", status, score].filter(Boolean).join(" · "))}</p>
         ${teamMatchGamesMarkup(match, { readOnly: true })}
       </div>
       <div class="row-actions"><a href="/tournament#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("games.detail.teamMatch")}</a></div>
@@ -8164,22 +8164,63 @@ function publicTeamRostersList(rosters) {
   `).join("")}</div>`;
 }
 
+function teamTournamentSettingsFields(tournament = {}, disabled = "") {
+  const custom = tournament.teamTiebreakerOrder != null || !tournament.id;
+  const order = tournament.teamTiebreakerOrder || ["individual_wins", "vp_diff", "total_vp"];
+  return `<section data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
+    <label><input type="checkbox" name="captainPairingEnabled" ${tournament.captainPairingEnabled !== false ? "checked" : ""} ${disabled}> ${t("classic.captainPairing")}</label>
+    <p class="muted">${t("classic.manualHint")}</p>
+    <h4>${t("classic.tiebreakers")}</h4>
+    <label><input type="checkbox" name="customTeamTiebreakers" ${custom ? "checked" : ""} ${disabled}> ${t("classic.customOrder")}</label>
+    <div class="grid-3">${[0,1,2].map(index => `<label>${index+1}<select name="teamTiebreaker-${index}" ${disabled}><option value="">—</option>${["individual_wins", "vp_diff", "total_vp"].map(key => `<option value="${key}" ${order[index] === key ? "selected" : ""}>${t(`classic.${key}`)}</option>`).join("")}</select></label>`).join("")}</div>
+    <p class="muted">${t("classic.legacyOrder")}</p>
+  </section>`;
+}
+
+function teamMatchScoreLabel(match) {
+  const points = `${match.teamTournamentPointsA ?? 0}:${match.teamTournamentPointsB ?? 0} TTP`;
+  return match.pairingType === "sword_shield_classic" ? points : `${points} · ${match.teamGamePointsA}:${match.teamGamePointsB} GP`;
+}
+
+function teamManualPairingForm(match) {
+  const members = roster => (roster?.members || []).filter(member => !member.endedAt && member.userId);
+  const select = (name, values, label, selectedIndex) => `<label>${escapeHtml(label)}<select name="${name}" required>${values.map((value,index) => `<option value="${escapeHtml(value.value)}" ${index === selectedIndex ? "selected" : ""}>${escapeHtml(value.label)}</option>`).join("")}</select></label>`;
+  const players = roster => members(roster).map(member => ({ value: member.id, label: teamPairingMemberLabel(member) }));
+  const tables = (match.tables || teamTournamentTables(match.tournamentId)).filter(table => match.tableIds.includes(table.id)).map(table => ({ value: table.id, label: tableLabel(table) }));
+  return `<form data-team-pairing-form="manual" data-team-match-id="${match.id}" class="team-manual-pairing"><h4>${t("classic.manual")}</h4>
+    ${[0,1,2].map(index => `<fieldset class="grid-2"><legend>${t("teams.pairing.game", { number: index+1 })}</legend>
+      ${select(`player-a-${index}`, players(match.rosterA), t("classic.playerA"), index)}
+      ${select(`player-b-${index}`, players(match.rosterB), t("classic.playerB"), index)}
+      ${select(`table-${index}`, tables, t("classic.table"), index)}
+      ${select(`mission-${index}`, (match.missions || []).map(m => ({ value: m.critOp, label: m.critOp })), t("classic.mission", { number: index+1 }), index)}
+    </fieldset>`).join("")}<button type="submit" class="primary-button">${t("classic.savePairs")}</button></form>`;
+}
+
 function teamStandingsTable(data) {
   const source = Array.isArray(data.tournament?.finalResults) && data.tournament.finalResults.length
     ? data.tournament.finalResults
     : data.standings || [];
   const rosters = new Map((data.rosters || []).map((roster) => [roster.id, roster]));
+  const teamColumns = data.tournament?.teamTiebreakerOrder == null
+    ? [["individualWins", "teams.tournament.individualWins"], ["totalVp", "teams.tournament.totalVp"], ["tacOpPoints", "teams.tournament.tac"]]
+    : data.tournament.teamTiebreakerOrder.map(key => [{ individual_wins: "individualWins", total_vp: "totalVp", vp_diff: "vpDiff" }[key], `classic.${key}`]);
   if (!source.length) return `<div class="empty">${t("teams.tournament.standingsEmpty")}</div>`;
   return `
     <div class="table-wrap">
       <table>
-        <thead><tr><th class="rank">#</th><th>${t("teams.tournament.roster")}</th><th>${t("teams.tournament.ttp")}</th><th>${t("teams.tournament.individualWins")}</th><th>${t("teams.tournament.totalVp")}</th><th>${t("teams.tournament.tac")}</th><th>${t("tournaments.standings.column.wdl")}</th></tr></thead>
+        <thead><tr><th class="rank">#</th><th>${t("teams.tournament.roster")}</th><th>${t("teams.tournament.ttp")}</th>${teamColumns.map(([, label]) => `<th>${t(label)}</th>`).join("")}<th>${t("tournaments.standings.column.wdl")}</th></tr></thead>
         <tbody>${source.map((row) => {
           const roster = rosters.get(Number(row.rosterId || row.roster?.id));
-          return `<tr><td class="rank">${row.rank}</td><td>${teamRosterLabel(roster)}</td><td>${row.teamTournamentPoints ?? 0}</td><td>${row.individualWins ?? 0}</td><td>${row.totalVp ?? data.standings?.find((item) => item.rosterId === row.rosterId)?.totalVp ?? 0}</td><td>${row.tacOpPoints ?? 0}</td><td>${row.wins ?? 0}-${row.draws ?? 0}-${row.losses ?? 0}</td></tr>`;
+          return `<tr><td class="rank">${row.rank}</td><td>${teamRosterLabel(roster)}</td><td>${row.teamTournamentPoints ?? 0}</td>${teamColumns.map(([key]) => `<td>${row[key] ?? data.standings?.find(item => item.rosterId === row.rosterId)?.[key] ?? 0}</td>`).join("")}<td>${row.wins ?? 0}-${row.draws ?? 0}-${row.losses ?? 0}</td></tr>`;
         }).join("")}</tbody>
       </table>
     </div>`;
+}
+
+function teamPairingPhaseLabel(match) {
+  if (match.captainPairingEnabled === false && match.phase === "environment_selection") return t("classic.manual");
+  if (match.pairingType === "sword_shield_classic" && match.phase === "awaiting_roll") return t("classic.initiative");
+  return teamMatchPhaseLabel(match.phase);
 }
 
 function teamMatchPhaseLabel(phase) {
@@ -8228,7 +8269,7 @@ function teamPairingSideMarkup(match, side) {
   const opponent = isA ? match.rosterB : match.rosterA;
   const isAttacker = match.attackerRosterId === roster?.id;
   const role = match.attackerRosterId
-    ? t(isAttacker ? "teams.pairing.attacker" : "teams.pairing.defender")
+    ? t(match.pairingType === "sword_shield_classic" ? (isAttacker ? "classic.initiative" : "classic.initiativeOther") : isAttacker ? "teams.pairing.attacker" : "teams.pairing.defender")
     : t("teams.pairing.rolePending");
   const shieldId = isA ? match.shieldAMemberId : match.shieldBMemberId;
   const shieldConfirmed = isA ? match.shieldAConfirmed : match.shieldBConfirmed;
@@ -8247,6 +8288,7 @@ function teamPairingSideMarkup(match, side) {
 }
 
 function teamPairingSelectionsMarkup(match) {
+  if (match.captainPairingEnabled === false) return teamPairingTablesPreviewMarkup(match) + teamMissionPoolMarkup(match);
   const selections = `${teamRollHistoryMarkup(match)}<div class="team-pairing-selections">${teamPairingSideMarkup(match, "a")}${teamPairingSideMarkup(match, "b")}</div>${teamPairingTablesPreviewMarkup(match)}${teamMissionPoolMarkup(match)}`;
   return ["in_progress", "completed"].includes(match.phase)
     ? `<details class="team-pairing-details" data-team-pairing-details="${match.id}"><summary>${t("teams.pairing.details")}</summary>${selections}</details>`
@@ -8258,7 +8300,7 @@ function teamPairingTablesPreviewMarkup(match) {
     .filter((table) => !match.tableIds?.length || match.tableIds.includes(table.id));
   if (!tables.length) return "";
   return `<section class="team-pairing-tables-preview" data-live-key="pairing-tables-${match.id}">
-    <h4>${t("teams.pairing.tablesPreview")}</h4>
+    <h4>${match.lineNumber ? t("classic.line", { number: match.lineNumber }) : t("teams.pairing.tablesPreview")}</h4>
     <div class="team-pairing-table-grid">${tables.map((table) => `<figure class="team-pairing-table-preview" data-live-key="table-${table.id}">
       <figcaption>${escapeHtml(tableLabel(table))}</figcaption>
       ${teamTableImageMarkup(table) || `<div class="team-pairing-table-no-image muted">${t("teams.pairing.tableNoImage")}</div>`}
@@ -8279,7 +8321,7 @@ function teamMissionPoolMarkup(match) {
   const bans = match.missionBans || [];
   const used = new Set((match.environment?.assignments || []).map((item) => item.mission?.critOp));
   const turn = match.nextAction;
-  const next = turn ? t(turn.kind === "ban" ? "teams.pairing.turnBan" : turn.kind === "table" ? "teams.pairing.turnTable" : "teams.pairing.turnMission", {
+  const next = turn ? t(turn.kind === "either" ? "classic.firstChoice" : turn.kind === "ban" ? "teams.pairing.turnBan" : turn.kind === "table" ? "teams.pairing.turnTable" : "teams.pairing.turnMission", {
     name: (turn.side === "a" ? match.rosterA : match.rosterB)?.name || turn.side.toUpperCase(),
     matchup: turn.kind === "ban" ? "" : teamPairingMatchupLabel(match, turn.slot)
   }) : "";
@@ -8299,7 +8341,7 @@ function teamTournamentTables(tournamentId) {
 function teamMatchProgressMarkup(match) {
   if (!(match.games || []).length) return "";
   const progress = match.progress || { completed: 0, total: 3, gpA: 0, gpB: 0 };
-  return `<p class="team-match-progress">${escapeHtml(t("teams.results.progress", { count: progress.completed, total: progress.total, a: progress.gpA, b: progress.gpB }))}</p>`;
+  return `<p class="team-match-progress">${escapeHtml(t(match.pairingType === "sword_shield_classic" ? "classic.progress" : "teams.results.progress", { count: progress.completed, total: progress.total, a: match.pairingType === "sword_shield_classic" ? progress.winsA : progress.gpA, b: match.pairingType === "sword_shield_classic" ? progress.winsB : progress.gpB }))}</p>`;
 }
 
 function teamMatchGamesMarkup(match, options = {}) {
@@ -8334,7 +8376,7 @@ function teamMatchGamesMarkup(match, options = {}) {
       const [playerAId, playerBId] = game.playerIds || [];
       const vpA = completed ? game.result.scores?.[playerAId]?.total ?? 0 : null;
       const vpB = completed ? game.result.scores?.[playerBId]?.total ?? 0 : null;
-      const score = completed ? `${vpA}:${vpB} VP · ${link.gamePointsA}:${link.gamePointsB} GP` : t("teams.results.notCounted");
+      const score = completed ? `${vpA}:${vpB} VP${match.pairingType === "sword_shield_classic" ? "" : ` · ${link.gamePointsA}:${link.gamePointsB} GP`}` : t("teams.results.notCounted");
       result = `<span class="match-result-state" data-result-state="${resultState}">${escapeHtml(status)} · ${escapeHtml(score)}</span>`;
     }
     const resultAction = options.readOnly ? "" : link?.permissions?.canSubmit
@@ -8369,6 +8411,7 @@ function teamEnvironmentStep(match, tournament) {
 function teamCaptainPairingControl(match, tournament) {
   if (!state.me || tournament.status !== "in_progress" || ["in_progress", "completed"].includes(match.phase)) return "";
   const side = match.rosterA?.captainUserId === state.me.id ? "a" : match.rosterB?.captainUserId === state.me.id ? "b" : null;
+  if (match.captainPairingEnabled === false) return side || canManageTournamentUi(tournament) ? teamManualPairingForm(match) : "";
   if (!side && state.administrationContext && canManageTournamentUi(tournament)) {
     return `<section class="team-admin-pairing"><h4>${t("teams.pairing.adminControls")}</h4><p class="muted">${t("teams.pairing.adminHint")}</p><div class="team-pairing-selections">${["a", "b"].map((side) => `
       <section class="team-pairing-side" data-admin-captain-side="${side}"><h4>${escapeHtml(t("teams.pairing.actingFor", { name: (side === "a" ? match.rosterA : match.rosterB)?.name || side.toUpperCase() }))}</h4>${teamPairingControlForSide(match, tournament, side)}</section>
@@ -8382,6 +8425,9 @@ function teamPairingControlForSide(match, tournament, side) {
   const opponent = side === "a" ? match.rosterB : match.rosterA;
   const adminControls = state.administrationContext && canManageTournamentUi(tournament)
     && ![ownRoster, opponent].some(roster => roster?.captainUserId === state.me?.id);
+  if (match.phase === "awaiting_roll" && match.pairingType === "sword_shield_classic") {
+    return `<form class="team-pairing-control" data-team-pairing-form="initiative" data-team-match-id="${match.id}" data-side="${side}"><p>${t("classic.initiativeHint")}</p><label>${t("classic.initiative")}<select name="winnerSide" required>${["a","b"].map(key => `<option value="${key}">${escapeHtml((key === "a" ? match.rosterA : match.rosterB)?.name || key)}</option>`).join("")}</select></label><button type="submit" class="primary-button">${t("common.confirm")}</button></form>`;
+  }
   if (match.phase === "awaiting_roll") {
     const current = (match.rollHistory || [])[Number(match.rollRound || 1) - 1];
     if (match.pairingVersion === 2 && current?.[side]) return `<span class="muted">${t("teams.pairing.rolledWaiting", { result: current[side] })}</span>`;
@@ -8410,6 +8456,7 @@ function teamPairingControlForSide(match, tournament, side) {
   if (match.phase === "environment_selection") {
     const step = teamEnvironmentStep(match, tournament);
     if (!step || step.side !== side) return `<span class="muted">${t("teams.pairing.waitingOpponent")}</span>`;
+    if (step.kind === "either") return `<p>${t("classic.firstChoice")}</p>` + ["table", "mission"].map(kind => teamPairingControlForSide({ ...match, nextAction: { ...step, kind } }, tournament, side)).join("");
     const assigned = match.environment?.assignments || [];
     if (step.kind === "mission") {
       const used = new Set([...assigned.map((item) => item.mission?.critOp), ...(match.missionBans || []).map((item) => item.mission)].filter(Boolean));
@@ -8436,7 +8483,7 @@ function teamEnvironmentChoiceForm(match, name, choices, slot, side) {
     matchup: teamPairingMatchupLabel(match, slot)
   });
   const images = choices.filter((choice) => choice.table?.imageId).map((choice) => `<figure>${teamTableImageMarkup(choice.table)}<figcaption>${escapeHtml(choice.label)}</figcaption></figure>`).join("");
-  return `<form class="team-pairing-control" data-team-pairing-form="environment" data-team-match-id="${match.id}" data-side="${side}" data-step="${match.environment?.step || 0}"><label><span>${escapeHtml(label)}</span><select name="${name}" required>${choices.map((choice) => `<option value="${escapeHtml(choice.value)}">${escapeHtml(choice.label)}</option>`).join("")}</select></label><button class="primary-button" type="submit">${t("common.confirm")}</button></form>${images ? `<div class="team-table-choice-images">${images}</div>` : ""}`;
+  return `<form class="team-pairing-control" data-team-pairing-form="environment" data-kind="${name === "mission" ? "mission" : "table"}" data-team-match-id="${match.id}" data-side="${side}" data-step="${match.environment?.step || 0}"><label><span>${escapeHtml(label)}</span><select name="${name}" required>${choices.map((choice) => `<option value="${escapeHtml(choice.value)}">${escapeHtml(choice.label)}</option>`).join("")}</select></label><button class="primary-button" type="submit">${t("common.confirm")}</button></form>${images ? `<div class="team-table-choice-images">${images}</div>` : ""}`;
 }
 
 function teamTableImageMarkup(table) {
@@ -8453,7 +8500,7 @@ function teamMatchResultMarkup(match) {
   const winner = pointsA > pointsB ? match.rosterA : pointsB > pointsA ? match.rosterB : null;
   const headline = pointsA === pointsB ? t("teams.results.draw")
     : t("teams.results.winner", { name: winner?.name || winner?.teamNameSnapshot || t("teams.tournament.rosterFallback") });
-  const score = `${pointsA}:${pointsB} TTP · ${match.teamGamePointsA}:${match.teamGamePointsB} GP`;
+  const score = teamMatchScoreLabel(match);
   const note = match.resolution === "bye" ? t("teams.pairing.bye")
     : match.resolution === "forfeit" ? t("teams.pairing.forfeit") : "";
   return `<div class="result-headline team-match-result">
@@ -8464,25 +8511,25 @@ function teamMatchResultMarkup(match) {
 }
 
 function teamTournamentMatchMarkup(match, tournament, options = {}) {
-  const completeScore = match.phase === "completed" ? `${match.teamTournamentPointsA}:${match.teamTournamentPointsB} TTP · ${match.teamGamePointsA}:${match.teamGamePointsB} GP` : "";
+  const completeScore = match.phase === "completed" ? teamMatchScoreLabel(match) : "";
   const resultMarkup = teamMatchResultMarkup(match);
   if (match.resolution === "bye") return `<article class="row-card team-match-card"><div class="row-main"><div class="row-title">${teamRosterLabel(match.rosterA)}</div>${resultMarkup || `<div class="row-meta">${t("teams.pairing.bye")}</div>`}</div></article>`;
   const canReset = state.administrationContext && canManageTournamentUi(tournament) && tournament.status === "in_progress" && !match.resolution && match.rosterA?.status !== "withdrawn" && match.rosterB?.status !== "withdrawn";
   const canOpenPairing = !options.standalone;
-  const resetPhases = ["awaiting_roll", ...(match.pairingVersion === 2 ? ["mission_ban"] : []), "shield_selection", "sword_selection", "environment_selection"];
+  const resetPhases = match.captainPairingEnabled === false ? ["environment_selection"] : ["awaiting_roll", ...(match.pairingVersion === 2 && match.pairingType !== "sword_shield_classic" ? ["mission_ban"] : []), "shield_selection", "sword_selection", "environment_selection"];
   const resetPhaseIndex = resetPhases.indexOf(match.phase);
   const resetOptions = resetPhases.slice(0, resetPhaseIndex === -1 ? undefined : resetPhaseIndex + 1)
-    .map((phase) => `<option value="${phase}">${teamMatchPhaseLabel(phase)}</option>`).join("");
+    .map((phase) => `<option value="${phase}">${teamPairingPhaseLabel({ ...match, phase })}</option>`).join("");
   const status = [tournament.status === "registration_closed" ? t("admin.roundSetup.awaitingStart")
     : match.resolution === "forfeit" ? t("teams.pairing.forfeit")
-    : ["in_progress", "completed"].includes(match.phase) ? "" : teamMatchPhaseLabel(match.phase), completeScore].filter(Boolean).join(" · ");
+    : ["in_progress", "completed"].includes(match.phase) ? "" : teamPairingPhaseLabel(match), completeScore].filter(Boolean).join(" · ");
   return `<article class="row-card team-match-card">
     <div class="row-main">
       <div class="row-title">${teamRosterLabel(match.rosterA)} vs ${teamRosterLabel(match.rosterB)}</div>
       ${teamMatchProgressMarkup(match)}
       ${resultMarkup || (status ? `<div class="row-meta">${escapeHtml(status)}</div>` : "")}
       ${teamPairingSelectionsMarkup(match)}${teamMatchGamesMarkup(match, { showProgress: false })}
-      <div class="team-captain-control">${teamCaptainPairingControl(match, tournament)}${canReset ? adminUi().adminTeamPairingOverrideForm(match) : ""}</div>
+      <div class="team-captain-control">${teamCaptainPairingControl(match, tournament)}${canReset && match.captainPairingEnabled !== false ? adminUi().adminTeamPairingOverrideForm(match) : ""}</div>
       ${match.canUndo && (state.administrationContext || [match.rosterA?.captainUserId, match.rosterB?.captainUserId].includes(state.me?.id)) && tournament.status === "in_progress" ? `<div class="row-actions team-pairing-undo"><button class="ghost-button" data-team-match-undo="${match.id}" data-revision="${match.pairingRevision}" data-resets-results="${Boolean(match.undoResetsResults)}">${t("teams.pairing.undo")}</button></div>` : ""}
     </div>
     ${canOpenPairing || canReset ? `<div class="row-actions team-match-admin-actions">${canOpenPairing ? `<a href="/tournament#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</a>` : ""}${canReset ? `<label>${t("teams.pairing.resetTo")}<select data-team-match-reset-phase="${match.id}">${resetOptions}</select></label><button class="danger-button" data-team-match-reset="${match.id}">${t("teams.pairing.reset")}</button>` : ""}</div>` : ""}
@@ -8514,9 +8561,10 @@ function teamPairingLogEvent(event) {
   if (event.rosterName) actor = t("teams.pairing.log.actorTeam", { actor, team: event.rosterName });
   let text = "", details = [];
   if (event.type === "team_match_roll") {
-    text = t(event.manual ? "teams.pairing.log.manualRoll" : "teams.pairing.log.roll", { actor, result: event.result ?? "?" });
+    text = event.initiative ? `${t("classic.initiative")}: ${event.attackerName || event.initiative.toUpperCase()}`
+      : t(event.manual ? "teams.pairing.log.manualRoll" : "teams.pairing.log.roll", { actor, result: event.result ?? "?" });
     if (event.tied) details.push(t("teams.pairing.log.tie"));
-    if (event.attackerName) details.push(t("teams.pairing.log.roles", { attacker: event.attackerName, defender: event.defenderName }));
+    if (event.attackerName && !event.initiative) details.push(t("teams.pairing.log.roles", { attacker: event.attackerName, defender: event.defenderName }));
   } else if (event.type === "mission_ban") {
     text = t("teams.pairing.log.ban", { actor, mission: event.mission || "?" });
   } else if (["shield_select", "shields_reveal", "sword_select", "swords_reveal"].includes(event.type)) {
@@ -8585,8 +8633,8 @@ function renderTeamPairing(live = false) {
       <div class="panel-header">
         <div>
           <p class="profile-label">${escapeHtml(tournament.name || "")} · ${t("notifications.round", { number: match.roundNumber })}</p>
-          <h2>${t("teams.pairing.screenTitle")}</h2>
-          <p class="muted">${t("teams.pairing.screenHint")}</p>
+          <h2>${t(match.captainPairingEnabled === false ? "classic.manual" : match.pairingType === "sword_shield_classic" ? "classic.name" : "teams.pairing.screenTitle")}</h2>
+          <p class="muted">${t(match.captainPairingEnabled === false ? "classic.manualHint" : "teams.pairing.screenHint")}</p>
         </div>
         <div class="row-actions">
           <button class="ghost-button" data-team-pairing-back>${t("common.back")}</button>
@@ -8611,12 +8659,12 @@ function renderTeamPairing(live = false) {
 }
 
 function teamTournamentMatchPreviewMarkup(match, tournament) {
-  const score = match.phase === "completed" ? `${match.teamTournamentPointsA}:${match.teamTournamentPointsB} TTP · ${match.teamGamePointsA}:${match.teamGamePointsB} GP` : "";
+  const score = match.phase === "completed" ? teamMatchScoreLabel(match) : "";
   const status = tournament.status === "registration_closed" ? t("admin.roundSetup.awaitingStart")
     : match.resolution === "bye" ? t("teams.pairing.bye")
     : match.resolution === "forfeit" ? t("teams.pairing.forfeit")
-    : ["in_progress", "completed"].includes(match.phase) ? "" : teamMatchPhaseLabel(match.phase);
-  const meta = [status, score].filter(Boolean).join(" · ");
+    : ["in_progress", "completed"].includes(match.phase) ? "" : teamPairingPhaseLabel(match);
+  const meta = [match.lineNumber ? t("classic.line", { number: match.lineNumber }) : "", status, score].filter(Boolean).join(" · ");
   return `<article class="row-card team-match-card team-match-preview" data-team-match-preview="${match.id}">
     <div class="team-match-preview-header">
       <div class="row-main">
@@ -8937,10 +8985,10 @@ function renderRoundSetupModal(preview) {
           <button class="ghost-button" type="button" data-round-setup-close>${t("common.cancel")}</button>
         </div>
         <form class="round-setup-form" data-round-setup-form>
-          ${preview.tableOnly ? teamTableSetupFields(tables) : preview.teamRound ? teamRoundMissionFields(tables) : roundMissionFields(tournament, round)}
+          ${preview.tableOnly ? teamTableSetupFields(tables) : preview.teamRound ? teamRoundMissionFields(tables, round) : roundMissionFields(tournament, round)}
           <div class="round-setup-list" data-round-setup-list>
             ${(preview.tableOnly ? [] : round.matches || []).filter((match) => !match.isBye).map((match) =>
-              preview.teamRound ? teamRoundSetupMatchRow(match) : roundSetupMatchRow(match, tournament, tables)
+              preview.teamRound ? teamRoundSetupMatchRow(match, tables) : roundSetupMatchRow(match, tournament, tables)
             ).join("")}
           </div>
           <div class="row-actions">
@@ -8955,12 +9003,17 @@ function renderRoundSetupModal(preview) {
   wireRoundSetupModal(tournament, tables, preview);
 }
 
-function teamRoundMissionFields(tables = []) {
-  return `<section class="admin-subpanel"><p class="muted">${t("teams.tournament.missionPoolHint")}</p>${teamTableSetupFields(tables)}</section>`;
+function teamRoundMissionFields(tables = [], round = {}) {
+  const classic = state.adminTournamentDetail?.tournament?.pairingType === "sword_shield_classic";
+  const venue = state.adminTournamentDetail?.tournament?.venueMode;
+  return `<section class="admin-subpanel"><p class="muted">${t(venue === "irl" ? "classic.readyIrl" : "classic.readyTts")}</p>
+    ${classic ? `<p>${t("classic.missionsHint")}</p><div class="grid-3">${[0,1,2].map(index => `<label>${t("classic.mission", { number: index+1 })}<select name="classicMission-${index}" required><option value="">—</option>${optionsHtml(critOpOptions, round.missions?.[index]?.critOp || "")}</select></label>`).join("")}</div>` : `<p class="muted">${t("teams.tournament.missionPoolHint")}</p>`}
+    ${teamTableSetupFields(tables)}</section>`;
 }
 
 function teamTableSetupFields(tables = []) {
-  return `<p class="muted">${t("teams.tournament.tablesHint")}</p><div class="team-table-setup">${[0, 1, 2].map((index) => `
+  return `<p class="muted">${t("classic.linesHint")}</p><div class="team-table-setup">${Array.from({ length: Math.max(3, tables.length) }, (_, index) => `
+    ${index % 3 === 0 ? `<h4 class="team-line-heading">${t("classic.line", { number: index / 3 + 1 })}</h4>` : ""}
     <section class="team-table-setup-card" data-team-table-setup="${index}">
       ${tables[index]?.id ? `<input type="hidden" name="teamTableId-${index}" value="${Number(tables[index].id)}">` : ""}
       <div class="grid-3">
@@ -8982,7 +9035,9 @@ function teamTableSetupFields(tables = []) {
 }
 
 function teamTableSetupPayload(form) {
-  return [0, 1, 2].map((index) => ({
+  let count = 0;
+  while (form.elements[`teamKillzone-${count}`]) count += 1;
+  return Array.from({ length: count }, (_, index) => ({
     ...(form.elements[`teamTableId-${index}`] ? { id: Number(form.elements[`teamTableId-${index}`].value) } : {}),
     ...(form.elements[`teamTableNumber-${index}`] ? { tableNumber: Number(form.elements[`teamTableNumber-${index}`].value) } : {}),
     killzone: form.elements[`teamKillzone-${index}`].value, deployment: Number(form.elements[`teamLayout-${index}`].value),
@@ -9077,8 +9132,8 @@ function wireTeamTableImages(form) {
   });
 }
 
-function teamRoundSetupMatchRow(match = {}) {
-  return `<div class="row-card compact-row-card round-setup-match-row"><div class="row-main"><div class="round-setup-match-grid">${teamRoundSetupRosterSelect("rosterAId", match.rosterAId)}${teamRoundSetupRosterSelect("rosterBId", match.rosterBId)}</div></div></div>`;
+function teamRoundSetupMatchRow(match = {}, tables = []) {
+  return `<div class="row-card compact-row-card round-setup-match-row"><div class="row-main"><div class="round-setup-match-grid">${teamRoundSetupRosterSelect("rosterAId", match.rosterAId)}${teamRoundSetupRosterSelect("rosterBId", match.rosterBId)}<label>${t("classic.line", { number: "" })}<select name="lineNumber">${Array.from({ length: tables.length / 3 }, (_, index) => `<option value="${index+1}" ${Number(match.lineNumber || match.bracketPosition) === index+1 ? "selected" : ""}>${t("classic.line", { number: index+1 })} · ${tables.slice(index*3,index*3+3).map(table => table.tableNumber).join(", ")}</option>`).join("")}</select></label></div></div></div>`;
 }
 
 function teamRoundSetupRosterSelect(name, selectedId = "") {
@@ -9264,7 +9319,9 @@ function roundSetupPayload(form, tournament) {
   if (tournament.participantMode === "team") {
     return {
       ...(form.elements["teamKillzone-0"] ? { tables: teamTableSetupPayload(form) } : {}),
+      ...(form.elements["classicMission-0"] ? { missions: [0,1,2].map(index => form.elements[`classicMission-${index}`].value) } : {}),
       matchups: rows.map((row) => ({
+        lineNumber: Number(row.querySelector('[name="lineNumber"]')?.value) || null,
         rosterAId: row.querySelector('[name="rosterAId"]')?.value || "",
         rosterBId: row.querySelector('[name="rosterBId"]')?.value || ""
       }))
@@ -9552,10 +9609,16 @@ function wireTeamTournamentControls(data, options = {}) {
         body.result = Number(form.elements.result.value);
         body.rollRound = Number(form.dataset.rollRound);
       }
+      if (action === "initiative") body.winnerSide = form.elements.winnerSide.value;
+      if (action === "manual") body.pairings = [0,1,2].map(index => ({
+        rosterAMemberId: Number(form.elements[`player-a-${index}`].value), rosterBMemberId: Number(form.elements[`player-b-${index}`].value),
+        tableId: Number(form.elements[`table-${index}`].value), mission: form.elements[`mission-${index}`].value
+      }));
       if (action === "ban") body.mission = form.elements.mission.value;
       if (action === "shield" || action === "sword") body.memberId = Number(form.elements.memberId.value);
       if (action === "environment") {
         body.step = Number(form.dataset.step || 0);
+        body.kind = form.dataset.kind;
         if (form.elements.mission) body.mission = form.elements.mission.value;
         if (form.elements.tableId) body.tableId = Number(form.elements.tableId.value);
       }

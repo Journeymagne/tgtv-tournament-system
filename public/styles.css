@@ -4266,3 +4266,9 @@ tr:last-child td {
 .administration-dialog [data-dialog-error] { color:#fb7185; }
 .administration-dialog .row-actions { margin-top:20px; flex-wrap:wrap; }
 @media(max-width:600px) { .administration-heading { align-items:flex-start; flex-direction:column; } }
+
+/* Team round lines and direct pair assignments. */
+.team-line-heading { grid-column: 1 / -1; margin: 12px 0 0; }
+.team-manual-pairing { display: grid; gap: 16px; min-width: 0; }
+.team-manual-pairing fieldset { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.team-manual-pairing label, .team-manual-pairing select { min-width: 0; width: 100%; }

@@ -222,6 +222,8 @@ module.exports = [
   { method: "DELETE", path: "/api/tournaments/:id/rosters/:rosterId", handler: teamTournaments.deleteRoster, auth: "user", tx: true },
   { method: "GET", path: "/api/rosters/:rosterId", handler: teamTournaments.getRoster, auth: "none", loadUser: true },
   { method: "GET", path: "/api/team-matches/:matchId", handler: teamTournaments.getPairingMatch, auth: "none", loadUser: true },
+  { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/initiative", handler: teamTournaments.selectInitiative, auth: "user", tx: true },
+  { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/manual", handler: teamTournaments.manualPairings, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/roll", handler: teamTournaments.roll, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/undo", handler: teamTournaments.undoPairing, auth: "user", tx: true },
   { method: "POST", path: "/api/tournaments/:id/team-matches/:matchId/ban", handler: teamTournaments.banMission, auth: "user", tx: true },

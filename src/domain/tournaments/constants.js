@@ -18,7 +18,8 @@ const PARTICIPANT_MODES = {
 };
 
 const TEAM_PAIRING_TYPES = {
-  SHIELD_SWORD: "shield_sword"
+  SHIELD_SWORD: "shield_sword",
+  SWORD_SHIELD_CLASSIC: "sword_shield_classic"
 };
 
 const PARTICIPANT_STATUSES = {

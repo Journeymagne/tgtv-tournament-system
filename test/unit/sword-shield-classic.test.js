@@ -1,0 +1,71 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { teamEnvironmentPlan, teamNextAction, teamMatchProgress, teamPointsForMatch, teamStandings, validateTeamLines, normalizeRoundMissions } = require("../../src/domain/team-tournaments");
+const { normalizeNewTournament, normalizeTournamentPatch } = require("../../src/domain/tournaments/input");
+
+const classic = { pairingType: "sword_shield_classic", pairingVersion: 2, rosterAId: 1, rosterBId: 2,
+  attackerRosterId: 1, phase: "environment_selection", pairings: [{ slot: 1, shieldOwner: "a" }, { slot: 2, shieldOwner: "b" }, { slot: 3, shieldOwner: null }] };
+const game = (slot, vpA, vpB, status = "completed") => ({ slot, game: { status, playerIds: [10, 20], result: { scores: { 10: { total: vpA, tac: 0 }, 20: { total: vpB, tac: 0 } } } } });
+
+test("Classic awards team points by player wins despite a negative total VP difference", () => {
+  const match = { ...classic, games: [game(1,21,18), game(2,21,18), game(3,0,21)] };
+  const progress = teamMatchProgress(match);
+  assert.deepEqual(teamPointsForMatch(match), { a: 2, b: 0 });
+  assert.equal(progress.gpA, null);
+  assert.equal(progress.gpB, null);
+  assert.equal(progress.winsA, 2);
+  assert.equal(Object.hasOwn(progress.details[0], "a"), false);
+});
+
+test("equal player wins draw the Classic team match; pending games do not count", () => {
+  const match = { ...classic, games: [game(1,10,5), game(2,5,10), game(3,8,8), game(4,21,0,"pending_confirmation")] };
+  assert.deepEqual(teamPointsForMatch(match), { a: 1, b: 1 });
+  assert.equal(teamMatchProgress(match).completed, 3);
+});
+
+test("Classic captains choose either parameter for their own shield, then the opponent completes it", () => {
+  assert.deepEqual(teamNextAction(classic), { side: "a", slot: 1, kind: "either" });
+  assert.deepEqual(teamNextAction({ ...classic, environment: { step: 1, choices: ["mission"] } }), { side: "b", slot: 1, kind: "table" });
+  assert.deepEqual(teamNextAction({ ...classic, attackerRosterId: 2 }), { side: "b", slot: 2, kind: "either" });
+  assert.deepEqual(teamNextAction({ ...classic, environment: { step: 3, choices: ["table", "mission", "table"] } }), { side: "a", slot: 2, kind: "mission" });
+  assert.equal(teamEnvironmentPlan(classic).length, 4);
+  assert.deepEqual(teamEnvironmentPlan({ ...classic, captainPairingEnabled: false }), []);
+});
+
+test("WTC keeps its GP thresholds and five environment steps", () => {
+  const match = { ...classic, pairingType: "shield_sword", games: [game(1,21,18), game(2,21,18), game(3,0,21)] };
+  assert.equal(teamMatchProgress(match).gpA, 26);
+  assert.deepEqual(teamPointsForMatch(match), { a: 0, b: 2 });
+  assert.equal(teamEnvironmentPlan(match).length, 5);
+  assert.deepEqual(teamEnvironmentPlan(match)[0], { side: "a", kind: "table", slot: 2 });
+});
+
+test("complete lines use distinct physical numbers but can repeat terrain", () => {
+  const tables = Array.from({ length: 6 }, (_, i) => ({ tableNumber: i + 1, killzone: "Volkus", deployment: 1 }));
+  assert.equal(validateTeamLines(tables).length, 6);
+  assert.throws(() => validateTeamLines(tables.slice(0,5)));
+  assert.throws(() => validateTeamLines(tables.map((table,i) => ({ ...table, tableNumber: i === 5 ? 1 : table.tableNumber }))));
+  assert.throws(() => normalizeRoundMissions(["Secure", "Secure", "Data"]));
+});
+
+test("ordered team tiebreakers and an empty order keep primary team points first", () => {
+  const rosters = [{ id: 1, seed: 1 }, { id: 2, seed: 2 }];
+  const matches = [{ ...classic, phase: "completed", teamTournamentPointsA: 1, teamTournamentPointsB: 1,
+    games: [game(1,21,20), game(2,1,2), game(3,0,0)] }];
+  assert.equal(teamStandings(rosters, matches, ["vp_diff"])[0].roster.id, 1);
+  const asymmetric = [{ ...matches[0], games: [game(1,10,5),game(2,0,10),game(3,0,0)] }];
+  assert.equal(teamStandings(rosters, asymmetric, ["vp_diff"])[0].roster.id, 2);
+  assert.equal(teamStandings(rosters, asymmetric, [])[0].roster.id, 1);
+  assert.equal(teamStandings(rosters, [{ ...asymmetric[0], teamTournamentPointsA: 2, teamTournamentPointsB: 0 }], ["vp_diff"])[0].roster.id, 1);
+  assert.equal(teamStandings(rosters, asymmetric, ["vp_diff"])[0].vpDiff, 5);
+});
+
+test("creation preserves Classic and disabled captain pairing; legacy ordering is opt-in", () => {
+  const input = { participantMode: "team", format: "swiss", swissRoundCount: 3, pairingType: "sword_shield_classic", captainPairingEnabled: false };
+  const tournament = normalizeNewTournament(input, 1, "classic");
+  assert.equal(tournament.pairingType, "sword_shield_classic");
+  assert.equal(tournament.captainPairingEnabled, false);
+  assert.equal(tournament.teamTiebreakerOrder, null);
+  assert.throws(() => normalizeTournamentPatch({ teamTiebreakerOrder: ["vp_diff", "vp_diff"] }, tournament));
+  assert.throws(() => normalizeTournamentPatch({ captainPairingEnabled: "false" }, tournament));
+});

@@ -119,8 +119,8 @@ function normalizeParticipantMode(value) {
 function normalizeTeamPairingType(value, participantMode) {
   if (participantMode !== PARTICIPANT_MODES.TEAM) return null;
   const pairingType = String(value || TEAM_PAIRING_TYPES.SHIELD_SWORD);
-  if (pairingType !== TEAM_PAIRING_TYPES.SHIELD_SWORD) {
-    throw new ValidationError("WTC is the only available team pairing type");
+  if (!Object.values(TEAM_PAIRING_TYPES).includes(pairingType)) {
+    throw new ValidationError("Choose WTC or SWORD SHIELD CLASSIC");
   }
   return pairingType;
 }
@@ -146,6 +146,18 @@ function normalizeRulesLink(value) {
 
 function normalizeTournamentPatch(body = {}, current = {}) {
   const patch = {};
+  if (Object.hasOwn(body, "captainPairingEnabled")) {
+    if (typeof body.captainPairingEnabled !== "boolean") throw new ValidationError("Captain pairing must be enabled or disabled");
+    patch.captainPairingEnabled = body.captainPairingEnabled;
+  }
+  if (Object.hasOwn(body, "teamTiebreakerOrder")) {
+    const order = body.teamTiebreakerOrder;
+    if (order !== null && (!Array.isArray(order) || order.length > 3 || new Set(order).size !== order.length ||
+        order.some(key => !["individual_wins", "vp_diff", "total_vp"].includes(key)))) {
+      throw new ValidationError("Choose unique team tiebreakers: individual wins, VP difference, total VP");
+    }
+    patch.teamTiebreakerOrder = order;
+  }
   if (Object.prototype.hasOwnProperty.call(body, "participantMode")) {
     patch.participantMode = normalizeParticipantMode(body.participantMode);
   }
@@ -277,8 +289,10 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     participantMode: patch.participantMode || PARTICIPANT_MODES.INDIVIDUAL,
     teamSize: patch.participantMode === PARTICIPANT_MODES.TEAM ? 3 : null,
     pairingType: patch.participantMode === PARTICIPANT_MODES.TEAM
-      ? TEAM_PAIRING_TYPES.SHIELD_SWORD
+      ? patch.pairingType || TEAM_PAIRING_TYPES.SHIELD_SWORD
       : null,
+    captainPairingEnabled: patch.captainPairingEnabled !== false,
+    teamTiebreakerOrder: patch.teamTiebreakerOrder ?? null,
     swissRoundCount: patch.swissRoundCount || null,
     singleEliminationSize: patch.singleEliminationSize || null,
     tiebreakerOrder: patch.tiebreakerOrder || [],

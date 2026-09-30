@@ -28,6 +28,19 @@ function numberTeamTables(tables) {
 }
 
 function teamEnvironmentPlan(match) {
+  if (match.captainPairingEnabled === false) return [];
+  if (match.pairingType === "sword_shield_classic") {
+    const first = match.attackerRosterId === match.rosterAId ? "a" : "b";
+    const second = first === "a" ? "b" : "a";
+    const choices = match.environment?.choices || [];
+    const other = kind => kind === "table" ? "mission" : "table";
+    return [
+      { side: first, slot: first === "a" ? 1 : 2, kind: "either" },
+      { side: second, slot: first === "a" ? 1 : 2, kind: other(choices[0]) },
+      { side: second, slot: second === "a" ? 1 : 2, kind: "either" },
+      { side: first, slot: second === "a" ? 1 : 2, kind: other(choices[2]) }
+    ];
+  }
   const attacker = match.attackerRosterId === match.rosterAId ? "a" : "b";
   const defender = attacker === "a" ? "b" : "a";
   // Manual pairings retain slot ownership even when the players are overridden.
@@ -108,7 +121,7 @@ function teamMatchProgress(match) {
       const vpA = Number(scoreA.total || 0);
       const vpB = Number(scoreB.total || 0);
       return {
-        slot: link.slot, ...gamePointsForTotals(vpA, vpB), vpA, vpB,
+        slot: link.slot, ...(match.pairingType === "sword_shield_classic" ? {} : gamePointsForTotals(vpA, vpB)), vpA, vpB,
         winnerSide: vpA === vpB ? null : vpA > vpB ? "a" : "b",
         tacA: Number(scoreA.tac || 0), tacB: Number(scoreB.tac || 0)
       };
@@ -116,12 +129,14 @@ function teamMatchProgress(match) {
     : (match.gamePoints || []);
   return {
     completed: details.length, total: 3, details,
-    gpA: match.resolution ? Number(match.teamGamePointsA || 0) : details.reduce((sum, game) => sum + Number(game.a || 0), 0),
-    gpB: match.resolution ? Number(match.teamGamePointsB || 0) : details.reduce((sum, game) => sum + Number(game.b || 0), 0)
+    winsA: details.filter(item => item.winnerSide === "a").length,
+    winsB: details.filter(item => item.winnerSide === "b").length,
+    gpA: match.pairingType === "sword_shield_classic" ? null : match.resolution ? Number(match.teamGamePointsA || 0) : details.reduce((sum, game) => sum + Number(game.a || 0), 0),
+    gpB: match.pairingType === "sword_shield_classic" ? null : match.resolution ? Number(match.teamGamePointsB || 0) : details.reduce((sum, game) => sum + Number(game.b || 0), 0)
   };
 }
 
-function teamStandings(rosters, matches) {
+function teamStandings(rosters, matches, order = null) {
   const rows = sortedRosters(rosters).map((roster) => ({
     roster,
     played: 0,
@@ -132,6 +147,7 @@ function teamStandings(rosters, matches) {
     teamGamePoints: 0,
     individualWins: 0,
     totalVp: 0,
+    vpDiff: 0,
     tacOpPoints: 0
   }));
   const byId = new Map(rows.map((row) => [row.roster.id, row]));
@@ -151,6 +167,7 @@ function teamStandings(rosters, matches) {
       row.teamGamePoints += Number(gamePoints || 0);
       row.individualWins += details.filter((item) => item.winnerSide === side).length;
       row.totalVp += details.reduce((sum, item) => sum + Number(side === "a" ? item.vpA || 0 : item.vpB || 0), 0);
+      row.vpDiff += details.reduce((sum, item) => sum + (side === "a" ? Number(item.vpA || 0) - Number(item.vpB || 0) : Number(item.vpB || 0) - Number(item.vpA || 0)), 0);
       row.tacOpPoints += details.reduce((sum, item) => sum + Number(side === "a" ? item.tacA : item.tacB), 0);
       if (match.phase !== "completed") continue;
       row.played += 1;
@@ -160,11 +177,11 @@ function teamStandings(rosters, matches) {
       else row.losses += 1;
     }
   }
+  const fields = { individual_wins: "individualWins", vp_diff: "vpDiff", total_vp: "totalVp" };
   rows.sort((left, right) =>
     right.teamTournamentPoints - left.teamTournamentPoints ||
-    right.individualWins - left.individualWins ||
-    right.totalVp - left.totalVp ||
-    right.tacOpPoints - left.tacOpPoints ||
+    (order === null ? right.individualWins - left.individualWins || right.totalVp - left.totalVp || right.tacOpPoints - left.tacOpPoints
+      : order.reduce((difference, key) => difference || right[fields[key]] - left[fields[key]], 0)) ||
     Number(left.roster.seed || 0) - Number(right.roster.seed || 0) ||
     left.roster.id - right.roster.id
   );
@@ -176,7 +193,7 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber, random = 
   if (!Number.isInteger(roundNumber) || roundNumber < 2 || roundNumber > tournament.swissRoundCount) {
     throw new ValidationError("Team Swiss round number is out of range");
   }
-  const standings = teamStandings(rosters, matches);
+  const standings = teamStandings(rosters, matches, tournament.teamTiebreakerOrder ?? null);
   let bye = null;
   if (standings.length % 2) {
     const freeWins = (id) => matches.filter((match) => match.resolution &&
@@ -320,7 +337,23 @@ function teamTournamentPoints(teamGamePointsA) {
   return { a: 1, b: 1 };
 }
 
+function teamPointsForMatch(match, progress = teamMatchProgress(match)) {
+  if (match.pairingType !== "sword_shield_classic") return teamTournamentPoints(progress.gpA);
+  if (progress.winsA === progress.winsB) return { a: 1, b: 1 };
+  return progress.winsA > progress.winsB ? { a: 2, b: 0 } : { a: 0, b: 2 };
+}
+
+function validateTeamLines(tables) {
+  if (!Array.isArray(tables) || !tables.length || tables.length % 3 || tables.length > 384 ||
+      tables.some(table => !table || !KILLZONES.includes(table.killzone) || !["number", "string"].includes(typeof table.deployment) || !Number.isInteger(Number(table.deployment)) || Number(table.deployment) < 1 || Number(table.deployment) > 6)) {
+    throw new ValidationError("Configure complete lines of three tables with a Killzone and deployment (1–6) on every table");
+  }
+  return numberTeamTables(tables);
+}
+
 module.exports = {
+  validateTeamLines,
+  teamPointsForMatch,
   teamMatchProgress,
   validateTeamTables,
   numberTeamTables,

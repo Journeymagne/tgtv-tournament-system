@@ -33,6 +33,8 @@ const FIELD_COLUMNS = {
   participantMode: "participant_mode",
   teamSize: "team_size",
   pairingType: "pairing_type",
+  captainPairingEnabled: "captain_pairing_enabled",
+  teamTiebreakerOrder: "team_tiebreaker_order",
   teamTablesLocked: "team_tables_locked",
   publishedAt: "published_at",
   startedAt: "started_at",
@@ -61,8 +63,8 @@ async function insert(client, tournament) {
        (owner_user_id, slug, name, description, game_system, starts_at,
         rules_summary, rules_link, status, format, swiss_round_count,
         single_elimination_size, tiebreaker_order, rating_policy,
-         challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type, logo_data, registration_limit)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21)
+         challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type, logo_data, registration_limit, captain_pairing_enabled, team_tiebreaker_order)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23::text[])
      RETURNING ${COLUMNS}`,
     [
       tournament.ownerUserId || null,
@@ -85,7 +87,9 @@ async function insert(client, tournament) {
       tournament.teamSize || null,
       tournament.pairingType || null,
       tournament.logoData || null,
-      tournament.registrationLimit || null
+      tournament.registrationLimit || null,
+      tournament.captainPairingEnabled !== false,
+      tournament.teamTiebreakerOrder ?? null
     ]
   );
   return mapTournament(rows[0]);
@@ -182,7 +186,7 @@ async function update(client, id, patch) {
   for (const [field, column] of Object.entries(FIELD_COLUMNS)) {
     if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
     values.push(valueFor(field, patch[field]));
-    const cast = field === "tiebreakerOrder"
+    const cast = ["tiebreakerOrder", "teamTiebreakerOrder"].includes(field)
       ? "::text[]"
       : ["finalResults", "roundDraft"].includes(field)
         ? "::jsonb"

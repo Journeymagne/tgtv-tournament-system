@@ -22,6 +22,18 @@ migration **041_studio_comments** stores comments, reports and audit history.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 5.0.0
+
+Team tournaments support SWORD SHIELD CLASSIC: three players per team, no GP,
+match wins decided by individual wins and team points awarded as 2/1/0.
+Captains choose shields and opposing swords, then assign tables and missions.
+Organizers can disable the captain wizard and enter all three pairings manually.
+Round previews generate and assign lines of three tables; Classic uses three
+shared missions across all lines. Ordered team tiebreakers include individual
+wins, VP difference and total VP. Startup migration **043_sword_shield_classic**
+adds the required settings and match snapshots. Existing WTC matches retain
+their rules. See [Classic rules and round setup](docs/sword-shield-classic.md).
+
 ## Release 4.9.6-3
 
 Studio publications have a Discussion tab beside Reviews for questions and

@@ -444,7 +444,7 @@ function adminTournamentCreatePanel() {
           </div>
           <div class="field" data-team-mode-field hidden>
             <label>${t("admin.tournament.field.pairingType")}</label>
-            <select name="pairingType"><option value="shield_sword">${t("tournaments.pairingType.shieldSword")}</option></select>
+            <select name="pairingType"><option value="shield_sword">${t("tournaments.pairingType.shieldSword")}</option><option value="sword_shield_classic">${t("classic.name")}</option></select>
           </div>
           <div class="field">
             <label>${t("admin.tournament.field.startsAt")}</label>
@@ -498,6 +498,7 @@ function adminTournamentCreatePanel() {
             <span class="field-help" data-tournament-rules-file-status>${t("admin.tournament.field.noPdfSelected")}</span>
           </div>
         </div>
+        ${teamTournamentSettingsFields()}
         <div class="tournament-tiebreakers" data-individual-mode-field>
           ${tournamentTiebreakerHeading()}
           ${tournamentTiebreakerSelects([])}
@@ -580,7 +581,7 @@ function adminTournamentActionButtons(data) {
   if (tournament.status === "registration_closed") {
     const prepared = (data.rounds || []).some((round) => round.roundNumber === 1 && round.status === "not_ready");
     buttons.push(`<button class="small-button" data-admin-tournament-action="reopen-registration">${t("admin.tournament.action.reopenRegistration")}</button>`);
-    buttons.push(`<button class="${prepared ? "small-button" : "primary-button"}" data-admin-tournament-action="${prepared && tournament.participantMode === "team" ? "edit-round-tables" : "generate-next-round"}">${t(prepared ? (tournament.participantMode === "team" ? "admin.round.editTables" : "admin.tournament.action.editFirst") : tournament.roundDraft ? "admin.round.resumeDraft" : "admin.tournament.action.generateFirst")}</button>`);
+    buttons.push(`<button class="${prepared ? "small-button" : "primary-button"}" data-admin-tournament-action="generate-next-round">${t(prepared ? "admin.tournament.action.editFirst" : tournament.roundDraft ? "admin.round.resumeDraft" : "admin.tournament.action.generateFirst")}</button>`);
     if (prepared && tournament.participantMode === "team") buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round">${t("admin.tournament.action.rollbackLatestRound")}</button>`);
     if (prepared) buttons.push(`<button class="primary-button" data-admin-tournament-action="start">${t("admin.tournament.action.start")}</button>`);
   }
@@ -661,7 +662,7 @@ function adminTournamentEditForm(tournament) {
         </div>
         <div class="field" data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
           <label>${t("admin.tournament.field.pairingType")}</label>
-          <select name="pairingType" ${lockAttrs}><option value="shield_sword">${t("tournaments.pairingType.shieldSword")}</option></select>
+          <select name="pairingType" ${lockAttrs}><option value="shield_sword" ${tournament.pairingType === "shield_sword" ? "selected" : ""}>${t("tournaments.pairingType.shieldSword")}</option><option value="sword_shield_classic" ${tournament.pairingType === "sword_shield_classic" ? "selected" : ""}>${t("classic.name")}</option></select>
         </div>
         <div class="field">
           <label>${t("admin.tournament.field.ratingPolicy")}</label>
@@ -713,6 +714,7 @@ function adminTournamentEditForm(tournament) {
         </div>
         ${tournament.rulesLink ? tournamentRulesLinkMarkup(tournament) : ""}
       </div>
+      ${teamTournamentSettingsFields(tournament, textLockAttrs)}
       <div class="tournament-tiebreakers" data-individual-mode-field>
         ${tournamentTiebreakerHeading()}
         ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], lockAttrs)}
@@ -761,10 +763,10 @@ function adminTournamentTablesContent(data) {
             </select>
           </div>
         </div>
-        <button class="small-button" type="submit" ${readOnly || (tournament.participantMode === "team" && tables.length >= 3) ? "disabled" : ""}>${t("admin.tournament.tables.add")}</button>
+        <button class="small-button" type="submit" ${readOnly ? "disabled" : ""}>${t("admin.tournament.tables.add")}</button>
       </form>
       <div class="list">
-        ${tables.length ? tables.map((table) => adminTournamentTableRow(table, readOnly)).join("") : `<div class="empty">${t("admin.tournament.tables.empty")}</div>`}
+        ${tables.length ? tables.map((table, index) => `${tournament.participantMode === "team" && index % 3 === 0 ? `<h4>${t("classic.line", { number: index / 3 + 1 })}</h4>` : ""}${adminTournamentTableRow(table, readOnly)}`).join("") : `<div class="empty">${t("admin.tournament.tables.empty")}</div>`}
       </div>
     </div>
   `;
@@ -1682,7 +1684,7 @@ function adminTournamentBodyFromForm(form, options = {}) {
     if (participantMode === "team") {
       body.format = "swiss";
       body.teamSize = 3;
-      body.pairingType = "shield_sword";
+      body.pairingType = form.elements.pairingType?.value || "shield_sword";
     } else {
       setFormValue(body, form, "format");
     }
@@ -1723,7 +1725,7 @@ function adminTournamentBodyFromForm(form, options = {}) {
 
   const tiebreakerSelects = Array.from(form.querySelectorAll("[data-tournament-tiebreaker-select]"))
     .filter((select) => !select.disabled);
-  if (tiebreakerSelects.length) {
+  if (participantMode !== "team" && tiebreakerSelects.length) {
     const selected = [];
     const seen = new Set();
     for (const select of tiebreakerSelects) {
@@ -1733,6 +1735,11 @@ function adminTournamentBodyFromForm(form, options = {}) {
       selected.push(value);
     }
     body.tiebreakerOrder = selected.slice(0, 4);
+  }
+  if (participantMode === "team" && form.elements.captainPairingEnabled && !form.elements.captainPairingEnabled.disabled) {
+    body.captainPairingEnabled = form.elements.captainPairingEnabled.checked;
+    body.teamTiebreakerOrder = form.elements.customTeamTiebreakers.checked
+      ? [0,1,2].map(index => form.elements[`teamTiebreaker-${index}`].value).filter(Boolean) : null;
   }
   return body;
 }

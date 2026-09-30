@@ -71,6 +71,7 @@ function eventView(row, match, rosterA, rosterB, user) {
     }));
   }
   if (row.event_type === "team_match_roll") {
+    view.initiative = metadata.initiative || null;
     view.result = metadata.result ?? row.roll_result;
     view.rollRound = metadata.round || null;
     view.manual = Boolean(metadata.manual);

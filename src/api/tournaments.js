@@ -436,7 +436,7 @@ async function updateAdmin({ client, user, params, body }) {
   const { expectedUpdatedAt, ...changes } = body;
   body = changes;
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
-    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules"]);
+    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules", ...(tournament.participantMode === "team" ? ["captainPairingEnabled", "teamTiebreakerOrder"] : [])]);
     for (const key of Object.keys(body || {})) {
       if (!allowed.has(key)) throw new HttpError(409, "Tournament setup is locked after start");
     }
@@ -454,6 +454,13 @@ async function updateAdmin({ client, user, params, body }) {
     await clearPreparedRounds(client, tournament);
   }
   const updated = await tournamentsRepo.update(client, tournament.id, patch);
+  if (tournament.participantMode === "team" && Object.hasOwn(patch, "captainPairingEnabled")) {
+    await client.query(`UPDATE tournament_team_matches SET captain_pairing_enabled = $2,
+      phase = CASE WHEN $2 THEN 'awaiting_roll' ELSE 'environment_selection' END, updated_at = NOW()
+      WHERE tournament_id = $1 AND phase IN ('awaiting_roll', 'environment_selection')
+      AND attacker_roster_id IS NULL AND pairings IS NULL AND roll_history = '[]'::jsonb
+      AND pairing_history = '[]'::jsonb AND resolution IS NULL`, [tournament.id, patch.captainPairingEnabled]);
+  }
   await audit(client, updated, user, "update", { before: tournament, after: updated });
   return { tournament: tournamentSummaryView(updated) };
 }
@@ -870,9 +877,6 @@ async function addTableAdmin({ client, user, params, body }) {
   assertEditableSetup(tournament);
   assertTablesAvailable(tournament);
   const payload = normalizeTablePayload(body);
-  if (tournament.participantMode === "team" && (await tablesRepo.listByTournament(client, tournament.id)).length >= 3) {
-    throw new ValidationError("Team tournaments use exactly three shared tables");
-  }
   try {
     const table = await tablesRepo.insert(client, {
       tournamentId: tournament.id,

@@ -20,7 +20,7 @@ test("admin roster removal remains available after start and completed removal i
   assert.match(withdrawn, /teams.tournament.removeAfterStartHint/);
 });
 test("a bye renders a resolved match without captain or reset controls", () => {
-  const render = new Function("t", "escapeHtml", "teamRosterLabel", `${extract("teamMatchResultMarkup")}; ${extract("teamTournamentMatchMarkup")}; return teamTournamentMatchMarkup;`)(t, String, (r) => r.name);
+  const render = new Function("t", "escapeHtml", "teamRosterLabel", `${extract("teamMatchScoreLabel")}; ${extract("teamMatchResultMarkup")}; ${extract("teamTournamentMatchMarkup")}; return teamTournamentMatchMarkup;`)(t, String, (r) => r.name);
   const html = render({ resolution: "bye", phase: "completed", rosterA: { name: "Squad" }, rosterB: null, teamTournamentPointsA: 2, teamTournamentPointsB: 0, teamGamePointsA: 60, teamGamePointsB: 0 }, { status: "in_progress" });
   assert.match(html, /Squad/);
   assert.match(html, /teams.pairing.bye/);

@@ -15,6 +15,9 @@ function mapTeamMatch(row) {
     resolution: row.resolution || null,
     rollResult: row.roll_result,
     pairingVersion: row.pairing_version || 1,
+    pairingType: row.pairing_type || "shield_sword",
+    captainPairingEnabled: row.captain_pairing_enabled !== false,
+    lineNumber: row.line_number || null,
     rollHistory: row.roll_history || [],
     missionBans: row.mission_bans || [],
     pairingHistory: row.pairing_history || [],
@@ -82,13 +85,14 @@ async function insert(client, match) {
     `INSERT INTO tournament_team_matches
        (tournament_id, round_id, round_number, bracket_position, roster_a_id, roster_b_id,
         phase, missions, table_ids, pairing_version, resolution,
-        team_game_points_a, team_game_points_b, team_tournament_points_a, team_tournament_points_b, completed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $10 THEN 'completed' ELSE 'awaiting_roll' END,
+        team_game_points_a, team_game_points_b, team_tournament_points_a, team_tournament_points_b, completed_at, pairing_type, captain_pairing_enabled, line_number)
+     VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $10 THEN 'completed' WHEN NOT $12 THEN 'environment_selection' ELSE 'awaiting_roll' END,
        $7::jsonb, $8::int[], $9, CASE WHEN $10 THEN 'bye' END,
-       CASE WHEN $10 THEN 60 END, CASE WHEN $10 THEN 0 END,
-       CASE WHEN $10 THEN 2 END, CASE WHEN $10 THEN 0 END, CASE WHEN $10 THEN NOW() END) RETURNING *`,
+       CASE WHEN $10 AND $11 <> 'sword_shield_classic' THEN 60 END, CASE WHEN $10 AND $11 <> 'sword_shield_classic' THEN 0 END,
+       CASE WHEN $10 THEN 2 END, CASE WHEN $10 THEN 0 END, CASE WHEN $10 THEN NOW() END, $11, $12, $13) RETURNING *`,
     [match.tournamentId, match.roundId, match.roundNumber, match.bracketPosition, match.rosterAId,
-      match.rosterBId, JSON.stringify(match.missions || null), match.tableIds || [], match.pairingVersion || 1, match.rosterBId == null]
+      match.rosterBId, JSON.stringify(match.missions || null), match.tableIds || [], match.pairingVersion || 1, match.rosterBId == null, match.pairingType || "shield_sword",
+      match.captainPairingEnabled !== false, match.lineNumber || null]
   );
   return mapTeamMatch(rows[0]);
 }
@@ -131,7 +135,7 @@ async function listByRound(client, roundId) {
 
 async function listActivePairingsForCaptain(client, userId) {
   const { rows } = await client.query(
-    `SELECT tm.id, tm.tournament_id, tm.round_number, tm.phase, tm.created_at,
+    `SELECT tm.id, tm.tournament_id, tm.round_number, tm.phase, tm.created_at, tm.pairing_type, tm.line_number,
             t.slug AS tournament_slug, t.name AS tournament_name, t.venue_mode,
             ra.id AS roster_a_id, ra.name AS roster_a_name, ra.team_name_snapshot AS team_a_name,
             rb.id AS roster_b_id, rb.name AS roster_b_name, rb.team_name_snapshot AS team_b_name,
@@ -154,14 +158,16 @@ async function listActivePairingsForCaptain(client, userId) {
     gamesByMatch.get(link.teamMatchId).push(link);
   }
   return rows.map((row) => {
-    const { completed, total, gpA, gpB } = teamMatchProgress({ games: gamesByMatch.get(row.id) || [] });
+    const progress = teamMatchProgress({ pairingType: row.pairing_type, games: gamesByMatch.get(row.id) || [] });
     return {
       id: row.id,
       tournamentId: row.tournament_id,
       roundNumber: row.round_number,
       phase: row.phase,
       captainSide: row.captain_side,
-      progress: { completed, total, gpA, gpB },
+      progress,
+      pairingType: row.pairing_type,
+      lineNumber: row.line_number,
       createdAt: toIso(row.created_at),
       tournament: {
         id: row.tournament_id,
@@ -178,6 +184,7 @@ async function listActivePairingsForCaptain(client, userId) {
 async function update(client, id, patch) {
   const fields = {
     resolution: "resolution",
+    captainPairingEnabled: "captain_pairing_enabled", lineNumber: "line_number",
     pairingHistory: "pairing_history", pairingRevision: "pairing_revision",
     pairingVersion: "pairing_version", rollHistory: "roll_history", missionBans: "mission_bans",
     phase: "phase", rollResult: "roll_result", attackerRosterId: "attacker_roster_id",

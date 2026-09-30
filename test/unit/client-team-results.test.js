@@ -170,6 +170,8 @@ test("pairing choices collapse only after pairing ends, while games and undo rem
     const teamCaptainPairingControl = () => '';
     ${sourceOf("teamMatchProgressMarkup")}
     ${sourceOf("teamPairingSelectionsMarkup")}
+    ${sourceOf("teamMatchScoreLabel")}
+    ${sourceOf("teamPairingPhaseLabel")}
     ${sourceOf("teamMatchResultMarkup")}
     ${sourceOf("teamTournamentMatchMarkup")}
     return teamTournamentMatchMarkup;
@@ -195,7 +197,7 @@ test("pairing choices collapse only after pairing ends, while games and undo rem
 
 test("team result banners use awarded TTP, including draws with unequal GP, and wait for completion", () => {
   const messages = require("../../public/i18n/en.js");
-  const render = new Function("t", "escapeHtml", `${sourceOf("teamMatchResultMarkup")}; return teamMatchResultMarkup;`)(
+  const render = new Function("t", "escapeHtml", `${sourceOf("teamMatchScoreLabel")}; ${sourceOf("teamMatchResultMarkup")}; return teamMatchResultMarkup;`)(
     (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name]),
     value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
   );
@@ -217,7 +219,7 @@ test("team result banners use awarded TTP, including draws with unequal GP, and 
 
 test("My Games previews show confirmed game count and GP in the captain's displayed roster order", () => {
   const messages = require("../../public/i18n/en.js");
-  const render = new Function("t", "escapeHtml", `${sourceOf("teamMatchPhaseLabel")}\n${sourceOf("teamPairingCard")}; return teamPairingCard;`)(
+  const render = new Function("t", "escapeHtml", `${sourceOf("teamMatchPhaseLabel")}\n${sourceOf("teamPairingPhaseLabel")}\n${sourceOf("teamPairingCard")}; return teamPairingCard;`)(
     (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name]), String
   );
   const match = { id: 3, phase: "in_progress", roundNumber: 1, rosterA: { name: "Crimson" }, rosterB: { name: "Solar" },

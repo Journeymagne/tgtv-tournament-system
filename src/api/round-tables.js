@@ -6,7 +6,7 @@ const rounds = require("../db/repositories/tournament-rounds");
 const tables = require("../db/repositories/tournament-tables");
 const matches = require("../db/repositories/team-matches");
 const teams = require("../db/repositories/player-teams");
-const { validateTeamTables, numberTeamTables } = require("../domain/team-tournaments");
+const { validateTeamTables, validateTeamLines, numberTeamTables } = require("../domain/team-tournaments");
 const { saveTableImage } = require("./tournament-table-images");
 const { tournamentTableView } = require("./views");
 
@@ -60,7 +60,7 @@ async function updateAdmin({ client, user, params, body = {} }) {
     throw new HttpError(409, "Round changed. Reopen the table editor and try again");
   }
   const allowed = new Set(["id", "tableNumber", "killzone", "deployment", "imageId", "imageData"]);
-  const input = numberTeamTables(validateTeamTables(body.tables));
+  const input = round.metadata?.lines ? validateTeamLines(body.tables) : numberTeamTables(validateTeamTables(body.tables));
   if (input.some(table => Object.keys(table).some(key => !allowed.has(key))) ||
       input.some(table => !previous.some(old => old.id === table.id)) ||
       new Set(input.map(table => table.id)).size !== previous.length) {

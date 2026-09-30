@@ -263,6 +263,8 @@ function tournamentSummaryView(tournament) {
     participantMode: tournament.participantMode || "individual",
     teamSize: tournament.teamSize || null,
     pairingType: tournament.pairingType || null,
+    captainPairingEnabled: tournament.captainPairingEnabled !== false,
+    teamTiebreakerOrder: tournament.teamTiebreakerOrder ?? null,
     teamTablesLocked: Boolean(tournament.teamTablesLocked),
     swissRoundCount: tournament.swissRoundCount,
     singleEliminationSize: tournament.singleEliminationSize,
