@@ -31,7 +31,7 @@ const SECURITY_HEADERS = {
   ].join("; ")
 };
 
-function readBody(req, maxBytes = MAX_REQUEST_BYTES) {
+function readBody(req, maxBytes = MAX_REQUEST_BYTES, raw = false) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let totalBytes = 0;
@@ -51,7 +51,9 @@ function readBody(req, maxBytes = MAX_REQUEST_BYTES) {
     });
     req.on("end", () => {
       if (tooLarge) return;
-      const body = Buffer.concat(chunks).toString("utf8");
+      const bytes = Buffer.concat(chunks);
+      if (raw) return resolve(bytes);
+      const body = bytes.toString("utf8");
       if (!body) return resolve({});
       try {
         resolve(JSON.parse(body));
@@ -112,6 +114,7 @@ function sendJson(res, status, body, headers = {}) {
   const length = Buffer.byteLength(payload);
   const base = {
     "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
     // Set whether or not this particular response ended up compressed: the same
     // URL answers differently per Accept-Encoding, and a shared cache must not
     // hand a brotli body to a client that never asked for one.

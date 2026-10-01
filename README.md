@@ -1,5 +1,8 @@
 # KT Companion / TGTV Ranking Tournament System
 
+Account email verification and password recovery are available behind EMAIL_PROVIDER.
+See [Email setup and local capture](docs/email-service.md) before enabling Resend.
+
 The site opens on the Companion home page with five sections: initiative
 calculator, activation tracker, tournament system, KT Studio and the D6 dice generator. The calculators,
 Studio editor, published team library and dice editor are public. Saving or publishing a team

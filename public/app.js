@@ -3017,6 +3017,27 @@ async function handleSharedChallengeHash() {
   }
 }
 
+function emailRegistrationField() {
+  return '<div class="field" data-email-registration hidden><label for="register-email">' + adminLabel("Почта", "Email") + '</label><input id="register-email" name="email" type="email" autocomplete="email" maxlength="254" disabled><p class="muted small-note">' + adminLabel("После регистрации подтвердите адрес по ссылке из письма.", "After registering, confirm your address using the emailed link.") + "</p></div>";
+}
+function wireEmailRegistration() {
+  const wrapper = document.querySelector("[data-email-registration]");
+  if (!wrapper) return;
+  fetch("/api/auth/email-config").then(r => { if (!r.ok) throw Error(); return r.json(); }).then(config => {
+    if (!wrapper.isConnected) return;
+    wrapper.hidden = !config.enabled;
+    wrapper.querySelector("input").disabled = !config.enabled;
+    wrapper.querySelector("input").required = config.enabled;
+  }).catch(() => {});
+}
+function emailProfileMarkup() {
+  const email = state.me.emailAccount;
+  const details = email?.pendingEmail ? adminLabel("Ожидает подтверждения: ", "Awaiting confirmation: ") + email.pendingEmail :
+    email?.email ? adminLabel("Подтверждена: ", "Confirmed: ") + email.email : adminLabel("Добавьте почту для восстановления доступа.", "Add an email to recover access.");
+  return '<div class="settings-block"><h3>' + adminLabel("Почта и доступ", "Email & access") + '</h3><p class="muted">' + escapeHtml(details) +
+    '</p><a class="small-button" href="/account-email.html">' + adminLabel("Настроить почту", "Email settings") + "</a></div>";
+}
+
 function renderAuth() {
   const setupOpen = false;
   const title = state.authMode === "setup"
@@ -3031,6 +3052,7 @@ function renderAuth() {
       : t("auth.subtitle.login");
   const action = state.authMode === "setup" ? t("auth.action.setup") : state.authMode === "register" ? t("auth.action.register") : t("auth.action.login");
   const profileFields = state.authMode !== "login" ? `
+    ${emailRegistrationField()}
     <div class="field">
       <label for="register-nickname">${t("auth.field.registerNickname")}</label>
       <input id="register-nickname" name="registerNickname" maxlength="40" placeholder="${t("auth.field.registerNicknamePlaceholder")}">
@@ -3074,6 +3096,7 @@ function renderAuth() {
             <button class="primary-button" type="submit">${action}</button>
             <div class="message" data-message></div>
           </form>
+          <a class="documentation-auth-link" href="/account-email.html#forgot">${adminLabel("Забыли пароль?", "Forgot password?")}</a>
           <a class="documentation-auth-link" href="/tournament#/documentation">${t("nav.documentation")}</a>
         </div>
       </section>
@@ -3087,6 +3110,7 @@ function renderAuth() {
     });
   });
   document.querySelector("[data-auth-form]").addEventListener("submit", submitAuth);
+  wireEmailRegistration();
   wirePasswordToggles();
 }
 
@@ -3138,6 +3162,8 @@ async function submitAuth(event) {
     }
     body.registerNickname = form.get("registerNickname");
     body.telegramContact = form.get("telegramContact");
+    body.email = form.get("email");
+    body.locale = i18n.getLocale();
   }
   const path = state.authMode === "setup" ? "/api/setup-admin" : state.authMode === "register" ? "/api/register" : "/api/login";
   try {
@@ -3148,7 +3174,7 @@ async function submitAuth(event) {
     await loadTop();
     const routed = await applyAppRouteFromHash();
     if (!routed && !tournamentSlugFromLocation()) {
-      state.view = "play";
+      state.view = state.authMode === "register" && state.me?.emailAccount?.pendingEmail ? "profile" : "play";
       syncAppHash({ replace: true });
     }
     render();
@@ -4240,6 +4266,7 @@ function renderProfile() {
           </div>
           <button class="primary-button" type="submit">${t("profile.settings.saveContacts")}</button>
         </form>
+        ${emailProfileMarkup()}
         <form class="settings-block" data-profile-password-form>
           <h3>${t("auth.field.password")}</h3>
           <div class="field">

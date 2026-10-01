@@ -10,6 +10,8 @@ const { logError } = require("./src/http/logger");
 const { handleSeoRequest } = require("./src/http/seo");
 const { handleSiteRequest } = require("./src/http/sites");
 const routes = require("./src/api/routes");
+const { startWorker } = require("./src/email/worker");
+let stopEmailWorker = async () => {};
 const { loadUserFromRequest } = require("./src/api/auth");
 
 const router = createRouter(routes, {
@@ -36,7 +38,9 @@ const server = http.createServer((req, res) => {
 
 async function start() {
   requireDatabaseUrl();
+  require("./src/email/config").configuration();
   await migrate(getPool());
+  stopEmailWorker = startWorker();
   await new Promise((resolve) => server.listen(PORT, HOST, resolve));
   console.log(
     JSON.stringify({
@@ -49,6 +53,7 @@ async function start() {
 }
 
 async function stop() {
+  await stopEmailWorker();
   await new Promise((resolve) => server.close(resolve));
   await closePool();
 }

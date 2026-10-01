@@ -58,7 +58,8 @@ function adminPlayerToolsCard(user) {
       <div class="row-actions">
         <button class="danger-button" data-admin-reset-password="${user.id}">${t("profile.admin.resetPassword")}</button>
       </div>
-      ${reset ? `
+      ${reset?.delivery === 'email' ? '<p class="muted">' + adminLabel('Запрос на восстановление принят. Письмо будет отправлено на подтверждённую почту; повторная отправка ограничена одной в минуту.', 'Recovery requested. An email will be sent to the confirmed address; resends are limited to once per minute.') + '</p>' : ''}
+      ${reset?.password ? `
         <div class="row-card admin-password-card">
           <div class="row-main">
             <div class="row-title">${t("profile.admin.tempPasswordTitle")}</div>
@@ -80,7 +81,7 @@ function wireAdminPlayerTools(profileUserId) {
     if (!confirmed) return;
     try {
       const data = await api(`/api/admin/users/${profileUserId}/reset-password`, { method: "POST" });
-      state.adminPasswordReset = { userId: profileUserId, password: data.password };
+      state.adminPasswordReset = { userId: profileUserId, password: data.password, delivery: data.delivery };
       renderShell();
     } catch (err) {
       setPlayerProfileMessage(err.message, true);
@@ -2243,7 +2244,7 @@ function showRoleUser(id) {
     };
   }
   dialog.querySelector('[data-user-permissions]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}/permissions`,{method:'PATCH',body:{isAdmin:user.isSuperAdmin||form.has('isAdmin'),canCreateTournaments:form.has('canCreateTournaments'),reason:form.get('reason')}});dialog.close();});});
-  dialog.querySelector('[data-role-reset]')?.addEventListener('click',async()=>{if(!await confirmAction({message:t('dialog.admin.resetPassword'),confirmLabel:t('profile.admin.resetPassword')}))return;run(async()=>{const result=await api(`/api/admin/users/${id}/reset-password`,{method:'POST'});dialog.querySelector('[data-role-password]').textContent=result.password;});});
+  dialog.querySelector('[data-role-reset]')?.addEventListener('click',async()=>{if(!await confirmAction({message:t('dialog.admin.resetPassword'),confirmLabel:t('profile.admin.resetPassword')}))return;run(async()=>{const result=await api(`/api/admin/users/${id}/reset-password`,{method:'POST'});dialog.querySelector('[data-role-password]').textContent=result.password || adminLabel('Запрос на восстановление принят. Проверьте подтверждённую почту.', 'Recovery requested. Check the confirmed email.');});});
   dialog.querySelector('[data-user-suspension]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}/suspension`,{method:'PATCH',body:{until:new Date(form.get('until')).toISOString(),reason:form.get('reason')}});dialog.close();});});
   dialog.querySelector('[data-role-restore]')?.addEventListener('click',()=>run(async()=>{await api(`/api/admin/users/${id}/suspension`,{method:'PATCH',body:{until:null,reason:'Restored by administrator'}});dialog.close();}));
   dialog.querySelector('[data-user-rating]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}`,{method:'PATCH',body:{ratingCombined:Number(form.get('ratingCombined')),ratingTts:Number(form.get('ratingTts')),ratingIrl:Number(form.get('ratingIrl')),reason:form.get('reason')}});dialog.close();});});

@@ -5,6 +5,9 @@ const { HttpError, ValidationError, sessionToken, sessionCookie, clearedSessionC
 const users = require("../db/repositories/users");
 const sessions = require("../db/repositories/sessions");
 const access = require("../db/repositories/access");
+const mail = require("../email/service");
+const emailConfig = require("../email/config");
+const emailSecurity = require("../email/security");
 const challenges = require("../db/repositories/challenges");
 const games = require("../db/repositories/games");
 const teamMatches = require("../db/repositories/team-matches");
@@ -72,7 +75,7 @@ async function buildUserSummary(client, user) {
 
   const people = await users.findByIds(client, [...peopleIds]);
   const hasAdmin = await users.hasAdmin(client);
-  return userSummary({
+  const result = userSummary({
     user,
     hasAdmin,
     challenges: userChallenges,
@@ -80,6 +83,8 @@ async function buildUserSummary(client, user) {
     teamPairings,
     people
   });
+  result.user.emailAccount = await mail.summary(client, user.id);
+  return result;
 }
 
 function readCredentials(body, minPasswordLength, tooShortMessage) {
@@ -90,9 +95,11 @@ function readCredentials(body, minPasswordLength, tooShortMessage) {
   const name = requireName(body.name);
 
   if (password.length < minPasswordLength) throw new ValidationError(tooShortMessage);
+  if (password.length > 256) throw new ValidationError("Password must contain 6 to 256 characters");
   if (password !== confirmPassword) throw new ValidationError("Passwords do not match");
 
-  return { name, password, registerNickname, telegramContact };
+  const email = emailConfig.configuration().enabled ? emailSecurity.normalizeEmail(body.email) : null;
+  return { name, password, registerNickname, telegramContact, email, locale: body.locale === "en" ? "en" : "ru" };
 }
 
 async function createAccount(client, credentials, isAdmin) {
@@ -109,6 +116,7 @@ async function createAccount(client, credentials, isAdmin) {
     isAdmin
   });
 
+  await mail.beginRegistration(client, user, credentials.email, credentials.locale);
   const token = await startSession(client, user.id);
   return {
     status: 201,
@@ -126,7 +134,8 @@ async function me({ client, user }) {
   return buildUserSummary(client, user);
 }
 
-async function updateMe({ client, user, body }) {
+async function updateMe({ client, user, body, req }) {
+  user = await require('./email').lockedUser(client, user.id, req);
   const patch = {};
 
   if (Object.prototype.hasOwnProperty.call(body, "name")) {
@@ -149,7 +158,7 @@ async function updateMe({ client, user, body }) {
   let newPasswordHash = null;
   if (body.currentPassword || body.newPassword) {
     const currentPassword = String(body.currentPassword || "");
-    const newPassword = String(body.newPassword || "");
+    const newPassword = emailSecurity.password(body.newPassword);
     if (!(await verifyPassword(currentPassword, user.passwordHash))) {
       throw new HttpError(401, "Current password is incorrect");
     }
@@ -158,7 +167,10 @@ async function updateMe({ client, user, body }) {
   }
 
   let updated = Object.keys(patch).length ? await applyProfilePatch(client, user.id, patch) : user;
-  if (newPasswordHash) updated = await users.setPasswordHash(client, user.id, newPasswordHash);
+  if (newPasswordHash) {
+    updated = await users.setPasswordHash(client, user.id, newPasswordHash);
+    await mail.passwordChanged(client, updated, req ? sessionToken(req) : null);
+  }
 
   return buildUserSummary(client, updated);
 }
@@ -189,7 +201,8 @@ const ABSENT_USER_HASH = `${"0".repeat(32)}:${"0".repeat(128)}`;
 
 async function login({ client, body }) {
   const name = normalizeName(body.name);
-  const user = await users.findByNameKey(client, name);
+  let user = await users.findByNameKey(client, name);
+  if (user) user = (await users.lockByIds(client, [user.id]))[0] || null;
   const stored = user ? user.passwordHash : ABSENT_USER_HASH;
   const matches = await verifyPassword(String(body.password || ""), stored);
   if (!user || !matches) throw new HttpError(401, "Invalid name or password");

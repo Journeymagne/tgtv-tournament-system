@@ -120,8 +120,13 @@ function createRouter(routes, deps) {
     // stalled every other request, including plain GETs. readBody needs no
     // client, so it now runs first. Side effect: an unauthenticated caller
     // who also sends malformed JSON now sees 400 before 401 (was: reverse).
-    const body = METHODS_WITH_BODY.has(route.method) ? await readBody(req, route.maxBodyBytes) : {};
+    const body = METHODS_WITH_BODY.has(route.method) ? await readBody(req, route.maxBodyBytes, route.rawBody) : {};
 
+    if (route.emailLimit && (route.emailLimit !== "when-enabled" || require("../email/config").configuration().enabled)) {
+      if (!/^application\/json(?:\s*;|$)/i.test(String(req.headers["content-type"] || ""))) throw new HttpError(415, "Use application/json");
+      if (!body || typeof body !== "object" || Array.isArray(body)) throw new HttpError(400, "Invalid request body");
+      await withClient(client => require("../email/security").checkRequest(client, req));
+    }
     const runner = route.tx ? withTransaction : withClient;
     const execute = () =>
       runner(async (client) => {
@@ -171,6 +176,10 @@ function createRouter(routes, deps) {
       }
 
       const result = await runRoute(match.route, match.params, req, url);
+      if (match.route.minResponseMs) {
+        const remaining = match.route.minResponseMs - (Date.now() - startedAt);
+        if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+      }
       // Only read once the route has completed: a handler that threw took its
       // transaction - and any session extension inside it - down with it.
       const renewal = req.renewedSessionCookie;

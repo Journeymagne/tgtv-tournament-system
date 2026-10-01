@@ -1,5 +1,6 @@
 const achievements = require("./achievements");
 const auth = require("./auth");
+const email = require("./email");
 const users = require("./users");
 const challenges = require("./challenges");
 const games = require("./games");
@@ -26,6 +27,16 @@ function withAction(handler, action) {
 }
 
 module.exports = [
+  { method:"GET", path:"/api/auth/email-config", handler:email.config },
+  { method:"GET", path:"/api/auth/email", handler:email.status, auth:"user" },
+  { method:"POST", path:"/api/auth/email", handler:email.change, auth:"user", tx:true, emailLimit:true, maxBodyBytes:4096 },
+  { method:"DELETE", path:"/api/auth/email/pending", handler:email.cancel, auth:"user", tx:true, emailLimit:true, maxBodyBytes:4096 },
+  { method:"POST", path:"/api/auth/email/resend", handler:email.resend, auth:"user", tx:true, emailLimit:true, maxBodyBytes:4096 },
+  { method:"POST", path:"/api/auth/email/verify", handler:email.confirm, tx:true, emailLimit:true, maxBodyBytes:4096 },
+  { method:"POST", path:"/api/auth/password/forgot", handler:email.forgot, tx:true, emailLimit:true, minResponseMs:350, maxBodyBytes:4096 },
+  { method:"POST", path:"/api/auth/password/reset", handler:email.reset, tx:true, emailLimit:true, maxBodyBytes:4096 },
+  { method:"POST", path:"/api/email/webhook", handler:email.webhook, tx:true, rawBody:true, maxBodyBytes:65536 },
+  { method:"GET", path:"/api/admin/email", handler:email.health, auth:"user", permission:"super" },
   { method:"GET", path:"/api/studio/library/:id/comments", handler:studioComments.list, loadUser:true },
   { method:"GET", path:"/api/studio/library/:id/comments/:commentId/context", handler:studioComments.context, loadUser:true },
   { method:"GET", path:"/api/studio/library/:id/comments/:commentId/replies", handler:studioComments.replies, loadUser:true },
@@ -99,8 +110,8 @@ module.exports = [
   { method: "PATCH", path: "/api/admin/documentation/:locale/:id", handler: documentation.update, auth: "admin", tx: true },
   { method: "GET", path: "/api/me", handler: auth.me, auth: "none", loadUser: true },
   { method: "GET", path: "/api/me/team-pairings", handler: auth.myTeamPairings, auth: "user" },
-  { method: "PATCH", path: "/api/me", handler: auth.updateMe, auth: "user", tx: true },
-  { method: "POST", path: "/api/register", handler: auth.register, auth: "none", tx: true, rateLimit: "auth" },
+  { method: "PATCH", path: "/api/me", handler: auth.updateMe, auth: "user", tx: true, rateLimit: "auth" },
+  { method: "POST", path: "/api/register", handler: auth.register, auth: "none", tx: true, rateLimit: "auth", emailLimit: "when-enabled", maxBodyBytes:8192 },
   { method: "POST", path: "/api/setup-admin", handler: auth.setupAdmin, auth: "none", tx: true, rateLimit: "auth" },
   { method: "POST", path: "/api/login", handler: auth.login, auth: "none", tx: true, rateLimit: "auth" },
   { method: "POST", path: "/api/logout", handler: auth.logout, auth: "none", tx: true },
