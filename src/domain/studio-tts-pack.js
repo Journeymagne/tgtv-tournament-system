@@ -32,7 +32,12 @@ function png(value) {
       if (!integer(width, 16, 4096) || !integer(height, 16, 4096) || bytes[24] !== 8 || ![2,6].includes(bytes[25]) || bytes[26] || bytes[27] || bytes[28]) fail("Неподдерживаемый размер или формат PNG.");
     } else if (kind === "IDAT") data.push(bytes.subarray(position + 8, position + 8 + length));
     else if (kind === "IEND") { ended = length === 0 && position + 12 === bytes.length; break; }
-    else if (!PNG_METADATA_CHUNKS.has(kind)) fail("Неподдерживаемые данные PNG.");
+    else if (kind === "deBG") {
+      // Firefox canvas fingerprinting protection adds 16 opaque bytes after IDAT.
+      // This private metadata does not change the decoded image.
+      if (length !== 16 || !data.length) fail("Некорректные служебные данные PNG (deBG).");
+    }
+    else if (!PNG_METADATA_CHUNKS.has(kind)) fail("Неподдерживаемые данные PNG (блок " + kind.replace(/[^a-zA-Z]/g, "?") + ").");
     position += length + 12;
   }
   if (!ended || !data.length) fail("Изображение PNG не завершено.");
