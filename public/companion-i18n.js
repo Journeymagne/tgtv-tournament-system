@@ -3,6 +3,7 @@
 (function () {
   "use strict";
   const pairs = [
+    ["Почта и доступ", "Email & access"],
     ["Размер цифр и точек", "Number and pip size"],
     ["Логотип можно увеличить до 200%. Части за краями грани обрезаются.", "The logo can be enlarged to 200%. Parts beyond the face edges are cropped."],
     ["Страницы каталога команд", "Team catalog pages"],

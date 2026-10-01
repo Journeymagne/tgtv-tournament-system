@@ -1,5 +1,15 @@
 const { configuration } = require("./config");
 const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+// Companion dark theme from public/companion-tokens.css; email clients need inline colors.
+const palette = {
+  background: "#050505",
+  surface: "#101010",
+  text: "#f4f4f4",
+  muted: "#b9b9b9",
+  border: "#3b3b3b",
+  accent: "#ff7a1a",
+  onAccent: "#050505"
+};
 function message(kind, { name, link, locale = "ru" }) {
   const en = locale === "en";
   const texts = en ? {
@@ -20,15 +30,37 @@ function message(kind, { name, link, locale = "ru" }) {
   const greeting = (en ? "Hello, " : "Здравствуйте, ") + name + "!";
   const action = link || configuration().site + "/account-email.html";
   const time = new Date().toISOString();
+  const logo = new URL("/logo.png", action).href;
   return {
     subject: "KT Companion — " + title,
     text: [greeting, intro, button + ": " + action, note, time].join("\n\n"),
-    html: '<!doctype html><html lang="' + (en ? "en" : "ru") + '"><body style="background:#f2f3f0;color:#18221d;font:16px/1.6 Arial,sans-serif;padding:24px">' +
-      '<main style="max-width:560px;margin:auto;background:white;padding:32px;border-radius:16px">' +
-      '<p style="color:#556550;letter-spacing:2px">KT COMPANION</p><h1 style="font-size:26px">' + escapeHtml(title) + "</h1><p>" + escapeHtml(greeting) +
-      "</p><p>" + escapeHtml(intro) + '</p><p style="margin:28px 0"><a style="display:inline-block;background:#29483c;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none" href="' +
-      escapeHtml(action) + '">' + escapeHtml(button) + "</a></p><p>" + escapeHtml(note) +
-      '</p><p style="font-size:12px;color:#666">' + time + "</p></main></body></html>"
+    html: `<!doctype html>
+<html lang="${en ? "en" : "ru"}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:${palette.background};color:${palette.text};font:16px/1.6 Arial,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${palette.background}" style="background:${palette.background}">
+  <tr><td align="center" style="padding:24px 12px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${palette.surface}" style="max-width:624px;margin:auto;background:${palette.surface};border:1px solid ${palette.border};border-radius:16px">
+      <tr><td style="padding:28px 24px;color:${palette.text};font:16px/1.6 Arial,sans-serif">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px">
+          <tr><td width="60" style="padding-right:12px"><img src="${escapeHtml(logo)}" width="48" height="48" alt="KT Companion" style="display:block;border:0;border-radius:50%"></td>
+          <td style="color:${palette.accent};font:700 14px/1.4 Arial,sans-serif;letter-spacing:2px">KT COMPANION</td></tr>
+        </table>
+        <h1 style="margin:0 0 24px;color:${palette.text};font-size:26px;line-height:1.3">${escapeHtml(title)}</h1>
+        <p style="margin:0 0 16px;color:${palette.text}">${escapeHtml(greeting)}</p>
+        <p style="margin:0;color:${palette.text}">${escapeHtml(intro)}</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0">
+          <tr><td align="center" bgcolor="${palette.accent}" style="background:${palette.accent};border-radius:8px">
+            <a href="${escapeHtml(action)}" style="display:inline-block;background:${palette.accent};color:${palette.onAccent};font:700 16px/1.5 Arial,sans-serif;padding:12px 20px;border-radius:8px;text-decoration:none">${escapeHtml(button)}</a>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 20px;color:${palette.muted}">${escapeHtml(note)}</p>
+        <p style="margin:0;color:${palette.muted};font-size:12px">${time}</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`
   };
 }
 module.exports = { message };

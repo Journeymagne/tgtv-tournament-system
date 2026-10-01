@@ -2,10 +2,10 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const escape = value => String(value).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-  let locale = window.KTAppearance?.locale || "ru", mode = "settings", token = "", busy = false, generation = 0, completed = "";
+  let locale = window.KTAppearance?.locale || "ru", mode = "settings", token = "", busy = false, generation = 0, completed = "", pendingLocale = "";
   const copy = {
     ru: {
-      heading: "Почта и доступ", intro: "Один аккаунт для турниров, Студии и других инструментов KT Companion. Почта видна только вам.",
+      eyebrow: "АККАУНТ / БЕЗОПАСНОСТЬ", heading: "Почта и доступ", intro: "Один аккаунт для турниров, Студии и других инструментов KT Companion. Почта видна только вам.",
       back: "Вернуться в профиль", loading: "Загрузка…", settings: "Почта аккаунта", email: "Адрес почты",
       password: "Текущий пароль", newPassword: "Новый пароль", repeat: "Повторите новый пароль", passwordHint: "От 6 до 256 символов.",
       save: "Отправить подтверждение", bind: "Добавить почту", change: "Сменить почту", confirmed: "Подтверждена",
@@ -29,7 +29,7 @@
       busy: "Подождите…", admin: "Состояние отправки", adminHint: "Очередь и последние ошибки отправки. Данные получателей скрыты."
     },
     en: {
-      heading: "Email & access", intro: "One account for tournaments, Studio and every KT Companion tool. Your email is private.",
+      eyebrow: "ACCOUNT / SECURITY", heading: "Email & access", intro: "One account for tournaments, Studio and every KT Companion tool. Your email is private.",
       back: "Back to profile", loading: "Loading…", settings: "Account email", email: "Email address",
       password: "Current password", newPassword: "New password", repeat: "Repeat new password", passwordHint: "6 to 256 characters.",
       save: "Send confirmation", bind: "Add email", change: "Change email", confirmed: "Confirmed",
@@ -93,7 +93,10 @@
     busy = true; button.disabled = true; notice(t("busy"));
     try { await fn(); }
     catch (error) { notice(error.message, true); }
-    finally { busy = false; if (button.isConnected) button.disabled = false; }
+    finally {
+      busy = false; if (button.isConnected) button.disabled = false;
+      if (pendingLocale) { locale = pendingLocale; pendingLocale = ""; void render(); }
+    }
   }
   function wireForm(fn) {
     $("email-form")?.addEventListener("submit", event => {
@@ -105,7 +108,7 @@
   async function render() {
     const ownGeneration = ++generation;
     $("heading").textContent = t("heading"); $("intro").textContent = t("intro");
-    $("back").textContent = t("back"); $("language").textContent = locale === "ru" ? "EN" : "RU";
+    $("back").textContent = t("back"); $("eyebrow").textContent = t("eyebrow");
     document.documentElement.lang = locale; document.title = t("heading") + " — KT Companion";
     $("content").textContent = t("loading"); notice("");
     try {
@@ -122,6 +125,8 @@
         $("content").innerHTML = '<p class="subtle">' + t("verifyHint") + "</p>" + action("verify", "verifyAction");
         $("verify").onclick = event => perform(event.target, async () => {
           await api("/api/auth/email/verify", "POST", { token }); token = ""; completed = "verified";
+          window.KTCompanion?.changed();
+          void window.KTCompanion?.session().catch(() => {});
           $("content").innerHTML = "<p>" + t("verified") + "</p>" + loginLink(); notice("");
         });
       } else if (mode === "reset") {
@@ -130,6 +135,7 @@
         wireForm(async data => {
           if (data.password !== data.confirmPassword) throw Error(t("mismatch"));
           await api("/api/auth/password/reset", "POST", { ...data, token }); token = ""; completed = "resetDone";
+          window.KTCompanion?.setUser(null); window.KTCompanion?.changed();
           $("content").innerHTML = "<p>" + t("resetDone") + "</p>" + loginLink(); notice("");
         });
       } else {
@@ -162,10 +168,11 @@
       $("content").textContent = ""; notice(error.message, true);
     }
   }
-  $("language").onclick = () => {
-    if (busy) return;
-    locale = locale === "ru" ? "en" : "ru"; window.KTAppearance?.setLocale(locale); void render();
-  };
+  window.addEventListener("kt:locale", () => {
+    const next = window.KTAppearance?.locale || "ru";
+    if (busy) { pendingLocale = next; return; }
+    if (next !== locale) { locale = next; void render(); }
+  });
   window.addEventListener("hashchange", () => { readFragment(); void render(); });
   readFragment(); void render();
 })();

@@ -26,16 +26,16 @@
     home.href = serviceUrl("home"); home.setAttribute("aria-label", "На главную KT Companion"); home.title = "На главную KT Companion";
     const logo = document.createElement("img"); logo.src = "/logo.webp"; logo.alt = ""; logo.width = 32; logo.height = 32;
     home.append(logo);
-    const title = document.createElement(active === "home" ? "span" : "a");
+    const title = document.createElement(["home", "account"].includes(active) ? "span" : "a");
     title.className = "companion-service-link";
-    if (active !== "home") title.href = serviceUrl(active) + (active === "studio" ? "#/library" : active === "tournament" ? "#/mygames" : "");
+    if (!["home", "account"].includes(active)) title.href = serviceUrl(active) + (active === "studio" ? "#/library" : active === "tournament" ? "#/mygames" : "");
     if (["initiative", "tracker"].includes(active)) title.addEventListener("click", event => {
       if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || !window.KTCalculator) return;
       event.preventDefault(); window.KTCalculator.reset();
       document.querySelectorAll(".page-shell details[open]").forEach(details => { details.open = false; });
       window.scrollTo(0, 0);
     });
-    title.textContent = ({ home: "KT Companion", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Dice Generator" })[active] || "KT Companion";
+    title.textContent = ({ home: "KT Companion", account: "Почта и доступ", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Dice Generator" })[active] || "KT Companion";
     brand.append(home, title); mount.append(brand);
     const controls = document.createElement("div"); controls.className = "companion-tools"; mount.append(controls);
     if (window.KTAppearance) {
