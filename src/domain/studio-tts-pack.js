@@ -3,6 +3,14 @@ const { inflateSync } = require("node:zlib");
 const { HttpError } = require("../http/io");
 
 const MAX_BYTES = 64 * 1024 * 1024;
+// Standard static PNG metadata, including PNG 3 color/HDR information.
+// These chunks are retained as bytes, never interpreted or decompressed here.
+// Keep an explicit allowlist: animation and unknown chunk types remain rejected.
+const PNG_METADATA_CHUNKS = new Set([
+  "sRGB", "gAMA", "cHRM", "pHYs", "iCCP", "sBIT",
+  "cICP", "mDCV", "cLLI", "eXIf", "tIME", "tEXt", "zTXt", "iTXt",
+  "bKGD", "sPLT"
+]);
 const fail = message => { throw new HttpError(400, message); };
 const text = (value, max) => typeof value === "string" && value.trim().length > 0 && value.length <= max && !/[\u0000-\u001f\u007f]/.test(value);
 const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
@@ -24,7 +32,7 @@ function png(value) {
       if (!integer(width, 16, 4096) || !integer(height, 16, 4096) || bytes[24] !== 8 || ![2,6].includes(bytes[25]) || bytes[26] || bytes[27] || bytes[28]) fail("Неподдерживаемый размер или формат PNG.");
     } else if (kind === "IDAT") data.push(bytes.subarray(position + 8, position + 8 + length));
     else if (kind === "IEND") { ended = length === 0 && position + 12 === bytes.length; break; }
-    else if (!["sRGB", "gAMA", "cHRM", "pHYs", "iCCP", "sBIT"].includes(kind)) fail("Неподдерживаемые данные PNG.");
+    else if (!PNG_METADATA_CHUNKS.has(kind)) fail("Неподдерживаемые данные PNG.");
     position += length + 12;
   }
   if (!ended || !data.length) fail("Изображение PNG не завершено.");
