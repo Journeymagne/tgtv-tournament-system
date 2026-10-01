@@ -17,7 +17,7 @@ function previewRenderer(me) {
   return new Function("state", "t", "escapeHtml", "teamRosterLabel", "teamTournamentTables", [
     "teamTournamentMatchPreviewMarkup", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "teamMatchPhaseLabel",
     "teamRosterMemberLabel", "teamPairingMemberLabel", "teamMissionLabel", "tableLabel",
-    "teamGameResultPermissions", "teamGamePendingMessage"
+    "teamGameResultPermissions", "teamGamePendingMessage", "teamMatchScoreLabel", "teamPairingPhaseLabel"
   ].map(sourceOf).join("\n") + ";return teamTournamentMatchPreviewMarkup;")(
     { me }, translate, escape, roster => escape(roster.name), () => []);
 }
@@ -85,4 +85,17 @@ test("both tournament routes render previews rather than the captain workspace",
   for (const options of [{ publicRoute: true }, { admin: true }]) {
     assert.match(render({ tournament: { id: 4 }, rounds: [{ matches: [{ id: 7 }, { id: 8 }] }] }, options), /data-team-match-previews="4">PREVIEW 7 PREVIEW 8/);
   }
+});
+
+test("Classic previews never show GP for completed, pending or unplayed games", () => {
+  const render = previewRenderer({ id: 1, isAdmin: true });
+  const match = { ...matchFixture(), pairingType: "sword_shield_classic", progress: { completed: 1, total: 3, winsA: 1, winsB: 0 } };
+  const html = render(match, { status: "in_progress" });
+  assert.doesNotMatch(html, /\bGP\b/);
+  assert.match(html, /18:14 VP/);
+  assert.match(html, /Awaiting confirmation/);
+  assert.match(html, /Not played yet/);
+  const finished = render({ ...match, phase: "completed", teamTournamentPointsA: 3, teamTournamentPointsB: 0 }, { status: "in_progress" });
+  assert.match(finished, /3:0 TTP/);
+  assert.doesNotMatch(finished, /\bGP\b/);
 });

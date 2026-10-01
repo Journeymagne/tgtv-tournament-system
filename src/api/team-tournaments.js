@@ -348,7 +348,7 @@ async function updateRosterSeedsAdmin({ client, user, params, body }) {
 async function configureTeamTables(client, tournament, values) {
   if (values !== undefined) {
     if (tournament.teamTablesLocked) throw new HttpError(409, "Team tables are locked for this tournament");
-    validateTeamTables(values);
+    validateTeamTables(values, tournament.venueMode);
     const existing = await tablesRepo.listByTournament(client, tournament.id);
     if (existing.length > 3) throw new ValidationError("Configure exactly three team tables before continuing");
     for (let i = 0; i < 3; i += 1) {
@@ -357,7 +357,7 @@ async function configureTeamTables(client, tournament, values) {
       else await tablesRepo.insert(client, { tournamentId: tournament.id, ...data });
     }
   }
-  const tables = validateTeamTables(await tablesRepo.listByTournament(client, tournament.id));
+  const tables = validateTeamTables(await tablesRepo.listByTournament(client, tournament.id), tournament.venueMode);
   await tournamentsRepo.update(client, tournament.id, { teamTablesLocked: true });
   return tables;
 }
@@ -379,9 +379,9 @@ async function nextTeamRoundTables(client, tournament, values) {
   const defaults = await tablesRepo.listByTournament(client, tournament.id);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const previous = tournament.roundDraft?.tables || tablesForRound(rounds.at(-1), defaults);
-  const selected = validateTeamLines(values === undefined ? previous : values);
+  const selected = validateTeamLines(values === undefined ? previous : values, tournament.venueMode);
   if (tournament.pairingType !== "sword_shield_classic") {
-    for (let index = 0; index < selected.length; index += 3) validateTeamTables(selected.slice(index, index + 3));
+    for (let index = 0; index < selected.length; index += 3) validateTeamTables(selected.slice(index, index + 3), tournament.venueMode);
   }
   const used = new Set();
   const result = [];
@@ -393,7 +393,7 @@ async function nextTeamRoundTables(client, tournament, values) {
     used.add(table.id);
     result.push({ id: table.id, tournamentId: tournament.id, tableNumber: input.tableNumber,
       killzone: input.killzone, deployment: Number(input.deployment),
-      imageId: await saveTableImage(client, tournament.id, input, previous.find(item => item.id === table.id)) });
+      imageId: await saveTableImage(client, tournament.id, input, previous.find(item => item.id === table.id), tournament.venueMode) });
   }
   await tournamentsRepo.update(client, tournament.id, { teamTablesLocked: true });
   return result;
@@ -430,10 +430,10 @@ async function startTournament(client, tournament, user, body = {}) {
   }
   const tables = tablesForRound(first, await tablesRepo.listByTournament(client, tournament.id));
   if (first.metadata?.lines) {
-    validateTeamLines(tables);
+    validateTeamLines(tables, tournament.venueMode);
     assignLines(firstMatches, tables);
     if (tournament.pairingType === "sword_shield_classic") normalizeRoundMissions(first.metadata.missions);
-  } else validateTeamTables(tables);
+  } else validateTeamTables(tables, tournament.venueMode);
   for (const roster of competitive) {
     if (activeRosterMembers(roster).length !== 3) throw new ValidationError("Every active roster must contain exactly three players");
     await rostersRepo.update(client, roster.id, {
@@ -513,10 +513,22 @@ async function previewNextRound(client, tournament) {
     killzone: previous[index % 3]?.killzone || "", deployment: previous[index % 3]?.deployment || null
   });
   const pairings = assignLines(blueprint.pairings, tables);
+  let reuseLines = previous.length === tables.length && Boolean(tournament.roundDraft?.tables?.length || rounds.at(-1)?.metadata?.lines);
+  if (reuseLines) {
+    try {
+      validateTeamLines(previous, tournament.venueMode);
+      if (tournament.pairingType !== "sword_shield_classic") {
+        for (let index = 0; index < previous.length; index += 3) validateTeamTables(previous.slice(index, index + 3), tournament.venueMode);
+      }
+    } catch (error) {
+      if (!(error instanceof ValidationError)) throw error;
+      reuseLines = false;
+    }
+  }
   return {
     tournament: tournamentSummaryView(tournament),
     round: { ...blueprint, matches: pairings, missions: tournament.roundDraft?.missions || rounds.at(-1)?.metadata?.missions || [] },
-    tables: tables.map(tournamentTableView), teamRound: true,
+    tables: tables.map(tournamentTableView), teamRound: true, reuseLines,
     restoredDraft: Boolean(tournament.roundDraft), prepared: tournament.status === "registration_closed"
   };
 }
@@ -1132,7 +1144,7 @@ async function selectTeamEnvironment(client, context, user, body) {
     logAssignments: pairingLog.assignmentDetails(context, assignments.filter(item => item.slot === step.slot ||
       (!state.assignments?.some(previous => previous.slot === item.slot) && item.slot !== step.slot)), tables) } });
   if (Number(state.step) + 1 === teamEnvironmentPlan(match).length) {
-    if (assignments.length !== 3 || assignments.some((item) => !item.tableId || !item.mission.critOp || !item.mission.killzone || !item.mission.layout)) {
+    if (assignments.length !== 3 || assignments.some((item) => !item.tableId || !item.mission.critOp || (context.tournament.venueMode !== "irl" && !item.mission.killzone) || !item.mission.layout)) {
       throw new HttpError(409, "Complete all three game assignments first");
     }
     await createPersonalGames(client, context, assignments, user);

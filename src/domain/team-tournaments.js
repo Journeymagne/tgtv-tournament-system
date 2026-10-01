@@ -3,14 +3,19 @@ const { CRIT_OPS, KILLZONES } = require("./kill-teams");
 const { pairScoreBrackets } = require("./tournaments/swiss");
 const { shuffledIds } = require("./tournaments/seeding");
 
-function validateTeamTables(tables) {
+function validTableKillzone(table, venueMode) {
+  return KILLZONES.includes(table.killzone) || (venueMode === "irl" && (table.killzone == null || table.killzone === ""));
+}
+
+function validateTeamTables(tables, venueMode = "tts") {
   if (!Array.isArray(tables) || tables.length !== 3 ||
-      tables.some((table) => !table || !KILLZONES.includes(table.killzone) ||
+      tables.some((table) => !table || !validTableKillzone(table, venueMode) ||
         !["number", "string"].includes(typeof table.deployment) ||
         !Number.isInteger(Number(table.deployment)) || Number(table.deployment) < 1 || Number(table.deployment) > 6)) {
-    throw new ValidationError("Configure three Killzones, each with a deployment from 1 to 6");
+    throw new ValidationError(venueMode === "irl" ? "Configure three tables with deployments from 1 to 6; Killzones are optional" : "Configure three Killzones, each with a deployment from 1 to 6");
   }
-  if (new Set(tables.map((table) => table.killzone)).size !== 3) {
+  const named = tables.map(table => table.killzone).filter(Boolean);
+  if (new Set(named).size !== named.length) {
     throw new ValidationError("Choose three different Killzones");
   }
   return tables;
@@ -343,12 +348,12 @@ function teamPointsForMatch(match, progress = teamMatchProgress(match)) {
   return progress.winsA > progress.winsB ? { a: 3, b: 0 } : { a: 0, b: 3 };
 }
 
-function validateTeamLines(tables) {
+function validateTeamLines(tables, venueMode = "tts") {
   if (!Array.isArray(tables) || !tables.length || tables.length % 3 || tables.length > 384 ||
-      tables.some(table => !table || !KILLZONES.includes(table.killzone) || !["number", "string"].includes(typeof table.deployment) || !Number.isInteger(Number(table.deployment)) || Number(table.deployment) < 1 || Number(table.deployment) > 6)) {
-    throw new ValidationError("Configure complete lines of three tables with a Killzone and deployment (1–6) on every table");
+      tables.some(table => !table || !validTableKillzone(table, venueMode) || !["number", "string"].includes(typeof table.deployment) || !Number.isInteger(Number(table.deployment)) || Number(table.deployment) < 1 || Number(table.deployment) > 6)) {
+    throw new ValidationError(venueMode === "irl" ? "Configure complete lines of three tables with deployments (1–6); Killzones are optional" : "Configure complete lines of three tables with a Killzone and deployment (1–6) on every table");
   }
-  return numberTeamTables(tables);
+  return numberTeamTables(tables.map(table => ({ ...table, killzone: table.killzone || "" })));
 }
 
 module.exports = {

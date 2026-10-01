@@ -2105,7 +2105,7 @@ function wireAdminTeamRosterControls(data) {
     button.addEventListener("click", async () => {
       const roster = (data.rosters || []).find((item) => item.id === Number(button.dataset.adminTeamRosterDelete));
       const started = Boolean(data.tournament.startedAt) || ["in_progress", "completed"].includes(data.tournament.status);
-      if (!await confirmDelete(t(started ? "teams.tournament.removeAfterStartConfirm" : "teams.tournament.deleteConfirm", { name: roster?.name || roster?.teamNameSnapshot || "" }))) return;
+      if (!await confirmDelete(t(started ? (data.tournament.pairingType === "sword_shield_classic" ? "classic.removeAfterStartConfirm" : "teams.tournament.removeAfterStartConfirm") : "teams.tournament.deleteConfirm", { name: roster?.name || roster?.teamNameSnapshot || "" }))) return;
       try {
         await api(`/api/tournaments/${data.tournament.id}/rosters/${button.dataset.adminTeamRosterDelete}`, { method: "DELETE" });
         await refreshTeamTournamentUi(data, { admin: true });

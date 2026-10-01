@@ -80,3 +80,12 @@ test("Classic standings count three-point wins and legacy published wins", () =>
     assert.equal(rows[1].losses, 1);
   }
 });
+
+test("IRL lines allow omitted Killzones while requiring valid deployment and table numbers", () => {
+  const tables = [1, 2, 3].map(tableNumber => ({ tableNumber, deployment: 1 }));
+  assert.deepEqual(validateTeamLines(tables, "irl").map(table => table.killzone), ["", "", ""]);
+  assert.throws(() => validateTeamLines(tables, "tts"));
+  assert.throws(() => validateTeamLines(tables.map(table => ({ ...table, killzone: "invalid" })), "irl"));
+  assert.throws(() => validateTeamLines(tables.map(table => ({ ...table, deployment: null })), "irl"));
+  assert.throws(() => validateTeamLines(tables.map(table => ({ ...table, tableNumber: 1 })), "irl"));
+});

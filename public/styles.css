@@ -4324,3 +4324,19 @@ tr:last-child td {
 .team-manual-pairing { display: grid; gap: 16px; min-width: 0; }
 .team-manual-pairing fieldset { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
 .team-manual-pairing label, .team-manual-pairing select { min-width: 0; width: 100%; }
+
+.saved-team-lines {
+  margin-top: 16px;
+}
+
+.saved-team-lines-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.saved-team-lines-list .row-card {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}

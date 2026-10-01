@@ -19,7 +19,10 @@ function validateTableImage(value) {
   return file;
 }
 
-async function saveTableImage(client, tournamentId, selection, previous) {
+async function saveTableImage(client, tournamentId, selection, previous, venueMode = "tts") {
+  if (venueMode === "irl" && selection.imageData) {
+    throw new ValidationError("Table image uploads are only available for TTS tournaments");
+  }
   if (selection.imageData) {
     const file = validateTableImage(selection.imageData);
     const hash = crypto.createHash("sha256").update(file.bytes).digest("hex");

@@ -60,7 +60,7 @@ async function updateAdmin({ client, user, params, body = {} }) {
     throw new HttpError(409, "Round changed. Reopen the table editor and try again");
   }
   const allowed = new Set(["id", "tableNumber", "killzone", "deployment", "imageId", "imageData"]);
-  const input = round.metadata?.lines ? validateTeamLines(body.tables) : numberTeamTables(validateTeamTables(body.tables));
+  const input = round.metadata?.lines ? validateTeamLines(body.tables, tournament.venueMode) : numberTeamTables(validateTeamTables(body.tables, tournament.venueMode));
   if (input.some(table => Object.keys(table).some(key => !allowed.has(key))) ||
       input.some(table => !previous.some(old => old.id === table.id)) ||
       new Set(input.map(table => table.id)).size !== previous.length) {
@@ -72,7 +72,7 @@ async function updateAdmin({ client, user, params, body = {} }) {
     const table = input.find(item => item.id === old.id);
     selected.push({ id: old.id, tournamentId: tournament.id, tableNumber: table.tableNumber,
       killzone: table.killzone, deployment: Number(table.deployment),
-      imageId: await saveTableImage(client, tournament.id, table, old) });
+      imageId: await saveTableImage(client, tournament.id, table, old, tournament.venueMode) });
   }
   const updated = await rounds.update(client, round.id, { metadata: { ...round.metadata, tables: selected } });
   // Only terrain is refreshed in existing assignments and personal-game links.

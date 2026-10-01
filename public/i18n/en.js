@@ -4,6 +4,7 @@
 
 const TGTV_I18N_EN = {
 
+  "classic.removeAfterStartConfirm": "Remove roster “{name}” from future rounds? Played results are preserved. Any unfinished match becomes a forfeit win for the opponent: 3 team tournament points, without Elo changes for the forfeit.",
   "classic.name": "SWORD SHIELD CLASSIC",
   "classic.captainPairing": "Use step-by-step captain pairing",
   "classic.manualHint": "Without step-by-step pairing, captains or organizers directly assign three games, tables and missions.",
@@ -14,6 +15,11 @@ const TGTV_I18N_EN = {
   "classic.vp_diff": "VP difference",
   "classic.total_vp": "Total VP",
   "classic.line": "Line {number}",
+  "classic.linesHintIrl": "Each line contains three tables. Killzone is optional; table number and deployment are required.",
+  "classic.killzoneOptional": "Killzone (optional)",
+  "classic.savedLines": "Tournament lines saved",
+  "classic.savedLinesHint": "These table groups are reused in subsequent rounds. Lines are assigned to matchups automatically; you can change the assignments below.",
+  "classic.editLines": "Edit lines",
   "classic.linesHint": "Each line contains three tables and serves one team matchup. Check Killzones and deployments.",
   "classic.missionsHint": "Choose three distinct missions for the entire round. Captains assign them independently of tables on each line.",
   "classic.mission": "Mission {number}",

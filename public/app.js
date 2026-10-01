@@ -8388,8 +8388,8 @@ function teamMatchGamesMarkup(match, options = {}) {
       const [playerAId, playerBId] = game.playerIds || [];
       const vpA = completed ? game.result.scores?.[playerAId]?.total ?? 0 : null;
       const vpB = completed ? game.result.scores?.[playerBId]?.total ?? 0 : null;
-      const score = completed ? `${vpA}:${vpB} VP${match.pairingType === "sword_shield_classic" ? "" : ` · ${link.gamePointsA}:${link.gamePointsB} GP`}` : t("teams.results.notCounted");
-      result = `<span class="match-result-state" data-result-state="${resultState}">${escapeHtml(status)} · ${escapeHtml(score)}</span>`;
+      const score = completed ? `${vpA}:${vpB} VP${match.pairingType === "sword_shield_classic" ? "" : ` · ${link.gamePointsA}:${link.gamePointsB} GP`}` : match.pairingType === "sword_shield_classic" ? "" : t("teams.results.notCounted");
+      result = `<span class="match-result-state" data-result-state="${resultState}">${[status, score].filter(Boolean).map(escapeHtml).join(" · ")}</span>`;
     }
     const resultAction = options.readOnly ? "" : link?.permissions?.canSubmit
       ? `<button class="primary-button" data-team-game-result="${game?.id}">${t(game?.status === "pending_confirmation" ? "play.action.editResult" : "play.action.enterResult")}</button>`
@@ -8997,7 +8997,7 @@ function renderRoundSetupModal(preview) {
           <button class="ghost-button" type="button" data-round-setup-close>${t("common.cancel")}</button>
         </div>
         <form class="round-setup-form" data-round-setup-form>
-          ${preview.tableOnly ? teamTableSetupFields(tables) : preview.teamRound ? teamRoundMissionFields(tables, round) : roundMissionFields(tournament, round)}
+          ${preview.tableOnly ? teamTableSetupFields(tables, tournament.venueMode) : preview.teamRound ? teamRoundMissionFields(tables, round, preview.reuseLines) : roundMissionFields(tournament, round)}
           <div class="round-setup-list" data-round-setup-list>
             ${(preview.tableOnly ? [] : round.matches || []).filter((match) => !match.isBye).map((match) =>
               preview.teamRound ? teamRoundSetupMatchRow(match, tables) : roundSetupMatchRow(match, tournament, tables)
@@ -9015,16 +9015,29 @@ function renderRoundSetupModal(preview) {
   wireRoundSetupModal(tournament, tables, preview);
 }
 
-function teamRoundMissionFields(tables = [], round = {}) {
+function teamRoundMissionFields(tables = [], round = {}, reuseLines = false) {
   const classic = state.adminTournamentDetail?.tournament?.pairingType === "sword_shield_classic";
   const venue = state.adminTournamentDetail?.tournament?.venueMode;
   return `<section class="admin-subpanel"><p class="muted">${t(venue === "irl" ? "classic.readyIrl" : "classic.readyTts")}</p>
     ${classic ? `<p>${t("classic.missionsHint")}</p><div class="grid-3">${[0,1,2].map(index => `<label>${t("classic.mission", { number: index+1 })}<select name="classicMission-${index}" required><option value="">—</option>${optionsHtml(critOpOptions, round.missions?.[index]?.critOp || "")}</select></label>`).join("")}</div>` : `<p class="muted">${t("teams.tournament.missionPoolHint")}</p>`}
-    ${teamTableSetupFields(tables)}</section>`;
+    ${reuseLines ? savedTeamLinesMarkup(tables) : teamTableSetupFields(tables, venue)}</section>`;
 }
 
-function teamTableSetupFields(tables = []) {
-  return `<p class="muted">${t("classic.linesHint")}</p><div class="team-table-setup">${Array.from({ length: Math.max(3, tables.length) }, (_, index) => `
+function savedTeamLinesMarkup(tables) {
+  return `<section class="saved-team-lines" data-saved-team-lines>
+    <div data-team-lines-summary>
+      <h4>${t("classic.savedLines")}</h4>
+      <p class="muted">${t("classic.savedLinesHint")}</p>
+      <div class="saved-team-lines-list">${Array.from({ length: tables.length / 3 }, (_, index) => `<div class="row-card compact-row-card"><strong>${t("classic.line", { number: index + 1 })}</strong><span>${tables.slice(index * 3, index * 3 + 3).map(table => escapeHtml(t("tournaments.match.table", { number: table.tableNumber }))).join(" · ")}</span></div>`).join("")}</div>
+      <button class="small-button" type="button" data-team-lines-edit>${t("classic.editLines")}</button>
+    </div>
+    <div data-team-lines-editor hidden></div>
+  </section>`;
+}
+
+function teamTableSetupFields(tables = [], venueMode = "tts") {
+  const optionalKillzone = venueMode === "irl";
+  return `<p class="muted">${t(optionalKillzone ? "classic.linesHintIrl" : "classic.linesHint")}</p><div class="team-table-setup">${Array.from({ length: Math.max(3, tables.length) }, (_, index) => `
     ${index % 3 === 0 ? `<h4 class="team-line-heading">${t("classic.line", { number: index / 3 + 1 })}</h4>` : ""}
     <section class="team-table-setup-card" data-team-table-setup="${index}">
       ${tables[index]?.id ? `<input type="hidden" name="teamTableId-${index}" value="${Number(tables[index].id)}">` : ""}
@@ -9034,15 +9047,15 @@ function teamTableSetupFields(tables = []) {
           <input id="team-table-number-${index}" name="teamTableNumber-${index}" type="number" min="1" max="2147483647" step="1" required value="${Number(tables[index]?.tableNumber) || index + 1}">
         </div>
         <div class="field">
-          <label for="team-killzone-${index}">${t("games.result.killzoneLabel")}</label>
-          <select id="team-killzone-${index}" name="teamKillzone-${index}" required><option value="">${t("games.result.notSelected")}</option>${optionsHtml(killzoneOptions, tables[index]?.killzone || "")}</select>
+          <label for="team-killzone-${index}">${t(optionalKillzone ? "classic.killzoneOptional" : "games.result.killzoneLabel")}</label>
+          <select id="team-killzone-${index}" name="teamKillzone-${index}" ${optionalKillzone ? "" : "required"}><option value="">${t("games.result.notSelected")}</option>${optionsHtml(killzoneOptions, tables[index]?.killzone || "")}</select>
         </div>
         <div class="field">
           <label for="team-layout-${index}">${t("admin.tournament.tables.field.deployment")}</label>
           <select id="team-layout-${index}" name="teamLayout-${index}" required><option value="">${t("games.result.notSelected")}</option>${[1, 2, 3, 4, 5, 6].map((number) => `<option value="${number}" ${Number(tables[index]?.deployment) === number ? "selected" : ""}>${number}</option>`).join("")}</select>
         </div>
       </div>
-      ${teamTableImageField(tables[index], index)}
+      ${venueMode === "irl" ? "" : teamTableImageField(tables[index], index)}
     </section>`).join("")}</div>`;
 }
 
@@ -9102,6 +9115,8 @@ function wireTeamTableImages(form) {
   form.querySelectorAll("[data-team-table-setup]").forEach((card) => {
     const index = card.dataset.teamTableSetup;
     const input = card.querySelector("[data-team-table-image-file]");
+    if (!input || input.dataset.tableImageBound) return;
+    input.dataset.tableImageBound = "true";
     const preview = card.querySelector("[data-team-table-image-preview]");
     const remove = card.querySelector("[data-team-table-image-remove]");
     const error = card.querySelector("[data-team-table-image-error]");
@@ -9244,6 +9259,14 @@ function tableLabel(table = {}) {
 
 function wireRoundSetupModal(tournament, tables, preview = {}) {
   wireTeamTableImages(document.querySelector("[data-round-setup-form]"));
+  document.querySelector("[data-team-lines-edit]")?.addEventListener("click", () => {
+    const editor = document.querySelector("[data-team-lines-editor]");
+    if (!editor) return;
+    editor.innerHTML = teamTableSetupFields(tables, tournament.venueMode);
+    editor.hidden = false;
+    document.querySelector("[data-team-lines-summary]").hidden = true;
+    wireTeamTableImages(editor.closest("form"));
+  });
   document.querySelector("[data-round-setup-close]")?.addEventListener("click", closeRoundSetupModal);
   document.querySelector("[data-round-setup-add-empty]")?.addEventListener("click", () => {
     document.querySelector("[data-round-setup-list]")?.insertAdjacentHTML(
@@ -9598,9 +9621,19 @@ function wireTeamTournamentControls(data, options = {}) {
       const gameId = Number(button.dataset.teamGameResult || button.dataset.teamGameReview);
       try {
         stopTeamPairingPoll();
-        await loadGame(gameId);
+        const game = await loadGame(gameId);
+        if (!game) {
+          setMessage(state.gamesError || t("games.detail.notFound"), true);
+          return;
+        }
+        const playerIds = game.playerIds || (game.players || []).map(player => player.userId ?? player.id);
+        const isPlayer = playerIds.includes(state.me?.id);
+        const isCaptain = [game.teamMatch?.rosterA, game.teamMatch?.rosterB]
+          .some(roster => roster?.captainUserId === state.me?.id);
+        const adminEdit = canManageGameUi(game) && !isPlayer && !isCaptain;
+        if (adminEdit) state.administrationContext = true;
         if (button.dataset.teamGameReview) renderResultReview(gameId);
-        else renderResultForm(gameId);
+        else renderResultForm(gameId, { adminEdit });
       } catch (err) { setMessage(err.message, true); }
     });
   });

@@ -31,6 +31,11 @@ versioned at 5.0.2. Classic awards 3/1/0 team points, including three points for
 byes and forfeits. Migration **045_classic_three_points** updates unfinished
 Classic tournaments; published completed results retain their original points.
 
+IRL table Killzones are optional; new table images can only be uploaded for TTS.
+Saved lines are reused in later rounds, with an optional line editor. Classic
+hides irrelevant GP captions. Organizers and judges can open the administrative
+result form directly from public pairings.
+
 ## Release 5.0.1
 
 Organizers and assigned judges can open tournament administration through Edit
