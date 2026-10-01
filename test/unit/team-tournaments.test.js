@@ -320,3 +320,10 @@ test("live GP, wins, VP and raw Tac Op VP include only finished games, even befo
   tied.games[0].game.result.scores[21].total = 18;
   assert.equal(teamMatchProgress(tied).details[0].winnerSide, null, "equal VP cannot count a historical personal tiebreaker win");
 });
+
+test("Classic bye allocation avoids consecutive three-point free wins", () => {
+  const matches = [{ pairingType: "sword_shield_classic", rosterAId: 3, rosterBId: null, resolution: "bye", phase: "completed", teamTournamentPointsA: 3 }];
+  for (const id of [1, 2]) matches.push({ rosterAId: id, rosterBId: 4, phase: "completed", teamTournamentPointsA: 3, teamTournamentPointsB: 0 });
+  const round = buildNextTeamRound({ ...tournament, status: "in_progress", pairingType: "sword_shield_classic" }, rosters.slice(0, 3), matches, 2);
+  assert.notEqual(round.pairings.find(match => match.rosterBId === null).rosterAId, 3);
+});

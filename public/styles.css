@@ -2806,6 +2806,35 @@ tr:last-child td {
   padding: 10px 0;
 }
 
+.team-tournament-settings {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.team-tournament-setting {
+  display: grid;
+  gap: 8px;
+}
+
+.team-tournament-settings .field-help {
+  margin: 0;
+}
+
+.team-tournament-settings .checkbox-line input {
+  flex-shrink: 0;
+}
+
+.tiebreaker-rank-list.team-tiebreaker-rank-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 700px) {
+  .tiebreaker-rank-list.team-tiebreaker-rank-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .tiebreaker-rank-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

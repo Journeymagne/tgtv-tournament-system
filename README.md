@@ -22,6 +22,15 @@ migration **041_studio_comments** stores comments, reports and audit history.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 5.0.2
+
+Team tournament creation and settings use the standard tournament controls for
+captain pairing and tiebreakers. Priority fields share consistent labels and
+spacing, with a single-column layout on narrow screens. Client assets are
+versioned at 5.0.2. Classic awards 3/1/0 team points, including three points for
+byes and forfeits. Migration **045_classic_three_points** updates unfinished
+Classic tournaments; published completed results retain their original points.
+
 ## Release 5.0.1
 
 Organizers and assigned judges can open tournament administration through Edit

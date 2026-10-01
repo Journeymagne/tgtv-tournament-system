@@ -10,7 +10,8 @@ const game = (slot, vpA, vpB, status = "completed") => ({ slot, game: { status, 
 test("Classic awards team points by player wins despite a negative total VP difference", () => {
   const match = { ...classic, games: [game(1,21,18), game(2,21,18), game(3,0,21)] };
   const progress = teamMatchProgress(match);
-  assert.deepEqual(teamPointsForMatch(match), { a: 2, b: 0 });
+  assert.deepEqual(teamPointsForMatch(match), { a: 3, b: 0 });
+  assert.deepEqual(teamPointsForMatch(match, { winsA: 0, winsB: 2 }), { a: 0, b: 3 });
   assert.equal(progress.gpA, null);
   assert.equal(progress.gpB, null);
   assert.equal(progress.winsA, 2);
@@ -56,7 +57,7 @@ test("ordered team tiebreakers and an empty order keep primary team points first
   const asymmetric = [{ ...matches[0], games: [game(1,10,5),game(2,0,10),game(3,0,0)] }];
   assert.equal(teamStandings(rosters, asymmetric, ["vp_diff"])[0].roster.id, 2);
   assert.equal(teamStandings(rosters, asymmetric, [])[0].roster.id, 1);
-  assert.equal(teamStandings(rosters, [{ ...asymmetric[0], teamTournamentPointsA: 2, teamTournamentPointsB: 0 }], ["vp_diff"])[0].roster.id, 1);
+  assert.equal(teamStandings(rosters, [{ ...asymmetric[0], teamTournamentPointsA: 3, teamTournamentPointsB: 0 }], ["vp_diff"])[0].roster.id, 1);
   assert.equal(teamStandings(rosters, asymmetric, ["vp_diff"])[0].vpDiff, 5);
 });
 
@@ -68,4 +69,14 @@ test("creation preserves Classic and disabled captain pairing; legacy ordering i
   assert.equal(tournament.teamTiebreakerOrder, null);
   assert.throws(() => normalizeTournamentPatch({ teamTiebreakerOrder: ["vp_diff", "vp_diff"] }, tournament));
   assert.throws(() => normalizeTournamentPatch({ captainPairingEnabled: "false" }, tournament));
+});
+
+test("Classic standings count three-point wins and legacy published wins", () => {
+  const rosters = [{ id: 1 }, { id: 2 }];
+  for (const points of [2, 3]) {
+    const rows = teamStandings(rosters, [{ ...classic, phase: "completed", teamTournamentPointsA: points, teamTournamentPointsB: 0 }]);
+    assert.equal(rows[0].teamTournamentPoints, points);
+    assert.equal(rows[0].wins, 1);
+    assert.equal(rows[1].losses, 1);
+  }
 });

@@ -41,7 +41,8 @@ const MIGRATIONS = [
   require("./migrations/040_studio_review_versions"),
   require("./migrations/041_studio_comments"),
   require("./migrations/043_sword_shield_classic"),
-  require("./migrations/044_solo_replacements")
+  require("./migrations/044_solo_replacements"),
+  require("./migrations/045_classic_three_points")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

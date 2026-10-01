@@ -8168,14 +8168,25 @@ function publicTeamRostersList(rosters) {
 function teamTournamentSettingsFields(tournament = {}, disabled = "") {
   const custom = tournament.teamTiebreakerOrder != null || !tournament.id;
   const order = tournament.teamTiebreakerOrder || ["individual_wins", "vp_diff", "total_vp"];
-  return `<section data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
-    <label><input type="checkbox" name="captainPairingEnabled" ${tournament.captainPairingEnabled !== false ? "checked" : ""} ${disabled}> ${t("classic.captainPairing")}</label>
-    <p class="muted">${t("classic.manualHint")}</p>
-    <h4>${t("classic.tiebreakers")}</h4>
-    <label><input type="checkbox" name="customTeamTiebreakers" ${custom ? "checked" : ""} ${disabled}> ${t("classic.customOrder")}</label>
-    <div class="grid-3">${[0,1,2].map(index => `<label>${index+1}<select name="teamTiebreaker-${index}" ${disabled}><option value="">—</option>${["individual_wins", "vp_diff", "total_vp"].map(key => `<option value="${key}" ${order[index] === key ? "selected" : ""}>${t(`classic.${key}`)}</option>`).join("")}</select></label>`).join("")}</div>
-    <p class="muted">${t("classic.legacyOrder")}</p>
+  return `<section class="team-tournament-settings" data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
+    <div class="team-tournament-setting">
+      <label class="checkbox-line"><input type="checkbox" name="captainPairingEnabled" ${tournament.captainPairingEnabled !== false ? "checked" : ""} ${disabled}> <span>${t("classic.captainPairing")}</span></label>
+      <p class="field-help">${t("classic.manualHint")}</p>
+    </div>
+    <div class="tournament-tiebreakers">
+      <div class="tournament-tiebreaker-heading"><span class="muted">${t("classic.tiebreakers")}</span></div>
+      <label class="checkbox-line"><input type="checkbox" name="customTeamTiebreakers" ${custom ? "checked" : ""} ${disabled}> <span>${t("classic.customOrder")}</span></label>
+      <div class="tiebreaker-rank-list team-tiebreaker-rank-list">${[0, 1, 2].map(index => `<label class="tiebreaker-rank-field">
+        <span>${t("admin.tournament.tiebreaker.priority", { index: index + 1 })}</span>
+        <select name="teamTiebreaker-${index}" ${disabled}>
+          <option value="">${t("admin.tournament.tiebreaker.none")}</option>
+          ${["individual_wins", "vp_diff", "total_vp"].map(key => `<option value="${key}" ${order[index] === key ? "selected" : ""}>${t(`classic.${key}`)}</option>`).join("")}
+        </select>
+      </label>`).join("")}</div>
+      <p class="field-help">${t("classic.legacyOrder")}</p>
+    </div>
   </section>`;
+
 }
 
 function teamMatchScoreLabel(match) {
