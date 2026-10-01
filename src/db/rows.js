@@ -33,7 +33,7 @@ const TOURNAMENT_COLUMNS = `
 
 const TOURNAMENT_PARTICIPANT_COLUMNS = `
   id, tournament_id, user_id, display_name, display_name_key, faction,
-  faction_rules, seed, status, source, paid, joined_at, withdrawn_at, removed_at,
+  faction_rules, seed, status, source, paid, is_proxy, joined_at, withdrawn_at, removed_at,
   placed_at, updated_at
 `;
 
@@ -46,7 +46,7 @@ const TOURNAMENT_MATCH_COLUMNS = `
   id, tournament_id, round_id, round_number, bracket_position, status,
   is_bye, participant_a_id, participant_b_id, source_match_a_id,
   source_match_b_id, winner_participant_id, pending_result, result,
-  match_points, elo, game_id, submitted_by_user_id, table_id, mission,
+  match_points, elo, game_id, submitted_by_user_id, table_id, mission, participant_snapshots,
   completed_at, created_at, updated_at
 `;
 
@@ -199,6 +199,7 @@ function mapTournamentParticipant(row) {
     userId: row.user_id,
     displayName: row.display_name,
     displayNameKey: row.display_name_key,
+    isProxy: Boolean(row.is_proxy),
     paid: Boolean(row.paid),
     faction: row.faction || "",
     factionRules: row.faction_rules || "",
@@ -239,6 +240,7 @@ function mapTournamentMatch(row) {
     bracketPosition: row.bracket_position,
     status: row.status,
     isBye: Boolean(row.is_bye),
+    participantSnapshots: row.participant_snapshots || {},
     participantAId: row.participant_a_id,
     participantBId: row.participant_b_id,
     sourceMatchAId: row.source_match_a_id,

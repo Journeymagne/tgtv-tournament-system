@@ -868,10 +868,10 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
   const canRemove = options.canRemove && canRemoveTournamentParticipant(data, participant);
   const replacementUsers = availableTournamentUsers(participants, participant.id)
     .filter((user) => user.id !== participant.userId);
-  const replaceLabel = participant.userId ? t("admin.tournament.participants.replace") : t("admin.tournament.participants.linkUser");
-  const replacePlaceholder = participant.userId ? t("admin.tournament.participants.replacePlaceholder") : t("admin.tournament.participants.linkPlaceholder");
-  const replaceLockedAfterStart = tournament.status === "in_progress" && participant.userId;
-  const replaceDisabled = locked || replaceLockedAfterStart || !replacementUsers.length;
+  const replaceLabel = participant.userId || participant.isProxy ? t("admin.tournament.participants.replace") : t("admin.tournament.participants.linkUser");
+  const replacePlaceholder = participant.userId || participant.isProxy ? t("admin.tournament.participants.replacePlaceholder") : t("admin.tournament.participants.linkPlaceholder");
+  const replacementLocked = locked || ["eliminated", "finished"].includes(participant.status);
+  const replaceDisabled = replacementLocked || !replacementUsers.length;
   return `
     <div class="row-card compact-row-card participant-admin-row">
       <div class="row-main">
@@ -883,7 +883,6 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
             <button class="small-button" data-admin-participant-save-faction="${participant.id}" ${locked ? "disabled" : ""}>${t("admin.tournament.participants.saveFaction")}</button>
           </div>
           <div class="participant-replace-control">
-            <div class="participant-replace-row">
               ${comboField(t("admin.tournament.participants.registeredUserLabel"), `replacement-user-${participant.id}`, "users", "", replacePlaceholder, {
                 optional: true,
                 valueMode: "value",
@@ -891,7 +890,9 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
                 disabled: replaceDisabled,
                 valueAttributes: `data-admin-participant-replace-user="${participant.id}"`
               })}
+            <div class="participant-replace-row">
               <button class="small-button" data-admin-participant-replace="${participant.id}" ${replaceDisabled ? "disabled" : ""}>${replaceLabel}</button>
+              <button class="small-button" data-admin-participant-proxy="${participant.id}" ${replacementLocked || participant.isProxy ? "disabled" : ""}>${t("admin.tournament.participants.replaceProxy")}</button>
             </div>
           </div>
         </div>
@@ -1510,6 +1511,9 @@ function wireTournamentParticipantAdminControls() {
     });
   });
 
+  document.querySelectorAll("[data-admin-participant-proxy]").forEach((button) => {
+    button.addEventListener("click", () => replaceAdminTournamentParticipant(Number(button.dataset.adminParticipantProxy), true));
+  });
   document.querySelectorAll("[data-admin-participant-replace]").forEach((button) => {
     button.addEventListener("click", async () => {
       await replaceAdminTournamentParticipant(Number(button.dataset.adminParticipantReplace));
@@ -2023,33 +2027,26 @@ async function saveAdminTournamentParticipantFaction(participantId) {
   }
 }
 
-async function replaceAdminTournamentParticipant(participantId) {
+async function replaceAdminTournamentParticipant(participantId, proxy = false) {
   const detail = currentTournamentDetail();
   const tournament = detail?.tournament;
   if (!tournament) return;
   const participant = (detail.participants || []).find((item) => item.id === participantId);
-  if (tournament.status === "in_progress" && participant?.userId) {
-    setMessage(t("admin.tournament.participants.replaceLocked"), true);
-    return;
-  }
+  if (!participant) return;
   const select = document.querySelector(`[data-admin-participant-replace-user="${participantId}"]`);
   const userId = Number(select?.value || 0);
-  if (!userId) {
+  if (!proxy && !userId) {
     setMessage(t("admin.tournament.participants.chooseRegisteredUser"), true);
     return;
   }
-  const user = (state.adminUsers || []).find((item) => item.id === userId);
-  const body = { userId };
-  if (user && tournament.status !== "in_progress") body.displayName = user.name;
+  if (!await confirmAction({ message: t(proxy ? "admin.tournament.participants.proxyConfirm" : "admin.tournament.participants.replaceConfirm"), confirmLabel: t("admin.tournament.participants.replace") })) return;
+  const body = { ...(proxy ? { proxy: true } : { userId }), expectedIdentity: {
+    userId: participant.userId, displayName: participant.displayName, isProxy: Boolean(participant.isProxy)
+  } };
   try {
-    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, {
-      method: "PATCH",
-      body
-    });
+    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, { method: "PATCH", body });
     await refreshTournamentParticipantView(tournament);
-  } catch (err) {
-    setMessage(err.message, true);
-  }
+  } catch (err) { setMessage(err.message, true); }
 }
 
 async function adminPatch(id, body) {

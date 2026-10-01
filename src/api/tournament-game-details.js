@@ -42,6 +42,7 @@ async function attachTournamentGameDetails(client, games) {
     const players = (participantsByGameId.get(game.id) || []).map((participant) => ({
       id: participant.resultKey,
       userId: participant.userId || null,
+      isProxy: Boolean(participant.isProxy),
       name: participant.user?.name || participant.displayNameSnapshot || "Player",
       avatarUrl: participant.user?.avatarUrl || null,
       registerNickname: participant.user?.registerNickname || "",

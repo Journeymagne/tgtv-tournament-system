@@ -103,7 +103,8 @@ async function listActiveForUser(client, userId) {
      WHERE t.status = 'in_progress'
        AND tm.status = ANY($2::text[])
        AND tm.is_bye = FALSE
-       AND (pa.user_id = $1 OR pb.user_id = $1)
+       AND ((CASE WHEN tm.participant_snapshots ? pa.id::text THEN (tm.participant_snapshots -> pa.id::text ->> 'userId')::int ELSE pa.user_id END) = $1
+         OR (CASE WHEN tm.participant_snapshots ? pb.id::text THEN (tm.participant_snapshots -> pb.id::text ->> 'userId')::int ELSE pb.user_id END) = $1)
      ORDER BY t.started_at DESC NULLS LAST, t.id DESC, tm.round_number, COALESCE(tm.bracket_position, tm.id), tm.id`,
     [userId, ["active", "pending_confirmation"]]
   );
@@ -183,7 +184,8 @@ async function listCompletedUnlinkedForUser(client, userId) {
        AND tm.is_bye = FALSE
        AND tm.result IS NOT NULL
        AND tm.game_id IS NULL
-       AND (pa.user_id = $1 OR pb.user_id = $1)
+       AND ((CASE WHEN tm.participant_snapshots ? pa.id::text THEN (tm.participant_snapshots -> pa.id::text ->> 'userId')::int ELSE pa.user_id END) = $1
+         OR (CASE WHEN tm.participant_snapshots ? pb.id::text THEN (tm.participant_snapshots -> pb.id::text ->> 'userId')::int ELSE pb.user_id END) = $1)
      ORDER BY COALESCE(tm.completed_at, tm.created_at) DESC, tm.id DESC`,
     [userId]
   );
@@ -216,6 +218,7 @@ async function syncEloFromLinkedGames(client) {
 async function update(client, id, patch) {
   const fields = {
     status: "status",
+    participantSnapshots: "participant_snapshots",
     participantAId: "participant_a_id",
     participantBId: "participant_b_id",
     winnerParticipantId: "winner_participant_id",
@@ -233,7 +236,7 @@ async function update(client, id, patch) {
   const values = [id];
   for (const [field, column] of Object.entries(fields)) {
     if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
-    const isJson = ["pendingResult", "result", "matchPoints", "elo", "mission"].includes(field);
+    const isJson = ["pendingResult", "result", "matchPoints", "elo", "mission", "participantSnapshots"].includes(field);
     values.push(isJson ? JSON.stringify(patch[field] || null) : patch[field]);
     assignments.push(`${column} = $${values.length}${isJson ? "::jsonb" : ""}`);
   }

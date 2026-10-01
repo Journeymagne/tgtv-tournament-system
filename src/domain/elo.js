@@ -10,6 +10,7 @@ function calculateElo(ratingA, ratingB, scoreA) {
 // Result keys identify both registered players and guests; user IDs identify
 // accounts whose ratings can actually change. Never discard the guest's slot.
 function calculateParticipantElo(participants, ratings, result) {
+  if (participants.some((p) => p.isProxy)) return null;
   if (participants.length !== 2 || !participants.some((p) => p.userId)) return null;
   if (participants.some((p) => p.userId && !ratings.has(p.userId))) return null;
   const [a, b] = participants;

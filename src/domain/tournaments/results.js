@@ -3,7 +3,7 @@ const { ValidationError } = require("../../http/io");
 // Result keys belong to users, or to guests via a negative participant ID.
 // Positive tournament participant IDs are a separate, overlapping namespace.
 function participantResultKey(participant) {
-  return participant.userId ?? -participant.id;
+  return participant.resultKey ?? participant.userId ?? -participant.id;
 }
 
 function resultWinner(result, participants) {
@@ -61,5 +61,23 @@ function tournamentResultSnapshot(result, participants) {
     [p.id, result.scores?.[participantResultKey(p)] ?? {}])) };
 }
 
-module.exports = { participantResultKey, winnerParticipantIdFromResult, matchWinnerParticipantId,
+// A participant ID is a tournament seat. A saved match keeps the actual player
+// who occupied that seat when its result was submitted.
+function matchParticipant(match, participant) {
+  if (!participant) return null;
+  const saved = match.participantSnapshots?.[participant.id];
+  if (!saved) return participant;
+  return { ...participant, ...saved,
+    user: participant.user?.id === saved.userId ? participant.user : null,
+    userPublicId: null,
+    ...(participant.factionHidden ? { faction: "", factionRules: "" } : {}) };
+}
+
+function participantIdentity(participant) {
+  return { id: participant.id, userId: participant.userId ?? null, resultKey: participantResultKey(participant),
+    displayName: participant.displayName, faction: participant.faction || "",
+    factionRules: participant.factionRules || "", isProxy: Boolean(participant.isProxy) };
+}
+
+module.exports = { matchParticipant, participantIdentity, participantResultKey, winnerParticipantIdFromResult, matchWinnerParticipantId,
   assertMatchWinner, participantScore, tournamentResultSnapshot };

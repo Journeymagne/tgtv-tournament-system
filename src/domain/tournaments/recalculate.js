@@ -1,11 +1,11 @@
 const { ValidationError } = require('../../http/io');
-const { assertMatchWinner, participantResultKey } = require('./results');
+const { assertMatchWinner, participantResultKey, matchParticipant } = require('./results');
 
 // Explicit maintenance boundary: game keys are resolved using the game's recorded
 // participant links, including accounts deleted since the game was played.
 function recalculateMatch(match, participants, game, gameParticipants = []) {
   const sides = [match.participantAId, match.participantBId]
-    .filter(id => id != null).map(id => participants.find(p => p.id === id));
+    .filter(id => id != null).map(id => matchParticipant(match, participants.find(p => p.id === id)));
   if (sides.some(p => !p) || !sides.length) throw new ValidationError(`Match ${match.id}: participant is missing`);
   if (match.isBye) {
     if (sides.length !== 1) throw new ValidationError(`Match ${match.id}: bye requires one participant`);

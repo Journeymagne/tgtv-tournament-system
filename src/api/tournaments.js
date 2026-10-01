@@ -19,7 +19,7 @@ const {
 const { attachTournamentGameDetails } = require("./tournament-game-details");
 const { buildTournamentPreview } = require("../domain/tournaments/preview");
 const { buildStandings } = require("../domain/tournaments/standings");
-const { participantResultKey, winnerParticipantIdFromResult, assertMatchWinner, tournamentResultSnapshot } = require("../domain/tournaments/results");
+const { matchParticipant, participantResultKey, winnerParticipantIdFromResult, assertMatchWinner, tournamentResultSnapshot } = require("../domain/tournaments/results");
 const { calculateSubmittedResult, parseKillzone } = require("../domain/scoring");
 const { calculateParticipantElo } = require("../domain/elo");
 const { requireKillTeam } = require("../domain/kill-teams");
@@ -719,20 +719,15 @@ async function updateParticipant({ client, user, params, body }) {
     throw new HttpError(404, "Participant not found");
   }
   const patch = {};
-  if (Object.prototype.hasOwnProperty.call(body, "userId")) {
-    if (["withdrawn", "removed"].includes(participant.status)) {
-      throw new HttpError(409, "Withdrawn or removed participants cannot be linked");
-    }
-    const userId = requirePositiveIntId(body.userId, 400, "Invalid participant user");
-    const linkedUser = await usersRepo.findById(client, userId);
-    if (!linkedUser) throw new HttpError(404, "Participant user not found");
-    const existing = await participantsRepo.findByTournamentUser(client, tournament.id, userId, {
-      forUpdate: true
+  if (Object.hasOwn(body, "userId") || Object.hasOwn(body, "proxy")) {
+    const updated = await require("./tournament-participant-replacement").replaceParticipant(
+      client, tournament, participant, user, body);
+    await clearPreparedRounds(client, tournament);
+    await audit(client, tournament, user, "participant_replace", {
+      entityType: "participant", entityId: participant.id, before: participant, after: updated,
+      metadata: { tournamentPointsPreserved: true, personalHistoryPreserved: true }
     });
-    if (existing && existing.id !== participant.id) {
-      throw new HttpError(409, "Participant user already exists in this tournament");
-    }
-    patch.userId = linkedUser.id;
+    return { participant: updated };
   }
   if (Object.prototype.hasOwnProperty.call(body, "displayName")) {
     if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
@@ -1292,8 +1287,8 @@ function participantById(participants, id) {
 }
 
 function requireMatchParticipants(match, participants) {
-  const participantA = participantById(participants, match.participantAId);
-  const participantB = participantById(participants, match.participantBId);
+  const participantA = matchParticipant(match, participantById(participants, match.participantAId));
+  const participantB = matchParticipant(match, participantById(participants, match.participantBId));
   if (!participantA || !participantB) throw new HttpError(409, "Both match participants are required");
   return { participantA, participantB };
 }
@@ -1349,7 +1344,8 @@ async function ensureTournamentGame(client, tournament, match, participantA, par
       tournamentParticipantId: participant.id,
       resultKey: participantResultKey(participant),
       displayNameSnapshot: participant.displayName || "Player",
-      factionSnapshot: participant.faction || ""
+      factionSnapshot: participant.faction || "",
+      isProxy: Boolean(participant.isProxy)
     }))
   });
   await matchesRepo.update(client, match.id, { gameId: game.id });
@@ -1358,7 +1354,7 @@ async function ensureTournamentGame(client, tournament, match, participantA, par
 }
 
 async function applyTournamentElo(client, tournament, participantA, participantB, result) {
-  if (tournament.ratingPolicy !== "ranked") return null;
+  if (tournament.ratingPolicy !== "ranked" || participantA.isProxy || participantB.isProxy) return null;
   const participants = [participantA, participantB].map((participant) => ({
     userId: participant.userId || null, resultKey: participantResultKey(participant)
   }));

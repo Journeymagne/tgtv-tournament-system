@@ -15,15 +15,17 @@ function sourceOf(name) {
   return require("../helpers/client-access-source") + "\n" + source;
 }
 
-test("public tournament pages never offer administrative shortcuts", () => {
-  for (const me of [null, { id: 2 }, { id: 2, isAdmin: false }, { id: 1, isAdmin: true }]) {
+test("public tournament Edit is limited to administrators and assigned tournament managers", () => {
+  for (const me of [null, { id: 2 }, { id: 2, isAdmin: false }, { id: 1, isAdmin: true }, { id: 3, managedTournamentIds: [6] }, { id: 4, managedTournamentIds: [7] }]) {
     const button = new Function("state", "t", `${sourceOf("tournamentEditButton")}; return tournamentEditButton;`)(
       { me }, () => "Edit"
     );
     for (const participantMode of ["individual", "team"]) {
       for (const status of ["draft", "registration_open", "registration_closed", "in_progress", "completed", "cancelled"]) {
         const html = button({ id: 6, participantMode, status, viewer: { canAdmin: true } });
-        assert.equal(html, "");
+        const allowed = Boolean(me?.isAdmin || me?.managedTournamentIds?.includes(6));
+        if (allowed) assert.match(html, /href="\/tournament#\/administration\/tournaments\/admin\/6".*data-tournament-edit="6"/);
+        else assert.equal(html, "");
       }
     }
     for (const id of [undefined, null, "", 0, -1, 1.5, "6<script>", Infinity, Number.MAX_SAFE_INTEGER + 1]) {
@@ -32,7 +34,7 @@ test("public tournament pages never offer administrative shortcuts", () => {
   }
 });
 
-test("every public tournament category offers only Open beside its status", () => {
+test("public tournament cards offer Edit only to authorized users", () => {
   for (const isAdmin of [false, true]) {
     const render = new Function("state", "t", "escapeHtml", "tournamentFormatLabel", "tournamentStatusLabel", "tournamentStatusClass", "tournamentParticipantCountLabel", "tournamentRoundCountLabel", "fmtDate",
       `${sourceOf("tournamentEditButton")}; ${sourceOf("tournamentCardFact")}; ${sourceOf("publicTournamentCard")}; return publicTournamentCard;`
@@ -43,8 +45,8 @@ test("every public tournament category offers only Open beside its status", () =
         assert.match(html, /class="tournament-card-actions">\s*<span class="status [^"]+">[^<]+<\/span>\s*<div class="tournament-card-buttons">/);
         const buttons = html.match(/class="tournament-card-buttons">([\s\S]*?)<\/div>/)[1];
         assert.match(buttons, /data-tournament-open="test-cup"/);
-        assert.equal(buttons.includes('data-tournament-edit="6"'), false);
-        assert.equal((buttons.match(/<a /g) || []).length, 1);
+        assert.equal(buttons.includes('data-tournament-edit="6"'), isAdmin);
+        assert.equal((buttons.match(/<a /g) || []).length, isAdmin ? 2 : 1);
         assert.doesNotMatch(buttons, /class="status/);
       }
     }

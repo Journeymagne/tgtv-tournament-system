@@ -1971,8 +1971,8 @@ function publicTournamentViewerActions(data) {
 
 function tournamentEditButton(tournament) {
   const id = Number(tournament?.id);
-  if (!state.administrationContext || !canManageTournamentUi(id) || !Number.isSafeInteger(id) || id < 1) return "";
-  return `<a href="/tournament#/tournaments/admin/${id}" data-app-link class="small-button" data-tournament-edit="${id}">${t("common.edit")}</a>`;
+  if (!canManageTournamentUi(id) || !Number.isSafeInteger(id) || id < 1) return "";
+  return `<a href="/tournament#/administration/tournaments/admin/${id}" data-app-link class="small-button" data-tournament-edit="${id}">${t("common.edit")}</a>`;
 }
 
 async function openTournamentEditor(tournamentId) {
@@ -6456,7 +6456,7 @@ function findTournamentMatch(data, matchId) {
 function participantResultPlayer(participant) {
   if (!participant) return null;
   return {
-    id: participant.userId || -participant.id,
+    id: participant.resultKey ?? participant.userId ?? -participant.id,
     userId: participant.userId ?? null,
     participantId: participant.id,
     name: participant.displayName || participant.user?.name || t("tournaments.player.fallback"),
@@ -7878,6 +7878,7 @@ function availableTournamentUsers(participants, exceptParticipantId = null) {
 }
 
 function participantUserLabel(participant) {
+  if (participant.isProxy) return t("admin.tournament.participants.proxyLabel");
   if (!participant.userId) return t("admin.tournament.participants.unregistered");
   return participant.user?.name
     ? t("admin.tournament.participants.tgtvUser", { name: participant.user.name })

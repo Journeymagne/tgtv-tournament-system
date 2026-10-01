@@ -22,6 +22,17 @@ migration **041_studio_comments** stores comments, reports and audit history.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Release 5.0.1
+
+Organizers and assigned judges can open tournament administration through Edit
+on public tournament pages. Solo participants can be replaced after the start
+while preserving the tournament seat, points and tiebreakers. Completed matches
+and personal history remain with the original player. Multiple proxy placeholders
+are supported without accounts or personal history; games involving a proxy do
+not affect either player's rating. Participant controls are aligned on desktop
+and mobile. Startup migration **044_solo_replacements** stores proxy flags and
+match participant identities. See [Solo player replacements](docs/solo-player-replacements.md).
+
 ## Release 5.0.0
 
 Team tournaments support SWORD SHIELD CLASSIC: three players per team, no GP,

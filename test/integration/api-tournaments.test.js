@@ -495,7 +495,7 @@ test("unregistered participant можно привязать к TGTV user, по�
     body: { userId: alpha.id }
   });
   assert.equal(linked.participant.userId, alpha.id);
-  assert.equal(linked.participant.displayName, "Unregistered Alpha");
+  assert.equal(linked.participant.displayName, "Alpha");
 
   const started = await closeAndStart(tournament);
   const match = activeMatchForUser(started, alpha.id);
@@ -2227,4 +2227,121 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
   }
 
   assert.equal(dice.length, 0);
+});
+
+
+test("running solo replacement keeps standings and historical identity while new games use the replacement", async () => {
+  const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 3 });
+  for (const name of ["Original", "Second", "Third", "Fourth"]) await addUserParticipant(tournament, await createUser(name));
+  const replacement = await createUser("Replacement");
+  const judge = { ...(await createUser("Judge")), managedTournamentIds: [tournament.id] };
+  const params = { id: String(tournament.id) };
+  let view = await closeAndStart(tournament);
+  const first = view.rounds[0].matches[0];
+  const seatId = first.participantAId;
+  const originalId = first.participantA.userId;
+  const matchParams = { ...params, matchId: String(first.id) };
+  view = await tournamentsApi.saveMatchResultAdmin({ client, user: root, params: matchParams,
+    body: { scores: scores(originalId, first.participantB.userId) } });
+  const originalRating = (await usersRepo.findById(client, originalId)).ratings;
+  const oldGame = await gamesRepo.findById(client, first.gameId);
+  await tournamentsApi.updateParticipant({ client, user: judge, params: { ...params, participantId: String(seatId) }, body: { userId: replacement.id } });
+  view = await tournamentsApi.getAdmin({ client, user: root, params });
+  assert.equal(view.participants.find(p => p.id === seatId).userId, replacement.id);
+  assert.equal(view.standings.find(row => row.participantId === seatId).matchPoints, 3);
+  assert.equal(view.rounds[0].matches[0].participantA.userId, originalId);
+  assert.deepEqual((await gamesRepo.findById(client, first.gameId)).playerIds, oldGame.playerIds);
+  assert.deepEqual((await usersRepo.findById(client, originalId)).ratings, originalRating);
+  assert.equal((await gamesRepo.listCompletedForUser(client, replacement.id)).length, 0);
+  // Correcting a historical result still affects the original accounts.
+  await tournamentsApi.saveMatchResultAdmin({ client, user: root, params: matchParams,
+    body: { scores: scores(originalId, first.participantB.userId) } });
+  assert.equal((await usersRepo.findById(client, replacement.id)).rating, 1000);
+  const other = view.rounds[0].matches[1];
+  await tournamentsApi.saveMatchResultAdmin({ client, user: root, params: { ...params, matchId: String(other.id) },
+    body: { scores: scores(other.participantA.userId, other.participantB.userId) } });
+  view = await tournamentsApi.generateNextRoundAdmin({ client, user: root, params });
+  const next = view.rounds[1].matches.find(m => [m.participantAId, m.participantBId].includes(seatId));
+  assert.ok([next.participantA.userId, next.participantB.userId].includes(replacement.id));
+  assert.ok((await gamesRepo.findById(client, next.gameId)).playerIds.includes(replacement.id));
+});
+
+test("multiple proxy replacements are accountless and remain unrated after later linking and replay", async () => {
+  const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 2 });
+  for (const name of ["Proxy A", "Proxy B", "Proxy C", "Proxy D"]) await addUserParticipant(tournament, await createUser(name));
+  const replacement = await createUser("After Proxy");
+  const params = { id: String(tournament.id) };
+  let view = await closeAndStart(tournament);
+  const originalMatches = view.rounds[0].matches;
+  const count = (await client.query("SELECT count(*)::int AS n FROM users")).rows[0].n;
+  const proxies = [];
+  for (const match of originalMatches) {
+    const updated = await tournamentsApi.updateParticipant({ client, user: root,
+      params: { ...params, participantId: String(match.participantAId) }, body: { proxy: true } });
+    proxies.push(updated.participant);
+    assert.equal(updated.participant.userId, null);
+    assert.equal(updated.participant.isProxy, true);
+    const game = await gamesRepo.findById(client, match.gameId);
+    assert.ok(!game.playerIds.includes(match.participantA.userId));
+  }
+  assert.notEqual(proxies[0].displayName, proxies[1].displayName);
+  assert.equal((await client.query("SELECT count(*)::int AS n FROM users")).rows[0].n, count);
+  for (const match of originalMatches) {
+    view = await tournamentsApi.saveMatchResultAdmin({ client, user: root,
+      params: { ...params, matchId: String(match.id) },
+      body: { scores: scores(-match.participantAId, match.participantB.userId) } });
+    assert.equal((await gamesRepo.findById(client, match.gameId)).elo, null);
+    assert.equal((await usersRepo.findById(client, match.participantB.userId)).rating, 1000);
+  }
+  const seat = proxies[0];
+  await tournamentsApi.updateParticipant({ client, user: root,
+    params: { ...params, participantId: String(seat.id) }, body: { userId: replacement.id } });
+  await require("../../src/api/rating-replay").recalculateCompletedGameRatings(client);
+  view = await tournamentsApi.getAdmin({ client, user: root, params });
+  assert.equal(view.standings.find(row => row.participantId === seat.id).matchPoints, 3);
+  assert.equal(view.rounds[0].matches[0].participantA.isProxy, true);
+  assert.equal(view.rounds[0].matches[0].participantA.userId, null);
+  assert.equal((await gamesRepo.listCompletedForUser(client, replacement.id)).length, 0);
+  for (const match of originalMatches) assert.equal((await gamesRepo.findById(client, match.gameId)).elo, null);
+});
+
+test("solo replacement rejects outsiders, duplicate players and stale organizer forms", async () => {
+  const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 2 });
+  for (const name of ["Access A", "Access B", "Access C", "Access D"]) await addUserParticipant(tournament, await createUser(name));
+  const replacement = await createUser("Allowed Replacement");
+  const outsider = await createUser("Outside Judge");
+  const view = await closeAndStart(tournament);
+  const participant = view.participants[0];
+  const params = { id: String(tournament.id), participantId: String(participant.id) };
+  await assert.rejects(() => tournamentsApi.updateParticipant({ client, user: outsider, params, body: { proxy: true } }), err => err.status === 403);
+  await assert.rejects(() => tournamentsApi.updateParticipant({ client, user: root, params, body: { userId: view.participants[1].userId } }), err => err.status === 409);
+  const expectedIdentity = { userId: participant.userId, displayName: participant.displayName, isProxy: false };
+  const owner = { id: root.id, isAdmin: false };
+  await tournamentsApi.updateParticipant({ client, user: owner, params, body: { userId: replacement.id, expectedIdentity } });
+  await assert.rejects(() => tournamentsApi.updateParticipant({ client, user: root, params, body: { proxy: true, expectedIdentity } }), err => err.status === 409);
+});
+
+
+test("pending submissions preserve the original player when a replacement occupies the seat", async () => {
+  const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 2 });
+  for (const name of ["Pending A", "Pending B", "Pending C", "Pending D"]) await addUserParticipant(tournament, await createUser(name));
+  const replacement = await createUser("Pending Replacement");
+  const params = { id: String(tournament.id) };
+  const started = await closeAndStart(tournament);
+  const match = started.rounds[0].matches[0];
+  const originalId = match.participantA.userId;
+  const result = require("../../src/domain/scoring").calculateSubmittedResult({ scores: scores(originalId, match.participantB.userId) }, originalId, match.participantB.userId);
+  const pending = { result, submittedBy: originalId };
+  await gamesRepo.savePendingResult(client, match.gameId, { submittedBy: originalId, pendingResult: pending });
+  await require("../../src/db/repositories/tournament-matches").update(client, match.id, { status: "pending_confirmation", pendingResult: pending, submittedByUserId: originalId });
+  await tournamentsApi.updateParticipant({ client, user: root,
+    params: { ...params, participantId: String(match.participantAId) }, body: { userId: replacement.id } });
+  const view = await tournamentsApi.confirmResult({ client, user: { id: match.participantB.userId }, params: { ...params, matchId: String(match.id) } });
+  const completed = view.rounds[0].matches.find(item => item.id === match.id);
+  assert.equal(completed.participantA.userId, originalId);
+  assert.equal(completed.winnerParticipantId, match.participantAId);
+  assert.equal(view.participants.find(p => p.id === match.participantAId).userId, replacement.id);
+  assert.equal(view.standings.find(row => row.participantId === match.participantAId).matchPoints, 3);
+  assert.equal((await usersRepo.findById(client, replacement.id)).rating, 1000);
+  assert.ok((await gamesRepo.findById(client, match.gameId)).playerIds.includes(originalId));
 });

@@ -1,6 +1,6 @@
 const { contentVersion } = require("../domain/data-url");
 const { publicId } = require("../domain/entity-id");
-const { winnerParticipantIdFromResult } = require("../domain/tournaments/results");
+const { winnerParticipantIdFromResult, matchParticipant } = require("../domain/tournaments/results");
 const { buildChallengeTracks } = require("../domain/challenge-progress");
 const { tournamentFactionsHidden } = require("../domain/tournaments/privacy");
 
@@ -158,6 +158,7 @@ function tournamentParticipantView(participant, people = []) {
     userId: participant.userId,
     user: user ? publicUser(user) : null,
     displayName: participant.displayName,
+    isProxy: Boolean(participant.isProxy),
     faction: participant.faction || "",
     factionRules: participant.factionRules || "",
     seed: participant.seed,
@@ -171,8 +172,8 @@ function tournamentParticipantView(participant, people = []) {
 }
 
 function tournamentMatchView(match, participantById = new Map()) {
-  const participantA = participantById.get(match.participantAId) || null;
-  const participantB = participantById.get(match.participantBId) || null;
+  const participantA = matchParticipant(match, participantById.get(match.participantAId));
+  const participantB = matchParticipant(match, participantById.get(match.participantBId));
   // Legacy pending submissions are game results, not completed tournament outcomes.
   // Convert explicitly for their preview; never make the browser guess the namespace.
   const pendingResult = match.pendingResult?.result && participantA && participantB

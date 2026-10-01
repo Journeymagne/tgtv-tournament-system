@@ -7,6 +7,7 @@ const ACTIVE_NAME_STATUSES = ["joined", "active", "pending_placement", "eliminat
 
 const FIELD_COLUMNS = {
   userId: "user_id",
+  isProxy: "is_proxy",
   displayName: "display_name",
   displayNameKey: "display_name_key",
   faction: "faction",

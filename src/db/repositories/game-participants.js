@@ -6,6 +6,7 @@ function mapParticipant(row) {
     gameId: row.game_id,
     slot: row.slot,
     userId: row.user_id,
+    isProxy: Boolean(row.is_proxy),
     tournamentParticipantId: row.tournament_participant_id,
     resultKey: row.result_key,
     displayNameSnapshot: row.display_name_snapshot,
@@ -35,9 +36,9 @@ async function replaceForGame(client, gameId, participants) {
     const { rows } = await client.query(
       `INSERT INTO game_participants (
          game_id, slot, user_id, tournament_participant_id, result_key,
-         display_name_snapshot, faction_snapshot
+         display_name_snapshot, faction_snapshot, is_proxy
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         gameId,
@@ -46,7 +47,8 @@ async function replaceForGame(client, gameId, participants) {
         participant.tournamentParticipantId || null,
         participant.resultKey,
         participant.displayNameSnapshot,
-        participant.factionSnapshot || ""
+        participant.factionSnapshot || "",
+        Boolean(participant.isProxy)
       ]
     );
     saved.push(mapParticipant(rows[0]));

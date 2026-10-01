@@ -2716,65 +2716,88 @@ tr:last-child td {
 }
 
 .participant-admin-row {
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
 }
 
 .participant-admin-row .row-main {
   min-width: 0;
 }
 
+.participant-admin-row > .row-actions {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 12px;
+}
+
 .participant-admin-controls {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(240px, 0.9fr);
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto auto auto;
+  column-gap: 16px;
+  row-gap: 8px;
   margin-top: 12px;
 }
 
 .participant-faction-control,
 .participant-replace-control {
   display: grid;
-  gap: 8px;
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+  min-width: 0;
 }
 
-.participant-faction-control .field {
+.participant-admin-controls .combo-field {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 2;
+  min-width: 0;
   margin: 0;
 }
 
-.participant-faction-control .small-button {
-  justify-self: start;
-}
-
-.participant-replace-control label {
+.participant-admin-controls .combo-field > label {
+  align-self: start;
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
+.participant-admin-controls .combo-control {
+  min-width: 0;
+  height: 44px;
+}
+
+.participant-admin-controls .combo-control .combo-input,
+.participant-admin-controls .combo-control .combo-toggle {
+  min-height: 0;
+  height: 100%;
+}
+
+.participant-faction-control > .small-button {
+  align-self: start;
+  justify-self: start;
+}
+
 .participant-replace-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.participant-replace-row select {
-  flex: 1 1 230px;
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  color: var(--ink);
-  background: var(--surface-input);
-}
+@media (max-width: 560px) {
+  .participant-admin-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
-.participant-replace-row .combo-field {
-  flex: 1 1 230px;
-  margin: 0;
-}
-
-.participant-replace-row .combo-control {
-  min-width: 0;
+  .participant-admin-row > .row-actions {
+    display: flex;
+    justify-content: flex-start;
+  }
 }
 
 .tournament-tiebreakers {
