@@ -125,7 +125,7 @@ test("Studio review migrations preserve publications and backfill the latest rat
     await client.query("ROLLBACK");
     throw error;
   } finally { client.release(); }
-  assert.deepEqual(await migrate(pool), [40]);
+  assert.deepEqual(await migrate(pool), MIGRATIONS.filter(item => item.version > 39).map(item => item.version));
   const ratings = (await pool.query(`SELECT version_label,theme_score,balance_score,lore_score
     FROM studio_review_ratings WHERE review_id=$1 ORDER BY version_label`, [reviewId])).rows;
   assert.deepEqual(ratings, [

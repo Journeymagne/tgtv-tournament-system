@@ -126,6 +126,8 @@ async function completedPlayerSuggestions(client, { venue, playerQuery }) {
   return rows;
 }
 
+// Rating migrations run before migration 044 adds is_proxy. Read that optional
+// field through the row JSON so legacy schemas and current proxy games both work.
 async function listCompletedForRatingReplay(client) {
   const { rows } = await client.query(
     `SELECT ${COLUMNS} FROM games
@@ -134,7 +136,8 @@ async function listCompletedForRatingReplay(client) {
      FOR UPDATE`
   );
   const { rows: participants } = await client.query(
-    `SELECT gp.game_id, gp.user_id, gp.result_key, gp.is_proxy
+    `SELECT gp.game_id, gp.user_id, gp.result_key,
+       COALESCE((to_jsonb(gp)->>'is_proxy')::boolean, FALSE) AS is_proxy
      FROM game_participants gp JOIN games g ON g.id = gp.game_id
      WHERE g.status = 'completed' AND g.result IS NOT NULL
      ORDER BY gp.game_id, gp.slot`
