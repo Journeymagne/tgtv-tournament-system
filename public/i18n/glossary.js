@@ -44,6 +44,7 @@ const PROPER_NAMES = [
   // players read it as their one rating number, so the label drops the word.
   "MMR",
   "WTC",
+  "SWORD SHIELD CLASSIC",
   "All Kill Team Challenge",
   "Classified",
   "Non-Classified",

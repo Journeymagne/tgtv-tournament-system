@@ -29,7 +29,7 @@ test("registration closed offers preparation first and a separate start only aft
     assert.doesNotMatch(initial, /data-admin-tournament-action="start"/);
     data.rounds = [{ roundNumber: 1, status: "not_ready" }];
     const prepared = render(data);
-    assert.match(prepared, participantMode === "team" ? /admin.round.editTables/ : /admin.tournament.action.editFirst/);
+    assert.match(prepared, /data-admin-tournament-action="generate-next-round">admin.tournament.action.editFirst/);
     if (participantMode === "team") assert.match(prepared, /data-admin-tournament-action="rollback-latest-round"/);
     assert.match(prepared, /data-admin-tournament-action="start"/);
   }

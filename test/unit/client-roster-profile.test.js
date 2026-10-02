@@ -31,8 +31,8 @@ test("roster links round-trip through route state, including direct links", () =
 
 test("history shows newest rounds first, preserves A/B scores and hides result editing", () => {
   const renderedGames = [];
-  const render = new Function("t", "escapeHtml", "teamMatchGamesMarkup", "teamMatchPhaseLabel",
-    ["teamRosterLabel", "rosterMatchHistoryMarkup"].map(extract).join("\n") + ";return rosterMatchHistoryMarkup;"
+  const render = new Function("t", "escapeHtml", "teamMatchGamesMarkup", "teamPairingPhaseLabel",
+    ["teamRosterLabel", "teamMatchScoreLabel", "rosterMatchHistoryMarkup"].map(extract).join("\n") + ";return rosterMatchHistoryMarkup;"
   )(t, escapeHtml, (match, options) => { renderedGames.push([match.id, options.readOnly]); return "PERSONAL GAMES"; }, String);
   const matches = [1, 3, 2].map((id) => ({ id, roundNumber: id, phase: "completed", rosterA: { id: 10, name: "Opponent" }, rosterB: { id: 20, name: "My roster" }, teamTournamentPointsA: 0, teamTournamentPointsB: 2, teamGamePointsA: 20, teamGamePointsB: 40 }));
   const html = render({ tournament: { status: "in_progress" }, teamMatches: matches });

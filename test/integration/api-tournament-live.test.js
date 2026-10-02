@@ -9,6 +9,7 @@ const users = require("../../src/db/repositories/users");
 const clubs = require("../../src/db/repositories/player-teams");
 const matches = require("../../src/db/repositories/team-matches");
 const games = require("../../src/db/repositories/games");
+const gamesApi = require("../../src/api/games");
 const live = require("../../src/api/tournament-live");
 const { saveTableImage } = require("../../src/api/tournament-table-images");
 const { pngImage } = require("../helpers/png");
@@ -206,6 +207,15 @@ test("statistics expose each confirmed personal game before its team match finis
       assert.ok(completed[0].players.every(player => player.faction === "Kommandos"));
     }
   }
+  const gameParams = { id: String(personal[0].id) };
+  assert.deepEqual((await gamesApi.getOne({ client, user: admin, params: gameParams })).game.players.map(player => player.faction),
+    ["Kommandos", "Kommandos"], "the game page also restores legacy factions from the original roster members");
+  await client.query("UPDATE game_participants SET faction_snapshot='Kasrkin' WHERE game_id=$1 AND slot=1", [personal[0].id]);
+  const saved = await cups.getPublic({ ...context(tournament, {}, null), params: { slug: tournament.slug } });
+  assert.deepEqual(saved.tournamentGames.find(game => game.id === personal[0].id).players.map(player => player.faction),
+    ["Kasrkin", "Kommandos"], "a saved game faction takes precedence over the roster faction");
+  assert.deepEqual((await gamesApi.getOne({ client, user: admin, params: gameParams })).game.players.map(player => player.faction),
+    ["Kasrkin", "Kommandos"]);
   await games.clearResult(client, personal[0].id);
   const reopened = await cups.getAdmin(context(tournament));
   assert.equal(reopened.tournamentGames.filter(game => game.status === "completed" && game.result).length, 0);

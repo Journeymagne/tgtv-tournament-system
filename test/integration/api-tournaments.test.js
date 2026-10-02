@@ -618,7 +618,7 @@ test("один TGTV user не может быть привязан к двум �
         params: { id: String(tournament.id), participantId: String(second.id) },
         body: { userId: alpha.id }
       }),
-    /already exists/
+    /already participates/
   );
 });
 
@@ -1589,7 +1589,7 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
   assert.deepEqual(otherLog, []);
   assert.equal((await authApi.buildUserSummary(client, captainA)).teamPairings.some((match) => match.id === original.id), true);
   const preview = async (user) => (await authApi.myTeamPairings({ client, user })).teamPairings.find((match) => match.id === original.id);
-  assert.deepEqual((await preview(captainA)).progress, { completed: 0, total: 3, gpA: 0, gpB: 0 });
+  assert.deepEqual((await preview(captainA)).progress, { completed: 0, total: 3, details: [], winsA: 0, winsB: 0, gpA: 0, gpB: 0 });
   assert.equal(await preview(outsider), undefined);
   let confirmedGames = 0;
   for (const link of ready.games) {
@@ -1628,10 +1628,17 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
     await assert.rejects(() => gamesApi.respondToResult({ client, user: confirmer, params: { ...gameParams, action: "confirm-result" } }), { status: 409 });
     confirmedGames += 1;
     if (confirmedGames < 3) {
-      const { completed, total, gpA, gpB } = (await read()).progress;
+      const expectedProgress = {
+        completed: confirmedGames, total: 3, gpA: confirmedGames * 20, gpB: 0,
+        winsA: confirmedGames, winsB: 0,
+        details: Array.from({ length: confirmedGames }, (_, index) => ({
+          slot: index + 1, a: 20, b: 0, tacA: 6, tacB: 1, vpA: 21, vpB: 4, winnerSide: "a"
+        }))
+      };
+      assert.deepEqual((await read()).progress, expectedProgress);
       for (const captain of [captainA, captainB]) {
         const shown = await preview(captain);
-        assert.deepEqual(shown.progress, { completed, total, gpA, gpB });
+        assert.deepEqual(shown.progress, expectedProgress);
         assert.equal(shown.games, undefined, "preview exposes the score without loading private game reports");
       }
     }
@@ -1648,7 +1655,7 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
   assert.equal(reset.teamMatch.phase, "environment_selection");
   assert.equal(reset.teamMatch.environment.step, 4);
   assert.equal(reset.teamMatch.games.length, 0);
-  assert.deepEqual((await preview(captainB)).progress, { completed: 0, total: 3, gpA: 0, gpB: 0 });
+  assert.deepEqual((await preview(captainB)).progress, { completed: 0, total: 3, details: [], winsA: 0, winsB: 0, gpA: 0, gpB: 0 });
   for (const link of ready.games) assert.equal(await gamesRepo.findById(client, link.gameId), null);
   const resultLog = await readLog();
   assert.equal(resultLog.filter(event => event.type === "team_game_result_submit").length, 6);
@@ -1725,8 +1732,8 @@ test("non-captain admin can run both captain sides, edit pairs and reset a compl
     const paired = await teamTournamentsApi.selectSword({ client, user: root, params, body: { side: "b", memberId: a[1].id } });
     await teamTournamentsApi.overridePairingsAdmin({ client, user: root, params, body: { pairings: paired.teamMatch.pairings } });
     const steps = [
-      { side: attacker, tableId: generated.tables[0].id }, { side: defender, mission: CRIT_OPS[2] },
-      { side: defender, tableId: generated.tables[1].id }, { side: attacker, mission: CRIT_OPS[3] }, { side: defender, mission: CRIT_OPS[4] }
+      { side: attacker, tableId: match.tableIds[0] }, { side: defender, mission: CRIT_OPS[2] },
+      { side: defender, tableId: match.tableIds[1] }, { side: attacker, mission: CRIT_OPS[3] }, { side: defender, mission: CRIT_OPS[4] }
     ];
     for (const [step, body] of steps.entries()) await teamTournamentsApi.selectEnvironment({ client, user: root, params, body: { ...body, step } });
     const ready = (await teamTournamentsApi.getPairingMatch({ client, user: root, params })).teamMatch;
@@ -1771,9 +1778,9 @@ for (const venueMode of ["tts", "irl"]) test(`team round tables are editable per
   const firstTables = ["Volkus", "Gallowdark", "Tomb World", "Volkus", "Gallowdark", "Tomb World"].map((killzone, index) => ({ killzone, deployment: index % 3 + 1 }));
   const secondTables = ["Tomb World", "WTC ITD", "Volkus", "Tomb World", "WTC ITD", "Volkus"].map((killzone, index) => ({ killzone, deployment: 6 - index % 3 }));
   await tournamentsApi.closeRegistration({ client, user: root, params });
-  await tournamentsApi.generateNextRoundAdmin({ client, user: root, params, body: { tables: firstTables.map(table => ({ ...table, ...(venueMode === "irl" ? { imageData: firstImage } : {}) })) } });
+  await tournamentsApi.generateNextRoundAdmin({ client, user: root, params, body: { tables: firstTables.map(table => ({ ...table, ...(venueMode === "tts" ? { imageData: firstImage } : {}) })) } });
   const started = await tournamentsApi.startAdmin({ client, user: root, params });
-  if (venueMode === "irl") {
+  if (venueMode === "tts") {
     assert.ok(started.tables.every(table => table.imageId === started.tables[0].imageId));
     const picture = await imageApi.image({ client, user: null, params: { id: started.tables[0].imageId } });
     assert.deepEqual(picture.buffer, pngImage(300, 200));
@@ -1816,8 +1823,9 @@ for (const venueMode of ["tts", "irl"]) test(`team round tables are editable per
   };
   let view = started;
   assert.deepEqual(terrain(view.rounds[0].metadata.tables), firstTables);
-  // The existing local tournament predates snapshots: exercise that fallback too.
-  if (venueMode === "tts") {
+  // Legacy rounds without snapshots also predate image storage. Keep TTS image
+  // snapshots intact and exercise the terrain fallback with the image-free IRL round.
+  if (venueMode === "irl") {
     await client.query("UPDATE tournament_rounds SET metadata = metadata - 'tables' WHERE id = $1", [view.rounds[0].id]);
   }
   await finishRound(view.rounds[0], firstTables);
@@ -1834,14 +1842,20 @@ for (const venueMode of ["tts", "irl"]) test(`team round tables are editable per
   assert.equal((await tournamentsApi.getAdmin({ client, user: root, params })).rounds.length, 1);
   await assert.rejects(() => tournamentsApi.generateNextRoundAdmin({ client, user: root, params, body: {
     tables: secondTables.map(table => ({ ...table, imageData: "data:image/png;base64,bm90LWFuLWltYWdl" }))
-  } }), /valid resized PNG/);
-  view = await tournamentsApi.generateNextRoundAdmin({ client, user: root, params, body: { tables: secondTables.map(table => ({ ...table, imageData: nextImage })) } });
-  assert.ok(view.tables.every(table => table.imageId && table.imageUrl === `/api/tournament-table-images/${table.imageId}`));
-  assert.equal(new Set(view.tables.map(table => table.imageId)).size, 1, "identical uploads are stored once per tournament");
+  } }), venueMode === "tts" ? /valid resized PNG/ : /only available for TTS/);
+  view = await tournamentsApi.generateNextRoundAdmin({ client, user: root, params, body: {
+    tables: secondTables.map(table => ({ ...table, ...(venueMode === "tts" ? { imageData: nextImage } : {}) }))
+  } });
   const savedImageId = view.tables[0].imageId;
-  assert.equal(await imageApi.saveTableImage(client, tournament.id, { ...secondTables[0], imageId: savedImageId }, null), savedImageId);
-  assert.equal(await imageApi.saveTableImage(client, tournament.id, { ...secondTables[0], imageId: null }, { ...secondTables[0], imageId: savedImageId }), null);
-  await assert.rejects(() => imageApi.saveTableImage(client, tournament.id + 100, { ...secondTables[0], imageId: savedImageId }, null), /does not belong/);
+  if (venueMode === "tts") {
+    assert.ok(view.tables.every(table => table.imageId && table.imageUrl === `/api/tournament-table-images/${table.imageId}`));
+    assert.equal(new Set(view.tables.map(table => table.imageId)).size, 1, "identical uploads are stored once per tournament");
+    assert.equal(await imageApi.saveTableImage(client, tournament.id, { ...secondTables[0], imageId: savedImageId }, null), savedImageId);
+    assert.equal(await imageApi.saveTableImage(client, tournament.id, { ...secondTables[0], imageId: null }, { ...secondTables[0], imageId: savedImageId }), null);
+    await assert.rejects(() => imageApi.saveTableImage(client, tournament.id + 100, { ...secondTables[0], imageId: savedImageId }, null), /does not belong/);
+  } else {
+    assert.ok(view.tables.every(table => !table.imageId && !table.imageUrl));
+  }
   const publicAfterGeneration = await tournamentsApi.getPublic({ client, user: null, params: { slug: tournament.slug } });
   assert.deepEqual(publicAfterGeneration.rounds[0], originalRound);
   assert.deepEqual(terrain(view.tables), secondTables);

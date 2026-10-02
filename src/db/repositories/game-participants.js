@@ -78,9 +78,15 @@ async function replaceFromUserIds(client, gameId, userIds) {
 async function listByGameIds(client, gameIds) {
   const ids = [...new Set(gameIds)].filter(Number.isInteger);
   if (!ids.length) return [];
+  // Legacy team games have no saved faction. Recover only from the linked
+  // original account; saved factions and intentionally empty proxies stay intact.
   const { rows } = await client.query(
     `SELECT
        gp.*,
+       COALESCE(NULLIF(gp.faction_snapshot, ''), CASE WHEN NOT gp.is_proxy THEN
+         CASE WHEN gp.slot = 1 AND gp.user_id = ma.user_id THEN ma.faction_snapshot
+              WHEN gp.slot = 2 AND gp.user_id = mb.user_id THEN mb.faction_snapshot END
+       END, '') AS faction_snapshot,
        u.name AS user_name,
        u.avatar_version,
        u.register_nickname,
@@ -90,6 +96,9 @@ async function listByGameIds(client, gameIds) {
        u.created_at AS user_created_at
      FROM game_participants gp
      LEFT JOIN users u ON u.id = gp.user_id
+     LEFT JOIN tournament_team_match_games link ON link.game_id = gp.game_id
+     LEFT JOIN tournament_team_roster_members ma ON ma.id = link.roster_a_member_id
+     LEFT JOIN tournament_team_roster_members mb ON mb.id = link.roster_b_member_id
      WHERE gp.game_id = ANY($1::int[])
      ORDER BY gp.game_id, gp.slot`,
     [ids]

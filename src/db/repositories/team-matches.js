@@ -267,7 +267,11 @@ async function listGameLinksForMatches(client, teamMatchIds) {
   const { rows } = await client.query(
     `SELECT l.*, g.status AS game_status, g.player_ids, g.pending_result, g.result, g.elo, g.venue_mode,
             (SELECT jsonb_agg(jsonb_build_object('id', gp.result_key, 'userId', gp.user_id,
-              'name', gp.display_name_snapshot, 'faction', gp.faction_snapshot,
+              'name', gp.display_name_snapshot,
+              'faction', COALESCE(NULLIF(gp.faction_snapshot, ''), CASE WHEN NOT gp.is_proxy THEN
+                CASE WHEN gp.slot = 1 AND gp.user_id = ma.user_id THEN ma.faction_snapshot
+                     WHEN gp.slot = 2 AND gp.user_id = mb.user_id THEN mb.faction_snapshot END
+              END, ''),
               'isProxy', gp.is_proxy, 'hasProfile', gp.user_id IS NOT NULL) ORDER BY gp.slot)
              FROM game_participants gp WHERE gp.game_id = g.id) AS game_players,
             tt.table_number, tt.killzone, tt.deployment, tr.metadata->'tables' AS round_tables
@@ -275,6 +279,8 @@ async function listGameLinksForMatches(client, teamMatchIds) {
      JOIN games g ON g.id = l.game_id
      JOIN tournament_team_matches tm ON tm.id = l.team_match_id
      JOIN tournament_rounds tr ON tr.id = tm.round_id
+     LEFT JOIN tournament_team_roster_members ma ON ma.id = l.roster_a_member_id
+     LEFT JOIN tournament_team_roster_members mb ON mb.id = l.roster_b_member_id
      LEFT JOIN tournament_tables tt ON tt.id = l.table_id
      WHERE l.team_match_id = ANY($1::int[]) ORDER BY l.team_match_id, l.slot`,
     [teamMatchIds]

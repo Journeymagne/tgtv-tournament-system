@@ -81,8 +81,9 @@ function fakeClient(options = {}) {
         }
         return { rows: [] };
       }
-      // These fixtures contain no Studio review notifications to prune.
-      if (sql.includes("DELETE FROM notification_inbox_items n") && sql.includes("n.payload->>'type'='studio_review'")) {
+      // These fixtures contain no Studio review or comment notifications to prune.
+      if (sql.includes("DELETE FROM notification_inbox_items n") &&
+          ["studio_review", "studio_comment"].some(type => sql.includes(`n.payload->>'type'='${type}'`))) {
         return { rows: [] };
       }
       if (sql.includes("SELECT payload, read_at FROM notification_inbox_items")) {
