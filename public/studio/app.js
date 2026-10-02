@@ -3,7 +3,8 @@ const $=s=>document.querySelector(s),esc=KTCards.esc;
 const SECTIONS={selectionCards:'Состав киллтима',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',tokenCards:'Жетоны и маркеры',operatives:'Оперативники',lorePages:'Картинки и лор',project:'Проект и исходники'};
 const STORAGE='kt-studio-cards-v6',PREVIOUS=[];
 const PROJECTS=STORAGE+':project-list',ACTIVE=STORAGE+':active-project',projectList=new Map();
-let data,original,section=new URLSearchParams(location.search).get('section')==='tokenCards'?'tokenCards':'selectionCards',selected=0,side=0,assets={},timer;
+const requestedSection=new URLSearchParams(location.search).get('section');
+let data,original,section=['tokenCards','lorePages'].includes(requestedSection)?requestedSection:'selectionCards',selected=0,side=0,assets={},timer;
 let previewOnly=false;
 let saveRevision=0,teamLoadRevision=0;
 const nestedStates=new WeakMap();
@@ -411,14 +412,16 @@ function renderEditor(options={}){
  if(referenceTarget?.page!==c)referenceTarget=null;
  if(c&&options.openNested){const saved=nestedStates.get(c)||{};saved[options.openNested.type]=new Set([options.openNested.id]);nestedStates.set(c,saved)}
  if(section==='lorePages'){
-  out=logoEditor()+'<div class="row-actions"><button id="export-lore" '+(!data.lorePages.length?'disabled':'')+'>↓ PDF раздела</button></div>';
+  out=logoEditor()+'<div class="free-template-options"><button data-free-template="blank">+ Свободный лист</button><button data-free-template="top">Иллюстрация сверху</button><button data-free-template="columns">Две колонки</button><button data-free-template="background">Фоновая иллюстрация</button></div><div class="row-actions"><button id="export-lore" '+(!data.lorePages.length?'disabled':'')+'>↓ PDF раздела</button></div>';
   if(!c)out+=panel('КАРТИНКИ И ЛОР','<p>Соберите альбом команды: панорамные фото, историю, инструкции по сборке и примеры покраса.</p><p class="hint">Нажмите «+ Страница», добавьте текст и загрузите изображения.</p>');
   else{
-   if(c.layout==='references')out+=referenceEditor(c);
+   if(c.layout==='free')out+=panel('СВОБОДНАЯ ВЁРСТКА',field('Название страницы','name',c.name)+'<p>Текст, иллюстрации, кадрирование и слои на отдельном листе A4.</p><button id="edit-free-lore" class="primary">Открыть вёрстку</button>');
+   else if(c.layout==='references')out+=referenceEditor(c);
    else{
    out+=panel('СТРАНИЦА A4',field('Заголовок','name',c.name)+select('Тема','category',c.category,Object.entries(KTModel.loreCategories).filter(([key])=>key!=='references'))+field('Лор или описание','body',c.body,'textarea')+select('Расположение изображений','layout',c.layout,[['wide','Крупные изображения на всю ширину'],['gallery','Галерея в две колонки']]));
    const images=c.images.map((img,i)=>'<div class="lore-image-item"><img src="'+esc(/^data:image\//.test(img.image)?img.image:assets[img.image]||img.image)+'" alt="Изображение '+(i+1)+'">'+field('Подпись '+(i+1),'images.'+i+'.caption',img.caption,'textarea')+'<div class="row-actions"><button data-lore-replace="'+esc(img.id)+'">Заменить</button><button data-lore-move="'+i+'" data-direction="-1" '+(!i?'disabled':'')+' aria-label="Изображение '+(i+1)+' выше">↑</button><button data-lore-move="'+i+'" data-direction="1" '+(i===c.images.length-1?'disabled':'')+' aria-label="Изображение '+(i+1)+' ниже">↓</button><button class="danger" data-lore-remove="'+esc(img.id)+'">Удалить изображение</button></div></div>').join('');
    out+=panel('ИЗОБРАЖЕНИЯ',images+loreUploadControls(c),c.images.length+' / 40');
+   out+='<button id="convert-free-lore">Создать копию со свободной вёрсткой</button><p class="hint">Автоматические продолжения станут отдельными листами. Исходная страница сохранится.</p>';
    }
    out+='<div class="row-actions"><button data-action="move-lore-page" data-direction="-1" '+(!selected?'disabled':'')+'>↑ Раньше в PDF</button><button data-action="move-lore-page" data-direction="1" '+(selected===data.lorePages.length-1?'disabled':'')+'>↓ Позже в PDF</button><button data-action="duplicate">Дублировать страницу</button><button class="danger" data-action="delete">Удалить страницу</button></div>';
   }
@@ -465,6 +468,13 @@ function renderEditor(options={}){
   const block=Array.from(document.querySelectorAll('#editor details[data-nested-type]')).find(el=>el.dataset.nestedType===options.openNested.type&&el.dataset.nestedId===options.openNested.id);
   if(block){for(let parent=block.parentElement;parent&&parent!==$('#editor');parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;block.querySelector('input')?.focus({preventScroll:true});block.scrollIntoView({block:'nearest'})}
  }
+}
+function editFreeLore(){
+ const project=data,page=current();
+ KTFreeLoreEditor.open(page,{project,assets,apply:updated=>{
+  if(data!==project||!data.lorePages.includes(page))throw Error('Проект изменился. Откройте страницу заново.');
+  Object.assign(page,updated);persist();render();
+ }});
 }
 function renderPreview(){
  const lore=section==='lorePages';
@@ -593,6 +603,17 @@ document.addEventListener('click',async e=>{
  if(b.dataset.record!==undefined){if(recordClickSuppressed){recordClickSuppressed=false;return}selected=Number(b.dataset.record);side=0;render();return}
  if(b.id==='prev-side'||b.id==='next-side'){side+=b.id==='next-side'?1:-1;renderPreview();return}
  if(b.id==='view-toggle'){previewOnly=!previewOnly;$('.workspace').classList.toggle('show-preview',previewOnly);b.textContent=previewOnly?(section==='lorePages'?'Редактировать страницу':'Редактировать карточку'):(section==='lorePages'?'Показать страницу':'Показать карточку');return}
+ if(b.dataset.freeTemplate){
+  if(data.lorePages.length>=100){toast('В проекте может быть до 100 страниц.');return}
+  data.lorePages.push(KTFreeLore.template(uid(),b.dataset.freeTemplate,uid));section='lorePages';selected=data.lorePages.length-1;side=0;persist();render();editFreeLore();return;
+ }
+ if(b.id==='edit-free-lore'){editFreeLore();return}
+ if(b.id==='convert-free-lore'){
+  try{const source=current(),copies=KTFreeLore.convert(source,KTLore.renderPage(source,data,assets),uid);
+   if(data.lorePages.length+copies.length>100)throw Error('Копии превысят лимит 100 страниц.');
+   data.lorePages.splice(selected+1,0,...copies);selected++;side=0;persist();render();editFreeLore();
+  }catch(error){toast(error.message)}return;
+ }
  if(b.id==='choose-lore-images'){$('#lore-image-files').click();return}
  if(b.id==='add-reference-page'){
   if(data.lorePages.length>=100){toast('В проекте может быть до 100 страниц.');return}
@@ -833,7 +854,7 @@ async function init(){
   render();if(migrated){persist();toast('Проект обновлён. Ваши правки сохранены.')}
   window.ktStudio={getData:()=>structuredClone(data),toast,validateData:KTModel.validate,buildDefinition:()=>buildTeamPDF(data,assets),preparePDF,exportPDF,prepareTTS,openTTS,exportTTS,exportROSZ,importOperativeImage,importCardImage,importLoreImages,renderCard:(section,index)=>section==='lorePages'?KTLore.renderPage(data.lorePages[index],data,assets):KTCards.renderCard(data[section][index],data,assets,index)};
   await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,renameProject,recoverProject,localIds:()=>[...projectList.keys()],downloadJSON,toast});
-  if(new URLSearchParams(location.search).get('section')==='tokenCards'&&section!=='tokenCards'){section='tokenCards';selected=side=0;render()}
+  if(['tokenCards','lorePages'].includes(requestedSection)&&section!==requestedSection){section=requestedSection;selected=side=0;render()}
   $('#new-project').disabled=false;
  }catch(e){$('#editor').textContent='Не удалось открыть проект: '+e.message}
 }

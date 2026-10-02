@@ -146,8 +146,9 @@ function validate(d){
  if(d.lorePages!==undefined){
   if(!Array.isArray(d.lorePages)||d.lorePages.length>100)throw Error('Слишком много страниц картинок и лора');
   const ids=new Set();for(const p of d.lorePages){
-   if(typeof p.id!=='string'||ids.has(p.id)||typeof p.name!=='string'||p.name.length>200||typeof p.body!=='string'||p.body.length>100000||!Object.hasOwn(loreCategories,p.category)||!['wide','gallery','references'].includes(p.layout)||!Array.isArray(p.images)||p.images.length>40)throw Error('Повреждена страница картинок и лора');ids.add(p.id);
+   if(typeof p.id!=='string'||ids.has(p.id)||typeof p.name!=='string'||p.name.length>200||typeof p.body!=='string'||p.body.length>100000||!Object.hasOwn(loreCategories,p.category)||!['wide','gallery','references','free'].includes(p.layout)||!Array.isArray(p.images)||p.images.length>40)throw Error('Повреждена страница картинок и лора');ids.add(p.id);
    const images=new Set();for(const img of p.images){if(typeof img.id!=='string'||images.has(img.id)||!img.image||typeof img.caption!=='string'||img.caption.length>5000)throw Error('Повреждено изображение страницы');images.add(img.id);validateImage(img);if(p.layout==='references')validateReference(img)}
+   if(p.layout==='free')(root.KTFreeLore||(typeof require!=='undefined'?require('./lore-layout'):null)).validate(p);
   }
  }
  for(const key of collections){

@@ -26,6 +26,7 @@ function buildTeamPDF(d,assets={},selection=null){
   content.push({canvas:marks,absolutePosition:{x:0,y:0}});
  }
  if(!selection||loreOnly)for(const page of Lore.renderAll(d,assets)){
+  if(page.warnings?.some(w=>w.kind==='overflow'))throw Error('Текст не помещается на странице «'+page.name+'». Откройте свободную вёрстку и увеличьте текстовые рамки.');
   content.push({text:' ',fontSize:1,margin:0,...(pages++?{pageBreak:'before'}:{})});
   content.push({svg:page.svg,width:W,height:H,absolutePosition:{x:0,y:0}});
  }

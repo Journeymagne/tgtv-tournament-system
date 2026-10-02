@@ -1,7 +1,7 @@
 (function(root){
 'use strict';
 const MAX_FILE=10*1024*1024,MAX_EDGE=480,MAX_DATA=100000;
-const PROFILES={operative:{edge:MAX_EDGE,data:MAX_DATA},logo:{edge:192,data:24000},card:{edge:960,data:180000},page:{edge:1600,data:600000}};
+const PROFILES={operative:{edge:MAX_EDGE,data:MAX_DATA},logo:{edge:192,data:24000},card:{edge:960,data:180000},page:{edge:1600,data:600000},pagePrint:{edge:3508,data:1900000}};
 function typeOf(bytes){
  if([137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v))return 'image/png';
  if(bytes[0]===255&&bytes[1]===216&&bytes[2]===255)return 'image/jpeg';
@@ -53,7 +53,7 @@ function imageEntries(project){
  add(project.team,'logo','logo');
  for(const key of ['selectionCards','teamCards','strategicPloys','firefightPloys','equipment','operatives'])for(const card of project[key]||[])add(card,'image',key==='operatives'?'operative':'card');
  for(const card of project.tokenCards||[])for(const token of card.tokens){add(token,'image','card');add(token,'symbolImage','card')}
- for(const page of project.lorePages||[])for(const img of page.images||[])add(img,'image',page.layout==='references'?'card':'page');
+ for(const page of project.lorePages||[])for(const img of page.images||[])add(img,'image',page.layout==='references'?'card':page.layout==='free'?'pagePrint':'page');
  return entries;
 }
 function imageFile(uri){const [header,body]=uri.split(','),bytes=Uint8Array.from(atob(body),char=>char.charCodeAt(0));return new Blob([bytes],{type:header.slice(5,-7)})}

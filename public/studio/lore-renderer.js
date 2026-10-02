@@ -8,6 +8,7 @@ const Page=root.KTPageBackground||(typeof require!=='undefined'?require('./page-
 const W=595.276,H=841.89,M=34,GAP=18,BOTTOM=803,INK='#26302c',esc=Cards.esc;
 function text(s,x,y,size=11,color=INK,bold=false){return '<text x="'+x+'" y="'+y+'" font-family="Roboto" font-size="'+size+'" fill="'+color+'"'+(bold?' font-weight="bold"':'')+'>'+esc(s)+'</text>'}
 function renderPage(page,data,assets={}){
+ if(page.layout==='free')return (root.KTFreeLore||(typeof require!=='undefined'?require('./lore-layout'):null)).renderPage(page,data,assets);
  if(page.layout==='references')return References.renderPage(page,data,assets);
  const pages=[],width=W-2*M,accent=data.layout.accent,title=page.name||'Картинки и лор';
  let s='',boxes=[],y=0,startY=0;
@@ -17,13 +18,13 @@ function renderPage(page,data,assets={}){
   let teamSize=20;while(Cards.measure(data.team.name,teamSize,'RobotoBold')>W-M-headerX&&teamSize>7)teamSize-=.5;
   s+=Cards.teamLogo(data,16,12,52)+text(data.team.name,headerX,32,teamSize,'#fff',true)+text('КАРТИНКИ И ЛОР / '+Model.loreCategories[page.category].toUpperCase(),headerX,57,9,accent,true);
   y=106;boxes=[];
-  for(const line of Cards.wrap(title,width,22,'RobotoBold')){s+=text(line,M,y,22,INK,true);y+=27}
-  if(pages.length){s+=text('ПРОДОЛЖЕНИЕ · '+(pages.length+1),M,y,8,'#788475',true);y+=18}
+  for(const line of Cards.wrap(title,width,22,'RobotoBold')){s+=text(line,M,y,22,INK,true);boxes.push({x:M,y:y-22,w:width,h:27,kind:'heading',layoutWidth:width,line:{runs:[{text:line,size:22,bold:true}],size:22}});y+=27}
+  if(pages.length){const label='ПРОДОЛЖЕНИЕ · '+(pages.length+1);s+=text(label,M,y,8,'#788475',true);boxes.push({x:M,y:y-8,w:width,h:18,kind:'continuation',layoutWidth:width,color:'#788475',line:{runs:[{text:label,size:8,bold:true}],size:8}});y+=18}
   s+='<path d="M'+M+' '+(y-9)+'H'+(W-M)+'" stroke="'+accent+'" stroke-width="1.2"/>';y+=7;startY=y;
  };
  const finish=()=>{pages.push({svg:s+'</svg>',width:W,height:H,boxes,id:page.id,kind:'lore',name:title,side:pages.length});if(pages.length>250)throw Error('Слишком длинная страница: '+title)};
  const next=()=>{finish();begin()};
- const drawLine=(line,x,color=INK)=>{if(y+line.height>BOTTOM)next();s+=Text.svg(line,x,y+line.size,color);boxes.push({x,y,w:line.width,h:line.height,kind:'text'});y+=line.height};
+ const drawLine=(line,x,color=INK)=>{if(y+line.height>BOTTOM)next();s+=Text.svg(line,x,y+line.size,color);boxes.push({x,y,w:line.width,h:line.height,kind:'text',line,layoutWidth:width,color});y+=line.height};
  begin();
  if(page.body){for(const line of Text.layout(page.body,width,11,'Roboto',0,1.45))drawLine(line,M);y+=18}
  const columns=page.layout==='gallery'?2:1,cell=(width-GAP*(columns-1))/columns;
@@ -43,7 +44,7 @@ function renderPage(page,data,assets={}){
   for(let line=0;line<Math.max(...caps.map(a=>a.length));line++){
    const height=Math.max(...caps.map(lines=>lines[line]?.height||0)),baseline=Math.max(...caps.map(lines=>lines[line]?.size||0));
    if(y+height>BOTTOM)next();
-   caps.forEach((lines,i)=>{if(line<lines.length){const x=M+i*(cell+GAP);s+=Text.svg(lines[line],x,y+baseline,'#65705f');boxes.push({x,y,w:lines[line].width,h:height,kind:'caption'})}});y+=height;
+   caps.forEach((lines,i)=>{if(line<lines.length){const x=M+i*(cell+GAP);s+=Text.svg(lines[line],x,y+baseline,'#65705f');boxes.push({x,y:y+baseline-lines[line].size,w:lines[line].width,h:height,kind:'caption',line:lines[line],layoutWidth:cell,color:'#65705f'})}});y+=height;
   }
   y+=22;
  }

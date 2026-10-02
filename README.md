@@ -22,6 +22,8 @@ moderation. Startup migrations **039_studio_reviews** and
 The adjacent [Discussion tab](docs/studio-discussion.md) supports questions and
 threaded replies without ratings, author notifications and moderation. Startup
 migration **041_studio_comments** stores comments, reports and audit history.
+Lore pages also support [free A4 layouts](docs/studio-free-lore.md) with independent
+text and image frames, cropping, layers, text backgrounds and PDF overflow checks.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
@@ -29,6 +31,17 @@ Tournament administrators can register team rosters with empty proxies, includin
 teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
+
+## Release 5.3.0
+
+Studio adds a free A4 layout editor for lore and narrative pages: independent text
+and image frames, cropping, layers, snapping, undo/redo, and transparent text
+backgrounds. Start from a blank sheet or three templates, or convert an automatic
+page into editable copies while keeping the original. Editor, library and PDF
+share the same renderer; text overflow blocks saving and PDF export.
+Controls follow Studio themes and adapt to mobile screens. No new dependencies,
+database migrations or environment variables are required.
+See [free layout controls](docs/studio-free-lore.md) and [the changelog](CHANGELOG.md).
 
 ## Release 5.2.0
 
