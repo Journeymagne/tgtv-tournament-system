@@ -1022,7 +1022,7 @@ function adminTeamRostersContent(data) {
             <div class="row-title">${teamRosterLabel(roster)}</div>
             <div class="row-meta">${t("teams.roster.seed", { seed: roster.seed || "-" })} · ${rosterTeamLinkMarkup(roster)} · ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
           </div></div>
-          <div class="team-roster-members">${activeRosterMembersForUi(roster).map((member) => `<span>${escapeHtml(member.displayNameSnapshot)} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)}${member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>`).join("")}</div>
+          <div class="team-roster-members">${activeRosterMembersForUi(roster).map((member) => `<span>${escapeHtml(member.displayNameSnapshot)} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)}${member.userId && member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>`).join("")}</div>
         </div>
         <div class="row-actions">
           ${roster.status !== "withdrawn" ? `<input class="seed-input" type="number" min="1" max="128" value="${roster.seed || 1}" data-team-roster-seed="${roster.id}" ${seedLocked ? "disabled" : ""}>` : ""}
@@ -1062,7 +1062,7 @@ function openReservedRosterCreator(data) {
 
 async function openAdminTeamRosterCreator(data, reserve = null) {
   const response = await api("/api/teams");
-  const teams = (response.teams || []).filter((team) => !team.archivedAt && Number(team.memberCount || 0) >= 3);
+  const teams = (response.teams || []).filter((team) => !team.archivedAt);
   if (!teams.length) {
     setMessage(t("teams.tournament.adminNoEligibleTeam"), true);
     return;
@@ -1108,8 +1108,7 @@ async function openAdminTeamRosterCreator(data, reserve = null) {
       const profile = await api(`/api/teams/${team.id}/members`);
       if (version !== loadVersion) return;
       const selectedTeam = { ...profile.team, members: profile.currentMembers || [] };
-      if (selectedTeam.members.length < 3) throw new Error(t("teams.tournament.adminNoEligibleTeam"));
-      fields.innerHTML = teamRosterMemberFields(selectedTeam);
+      fields.innerHTML = teamRosterMemberFields(selectedTeam, null, { allowProxies: true });
       wireTeamRosterMemberSelection(form);
       loadedTeamId = selectedTeam.id;
       submit.disabled = false;
@@ -1124,11 +1123,8 @@ async function openAdminTeamRosterCreator(data, reserve = null) {
     event.preventDefault();
     const teamId = Number(form.elements.teamId.value);
     if (!loadedTeamId || loadedTeamId !== teamId) return;
-    const selected = [1, 2, 3].map((slot) => ({
-      userId: Number(form.elements[`member-${slot}`].value),
-      faction: form.elements[`faction-${slot}`].value
-    }));
-    if (new Set(selected.map((member) => member.userId)).size !== 3) {
+    const selected = teamRosterMembersFromForm(form);
+    if (!teamRosterPlayersAreUnique(selected)) {
       showError(t("teams.tournament.uniquePlayersRequired"));
       return;
     }
@@ -1138,7 +1134,7 @@ async function openAdminTeamRosterCreator(data, reserve = null) {
       await api(reserve ? `/api/tournaments/${data.tournament.id}/rosters/${reserve.id}` : `/api/admin/tournaments/${data.tournament.id}/rosters`, { method: reserve ? "PATCH" : "POST", body: {
         teamId,
         name: rosterNameFromForm(form),
-        captainUserId: Number(form.elements.captainUserId.value),
+        captainUserId: form.elements.captainUserId.value ? Number(form.elements.captainUserId.value) : null,
         members: selected
       } });
       close();
@@ -1156,16 +1152,12 @@ async function openAdminTeamRosterEditor(data, roster) {
   if (roster.isReserve) return openAdminTeamRosterCreator(data, roster);
   const profile = await api(`/api/teams/${roster.teamId}/members`);
   const members = profile.currentMembers || [];
-  if (members.length < 3) {
-    setMessage(t("teams.tournament.noEligibleTeam"), true);
-    return;
-  }
   const dialog = document.createElement("dialog");
   dialog.className = "tiebreaker-help-dialog team-roster-editor-dialog";
   dialog.innerHTML = `<form class="tiebreaker-help-content" data-admin-team-roster-editor>
     <div class="tiebreaker-help-header"><div><h3>${t("teams.tournament.editTitle")}</h3><p>${escapeHtml(roster.teamNameSnapshot || "")}</p></div><button class="dialog-close-button" type="button" data-team-roster-editor-close aria-label="${t("common.close")}">&times;</button></div>
     <div class="field"><label>${t("teams.tournament.rosterName")}</label><input name="name" minlength="2" maxlength="80" value="${escapeHtml(roster.name || "")}" required></div>
-    ${teamRosterMemberFields({ members }, roster)}
+    ${teamRosterMemberFields({ members }, roster, { allowProxies: true })}
     <div class="row-actions"><button class="small-button" type="button" data-team-roster-editor-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("common.save")}</button></div>
   </form>`;
   document.body.appendChild(dialog);
@@ -1177,18 +1169,15 @@ async function openAdminTeamRosterEditor(data, roster) {
   wireTeamRosterMemberSelection(form);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const selected = [1, 2, 3].map((slot) => ({
-      userId: Number(form.elements[`member-${slot}`].value),
-      faction: form.elements[`faction-${slot}`].value
-    }));
-    if (new Set(selected.map((member) => member.userId)).size !== 3) {
+    const selected = teamRosterMembersFromForm(form);
+    if (!teamRosterPlayersAreUnique(selected)) {
       setMessage(t("teams.tournament.uniquePlayersRequired"), true);
       return;
     }
     try {
       await api(`/api/tournaments/${data.tournament.id}/rosters/${roster.id}`, { method: "PATCH", body: {
         name: form.elements.name.value,
-        captainUserId: Number(form.elements.captainUserId.value),
+        captainUserId: form.elements.captainUserId.value ? Number(form.elements.captainUserId.value) : null,
         members: selected
       } });
       close();

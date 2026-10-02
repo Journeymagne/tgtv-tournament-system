@@ -135,8 +135,8 @@
     }catch(error){if(requestId===teamRequest)$('#team-list').textContent=error.message;}
   }
   $('#team-search-form').addEventListener('submit',event=>{event.preventDefault();teamQuery=$('#team-search').value.trim();teamOffset=0;void loadTeams();});
-  $('#teams-prev').addEventListener('click',()=>{teamOffset=Math.max(0,teamOffset-30);void loadTeams();});
-  $('#teams-next').addEventListener('click',()=>{teamOffset+=30;void loadTeams();});
+  $('#teams-prev').addEventListener('click',()=>{teamOffset=Math.max(0,teamOffset-32);void loadTeams();});
+  $('#teams-next').addEventListener('click',()=>{teamOffset+=32;void loadTeams();});
   $('#team-list').addEventListener('click',event=>{const button=event.target.closest('[data-team]');const team=button&&teams.find(t=>t.id===button.dataset.team);if(team)void setLogo(team.logo,team.name,team.id);});
   function publicationId(value) {
     if(uuid.test(value))return value;

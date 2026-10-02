@@ -25,6 +25,23 @@ migration **041_studio_comments** stores comments, reports and audit history.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+Tournament administrators can register team rosters with empty proxies, including
+teams with fewer than three accounts. Proxies can later be replaced by team
+members. Migration **046_team_roster_proxies** stores their identity; see
+[Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
+
+## Release 5.2.0
+
+Tournament System and KT Studio accept a nickname or verified email for sign-in.
+Registration uses Nickname and leaves the optional player nickname in the profile.
+Tournament administrators can fill team rosters with empty proxies, replace them
+with team members, and run Classic/WTC pairings while preserving saved game identities.
+Migration **046_team_roster_proxies** applies automatically at startup. Proxy games
+do not affect personal Elo, and team matches containing proxies do not affect team Elo.
+Studio and dice team catalogs use 32 publications per page. The Challenge sidebar
+label is corrected, and client assets are versioned at 5.2.0.
+See [the changelog](CHANGELOG.md) for the complete release notes.
+
 ## Release 5.0.2
 
 Team tournament creation and settings use the standard tournament controls for

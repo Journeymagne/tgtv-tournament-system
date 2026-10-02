@@ -58,6 +58,16 @@ async function findByNameKey(client, nameKey) {
   return mapUser(rows[0]);
 }
 
+async function findByVerifiedEmail(client, email) {
+  const { rows } = await client.query(
+    `SELECT ${COLUMNS} FROM users
+     WHERE id = (SELECT user_id FROM user_email_accounts
+                 WHERE email = $1 AND verified_at IS NOT NULL)`,
+    [String(email || "").trim().toLowerCase()]
+  );
+  return mapUser(rows[0]);
+}
+
 async function isNameTaken(client, name, excludeId = null) {
   const { rows } = await client.query(
     `SELECT 1 FROM users WHERE name_key = $1 AND ($2::int IS NULL OR id <> $2) LIMIT 1`,
@@ -282,6 +292,7 @@ module.exports = {
   findByIds,
   lockByIds,
   findByNameKey,
+  findByVerifiedEmail,
   isNameTaken,
   listLeaderboard,
   listWithGameCounts,

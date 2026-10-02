@@ -35,7 +35,7 @@ function ownerControls(row, owner) {
 
 const author = row => ({ id: row.owner_id, name: row.author_name });
 
-async function library(client, search, offset, limit = 30, owner = null) {
+async function library(client, search, offset, limit = 32, owner = null) {
   const where = "studio_projects.deleted_at IS NULL AND published IS NOT NULL AND strpos(lower((published->'team'->>'name') || ' ' || COALESCE(published->'team'->>'subtitle','')),lower($1))>0";
   const { rows } = await client.query(`SELECT owner_id, project_id, revision, publication_id, published_at, published->'team' AS team,
     jsonb_array_length(published->'operatives') AS count, published->'layout'->>'accent' AS accent,

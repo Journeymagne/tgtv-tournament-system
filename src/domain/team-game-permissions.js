@@ -1,7 +1,9 @@
 const { canManageTournament } = require("./access");
 function teamGamePermissions(game, rosterA, rosterB, user) {
   game = game || {};
-  const playerIds = game.playerIds || [];
+  const playerIds = game.playerUserIds || (game.players?.length
+    ? game.players.map((player) => Object.hasOwn(player, "userId") ? player.userId : player.id)
+    : game.playerIds || []);
   const userId = user?.id;
   const captainRoster = userId && [rosterA, rosterB].find((roster) => roster?.captainUserId === userId);
   const participant = Boolean(userId && playerIds.includes(userId));

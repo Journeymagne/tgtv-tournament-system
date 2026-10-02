@@ -33,9 +33,9 @@ async function fill(client, tournament, roster, user, body) {
   requireReservationAccess(tournament, user);
   const team = await teams.findById(client, requirePositiveIntId(body.teamId, 400, "Choose a team"), true);
   if (!team || team.archivedAt) throw new HttpError(409, "Choose an active team");
-  const members = await require("./team-tournaments").normalizeRosterMembers(client, team, body.members);
-  const captainUserId = requirePositiveIntId(body.captainUserId, 400, "Choose a captain");
-  if (!members.some(member => member.userId === captainUserId)) throw new HttpError(400, "The captain must be one of the three roster players");
+  const rosterApi = require("./team-tournaments");
+  const members = await rosterApi.normalizeRosterMembers(client, team, body.members, { allowProxies: true });
+  const captainUserId = rosterApi.rosterCaptainUserId(members, body.captainUserId, { allowNoCaptain: true });
   const name = normalizeRosterName(body.name || roster.name);
   const updated = await rosters.update(client, roster.id, { teamId: team.id, name, nameKey: teamNameKey(name), captainUserId,
     teamNameSnapshot: team.name, teamLogoSnapshot: team.logoData, status: "registered", isReserve: false });

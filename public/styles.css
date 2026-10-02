@@ -3900,6 +3900,11 @@ tr:last-child td {
   background: var(--panel);
 }
 
+.notification-mark-all {
+  display: block;
+  margin-top: 10px;
+}
+
 .notification-panel-header h2 {
   margin: 0;
   font-size: 17px;

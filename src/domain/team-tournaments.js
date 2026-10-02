@@ -120,7 +120,7 @@ function pairKey(aId, bId) {
 function teamMatchProgress(match) {
   const details = Array.isArray(match.games)
     ? match.games.filter((link) => link.game?.status === "completed" && link.game.result).map((link) => {
-      const [playerAId, playerBId] = link.game.playerIds;
+      const [playerAId, playerBId] = link.game.resultPlayerIds || link.game.playerIds;
       const scoreA = link.game.result.scores?.[playerAId] || {};
       const scoreB = link.game.result.scores?.[playerBId] || {};
       const vpA = Number(scoreA.total || 0);

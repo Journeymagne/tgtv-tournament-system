@@ -66,7 +66,7 @@ async function save(ctx, publishing = false) {
 async function library(ctx) {
   const offset = Number(ctx.query.get("offset") || 0);
   if (!Number.isSafeInteger(offset) || offset < 0) throw new HttpError(400, "Некорректная страница.");
-  return store.library(ctx.client, (ctx.query.get("q") || "").slice(0, 200), offset, 30, libraryOwner(ctx));
+  return store.library(ctx.client, (ctx.query.get("q") || "").slice(0, 200), offset, 32, libraryOwner(ctx));
 }
 
 function libraryOwner(ctx) {

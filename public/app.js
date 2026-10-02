@@ -105,6 +105,8 @@ const state = {
   notificationsUnreadCount: 0,
   notificationsOpen: false,
   notificationsLoading: false,
+  notificationsMarkingRead: false,
+  notificationsReadError: false,
   notificationsError: "",
   notificationsGeneratedAt: null,
   focusChallengeId: null,
@@ -954,7 +956,10 @@ function renderNotificationControl() {
   }
   panel.setAttribute("aria-label", t("notifications.title"));
   if (window.TGTV_LIVE.blocked(panel, document)) return;
-  setLiveContent(panel, `<div class="notification-panel-header"><h2>${t("notifications.title")}</h2><span class="field-help">${t("notifications.latestFive")}</span></div>${body}`, true);
+  const markAllDisabled = state.notificationsMarkingRead || !count || !state.notificationsGeneratedAt;
+  const readError = state.notificationsReadError
+    ? `<div class="notification-error" role="alert">${t("notifications.readError")}</div>` : "";
+  setLiveContent(panel, `<div class="notification-panel-header"><h2>${t("notifications.title")}</h2><span class="field-help">${t("notifications.latestFive")}</span><button class="small-button notification-mark-all" type="button" data-notification-mark-all ${markAllDisabled ? "disabled" : ""} aria-busy="${Boolean(state.notificationsMarkingRead)}">${t(state.notificationsMarkingRead ? "notifications.markingRead" : "notifications.markAllRead")}</button></div>${readError}${body}`, true);
 }
 
 function resetNotifications() {
@@ -963,6 +968,8 @@ function resetNotifications() {
   state.notificationsUnreadCount = 0;
   state.notificationsOpen = false;
   state.notificationsLoading = false;
+  state.notificationsMarkingRead = false;
+  state.notificationsReadError = false;
   state.notificationsError = "";
   state.notificationsGeneratedAt = null;
   if (notificationPollTimer) window.clearTimeout(notificationPollTimer);
@@ -1017,6 +1024,33 @@ function focusNotificationTarget(selector) {
     target.focus({ preventScroll: true });
     window.setTimeout(() => target.classList.remove("notification-target-highlight"), 2200);
   });
+}
+
+async function markAllNotificationsRead() {
+  const viewerId = state.me?.id;
+  const through = state.notificationsGeneratedAt;
+  if (!viewerId || !through || state.notificationsMarkingRead || !state.notificationsUnreadCount) return;
+  state.notificationsMarkingRead = true;
+  state.notificationsReadError = false;
+  renderNotificationControl();
+  try {
+    const result = await api("/api/notifications/read", { method: "POST", body: { through } });
+    if (state.me?.id !== viewerId) return;
+    notificationRequestId += 1;
+    state.notifications = state.notifications.map((item) => item.unread &&
+      new Date(item.createdAt).getTime() <= new Date(result.lastSeenAt).getTime()
+      ? { ...item, unread: false, readAt: result.lastSeenAt } : item);
+    state.notificationsUnreadCount = state.notifications.filter((item) => item.unread).length;
+    renderNotificationControl();
+    await loadNotifications();
+  } catch (err) {
+    if (state.me?.id === viewerId) state.notificationsReadError = true;
+  } finally {
+    if (state.me?.id === viewerId) {
+      state.notificationsMarkingRead = false;
+      renderNotificationControl();
+    }
+  }
 }
 
 async function markNotificationRead(item) {
@@ -1107,6 +1141,10 @@ function wireNotificationControl() {
     if (state.notificationsOpen) await loadNotifications();
   });
   document.querySelector("[data-notification-panel]")?.addEventListener("click", async (event) => {
+    if (event.target.closest("[data-notification-mark-all]")) {
+      await markAllNotificationsRead();
+      return;
+    }
     const retry = event.target.closest("[data-notification-retry]");
     if (retry) {
       await loadNotifications();
@@ -2085,37 +2123,52 @@ function renderTournamentJoinForm(data) {
   });
 }
 
-function teamRosterMemberFields(team, roster = null) {
+function teamRosterMemberFields(team, roster = null, { allowProxies = false } = {}) {
   const members = [...(team?.members || [])].filter((member) => member.userId && !member.endedAt);
   members.sort((a, b) => (b.userId === state.me?.id) - (a.userId === state.me?.id));
   const options = (selectedId) => members.map((member) => `
     <option value="${member.userId}" ${member.userId === Number(selectedId) ? "selected" : ""}>${escapeHtml(member.user?.name || member.displayNameSnapshot)}</option>
   `).join("");
   const rosterMembers = activeRosterMembersForUi(roster || {}).sort((a, b) => a.slot - b.slot);
-  const defaults = [0, 1, 2].map((index) => rosterMembers[index]?.userId || members[index]?.userId);
+  const slots = [1, 2, 3].map((slot) => rosterMembers.find((member) => member.slot === slot));
+  const defaults = slots.map((member, index) => member?.isProxy ? "proxy" : member?.userId || members[index]?.userId || (allowProxies ? "proxy" : ""));
   return `
     <div class="team-roster-member-grid">
       ${[0, 1, 2].map((index) => `
         <div class="team-roster-player-row">
           <div class="field">
             <label>${t("teams.tournament.player", { number: index + 1 })}</label>
-            <select name="member-${index + 1}" data-user-search required>${options(defaults[index])}</select>
+            <select name="member-${index + 1}" data-user-search required>${options(defaults[index])}${allowProxies || slots[index]?.isProxy ? `<option value="proxy" ${defaults[index] === "proxy" ? "selected" : ""}>${escapeHtml(slots[index]?.isProxy ? slots[index].displayNameSnapshot : t("teams.tournament.emptyProxy"))}</option>` : ""}</select>
           </div>
           <div class="field">
             <label>${t("tournaments.field.faction")}</label>
-            <select name="faction-${index + 1}" required>
+            <select name="faction-${index + 1}" ${defaults[index] === "proxy" ? "" : "required"}>
               <option value="">${t("tournaments.registration.factionPlaceholder")}</option>
-              ${optionsHtml(killTeamOptions, rosterMembers[index]?.factionSnapshot || "")}
+              ${optionsHtml(killTeamOptions, slots[index]?.factionSnapshot || "")}
             </select>
           </div>
         </div>
       `).join("")}
     </div>
+    ${allowProxies ? `<p class="muted small-note">${t("teams.tournament.proxyHint")}</p>` : ""}
     <div class="field">
       <label>${t("teams.tournament.captain")}</label>
-      <select name="captainUserId" data-user-search required>${options(roster?.captainUserId || defaults[0])}</select>
+      <select name="captainUserId" data-user-search required>${options(roster?.captainUserId || defaults.find((value) => value !== "proxy"))}</select>
     </div>
   `;
+}
+
+function teamRosterMembersFromForm(form) {
+  return [1, 2, 3].map((slot) => {
+    const value = form.elements[`member-${slot}`].value;
+    return { userId: value === "proxy" ? null : Number(value),
+      ...(value === "proxy" ? { proxy: true } : {}), faction: form.elements[`faction-${slot}`].value };
+  });
+}
+
+function teamRosterPlayersAreUnique(members) {
+  const users = members.filter((member) => !member.proxy).map((member) => member.userId);
+  return new Set(users).size === users.length;
 }
 
 function wireTeamRosterMemberSelection(form) {
@@ -2128,13 +2181,19 @@ function wireTeamRosterMemberSelection(form) {
       id: Number(select.value),
       label: select.selectedOptions[0]?.textContent || ""
     })).filter((choice, index, all) => choice.id && all.findIndex((item) => item.id === choice.id) === index);
-    captain.innerHTML = choices.map((choice) => `<option value="${choice.id}" ${choice.id === previous ? "selected" : ""}>${escapeHtml(choice.label)}</option>`).join("");
+    captain.innerHTML = choices.length ? choices.map((choice) => `<option value="${choice.id}" ${choice.id === previous ? "selected" : ""}>${escapeHtml(choice.label)}</option>`).join("") : `<option value="">${t("teams.tournament.noCaptain")}</option>`;
+    captain.required = choices.length > 0;
+    captain.disabled = choices.length === 0;
     if (!choices.some((choice) => choice.id === previous) && choices[0]) captain.value = String(choices[0].id);
+    selects.forEach((select, index) => { form.elements[`faction-${index + 1}`].required = select.value !== "proxy"; });
     syncUserSelect(captain, true);
+    const captainInput = captain.closest("[data-combo]")?.querySelector("[data-combo-input]");
+    if (captainInput) captainInput.placeholder = t(choices.length ? "leaderboard.users.searchPlaceholder" : "teams.tournament.noCaptain");
   };
   selects.forEach((select) => select.addEventListener("change", refreshCaptain));
   refreshCaptain();
   wireComboFields(form);
+  refreshCaptain();
 }
 
 function suggestedRosterName(team, rosters = []) {
@@ -2165,7 +2224,8 @@ function updateRosterNameDefault(form, team, rosters) {
 
 function renderTeamRosterRegistration(data, editingRoster = null) {
   const tournament = data.tournament || {};
-  const teams = (data.viewerTeams || []).filter((team) => !team.archivedAt && (team.members || []).length >= 3);
+  const allowProxies = canManageTournamentUi(tournament);
+  const teams = (data.viewerTeams || []).filter((team) => !team.archivedAt && (allowProxies || team.id === editingRoster?.teamId || (team.members || []).length >= 3));
   const firstTeam = editingRoster
     ? teams.find((team) => team.id === editingRoster.teamId)
     : teams[0];
@@ -2182,7 +2242,7 @@ function renderTeamRosterRegistration(data, editingRoster = null) {
               <div class="field"><label>${t("teams.tournament.team")}</label><select name="teamId" required ${editingRoster ? "disabled" : ""}>${teams.map((team) => `<option value="${team.id}" ${team.id === firstTeam?.id ? "selected" : ""}>${escapeHtml(team.name)}</option>`).join("")}</select></div>
               <div class="field"><label>${t("teams.tournament.rosterName")}</label><input name="name" minlength="2" maxlength="80" data-default-name="${escapeHtml(suggestedRosterName(firstTeam, data.rosters))}" value="${escapeHtml(editingRoster?.name || suggestedRosterName(firstTeam, data.rosters))}" ${editingRoster ? "required" : ""}></div>
             </div>
-            <div data-team-roster-member-fields>${teamRosterMemberFields(firstTeam, editingRoster)}</div>
+            <div data-team-roster-member-fields>${teamRosterMemberFields(firstTeam, editingRoster, { allowProxies })}</div>
             <button class="primary-button" type="submit">${t(editingRoster ? "common.save" : "teams.tournament.registerSubmit")}</button>
             <div class="message" data-message></div>
           </form>
@@ -2195,21 +2255,18 @@ function renderTeamRosterRegistration(data, editingRoster = null) {
   form?.elements.teamId?.addEventListener("change", () => {
     const team = teams.find((item) => item.id === Number(form.elements.teamId.value));
     const fields = form.querySelector("[data-team-roster-member-fields]");
-    if (fields) fields.innerHTML = teamRosterMemberFields(team);
+    if (fields) fields.innerHTML = teamRosterMemberFields(team, null, { allowProxies });
     updateRosterNameDefault(form, team, data.rosters);
     wireTeamRosterMemberSelection(form);
   });
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const selected = [1, 2, 3].map((slot) => ({
-      userId: Number(form.elements[`member-${slot}`].value),
-      faction: form.elements[`faction-${slot}`].value
-    }));
-    if (new Set(selected.map((member) => member.userId)).size !== 3) {
+    const selected = teamRosterMembersFromForm(form);
+    if (!teamRosterPlayersAreUnique(selected)) {
       setMessage(t("teams.tournament.uniquePlayersRequired"), true);
       return;
     }
-    if (!editingRoster && !selected.some((member) => member.userId === state.me?.id)) {
+    if (!editingRoster && !allowProxies && !selected.some((member) => member.userId === state.me?.id)) {
       setMessage(t("teams.tournament.selfRequired"), true);
       return;
     }
@@ -2219,7 +2276,7 @@ function renderTeamRosterRegistration(data, editingRoster = null) {
         : `/api/tournaments/${tournament.id}/rosters`, { method: editingRoster ? "PATCH" : "POST", body: {
         teamId: Number(form.elements.teamId.value),
         name: rosterNameFromForm(form, Boolean(editingRoster)),
-        captainUserId: Number(form.elements.captainUserId.value),
+        captainUserId: form.elements.captainUserId.value ? Number(form.elements.captainUserId.value) : null,
         members: selected
       } });
       await renderPublicTournamentRoute(tournament.slug, { force: true });
@@ -3054,10 +3111,6 @@ function renderAuth() {
   const profileFields = state.authMode !== "login" ? `
     ${emailRegistrationField()}
     <div class="field">
-      <label for="register-nickname">${t("auth.field.registerNickname")}</label>
-      <input id="register-nickname" name="registerNickname" maxlength="40" placeholder="${t("auth.field.registerNicknamePlaceholder")}">
-    </div>
-    <div class="field">
       <label for="telegram-contact">${t("auth.field.telegramContact")}</label>
       <input id="telegram-contact" name="telegramContact" maxlength="80" placeholder="${t("auth.field.telegramContactPlaceholder")}" required>
     </div>
@@ -3087,8 +3140,8 @@ function renderAuth() {
           <p class="section-subtitle">${subtitle}</p>
           <form data-auth-form>
             <div class="field">
-              <label for="name">${t("auth.field.name")}</label>
-              <input id="name" name="name" autocomplete="username" required minlength="2" maxlength="24">
+              <label for="name">${t(state.authMode === "login" ? "auth.field.login" : "auth.field.name")}</label>
+              <input id="name" name="name" autocomplete="username" autocapitalize="none" spellcheck="false" required minlength="${state.authMode === "login" ? 1 : 2}" maxlength="${state.authMode === "login" ? 254 : 24}">
             </div>
             ${passwordFieldMarkup(t("auth.field.password"), "password", "password", state.authMode === "login" ? "current-password" : "new-password", passwordMinLength)}
             ${confirmPasswordField}
@@ -3160,7 +3213,6 @@ async function submitAuth(event) {
       setMessage(t("message.auth.passwordMismatch"), true);
       return;
     }
-    body.registerNickname = form.get("registerNickname");
     body.telegramContact = form.get("telegramContact");
     body.email = form.get("email");
     body.locale = i18n.getLocale();
@@ -3179,7 +3231,7 @@ async function submitAuth(event) {
     }
     render();
   } catch (err) {
-    setMessage(err.message, true);
+    setMessage(err.message === "Invalid name or password" ? t("message.auth.invalidCredentials") : err.message, true);
   }
 }
 
@@ -3641,7 +3693,7 @@ function teamGameResultPermissions(game) {
   const userId = state.me?.id;
   const rosters = [game.teamMatch?.rosterA, game.teamMatch?.rosterB];
   const captain = userId && rosters.find((roster) => roster?.captainUserId === userId);
-  const playerIds = game.playerIds || (game.players || []).map((player) => Number("userId" in player ? player.userId : player.id));
+  const playerIds = game.playerUserIds || (game.players?.length ? game.players.map((player) => "userId" in player ? player.userId : player.id) : game.playerIds || []);
   const participant = playerIds.includes(userId);
   const ownRoster = rosters[playerIds.indexOf(userId)] || captain;
   const pending = game.pendingResult;
@@ -8087,7 +8139,7 @@ function renderRosterProfile() {
       <div class="roster-summary-metrics">${metrics.map(([label, value]) => `<div class="card metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("")}</div>
     </section>
     <section class="card panel"><h3>${t("teams.roster.players")}</h3><div class="list">${members.map((member) => `<div class="row-card"><div class="row-main">
-      <div class="row-title">${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })}${member.userId === roster.captainUserId && !member.endedAt ? ` · ${t("teams.role.captain")}` : ""}</div>
+      <div class="row-title">${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })}${member.userId && member.userId === roster.captainUserId && !member.endedAt ? ` · ${t("teams.role.captain")}` : ""}</div>
       <div class="row-meta">${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot || t("tournaments.participant.factionMissing"))}${member.endedAt ? ` · ${t("teams.roster.formerPlayer")} · ${fmtDate(member.endedAt)}` : ""}</div>
     </div></div>`).join("")}</div></section>
     <section class="card panel"><h3>${t("teams.roster.matchHistory")}</h3><div class="list">${rosterMatchHistoryMarkup(data)}</div></section>
@@ -8185,7 +8237,7 @@ function publicTeamRostersList(rosters) {
           <div class="row-meta">${rosterTeamLinkMarkup(roster)} · ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
         </div></div>
         <div class="team-roster-members">${activeRosterMembersForUi(roster).slice().sort((a, b) => a.slot - b.slot).map((member) => `
-          <span>${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot || t("tournaments.participant.factionMissing"))}${member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>
+          <span>${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot || t("tournaments.participant.factionMissing"))}${member.userId && member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>
         `).join("")}</div>
       </div>
     </div>
@@ -8222,7 +8274,7 @@ function teamMatchScoreLabel(match) {
 }
 
 function teamManualPairingForm(match) {
-  const members = roster => (roster?.members || []).filter(member => !member.endedAt && member.userId);
+  const members = roster => (roster?.members || []).filter(member => !member.endedAt && (member.userId || member.isProxy));
   const select = (name, values, label, selectedIndex) => `<label>${escapeHtml(label)}<select name="${name}" required>${values.map((value,index) => `<option value="${escapeHtml(value.value)}" ${index === selectedIndex ? "selected" : ""}>${escapeHtml(value.label)}</option>`).join("")}</select></label>`;
   const players = roster => members(roster).map(member => ({ value: member.id, label: teamPairingMemberLabel(member) }));
   const tables = (match.tables || teamTournamentTables(match.tournamentId)).filter(table => match.tableIds.includes(table.id)).map(table => ({ value: table.id, label: tableLabel(table) }));
@@ -8412,7 +8464,7 @@ function teamMatchGamesMarkup(match, options = {}) {
       const completed = game.status === "completed" && game.result;
       const resultState = completed ? "completed" : game.status === "pending_confirmation" ? "pending" : "unplayed";
       const status = t(`teams.results.${resultState}`);
-      const [playerAId, playerBId] = game.playerIds || [];
+      const [playerAId, playerBId] = game.resultPlayerIds || game.playerIds || [];
       const vpA = completed ? game.result.scores?.[playerAId]?.total ?? 0 : null;
       const vpB = completed ? game.result.scores?.[playerBId]?.total ?? 0 : null;
       const score = completed ? `${vpA}:${vpB} VP${match.pairingType === "sword_shield_classic" ? "" : ` · ${link.gamePointsA}:${link.gamePointsB} GP`}` : match.pairingType === "sword_shield_classic" ? "" : t("teams.results.notCounted");
@@ -10008,7 +10060,7 @@ function teamRosterHistory(rosters) {
   return rosters.map((roster) => `<div class="row-card compact-row-card"><div class="row-main">
     <div class="row-title">${teamRosterLabel(roster)}</div>
     <div class="row-meta">${escapeHtml(roster.tournament?.name || "")} / ${t("teams.roster.seed", { seed: roster.seed || "-" })} / ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
-    ${activeRosterMembersForUi(roster).map((member) => `${escapeHtml(member.displayNameSnapshot)} (${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)})${member.userId === roster.captainUserId ? ` — ${t("teams.role.captain")}` : ""}`).join("<br>")}
+    ${activeRosterMembersForUi(roster).map((member) => `${escapeHtml(member.displayNameSnapshot)} (${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)})${member.userId && member.userId === roster.captainUserId ? ` — ${t("teams.role.captain")}` : ""}`).join("<br>")}
   </div><a href="/tournament#/rosters/${roster.id}" data-app-link class="small-button" data-roster-profile-link="${roster.id}">${t("common.open")}</a></div>`).join("");
 }
 

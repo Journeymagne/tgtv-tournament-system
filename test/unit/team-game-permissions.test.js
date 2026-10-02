@@ -7,6 +7,23 @@ const b = { id: 20, captainUserId: 2 };
 const game = { playerIds: [3, 4], status: "open" };
 const access = (id, changes = {}) => teamGamePermissions({ ...game, ...changes }, a, b, id ? { id } : null);
 
+test("a real player facing a proxy stays on side B for result review", () => {
+  const pending = { playerIds: [4], playerUserIds: [null, 4], status: "pending_confirmation",
+    pendingResult: { submittedBy: 4, submittedAs: "player", submittedRosterId: 20 } };
+  assert.equal(access(4, pending).ownRosterId, 20);
+  assert.equal(access(2, pending).canReview, false);
+  assert.equal(access(1, pending).canReview, true);
+  assert.equal(access(4, pending).canReview, false);
+});
+
+test("games between proxies remain available to captains and administrators", () => {
+  const pending = { playerIds: [], playerUserIds: [null, null], status: "pending_confirmation",
+    pendingResult: { submittedBy: 1, submittedAs: "captain", submittedRosterId: 10 } };
+  assert.equal(access(2, pending).canReview, true);
+  assert.equal(access(3, pending).canReview, false);
+  assert.equal(teamGamePermissions(pending, a, b, { id: 5, isAdmin: true }).canReview, true);
+});
+
 test("captains can report teammates' games; other teammates and spectators cannot", () => {
   for (const id of [1, 2, 3, 4]) assert.equal(access(id).canSubmit, true);
   for (const id of [5, null]) {

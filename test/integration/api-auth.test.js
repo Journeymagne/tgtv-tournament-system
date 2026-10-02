@@ -115,13 +115,78 @@ test("setup-admin отключён: владелец назначается ло
   assert.equal(await users.hasAdmin(client), false);
 });
 
-test("вход по верному паролю выдаёт сессию", async () => {
+test("вход по никнейму без учёта регистра и пробелов выдаёт сессию", async () => {
   await auth.register({ client, body: body("Alpha") });
-  const result = await auth.login({ client, body: { name: "alpha", password: "password123" } });
+  const result = await auth.login({ client, body: { name: "  aLpHa  ", password: "password123" } });
 
   assert.equal(result.status, 200);
   assert.equal(result.body.user.name, "Alpha");
   assert.ok(result.headers["Set-Cookie"].startsWith("sid="));
+});
+
+test("вход по подтверждённой почте выдаёт сессию того же аккаунта", async () => {
+  const registered = await auth.register({ client, body: body("Alpha") });
+  await client.query(
+    "INSERT INTO user_email_accounts(user_id,email,verified_at) VALUES($1,$2,NOW())",
+    [registered.body.user.id, "long.nickname.contact@example.com"]
+  );
+
+  const result = await auth.login({ client, body: {
+    name: "  Long.Nickname.Contact@EXAMPLE.COM  ", password: "password123"
+  } });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.user.id, registered.body.user.id);
+  const token = /sid=([^;]+)/.exec(result.headers["Set-Cookie"])[1];
+  const user = await auth.loadUserFromRequest(client, requestWithCookie(token));
+  assert.equal(user.id, registered.body.user.id);
+});
+
+test("неподтверждённый чужой адрес не меняет владельца входа по почте", async () => {
+  const alpha = await auth.register({ client, body: body("Alpha") });
+  const bravo = await auth.register({ client, body: body("Bravo", {
+    password: "otherPassword123", confirmPassword: "otherPassword123"
+  }) });
+  await client.query(
+    "INSERT INTO user_email_accounts(user_id,email,verified_at) VALUES($1,$2,NOW())",
+    [alpha.body.user.id, "shared@example.com"]
+  );
+  await client.query(
+    "INSERT INTO user_email_accounts(user_id,pending_email) VALUES($1,$2)",
+    [bravo.body.user.id, "shared@example.com"]
+  );
+
+  const result = await auth.login({ client, body: {
+    name: "shared@example.com", password: "password123"
+  } });
+  assert.equal(result.body.user.id, alpha.body.user.id);
+  await assert.rejects(() => auth.login({ client, body: {
+    name: "shared@example.com", password: "otherPassword123"
+  } }), err => err.status === 401);
+});
+
+test("ожидающая смена почты сохраняет старый адрес, подтверждение заменяет его", async () => {
+  const registered = await auth.register({ client, body: body("Alpha") });
+  await client.query(
+    "INSERT INTO user_email_accounts(user_id,email,verified_at,pending_email) VALUES($1,$2,NOW(),$3)",
+    [registered.body.user.id, "old@example.com", "new@example.com"]
+  );
+  const login = name => auth.login({ client, body: { name, password: "password123" } });
+  assert.equal((await login("old@example.com")).body.user.id, registered.body.user.id);
+  const pendingError = await login("new@example.com").catch(err => err);
+  const missingError = await login("missing@example.com").catch(err => err);
+  const malformedError = await login("invalid@").catch(err => err);
+  for (const error of [pendingError, missingError, malformedError]) {
+    assert.equal(error.status, 401);
+    assert.equal(error.message, "Invalid name or password");
+  }
+
+  await client.query(
+    "UPDATE user_email_accounts SET email=pending_email,pending_email=NULL WHERE user_id=$1",
+    [registered.body.user.id]
+  );
+  await assert.rejects(() => login("old@example.com"), err => err.status === 401);
+  assert.equal((await login("new@example.com")).body.user.id, registered.body.user.id);
+  assert.equal((await login("Alpha")).body.user.id, registered.body.user.id);
 });
 
 test("неверный пароль и неизвестное имя дают один и тот же 401", async () => {

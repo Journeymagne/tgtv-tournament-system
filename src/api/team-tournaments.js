@@ -22,6 +22,7 @@ const { requireKillTeam, CRIT_OPS } = require("../domain/kill-teams");
 const { normalizeRosterName, teamNameKey, defaultRosterName } = require("../domain/player-teams");
 const { rosterForViewer } = require("../domain/tournaments/privacy");
 const { teamGamePermissions } = require("../domain/team-game-permissions");
+const { participantResultKey } = require("../domain/tournaments/results");
 const {
   validateTeamTournament,
   buildFirstTeamRound,
@@ -64,7 +65,7 @@ async function requireTournament(client, id, forUpdate = false) {
 }
 
 function activeRosterMembers(roster) {
-  return (roster.members || []).filter((member) => !member.endedAt && member.userId);
+  return (roster.members || []).filter((member) => !member.endedAt && (member.userId || member.isProxy));
 }
 
 function rosterMember(roster, memberId) {
@@ -81,29 +82,62 @@ function canEditRoster(user, roster, teamMembership) {
   return roster.captainUserId === user.id || teamMembership?.role === "leader";
 }
 
-async function normalizeRosterMembers(client, team, values) {
+async function normalizeRosterMembers(client, team, values, { allowProxies = false, existingRoster = null } = {}) {
   if (!Array.isArray(values) || values.length !== 3) {
     throw new ValidationError("A tournament roster must contain exactly three players");
   }
-  const userIds = values.map((item) => requirePositiveIntId(item.userId, 400, "Choose three valid players"));
-  if (new Set(userIds).size !== 3) throw new ValidationError("Roster players must be unique");
+  if (values.some((item) => !item || typeof item !== "object" || Array.isArray(item))) {
+    throw new ValidationError("Choose three valid players");
+  }
+  const previous = activeRosterMembers(existingRoster || {});
+  const userIds = values.filter((item) => item.proxy !== true)
+    .map((item) => requirePositiveIntId(item.userId, 400, "Choose three valid players"));
+  if (new Set(userIds).size !== userIds.length) throw new ValidationError("Roster players must be unique");
   const memberships = [];
   for (const id of userIds) memberships.push(await teamsRepo.activeMembership(client, team.id, id));
   if (memberships.some((membership) => !membership)) {
     throw new ValidationError("Every roster player must be a current member of the same team");
   }
   const people = await usersRepo.findByIds(client, userIds);
-  if (people.length !== 3) throw new ValidationError("Every roster player must have an active account");
-  return values.map((item, index) => {
-    const userId = userIds[index];
+  if (people.length !== userIds.length) throw new ValidationError("Every roster player must have an active account");
+  const members = [];
+  for (const [index, item] of values.entries()) {
+    if (item.proxy === true) {
+      if (item.userId != null) throw new ValidationError("A proxy cannot have a registered account");
+      const current = previous.find((member) => member.slot === index + 1 && member.isProxy);
+      if (!allowProxies && !current) throw new HttpError(403, "Only tournament administrators can add roster proxies");
+      let displayNameSnapshot = current?.displayNameSnapshot;
+      if (!displayNameSnapshot) {
+        do {
+          const { rows: [row] } = await client.query("SELECT nextval('tournament_proxy_number') AS number");
+          displayNameSnapshot = "Proxybot " + row.number;
+        } while ([...people.map((person) => person.name), ...members.map((member) => member.displayNameSnapshot)]
+          .some((name) => name.toLowerCase() === displayNameSnapshot.toLowerCase()));
+      }
+      members.push({ userId: null, isProxy: true, slot: index + 1, displayNameSnapshot,
+        factionSnapshot: item.faction ? requireKillTeam(item.faction) : "" });
+      continue;
+    }
+    const userId = requirePositiveIntId(item.userId, 400, "Choose three valid players");
     const person = people.find((candidate) => candidate.id === userId);
-    return {
+    members.push({
       userId,
+      isProxy: false,
       slot: index + 1,
       displayNameSnapshot: person.name,
       factionSnapshot: requireKillTeam(item.faction)
-    };
-  });
+    });
+  }
+  return members;
+}
+
+function rosterCaptainUserId(members, value, { allowNoCaptain = false } = {}) {
+  if (allowNoCaptain && members.every((member) => member.isProxy) && (value == null || value === "")) return null;
+  const captainUserId = requirePositiveIntId(value, 400, "Choose a captain");
+  if (!members.some((member) => member.userId === captainUserId)) {
+    throw new ValidationError("The captain must be one of the three roster players");
+  }
+  return captainUserId;
 }
 
 async function registerRoster({ client, user, params, body }) {
@@ -119,14 +153,11 @@ async function registerRoster({ client, user, params, body }) {
   if (team.archivedAt) throw new HttpError(409, "Archived teams cannot register rosters");
   const registrarMembership = await teamsRepo.activeMembership(client, team.id, user.id);
   if (!registrarMembership && !canManageTournament(user, tournament)) throw new HttpError(403, "Only a current team member can register a roster");
-  const members = await normalizeRosterMembers(client, team, body.members);
+  const members = await normalizeRosterMembers(client, team, body.members, { allowProxies: canManageTournament(user, tournament) });
   if (!canManageTournament(user, tournament) && !members.some((member) => member.userId === user.id)) {
     throw new ValidationError("The registering player must be included in the roster");
   }
-  const captainUserId = requirePositiveIntId(body.captainUserId, 400, "Choose a captain");
-  if (!members.some((member) => member.userId === captainUserId)) {
-    throw new ValidationError("The captain must be one of the three roster players");
-  }
+  const captainUserId = rosterCaptainUserId(members, body.captainUserId, { allowNoCaptain: canManageTournament(user, tournament) });
   const existing = await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: true });
   if (tournament.registrationLimit && existing.filter((roster) => roster.status !== "withdrawn").length >= tournament.registrationLimit) {
     throw new HttpError(409, "Registration limit reached");
@@ -177,11 +208,13 @@ async function updateRoster({ client, user, params, body }) {
   }
   if (Array.isArray(body.members)) {
     const team = await teamsRepo.findById(client, roster.teamId, true);
-    const members = await normalizeRosterMembers(client, team, body.members);
+    const members = await normalizeRosterMembers(client, team, body.members, {
+      allowProxies: canManageTournament(user, tournament), existingRoster: roster
+    });
     const replacements = [];
     for (const member of members) {
       const current = activeRosterMembers(roster).find((item) => item.slot === member.slot);
-      if (current?.userId === member.userId) {
+      if (current && current.userId === member.userId && Boolean(current.isProxy) === member.isProxy) {
         if (current.factionSnapshot !== member.factionSnapshot) {
           await client.query(
             "UPDATE tournament_team_roster_members SET faction_snapshot = $2, updated_at = NOW() WHERE id = $1",
@@ -210,13 +243,10 @@ async function updateRoster({ client, user, params, body }) {
     ? await rostersRepo.listMembers(client, roster.id, false)
     : activeRosterMembers(roster);
   if (Object.prototype.hasOwnProperty.call(body, "captainUserId")) {
-    const captainUserId = requirePositiveIntId(body.captainUserId, 400, "Choose a captain");
-    if (!freshMembers.some((member) => member.userId === captainUserId)) {
-      throw new ValidationError("The captain must be one of the three roster players");
-    }
-    patch.captainUserId = captainUserId;
-  } else if (!nameOnly && !freshMembers.some((member) => member.userId === roster.captainUserId)) {
-    throw new ValidationError("Choose a new captain when replacing the current captain");
+    patch.captainUserId = rosterCaptainUserId(freshMembers, body.captainUserId, { allowNoCaptain: canManageTournament(user, tournament) });
+  } else if (!nameOnly && !freshMembers.some((member) => member.userId && member.userId === roster.captainUserId)) {
+    if (canManageTournament(user, tournament) && freshMembers.every((member) => member.isProxy)) patch.captainUserId = null;
+    else throw new ValidationError("Choose a new captain when replacing the current captain");
   }
   try {
     const updated = await rostersRepo.update(client, roster.id, patch);
@@ -1171,13 +1201,13 @@ async function createPersonalGames(client, context, assignments, user) {
     if (!memberA || !memberB) throw new HttpError(409, "A paired player is no longer available");
     const game = await gamesRepo.insert(client, {
       challengeId: null,
-      playerIds: [memberA.userId, memberB.userId],
+      playerIds: [memberA.userId, memberB.userId].filter(Number.isInteger),
       sourceType: "team_match_game",
       sourceId: context.match.id,
       venueMode: context.tournament.venueMode,
       participants: [
-        { userId: memberA.userId, resultKey: memberA.userId, displayNameSnapshot: memberA.displayNameSnapshot, factionSnapshot: memberA.factionSnapshot },
-        { userId: memberB.userId, resultKey: memberB.userId, displayNameSnapshot: memberB.displayNameSnapshot, factionSnapshot: memberB.factionSnapshot }
+        { userId: memberA.userId, resultKey: participantResultKey(memberA), displayNameSnapshot: memberA.displayNameSnapshot, factionSnapshot: memberA.factionSnapshot, isProxy: memberA.isProxy },
+        { userId: memberB.userId, resultKey: participantResultKey(memberB), displayNameSnapshot: memberB.displayNameSnapshot, factionSnapshot: memberB.factionSnapshot, isProxy: memberB.isProxy }
       ]
     });
     await teamMatchesRepo.insertGameLink(client, {
@@ -1252,7 +1282,7 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
       ...link.game,
       sourceType: "team_match_game",
       sourceId: matchIdForLink(matches, link),
-      players: playerMembers.map((member) => ({ id: member?.userId, userId: member?.userId, name: member?.displayNameSnapshot || "Player", faction: member?.factionSnapshot || "", hasProfile: Boolean(member?.userId) })),
+      players: link.game.players?.length ? link.game.players : playerMembers.map((member) => ({ id: member ? participantResultKey(member) : null, userId: member?.userId, name: member?.displayNameSnapshot || "Player", faction: member?.factionSnapshot || "", hasProfile: Boolean(member?.userId), isProxy: Boolean(member?.isProxy) })),
       teamTournamentGame: { ...link, missionLocked: matches.find((match) => match.id === link.teamMatchId)?.pairingVersion === 2 }
     });
   });
@@ -1323,13 +1353,17 @@ async function attachTeamGameDetails(client, games) {
     if (!link) return game;
     return {
       ...game,
+      resultPlayerIds: (participantsByGameId.get(game.id) || []).map((participant) => participant.resultKey),
+      playerUserIds: (participantsByGameId.get(game.id) || []).map((participant) => participant.userId),
+      hasProxy: (participantsByGameId.get(game.id) || []).some((participant) => participant.isProxy),
       players: (participantsByGameId.get(game.id) || []).map((participant) => ({
         id: participant.resultKey,
         userId: participant.userId,
         name: participant.displayNameSnapshot,
         faction: participant.factionSnapshot,
         avatarUrl: participant.user?.avatarUrl || null,
-        hasProfile: Boolean(participant.userId)
+        hasProfile: Boolean(participant.userId),
+        isProxy: participant.isProxy
       })),
       tournament: {
         id: link.tournament_id,
@@ -1439,6 +1473,12 @@ async function overridePairingsAdmin({ client, user, params, body }) {
 async function applyFinalGameResult(client, tournament, game, result, submittedBy, replaceCompleted = false) {
   const gamesApi = require("./games");
   if (replaceCompleted && game.elo) await gamesApi.reverseElo(client, game);
+  if (game.hasProxy) {
+    return gamesRepo.saveFinalResult(client, game.id, {
+      result: { ...result, confirmedBy: submittedBy, confirmedAt: nowIso() },
+      elo: null, submittedBy, newSubmission: true
+    });
+  }
   const people = await usersRepo.lockByIds(client, game.playerIds);
   const playerA = people.find((person) => person.id === game.playerIds[0]);
   const playerB = people.find((person) => person.id === game.playerIds[1]);
@@ -1469,6 +1509,11 @@ async function handleGameRequest(context, action) {
   const match = await teamMatchesRepo.findById(client, matchCandidate.id, true);
   const game = await gamesRepo.lockById(client, candidate.id);
   if (!match || !game) throw new HttpError(409, "Pairing changed. Open the current game again");
+  const participants = await gameParticipantsRepo.listByGameIds(client, [game.id]);
+  if (participants.length !== 2) throw new HttpError(409, "Game participant snapshots are missing");
+  game.resultPlayerIds = participants.map((participant) => participant.resultKey);
+  game.playerUserIds = participants.map((participant) => participant.userId);
+  game.hasProxy = participants.some((participant) => participant.isProxy);
   const removed = await client.query(
     "SELECT id FROM tournament_team_rosters WHERE id = ANY($1::int[]) AND status = 'withdrawn'",
     [[match.rosterAId, match.rosterBId].filter(Boolean)]
@@ -1487,7 +1532,7 @@ async function handleGameRequest(context, action) {
   if (action === "submit") {
     if (game.status === "completed") throw new HttpError(409, "This game result has already been saved");
     if (!permissions.canSubmit) throw new HttpError(409, "This result is waiting for confirmation");
-    const result = calculateSubmittedResult(resultBody, game.playerIds[0], game.playerIds[1]);
+    const result = calculateSubmittedResult(resultBody, game.resultPlayerIds[0], game.resultPlayerIds[1]);
     if (tournament.venueMode === "irl" && !permissions.submitsAsCaptain) {
       await applyFinalGameResult(client, tournament, game, result, user.id);
       await recomputeTeamMatch(client, match.id);
@@ -1502,7 +1547,7 @@ async function handleGameRequest(context, action) {
   } else if (action === "confirm") {
     if (game.status !== "pending_confirmation" || !game.pendingResult?.result) throw new HttpError(409, "There is no submitted result to confirm");
     if (!permissions.canReview) throw new HttpError(403, permissions.requiresCaptainReview ? "The opposing captain must confirm this result" : "The opposing player or captain must confirm this result");
-    const pendingResult = calculateSubmittedResult({ ...game.pendingResult.result, tiebreakers: { enabled: false } }, game.playerIds[0], game.playerIds[1]);
+    const pendingResult = calculateSubmittedResult({ ...game.pendingResult.result, tiebreakers: { enabled: false } }, game.resultPlayerIds[0], game.resultPlayerIds[1]);
     await applyFinalGameResult(client, tournament, game, pendingResult, user.id);
     await recomputeTeamMatch(client, match.id);
   } else if (action === "reject") {
@@ -1512,7 +1557,7 @@ async function handleGameRequest(context, action) {
   } else if (action === "admin-save") {
     if (!canManageTournament(user, tournament)) throw new HttpError(403, "Administrator rights required");
     if (!["open", "pending_confirmation", "completed"].includes(game.status)) throw new HttpError(409, "This game result cannot be edited");
-    const result = calculateSubmittedResult(resultBody, game.playerIds[0], game.playerIds[1]);
+    const result = calculateSubmittedResult(resultBody, game.resultPlayerIds[0], game.resultPlayerIds[1]);
     await applyFinalGameResult(client, tournament, game, result, user.id, game.status === "completed");
     await recalculateCompletedGameRatings(client);
     await recomputeTeamMatch(client, match.id);
@@ -1560,7 +1605,7 @@ async function recalculateTeamRatings(client) {
     return map.get(id);
   }
   for (const row of rows) {
-    if (row.team_a_id === row.team_b_id) {
+    if (row.team_a_id === row.team_b_id || row.has_proxy) {
       await teamMatchesRepo.update(client, row.id, { teamElo: null });
       continue;
     }
@@ -1640,6 +1685,7 @@ async function rollbackLatestRound(client, tournament, user) {
 
 module.exports = {
   normalizeRosterMembers,
+  rosterCaptainUserId,
   registerRoster,
   updateRoster,
   withdrawRoster,

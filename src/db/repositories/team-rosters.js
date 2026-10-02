@@ -36,6 +36,7 @@ function mapRosterMember(row) {
     tournamentId: row.tournament_id,
     rosterId: row.roster_id,
     userId: row.user_id,
+    isProxy: Boolean(row.is_proxy),
     slot: row.slot,
     displayNameSnapshot: row.display_name_snapshot,
     factionSnapshot: row.faction_snapshot,
@@ -67,10 +68,10 @@ async function insert(client, roster, members) {
 async function insertMember(client, roster, member, actorUserId) {
   const { rows } = await client.query(
     `INSERT INTO tournament_team_roster_members
-       (tournament_id, roster_id, user_id, slot, display_name_snapshot, faction_snapshot, changed_by_user_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+       (tournament_id, roster_id, user_id, slot, display_name_snapshot, faction_snapshot, changed_by_user_id, is_proxy)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
     [roster.tournamentId, roster.id, member.userId, member.slot, member.displayNameSnapshot,
-      member.factionSnapshot, actorUserId || null]
+      member.factionSnapshot, actorUserId || null, Boolean(member.isProxy)]
   );
   return mapRosterMember(rows[0]);
 }

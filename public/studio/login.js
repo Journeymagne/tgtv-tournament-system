@@ -7,6 +7,8 @@ let mode='login',busy=false,pending=null,finish,emailEnabled=false;
 fetch('/api/auth/email-config').then(r=>r.json()).then(config=>{emailEnabled=Boolean(config.enabled);form.elements.email.required=emailEnabled;dialog.querySelector('[data-studio-email]').hidden=!emailEnabled;selectMode(mode)}).catch(()=>{});
 function selectMode(next){
  mode=next;error.textContent='';registration.hidden=mode!=='register';
+ document.getElementById('studio-login-name-label').textContent=mode==='login'?'Никнейм или почта':'Никнейм';
+ form.elements.name.minLength=mode==='login'?1:2;form.elements.name.maxLength=mode==='login'?254:24;
  for(const field of registration.querySelectorAll('input'))field.disabled=busy||mode!=='register'||(field.name==='email'&&!emailEnabled);
  password.minLength=mode==='register'?6:1;password.autocomplete=mode==='register'?'new-password':'current-password';
  for(const button of dialog.querySelectorAll('[data-studio-auth-mode]')){
@@ -42,7 +44,7 @@ form.addEventListener('submit',async event=>{
  const fields=new FormData(form),body={name:fields.get('name'),password:fields.get('password')};
  error.textContent='';
  if(mode==='register'){
-  body.email=fields.get('email');body.locale=window.KTAppearance?.locale||'ru';body.confirmPassword=fields.get('confirmPassword');body.registerNickname=fields.get('registerNickname');body.telegramContact=fields.get('telegramContact');
+  body.email=fields.get('email');body.locale=window.KTAppearance?.locale||'ru';body.confirmPassword=fields.get('confirmPassword');body.telegramContact=fields.get('telegramContact');
   if(body.password!==body.confirmPassword){error.textContent='Пароли не совпадают.';return}
  }
  setBusy(true);
@@ -50,7 +52,7 @@ form.addEventListener('submit',async event=>{
   const response=await fetch(mode==='register'?'/api/register':'/api/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const result=await response.json();
   if(!response.ok){
-   const messages={'Invalid name or password':'Неверное имя пользователя или пароль.','This name is already taken':'Это имя пользователя уже занято.','Enter a valid email address':'Введите корректный адрес почты.'};
+   const messages={'Invalid name or password':'Неверный никнейм, адрес почты или пароль.','This name is already taken':'Это имя пользователя уже занято.','Enter a valid email address':'Введите корректный адрес почты.'};
    throw Error(messages[result.error]||(response.status===429?'Слишком много попыток. Попробуйте позже.':result.error)||'Не удалось войти. Попробуйте ещё раз.');
   }
   close(true);

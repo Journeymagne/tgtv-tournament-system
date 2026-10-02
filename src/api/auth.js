@@ -200,9 +200,18 @@ async function setupAdmin() {
 const ABSENT_USER_HASH = `${"0".repeat(32)}:${"0".repeat(128)}`;
 
 async function login({ client, body }) {
-  const name = normalizeName(body.name);
-  let user = await users.findByNameKey(client, name);
+  const identifier = normalizeName(body.name);
+  const email = identifier.includes("@") ? identifier.toLowerCase() : null;
+  let user = email
+    ? await users.findByVerifiedEmail(client, email)
+    : await users.findByNameKey(client, identifier);
   if (user) user = (await users.lockByIds(client, [user.id]))[0] || null;
+  if (user && email) {
+    // Email changes lock the same user. Recheck after acquiring that lock so
+    // a replaced address cannot start a session using an earlier lookup.
+    const account = await mail.account(client, user.id);
+    if (account?.email !== email || !account.verified_at) user = null;
+  }
   const stored = user ? user.passwordHash : ABSENT_USER_HASH;
   const matches = await verifyPassword(String(body.password || ""), stored);
   if (!user || !matches) throw new HttpError(401, "Invalid name or password");

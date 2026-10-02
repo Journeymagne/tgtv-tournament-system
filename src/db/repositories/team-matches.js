@@ -68,6 +68,10 @@ function mapGameLink(row) {
           id: row.game_id,
           status: row.game_status,
           playerIds: row.player_ids || [],
+          players: row.game_players || [],
+          resultPlayerIds: row.game_players?.length ? row.game_players.map((player) => player.id) : row.player_ids || [],
+          playerUserIds: row.game_players?.length ? row.game_players.map((player) => player.userId) : row.player_ids || [],
+          hasProxy: (row.game_players || []).some((player) => player.isProxy),
           pendingResult: row.pending_result || null,
           result: row.result || null,
           elo: row.elo || null,
@@ -262,6 +266,10 @@ async function listGameLinksForMatches(client, teamMatchIds) {
   if (!teamMatchIds.length) return [];
   const { rows } = await client.query(
     `SELECT l.*, g.status AS game_status, g.player_ids, g.pending_result, g.result, g.elo, g.venue_mode,
+            (SELECT jsonb_agg(jsonb_build_object('id', gp.result_key, 'userId', gp.user_id,
+              'name', gp.display_name_snapshot, 'faction', gp.faction_snapshot,
+              'isProxy', gp.is_proxy, 'hasProfile', gp.user_id IS NOT NULL) ORDER BY gp.slot)
+             FROM game_participants gp WHERE gp.game_id = g.id) AS game_players,
             tt.table_number, tt.killzone, tt.deployment, tr.metadata->'tables' AS round_tables
      FROM tournament_team_match_games l
      JOIN games g ON g.id = l.game_id
@@ -288,7 +296,10 @@ async function findByGameId(client, gameId) {
 
 async function listCompletedForRatingReplay(client) {
   const { rows } = await client.query(
-    `SELECT tm.*, t.venue_mode, ra.team_id AS team_a_id, rb.team_id AS team_b_id
+    `SELECT tm.*, t.venue_mode, ra.team_id AS team_a_id, rb.team_id AS team_b_id,
+            EXISTS (SELECT 1 FROM tournament_team_match_games link
+              JOIN game_participants gp ON gp.game_id = link.game_id
+              WHERE link.team_match_id = tm.id AND gp.is_proxy) AS has_proxy
      FROM tournament_team_matches tm
      JOIN tournaments t ON t.id = tm.tournament_id
      JOIN tournament_team_rosters ra ON ra.id = tm.roster_a_id

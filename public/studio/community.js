@@ -305,7 +305,7 @@ async function init(options){
   if(button.id==='publication-dice'&&publication)root.location.href=(root.KTCompanion?.serviceUrl('dice')||'/dice')+'?team='+encodeURIComponent(publication.id);
   if(button.id==='close-publication'&&canLeavePublication())$('#publication-dialog').close();
   if(button.dataset.publicationSection&&canLeavePublication()){resetPublicationPanels();publicationSection=button.dataset.publicationSection;renderPublication();if(publicationSection==='reviews')openReviews();else if(publicationSection==='discussion')openDiscussion();else syncViewLocation()}
-  if(button.id==='library-prev'||button.id==='library-next'){offset=Math.max(0,offset+(button.id==='library-next'?30:-30));void show('library')}
+  if(button.id==='library-prev'||button.id==='library-next'){offset=Math.max(0,offset+(button.id==='library-next'?32:-32));void show('library')}
  });
  let searchTimer;
  $('#library-search').addEventListener('input',event=>{query=event.target.value;offset=0;++requestVersion;clearTimeout(searchTimer);searchTimer=setTimeout(()=>show('library'),250)});
