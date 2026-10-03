@@ -32,6 +32,16 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+## Release 5.3.1
+
+Classic rounds default to all nine missions without organizer selection. Captains
+assign three distinct missions; in step-by-step pairing, the captain without
+initial initiative chooses the third game's mission. Existing rounds retain
+their saved mission pool. Studio operative images support a 960-pixel longest
+edge and approximately 400 KB of encoded image bytes before Base64 overhead.
+No new dependencies, database migrations or environment variables are required.
+See [Classic pairing](docs/sword-shield-classic.md) and [the changelog](CHANGELOG.md).
+
 ## Release 5.3.0
 
 Studio adds a free A4 layout editor for lore and narrative pages: independent text

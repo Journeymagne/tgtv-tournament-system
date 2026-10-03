@@ -557,7 +557,7 @@ async function previewNextRound(client, tournament) {
   }
   return {
     tournament: tournamentSummaryView(tournament),
-    round: { ...blueprint, matches: pairings, missions: tournament.roundDraft?.missions || rounds.at(-1)?.metadata?.missions || [] },
+    round: { ...blueprint, matches: pairings, missions: CRIT_OPS.map((critOp) => ({ critOp })) },
     tables: tables.map(tournamentTableView), teamRound: true, reuseLines,
     restoredDraft: Boolean(tournament.roundDraft), prepared: tournament.status === "registration_closed"
   };
@@ -565,7 +565,7 @@ async function previewNextRound(client, tournament) {
 
 async function generateRound(client, tournament, user, body = {}) {
   const missions = tournament.pairingType === "sword_shield_classic"
-    ? normalizeRoundMissions(body.missions ?? tournament.roundDraft?.missions) : CRIT_OPS.map((critOp) => ({ critOp }));
+    ? normalizeRoundMissions(body.missions) : CRIT_OPS.map((critOp) => ({ critOp }));
   const { blueprint, rosters } = await buildRoundPreview(client, tournament, body);
   const tables = await nextTeamRoundTables(client, tournament, body.tables);
   blueprint.pairings = assignLines(blueprint.pairings, tables);
@@ -885,9 +885,14 @@ async function selectClassicEnvironment(client, context, user, body) {
   const choices = [...(state.choices || []), kind];
   if (Number(state.step) === 3) {
     const table = tables.find(table => !assignments.some(item => item.tableId === table.id));
-    const mission = match.missions.find(mission => !assignments.some(item => item.mission.critOp === mission.critOp));
-    if (!table || !mission) throw new HttpError(409, "The remaining table or mission is unavailable");
+    if (!table) throw new HttpError(409, "The remaining table is unavailable");
+    // Older rounds keep their three-mission snapshot and automatic last mission.
+    const mission = match.missions.length === 3
+      ? match.missions.find(mission => !assignments.some(item => item.mission.critOp === mission.critOp)) : null;
+    if (match.missions.length === 3 && !mission) throw new HttpError(409, "The remaining mission is unavailable");
     assignments.push({ slot: 3, tableId: table.id, mission: { ...mission, killzone: table.killzone, layout: table.deployment } });
+  }
+  if (Number(state.step) + 1 === teamEnvironmentPlan(match).length) {
     await createPersonalGames(client, context, assignments.sort((a,b) => a.slot - b.slot), user);
   } else await teamMatchesRepo.update(client, match.id, { environment: { step: Number(state.step) + 1, assignments, choices } });
   await audit(client, context.tournament, user, "environment_select", { entityType: "team_match", entityId: match.id,

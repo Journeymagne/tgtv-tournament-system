@@ -9098,7 +9098,7 @@ function teamRoundMissionFields(tables = [], round = {}, reuseLines = false) {
   const classic = state.adminTournamentDetail?.tournament?.pairingType === "sword_shield_classic";
   const venue = state.adminTournamentDetail?.tournament?.venueMode;
   return `<section class="admin-subpanel"><p class="muted">${t(venue === "irl" ? "classic.readyIrl" : "classic.readyTts")}</p>
-    ${classic ? `<p>${t("classic.missionsHint")}</p><div class="grid-3">${[0,1,2].map(index => `<label>${t("classic.mission", { number: index+1 })}<select name="classicMission-${index}" required><option value="">—</option>${optionsHtml(critOpOptions, round.missions?.[index]?.critOp || "")}</select></label>`).join("")}</div>` : `<p class="muted">${t("teams.tournament.missionPoolHint")}</p>`}
+    <p class="muted">${t(classic ? "classic.missionsHint" : "teams.tournament.missionPoolHint")}</p>
     ${reuseLines ? savedTeamLinesMarkup(tables) : teamTableSetupFields(tables, venue)}</section>`;
 }
 
@@ -9433,7 +9433,6 @@ function roundSetupPayload(form, tournament) {
   if (tournament.participantMode === "team") {
     return {
       ...(form.elements["teamKillzone-0"] ? { tables: teamTableSetupPayload(form) } : {}),
-      ...(form.elements["classicMission-0"] ? { missions: [0,1,2].map(index => form.elements[`classicMission-${index}`].value) } : {}),
       matchups: rows.map((row) => ({
         lineNumber: Number(row.querySelector('[name="lineNumber"]')?.value) || null,
         rosterAId: row.querySelector('[name="rosterAId"]')?.value || "",

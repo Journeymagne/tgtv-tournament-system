@@ -89,3 +89,23 @@ test("IRL lines allow omitted Killzones while requiring valid deployment and tab
   assert.throws(() => validateTeamLines(tables.map(table => ({ ...table, deployment: null })), "irl"));
   assert.throws(() => validateTeamLines(tables.map(table => ({ ...table, tableNumber: 1 })), "irl"));
 });
+
+test("Classic defaults to all nine missions and keeps valid legacy round pools", () => {
+  const { CRIT_OPS } = require("../../src/domain/kill-teams");
+  assert.deepEqual(normalizeRoundMissions(), CRIT_OPS.map(critOp => ({ critOp })));
+  assert.equal(normalizeRoundMissions().length, 9);
+  assert.deepEqual(normalizeRoundMissions(["Secure", "Loot", "Data"]), ["Secure", "Loot", "Data"].map(critOp => ({ critOp })));
+  assert.throws(() => normalizeRoundMissions([]));
+  assert.throws(() => normalizeRoundMissions(["Secure", "Loot", "invalid"]));
+});
+
+test("the captain without initial initiative chooses the third Classic mission from the expanded pool", () => {
+  for (const attackerRosterId of [1, 2]) {
+    const match = { ...classic, attackerRosterId, missions: normalizeRoundMissions(),
+      environment: { step: 4, choices: ["table", "mission", "mission", "table"] } };
+    assert.equal(teamEnvironmentPlan(match).length, 5);
+    assert.deepEqual(teamNextAction(match), { side: attackerRosterId === 1 ? "b" : "a", slot: 3, kind: "mission" });
+    assert.equal(teamNextAction({ ...match, environment: { ...match.environment, step: 5 } }), null);
+    assert.equal(teamEnvironmentPlan({ ...match, missions: normalizeRoundMissions(["Secure", "Loot", "Data"]) }).length, 4);
+  }
+});

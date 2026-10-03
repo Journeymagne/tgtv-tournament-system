@@ -43,7 +43,8 @@ function teamEnvironmentPlan(match) {
       { side: first, slot: first === "a" ? 1 : 2, kind: "either" },
       { side: second, slot: first === "a" ? 1 : 2, kind: other(choices[0]) },
       { side: second, slot: second === "a" ? 1 : 2, kind: "either" },
-      { side: first, slot: second === "a" ? 1 : 2, kind: other(choices[2]) }
+      { side: first, slot: second === "a" ? 1 : 2, kind: other(choices[2]) },
+      ...(match.missions?.length > 3 ? [{ side: second, slot: 3, kind: "mission" }] : [])
     ];
   }
   const attacker = match.attackerRosterId === match.rosterAId ? "a" : "b";
@@ -291,16 +292,16 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber, random = 
   return { roundNumber, status: "active", pairings: withBye(pairings) };
 }
 
-function normalizeRoundMissions(values) {
-  if (!Array.isArray(values) || values.length !== 3) {
-    throw new ValidationError("Choose exactly three missions for a team round");
+function normalizeRoundMissions(values = CRIT_OPS) {
+  if (!Array.isArray(values) || values.length < 3 || values.length > CRIT_OPS.length) {
+    throw new ValidationError("Choose between three and nine missions for a team round");
   }
   const missions = values.map((value) => {
     const critOp = String(typeof value === "string" ? value : value?.critOp || "").trim();
     if (!CRIT_OPS.includes(critOp)) throw new ValidationError("Choose valid team-round missions");
     return { critOp };
   });
-  if (new Set(missions.map((mission) => mission.critOp)).size !== 3) {
+  if (new Set(missions.map((mission) => mission.critOp)).size !== missions.length) {
     throw new ValidationError("Team-round missions must be unique");
   }
   return missions;

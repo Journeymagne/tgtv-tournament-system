@@ -1,6 +1,7 @@
 (function(root){
 'use strict';
-const MAX_FILE=10*1024*1024,MAX_EDGE=480,MAX_DATA=100000;
+// Allow approximately 400 KB of image bytes, including Base64 and data URL overhead.
+const MAX_FILE=10*1024*1024,MAX_EDGE=960,MAX_DATA=Math.ceil(400000/3)*4+32;
 const PROFILES={operative:{edge:MAX_EDGE,data:MAX_DATA},logo:{edge:192,data:24000},card:{edge:960,data:180000},page:{edge:1600,data:600000},pagePrint:{edge:3508,data:1900000}};
 function typeOf(bytes){
  if([137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v))return 'image/png';

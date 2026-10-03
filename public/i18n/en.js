@@ -21,7 +21,7 @@ const TGTV_I18N_EN = {
   "classic.savedLinesHint": "These table groups are reused in subsequent rounds. Lines are assigned to matchups automatically; you can change the assignments below.",
   "classic.editLines": "Edit lines",
   "classic.linesHint": "Each line contains three tables and serves one team matchup. Check Killzones and deployments.",
-  "classic.missionsHint": "Choose three distinct missions for the entire round. Captains assign them independently of tables on each line.",
+  "classic.missionsHint": "All 9 missions are available by default. Captains assign three different missions to games during pairing, independently of tables.",
   "classic.mission": "Mission {number}",
   "classic.initiative": "Captain with initiative",
   "classic.initiativeHint": "Determine initiative with a roll-off or another method and record the winner.",
