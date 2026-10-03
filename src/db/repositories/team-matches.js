@@ -93,7 +93,7 @@ async function insert(client, match) {
      VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $10 THEN 'completed' WHEN NOT $12 THEN 'environment_selection' ELSE 'awaiting_roll' END,
        $7::jsonb, $8::int[], $9, CASE WHEN $10 THEN 'bye' END,
        CASE WHEN $10 AND $11 <> 'sword_shield_classic' THEN 60 END, CASE WHEN $10 AND $11 <> 'sword_shield_classic' THEN 0 END,
-       CASE WHEN $10 THEN CASE WHEN $11 = 'sword_shield_classic' THEN 3 ELSE 2 END END, CASE WHEN $10 THEN 0 END, CASE WHEN $10 THEN NOW() END, $11, $12, $13) RETURNING *`,
+       CASE WHEN $10 THEN CASE WHEN $11 = 'sword_shield_classic' THEN 9 ELSE 2 END END, CASE WHEN $10 THEN 0 END, CASE WHEN $10 THEN NOW() END, $11, $12, $13) RETURNING *`,
     [match.tournamentId, match.roundId, match.roundNumber, match.bracketPosition, match.rosterAId,
       match.rosterBId, JSON.stringify(match.missions || null), match.tableIds || [], match.pairingVersion || 1, match.rosterBId == null, match.pairingType || "shield_sword",
       match.captainPairingEnabled !== false, match.lineNumber || null]

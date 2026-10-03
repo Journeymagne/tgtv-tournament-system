@@ -32,6 +32,18 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+## Release 5.3.3
+
+Classic standings use the sum of individual player TP: win 3, draw 1, loss 0.
+Separate points for winning or drawing a team match are removed. All standings
+metrics remain visible: player wins, VP difference, total VP and Tac Op points,
+with the configured tiebreaker order retained. Byes and forfeits award 9 TP.
+
+Startup migration **047_classic_player_points** recalculates saved Classic scores,
+published tables, roster places and podium awards. Individual game results and
+Elo are preserved. No new dependencies or environment variables are required.
+See [Classic scoring](docs/sword-shield-classic.md) and [the changelog](CHANGELOG.md).
+
 ## Release 5.3.1
 
 Classic rounds default to all nine missions without organizer selection. Captains

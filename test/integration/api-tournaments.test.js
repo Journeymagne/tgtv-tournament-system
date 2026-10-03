@@ -1589,7 +1589,7 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
   assert.deepEqual(otherLog, []);
   assert.equal((await authApi.buildUserSummary(client, captainA)).teamPairings.some((match) => match.id === original.id), true);
   const preview = async (user) => (await authApi.myTeamPairings({ client, user })).teamPairings.find((match) => match.id === original.id);
-  assert.deepEqual((await preview(captainA)).progress, { completed: 0, total: 3, details: [], winsA: 0, winsB: 0, gpA: 0, gpB: 0 });
+  assert.deepEqual((await preview(captainA)).progress, { completed: 0, total: 3, details: [], winsA: 0, winsB: 0, tpA: 0, tpB: 0, gpA: 0, gpB: 0 });
   assert.equal(await preview(outsider), undefined);
   let confirmedGames = 0;
   for (const link of ready.games) {
@@ -1630,7 +1630,7 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
     if (confirmedGames < 3) {
       const expectedProgress = {
         completed: confirmedGames, total: 3, gpA: confirmedGames * 20, gpB: 0,
-        winsA: confirmedGames, winsB: 0,
+        winsA: confirmedGames, winsB: 0, tpA: confirmedGames * 3, tpB: 0,
         details: Array.from({ length: confirmedGames }, (_, index) => ({
           slot: index + 1, a: 20, b: 0, tacA: 6, tacB: 1, vpA: 21, vpB: 4, winnerSide: "a"
         }))
@@ -1655,7 +1655,7 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
   assert.equal(reset.teamMatch.phase, "environment_selection");
   assert.equal(reset.teamMatch.environment.step, 4);
   assert.equal(reset.teamMatch.games.length, 0);
-  assert.deepEqual((await preview(captainB)).progress, { completed: 0, total: 3, details: [], winsA: 0, winsB: 0, gpA: 0, gpB: 0 });
+  assert.deepEqual((await preview(captainB)).progress, { completed: 0, total: 3, details: [], winsA: 0, winsB: 0, tpA: 0, tpB: 0, gpA: 0, gpB: 0 });
   for (const link of ready.games) assert.equal(await gamesRepo.findById(client, link.gameId), null);
   const resultLog = await readLog();
   assert.equal(resultLog.filter(event => event.type === "team_game_result_submit").length, 6);

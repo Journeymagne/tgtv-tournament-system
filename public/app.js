@@ -2516,7 +2516,7 @@ function tournamentInfoPanel(data, options = {}) {
   };
   const subtitleByTab = {
     settings: t("tournaments.info.settingsSubtitle"),
-    standings: isTeamTournament ? t("teams.tournament.standingsHint") : standingsSubtitle(tournament),
+    standings: isTeamTournament ? t(tournament.pairingType === "sword_shield_classic" ? "classic.standingsHint" : "teams.tournament.standingsHint") : standingsSubtitle(tournament),
     matches: t("tournaments.info.matchesSubtitle"),
     stats: t("tournaments.info.statsSubtitle", { name: tournament.name || t("tournaments.fallbackName") }),
     participants: isTeamTournament
@@ -8118,7 +8118,7 @@ function renderRosterProfile() {
   const { roster, tournament, standing = {} } = data;
   const metrics = [
     [t("teams.roster.place"), standing.rank ?? "—"],
-    [t("teams.tournament.ttp"), standing.teamTournamentPoints ?? 0],
+    [t(tournament.pairingType === "sword_shield_classic" ? "classic.playerTp" : "teams.tournament.ttp"), standing.teamTournamentPoints ?? 0],
     [t("tournaments.standings.column.wdl"), `${standing.wins ?? 0}-${standing.draws ?? 0}-${standing.losses ?? 0}`],
     [t("teams.tournament.individualWins"), standing.individualWins ?? 0],
     [t("teams.tournament.totalVp"), standing.totalVp ?? 0],
@@ -8269,8 +8269,11 @@ function teamTournamentSettingsFields(tournament = {}, disabled = "") {
 }
 
 function teamMatchScoreLabel(match) {
+  if (match.pairingType === "sword_shield_classic") {
+    return `${match.teamTournamentPointsA ?? 0}:${match.teamTournamentPointsB ?? 0} ${t("classic.tp")}`;
+  }
   const points = `${match.teamTournamentPointsA ?? 0}:${match.teamTournamentPointsB ?? 0} TTP`;
-  return match.pairingType === "sword_shield_classic" ? points : `${points} · ${match.teamGamePointsA}:${match.teamGamePointsB} GP`;
+  return `${points} · ${match.teamGamePointsA}:${match.teamGamePointsB} GP`;
 }
 
 function teamManualPairingForm(match) {
@@ -8295,11 +8298,17 @@ function teamStandingsTable(data) {
   const teamColumns = data.tournament?.teamTiebreakerOrder == null
     ? [["individualWins", "teams.tournament.individualWins"], ["totalVp", "teams.tournament.totalVp"], ["tacOpPoints", "teams.tournament.tac"]]
     : data.tournament.teamTiebreakerOrder.map(key => [{ individual_wins: "individualWins", total_vp: "totalVp", vp_diff: "vpDiff" }[key], `classic.${key}`]);
+  if (data.tournament?.pairingType === "sword_shield_classic") {
+    for (const column of [["individualWins", "classic.individual_wins"], ["vpDiff", "classic.vp_diff"],
+      ["totalVp", "classic.total_vp"], ["tacOpPoints", "teams.tournament.tac"]]) {
+      if (!teamColumns.some(([key]) => key === column[0])) teamColumns.push(column);
+    }
+  }
   if (!source.length) return `<div class="empty">${t("teams.tournament.standingsEmpty")}</div>`;
   return `
     <div class="table-wrap">
       <table>
-        <thead><tr><th class="rank">#</th><th>${t("teams.tournament.roster")}</th><th>${t("teams.tournament.ttp")}</th>${teamColumns.map(([, label]) => `<th>${t(label)}</th>`).join("")}<th>${t("tournaments.standings.column.wdl")}</th></tr></thead>
+        <thead><tr><th class="rank">#</th><th>${t("teams.tournament.roster")}</th><th>${t(data.tournament?.pairingType === "sword_shield_classic" ? "classic.playerTp" : "teams.tournament.ttp")}</th>${teamColumns.map(([, label]) => `<th>${t(label)}</th>`).join("")}<th>${t("tournaments.standings.column.wdl")}</th></tr></thead>
         <tbody>${source.map((row) => {
           const roster = rosters.get(Number(row.rosterId || row.roster?.id));
           return `<tr><td class="rank">${row.rank}</td><td>${teamRosterLabel(roster)}</td><td>${row.teamTournamentPoints ?? 0}</td>${teamColumns.map(([key]) => `<td>${row[key] ?? data.standings?.find(item => item.rosterId === row.rosterId)?.[key] ?? 0}</td>`).join("")}<td>${row.wins ?? 0}-${row.draws ?? 0}-${row.losses ?? 0}</td></tr>`;
@@ -8432,7 +8441,7 @@ function teamTournamentTables(tournamentId) {
 function teamMatchProgressMarkup(match) {
   if (!(match.games || []).length) return "";
   const progress = match.progress || { completed: 0, total: 3, gpA: 0, gpB: 0 };
-  return `<p class="team-match-progress">${escapeHtml(t(match.pairingType === "sword_shield_classic" ? "classic.progress" : "teams.results.progress", { count: progress.completed, total: progress.total, a: match.pairingType === "sword_shield_classic" ? progress.winsA : progress.gpA, b: match.pairingType === "sword_shield_classic" ? progress.winsB : progress.gpB }))}</p>`;
+  return `<p class="team-match-progress">${escapeHtml(t(match.pairingType === "sword_shield_classic" ? "classic.progress" : "teams.results.progress", { count: progress.completed, total: progress.total, a: match.pairingType === "sword_shield_classic" ? progress.winsA : progress.gpA, b: match.pairingType === "sword_shield_classic" ? progress.winsB : progress.gpB, tpA: progress.tpA ?? 0, tpB: progress.tpB ?? 0 }))}</p>`;
 }
 
 function teamMatchGamesMarkup(match, options = {}) {

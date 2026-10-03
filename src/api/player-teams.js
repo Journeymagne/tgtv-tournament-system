@@ -105,9 +105,10 @@ async function profileData(client, team, user) {
        COUNT(DISTINCT r.id)::int AS rosters,
        COUNT(tm.id) FILTER (WHERE tm.phase = 'completed' AND ra.team_id <> rb.team_id)::int AS team_matches,
        COUNT(tm.id) FILTER (WHERE tm.phase = 'completed' AND ra.team_id <> rb.team_id AND
-         ((ra.team_id = $1 AND tm.team_tournament_points_a > 1) OR (rb.team_id = $1 AND tm.team_tournament_points_b > 1)))::int AS wins,
+         ((ra.team_id = $1 AND tm.team_tournament_points_a > tm.team_tournament_points_b) OR
+          (rb.team_id = $1 AND tm.team_tournament_points_b > tm.team_tournament_points_a)))::int AS wins,
        COUNT(tm.id) FILTER (WHERE tm.phase = 'completed' AND ra.team_id <> rb.team_id AND
-         tm.team_tournament_points_a = 1 AND tm.team_tournament_points_b = 1)::int AS draws,
+         tm.team_tournament_points_a = tm.team_tournament_points_b)::int AS draws,
        COALESCE(SUM(CASE WHEN ra.team_id = $1 THEN tm.team_tournament_points_a WHEN rb.team_id = $1 THEN tm.team_tournament_points_b ELSE 0 END), 0)::int AS tournament_points,
        COALESCE(SUM(CASE WHEN ra.team_id = $1 THEN tm.team_game_points_a WHEN rb.team_id = $1 THEN tm.team_game_points_b ELSE 0 END), 0)::int AS game_points
      FROM tournament_team_rosters r

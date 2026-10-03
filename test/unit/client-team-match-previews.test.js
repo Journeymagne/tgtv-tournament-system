@@ -95,7 +95,7 @@ test("Classic previews never show GP for completed, pending or unplayed games", 
   assert.match(html, /18:14 VP/);
   assert.match(html, /Awaiting confirmation/);
   assert.match(html, /Not played yet/);
-  const finished = render({ ...match, phase: "completed", teamTournamentPointsA: 3, teamTournamentPointsB: 0 }, { status: "in_progress" });
-  assert.match(finished, /3:0 TTP/);
-  assert.doesNotMatch(finished, /\bGP\b/);
+  const finished = render({ ...match, phase: "completed", teamTournamentPointsA: 6, teamTournamentPointsB: 3 }, { status: "in_progress" });
+  assert.match(finished, /6:3 TP/);
+  assert.doesNotMatch(finished, /\bGP\b|\bTTP\b/);
 });

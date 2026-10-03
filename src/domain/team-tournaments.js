@@ -137,6 +137,8 @@ function teamMatchProgress(match) {
     completed: details.length, total: 3, details,
     winsA: details.filter(item => item.winnerSide === "a").length,
     winsB: details.filter(item => item.winnerSide === "b").length,
+    tpA: details.reduce((sum, item) => sum + (item.winnerSide === "a" ? 3 : item.winnerSide === null ? 1 : 0), 0),
+    tpB: details.reduce((sum, item) => sum + (item.winnerSide === "b" ? 3 : item.winnerSide === null ? 1 : 0), 0),
     gpA: match.pairingType === "sword_shield_classic" ? null : match.resolution ? Number(match.teamGamePointsA || 0) : details.reduce((sum, game) => sum + Number(game.a || 0), 0),
     gpB: match.pairingType === "sword_shield_classic" ? null : match.resolution ? Number(match.teamGamePointsB || 0) : details.reduce((sum, game) => sum + Number(game.b || 0), 0)
   };
@@ -161,13 +163,15 @@ function teamStandings(rosters, matches, order = null) {
     const a = byId.get(match.rosterAId);
     const b = byId.get(match.rosterBId);
     if (!a && !b) continue;
-    const pointsA = Number(match.teamTournamentPointsA || 0);
-    const pointsB = Number(match.teamTournamentPointsB || 0);
     const progress = teamMatchProgress(match);
+    const classic = match.pairingType === "sword_shield_classic";
+    const points = classic ? teamPointsForMatch(match, progress) : {
+      a: Number(match.teamTournamentPointsA || 0), b: Number(match.teamTournamentPointsB || 0)
+    };
     const details = progress.details;
-    for (const [row, points, gamePoints, side] of [
-      [a, pointsA, details.length ? progress.gpA : match.teamGamePointsA, "a"],
-      [b, pointsB, details.length ? progress.gpB : match.teamGamePointsB, "b"]
+    for (const [row, score, opponentScore, gamePoints, side] of [
+      [a, points.a, points.b, details.length ? progress.gpA : match.teamGamePointsA, "a"],
+      [b, points.b, points.a, details.length ? progress.gpB : match.teamGamePointsB, "b"]
     ]) {
       if (!row) continue;
       row.teamGamePoints += Number(gamePoints || 0);
@@ -175,11 +179,12 @@ function teamStandings(rosters, matches, order = null) {
       row.totalVp += details.reduce((sum, item) => sum + Number(side === "a" ? item.vpA || 0 : item.vpB || 0), 0);
       row.vpDiff += details.reduce((sum, item) => sum + (side === "a" ? Number(item.vpA || 0) - Number(item.vpB || 0) : Number(item.vpB || 0) - Number(item.vpA || 0)), 0);
       row.tacOpPoints += details.reduce((sum, item) => sum + Number(side === "a" ? item.tacA : item.tacB), 0);
+      if (classic) row.teamTournamentPoints += score;
       if (match.phase !== "completed") continue;
       row.played += 1;
-      row.teamTournamentPoints += points;
-      if (points > 1) row.wins += 1;
-      else if (points === 1) row.draws += 1;
+      if (!classic) row.teamTournamentPoints += score;
+      if (score > opponentScore) row.wins += 1;
+      else if (score === opponentScore) row.draws += 1;
       else row.losses += 1;
     }
   }
@@ -345,8 +350,13 @@ function teamTournamentPoints(teamGamePointsA) {
 
 function teamPointsForMatch(match, progress = teamMatchProgress(match)) {
   if (match.pairingType !== "sword_shield_classic") return teamTournamentPoints(progress.gpA);
-  if (progress.winsA === progress.winsB) return { a: 1, b: 1 };
-  return progress.winsA > progress.winsB ? { a: 3, b: 0 } : { a: 0, b: 3 };
+  if (match.resolution === "bye") return { a: 9, b: 0 };
+  if (match.resolution === "forfeit") {
+    return Number(match.teamTournamentPointsA || 0) > Number(match.teamTournamentPointsB || 0)
+      ? { a: 9, b: 0 } : { a: 0, b: 9 };
+  }
+  const draws = Math.max(0, Number(progress.completed || 0) - progress.winsA - progress.winsB);
+  return { a: progress.winsA * 3 + draws, b: progress.winsB * 3 + draws };
 }
 
 function validateTeamLines(tables, venueMode = "tts") {

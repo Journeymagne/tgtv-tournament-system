@@ -4,7 +4,10 @@
 
 const TGTV_I18N_EN = {
 
-  "classic.removeAfterStartConfirm": "Remove roster “{name}” from future rounds? Played results are preserved. Any unfinished match becomes a forfeit win for the opponent: 3 team tournament points, without Elo changes for the forfeit.",
+  "classic.removeAfterStartConfirm": "Remove roster “{name}” from future rounds? Played results are preserved. Any unfinished match becomes a forfeit win for the opponent: 9 TP for three individual wins, without Elo changes for the forfeit.",
+  "classic.playerTp": "Player TP",
+  "classic.standingsHint": "The primary score is the sum of individual player TP: 3 for a win, 1 for a draw, 0 for a loss.",
+  "classic.tp": "TP",
   "classic.name": "SWORD SHIELD CLASSIC",
   "classic.captainPairing": "Use step-by-step captain pairing",
   "classic.manualHint": "Without step-by-step pairing, captains or organizers directly assign three games, tables and missions.",
@@ -31,7 +34,7 @@ const TGTV_I18N_EN = {
   "classic.playerB": "Team B player",
   "classic.table": "Table",
   "classic.savePairs": "Save pairings and enter results",
-  "classic.progress": "Completed {count}/{total} · Player wins {a}:{b}",
+  "classic.progress": "Completed {count}/{total} · Player TP {tpA}:{tpB} · Player wins {a}:{b}",
   "classic.initiativeOther": "Without initiative",
   "classic.readyTts": "Prepare three virtual tables per line and share lobby access with participants. Every table must support any round mission.",
   "classic.readyIrl": "Prepare and label lines and tables, terrain and markers for any round mission. Cards are needed only for pairing outside the app.",

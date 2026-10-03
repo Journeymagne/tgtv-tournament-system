@@ -296,7 +296,7 @@ async function deleteRoster({ client, user, params }) {
         [match.id]
       );
       const removedA = match.rosterAId === roster.id;
-      const winPoints = match.pairingType === "sword_shield_classic" ? 3 : 2;
+      const winPoints = match.pairingType === "sword_shield_classic" ? 9 : 2;
       await teamMatchesRepo.update(client, match.id, {
         phase: "completed", resolution: "forfeit", completedAt: nowIso(), teamElo: null,
         teamTournamentPointsA: removedA ? 0 : winPoints, teamTournamentPointsB: removedA ? winPoints : 0,
@@ -1618,7 +1618,8 @@ async function recalculateTeamRatings(client) {
     const track = ratings[venue];
     const beforeA = rating(track, row.team_a_id);
     const beforeB = rating(track, row.team_b_id);
-    const scoreA = row.team_tournament_points_a > 1 ? 1 : row.team_tournament_points_a === 1 ? 0.5 : 0;
+    const scoreA = row.team_tournament_points_a > row.team_tournament_points_b ? 1
+      : row.team_tournament_points_a === row.team_tournament_points_b ? 0.5 : 0;
     const { deltaA, deltaB } = calculateElo(beforeA, beforeB, scoreA);
     track.set(row.team_a_id, beforeA + deltaA);
     track.set(row.team_b_id, beforeB + deltaB);

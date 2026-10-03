@@ -7,11 +7,11 @@ const classic = { pairingType: "sword_shield_classic", pairingVersion: 2, roster
   attackerRosterId: 1, phase: "environment_selection", pairings: [{ slot: 1, shieldOwner: "a" }, { slot: 2, shieldOwner: "b" }, { slot: 3, shieldOwner: null }] };
 const game = (slot, vpA, vpB, status = "completed") => ({ slot, game: { status, playerIds: [10, 20], result: { scores: { 10: { total: vpA, tac: 0 }, 20: { total: vpB, tac: 0 } } } } });
 
-test("Classic awards team points by player wins despite a negative total VP difference", () => {
+test("Classic sums individual 3/1/0 points despite a negative total VP difference", () => {
   const match = { ...classic, games: [game(1,21,18), game(2,21,18), game(3,0,21)] };
   const progress = teamMatchProgress(match);
-  assert.deepEqual(teamPointsForMatch(match), { a: 3, b: 0 });
-  assert.deepEqual(teamPointsForMatch(match, { winsA: 0, winsB: 2 }), { a: 0, b: 3 });
+  assert.deepEqual(teamPointsForMatch(match), { a: 6, b: 3 });
+  assert.deepEqual(teamPointsForMatch(match, { completed: 3, winsA: 0, winsB: 2 }), { a: 1, b: 7 });
   assert.equal(progress.gpA, null);
   assert.equal(progress.gpB, null);
   assert.equal(progress.winsA, 2);
@@ -20,7 +20,7 @@ test("Classic awards team points by player wins despite a negative total VP diff
 
 test("equal player wins draw the Classic team match; pending games do not count", () => {
   const match = { ...classic, games: [game(1,10,5), game(2,5,10), game(3,8,8), game(4,21,0,"pending_confirmation")] };
-  assert.deepEqual(teamPointsForMatch(match), { a: 1, b: 1 });
+  assert.deepEqual(teamPointsForMatch(match), { a: 4, b: 4 });
   assert.equal(teamMatchProgress(match).completed, 3);
 });
 
@@ -57,7 +57,7 @@ test("ordered team tiebreakers and an empty order keep primary team points first
   const asymmetric = [{ ...matches[0], games: [game(1,10,5),game(2,0,10),game(3,0,0)] }];
   assert.equal(teamStandings(rosters, asymmetric, ["vp_diff"])[0].roster.id, 2);
   assert.equal(teamStandings(rosters, asymmetric, [])[0].roster.id, 1);
-  assert.equal(teamStandings(rosters, [{ ...asymmetric[0], teamTournamentPointsA: 3, teamTournamentPointsB: 0 }], ["vp_diff"])[0].roster.id, 1);
+  assert.equal(teamStandings(rosters, [{ ...asymmetric[0], games: [game(1,10,5),game(2,10,0),game(3,0,0)] }], ["vp_diff"])[0].roster.id, 1);
   assert.equal(teamStandings(rosters, asymmetric, ["vp_diff"])[0].vpDiff, 5);
 });
 
@@ -71,14 +71,48 @@ test("creation preserves Classic and disabled captain pairing; legacy ordering i
   assert.throws(() => normalizeTournamentPatch({ captainPairingEnabled: "false" }, tournament));
 });
 
-test("Classic standings count three-point wins and legacy published wins", () => {
+test("Classic standings derive player points from games instead of old match points", () => {
   const rosters = [{ id: 1 }, { id: 2 }];
   for (const points of [2, 3]) {
-    const rows = teamStandings(rosters, [{ ...classic, phase: "completed", teamTournamentPointsA: points, teamTournamentPointsB: 0 }]);
-    assert.equal(rows[0].teamTournamentPoints, points);
+    const rows = teamStandings(rosters, [{ ...classic, phase: "completed", teamTournamentPointsA: points, teamTournamentPointsB: 0,
+      games: [game(1,21,18), game(2,21,18), game(3,0,21)] }]);
+    assert.equal(rows[0].teamTournamentPoints, 6);
+    assert.equal(rows[1].teamTournamentPoints, 3);
     assert.equal(rows[0].wins, 1);
     assert.equal(rows[1].losses, 1);
   }
+});
+
+test("Classic ranks five wins and a loss (15 TP) above four wins, a draw and a loss (13 TP)", () => {
+  const rosters = [{ id: 1, seed: 2 }, { id: 2, seed: 1 }, { id: 3 }, { id: 4 }];
+  const match = (a, b, totals) => ({ ...classic, rosterAId: a, rosterBId: b, phase: "completed",
+    games: totals.map(([vpA, vpB], index) => game(index + 1, vpA, vpB)) });
+  const matches = [match(1, 3, [[21,0], [21,0], [21,0]]), match(1, 4, [[21,0], [21,0], [0,21]]),
+    match(2, 4, [[21,0], [21,0], [0,21]]), match(2, 3, [[21,0], [21,0], [8,8]])];
+  const rows = teamStandings(rosters, matches, []);
+  assert.equal(rows[0].roster.id, 1);
+  assert.equal(rows[0].teamTournamentPoints, 15);
+  assert.equal(rows[1].roster.id, 2);
+  assert.equal(rows[1].teamTournamentPoints, 13);
+});
+
+test("Classic counts confirmed personal points during a round without counting a match win yet", () => {
+  const rows = teamStandings([{ id: 1 }, { id: 2 }], [{ ...classic, phase: "in_progress",
+    games: [game(1,21,0), game(2,8,8), game(3,21,0,"pending_confirmation")] }]);
+  assert.equal(rows[0].teamTournamentPoints, 4);
+  assert.equal(rows[1].teamTournamentPoints, 1);
+  assert.equal(rows[0].played, 0);
+  assert.equal(rows[0].wins, 0);
+});
+
+test("Classic equal personal totals count as a team draw, and technical results award a full round", () => {
+  const rows = teamStandings([{ id: 1 }, { id: 2 }], [{ ...classic, phase: "completed",
+    games: [game(1,21,0), game(2,0,21), game(3,8,8)] }]);
+  assert.equal(rows[0].teamTournamentPoints, 4);
+  assert.equal(rows[0].draws, 1);
+  assert.equal(rows[1].draws, 1);
+  assert.deepEqual(teamPointsForMatch({ ...classic, resolution: "bye" }), { a: 9, b: 0 });
+  assert.deepEqual(teamPointsForMatch({ ...classic, resolution: "forfeit", teamTournamentPointsA: 0, teamTournamentPointsB: 3 }), { a: 0, b: 9 });
 });
 
 test("IRL lines allow omitted Killzones while requiring valid deployment and table numbers", () => {
