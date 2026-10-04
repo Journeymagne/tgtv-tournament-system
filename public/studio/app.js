@@ -248,14 +248,15 @@ function render(){
  if(section==='tokenCards')$('#section-note').textContent='Карточки жетонов для PDF и TTS. Круги по умолчанию 20 мм; размеры сохраняются при печати PDF в масштабе 100%.';
  renderEditor();renderPreview();
 }
+function abilityLabel(ability){return KTText.plain(ability.body||'').trim().split(/\r?\n/)[0].slice(0,80)||'Новая способность'}
 function nestedEditor(c,type,title){
  const records=c[type]||[],opened=nestedStates.get(c)?.[type],movable=type==='weapons'&&records.length>1;
  const body=records.map((r,i)=>{
   const key=type+'.'+i+'.';
-  let html=field('Название',key+'name',r.name);
+  let html=type==='abilities'?'':field('Название',key+'name',r.name);
   if(type==='weapons')html+=select('Тип',key+'kind',r.kind,[['ranged','Дальнобойное'],['melee','Ближний бой']])+'<div class="field-grid">'+field('ATK',key+'attacks',r.attacks,'number')+field('HIT',key+'hit',r.hit)+field('DMG',key+'damage',r.damage)+'</div>'+field('Правила оружия',key+'rules',KTModel.weaponRules(r),'textarea')+'<div class="two-fields">'+field('Группа режимов',key+'group',r.group)+field('Режим',key+'mode',r.mode)+'</div>';
   else html+=(type==='actions'?field('Стоимость, AP',key+'cost',r.cost):'')+field('Текст',key+'body',r.body,'textarea');
-  return '<details class="nested" data-nested-type="'+type+'" data-nested-id="'+esc(r.id)+'" '+((opened?opened.has(r.id):i===0)?'open':'')+'><summary'+(movable?' data-weapon-drag draggable="true" title="Перетащите, чтобы изменить порядок. С клавиатуры: Alt + ↑ / ↓." aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"':'')+'><span class="nested-name">'+esc(r.name||'Новый блок')+'</span>'+(movable?'<span class="weapon-grip" aria-hidden="true">⠿</span>':'')+'</summary>'+html+(type==='weapons'?'<button class="small" data-save-weapon-profile="'+i+'">Сохранить профиль</button> ':'')+'<button class="danger small" data-remove-nested="'+type+'" data-index="'+i+'">Удалить из карточки</button></details>';
+  return '<details class="nested" data-nested-type="'+type+'" data-nested-id="'+esc(r.id)+'" '+((opened?opened.has(r.id):i===0)?'open':'')+'><summary'+(movable?' data-weapon-drag draggable="true" title="Перетащите, чтобы изменить порядок. С клавиатуры: Alt + ↑ / ↓." aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"':'')+'><span class="nested-name">'+esc(type==='abilities'?abilityLabel(r):(r.name||'Новый блок'))+'</span>'+(movable?'<span class="weapon-grip" aria-hidden="true">⠿</span>':'')+'</summary>'+html+(type==='weapons'?'<button class="small" data-save-weapon-profile="'+i+'">Сохранить профиль</button> ':'')+'<button class="danger small" data-remove-nested="'+type+'" data-index="'+i+'">Удалить из карточки</button></details>';
  }).join('');
  const picker=type==='weapons'?'<div class="weapon-profile-picker"><label for="weapon-profile-select">Добавить оружие<select id="weapon-profile-select"><option value="">Новый профиль с нуля</option>'+(data.weaponProfiles||[]).map(p=>'<option value="'+esc(p.id)+'" '+(p.id===weaponProfileChoice?'selected':'')+'>'+esc(p.name+(p.mode?' / '+p.mode:'')+' · '+(p.kind==='melee'?'Ближний бой':'Дальнобойное')+' · '+p.attacks+' / '+p.hit+' / '+p.damage)+'</option>').join('')+'</select></label></div>':'';
  const savedHint=type==='weapons'?'<p class="hint">«Сохранить профиль» добавляет оружие в список этого проекта. Повторное сохранение с тем же названием, типом и режимом обновляет профиль. Уже добавленное на карточки оружие редактируется отдельно.</p>'+(data.weaponProfiles?.length?'<button class="small danger" id="delete-weapon-profile" '+(data.weaponProfiles.some(p=>p.id===weaponProfileChoice)?'':'disabled')+'>Удалить из сохранённых</button>':''):'';
@@ -509,6 +510,7 @@ function updateField(el){
  if(key.startsWith('archetypes.')){value=value.slice(0,200);side=0}
  pathSet(obj,key,value);
  if(/^(weapons|abilities|actions)\.\d+\.name$/.test(key))el.closest('details')?.querySelector('.nested-name')?.replaceChildren(document.createTextNode(value||'Новый блок'));
+ if(/^abilities\.\d+\.body$/.test(key))el.closest('details')?.querySelector('.nested-name')?.replaceChildren(document.createTextNode(abilityLabel({body:value})));
  if(/^images\.\d+\.modelName$/.test(key))el.closest('details')?.querySelector('summary')?.replaceChildren(document.createTextNode(value||'Новая модель'));
  if(section==='lorePages'&&obj.layout==='references'){
   const imageIndex=/^images\.(\d+)\./.exec(key);if(imageIndex)side=Math.floor(Number(imageIndex[1])/6);
@@ -677,7 +679,7 @@ document.addEventListener('click',async e=>{
   const type=b.dataset.addNested,id=uid();
   try{
    const selectedProfile=type==='weapons'?$('#weapon-profile-select')?.value:'';
-   const record=type==='weapons'?(selectedProfile?KTModel.weaponFromProfile(data,selectedProfile,id):{id,name:'New weapon',kind:'ranged',attacks:4,hit:'4+',damage:'3/4',rules:'',group:'',mode:''}):{id,name:type==='actions'?'New action':'New ability',body:'',...(type==='actions'?{cost:'1AP'}:{})};
+   const record=type==='weapons'?(selectedProfile?KTModel.weaponFromProfile(data,selectedProfile,id):{id,name:'New weapon',kind:'ranged',attacks:4,hit:'4+',damage:'3/4',rules:'',group:'',mode:''}):{id,name:type==='actions'?'New action':'',body:'',...(type==='actions'?{cost:'1AP'}:{})};
    c[type].push(record);persist();renderEditor({openNested:{type,id}});renderPreview();
   }catch(error){toast(error.message)}return;
  }

@@ -6,6 +6,7 @@ const preset=root.KTNewRecruitTemplate||(typeof require!=='undefined'?require('.
 const NS='http://www.battlescribe.net/schema/rosterSchema';
 const JSON_NS='http://james.newtonking.com/projects/json';
 const clone=x=>JSON.parse(JSON.stringify(x));
+const abilityName=a=>Text.plain(a.name||a.body||'').trim().split(/[\r\n:：]/)[0].slice(0,80)||'Ability';
 const inch=s=>String(s??'').replace(/″/g,'"');
 const escapeXML=s=>inch(s).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 const node=(tag,attrs={},children=[],text='')=>({tag,attrs,children,text});
@@ -83,7 +84,7 @@ function build(input,template){
   for(const item of sourceNodes)if(item.tag==='profiles')item.children=item.children.filter(n=>!['Operative','Abilities','Unique Actions'].includes(n.attrs.typeName));
   const profiles=child(selection,'profiles');
   profiles.children.unshift(profile('Operative',display,stats,sourceProfile.attrs.id));
-  for(const ability of operative.abilities)profiles.children.push(profile('Abilities',ability.name,{Ability:ability.body}));
+  for(const ability of operative.abilities)profiles.children.push(profile('Abilities',abilityName(ability),{Ability:ability.body}));
   if(operative.body.trim())profiles.children.push(profile('Abilities','Additional rule',{Ability:operative.body}));
   const extra=Object.entries(operative.stats).filter(([key])=>!['APL','MOVE','M','SAVE','SV','WOUNDS','W'].includes(key));
   if(extra.length)profiles.children.push(profile('Abilities','Additional characteristics',{Ability:extra.map(([key,value])=>key+': '+value).join(', ')}));
@@ -100,7 +101,7 @@ function build(input,template){
   const keywords=Text.plain(operative.keywords.join(', ')).split(',').map(name=>name.trim()).filter(Boolean);
   categories.children=keywords.map(name=>known.get(name.toUpperCase())||node('category',{id:id(),entryId:id(),name,primary:name.toUpperCase()==='LEADER'?'true':'false'}));
   if(!categories.children.some(c=>c.attrs.primary==='true'))categories.children.push(node('category',{id:'cf83-4496-b58e-ac82',entryId:'cf83-4496-b58e-ac82',name:'Operative',primary:'true'}));
-  report.operatives.push({name:selection.attrs.name,operativeId:operative.id,count:binding.count,stats,weaponIds:names.map(w=>w.id),weapons:names.map(w=>w.name),abilities:operative.abilities.map(a=>a.name),actions:operative.actions.map(a=>a.name)});
+  report.operatives.push({name:selection.attrs.name,operativeId:operative.id,count:binding.count,stats,weaponIds:names.map(w=>w.id),weapons:names.map(w=>w.name),abilities:operative.abilities.map(abilityName),actions:operative.actions.map(a=>a.name)});
  }
  const rule=(name,body)=>{report.rules.push(name);return node('rule',{id:id(),name,hidden:'false'},[node('description',{},[],Text.plain(body))])};
   const body=c=>[c.body,c.restriction,...c.abilities.map(a=>a.name+'\n'+a.body),...c.actions.map(a=>a.name+(a.cost?' ('+a.cost+')':'')+'\n'+a.body),...c.weapons.map(w=>w.name+' | ATK '+w.attacks+' | HIT '+w.hit+' | DMG '+w.damage+' | '+Model.weaponRules(w))].filter(Boolean).join('\n\n');

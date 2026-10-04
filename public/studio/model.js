@@ -12,6 +12,16 @@ function normalizeCard(card){
  const convert=x=>typeof x==='string'?toInches(x):Array.isArray(x)?x.map(convert):x&&typeof x==='object'?Object.fromEntries(Object.entries(x).map(([k,v])=>[k,untouched.has(k)?clone(v):convert(v)])):x;
  const result=convert(card);
  for(const weapon of result.weapons||[]){weapon.rules=weaponRules(weapon);delete weapon.special;delete weapon.critical}
+ // Fold legacy ability headings into editable text once; keep the old field empty for compatibility.
+ for(const ability of result.abilities||[]){
+  if(typeof ability.name!=='string'||!ability.name.trim()||typeof ability.body!=='string')continue;
+  const Text=root.KTText||(typeof require!=='undefined'?require('./rich-text.js'):null);
+  let name=Text.plain(ability.name).trim();
+  if(result.kind==='operative')name=name.replace(/[:：]\s*$/,'')+':';
+  const heading='**'+name.replace(/[\\*\[\]]/g,'\\$&')+'**';
+  ability.body=heading+(ability.body?(result.kind==='operative'?' ':'\n\n')+ability.body:'');
+  ability.name='';
+ }
  return result;
 }
 function weaponRules(weapon){return typeof weapon.rules==='string'?weapon.rules:[weapon.special,weapon.critical?'CR: '+weapon.critical:''].filter(Boolean).join('; ')}

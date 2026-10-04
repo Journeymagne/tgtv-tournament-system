@@ -6424,7 +6424,7 @@ function renderResultForm(gameId, options = {}) {
     updateTiebreakerMenu();
     updateResultPreview(game);
   };
-  document.querySelectorAll("[data-score-input], [data-primary-select], [data-tiebreaker-input]").forEach((input) => {
+  document.querySelectorAll("[data-score-input], [data-primary-input], [data-tiebreaker-input]").forEach((input) => {
     input.addEventListener("input", refreshResultPreview);
     input.addEventListener("change", refreshResultPreview);
   });
@@ -6660,7 +6660,7 @@ function renderTournamentResultForm(data, match, options = {}) {
     updateTiebreakerMenu();
     updateResultPreview(game);
   };
-  document.querySelectorAll("[data-score-input], [data-primary-select], [data-tiebreaker-input]").forEach((input) => {
+  document.querySelectorAll("[data-score-input], [data-primary-input], [data-tiebreaker-input]").forEach((input) => {
     input.addEventListener("input", refreshResultPreview);
     input.addEventListener("change", refreshResultPreview);
   });
@@ -6911,15 +6911,17 @@ function scoreCard(player, score = {}) {
           </div>
         `).join("")}
       </div>
-      <div class="field">
-        <label>${t("tournaments.score.primaryOp")}</label>
-        <select data-primary-select name="primary-${player.id}">
-          <option value="" ${!score.primary ? "selected" : ""}>${t("tournaments.score.selectPrimaryOp")}</option>
-          <option value="crit" ${score.primary === "crit" ? "selected" : ""}>${t("op.crit")}</option>
-          <option value="tac" ${score.primary === "tac" ? "selected" : ""}>${t("op.tac")}</option>
-          <option value="kill" ${score.primary === "kill" ? "selected" : ""}>${t("op.kill")}</option>
-        </select>
-      </div>
+      <fieldset class="field primary-op-field">
+        <legend>${t("tournaments.score.primaryOp")}</legend>
+        <div class="primary-op-options">
+          ${["crit", "tac", "kill"].map((op) => `
+            <label class="primary-op-choice">
+              <input type="radio" data-primary-input name="primary-${player.id}" value="${op}" ${score.primary === op ? "checked" : ""}>
+              <span>${t(opLabels[op])}</span>
+            </label>
+          `).join("")}
+        </div>
+      </fieldset>
       <div class="total-line">
         <span>${t("tournaments.score.total")}</span>
         <span data-total="${player.id}">0 VP</span>
@@ -6965,9 +6967,16 @@ function fillDebugRandomResult(players = []) {
 }
 
 function setFormControlValue(name, value) {
-  const control = document.querySelector(`[name="${name}"]`);
+  let control = document.querySelector(`[name="${name}"]`);
   if (!control) return;
-  control.value = String(value ?? "");
+  if (control.type === "radio") {
+    control = Array.from(document.querySelectorAll(`[name="${name}"]`))
+      .find((option) => option.value === String(value ?? ""));
+    if (!control) return;
+    control.checked = true;
+  } else {
+    control.value = String(value ?? "");
+  }
   control.dispatchEvent(new Event("input", { bubbles: true }));
   control.dispatchEvent(new Event("change", { bubbles: true }));
 }
@@ -7438,7 +7447,7 @@ function scoreFromForm(playerId) {
   const crit = Number(document.querySelector(`[name="crit-${playerId}"]`)?.value || 0);
   const kill = Number(document.querySelector(`[name="kill-${playerId}"]`)?.value || 0);
   const tac = Number(document.querySelector(`[name="tac-${playerId}"]`)?.value || 0);
-  const primary = document.querySelector(`[name="primary-${playerId}"]`)?.value || "";
+  const primary = document.querySelector(`[name="primary-${playerId}"]:checked`)?.value || "";
   const primaryScore = { crit, kill, tac }[primary] || 0;
   return {
     crit,
@@ -7454,7 +7463,7 @@ function scoreFromForm(playerId) {
 function approvedOpsPayloadFromForm(players = []) {
   const scores = {};
   players.forEach((player) => {
-    const primary = document.querySelector(`[name="primary-${player.id}"]`)?.value || "";
+    const primary = document.querySelector(`[name="primary-${player.id}"]:checked`)?.value || "";
     if (!Object.prototype.hasOwnProperty.call(opLabels, primary)) {
       throw new Error(t("games.result.selectPrimaryOpError", { name: player.name }));
     }
@@ -7550,7 +7559,7 @@ function updateTotals() {
       crit: Number(card.querySelector(`[name="crit-${id}"]`).value || 0),
       kill: Number(card.querySelector(`[name="kill-${id}"]`).value || 0),
       tac: Number(card.querySelector(`[name="tac-${id}"]`).value || 0),
-      primary: card.querySelector(`[name="primary-${id}"]`).value
+      primary: card.querySelector(`[name="primary-${id}"]:checked`)?.value || ""
     };
     card.querySelector(`[data-total="${id}"]`).textContent = `${approvedTotal(score)} VP`;
   });

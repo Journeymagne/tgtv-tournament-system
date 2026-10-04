@@ -51,10 +51,6 @@
   font-size: 14px;
 }
 
-.prob-validation[hidden] {
-  display: none;
-}
-
 .prob-combat-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

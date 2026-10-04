@@ -45,6 +45,17 @@
   --button-radius: 7px;
   /* Right-hand room reserved for the fixed language/theme/notification controls. */
   --topbar-controls-gutter: calc(var(--button-height) * 3 + 34px);
+  --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --text: var(--ink);
+  --input-bg: var(--surface-input);
+  --input-bg-alt: var(--surface-input);
+  --shadow-color: rgba(0,0,0,.3);
+  --me: #45c7a4;
+  --me-soft: rgba(69,199,164,.12);
+  --opp: #ef8a80;
+  --opp-soft: rgba(239,111,97,.12);
+  --counter: #f3c969;
+  --counter-soft: rgba(243,201,105,.12);
 }
 
 :root[data-theme="light"] {
@@ -71,7 +82,13 @@
   --surface-input: var(--surface);
   --surface-well: var(--panel-2);
   --surface-well-soft: var(--panel-2);
+  --shadow-color: rgba(28,31,35,.1);
+  --me: #126d52;
+  --opp: #aa3429;
+  --counter: #77510a;
 }
 
-:root { --font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --text: var(--ink); --input-bg: var(--surface-input); --input-bg-alt: var(--surface-input); --shadow-color: rgba(0,0,0,.3); --me: #45c7a4; --me-soft: rgba(69,199,164,.12); --opp: #ef8a80; --opp-soft: rgba(239,111,97,.12); --counter: #f3c969; --counter-soft: rgba(243,201,105,.12); }
-:root[data-theme="light"] { --shadow-color: rgba(28,31,35,.1); --me: #126d52; --opp: #aa3429; --counter: #77510a; }
+/* Visibility is shared by every Companion service. */
+[hidden] {
+  display: none !important;
+}

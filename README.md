@@ -32,6 +32,17 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+## Release 5.4.0
+
+Primary Op selection uses Crit / Tac / Kill radio buttons in result forms, including
+mobile browsers. Studio abilities use one editable text field; existing headings
+are folded into the text, and New Recruit exports retain their ability names.
+Shared CSS rules are consolidated across Companion and Tournament System, and
+Studio styling is maintained in one stylesheet. Client assets are versioned at 5.4.0.
+Obsolete email and statistics planning notes are removed. No new dependencies,
+database migrations or environment variables are required.
+See [the CSS audit](docs/css-refactor-2026-10-05.md) and [the changelog](CHANGELOG.md).
+
 ## Release 5.3.3
 
 Classic standings use the sum of individual player TP: win 3, draw 1, loss 0.

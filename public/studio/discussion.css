@@ -1,5 +1,168 @@
-#publication-discussion[hidden]{display:none!important}#publication-discussion{max-width:900px;margin:20px auto;overflow-wrap:anywhere}
-.discussion-count{margin:10px 0;text-align:left;color:var(--muted)!important}.discussion-tools,.comment-actions,.discussion-form-footer{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.discussion-tools{margin:16px 0}.discussion-tools label{display:grid;gap:5px}.discussion-tools select{font:inherit;background:var(--surface-input);color:var(--ink);padding:8px;border:1px solid var(--line);border-radius:7px}
-.discussion-form{padding:16px;border:1px solid var(--line);background:var(--surface);border-radius:8px;margin:14px 0}.discussion-form label{display:grid;gap:10px}.discussion-form textarea{box-sizing:border-box;width:100%;resize:vertical;max-width:100%;padding:12px;background:var(--surface-input);border:1px solid var(--line-strong);border-radius:7px;font:inherit;color:var(--ink)}.discussion-form-footer{justify-content:space-between;margin-top:10px}.discussion-form-footer>div{display:flex;gap:8px}.discussion-form small{color:var(--muted)}
-.discussion-thread{margin:20px 0}.studio-comment{padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--surface);margin:10px 0}.comment-header{display:flex;align-items:flex-start;gap:10px}.comment-header>div{min-width:0}.comment-header a{color:var(--ink);font-weight:700}.comment-header small{display:block;color:var(--muted);margin:6px 0;font-size:12px}.comment-author-badge{display:inline-block;margin-left:8px;padding:2px 6px;border-radius:4px;font-size:12px;background:var(--accent);color:var(--on-accent)}.comment-actions button{font-size:13px!important}.comment-replies{padding-left:24px;border-left:2px solid var(--line);margin-left:16px}.comment-reply{background:var(--panel)}.comment-header .review-avatar{object-fit:cover}
-@media(max-width:600px){.comment-replies{padding-left:10px;margin-left:5px}.studio-comment,.discussion-form{padding:12px}.comment-author-badge{margin:4px 0}.comment-header small{line-height:1.5}.comment-actions{gap:6px}.discussion-form-footer>div{flex-wrap:wrap}}
+#publication-discussion {
+  max-width: 900px;
+  margin: 20px auto;
+  overflow-wrap: anywhere;
+}
+
+.discussion-count {
+  margin: 10px 0;
+  text-align: left;
+  color: var(--muted) !important;
+}
+
+.discussion-tools,
+.comment-actions,
+.discussion-form-footer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.discussion-tools {
+  margin: 16px 0;
+}
+
+.discussion-tools label {
+  display: grid;
+  gap: 5px;
+}
+
+.discussion-tools select {
+  font: inherit;
+  background: var(--surface-input);
+  color: var(--ink);
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.discussion-form {
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 8px;
+  margin: 14px 0;
+}
+
+.discussion-form label {
+  display: grid;
+  gap: 10px;
+}
+
+.discussion-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  max-width: 100%;
+  padding: 12px;
+  background: var(--surface-input);
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  font: inherit;
+  color: var(--ink);
+}
+
+.discussion-form-footer {
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.discussion-form-footer>div {
+  display: flex;
+  gap: 8px;
+}
+
+.discussion-form small {
+  color: var(--muted);
+}
+
+.discussion-thread {
+  margin: 20px 0;
+}
+
+.studio-comment {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  margin: 10px 0;
+}
+
+.comment-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.comment-header>div {
+  min-width: 0;
+}
+
+.comment-header a {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.comment-header small {
+  display: block;
+  color: var(--muted);
+  margin: 6px 0;
+  font-size: 12px;
+}
+
+.comment-author-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.comment-actions button {
+  font-size: 13px !important;
+}
+
+.comment-replies {
+  padding-left: 24px;
+  border-left: 2px solid var(--line);
+  margin-left: 16px;
+}
+
+.comment-reply {
+  background: var(--panel);
+}
+
+.comment-header .review-avatar {
+  object-fit: cover;
+}
+
+@media (max-width:600px) {
+  .comment-replies {
+    padding-left: 10px;
+    margin-left: 5px;
+  }
+
+  .studio-comment,
+  .discussion-form {
+    padding: 12px;
+  }
+
+  .comment-author-badge {
+    margin: 4px 0;
+  }
+
+  .comment-header small {
+    line-height: 1.5;
+  }
+
+  .comment-actions {
+    gap: 6px;
+  }
+
+  .discussion-form-footer>div {
+    flex-wrap: wrap;
+  }
+}

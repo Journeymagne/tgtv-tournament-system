@@ -29,7 +29,7 @@ body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 var(--fon
 .email-page #notice:empty { display:none; }
 .email-page #notice.error { color:var(--danger); border-color:var(--danger); }
 .email-page pre { padding:16px; background:var(--surface-well); border:1px solid var(--line); border-radius:var(--button-radius); font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; }
-[hidden] { display:none!important; }
+
 @media(max-width:720px) {
   .email-page { grid-template-columns:minmax(0,1fr); width:calc(100% - 28px); gap:24px; margin:24px auto 32px; }
   .email-page aside { padding:0; }
