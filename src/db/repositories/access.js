@@ -8,7 +8,7 @@ async function ownerId(client) {
 
 async function hydrate(client, user) {
   if (!user) return null;
-  const { rows: [row] } = await client.query(`SELECT u.is_admin, u.can_create_tournaments,
+  const { rows: [row] } = await client.query(`SELECT u.is_admin, u.can_create_tournaments, u.is_faq_moderator,
     u.suspended_until, u.suspension_reason,
     EXISTS (SELECT 1 FROM platform_ownership p WHERE p.owner_user_id=u.id) AS is_super_admin,
     ARRAY(SELECT id FROM tournaments WHERE owner_user_id=u.id
@@ -19,6 +19,7 @@ async function hydrate(client, user) {
   const result = { ...user, isSuperAdmin: row.is_super_admin,
     isAdmin: row.is_admin || row.is_super_admin,
     canCreateTournaments: row.can_create_tournaments,
+    isFAQModerator: row.is_faq_moderator,
     suspendedUntil: row.suspended_until?.toISOString() || null,
     suspensionReason: row.suspension_reason,
     managedTournamentIds: row.managed_tournament_ids };

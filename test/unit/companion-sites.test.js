@@ -12,6 +12,7 @@ const request = (host, url = "/", method = "GET") => ({ headers: { host }, url, 
 test("service paths share a single origin and support ordinary localhost or IP previews", () => {
   assert.equal(sites.urls.tournament, "https://ktcompanion.ru/tournament");
   assert.equal(sites.urls.studio, "https://ktcompanion.ru/studio");
+  assert.equal(sites.urls.faq, "https://ktcompanion.ru/faq");
   for (const origin of ["http://localhost:3002", "http://127.0.0.1:3002"]) {
     const local = buildSites(origin);
     assert.equal(local.urls.initiative, origin + "/initiative");
@@ -22,7 +23,7 @@ test("service paths share a single origin and support ordinary localhost or IP p
 
 test("each service path serves its own entry page without depending on a subdomain", () => {
   for (const host of ["ktcompanion.ru", "127.0.0.1:3002"]) {
-    for (const [pathname, document] of [["/", "home.html"], ["/initiative", "killteam-initiative-calculator.html"], ["/tracker", "killteam-activation-tracker.html"], ["/tournament", "index.html"], ["/studio", "studio/index.html"]]) {
+    for (const [pathname, document] of [["/", "home.html"], ["/initiative", "killteam-initiative-calculator.html"], ["/tracker", "killteam-activation-tracker.html"], ["/tournament", "index.html"], ["/studio", "studio/index.html"], ["/dice", "dice/index.html"], ["/faq", "faq/index.html"], ["/faq/info", "faq/index.html"], ["/faq/conduct", "faq/index.html"]]) {
       assert.equal(rootDocument(request(host, pathname)), document);
       assert.equal(pageDestination(request(host, pathname), null), null);
     }
@@ -32,6 +33,9 @@ test("each service path serves its own entry page without depending on a subdoma
 
 test("old paths and service hosts redirect without losing queries or redirecting API writes", () => {
   assert.equal(pageDestination(request("ktcompanion.ru", "/studio/?resume=abc"), sites), "/studio?resume=abc");
+  assert.equal(pageDestination(request("ktcompanion.ru", "/faq/index.html?entry=community-018"), sites), "/faq?entry=community-018");
+  assert.equal(pageDestination(request("ktcompanion.ru", "/community-faq/conduct/?section=community-002"), sites), "/faq/conduct?section=community-002");
+  assert.equal(pageDestination(request("ktcompanion.ru", "/community-faq/info"), sites), "/faq/info");
   assert.equal(pageDestination(request("ktcompanion.ru", "/killteam-activation-tracker.html?q=1"), null), "/tracker?q=1");
   assert.equal(pageDestination(request("rating.ktcompanion.ru"), sites), "https://ktcompanion.ru/tournament");
   assert.equal(pageDestination(request("studio.ktcompanion.ru", "/?resume=abc"), sites), "https://ktcompanion.ru/studio?resume=abc");
@@ -73,6 +77,9 @@ test("login returns to an exact service origin and rejects external or deceptive
   const source = fs.readFileSync(path.join(__dirname, "../../public/companion-shell.js"), "utf8");
   for (const [next, allowed] of [
     ["https://ktcompanion.ru/studio?resume=guest#editor", true],
+    ["https://ktcompanion.ru/faq#entry=community-018", true],
+    ["https://ktcompanion.ru/faq/conduct", true],
+    ["https://ktcompanion.ru/faq/info", true],
     ["https://studio.ktcompanion.ru/", false],
     ["https://ktcompanion.ru/", true],
     ["https://evil.test/", false],

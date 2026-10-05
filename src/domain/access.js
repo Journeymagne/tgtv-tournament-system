@@ -35,6 +35,7 @@ function tournamentPermissions(user, tournament) {
 function userCapabilities(user) {
   return {
     canOpenAdministration: canOpenAdministration(user),
+    canModerateFAQ: Boolean(user && (isPlatformAdmin(user) || user.isFAQModerator)),
     canCreateTournaments: canCreateTournament(user),
     canManageUsers: isPlatformAdmin(user),
     canManageContent: isPlatformAdmin(user),

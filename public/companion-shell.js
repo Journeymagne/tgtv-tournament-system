@@ -2,7 +2,7 @@
   "use strict";
   const sites = window.KT_SITES || { subdomains: false, urls: {
     home: "/", initiative: "/initiative", tracker: "/tracker",
-    tournament: "/tournament", studio: "/studio", dice: "/dice"
+    tournament: "/tournament", studio: "/studio", dice: "/dice", faq: "/faq"
   } };
   const serviceUrl = name => new URL(sites.urls[name], location.origin).href;
   const path = location.pathname;
@@ -35,7 +35,7 @@
       document.querySelectorAll(".page-shell details[open]").forEach(details => { details.open = false; });
       window.scrollTo(0, 0);
     });
-    title.textContent = ({ home: "KT Companion", account: "Почта и доступ", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Dice Generator" })[active] || "KT Companion";
+    title.textContent = ({ home: "KT Companion", account: "Почта и доступ", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Dice Generator", faq: "TTS Community FAQ" })[active] || "KT Companion";
     brand.append(home, title); mount.append(brand);
     const controls = document.createElement("div"); controls.className = "companion-tools"; mount.append(controls);
     if (window.KTAppearance) {
@@ -141,9 +141,11 @@
     if (!response.ok) throw Error("Не удалось проверить вход. Обновите страницу.");
     const result = await response.json();
     const changedAccount = user !== undefined && (user?.id ?? null) !== (result.user?.id ?? null);
+    const changedFAQAccess = active === "faq" && user !== undefined &&
+      ["isAdmin", "isSuperAdmin", "isFAQModerator"].some(flag => Boolean(user?.[flag]) !== Boolean(result.user?.[flag]));
     setUser(result.user);
     if ((window.KTAccount?.id != null && String(result.user?.id) !== String(window.KTAccount.id)) ||
-        (active === "tournament" && changedAccount)) location.reload();
+        (["tournament", "faq"].includes(active) && changedAccount) || changedFAQAccess) location.reload();
     return result;
   }
   function returnAfterLogin() {
@@ -178,7 +180,7 @@
   }
   window.addEventListener("storage", event => {
     if (event.key === "kt-companion-session-change") {
-      if (active === "tournament" || (active === "studio" && window.KTAccount?.id != null)) location.reload();
+      if (["tournament", "faq"].includes(active) || (active === "studio" && window.KTAccount?.id != null)) location.reload();
       else void session().catch(() => {});
     }
   });

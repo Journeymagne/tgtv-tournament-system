@@ -4,18 +4,20 @@ const { SECURITY_HEADERS } = require("./io");
 
 const ROOT_DOCUMENTS = {
   home: "home.html", initiative: "killteam-initiative-calculator.html",
-  tracker: "killteam-activation-tracker.html", tournament: "index.html", studio: "studio/index.html", dice: "dice/index.html"
+  tracker: "killteam-activation-tracker.html", tournament: "index.html", studio: "studio/index.html", dice: "dice/index.html", faq: "faq/index.html"
 };
 const ALIASES = {
   "/dice/": "dice", "/dice/index.html": "dice",
   "/home.html": "home", "/index.html": "tournament", "/tournament/": "tournament",
   "/studio/": "studio", "/studio/index.html": "studio", "/initiative/": "initiative", "/tracker/": "tracker",
+  "/faq/": "faq", "/faq/index.html": "faq", "/community-faq": "faq", "/community-faq/": "faq",
   "/killteam-initiative-calculator.html": "initiative", "/killteam-activation-tracker.html": "tracker"
 };
 
 function siteName(req) {
   const pathname = new URL(req.url, "http://localhost").pathname;
   if (ALIASES[pathname]) return ALIASES[pathname];
+  if (/^\/(?:faq|community-faq)\/(?:info|conduct)\/?$/.test(pathname)) return "faq";
   if (/^\/(tournaments|teams)\/[^/]+\/?$/.test(pathname)) return "tournament";
   return Object.keys(SERVICE_PATHS).find(name => SERVICE_PATHS[name] === pathname) || null;
 }
@@ -33,7 +35,8 @@ function pageDestination(req, sites = COMPANION_SITES) {
   const url = new URL(req.url, "http://localhost");
   const name = siteName(req);
   if (!name) return null;
-  let pathname = ALIASES[url.pathname] ? SERVICE_PATHS[name] : url.pathname;
+  const faqPage = /^\/(?:faq|community-faq)\/(info|conduct)\/?$/.exec(url.pathname);
+  let pathname = faqPage ? "/faq/" + faqPage[1] : ALIASES[url.pathname] ? SERVICE_PATHS[name] : url.pathname;
   // Keep old service-host bookmarks working when they reach this application.
   if (sites && url.pathname === "/") {
     const canonical = new URL(sites.origin);

@@ -49,6 +49,7 @@ function resolveStaticPath(pathname) {
   if (requested === "/tournament" || requested === "/tournament/") requested = "/index.html";
   if (requested === "/studio" || requested === "/studio/") requested = "/studio/index.html";
   if (requested === "/dice" || requested === "/dice/") requested = "/dice/index.html";
+  if (["/faq", "/faq/", "/community-faq", "/community-faq/", "/faq/conduct", "/faq/conduct/", "/community-faq/conduct", "/community-faq/conduct/", "/faq/info", "/faq/info/", "/community-faq/info", "/community-faq/info/"].includes(requested)) requested = "/faq/index.html";
   if (requested === "/rygau" || requested === "/rygau/") requested = "/rygayu.html";
   // Team profiles use client-side rendering, including on direct visits/reloads.
   if (/^\/teams\/[^/\\]+\/?$/.test(requested)) return path.join(PUBLIC_DIR, "index.html");

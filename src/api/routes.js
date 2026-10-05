@@ -27,6 +27,7 @@ function withAction(handler, action) {
 }
 
 module.exports = [
+  ...require("./faq").routes,
   { method:"GET", path:"/api/auth/email-config", handler:email.config },
   { method:"GET", path:"/api/auth/email", handler:email.status, auth:"user" },
   { method:"POST", path:"/api/auth/email", handler:email.change, auth:"user", tx:true, emailLimit:true, maxBodyBytes:4096 },

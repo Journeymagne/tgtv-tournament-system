@@ -1,0 +1,2761 @@
+{
+  "snapshot": "2026-09-25",
+  "communityVersion": "1.7",
+  "communitySource": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+  "officialDocuments": 48,
+  "importedAt": "2026-10-04T21:43:06.623Z",
+  "entries": [
+    {
+      "id": "community-001",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Правила участия в турнирах",
+      "answer": "Правила и принципы этого раздела **обязательны** к исполнению всеми участниками наших турниров. За их повторяющиеся нарушения вы можете (и будете) отстранены от игр и/или дисквалифицированы с наших мероприятий.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-002",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Don't be a dick!",
+      "answer": "**Don't be a dick!**",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-003",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Всегда будьте вежливы и уважительны",
+      "answer": "Всегда будьте вежливы и уважительны",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-004",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Всегда говорите правду, не скрывайте правду, и не жульничайте",
+      "answer": "Всегда говорите правду, не скрывайте правду, и не жульничайте",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-005",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Знай правила своей команды. Не стесняйся спросить перед игрой, знает ли оппонент твои п…",
+      "answer": "**Знай правила своей команды.** Не стесняйся спросить перед игрой, знает ли оппонент твои правила, и будь готов их рассказать. Напоминай оппоненту о правилах, которые он использовал некорректно, особенно если эти правила могли помочь не тебе, а ему.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-006",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Не обманывай оппонента. Это включает в себя намеренное предоставление ложной информации…",
+      "answer": "**Не обманывай оппонента.** Это включает в себя намеренное предоставление ложной информации, неполной информации или неясно сформулированной информации. Правильно хорошего тона - напомнить о gotcha хотя бы один раз за игру.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-007",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Измеряй движения и расстояния аккуратно и правильно. Не срезай углы при движении. Испол…",
+      "answer": "**Измеряй движения и расстояния аккуратно и правильно**. Не срезай углы при движении. Использовать Императорский Дюйм (довести до 1.1 и уменьшить до 1.0) разрешается **1 раз за игру.**",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-008",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Позволь оппоненту ознакомиться с роллом. Не спеши удалять или убирать кубы.",
+      "answer": "**Позволь оппоненту ознакомиться с роллом**. Не спеши удалять или убирать кубы.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-009",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Не затягивай игру специально. Если твой оппонент хочет играть с часами, ты обязан согла…",
+      "answer": "**Не затягивай игру специально**. Если твой оппонент хочет играть с часами, ты обязан согласиться",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-010",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Не мешай оппоненту в напряженные моменты. Когда он сконцентрирован, не пуш и не торопи …",
+      "answer": "**Не мешай оппоненту в напряженные моменты**. Когда он сконцентрирован, не пуш и не торопи его (кроме случаев нарушения предыдущего пункта)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-011",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Не жалуйся на рандом — по крайней мере во время игры. Если испытываешь сильный тильт – …",
+      "answer": "**Не жалуйся на рандом** — по крайней мере во время игры. Если испытываешь сильный тильт – прочти мантру против тильта.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-012",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Обговаривайте террейн. Если база куда-то не пролезает, проговорите это перед расстановк…",
+      "answer": "**Обговаривайте террейн.** Если база куда-то не пролезает, проговорите это перед расстановкой – так вам обоим будет удобно.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-013",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Как правильно рероллить кубы?",
+      "answer": "Если вы кинули неверное количество кубов (не важно, больше или меньше) - ПОЛНОСТЬЮ перекиньте ролл с правильным количеством кубов.\n\nНе торопитесь, дайте оппоненту увидеть результат и подтвердить, что он не будет использовать какое-нибудь свое правило на модификацию ролла, прежде резолвить кубы или рероллить.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.h1pz7wd852fg",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-014",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Как лучше называть комнаты в ТТС?",
+      "answer": "Комната KT123, пароль 123. Так всем удобнее залетать в комнату, особенно потенциальным стримерам и менторам.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.dxvuughhy2zh",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-015",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Про микрофоны и голосовое общение",
+      "answer": "Если вы хотите играть в Tabletop Simulator – жесткая просьба обеспечить нормальный звук – хотя бы на уровне недорогой гарнитуры. Моя рекомендация – недорогие наушники от Logitech – g435 моя гоу-ту дешевая гарнитура для онлайна.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.a7avls12qyik",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-016",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Как пользоваться часами",
+      "answer": "15 минут перед первым Determine Initiative Step общего времени на подготовку к игре и Scouting.\n\n1:00 на игрока, Кликаете таймер когда вы активно принимаете решения. Пример розыгрыша:\n\nИгрок А кликает часы, передавая активацию Игроку Б.\n\nИгрок Б двигает модель и заявляет стрельбу. Если Игрок А хочет внимательней проверить ЛОС, Игрок Б кликает часы.\n\nИгрок Б стреляет, кидает кубы, реролит, кликает часы. Игрок А кидает дефенс, принимает решения на стратагемы и рероллы, кликает часы.\n\nМодель получает вунды, убирается, Игрок Б кликает часы, передавая активацию.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.e2shx9rtbaq2",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "community-017",
+      "category": "info",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Действия и способности",
+      "question": "Направляющие принципы FAQ",
+      "answer": "В общем случае, RAW должен играться как RAW. Однако есть предельные ситуации, связанными с поломанностью механик, международной солидарностью или чем-то иным, в которых мы принимаем RAI и будем использовать его.\n\n***Условные обозначения:***\n\n*RAW* *- просто разъяснение правил в соответствии с Rules as Written;*\n\n*Правка* *- исправление очевидной нам ошибки, допущенной ГВ;*\n\n*Спор* *- спорная ситуация без определенного решения, в случае которого происходит судейский произвол, а иногда и полная корректировка спорного момента;*\n\n*Произвол* *- турнирная условность, принятая лишь для соблюдения спортивного баланса.*\n\n*Таким образом будут выделены свежие изменения*",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.tro97qfb54vf",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-018",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Seek и Суперконсил",
+      "answer": "Как взаимодействуют Seek и правила, позволяющие игнорировать выбор оперативника валидной целью (Blinding Aura, One With The Gloom)?\n\nРешение: Правила “while that operative has a Conceal order and is in cover, it cannot be selected as a valid target, taking precedence over all other rules (e.g. Vantage terrain)” (Далее “Суперконсил”) позволяют игнорировать правило **Seek** для определения валидности цели.\n\nSeek гласит “When selecting a valid target, operatives with a Conceal order cannot use terrain for cover”. Аналогичное правило Vantage, специфически указанное для игнорирования в Суперконсиле, имеет аналогичный вординг:По \n\n![Иллюстрация из community FAQ](/faq/source-images/c7bd84a2d0d7b8bc.png)\n\nПо прецеденту считается что аналогичные правила работают идентично.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.ijrvf5z5tlvd",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-019",
+      "category": "community",
+      "rulingType": "Спор",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Действия и способности",
+      "question": "Действия и их преждевременная остановка",
+      "answer": "Как взаимодействуют эффекты, останавливающие действия до их полного выполнения, и уникальные действия, указывающие в себе несколько отдельных действий? (Stealth Attack и попадание в гномскую мину)\n\n**Решение:** Уникальные действия, включающие в себя несколько разных действий, считаются завершенными после выполнения всех отдельных под-действий. При этом, если эффект насильственно останавливает только отдельные под-действия, а не всё уникальное действие целиком.\n\nЯ считаю, остановить можно только уникальные действия, не состоящие из нескольких частей. В момент заявления Stealth Attack – оно “распадается” на два отдельных действия, и оказавшись в течении **Charge** в контрол рейндже мины, остановиться может только это отдельное действие.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.2wllzfnydsth",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-020",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Атака и урон",
+      "question": "Можно ли за Devastating сделать модель Wounded и получить реролл",
+      "answer": "**Решение:** Нет, потому что урон от правила Devastating вносится на этапе ретейна критов, который проходит после этапа рероллов.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.vga2y0nl6vir",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-021",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Движение",
+      "question": "Можно ли делать Climb вниз",
+      "answer": "**Решение:** Нет, потому что ограничение содержится в самом переводе слова Climb. Можно попробовать притянуть за уши факт отсутствия ограничение в самом правиле, но при наличии контр-действия (Drop), аргумент такой мы не засчитываем.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.tla8y9dd5sa",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-022",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Атака и урон",
+      "question": "Является ли урон с правила Devastating уроном с куба",
+      "answer": "**Решение:** нет, в новой редакции четко прописано Normal dmg stat и Critical dmg stat - и урон за спецправила не является ни первым, ни вторым. Соответственно, на девастейтинг не работают понижения урона (и не кидается новый вид ФНП второй раз).",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.z4ghfr89y33n",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-023",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Атака и урон",
+      "question": "Кто выбирает очередность резолва кубиков в атаку в стрельбе?",
+      "answer": "**Решение:** В последнем датаслейте прояснили - кубы заносятся одновременно, и ДЕФЕНДЕР решает очередность занесения кубов (может выбрать куб, на который юзанёт свою абилку).",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.sccr3n4yjqr6",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-024",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Атака и урон",
+      "question": "Гард и двойная стрельба с оружием с условием",
+      "answer": "**Решение:** прояснено в новом датаслейте\n\n![Иллюстрация из community FAQ](/faq/source-images/97d6e74c407fa529.png)\n\n![Иллюстрация из community FAQ](/faq/source-images/8e8d1304c3c4d2d4.png)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.t22fvz93tfcy",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-025",
+      "category": "community",
+      "rulingType": "Спор",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Действия и способности",
+      "question": "Как же сетапятся оперативники??????",
+      "answer": "![Иллюстрация из community FAQ](/faq/source-images/4b572e171c76aff7.png)\n\n**Решение**: Есть ли хоть какая разница? Я думаю, нет. Поэтому для единства игры будем считать так: мы обязаны деплоить **наибольшими** частями (оставляя наименьшую напоследок).\n\nПример: клинки кхейна будут деплоиться **3-3-2**, а не 3-2-3",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.v84f5kkzp3ya",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-026",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Движение",
+      "question": "Что считать убийством для friendly operative (морталки на чардже, Poison, etc.)?",
+      "answer": "**Решение**: Мы считаем все смерти даже от косвенных причин (яды, морталке на выкапывании/чардже и т.д.) как смерть от friendly operative, то есть все такопы и абилки на это связанные РАБОТАЮТ.\n\nОтветственность за мониторингом на ком чей пойзон токен лежит на игроке, который этот пойзон токен кладет.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.sixhvkysb9j",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-027",
+      "category": "community",
+      "rulingType": "Спор",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Как считается Visibility модели сквозь себя",
+      "answer": "**Решение**: Ради избежания кучи кринжовых ситуаций (типа орков, которые не видят \"назад\"), при проверки на Visible из головы модели вся остальная её часть **игнорируется** (включая базу)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.e6vmktwzkfuh",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-028",
+      "category": "community",
+      "rulingType": "Произвол",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "WTC Terrain прояснения",
+      "answer": "![Иллюстрация из community FAQ](/faq/source-images/a610d7e9a9215195.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/96ca3e8693082e2e.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/4a21ea715de435ba.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/8318c7fa377e236c.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/77cc75a3938acd79.png)\n\n- Потолки всех руин имеют keyword **Ceiling** - высокие модели (патриарх, иконы, ветрилокары) могут проходить под ними свободно, главное заканчивать мувы в валидном месте\n\n- Какой каверлайн - по такой линии и должен быть первый дюйм выхода из ковра\n\n- Walls/Pillars - 3'' **Climb**, 1'' **Drop**.\n\n- Ruins - 3\" **Climb**, 4\" с стороны Rampart, **Drop** - 1\" без Рампарта (включая дырку в Рампарте), через Рампарт - 2\" **Climb**, 2\" **Drop**\n\n- Doors игнорируются для Control Range.\n\n- Так как маленький Crate - accessible terrain, то в 2х дюймах от него нельзя сетапить свой террейн (баррикады/мины и т.д.)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.36wt8j0hg16",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-029",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Как клаймбить большие руины на Chalnath",
+      "answer": "**Решение**: У вас есть два варианта, игрок может выбрать любой:\n\n- Забраться по обычным правилам. Обычный клаймб, на который будут работать плойки/абилки на мобильность и т.д.\n\n- Забраться за 4 дюйма. Эта дистанция не модифицируется.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.x5mqt8bi1k9s",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-030",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Маркеры и ресурсы",
+      "question": "Можно ли класть токены на любую часть видимой вантажки (даже если виден один пиксель)",
+      "answer": "**Решение**: Да. Звучит чутка раково, но это РАВ и пока нет причин думать, что ГВ задумывало это как-то по другому. Ну и давайте не нерфать шрека хрю…\n\n![Иллюстрация из community FAQ](/faq/source-images/09c250d21ccc4488.png)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.l7yjs91p0pmv",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-031",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Можно ли ставить (и лочить) лестницу в вертикальном положении",
+      "answer": "**Решение**: Да, в корбуке нет никаких ограничений на то, что лестница должна \"облакачиваться\" на террейн, поэтому для простоты использования можно лочить лестницы в вертикальном положении, чтобы они не падали.\n\n![Иллюстрация из community FAQ](/faq/source-images/3c341e5f6fb2975f.png)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.6wj9i14dakgw",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-032",
+      "category": "community",
+      "rulingType": "Произвол",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "ITD и стрельба в щель между открытой дверью и стенами",
+      "answer": "**Решение**: Формально, между открытой дверью и стеной есть щель, через которую можно видеть модели и даже стрелять. Но это особенность перенесённого в ТТС ИТД - на реальном столе двери более квадратные и там нет такой щели.\n\nСледовательно, мы **ИГНОРИРУЕМ** визибилити через эти щели",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.atahgzq6wdjb",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-033",
+      "category": "community",
+      "rulingType": "Произвол",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "ITD и что мы считаем terrain feature для абилок и каврообскура",
+      "answer": "**Решение**: Пока не будет прояснений от ГВ, считаем весь за одну terrain feature всё, что соединено (то есть на большинстве карт будет всего одна terrain feature на всю карту)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.7cg8t8gas7uq",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-034",
+      "category": "community",
+      "rulingType": "Произвол",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Действия и способности",
+      "question": "Можно ли бегать по баррикадам/стенам/нервам Фиора",
+      "answer": "**Решение**: **НЕТ!!!!!** Это означает, что нельзя менять направление движения во время траверса, нельзя залезть/спрыгнуть со стены/баррикады/любого террейна, предварительно не залезая на него. Без абузов!",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.9rk8caqf1t46",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-035",
+      "category": "community",
+      "rulingType": "Спор",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Как получить кавер от террейна",
+      "answer": "**Решение**: По рулингу для официального WCW:\n\n- В ситуации 1 при стрельбе по оперативнику **В**, он будет в хэви кавре\n\n- В ситуации 2 - в лайт кавре\n\nНа Чалнате от Верняка считаем, что работает ситуация 1.\n\n![Иллюстрация из community FAQ](/faq/source-images/d5efd8cb65b1424a.png)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.q6gp8j5ttytm",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-036",
+      "category": "community",
+      "rulingType": "Спор",
+      "teams": [
+        "Corsair Voidscarred"
+      ],
+      "topic": "Движение",
+      "question": "Как работает Slicing Attack",
+      "answer": "*Вопроса два: можно ли слайсить через стены на ИТД, и считаем ли мы расстояние в 2д или 3д*\n\n**Решение:** Во время слайсинг атаки мы используем Warp Jump, а поэтому получаем все преимущества этой абилку. Поэтому слайсить **МОЖНО** сквозь стены на ИТД, и измеряем мы расстояние в **2Д.**",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.og3a9y26sok6",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-037",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Corsair Voidscarred"
+      ],
+      "topic": "Атака и урон",
+      "question": "Может ли Феларх за свой бесплатный файт во время прерывания сделать Door Fight?",
+      "answer": "Да, может. По аналогии с прошлой редакции, бесплатный файт позволяет сделять бесплатно любое действие которое считается файтом, включая Door Fight на Волкусе.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.zgasxw480qxn",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-038",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Corsair Voidscarred"
+      ],
+      "topic": "Действия и способности",
+      "question": "Rejuvent Adept не тратит APL, при воскрешении кого-то за правило Medic!, в отличие от всех остальных медиков, это ок?",
+      "answer": "Да, всё ок. Нет однозначных свидетельств, что это опечатка, играем как есть.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.xvljadva3pm9",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-039",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Exaction Squad"
+      ],
+      "topic": "Действия и способности",
+      "question": "Execution Order, Leashmaster и собака.",
+      "answer": "Можно ли использовать Execution Order чтобы активировать Leashmaster вместе с R-VR Cyber-Mastiff? Кто обязан атаковать цель Execution Order?\n\n**Решение**: Можно использовать, Leashmaster должен завершить активацию после собаки. Только Leashmaster обязан атаковать цель плойки.\n\nАктивация заканчивается тогда, когда игрок решает что она закончилась **(Core Rules, стр. 39 Expanded)**. Параллельная активация собаки не нарушает активацию мастера, а происходит вместе с ней, следовательно она лишь должна закончить свою активацию раньше, чтобы соблюсти условие плойки на continue that enemy operative’s activation. При этом собака не является оперативником, который был активирован условием плойки, а значит не должна соблюдать рестрикшн, который в ней перечислен (обязательную атаку цели плойки).",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.5vdz5l5fjt6j",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-040",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Exaction Squad"
+      ],
+      "topic": "Действия и способности",
+      "question": "Порядок активации при убийстве за Execution order",
+      "answer": "Решение: Если вы активировали за плойку арбитра и НЕ убили вражескую модель, то оппонент обязан продолжить активацию того, кого заявил изначально.\n\nЕсли же вы убили вражескую модель, следующая активация снова за Арбитром\n\n![Иллюстрация из community FAQ](/faq/source-images/f52238de62925925.png)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.f98o1gjnx5nf",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-041",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Kasrkin"
+      ],
+      "topic": "Действия и способности",
+      "question": "Medic и Medikit за 0",
+      "answer": "Решение: Medikit стоит 0 APL\n\nНет однозначных свидетельств, что это опечатка, играем как есть.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.9yt5gjluz32",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-042",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Kasrkin"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Cover Retreat",
+      "answer": "Можно ли стрелять не в ту цель, от которой отступал френдли операвитивник, или в любую?\n\nРешение: В любую можно, ограничения нет",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.umx4ks31jqwe",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-043",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Vespid Stingwings"
+      ],
+      "topic": "Движение",
+      "question": "Могут ли мухи на контеракте двигаться на полный мув",
+      "answer": "**Решение:** нет, мув - это мув, малый, великий, пропорции условны, а границы размыты. Я не святой мухолов, не только на варпковене играл. Но если придётся выбирать, двигаться на 2 на контеракте или на 6, я предпочту двигаться на 2.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.jly1wuhqlsfo",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-044",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Plague Marines"
+      ],
+      "topic": "Атака и урон",
+      "question": "Даёт ли нанесенный во время файта/шута Poison бонус для Toxic?",
+      "answer": "**Решение:** Нет, потому что Toxic даёт бонусы только в момент использования оружия - то есть на этапе выбора пушки. В процессе резолва кубов бонус не будет применяться\n\n![Иллюстрация из community FAQ](/faq/source-images/7922d39476c28637.png)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.3lhfn9dwpt9l",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-045",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Hernkyn Yaegirs"
+      ],
+      "topic": "Действия и способности",
+      "question": "Получает ли ганнер егерей сизлесс если стреляет столворт дефенсом?",
+      "answer": "**Решение**: Да, получает, ЕСЛИ он не двигался в активации этого хода. Это работает и на гарды, и на контеракты, и на стрельбу вне активации (за плойку).\n\n![Иллюстрация из community FAQ](/faq/source-images/21cae8b55bb159d7.png)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.m3u1herl2s0a",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-046",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Wolf Scouts"
+      ],
+      "topic": "Движение",
+      "question": "Как крутится база волчары во время движения?",
+      "answer": "![Иллюстрация из community FAQ](/faq/source-images/80726e2d7f377f20.png)\n\n**Решение:** ГВ дало прояснение, к сожалению, очень сложно-применимое в реальности. Поэтому для простоты применения, будем пользоваться легкой аппроксимацией этого руллинга:\n\n**Каждые 45 градусов поворота базы волка стоят 1 дюйм его мува.**\n\nПример: В начале мува волк повернул базу на 90 градусов - заплатил 2 дюйма штрафа, в конце на 45 градусов - заплатил ещё 1 дюйм штрафа. В сумме его общий мув будет на 3 дюйма меньше",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.g8tz6byjk0iw",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-047",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "XV26 Stealth Battlesuits"
+      ],
+      "topic": "Маркеры и ресурсы",
+      "question": "Фармятся ли КП за бикон, когда его несёт Лоадстар (пока он его не положил на стол)",
+      "answer": "**Решение:** Оперативник, который носит токен, его контролирует. Но для фарма кп этот бикон должен быть на Killzone, а это значит, что пока его несёт Лоадстар, фарма кп не будет, так как бикона на столе нет.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.2owve89zn1k",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-048",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "XV26 Stealth Battlesuits"
+      ],
+      "topic": "Движение",
+      "question": "Чардж с флаем и отпрыг за плойку",
+      "answer": "Вординг флая позволяет убрать модель по стола и поставить в некой максимальной дистанции от первоначального положения, но никакого «остаточного» мува после этого не остается, даже если вы засетапили модель не 8-ми максимально возможных дюймах (как пример), а в 6-ти.\n\nПоэтому после отпрыга стелса за плойку, дочарджить не получится, флай тратит весь мув.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.jkvlplqe7yus",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-049",
+      "category": "community",
+      "rulingType": "Произвол",
+      "teams": [
+        "Tempestus Aquilons"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Откуда считается визибл туррельки в ТТСе",
+      "answer": "**Решение:** Туррель в ТТСе на голову ниже той, что реально идет в коробке, поэтому визибл можно считать от всего купола, не только черепка.\n\n![Иллюстрация из community FAQ](/faq/source-images/502d825fb2dc9f24.png)",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.b33wxp9715bx",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-050",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Spectre Squad"
+      ],
+      "topic": "Действия и способности",
+      "question": "Смена приказа и Sniper Overwatch",
+      "answer": "Вопрос: Можно ли поменять приказ за правила **Load Weapon** или **Elite Fieldcraft** на **Conceal** и совершить выстрел **sniper overwatch**?\n\n![Иллюстрация из community FAQ](/faq/source-images/de6937a7ad9827fe.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/0b7eeec87104db93.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/ddd88bf57b2af678.png)\n\nРешение: **Можно**, это прямой РАВ",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.2p6hipdbmvwm",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-051",
+      "category": "community",
+      "rulingType": "RAW",
+      "teams": [
+        "Pathfinders"
+      ],
+      "topic": "Маркеры и ресурсы",
+      "question": "Как работает сик на пятом маркерлайте",
+      "answer": "![Иллюстрация из community FAQ](/faq/source-images/b68752c107073794.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/2cefd11081f133f0.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/251ce368ef545061.png)\n\nВопрос: Можно ли обычное действие Markerlight положить на модель 5 маркеров, несмотря на ограничение в самом правиле (максимум - 4)?\n\nРешение: Нельзя. Единственный способ получить полный сик за пятый маркерлайт - воспользоваться эквипом при стрельбе по цели, которая УЖЕ имеет 4 маркерлайта. Такова наша общая позиция с мировым коммьюнити",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.gukch5sn1i9w",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    },
+    {
+      "id": "community-052",
+      "category": "conduct",
+      "rulingType": "Этикет",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Этика и организация",
+      "question": "Мантра против тильта",
+      "answer": "Я не должен тильтовать. Тильт — убийца разума. Тильт — это маленькая смерть, влекущая за собой полное поражение. Я встречусь лицом к лицу со своим Тильтом. Я позволю ему пройти через меня. И, когда он уйдет, я обращу свой внутренний взор на свою горящую жопу. Там, где был тильт, не будет ничего. Останется только пиздеть на кубы.",
+      "images": [],
+      "sourceLabel": "TTS Community FAQ · v1.7",
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.lfpmju5e7sol",
+      "sourceVersion": "1.7",
+      "sourceDate": null,
+      "sourceSection": "Code of Conduct"
+    },
+    {
+      "id": "official-battleclade-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Battleclade"
+      ],
+      "topic": "Действия и способности",
+      "question": "If a friendly operative has counteracted as a result of the Noospheric Network faction rule, can it go on guard later in the turning point during its activation?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_battleclade_online_rules-crotgv4bz2-4lvylnxlku.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Battleclade"
+    },
+    {
+      "id": "official-battleclade-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Battleclade"
+      ],
+      "topic": "Атака и урон",
+      "question": "Does the Remote Access firefight ploy allow the friendly TECH-PRIEST operative to place a marker within 4”, rather than within its control range?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_battleclade_online_rules-crotgv4bz2-4lvylnxlku.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Battleclade"
+    },
+    {
+      "id": "official-battleclade-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Battleclade"
+      ],
+      "topic": "Движение",
+      "question": "When using the System Exorcism firefight ploy to remove a rules effect where multiple identical tokens can be given to an operative (e.g. HEARTHKYN SALVAGER Grudge), do I remove all of those tokens or one?",
+      "answer": "All of those tokens.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_battleclade_online_rules-crotgv4bz2-4lvylnxlku.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Battleclade"
+    },
+    {
+      "id": "official-battleclade-4",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Battleclade"
+      ],
+      "topic": "Атака и урон",
+      "question": "How does the System Exorcism firefight ploy interact with rules that apply an effect to operatives only while they are within a specific area (e.g. DEATH KORPS Gas Bombardment)?",
+      "answer": "System Exorcism has no effect in these scenarios.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_battleclade_online_rules-crotgv4bz2-4lvylnxlku.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Battleclade"
+    },
+    {
+      "id": "official-battleclade-5",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Battleclade"
+      ],
+      "topic": "Действия и способности",
+      "question": "Can you NETWORK COUNTERACT if your opponent doesn’t have any ready operatives remaining to activate?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_battleclade_online_rules-crotgv4bz2-4lvylnxlku.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Battleclade"
+    },
+    {
+      "id": "official-battleclade-6",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Battleclade"
+      ],
+      "topic": "Атака и урон",
+      "question": "If my opponent uses a rule that would cancel or interrupt when I would activate an operative (e.g. NEMESIS CLAW Vox Scream, MANDRAKE DIRGEMAW Haunting Focus), can I use the System Exorcism firefight ploy to stop my opponent’s rule from taking effect?",
+      "answer": "Yes. System Exorcism can be used anywhere within the ‘would activate’ rule resolution order, including before interrupt effects or after firefight ploys, taking precedence over such rules and the player with the initiative deciding.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_battleclade_online_rules-crotgv4bz2-4lvylnxlku.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Battleclade"
+    },
+    {
+      "id": "official-blades-of-khaine-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Blades of Khaine"
+      ],
+      "topic": "Атака и урон",
+      "question": "If I use the Rain of Tears Howling Banshee ASPECT TECHNIQUE but am prevented from performing a free Fall Back action as a result of my opponent’s rules (e.g. NEMESIS CLAW Chain Snare), what happens?",
+      "answer": "The ASPECT TECHNIQUE is still used. The fight sequence ends, but that BLADES OF KHAINE HOWLING BANSHEE operative remains in its current location.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_29-04_killl_team_team_rules_blades_of_khaine-p7jsqt6jno-y4kh2lus1f.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-04-29",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Blades of Khaine"
+    },
+    {
+      "id": "official-blades-of-khaine-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Blades of Khaine"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "If I use the Strike and Fade Striking Scorpion ASPECT TECHNIQUE, could an opponent interrupt my activation (e.g. as a result of the Guard action) before I change that BLADES OF KHAINE STRIKING SCORPION operative’s order to Conceal?",
+      "answer": "No, but they can interrupt before that STRIKING SCORPION operative performs the free Dash action.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_29-04_killl_team_team_rules_blades_of_khaine-p7jsqt6jno-y4kh2lus1f.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-04-29",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Blades of Khaine"
+    },
+    {
+      "id": "official-blades-of-khaine-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Blades of Khaine"
+      ],
+      "topic": "Движение",
+      "question": "If an operative is able to perform two Shoot actions in an activation and uses the Slicing Hurricane Dire Avenger ASPECT TECHNIQUE, can it perform both Shoot actions during the same Reposition action?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_29-04_killl_team_team_rules_blades_of_khaine-p7jsqt6jno-y4kh2lus1f.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-04-29",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Blades of Khaine"
+    },
+    {
+      "id": "official-brood-brothers-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Brood Brothers"
+      ],
+      "topic": "Атака и урон",
+      "question": "How does the Ruthless Coordination firefight ploy interact with an enemy WOLF SCOUT operative that’s obscured by the RUNE PRIEST SKJALD operative’s Call the Storm action, when the other friendly BROOD BROTHER operative that intervening is determined from is within 3” of that enemy operative?",
+      "answer": "That WOLF SCOUT operative is not obscured by Call the Storm in this scenario.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_brood_brothers_online_rules-ztviivggwv-tdvilxxaue.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 13,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Brood Brothers"
+    },
+    {
+      "id": "official-brood-brothers-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Brood Brothers"
+      ],
+      "topic": "Действия и способности",
+      "question": "If my operative isn’t injured at the start of the action and then is incapacitated, when rolling a D6 for the Cult Devotion strategy ploy, do I worsen the Hit stat of the weapon by 1 as a result of being injured?",
+      "answer": "No, as an operative’s stats don’t change during an action.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_brood_brothers_online_rules-ztviivggwv-tdvilxxaue.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 13,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Brood Brothers"
+    },
+    {
+      "id": "official-brood-brothers-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Brood Brothers"
+      ],
+      "topic": "Атака и урон",
+      "question": "How does the Ruthless Coordination firefight ploy interact with an enemy operative that’s wholly within an area of smoke, when the friendly operative that intervening is determined from is within 2\" of that enemy operative?",
+      "answer": "Smoke grenades and similar rules (e.g. MANDRAKE Weave Darkness) have no effect in this scenario.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_brood_brothers_online_rules-ztviivggwv-tdvilxxaue.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 13,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Brood Brothers"
+    },
+    {
+      "id": "official-canoptek-circle-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Canoptek Circle"
+      ],
+      "topic": "Маркеры и ресурсы",
+      "question": "If a TOMB CRAWLER incapacitates an enemy HIEROTEK CIRCLE operative as a result of the *Dimensional Banishment weapon rule, does that enemy operative have a Reanimation token set up for it?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 8",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_canoptek_circle_online_rules-oyuqtupnb7-kwrjrlduzv.pdf#page=8",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 8,
+      "sourceSection": "RULES COMMENTARY AUGUST ’26",
+      "sourceTeam": "Canoptek Circle"
+    },
+    {
+      "id": "official-canoptek-circle-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Canoptek Circle"
+      ],
+      "topic": "Маркеры и ресурсы",
+      "question": "In the example provided in this team’s rules where all three OBELISK NODE markers are within 6\", is the ‘area between’ these markers the entire triangle or just the 20mm wide lines directly between the markers?",
+      "answer": "The 20mm wide lines.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_canoptek_circle_online_rules-oyuqtupnb7-kwrjrlduzv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Canoptek Circle"
+    },
+    {
+      "id": "official-canoptek-circle-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Canoptek Circle"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "When OBELISK NODE markers are moved, are they affected by Accessible terrain, Obstructing terrain, climbing or dropping?",
+      "answer": "No, but note that they cannot move through Wall terrain.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_canoptek_circle_online_rules-oyuqtupnb7-kwrjrlduzv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Canoptek Circle"
+    },
+    {
+      "id": "official-canoptek-circle-4",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Canoptek Circle"
+      ],
+      "topic": "Маркеры и ресурсы",
+      "question": "When determining control from an OBELISK NODE marker using the CANOPTEK CIRCLE GEOMANCER’s Obelisk Node Control rule, do I use the GEOMANCER’s APL stat to determine control?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_canoptek_circle_online_rules-oyuqtupnb7-kwrjrlduzv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Canoptek Circle"
+    },
+    {
+      "id": "official-canoptek-circle-5",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Canoptek Circle"
+      ],
+      "topic": "Атака и урон",
+      "question": "How should I resolve it if I attempt to use a strategy ploy using the Nodal Response firefight ploy, but that strategy ploy is cancelled by an opponent’s rule (e.g. INQUISITORIAL AGENT Absolute Authority)?",
+      "answer": "You can either use a different strategy ploy, or have the CP for both that strategy ploy and Nodal Response refunded.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_canoptek_circle_online_rules-oyuqtupnb7-kwrjrlduzv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Canoptek Circle"
+    },
+    {
+      "id": "official-canoptek-circle-6",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Canoptek Circle"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "In a killzone that uses the close quarters rules, is the OBELISK NODE MATRIX measured through Wall terrain?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_canoptek_circle_online_rules-oyuqtupnb7-kwrjrlduzv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Canoptek Circle"
+    },
+    {
+      "id": "official-canoptek-circle-7",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Canoptek Circle"
+      ],
+      "topic": "Действия и способности",
+      "question": "If all three WARRIOR operatives are incapacitated, can I still set one up as a STRATEGIC GAMBIT using the A Ceaseless Scuttling rule?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_canoptek_circle_online_rules-oyuqtupnb7-kwrjrlduzv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Canoptek Circle"
+    },
+    {
+      "id": "official-canoptek-circle-8",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Canoptek Circle"
+      ],
+      "topic": "Действия и способности",
+      "question": "If another CANOPTEK CIRCLE WARRIOR operative is set up as a result of the A Ceaseless Scuttling rule, does it count as a new operative for the purposes of other rules (e.g. HAND OF THE ARCHON SKYSPLINTER ASSASSIN Omen)?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_canoptek_circle_online_rules-oyuqtupnb7-kwrjrlduzv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Canoptek Circle"
+    },
+    {
+      "id": "official-canoptek-circle-9",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Canoptek Circle"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "In killzones that use the close quarters rules, how do I measure the horizontal area between my OBELISK NODE markers to create my OBELISK NODE MATRIX if there is Wall terrain partially intervening between them?",
+      "answer": "You cannot measure between your OBELISK NODE markers if Wall terrain is intervening. This means the OBELISK NODE MATRIX does not curve around walls, it must be a single straight line.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_canoptek_circle_online_rules-oyuqtupnb7-kwrjrlduzv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Canoptek Circle"
+    },
+    {
+      "id": "official-canoptek-circle-10",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Canoptek Circle"
+      ],
+      "topic": "Маркеры и ресурсы",
+      "question": "When using the Matrix Manipulator faction equipment to measure my OBELISK NODE MATRIX, do I measure a 20mm wide line (as with all other markers) straight to the CANOPTEK CIRCLE GEOMANCER’s 50mm base, or do I measure a widening shape to all facing parts of its 50mm base?",
+      "answer": "A widening shape to all facing parts of its base.",
+      "images": [
+        {
+          "src": "/faq/source-images/gw-canoptek-circle-10.png",
+          "caption": "Схемы из официального источника · PDF p. 10"
+        }
+      ],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_canoptek_circle_online_rules-oyuqtupnb7-kwrjrlduzv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Canoptek Circle"
+    },
+    {
+      "id": "official-celestian-insidiants-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Celestian Insidiants"
+      ],
+      "topic": "Действия и способности",
+      "question": "Can an operative within 3\" of a CELESTIAN INSIDIANT operative be selected for a PSYCHIC rule or action by another operative outside that distance?",
+      "answer": "No. An operative cannot benefit from, be selected for, or in any way use a PSYCHIC rule while within range of a CELESTIAN INSIDIANT operative. All PSYCHIC rules have absolutely no effect within the distance specified by the Weapons of the Witch Hunter faction rule.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_celestian_insidiants_online_rules-lqzptdkmld-qrehe4wai4.pdf#page=9",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 9,
+      "sourceSection": "RULES COMMENTARY AUGUST ’26",
+      "sourceTeam": "Celestian Insidiants"
+    },
+    {
+      "id": "official-corsair-voidscarred-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Corsair Voidscarred"
+      ],
+      "topic": "Атака и урон",
+      "question": "If a STARSTORM DUELLIST is on guard and I interrupt an activation to perform a Shoot action against an enemy operative within its control range, can I use its Quick on the Trigger rule to perform the Shoot action normally, or must it be a point-blank shot?",
+      "answer": "The former – you can perform the Shoot action normally.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-01_kill_team_team_rules_corsair_voidscarred-3war9i1i61-vjohvdpcb9.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-01-28",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Corsair Voidscarred"
+    },
+    {
+      "id": "official-exaction-squad-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Exaction Squad"
+      ],
+      "topic": "Движение",
+      "question": "When using the Marked for Justice STRATEGIC GAMBIT, if my mark is incapacitated while shooting multiple operatives during an action (e.g. as a result of the Blast or Torrent weapon rules), when do I select a new operative to be my mark?",
+      "answer": "At the end of that action, after incapacitated operatives are removed.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_exaction_squad_online_rules-w6tqairoed-qhpndqu8fq.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-06-17",
+      "sourcePage": 10,
+      "sourceSection": "RULES COMMENTARIES JUNE ’26",
+      "sourceTeam": "Exaction Squad"
+    },
+    {
+      "id": "official-exaction-squad-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Exaction Squad"
+      ],
+      "topic": "Атака и урон",
+      "question": "If a friendly operative attempts to shoot or fight against the specified enemy operative in the Execution Order firefight ploy, but is prevented from doing so by an opponent’s rule (e.g. SANCTIFIER Confessor Commanding Declamation, NOVITIATE Blinding Aura), is that friendly operative’s activation still cancelled?",
+      "answer": "No. Continue its activation as though the requirements of the Execution Order firefight ploy have been fulfilled.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_exaction_squad_online_rules-w6tqairoed-qhpndqu8fq.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-06-17",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Exaction Squad"
+    },
+    {
+      "id": "official-exaction-squad-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Exaction Squad"
+      ],
+      "topic": "Действия и способности",
+      "question": "When using the Guilt Reveals Itself strategy ploy, if my opponent has a rule that says it cannot be selected as a valid target, taking precedence over all other rules except being within 2\" (e.g. HERNKYN YAEGIR In Position), does this increase the 2\" distance exception to 4\"?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_exaction_squad_online_rules-w6tqairoed-qhpndqu8fq.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-06-17",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Exaction Squad"
+    },
+    {
+      "id": "official-exaction-squad-4",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Exaction Squad"
+      ],
+      "topic": "Атака и урон",
+      "question": "My LEASHMASTER and R-VR CYBER-MASTIFF operatives are activating simultaneously as a result of the Handler rule. Can I use the Brutal Backup firefight ploy to select one of those operatives that has already performed a Fight action during that activation to fight again?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_exaction_squad_online_rules-w6tqairoed-qhpndqu8fq.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-06-17",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Exaction Squad"
+    },
+    {
+      "id": "official-exodite-dragon-masters-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "When I determine visibility for a MOUNTED operative, should it be from the head of the rider or the mount?",
+      "answer": "Either – you can choose.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 13,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Действия и способности",
+      "question": "Can MOUNTED operatives be wholly within areas of smoke (e.g. smoke grenades from universal equipment)?",
+      "answer": "No, even if there are multiple areas of smoke combined.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 13,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Движение",
+      "question": "If a MOUNTED operative moves through razor wire universal equipment, does it count as ‘crossing over’ for that equipment (i.e. do you treat the distance as an additional 1\")?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 13,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-4",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Действия и способности",
+      "question": "In Killzone: Tomb World, can MOUNTED operatives use a teleport pad to teleport?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 13,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-5",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Движение",
+      "question": "In Killzone: Tomb World, if an operative teleports and a MOUNTED operative is on the teleport pad it would teleport to, what happens?",
+      "answer": "Move the MOUNTED operative the minimum distance possible to allow the other operative to be the only operative on the teleport pad.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 13,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-6",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Движение",
+      "question": "In a Descent killzone, can MOUNTED operatives use Entryway markers to move between killzones?",
+      "answer": "Yes. In this instance they can climb when performing the Sprint action (taking precedence over the normal rules), using 3” of their movement allowance (although this 3\" wouldn’t be counted when determining their SPEED).",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 13,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-7",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "In Killzone: Bheta Decima, can MOUNTED operatives climb gantry and thermometric condenser terrain features?",
+      "answer": "Yes, taking precedence over the Drakesteed Agility faction rule, but the EXODITE DRAGON MASTER kill team is not recommended to be used in that killzone.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 13,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-8",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Движение",
+      "question": "How does moving directly forwards or backwards work during the Sprint action?",
+      "answer": "The operative cannot move sideways or diagonally; its base must remain parallel to the direction of movement. Movement templates are provided as a guide and some examples are shown below. To use the 1-3\" sprint template, place it around the front of the operative’s base. Move the operative directly forwards until the front of its base reaches the appropriate distance. To move backwards, use the back of the operative’s base. To use the 4-6\" sprint template, place it around the front of the operative’s base. Move the operative directly forwards until the back of its base reaches the appropriate distance. 3\" MOVE To finish move, align front of base to appropriate inch marker. 6\" MOVE To finish move, align back of base to appropriate inch marker.",
+      "images": [
+        {
+          "src": "/faq/source-images/gw-exodite-dragon-masters-13.png",
+          "caption": "Схемы из официального источника · PDF p. 13"
+        }
+      ],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 13,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-9",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Действия и способности",
+      "question": "What is the specific point I can pivot a MOUNTED operative from?",
+      "answer": "The front, centre or back of its base. Pivot templates are provided as a guide and some examples are shown below. To use the centre pivot template, place one of its black corners at the very front (or back) of the operative’s base so its straight edge is in line with the centre pivot point. Rotate the operative along the inner curve of the template from the centre pivot point. The very front (or back) of its base cannot rotate past the 45° mark. To use the front/back pivot template, place one of its black corners at the very front (or back) of the operative’s base so its straight edge is in line with the front/back pivot point. Rotate the operative along the inner curve of the template from the front/back pivot point. The very front (or back) of its base cannot rotate past the 45° mark.",
+      "images": [
+        {
+          "src": "/faq/source-images/gw-exodite-dragon-masters-14.png",
+          "caption": "Схемы из официального источника · PDF p. 14"
+        }
+      ],
+      "sourceLabel": "Games Workshop · PDF p. 14",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=14",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 14,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-10",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "What happens if terrain or other operatives prevent my model from pivoting?",
+      "answer": "Most things are ignored, allowing you to freely pivot. An operative’s base can pivot through other operatives and hazardous areas. Its base can also pivot through terrain parts no more than 2” tall (excluding Wall terrain). If parts of the model other than its base would prevent it from pivoting (e.g. tail, weapons, etc.), ignore them during the pivot. An operative must still end the action in a location it can be placed though, so pivoting through areas, operatives and terrain in this manner just allows it to manoeuvre, not be placed there as its final location.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 14",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=14",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 14,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-11",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "What happens if parts of my model (excluding the base) like the tail or weapons prevent my model from moving?",
+      "answer": "As above, just ignore them during the move. An operative must still end the action in a location it can be placed though, so moving through areas, operatives and terrain in this manner just allows it to manoeuvre, not be placed there as its final location.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 14",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=14",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 14,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-12",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Движение",
+      "question": "When using the Cleansing of the Pale Moon action to remove a rules effect where multiple identical tokens can be given to an operative (e.g. HEARTHKYN SALVAGER Grudge), do I remove all of those tokens or one?",
+      "answer": "All of those tokens.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 14",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=14",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 14,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-exodite-dragon-masters-13",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Dragon Masters"
+      ],
+      "topic": "Действия и способности",
+      "question": "How does the Cleansing of the Pale Moon action interact with rules that apply an effect to operatives only while they are within a specific area (e.g. DEATH KORPS Gas Bombardment)?",
+      "answer": "Cleansing of the Pale Moon has no effect in these scenarios.",
+      "images": [
+        {
+          "src": "/faq/source-images/gw-exodite-dragon-masters-14.png",
+          "caption": "Схемы из официального источника · PDF p. 14"
+        }
+      ],
+      "sourceLabel": "Games Workshop · PDF p. 14",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf#page=14",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 14,
+      "sourceSection": "RULES COMMENTARY JULY ’26",
+      "sourceTeam": "Exodite Dragon Masters"
+    },
+    {
+      "id": "official-farstalker-kinband-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Farstalker Kinband"
+      ],
+      "topic": "Движение",
+      "question": "When using the KILL-BROKER operative’s Call the Kill rule, if my mark is incapacitated while shooting multiple operatives during an action (e.g. as a result of the Blast or Torrent weapon rules) when do I select a new operative to be my mark?",
+      "answer": "At the end of that action, after incapacitated operatives are removed.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_farstalker_kinband-d5j2c72vs0-mulu2ghc6b.pdf#page=9",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-07-22",
+      "sourcePage": 9,
+      "sourceSection": "RULES COMMENTARY JUNE ’26",
+      "sourceTeam": "Farstalker Kinband"
+    },
+    {
+      "id": "official-fellgor-ravagers-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Fellgor Ravagers"
+      ],
+      "topic": "Атака и урон",
+      "question": "If an attack dice is a critical success but has a critical damage of 0, can it still be used to incapacitate a FELLGOR RAVAGER operative with a Frenzy token?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 8",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_fellgor_ravagers_online_rules-98ktzb7tza-d8lud7bdhh.pdf#page=8",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 8,
+      "sourceSection": "RULES COMMENTARY AUGUST ’26",
+      "sourceTeam": "Fellgor Ravagers"
+    },
+    {
+      "id": "official-fellgor-ravagers-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Fellgor Ravagers"
+      ],
+      "topic": "Атака и урон",
+      "question": "If one of my dice is re-rolled or replaced by an opponent’s rule (e.g. HAND OF THE ARCHON Omen, WARPCOVEN Fate Itself Is My Weapon), can I still use the Violent Temperament strategy ploy to re-roll my attack dice?",
+      "answer": "Yes, but only the dice that were not re-rolled or replaced.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_fellgor_ravagers_online_rules-98ktzb7tza-d8lud7bdhh.pdf#page=9",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 9,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Fellgor Ravagers"
+    },
+    {
+      "id": "official-goremongers-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Goremongers"
+      ],
+      "topic": "Действия и способности",
+      "question": "When determining whether a friendly operative’s GORE TANK is full for the purposes of the Enhanced Violence strategy ploy, do I check before or after decreasing its Gore Tank for any Sanguavitae (e.g. Rage) for that action?",
+      "answer": "After.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_goremongers_online_rules-9ba5skdxij-r0u7lafcas.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Goremongers"
+    },
+    {
+      "id": "official-hearthkyn-salvagers-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Hearthkyn Salvagers"
+      ],
+      "topic": "Движение",
+      "question": "If a HEARTHKYN SALVAGER DÔZR operative performing its Knux Smash action moves an enemy operative, and during that move a marker that would ‘end its action’ is within that enemy operative’s control range (e.g. HERNKYN YAEGIR IRONBRAEK Hy-Pex Mines) but not the DÔZR operative’s control range, does the Knux Smash action end?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_29-04_kill_team_team_rules_hearthkyn_salvagers-7ih6r2u7u4-sof3ovjopi.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-04-29",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Hearthkyn Salvagers"
+    },
+    {
+      "id": "official-hierotek-circle-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Hierotek Circle"
+      ],
+      "topic": "Действия и способности",
+      "question": "How does the Magnify weapon rule interact with an enemy WOLF SCOUT operative that’s obscured by the RUNE PRIEST SKJALD operative’s Call the Storm action, when the other friendly HIEROTEK CIRCLE operative that a valid target is being determined from is within 3” of that enemy operative?",
+      "answer": "The WOLF SCOUT operative is not obscured in this scenario.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_hierotek_circle_online_rules-df98wqycag-bek3q27dqk.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 13,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Hierotek Circle"
+    },
+    {
+      "id": "official-hierotek-circle-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Hierotek Circle"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "How does the Magnify weapon rule interact with an enemy operative that’s wholly within an area of smoke, when the friendly operative that’s being treated as the active operative for determining a valid target, cover and obscured is within 2\" of that enemy operative?",
+      "answer": "Smoke grenades and similar rules (e.g. MANDRAKE Weave Darkness) have no effect in this scenario.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_hierotek_circle_online_rules-df98wqycag-bek3q27dqk.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 13,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Hierotek Circle"
+    },
+    {
+      "id": "official-hierotek-circle-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Hierotek Circle"
+      ],
+      "topic": "Маркеры и ресурсы",
+      "question": "How does the Steadfast rule interact with rules that treat the total APL stat of enemy operatives as 1 lower, e.g. PHOBOS STRIKE TEAM Terror?",
+      "answer": "The Steadfast rule would treat the relevant operative’s APL stat as 3, but the total APL of those contesting a marker would still be reduced by 1. For example, if one friendly operative that had both the Steadfast rule and was affected by Terror contested a marker, the total APL would be 2; if two friendly operatives with the same conditions contested a marker, the total APL would be 5, etc.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_hierotek_circle_online_rules-df98wqycag-bek3q27dqk.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 13,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Hierotek Circle"
+    },
+    {
+      "id": "official-hierotek-circle-4",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Hierotek Circle"
+      ],
+      "topic": "Действия и способности",
+      "question": "Can an operative on guard interrupt and perform a point-blank shot against an enemy operative within control range of another friendly operative using the Magnify weapon rule?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 13",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_hierotek_circle_online_rules-df98wqycag-bek3q27dqk.pdf#page=13",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 13,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Hierotek Circle"
+    },
+    {
+      "id": "official-hunter-clade-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Hunter Clade"
+      ],
+      "topic": "Движение",
+      "question": "How should the movement for a GUNNER with a transuranic arquebus (60x35mm base) be measured if that operative rotates during a movement?",
+      "answer": "No part of its base can move more than the permitted distance, so if it rotates, include the distance it rotates while measuring. For example, if the operative can move 6\" and the front of its base has done so, but the back of the base has rotated 90° in the process, this will have caused the back of the base to move more than 6\", which is more than the permitted distance.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-01_kill_team_team_rules_hunter_clade-iw4pezoqcm-axjoncdqci.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-01-28",
+      "sourcePage": 10,
+      "sourceSection": "RULES COMMENTARY JANUARY ’26",
+      "sourceTeam": "Hunter Clade"
+    },
+    {
+      "id": "official-inquisitorial-agents-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Inquisitorial Agents"
+      ],
+      "topic": "Движение",
+      "question": "When using the Quarry strategy ploy, if my quarry is incapacitated while shooting multiple operatives during an action (e.g. as a result of the Blast or Torrent weapon rules) when do I select a new operative to be my quarry?",
+      "answer": "At the end of that action, after incapacitated operatives are removed.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 16",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_inquisitorial_agents_online_rules-wxk0cybqst-vpe1dopkcv.pdf#page=16",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 16,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Inquisitorial Agents"
+    },
+    {
+      "id": "official-inquisitorial-agents-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Inquisitorial Agents"
+      ],
+      "topic": "Атака и урон",
+      "question": "If I requisition EXACTION SQUAD operatives, can my other INQUISITORIAL AGENT operatives benefit from the permitted Ruthless Efficiency faction rule?",
+      "answer": "No. Only the requisitioned EXACTION SQUAD operatives can use the Ruthless Efficiency faction rule. Note that this means a requisitioned EXACTION SQUAD operative will not be able to select an enemy operative as the valid target of a Shoot action if one of your other INQUISITORIAL AGENT operatives that aren’t EXACTION SQUAD are within that enemy operative’s control range.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 16",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_inquisitorial_agents_online_rules-wxk0cybqst-vpe1dopkcv.pdf#page=16",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 16,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Inquisitorial Agents"
+    },
+    {
+      "id": "official-inquisitorial-agents-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Inquisitorial Agents"
+      ],
+      "topic": "Атака и урон",
+      "question": "When using the Absolute Authority firefight ploy, can I use it after seeing some of the effects of a ploy the opponent uses? For example, if they must select an operative, can I use it after they select them?",
+      "answer": "No. You must use it when the ploy is declared, but before any of its rules are resolved. Note that we expect players to be sporting and give their opponent the opportunity to use Absolute Authority when they declare a ploy, before resolving its rules.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 16",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_inquisitorial_agents_online_rules-wxk0cybqst-vpe1dopkcv.pdf#page=16",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 16,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Inquisitorial Agents"
+    },
+    {
+      "id": "official-inquisitorial-agents-4",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Inquisitorial Agents"
+      ],
+      "topic": "Действия и способности",
+      "question": "When using the Intense Scrutiny strategy ploy, if my opponent has a rule that says it cannot be selected as a valid target, taking precedence over all other rules except being within 2\" (e.g. HERNKYN YAEGIR In Position), does this increase the 2\" distance exception to 4\"?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 16",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_inquisitorial_agents_online_rules-wxk0cybqst-vpe1dopkcv.pdf#page=16",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 16,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Inquisitorial Agents"
+    },
+    {
+      "id": "official-kommandos-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Kommandos"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "If a KOMMANDO BOMB SQUIG is incapacitated during a Door Fight or Hatchway Fight action, or through a door which is ignored when determining visibility for control range, is the other operative in that action a secondary target for a Shoot action caused by the Boom! rule?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 8",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_kommandos_online_rules-ova8v1kjds-ds3ouz4k04.pdf#page=8",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-06-17",
+      "sourcePage": 8,
+      "sourceSection": "RULES COMMENTARY JUNE ’26",
+      "sourceTeam": "Kommandos"
+    },
+    {
+      "id": "official-mandrakes-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Mandrakes"
+      ],
+      "topic": "Атака и урон",
+      "question": "If a friendly MANDRAKE DIRGEMAW operative attempts to shoot or fight against the specified enemy operative in its Haunting Focus rule, but is prevented from doing so by an opponent’s rule (e.g. SANCTIFIER CONFESSOR Commanding Declamation, NOVITIATE Blinding Aura) is the activation still cancelled?",
+      "answer": "No. Continue its activation as though the requirements of the Haunting Focus rule have been fulfilled.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-01_kill_team_team_rules_mandrakes-w2j9qwhaxz-oveknnlmoe.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-01-28",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Mandrakes"
+    },
+    {
+      "id": "official-mandrakes-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Mandrakes"
+      ],
+      "topic": "Движение",
+      "question": "If a NIGHTFIEND operative incapacitates an enemy operative, then that enemy operative attempts to inflict damage as a result of being incapacitated (e.g. LEGIONARY Unending Bloodshed) and the NIGHTFIEND operative’s Oubliex rule ignores that damage, does the oubliex become active again when the enemy operative is removed from the killzone?",
+      "answer": "No. The enemy operative is already incapacitated when it attempts to inflict the damage, so the timing required for the oubliex to become active has passed.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-01_kill_team_team_rules_mandrakes-w2j9qwhaxz-oveknnlmoe.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-01-28",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Mandrakes"
+    },
+    {
+      "id": "official-mandrakes-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Mandrakes"
+      ],
+      "topic": "Действия и способности",
+      "question": "If two MANDRAKE DIRGEMAW operatives select each other with their Haunting Focus rule, which operative activates in the following instance: Operative A is selected to activate normally, then Operative B would attempt to activate first as a result of the Haunting Focus rule, then Operative A would attempt to activate first as a result of the same rule?",
+      "answer": "Operative B.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-01_kill_team_team_rules_mandrakes-w2j9qwhaxz-oveknnlmoe.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-01-28",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Mandrakes"
+    },
+    {
+      "id": "official-mandrakes-4",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Mandrakes"
+      ],
+      "topic": "Атака и урон",
+      "question": "How does the Soulstrike weapon rule interact with rules that allow your opponent to retain defence dice results of 5+ as critical successes (e.g. ANGEL OF DEATH Hardy Chapter Tactic), or retain results of a specific number as a success (e.g. ELUCIDIAN STARSTRIDER Armoured Bodysuit)?",
+      "answer": "The Soulstrike weapon rule takes precedence. For example, even with the Hardy Chapter Tactic, a 5 would be a fail not a critical success for that ANGEL OF DEATH operative, as it’s higher than their APL stat (3).",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-01_kill_team_team_rules_mandrakes-w2j9qwhaxz-oveknnlmoe.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-01-28",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Mandrakes"
+    },
+    {
+      "id": "official-mandrakes-5",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Mandrakes"
+      ],
+      "topic": "Атака и урон",
+      "question": "When a MANDRAKE DIRGEMAW is shooting with its horrifying scream ranged weapon and negatively changes the target’s APL as a result of the Stun weapon rule, does that change affect defence dice rolled for the target during that same sequence in relation to the Soulstrike weapon rule?",
+      "answer": "No, as an operative’s stats don’t change during an action.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-01_kill_team_team_rules_mandrakes-w2j9qwhaxz-oveknnlmoe.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-01-28",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Mandrakes"
+    },
+    {
+      "id": "official-murderwing-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Murderwing"
+      ],
+      "topic": "Действия и способности",
+      "question": "If I’ve used the Malicious Narcissism ploy and my opponent activates their last two ready operatives before I activate an operative (e.g. BROOD BROTHERS Group Activation, HERNKYN YAEGIRS Bonds That Bind) can I activate between those activations?",
+      "answer": "No. In those instances where you are not given a normal opportunity to activate it, the MURDERWING operative will be the last operative to activate during the turning point.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_murderwing_online_rules-ie4p7d3ji0-puunmglkc2.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "RULES COMMENTARY AUGUST ’26",
+      "sourceTeam": "Murderwing"
+    },
+    {
+      "id": "official-murderwing-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Murderwing"
+      ],
+      "topic": "Движение",
+      "question": "In the CURSECLAW operative’s Snatch action, what is meant by the stipulation that the enemy operative ‘cannot be set up further away from this operative than where it began’?",
+      "answer": "When the enemy operative in that action is removed, if it is X\" away from the CURSECLAW operative, it must be set up within X\". In other words, if it is set up in the BOOST ZONE, it must be set up in the same location or closer to where the CURSECLAW has ended its BOOST.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_murderwing_online_rules-ie4p7d3ji0-puunmglkc2.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "RULES COMMENTARY AUGUST ’26",
+      "sourceTeam": "Murderwing"
+    },
+    {
+      "id": "official-murderwing-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Murderwing"
+      ],
+      "topic": "Движение",
+      "question": "Can I use Wings of Darkness during the activation that a WARP TALON operative is set up from the warp to use more than 4\" of move distance during that activation?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_murderwing_online_rules-ie4p7d3ji0-puunmglkc2.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Murderwing"
+    },
+    {
+      "id": "official-murderwing-4",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Murderwing"
+      ],
+      "topic": "Атака и урон",
+      "question": "When using the Long Forgotten Honour firefight ploy, if the free Fall Back action is prevented (e.g. MANDRAKES Chain Snares), is the spent CP refunded?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_murderwing_online_rules-ie4p7d3ji0-puunmglkc2.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Murderwing"
+    },
+    {
+      "id": "official-novitiates-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Novitiates"
+      ],
+      "topic": "Действия и способности",
+      "question": "Can an operative within 6\" of a CONDEMNOR operative be selected for a PSYCHIC rule or action by another operative outside that distance?",
+      "answer": "No. An operative cannot benefit from, be selected for, or in any way use a PSYCHIC rule while within range of a CONDEMNOR operative. All PSYCHIC rules have absolutely no effect within the distance specified by the Null Rod rule.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_novitiates_online_rules-b4a5xsy3fu-5twxaatuzc.pdf#page=9",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 9,
+      "sourceSection": "RULES COMMENTARY AUGUST ’26",
+      "sourceTeam": "Novitiates"
+    },
+    {
+      "id": "official-novitiates-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Novitiates"
+      ],
+      "topic": "Атака и урон",
+      "question": "When inflicting damage while blocking with the NOVITIATE DUELLIST’s Riposte weapon rule, is this considered to be damage from an attack dice, and can it be reduced or ignored by an opponent’s rules?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_novitiates_online_rules-b4a5xsy3fu-5twxaatuzc.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Novitiates"
+    },
+    {
+      "id": "official-novitiates-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Novitiates"
+      ],
+      "topic": "Атака и урон",
+      "question": "If a NOVITIATE PENITENT is affected by the EXACTOR operative’s Whip Into Frenzy action, how many Fight actions can it perform in an activation?",
+      "answer": "Up to four. Two as a result of Whip Into Frenzy and two as a result of Absolution Through Destruction.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_novitiates_online_rules-b4a5xsy3fu-5twxaatuzc.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Novitiates"
+    },
+    {
+      "id": "official-plague-marines-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Plague Marines"
+      ],
+      "topic": "Атака и урон",
+      "question": "When shooting with Blight Grenades with the BOMBARDIER, how should I resolve the *Toxic weapon rule if only certain targets have one of my Poison tokens?",
+      "answer": "Only change the Damage stat when shooting against those operatives. Note that this takes precedence over the usual core rules about weapon stats changing during an action.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 7",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_plague_marines_online_rules-wqjvit50wj-jvekzllwdl.pdf#page=7",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 7,
+      "sourceSection": "RULES COMMENTARY AUGUST ’26",
+      "sourceTeam": "Plague Marines"
+    },
+    {
+      "id": "official-ratlings-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Ratlings"
+      ],
+      "topic": "Движение",
+      "question": "If an operative performs an action in which it moves or is set up outside of the Firefight phase, can a RATLING BATTLEMUTT still interrupt with its Early Warning rule?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_29-04_kt_teamrules_ratlings-ulbqsnxhjb-jmv6tjlrsi.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-04-29",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Ratlings"
+    },
+    {
+      "id": "official-ratlings-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Ratlings"
+      ],
+      "topic": "Маркеры и ресурсы",
+      "question": "Can you clarify what the Team Selection page means when saying ‘Up to three times, instead of selecting one of these operatives, you can select one RATLING ploy to cost you 0CP for the battle’ in reference to BULLGRYN and OGRYN operatives?",
+      "answer": "A RATLING kill team always consists of one RATLING FIXER and ten additional operatives. Up to three of those additional operatives can be BULLGRYN or OGRYN. For each of those three that is not, you select a different RATLING operative and one ploy to cost you 0CP for the battle.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_29-04_kt_teamrules_ratlings-ulbqsnxhjb-jmv6tjlrsi.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-04-29",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Ratlings"
+    },
+    {
+      "id": "official-raveners-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Raveners"
+      ],
+      "topic": "Действия и способности",
+      "question": "When my TREMORSCYTHE operative interrupts my opponent’s activation, if the enemy operative is incapacitated (and therefore its activation cannot be continued), who activates next? Equally, if it isn’t incapacitated and then continues its activation, who activates next?",
+      "answer": "Your opponent in both cases, as the TREMORSCYTHE operative has used your activation.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_raveners_online_rules-8vfeyxgbks-nf6lxfcbfw.pdf#page=9",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 9,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Raveners"
+    },
+    {
+      "id": "official-raveners-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Raveners"
+      ],
+      "topic": "Действия и способности",
+      "question": "Are RAVENER operatives underground considered ‘in the killzone’ for the second victory points paragraph of the Implant tac op?",
+      "answer": "Yes. Note that other tac ops (e.g. Surveillance) would still require those operatives to be in the killzone.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_raveners_online_rules-8vfeyxgbks-nf6lxfcbfw.pdf#page=9",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 9,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Raveners"
+    },
+    {
+      "id": "official-raveners-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Raveners"
+      ],
+      "topic": "Действия и способности",
+      "question": "Can an expended friendly TREMORSCYTHE operative counteract to interrupt an enemy operative’s activation with the Subterranean Ambush rule if there are still other ready friendly RAVENER operatives?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_raveners_online_rules-8vfeyxgbks-nf6lxfcbfw.pdf#page=9",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 9,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Raveners"
+    },
+    {
+      "id": "official-raveners-4",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Raveners"
+      ],
+      "topic": "Атака и урон",
+      "question": "If a friendly RAVENER TREMORSCYTHE operative attempts to shoot or fight against the specified enemy operative in its Subterranean Ambush rule, but is prevented from doing so by an opponent’s rule (e.g. SANCTIFIER CONFESSOR Commanding Declamation, NOVITIATE Blinding Aura) is the activation/counteraction still cancelled?",
+      "answer": "No. Continue its activation/counteraction as though the requirements of the Subterranean Ambush rule have been fulfilled.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_raveners_online_rules-8vfeyxgbks-nf6lxfcbfw.pdf#page=9",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 9,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Raveners"
+    },
+    {
+      "id": "official-sanctifiers-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Sanctifiers"
+      ],
+      "topic": "Атака и урон",
+      "question": "Some rules require an operative to shoot or fight against a specific operative or its activation is cancelled (e.g. MANDRAKE DIRGEMAW Haunting Focus, EXACTION SQUAD Execution Order). If my opponent uses such a rule and I cancel that Shoot or Fight action with my SANCTIFIER CONFESSOR operative’s Commanding Declamation rule, what happens?",
+      "answer": "Do not cancel that enemy operative’s activation. It can continue to perform actions other than the prevented one as normal.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_25-02_kt_teamrules_sanctifiers-3vpsecfbfe-vclbyfaed7.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-02-25",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Sanctifiers"
+    },
+    {
+      "id": "official-sanctifiers-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Sanctifiers"
+      ],
+      "topic": "Атака и урон",
+      "question": "If the CONFESSOR operative’s Commanding Declamation rule prevents an enemy operative on guard from performing the Shoot or Fight action, does that enemy operative remain on guard?",
+      "answer": "Yes, assuming all other conditions of remaining on guard are still met.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_25-02_kt_teamrules_sanctifiers-3vpsecfbfe-vclbyfaed7.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-02-25",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Sanctifiers"
+    },
+    {
+      "id": "official-sanctifiers-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Sanctifiers"
+      ],
+      "topic": "Атака и урон",
+      "question": "If my opponent uses a firefight ploy that requires an operative to perform a Shoot or Fight action (e.g. HERNKYN YAEGIR Stalwart Defence) and I cancel that action with my SANCTIFIER CONFESSOR operative’s Commanding Declamation rule, is the CP refunded?",
+      "answer": "No. Similarly, any rules with a restricted number of uses (e.g. CORSAIR VOIDSCARRED FELARCH One Step Ahead) that are prevented would still be considered used.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_25-02_kt_teamrules_sanctifiers-3vpsecfbfe-vclbyfaed7.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-02-25",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Sanctifiers"
+    },
+    {
+      "id": "official-sanctifiers-4",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Sanctifiers"
+      ],
+      "topic": "Атака и урон",
+      "question": "If I use the SANCTIFIER CONFESSOR’s Commanding Declamation rule to cancel a Fight or Shoot action that my opponent attempted to perform as a result of their operative being on guard, can my opponent then choose to use the other action instead during that interruption?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_25-02_kt_teamrules_sanctifiers-3vpsecfbfe-vclbyfaed7.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-02-25",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Sanctifiers"
+    },
+    {
+      "id": "official-spectre-squad-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Spectre Squad"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Do terrain features within my territory remain scouted even if my GUIDE operative is incapacitated?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_spectre_squad_online_rules-bmoqs5lbyu-7d9zjtfxni.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "RULES COMMENTARY AUGUST ’26",
+      "sourceTeam": "Spectre Squad"
+    },
+    {
+      "id": "official-tempestus-aquilons-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Tempestus Aquilons"
+      ],
+      "topic": "Атака и урон",
+      "question": "If an enemy operative shoots a friendly GUNFIGHTER operative and doesn’t discard any failures, can I still shoot back with the Gunfight rule using one attack dice?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_tempestus_aquilons_online_rules-ulwuv6xiox-urjoo7nn95.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Tempestus Aquilons"
+    },
+    {
+      "id": "official-vespid-stingwings-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Vespid Stingwings"
+      ],
+      "topic": "Действия и способности",
+      "question": "If there are no enemy operatives within 8\" of a friendly VESPID STINGWING operative, do I need to spend a Communion point to target an enemy operative more than 8\" from it?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_vespid_stingwings_online_rules-im3is77cs2-gtnx7xocbs.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Vespid Stingwings"
+    },
+    {
+      "id": "official-vespid-stingwings-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Vespid Stingwings"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "In killzones that use the close quarters rules, does the VESPID STINGWING SWARMGUARD’s torch zone for the Skytorch weapon rule bend around any Wall terrain that’s intervening?",
+      "answer": "Yes.",
+      "images": [
+        {
+          "src": "/faq/source-images/gw-vespid-stingwings-11.png",
+          "caption": "Схемы из официального источника · PDF p. 11"
+        }
+      ],
+      "sourceLabel": "Games Workshop · PDF p. 11",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_vespid_stingwings_online_rules-im3is77cs2-gtnx7xocbs.pdf#page=11",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 11,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Vespid Stingwings"
+    },
+    {
+      "id": "official-void-dancer-troupe-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Void-Dancer Troupe"
+      ],
+      "topic": "Атака и урон",
+      "question": "When using The Curtain Falls firefight ploy, if the free Fall Back action is prevented (e.g. MANDRAKES Chain Snares), is the spent CP refunded?",
+      "answer": "No. If Luck of the Laughing God was used, that firefight ploy counts as being used for that rule as well.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 8",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_void-dancer_troupe_online_rules-ee8qymqvq4-w24lgiuhhz.pdf#page=8",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-06-17",
+      "sourcePage": 8,
+      "sourceSection": "RULES COMMENTARY JUNE ’26",
+      "sourceTeam": "Void-Dancer Troupe"
+    },
+    {
+      "id": "official-void-dancer-troupe-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Void-Dancer Troupe"
+      ],
+      "topic": "Действия и способности",
+      "question": "Does ‘Once per turning point’ in the PLAYER operative’s Luck of the Laughing God rule mean I can only use this rule once during each turning point, no matter how many friendly operatives have that rule?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_void-dancer_troupe_online_rules-ee8qymqvq4-w24lgiuhhz.pdf#page=9",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-06-17",
+      "sourcePage": 9,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Void-Dancer Troupe"
+    },
+    {
+      "id": "official-warpcoven-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Warpcoven"
+      ],
+      "topic": "Атака и урон",
+      "question": "For the Psychic Cabal firefight ploy, does the SORCERER operative also gain any benefits the other SORCERER operative has from the Boons of Tzeentch faction rule (e.g. Twist of Fate)?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_29-04_kt_teamrules_warpcoven-dlvflmyfdc-tqfq81iy7v.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-04-29",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Warpcoven"
+    },
+    {
+      "id": "official-warpcoven-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Warpcoven"
+      ],
+      "topic": "Движение",
+      "question": "If a friendly operative selected for the Temporal Flux rule is activated within, or ends its activation within, an area in which it cannot use PSYCHIC additional rules (e.g. NOVITIATE CONDEMNOR Null Rod), can that operative be removed and set back up as a result of the Temporal Flux rule?",
+      "answer": "No to both.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 12",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_29-04_kt_teamrules_warpcoven-dlvflmyfdc-tqfq81iy7v.pdf#page=12",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-04-29",
+      "sourcePage": 12,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Warpcoven"
+    },
+    {
+      "id": "official-wolf-scouts-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Wolf Scouts"
+      ],
+      "topic": "Движение",
+      "question": "How should movement for the FENRISIAN WOLF (60x35mm base) be measured if that operative rotates during a movement?",
+      "answer": "No part of its base can move more than the permitted distance, so if it rotates, include the distance it rotates while measuring. For example, if the operative can move 8” and the front of its base has done so, but the back of the base has rotated 90° in the process, this will have caused the back of the base to move more than 8”, which is more than the permitted distance.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_wolf_scouts_online_rules-hgzknhj5cl-c3yqxctedv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Wolf Scouts"
+    },
+    {
+      "id": "official-wolf-scouts-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Wolf Scouts"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Can my STORM be measured through Wall Terrain in Close Quarters?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_wolf_scouts_online_rules-hgzknhj5cl-c3yqxctedv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Wolf Scouts"
+    },
+    {
+      "id": "official-wolf-scouts-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Wolf Scouts"
+      ],
+      "topic": "Атака и урон",
+      "question": "If the free Fight action from the Counterattack firefight ploy causes a FELLGOR RAVAGER operative to Frenzy at the end of its activation, are they incapacitated immediately, or at the end of their next activation?",
+      "answer": "At the end of their next activation.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_wolf_scouts_online_rules-hgzknhj5cl-c3yqxctedv.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Wolf Scouts"
+    },
+    {
+      "id": "official-wrecka-krew-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Wrecka Krew"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "If a WRECKA KREW BOMB SQUIG is incapacitated during a Door Fight or Hatchway Fight action, or through a door which is ignored when determining visibility for control range, is the other operative in that action a secondary target for a Shoot action caused by the Boom! rule?",
+      "answer": "No, except if the other operative is within 2\" and visible during a Hatchway Fight and you use the Kaboom! firefight ploy.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 7",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_wrecka_krew_online_rules-1o31d0dshf-1p2z1ugswl.pdf#page=7",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-06-17",
+      "sourcePage": 7,
+      "sourceSection": "RULES COMMENTARY JUNE ’26",
+      "sourceTeam": "Wrecka Krew"
+    },
+    {
+      "id": "official-wrecka-krew-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Wrecka Krew"
+      ],
+      "topic": "Движение",
+      "question": "If a WRECKA KREW KRUSHA operative using its Smash weapon rule moves an enemy operative, and during that move a marker that would ‘end its action’ is within that enemy operative’s control range (e.g. HERNKYN YAEGIR IRONBRAEK Hy-Pex Mines) but not the KRUSHA operative’s control range, does the Fight action end?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 8",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_wrecka_krew_online_rules-1o31d0dshf-1p2z1ugswl.pdf#page=8",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-06-17",
+      "sourcePage": 8,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Wrecka Krew"
+    },
+    {
+      "id": "official-wrecka-krew-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Wrecka Krew"
+      ],
+      "topic": "Движение",
+      "question": "When do I add to the APL stat of my operative for performing the Charge action as a result of the Tanked Up rule?",
+      "answer": "At the start of that action, before moving.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 8",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_wrecka_krew_online_rules-1o31d0dshf-1p2z1ugswl.pdf#page=8",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-06-17",
+      "sourcePage": 8,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "Wrecka Krew"
+    },
+    {
+      "id": "official-wyrmblade-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "Wyrmblade"
+      ],
+      "topic": "Движение",
+      "question": "If an operative performs an action in which it moves or is set up outside of the Firefight phase, can a WYRMBLADE LOCUS still interrupt with its Quicksilver Strike rule?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_17-12_killteam_wyrmblade_online_rules-nzx8yswdj0-9lcmzodiqo.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2025-12-17",
+      "sourcePage": 10,
+      "sourceSection": "RULES COMMENTARY NOVEMBER ’25",
+      "sourceTeam": "Wyrmblade"
+    },
+    {
+      "id": "official-xv26-stealth-battlesuits-1",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "XV26 Stealth Battlesuits"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Would an operative using the Engage Jetpack firefight ploy still spend an additional 1\" to cross over razorwire equipment terrain during a move?",
+      "answer": "No.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_xv26_stealth_battlesuits_online_rules-ghynf2pcnr-7rcqocpns8.pdf#page=9",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 9,
+      "sourceSection": "RULES COMMENTARY AUGUST ’26",
+      "sourceTeam": "XV26 Stealth Battlesuits"
+    },
+    {
+      "id": "official-xv26-stealth-battlesuits-2",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "XV26 Stealth Battlesuits"
+      ],
+      "topic": "Атака и урон",
+      "question": "If an operative is on guard, can it perform a point-blank shot before performing a Fall Back action with the Vectored Retro-Thrusters firefight ploy?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_xv26_stealth_battlesuits_online_rules-ghynf2pcnr-7rcqocpns8.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "XV26 Stealth Battlesuits"
+    },
+    {
+      "id": "official-xv26-stealth-battlesuits-3",
+      "category": "official",
+      "rulingType": "GW",
+      "teams": [
+        "XV26 Stealth Battlesuits"
+      ],
+      "topic": "Движение",
+      "question": "Do rules which have an effect when an operative ‘ends a move’ (e.g. NEMESIS CLAW We Have Come For You) still occur before an operative performs a Fall Back action with the Vectored Retro-Thrusters firefight ploy?",
+      "answer": "Yes.",
+      "images": [],
+      "sourceLabel": "Games Workshop · PDF p. 10",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_xv26_stealth_battlesuits_online_rules-ghynf2pcnr-7rcqocpns8.pdf#page=10",
+      "sourceVersion": "2026-09-25",
+      "sourceDate": "2026-08-26",
+      "sourcePage": 10,
+      "sourceSection": "PREVIOUS RULES COMMENTARIES",
+      "sourceTeam": "XV26 Stealth Battlesuits"
+    }
+  ]
+}

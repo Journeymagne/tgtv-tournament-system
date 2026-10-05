@@ -3,17 +3,20 @@
 Account email verification and password recovery are available behind EMAIL_PROVIDER.
 See [Email setup and local capture](docs/email-service.md) before enabling Resend.
 
-The site opens on the Companion home page with five sections: initiative
-calculator, activation tracker, tournament system, KT Studio and the D6 dice generator. The calculators,
+The site opens on the Companion home page with six sections: initiative
+calculator, activation tracker, tournament system, KT Studio, the D6 dice generator
+and [TTS Community FAQ](docs/community-faq.md). The calculators,
 Studio editor, published team library and dice editor are public. Saving or publishing a team
 requires the same account and session as the tournament system. Existing
 public tournament pages remain available. See [Companion integration](docs/companion-integration.md)
 for routes, imported sources, account-owned drafts and deployment settings.
 The home page is a service selector. Each service opens on its own page under
-the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio` and `/dice`,
+the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio`, `/dice` and `/faq`,
 with a shared account. The header logo opens the service selector; the service
 name opens its start page (Studio library or tournament My Games).
 Sun and moon buttons select a shared light or dark theme.
+FAQ browsing is public. Questions, submissions and moderation use the same
+Companion account and session; FAQ Moderator is a separate role on that account.
 
 Published teams also have [reviews and ratings](docs/studio-reviews.md): Theme,
 Balance and Lore scores, library averages, editable reviews and administrator
@@ -31,6 +34,20 @@ Tournament administrators can register team rosters with empty proxies, includin
 teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
+
+## Release 5.4.1
+
+TTS Community FAQ joins the Companion menu with the shared account and session.
+The catalogue contains 34 community rulings and 97 official GW answers, with
+team and ruling tags, search, sorting, sources, images and account bookmarks.
+Code of Conduct and FAQ principles have separate document tabs and URLs.
+Players can ask questions and submit rulings or corrections. The new FAQ
+Moderator role reviews submissions and edits formatted text and images with
+revision checks and audit history; only the platform owner assigns the role.
+Startup migrations **048_community_faq** and **049_faq_info** add FAQ storage and
+preserve existing principles when moving them to Info. Client assets are
+versioned at 5.4.1. No new dependencies or environment variables are required.
+See [Community FAQ](docs/community-faq.md) and [the changelog](CHANGELOG.md).
 
 ## Release 5.4.0
 
