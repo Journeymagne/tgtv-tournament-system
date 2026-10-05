@@ -23,7 +23,7 @@ test('5.4.0 upgrade adds FAQ without changing existing accounts, sessions or rat
     VALUES('Existing player','existing player','preserved-hash',1234) RETURNING id`);
   await pool.query(`INSERT INTO sessions(token,user_id,expires_at) VALUES('preserved-session',$1,NOW()+INTERVAL '1 day')`, [user.id]);
   const sessions = (await pool.query('SELECT * FROM sessions')).rows;
-  assert.deepEqual(await migrate(pool), [48, 49]);
+  assert.deepEqual(await migrate(pool), [48, 49, 50]);
   assert.deepEqual((await pool.query('SELECT password_hash,rating,is_faq_moderator FROM users WHERE id=$1', [user.id])).rows[0],
     { password_hash: 'preserved-hash', rating: 1234, is_faq_moderator: false });
   assert.deepEqual((await pool.query('SELECT * FROM sessions')).rows, sessions);

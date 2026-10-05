@@ -59,6 +59,9 @@ No additional npm dependency is required; server rendering uses existing
 Guests can browse. Signed-in Companion accounts can ask questions and submit
 new FAQ requests or corrections. Authors see only their submissions, with the
 moderator's decision; returned requests can be edited and resubmitted.
+Selecting kill teams shows only cards explicitly tagged with those teams;
+general rulings do not enter a faction selection. Source counters reflect the
+current filters. A team with no matching cards shows an empty result.
 FAQ uses the same `users` and `sessions` records and host-only `sid` cookie as
 Tournament System, Studio and the other Companion services. Common login
 returns to the selected FAQ page or entry. Account and role changes refresh
@@ -71,6 +74,14 @@ submissions. This role grants no tournament or global administrator access.
 Existing platform administrators can also moderate. The platform owner assigns
 or revokes the dedicated role in **Модерация → Роли**. Role changes are audited.
 
+Players can edit and delete their own discussion comments. FAQ Moderators can
+delete any comment and edit or remove moderator replies; they cannot rewrite
+another player's text. Deleting a question hides its attached reply as well;
+deleting only the reply preserves the question. Companion avatars appear beside
+authors and moderators, with an initial as the fallback. Migration
+**050_faq_comment_edits** adds comment revisions and edit timestamps, preserving
+existing discussions. Revision checks reject stale edits and deletions.
+
 Accepting a correction and updating its linked community card happens in one
 transaction. Corrections to official GW cards publish a separate community
 clarification. The original GW entry is retained. Revision checks prevent
@@ -82,6 +93,13 @@ locally and checked by the server; captions and up to six attachments are stored
 Raw HTML is escaped. FAQ writes require JSON and reject cross-origin requests.
 
 ## Local preview
+
+FAQ uses Companion's shared RU/EN setting. Its interface, filters, counts,
+editor, discussion controls and moderation are localised. Labels are translated
+in place without replacing forms or changing stored classification values.
+Dates follow the selected locale; source documents and authored questions,
+answers, captions and comments retain their original language. The FAQ dictionary
+is scoped to this service in `public/faq/i18n.js`.
 
 The working copy is under
 `C:/Users/Journeymagne/Documents/MMR KIT/KT Companion Community FAQ`.

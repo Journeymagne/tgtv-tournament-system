@@ -9481,6 +9481,7 @@ function tablePayloadFromForm(form) {
 }
 
 function savedThemePreference() {
+  if (window.KTAppearance) return window.KTAppearance.theme;
   try {
     const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (["dark", "light"].includes(saved)) return saved;
@@ -9516,6 +9517,7 @@ function wireThemeToggle() {
 }
 
 function savedLocalePreference() {
+  if (window.KTAppearance) return window.KTAppearance.locale;
   try {
     const saved = window.localStorage.getItem(I18N_LOCALE_STORAGE_KEY);
     if (I18N_SUPPORTED_LOCALES.includes(saved)) return saved;
@@ -9545,8 +9547,10 @@ function applyLocale(locale) {
 const loadedLocaleScripts = new Map();
 
 function loadLocaleDictionary(locale) {
-  const globalName = locale === "ru" ? "TGTV_I18N_RU" : "TGTV_I18N_EN";
-  if (typeof window[globalName] !== "undefined") return Promise.resolve();
+  // Dictionaries declare classic-script const bindings, not window properties.
+  // Reuse an already loaded binding when another service changes the locale.
+  const available = locale === "ru" ? typeof TGTV_I18N_RU !== "undefined" : typeof TGTV_I18N_EN !== "undefined";
+  if (available) return Promise.resolve();
   if (loadedLocaleScripts.has(locale)) return loadedLocaleScripts.get(locale);
 
   // Reuse the version marker index.html gave theme-boot.js so a released

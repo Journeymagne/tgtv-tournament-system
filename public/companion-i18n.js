@@ -329,12 +329,28 @@
     [/^Команда «(.+)» опубликована в библиотеке\.$/, "Team “$1” published in the library."]
   ];
   const locale = () => window.KTAppearance?.locale || document.documentElement.lang || "ru";
+  const sections = new Map();
+  function register(section, { pairs = [], patterns = [] } = {}) {
+    const dictionaries = { ru: new Map(), en: new Map(), ruUpper: new Map(), enUpper: new Map(), patterns };
+    for (const [a, b] of pairs) {
+      for (const source of [a, b]) {
+        dictionaries.ru.set(source, a); dictionaries.en.set(source, b);
+        dictionaries.ruUpper.set(source.toUpperCase(), a.toUpperCase());
+        dictionaries.enUpper.set(source.toUpperCase(), b.toUpperCase());
+      }
+    }
+    sections.set(section, dictionaries);
+    schedule();
+  }
   function text(value) {
     const key = value.trim().replace(/\s+/g, " ");
     const english = locale() === "en";
-    const translation = (english ? en : ru).get(key) ?? (english ? enUpper : ruUpper).get(key);
+    const section = sections.get(document.body.dataset.companionSection);
+    const translation = section?.[english ? "en" : "ru"].get(key)
+      ?? section?.[english ? "enUpper" : "ruUpper"].get(key)
+      ?? (english ? en : ru).get(key) ?? (english ? enUpper : ruUpper).get(key);
     if (translation !== undefined) return value.replace(value.trim(), translation);
-    if (locale() === "en") for (const [pattern, replacement] of patterns) if (pattern.test(key)) return key.replace(pattern, replacement);
+    if (english) for (const [pattern, replacement] of [...(section?.patterns || []), ...patterns]) if (pattern.test(key)) return key.replace(pattern, replacement);
     return value;
   }
   const skip = 'script,style,svg,textarea,input,[contenteditable],[data-ui-skip],.physical-card,#record-list,.project-name,.team-tile h2,.team-tile>p:not(.draft-note),.team-author a,.nested>summary:not([data-ui-label]),.project-templates [data-create-project]:not([data-create-project="empty"]) strong,#publication-title,.published-card h3,#logPreview,select[data-field$="operativeId"] option:not([value=""]),#source-equipment option:not([value=""]),#weapon-profile-select option:not([value=""])';
@@ -363,7 +379,7 @@
       }
     }
   }
-  window.KTUI = { text, translate, locale };
+  window.KTUI = { text, translate, locale, register };
   let queued = false;
   function schedule() {
     if (queued) return;

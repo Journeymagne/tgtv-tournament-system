@@ -20,7 +20,7 @@ instruction; do not ask again whether to create a local test administrator or si
 
 # Automated tests
 
-Run automated test suites only when merging changes into the repository, unless
-the user explicitly requests a test run. Do not run them for routine edits or
-local previews. Visual inspection and local page/API availability checks remain
-part of the preview workflow.
+Run automated test suites only as part of merging changes into `main`. Do not
+run them for routine edits, local previews, or standalone commits and pushes.
+Visual inspection and local page/API availability checks remain part of the
+preview workflow.

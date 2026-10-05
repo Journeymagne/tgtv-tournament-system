@@ -35,6 +35,18 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+## Release 5.4.2
+
+FAQ team selection returns only team-specific cards, with matching counts and
+an empty result for teams without entries. Discussions have Companion avatars,
+editable author comments and scoped moderator deletion/reply controls. Migration
+**050_faq_comment_edits** adds revisions and edit timestamps while preserving
+existing comments. FAQ uses the shared RU/EN interface; source text stays in its
+original language. Language and theme persist across services and open tabs.
+The conduct header and submission/moderation layouts match the reference page.
+Client assets are versioned at 5.4.2. No new dependencies or environment variables
+are required. See [Community FAQ](docs/community-faq.md) and [the changelog](CHANGELOG.md).
+
 ## Release 5.4.1
 
 TTS Community FAQ joins the Companion menu with the shared account and session.

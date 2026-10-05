@@ -152,3 +152,50 @@ test('unsafe Markdown, uploaded image types and cross-origin writes are rejected
   await expect(player.http.request('POST', '/api/faq/submissions', ruling(), { origin: 'https://other.example' }), 403);
   await expect(player.http.request('POST', '/api/faq/submissions', ruling(), { 'content-type': 'text/plain' }), 415);
 });
+
+test('authors can edit and delete comments, with account and revision guards and scoped moderation', async () => {
+  const entryId = seed.entries.find(e => e.category === 'community').id;
+  const path = '/api/faq/entries/' + entryId + '/questions';
+  const { id } = await expect(player.http.request('POST', path, { body: 'Original comment' }), 201);
+  const comment = '/api/faq/questions/' + id;
+  await expect(other.http.request('PATCH', comment, { body: 'Other text', revision: 1 }), 403);
+  await expect(moderator.http.request('PATCH', comment, { body: 'Other text', revision: 1 }), 403);
+  await expect(other.http.request('DELETE', comment, { revision: 1 }), 403);
+  await expect(player.http.request('PATCH', comment, { body: 'Edited comment', revision: 1 }, { 'x-faq-account': String(other.id) }), 409);
+  await expect(player.http.request('PATCH', comment, { body: 'Edited comment', revision: 1 }));
+  let q = (await expect(player.http.request('GET', path))).questions[0];
+  assert.equal(q.body, 'Edited comment');
+  assert.equal(q.revision, 2);
+  assert.ok(q.updated_at);
+  assert.equal(q.canEdit, true);
+  assert.equal((await expect(moderator.http.request('GET', path))).questions[0].canEdit, false);
+  await expect(player.http.request('DELETE', comment, { revision: 1 }), 409);
+  await expect(player.http.request('DELETE', comment, { revision: q.revision }));
+  assert.equal((await expect(player.http.request('GET', path))).questions.length, 0);
+  await expect(moderator.http.request('PATCH', comment, { reply: 'Reply after deletion' }), 404);
+  const next = await expect(player.http.request('POST', path, { body: 'Moderator may remove this' }), 201);
+  await expect(moderator.http.request('DELETE', '/api/faq/questions/' + next.id, { revision: 1 }));
+});
+
+test('avatars use Companion endpoints and deleting a moderator reply preserves its question', async () => {
+  await getPool().query('UPDATE users SET avatar_version=$2 WHERE id=ANY($1::int[])', [[player.id, moderator.id], 'faq-avatar']);
+  const entryId = seed.entries.find(e => e.category === 'community').id;
+  const path = '/api/faq/entries/' + entryId + '/questions';
+  const { id } = await expect(player.http.request('POST', path, { body: 'Please clarify this rule' }), 201);
+  const comment = '/api/faq/questions/' + id;
+  await expect(moderator.http.request('PATCH', comment, { reply: 'First reply', revision: 1 }));
+  let q = (await expect(player.http.request('GET', path))).questions[0];
+  assert.equal(q.authorAvatarUrl, '/api/users/' + player.id + '/avatar?v=faq-avatar');
+  assert.equal(q.moderatorAvatarUrl, '/api/users/' + moderator.id + '/avatar?v=faq-avatar');
+  assert.equal(q.canEditReply, false);
+  await expect(moderator.http.request('PATCH', comment, { reply: 'Edited reply', revision: q.revision }));
+  q = (await expect(player.http.request('GET', path))).questions[0];
+  assert.ok(q.reply_updated_at);
+  await expect(player.http.request('DELETE', comment + '/reply', { revision: q.revision }), 403);
+  await expect(moderator.http.request('DELETE', comment + '/reply', { revision: q.revision - 1 }), 409);
+  await expect(moderator.http.request('DELETE', comment + '/reply', { revision: q.revision }));
+  q = (await expect(client().request('GET', path))).questions[0];
+  assert.equal(q.body, 'Please clarify this rule');
+  assert.equal(q.reply, '');
+  assert.equal(q.moderatorAvatarUrl, null);
+});

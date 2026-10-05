@@ -4,6 +4,7 @@ const {HttpError,ValidationError}=require('../http/io');
 const seed=require('../faq-data/seed.json');
 const access=require('../db/repositories/access');
 const {KILL_TEAMS}=require('../domain/kill-teams');
+const {avatarUrl}=require('../domain/avatars');
 const fs=require('node:fs'),path=require('node:path');
 const {PUBLIC_DIR}=require('../config');
 const logos=fs.readdirSync(path.join(PUBLIC_DIR,'kill-team-logos')).filter(s=>s.endsWith('.webp')).map(s=>s.slice(0,-5));
@@ -93,9 +94,15 @@ async function reviseSubmission({client,user,params,body}){
 }
 async function questions({client,user,params}){
  const e=await entry(client,params.id);if(e.status!=='published'&&!canModerate(user))throw new HttpError(404,'FAQ entry not found');
- const {rows}=await client.query(`SELECT q.id,q.body,q.reply,q.created_at,q.replied_at,q.author_id,u.name author,m.name moderator
+ const {rows}=await client.query(`SELECT q.id,q.body,q.reply,q.created_at,q.replied_at,q.author_id,q.replied_by,
+ q.revision,q.updated_at,q.reply_updated_at,u.name author,m.name moderator,
+ u.avatar_version author_avatar_version,m.avatar_version moderator_avatar_version
  FROM faq_questions q LEFT JOIN users u ON u.id=q.author_id LEFT JOIN users m ON m.id=q.replied_by
- WHERE q.entry_id=$1 AND NOT q.hidden ORDER BY q.created_at LIMIT 100`,[params.id]);return {questions:rows};
+ WHERE q.entry_id=$1 AND NOT q.hidden ORDER BY q.created_at,q.id LIMIT 100`,[params.id]);
+ return {questions:rows.map(({author_avatar_version,moderator_avatar_version,...q})=>({...q,
+  authorAvatarUrl:avatarUrl(q.author_id,author_avatar_version),moderatorAvatarUrl:avatarUrl(q.replied_by,moderator_avatar_version),
+  canEdit:!!user&&q.author_id===user.id,canDelete:!!user&&(q.author_id===user.id||canModerate(user)),
+  canReply:canModerate(user),canEditReply:canModerate(user)&&!!q.reply,canDeleteReply:canModerate(user)&&!!q.reply}))};
 }
 async function ask({client,user,params,body}){
  const e=await entry(client,params.id);if(e.status!=='published')throw new HttpError(404,'FAQ entry not found');
@@ -103,8 +110,42 @@ async function ask({client,user,params,body}){
  const {rows:[limit]}=await client.query("SELECT count(*) n FROM faq_questions WHERE author_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",[user.id]);if(Number(limit.n)>=20)throw new HttpError(429,'Можно оставить до 20 вопросов в час.');
  await client.query('INSERT INTO faq_questions(id,entry_id,author_id,body) VALUES($1,$2,$3,$4)',[id,params.id,user.id,s]);return {status:201,body:{id}};
 }
-async function reply({client,user,params,body}){
- moderator(user);const message=text(body.reply,'Reply',3,5000);const {rowCount}=await client.query('UPDATE faq_questions SET reply=$2,replied_by=$3,replied_at=NOW() WHERE id=$1',[params.questionId,message,user.id]);if(!rowCount)throw new HttpError(404,'Question not found');return {ok:true};
+async function question(client,id){
+ if(!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id))throw new HttpError(404,'Question not found');
+ const {rows:[q]}=await client.query('SELECT * FROM faq_questions WHERE id=$1 AND NOT hidden FOR UPDATE',[id]);
+ if(!q)throw new HttpError(404,'Question not found');return q;
+}
+function questionRevision(q,value,required=false){
+ if(value===undefined&&!required)return;
+ if(!Number.isSafeInteger(value)||value<1)throw new ValidationError('Invalid comment revision');
+ if(value!==q.revision)throw new HttpError(409,'Комментарий уже изменён. Обнови обсуждение, чтобы продолжить.');
+}
+async function updateQuestion({client,user,params,body}){
+ if(body.body!==undefined&&body.reply!==undefined)throw new ValidationError('Edit one comment at a time');
+ const q=await question(client,params.questionId);
+ if(body.body!==undefined){
+  if(q.author_id!==user.id)throw new HttpError(403,'Можно изменять только свои комментарии.');
+  const message=text(body.body,'Comment',3,2000);questionRevision(q,body.revision,true);
+  await client.query('UPDATE faq_questions SET body=$2,updated_at=NOW(),revision=revision+1 WHERE id=$1',[q.id,message]);
+ }else{
+  moderator(user);const message=text(body.reply,'Reply',3,5000);questionRevision(q,body.revision);
+  await client.query(`UPDATE faq_questions SET reply=$2,replied_by=$3,
+   replied_at=CASE WHEN reply='' THEN NOW() ELSE replied_at END,
+   reply_updated_at=CASE WHEN reply='' THEN NULL ELSE NOW() END,revision=revision+1 WHERE id=$1`,[q.id,message,user.id]);
+ }
+ return {ok:true};
+}
+async function removeQuestion({client,user,params,body}){
+ const q=await question(client,params.questionId);
+ if(q.author_id!==user.id&&!canModerate(user))throw new HttpError(403,'Можно удалять только свои комментарии.');
+ questionRevision(q,body.revision,true);
+ await client.query('UPDATE faq_questions SET hidden=TRUE,updated_at=NOW(),revision=revision+1 WHERE id=$1',[q.id]);return {ok:true};
+}
+async function removeReply({client,user,params,body}){
+ moderator(user);const q=await question(client,params.questionId);questionRevision(q,body.revision,true);
+ if(!q.reply)throw new HttpError(404,'Reply not found');
+ await client.query(`UPDATE faq_questions SET reply='',replied_by=NULL,replied_at=NULL,
+  reply_updated_at=NULL,revision=revision+1 WHERE id=$1`,[q.id]);return {ok:true};
 }
 async function moderators({client,user}){if(!user.isSuperAdmin)throw new HttpError(403,'Only the platform owner assigns FAQ Moderators');const {rows}=await client.query('SELECT id,name,is_faq_moderator FROM users ORDER BY name');return {users:rows};}
 async function setModerator({client,user,params,body}){
@@ -126,7 +167,9 @@ const routes=[
  {method:'POST',path:'/api/faq/submissions/:id/decision',handler:decide,auth:'user',tx:true,maxBodyBytes:4000000},
  {method:'GET',path:'/api/faq/entries/:id/questions',handler:questions,loadUser:true},
  {method:'POST',path:'/api/faq/entries/:id/questions',handler:ask,auth:'user',tx:true,maxBodyBytes:10000},
- {method:'PATCH',path:'/api/faq/questions/:questionId',handler:reply,auth:'user',tx:true,maxBodyBytes:30000},
+ {method:'PATCH',path:'/api/faq/questions/:questionId',handler:updateQuestion,auth:'user',tx:true,maxBodyBytes:30000},
+ {method:'DELETE',path:'/api/faq/questions/:questionId',handler:removeQuestion,auth:'user',tx:true,maxBodyBytes:1000},
+ {method:'DELETE',path:'/api/faq/questions/:questionId/reply',handler:removeReply,auth:'user',tx:true,maxBodyBytes:1000},
  {method:'GET',path:'/api/faq/moderators',handler:moderators,auth:'user'},
  {method:'PATCH',path:'/api/faq/moderators/:userId',handler:setModerator,auth:'user',tx:true,maxBodyBytes:10000}
 ];

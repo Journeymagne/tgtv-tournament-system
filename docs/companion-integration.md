@@ -6,6 +6,19 @@ the service selector. The service name opens its start page: Studio's library,
 tournament My Games, or a reset calculator. Theme buttons select light or dark.
 There is no cross-service tab bar or sidebar.
 
+Language and theme are shared browser preferences across all service pages.
+The parser-blocking `theme-boot.js` applies them before the first paint;
+Tournament System reads this same `KTAppearance` state. Existing `tgtv-theme`
+and `tgtv-locale` localStorage choices migrate automatically to persistent
+preference cookies with `Path=/`, `SameSite=Lax` and `Secure` on HTTPS.
+Preference cookies span `ktcompanion.ru` and its legacy service hosts; on other
+hosts they are host-only, including local previews on different ports.
+Cookies take precedence over a service's older localStorage choice. Same-origin
+tabs synchronize through storage events; returning, focusing or restoring a
+page refreshes it from shared preferences without requiring a reload. If
+localStorage is blocked, cookies retain the choice between pages. These cookies
+contain only theme/language labels and do not change the host-only login cookie.
+
 | URL | Section | Access |
 | --- | --- | --- |
 | `ktcompanion.ru` | Companion home | Public |
