@@ -93,11 +93,40 @@ test("player-reported team games offer review to the opponent or opposing captai
     for (const id of [11, 22, 33, 44, 55]) {
       const view = renderDetail({ game, me: { id, isAdmin: false } });
       assert.equal(view.html.includes("data-game-review="), [22, 44].includes(id));
-      assert.match(view.html, /Awaiting confirmation from the opponent or their roster captain/);
+      assert.match(view.html, /Awaiting confirmation from the opponent or the opposing captain/);
     }
     game.teamMatch.rosterB.captainUserId = 22;
     const opponentCaptain = renderDetail({ game, me: { id: 22, isAdmin: false } });
     assert.match(opponentCaptain.html, /data-game-review=/);
+  }
+});
+
+for (const locale of ["en", "ru"]) test(`pending team games name and escape the confirming team (${locale})`, () => {
+  const dictionary = require(`../../public/i18n/${locale}.js`);
+  const names = ["Alpha <team>", 'Beta & "team"'];
+  for (const submittedBy of [11, 22, 33, 44]) {
+    for (const playerMetadata of [
+      { playerIds: [11, 22], players: [] },
+      { players: [{ id: 101, userId: 11 }, { id: 102, userId: 22 }] }
+    ]) {
+      const captainReport = submittedBy > 22;
+      const submittedRosterId = [11, 33].includes(submittedBy) ? 10 : 20;
+      const game = gameFixture({ sourceType: "team_match_game", status: "pending_confirmation",
+        ...playerMetadata,
+        teamMatch: {
+          rosterA: { id: 10, captainUserId: 33, teamName: names[0] },
+          rosterB: { id: 20, captainUserId: 44, teamNameSnapshot: names[1] }
+        },
+        pendingResult: { submittedBy, submittedRosterId, submittedAs: captainReport ? "captain" : "player", result: { scores: {} } }
+      });
+      const team = names[submittedRosterId === 10 ? 1 : 0];
+      const key = captainReport ? "teams.results.awaitingCaptainForTeam" : "teams.results.awaitingOpponentOrCaptainForTeam";
+      const expected = dictionary[key].replace("{team}", team)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const view = renderDetail({ game, locale, me: { id: 55, isAdmin: false } });
+      assert.ok(view.html.includes(expected), `expected ${expected} for submitter ${submittedBy}`);
+      assert.doesNotMatch(view.html, /<team>/);
+    }
   }
 });
 

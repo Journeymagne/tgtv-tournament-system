@@ -66,7 +66,11 @@ async function save(ctx, publishing = false) {
 async function library(ctx) {
   const offset = Number(ctx.query.get("offset") || 0);
   if (!Number.isSafeInteger(offset) || offset < 0) throw new HttpError(400, "Некорректная страница.");
-  return store.library(ctx.client, (ctx.query.get("q") || "").slice(0, 200), offset, 32, libraryOwner(ctx));
+  return store.library(ctx.client, (ctx.query.get("q") || "").slice(0, 200), offset, 32, libraryOwner(ctx), canDeletePublication(ctx));
+}
+
+function canDeletePublication(ctx) {
+  return libraryOwner(ctx) != null && !!ctx.user?.isSuperAdmin;
 }
 
 function libraryOwner(ctx) {
@@ -90,9 +94,17 @@ async function remove(ctx) {
 }
 async function publication(ctx) {
   if (!PUBLICATION_ID.test(ctx.params.id)) throw new HttpError(404, "Команда не найдена.");
-  const result = await store.publication(ctx.client, ctx.params.id, libraryOwner(ctx));
+  const result = await store.publication(ctx.client, ctx.params.id, libraryOwner(ctx), canDeletePublication(ctx));
   if (!result) throw new HttpError(404, "Команда не найдена.");
   return result;
 }
 
-module.exports = { session, drafts, draft, save, remove, rename, publish: ctx => save(ctx, true), library, publication, MAX_BODY, checkWrite, checkAccount };
+async function removePublication(ctx) {
+  checkWrite(ctx);
+  if (!ctx.user.isSuperAdmin) throw new HttpError(403, "Удалять чужие команды может только superadmin.");
+  if (!PUBLICATION_ID.test(ctx.params.id)) throw new HttpError(404, "Команда не найдена.");
+  if (!Number.isSafeInteger(ctx.body?.revision) || ctx.body.revision < 1) throw new HttpError(400, "Некорректная версия команды.");
+  return store.removePublication(ctx.client, ctx.user, ctx.params.id, ctx.body.revision);
+}
+
+module.exports = { session, drafts, draft, save, remove, removePublication, rename, publish: ctx => save(ctx, true), library, publication, MAX_BODY, checkWrite, checkAccount };

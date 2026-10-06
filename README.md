@@ -35,6 +35,20 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+## Release 5.4.3
+
+Administration has consistent account-permission dialogs and working Players/Teams
+tabs. Pending team results identify the confirming captain's team in RU/EN;
+completed pairing results use readable theme colours on desktop and mobile.
+
+Studio superadmins can delete published teams, reviews and discussion messages,
+including hidden reviews and messages. Publication deletion verifies account,
+CSRF and revision, reuses draft/publication cleanup and records the administrator.
+Review deletion removes ratings; comment deletion preserves other authors' replies.
+See [Studio reviews](docs/studio-reviews.md), [discussion](docs/studio-discussion.md)
+and [the changelog](CHANGELOG.md). Application and client asset versions are 5.4.3.
+No new dependencies, database migrations or environment variables are required.
+
 ## Release 5.4.2
 
 FAQ team selection returns only team-specific cards, with matching counts and

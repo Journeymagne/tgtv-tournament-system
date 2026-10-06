@@ -28,14 +28,15 @@ async function draft(client, owner, id) {
   return rows[0] ? { ...summary(rows[0]), project: rows[0].project } : null;
 }
 
-function ownerControls(row, owner) {
-  return owner != null && String(row.owner_id) === String(owner)
-    ? { canRename: true, projectId: row.project_id, revision: row.revision } : {};
+function ownerControls(row, owner, superAdmin = false) {
+  return { ...(owner != null && String(row.owner_id) === String(owner)
+    ? { canRename: true, projectId: row.project_id, revision: row.revision } : {}),
+    ...(superAdmin ? { canDeletePublication: true, revision: row.revision } : {}) };
 }
 
 const author = row => ({ id: row.owner_id, name: row.author_name });
 
-async function library(client, search, offset, limit = 32, owner = null) {
+async function library(client, search, offset, limit = 32, owner = null, superAdmin = false) {
   const where = "studio_projects.deleted_at IS NULL AND published IS NOT NULL AND strpos(lower((published->'team'->>'name') || ' ' || COALESCE(published->'team'->>'subtitle','')),lower($1))>0";
   const { rows } = await client.query(`SELECT owner_id, project_id, revision, publication_id, published_at, published->'team' AS team,
     jsonb_array_length(published->'operatives') AS count, published->'layout'->>'accent' AS accent,
@@ -46,15 +47,15 @@ async function library(client, search, offset, limit = 32, owner = null) {
   const commentCounts = await comments.counts(client, rows.map(row=>row.publication_id));
   return { teams: rows.map(row => ({ id: row.publication_id, name: row.team.name, subtitle: row.team.subtitle || "",
     version: row.team.version || "", logo: row.team.logo || "", operativeCount: row.count, accent: row.accent, updatedAt: row.published_at,
-    author: author(row), ratingSummary: ratings[row.publication_id], commentCount:commentCounts[row.publication_id]||0, ...ownerControls(row, owner) })), total: count.rows[0].total };
+    author: author(row), ratingSummary: ratings[row.publication_id], commentCount:commentCounts[row.publication_id]||0, ...ownerControls(row, owner, superAdmin) })), total: count.rows[0].total };
 }
 
-async function publication(client, id, owner = null) {
+async function publication(client, id, owner = null, superAdmin = false) {
   const { rows } = await client.query(`SELECT studio_projects.*, users.name AS author_name FROM studio_projects
     JOIN users ON users.id=studio_projects.owner_id
     WHERE publication_id=$1 AND published IS NOT NULL AND studio_projects.deleted_at IS NULL`, [id]);
   return rows[0] ? { ...summary(rows[0], true), project: rows[0].published, author: author(rows[0]), publishedRevision: rows[0].published_revision,
-    ratingSummary: (await reviews.summaries(client,[id]))[id], commentCount:(await comments.counts(client,[id]))[id]||0, ...ownerControls(rows[0], owner) } : null;
+    ratingSummary: (await reviews.summaries(client,[id]))[id], commentCount:(await comments.counts(client,[id]))[id]||0, ...ownerControls(rows[0], owner, superAdmin) } : null;
 }
 
 async function rename(client, owner, id, name, revision) {
@@ -129,4 +130,16 @@ async function remove(client, owner, id, revision) {
   return { id, deleted: true };
 }
 
-module.exports = { drafts, draft, library, publication, save, deletedIds, remove, rename };
+async function removePublication(client, actor, publicationId, revision) {
+  if (!actor?.isSuperAdmin) throw new HttpError(403, "Удалять чужие команды может только superadmin.");
+  const { rows: [team] } = await client.query(`SELECT owner_id, project_id, published->'team'->>'name' AS name
+    FROM studio_projects WHERE publication_id=$1 AND deleted_at IS NULL AND published IS NOT NULL`, [publicationId]);
+  if (!team) throw new HttpError(404, "Команда не найдена.");
+  // Reuse the owner lock, revision check, tombstone and dependent-data cleanup.
+  await remove(client, team.owner_id, team.project_id, revision);
+  await require("./access").audit(client, actor, "studio.project.delete", "studio_publication", null,
+    { publicationId, ownerId: team.owner_id, projectId: team.project_id, name: team.name }, { deleted: true });
+  return { id: publicationId, deleted: true };
+}
+
+module.exports = { drafts, draft, library, publication, save, deletedIds, remove, removePublication, rename };

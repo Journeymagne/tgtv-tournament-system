@@ -97,6 +97,7 @@ module.exports = [
   { method: "POST", path: "/api/studio/drafts/:id/publish", handler: studio.publish, auth: "user", tx: true, maxBodyBytes: studio.MAX_BODY },
   { method: "GET", path: "/api/studio/library", handler: studio.library, auth: "none", loadUser: true },
   { method: "GET", path: "/api/studio/library/:id", handler: studio.publication, auth: "none", loadUser: true },
+  { method: "DELETE", path: "/api/studio/admin/library/:id", handler: studio.removePublication, auth: "user", permission: "super", tx: true },
   { method: "POST", path: "/api/studio/tts/exports", handler: studioTts.create, auth: "user", tx: true, maxBodyBytes: studioTts.MAX_BODY },
   { method: "GET", path: "/api/studio/tts/exports", handler: studioTts.list, auth: "user" },
   { method: "DELETE", path: "/api/studio/tts/exports/:id", handler: studioTts.remove, auth: "user", tx: true },

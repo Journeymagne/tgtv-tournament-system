@@ -14,6 +14,9 @@ Writers may edit or delete their own messages. Revision checks protect concurren
 edits, request UUIDs deduplicate creation retries, and unsaved text is guarded.
 Deleting a root preserves other participants' replies with a deleted placeholder.
 Messages survive publication updates and retain the version at creation.
+Superadmins can delete other users' messages, including hidden messages, with
+the same revision checks, audit trail and preservation of replies. This permission
+does not allow editing someone else's message or extend to ordinary administrators.
 
 The team author receives questions and replies. Root-message authors and direct
 reply recipients also receive replies, without duplicate or self notifications.

@@ -25,7 +25,7 @@ function status(){
  $('#retry-cloud').hidden=!entry?.error&&!!cloud?.isReady()||guest;
  $('.cloud-indicator').hidden=!message&&$('#retry-cloud').hidden;
  if(view==='drafts'&&cloud)renderDrafts();
- for(const button of document.querySelectorAll('[data-rename-draft],[data-rename-publication],[data-delete-draft]'))button.disabled=busy;
+ for(const button of document.querySelectorAll('[data-rename-draft],[data-rename-publication],[data-delete-draft],[data-delete-publication]'))button.disabled=busy;
 }
 function track(project){if(cloud)cloud.track(project);status()}
 function authorLink(team){
@@ -36,7 +36,7 @@ function authorLink(team){
 function card(team,draft=false){
  const logo=KTModel.isLogo(team.logo)?'<img class="team-tile-logo" src="'+esc(team.logo)+'" alt="" width="96" height="96" loading="lazy">':'';
  const rename=draft||team.canRename?'<button data-rename-'+(draft?'draft':'publication')+'="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Переименовать</button>':'';
- return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div>'+logo+'<h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p>'+(!draft?'<p class="team-author">'+authorLink(team)+'</p>'+root.KTReviews.summary(team.ratingSummary,team.id)+root.KTDiscussion.countButton(team.commentCount,team.id):'')+'<div class="team-tile-meta"><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
+ return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div>'+logo+'<h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p>'+(!draft?'<p class="team-author">'+authorLink(team)+'</p>'+root.KTReviews.summary(team.ratingSummary,team.id)+root.KTDiscussion.countButton(team.commentCount,team.id):'')+'<div class="team-tile-meta"><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(!draft&&team.canDeletePublication?'<button class="danger" data-delete-publication="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить команду</button>':'')+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
 }
 function syncViewLocation(){
  const hash='#/'+view;
@@ -122,13 +122,29 @@ function confirmDelete(id){
  $('#delete-project-description').textContent='Команда «'+(team.name||'Без названия')+'» будет удалена из ваших черновиков'+(team.publicationId?' и из публичной библиотеки':'')+'. Локальные копии этой команды будут удалены при подключении к аккаунту. Отменить удаление нельзя.';
  $('#delete-project-error').textContent='';$('#review-delete-project').hidden=true;$('#delete-project-dialog').showModal();
 }
+function confirmDeletePublication(id){
+ if(busy||!cloud)return;
+ const team=publication?.id===id&&$('#publication-dialog').open?publication:libraryTeams.find(item=>item.id===id);
+ if(!team?.canDeletePublication||!canLeavePublication())return;
+ deleteTarget={id,revision:team.revision,publication:true};
+ $('#delete-project-description').textContent='Команда «'+(team.name||'Без названия')+'» автора '+(team.author?.name||'')+' будет удалена из библиотеки и черновиков автора вместе с TTS-ссылками, обзорами и обсуждениями. Отменить удаление нельзя.';
+ $('#delete-project-error').textContent='';$('#review-delete-project').hidden=true;$('#delete-project-dialog').showModal();
+}
 async function deleteProject(){
  if(busy||!deleteTarget||!$('#delete-project-dialog').open)return;
- const {id,revision}=deleteTarget;busy=true;busyAction='delete';
+ const {id,revision,publication:moderation}=deleteTarget;busy=true;busyAction='delete';
  $('#confirm-delete-project').disabled=true;$('#cancel-delete-project').disabled=true;$('#delete-project-error').textContent='';status();
  try{
-  await cloud.remove(id,revision);deleteTarget=null;$('#delete-project-dialog').close();
-  adapter.toast('Команда удалена.');await show('drafts');
+  if(moderation){
+   await cloud.connect();
+   await cloud.api('/api/admin/library/'+encodeURIComponent(id),{method:'DELETE',body:JSON.stringify({revision})});
+   if(publication?.id===id){resetPublicationPanels();$('#publication-dialog').close();publication=null}
+   // Refresh tombstones if the superadmin removed their own publication.
+   void cloud.connect(true).catch(error=>adapter.toast(error.message));
+   offset=0;
+  }else await cloud.remove(id,revision);
+  deleteTarget=null;$('#delete-project-dialog').close();
+  adapter.toast('Команда удалена.');await show(moderation?'library':'drafts');
  }catch(error){$('#delete-project-error').textContent=error.message;$('#review-delete-project').hidden=error.status!==409}
  finally{busy=false;busyAction='';$('#confirm-delete-project').disabled=false;$('#cancel-delete-project').disabled=false;status()}
 }
@@ -137,6 +153,9 @@ function renderPublication(){
  let diceButton=$('#publication-dice');
  if(!diceButton){diceButton=document.createElement('button');diceButton.id='publication-dice';diceButton.textContent='Кубик с логотипом';$('.publication-actions').append(diceButton)}
  diceButton.disabled=!KTModel.isLogo(project.team.logo);
+ let deleteButton=$('#publication-delete');
+ if(!deleteButton){deleteButton=document.createElement('button');deleteButton.id='publication-delete';deleteButton.className='danger';deleteButton.textContent='Удалить команду';$('.publication-actions').append(deleteButton)}
+ deleteButton.hidden=!publication.canDeletePublication;deleteButton.dataset.deletePublication=publication.id;deleteButton.disabled=busy;
  $('#publication-title').textContent=project.team.name;
  $('#publication-info').textContent='Версия '+(project.team.version||'1.0')+' · опубликовано '+date(publication.updatedAt);
  $('#publication-author').innerHTML=authorLink(publication);
@@ -291,13 +310,19 @@ async function init(options){
   if(button.id==='reload-community')void show(view);
   if(button.dataset.openDraft)void openDraft(button.dataset.openDraft);
   if(button.dataset.deleteDraft)confirmDelete(button.dataset.deleteDraft);
+  if(button.dataset.deletePublication)confirmDeletePublication(button.dataset.deletePublication);
   if(button.dataset.renameDraft)void beginRename(button.dataset.renameDraft,true);
   if(button.dataset.renamePublication)void beginRename(button.dataset.renamePublication,false);
   if(button.id==='cancel-rename-project')$('#rename-project-dialog').close();
   if(button.id==='review-rename-project'){$('#rename-project-dialog').close();void show(view)}
   if(button.id==='confirm-delete-project')void deleteProject();
   if(button.id==='cancel-delete-project')$('#delete-project-dialog').close();
-  if(button.id==='review-delete-project'){$('#delete-project-dialog').close();void show('drafts')}
+  if(button.id==='review-delete-project'){
+   const moderation=deleteTarget?.publication;
+   $('#delete-project-dialog').close();
+   if(moderation&&publication?.id===deleteTarget.id){resetPublicationPanels();$('#publication-dialog').close();publication=null}
+   void show(moderation?'library':'drafts');
+  }
   if(button.dataset.openPublication)void openPublication(button.dataset.openPublication);
   if(button.dataset.openReviews){if(publication?.id===button.dataset.openReviews&&$('#publication-dialog').open&&publicationSection==='reviews')return;void openPublication(button.dataset.openReviews,'reviews')}
   if(button.dataset.openDiscussion)void openPublication(button.dataset.openDiscussion,'discussion');

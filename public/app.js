@@ -3712,7 +3712,20 @@ function teamGameResultPermissions(game) {
 }
 
 function teamGamePendingMessage(game) {
-  return t(teamGameResultPermissions(game).requiresCaptainReview ? "teams.results.awaitingCaptain" : "teams.results.awaitingOpponentOrCaptain");
+  const key = teamGameResultPermissions(game).requiresCaptainReview ? "teams.results.awaitingCaptain" : "teams.results.awaitingOpponentOrCaptain";
+  const rosters = [game.teamMatch?.rosterA, game.teamMatch?.rosterB];
+  const pending = game.pendingResult;
+  const playerIds = game.playerUserIds || (game.players?.length
+    ? game.players.map((player) => "userId" in player ? player.userId : player.id)
+    : game.playerIds || []);
+  const submittedRoster = pending?.submittedBy && (
+    rosters[playerIds.indexOf(pending.submittedBy)] ||
+    rosters.find((roster) => roster && roster.id === pending.submittedRosterId) ||
+    rosters.find((roster) => roster?.captainUserId === pending.submittedBy)
+  );
+  const confirmingRoster = submittedRoster && rosters.find((roster) => roster && roster.id !== submittedRoster.id);
+  const team = confirmingRoster?.teamName || confirmingRoster?.teamNameSnapshot || confirmingRoster?.name;
+  return team ? t(`${key}ForTeam`, { team }) : t(key);
 }
 
 function gameResultFormHint(game, adminEdit = false) {
@@ -8492,7 +8505,7 @@ function teamMatchGamesMarkup(match, options = {}) {
       ? `<button class="primary-button" data-team-game-result="${game?.id}">${t(game?.status === "pending_confirmation" ? "play.action.editResult" : "play.action.enterResult")}</button>`
       : link?.permissions?.canReview ? `<button class="primary-button" data-team-game-review="${game?.id}">${t("play.action.reviewResult")}</button>` : "";
     const awaitingReview = game?.status === "pending_confirmation"
-      ? `<p class="row-meta">${teamGamePendingMessage({ ...game, teamMatch: match, resultPermissions: link.permissions })}</p>` : "";
+      ? `<p class="row-meta">${escapeHtml(teamGamePendingMessage({ ...game, teamMatch: match, resultPermissions: link.permissions }))}</p>` : "";
     return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${tableImage}${result}${awaitingReview}</div>${state.me && game?.id ? `<div class="row-actions team-game-actions">${resultAction}<a href="/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</a></div>` : ""}</div>`;
   }).join("")}</div>`;
 }

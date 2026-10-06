@@ -212,6 +212,7 @@ button:disabled {
 
 /* Field and definition labels. */
 .field label,
+.administration-dialog label:not(.checkbox-line),
 .game-detail-context dt {
   color: var(--muted);
   font-size: 12px;
@@ -221,7 +222,8 @@ button:disabled {
 
 .field input,
 .field select,
-.field textarea {
+.field textarea,
+.administration-dialog :is(input:not([type="checkbox"]), select, textarea) {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
@@ -229,6 +231,13 @@ button:disabled {
   border-radius: 7px;
   color: var(--ink);
   background: var(--surface-input);
+}
+
+.administration-dialog :is(input:not([type="checkbox"]), select, textarea) {
+  font-size: 16px;
+  font-weight: 400;
+  text-transform: none;
+  min-width: 0;
 }
 
 .field textarea {
@@ -251,7 +260,8 @@ button:disabled {
 
 .field input:focus,
 .field select:focus,
-.field textarea:focus {
+.field textarea:focus,
+.administration-dialog :is(input:not([type="checkbox"]), select, textarea):focus {
   outline: 2px solid rgb(var(--accent-rgb) / 0.26);
   border-color: var(--accent);
 }
@@ -3376,7 +3386,7 @@ tr:last-child td {
 
 .team-match-result {
   margin-top: 10px;
-  color: #f4f4f4;
+  color: var(--ink);
   font-size: 21px;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -3385,7 +3395,7 @@ tr:last-child td {
 .team-match-result .team-match-score,
 .team-match-result-note {
   margin-top: 4px;
-  color: #b9b9b9;
+  color: var(--muted);
   font-weight: 600;
 }
 
@@ -4240,14 +4250,51 @@ tr:last-child td {
 .administration-tile:hover { border-color:var(--accent); }
 .administration-tabs { display:flex; gap:8px; overflow-x:auto; margin:0 0 20px; }
 .administration-tabs .tab { white-space:nowrap; }
-.admin-settings-section { margin:16px 0; padding:16px; border:1px solid var(--border); border-radius:12px; }
-.admin-settings-section > summary { cursor:pointer; font-weight:700; margin-bottom:12px; }
-.administration-dialog { background:var(--panel, #18202a); color:var(--text, #eee); border:1px solid var(--border, #475569); border-radius:16px; padding:24px; width:min(620px,calc(100vw - 32px)); max-height:85vh; overflow:auto; }
-.administration-dialog::backdrop { background:#0009; }
-.administration-dialog label { display:block; margin:12px 0; }
-.administration-dialog input:not([type=checkbox]),.administration-dialog select { width:100%; }
-.administration-dialog [data-dialog-error] { color:#fb7185; }
-.administration-dialog .row-actions { margin-top:20px; flex-wrap:wrap; }
+.admin-settings-section { margin:16px 0; padding:16px; border:1px solid var(--line); border-radius:8px; }
+.admin-settings-section > summary { cursor:pointer; font-weight:900; line-height:1.4; }
+.admin-settings-section[open] > summary { margin-bottom:16px; }
+.administration-dialog {
+  background:var(--panel);
+  color:var(--ink);
+  border:1px solid var(--line-strong);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+  padding:24px;
+  width:min(620px,calc(100vw - 32px));
+  max-height:calc(100dvh - 32px);
+  overflow:auto;
+}
+.administration-dialog::backdrop { background:var(--overlay); }
+.administration-dialog-heading { padding-bottom:16px; margin-bottom:20px; border-bottom:1px solid var(--line); }
+.administration-dialog-heading h3 { margin:0; font-size:22px; font-weight:950; overflow-wrap:anywhere; }
+.administration-dialog-body { min-width:0; }
+.administration-dialog label:not(.checkbox-line) { display:grid; gap:7px; margin:12px 0; }
+.administration-dialog [data-dialog-error] { color:var(--danger); overflow-wrap:anywhere; }
+.administration-dialog [data-dialog-error]:empty,
+.administration-dialog [data-role-password]:empty { display:none; }
+.administration-dialog-actions { padding-top:16px; margin-top:20px; border-top:1px solid var(--line); }
+.administration-dialog-actions > .danger-button { margin-right:auto; }
+.administration-dialog :is(button, summary, input[type="checkbox"]):focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.admin-user-meta { margin:0 0 20px; color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+.admin-user-notice { margin:0 0 16px; padding:12px; border:1px solid var(--line); border-radius:7px; background:var(--panel-2); line-height:1.5; overflow-wrap:anywhere; }
+.admin-dialog-form { display:grid; gap:16px; }
+.admin-dialog-form h4 { margin:0; font-size:14px; font-weight:900; text-transform:uppercase; }
+.administration-dialog .admin-dialog-form label { margin:0; }
+.admin-permission-options { display:grid; gap:8px; }
+.admin-permission-option { padding:12px; border:1px solid var(--line); border-radius:7px; background:var(--panel-2); cursor:pointer; }
+.admin-permission-option:hover { border-color:var(--line-strong); }
+.admin-permission-option:has(input:checked) { border-color:var(--accent); background:rgb(var(--accent-rgb) / 0.06); }
+.admin-permission-option:has(input:disabled) { cursor:default; }
+.admin-permission-option input { flex:0 0 18px; margin:0; }
+.admin-permission-option span { display:grid; gap:4px; min-width:0; line-height:1.4; }
+.admin-permission-option strong { font-size:14px; }
+.admin-permission-option small { color:var(--muted); font-size:12px; font-weight:400; }
+.admin-rating-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+@media(max-width:480px) {
+  .administration-dialog { padding:16px; }
+  .admin-rating-fields { grid-template-columns:minmax(0,1fr); }
+  .admin-dialog-form .row-actions > button { flex:1 1 140px; }
+}
 @media(max-width:600px) { .administration-heading { align-items:flex-start; flex-direction:column; } }
 
 /* Team round lines and direct pair assignments. */

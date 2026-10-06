@@ -61,7 +61,7 @@ function view(row, user, team, privileged = false) {
     hidden: !!row.hidden_at, deleted: !!row.deleted_at,
     moderationReason: row.hidden_at ? row.moderation_reason : "",
     canEdit: available && user?.id === row.author_id && !team.locked_at,
-    canDelete: !row.deleted_at && user?.id === row.author_id && !row.hidden_at };
+    canDelete: !row.deleted_at && (!!user?.isSuperAdmin || (user?.id === row.author_id && !row.hidden_at)) };
 }
 const encodeCursor = row => Buffer.from(JSON.stringify([row.cursor_time, row.id])).toString("base64url");
 async function list(client, id, user, cursor) {
@@ -142,8 +142,9 @@ async function change(client,id,reviewId,user,input,remove = false) {
   const team = await publication(client,id,true);
   const { rows: [row] } = await client.query("SELECT * FROM studio_reviews WHERE publication_id=$1 AND id=$2 FOR UPDATE",[id,reviewId]);
   if (!row || row.deleted_at) throw new HttpError(404,"Обзор недоступен.");
-  if (row.author_id!==user.id) throw new HttpError(403,"Можно изменять только собственный обзор.");
-  if (row.hidden_at) throw new HttpError(403,"Обзор скрыт модератором. Дождитесь решения.");
+  const superDelete = remove && user.isSuperAdmin;
+  if (row.author_id!==user.id && !superDelete) throw new HttpError(403,"Можно изменять только собственный обзор.");
+  if (row.hidden_at && !superDelete) throw new HttpError(403,"Обзор скрыт модератором. Дождитесь решения.");
   if (!remove && (team.owner_id===user.id || team.locked_at)) throw new HttpError(403,"Редактирование недоступно.");
   if (row.revision!==input.revision) throw new HttpError(409,"Обзор изменён в другой вкладке. Обновите данные перед сохранением.");
   await rate(client,user.id);

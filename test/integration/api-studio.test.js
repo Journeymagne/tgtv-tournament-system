@@ -56,6 +56,99 @@ async function ageReviewWrites(user) {
   await pool.query("UPDATE studio_review_audit SET created_at=NOW()-INTERVAL '20 seconds' WHERE actor_id=$1", [user.id]);
 }
 
+test("superadmin publication deletion verifies identity and revision, cleans dependencies and records the actor", async () => {
+  const owner = await account("Author"), superadmin = await account("Superadmin"), admin = await account("Administrator");
+  await require("../helpers/access").grantOwner(pool, superadmin);
+  await pool.query("UPDATE users SET is_admin=TRUE WHERE id=$1", [admin.id]);
+  const project = model.newProject("moderated-publication", "Published team");
+  const publication = (await save(owner, project, 0, true)).body.publicationId;
+  const itemPath = `/api/studio/library/${publication}`, deletePath = `/api/studio/admin/library/${publication}`;
+  const controls = (await request("/api/studio/library", superadmin)).body.teams[0];
+  assert.equal(controls.canDeletePublication, true);
+  assert.equal(controls.revision, 1);
+  for (const actor of [null, owner, admin, { ...superadmin, id: owner.id }]) {
+    assert.notEqual((await request("/api/studio/library", actor)).body.teams[0].canDeletePublication, true);
+    assert.notEqual((await request(itemPath, actor)).body.canDeletePublication, true);
+  }
+  for (const [actor, status] of [[null, 401], [owner, 403], [admin, 403], [{ ...superadmin, id: owner.id }, 401], [{ ...superadmin, csrf: "bad" }, 403]]) {
+    assert.equal((await request(deletePath, actor, { method: "DELETE", body: { revision: 1 } })).status, status);
+  }
+  const review = await request(itemPath + "/reviews", admin, { method: "POST", body: reviewBody() });
+  assert.equal(review.status, 200);
+  assert.equal((await request(itemPath + "/comments", owner, { method: "POST", body: { body: "Keep until deletion", clientRequestId: randomUUID() } })).status, 200);
+  assert.equal((await request(deletePath, superadmin, { method: "DELETE", body: { revision: 2 } })).status, 409);
+  assert.equal((await request(itemPath)).status, 200);
+  assert.equal((await pool.query("SELECT count(*)::int AS count FROM administrative_audit_events WHERE event_type='studio.project.delete'")).rows[0].count, 0);
+  assert.equal((await request(deletePath, superadmin, { method: "DELETE", body: { revision: 1 } })).status, 200);
+  assert.equal((await request(itemPath)).status, 404);
+  assert.equal((await request("/api/studio/drafts/" + project.team.id, owner)).status, 404);
+  assert.equal((await request("/api/studio/library")).body.total, 0);
+  for (const table of ["studio_reviews", "studio_comments", "studio_review_ratings"]) {
+    assert.equal((await pool.query(`SELECT count(*)::int AS count FROM ${table}`)).rows[0].count, 0);
+  }
+  const { rows: [audit] } = await pool.query("SELECT * FROM administrative_audit_events WHERE event_type='studio.project.delete'");
+  assert.equal(audit.actor_user_id, superadmin.id);
+  assert.equal(audit.before.publicationId, publication);
+  assert.equal(audit.before.ownerId, owner.id);
+  assert.equal(audit.after.deleted, true);
+  assert.equal((await request(deletePath, superadmin, { method: "DELETE", body: { revision: 1 } })).status, 404);
+});
+
+test("superadmins delete visible and hidden reviews without permission to edit other authors", async () => {
+  const owner = await account("Author"), superadmin = await account("Superadmin"), admin = await account("Administrator");
+  const reviewer = await account("Reviewer"), otherReviewer = await account("OtherReviewer");
+  await require("../helpers/access").grantOwner(pool, superadmin);
+  await pool.query("UPDATE users SET is_admin=TRUE WHERE id=$1", [admin.id]);
+  const publication = (await save(owner, model.newProject("superadmin-reviews", "Reviews"), 0, true)).body.publicationId;
+  const base = `/api/studio/library/${publication}/reviews`;
+  const created = (await request(base, reviewer, { method: "POST", body: reviewBody() })).body;
+  const itemPath = base + "/" + created.id;
+  assert.equal((await request(itemPath, superadmin)).body.canDelete, true);
+  assert.equal((await request(itemPath, superadmin)).body.canEdit, false);
+  assert.equal((await request(itemPath, admin)).body.canDelete, false);
+  assert.equal((await request(itemPath, admin, { method: "DELETE", body: { revision: 1 } })).status, 403);
+  assert.equal((await request(itemPath, superadmin, { method: "PATCH", body: reviewBody({ revision: 1 }) })).status, 403);
+  assert.equal((await request(itemPath, superadmin, { method: "DELETE", body: { revision: 2 } })).status, 409);
+  const removed = await request(itemPath, superadmin, { method: "DELETE", body: { revision: 1 } });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.ratingSummary.overall.count, 0);
+  assert.equal((await request("/api/studio/library")).body.teams[0].ratingSummary.count, 0);
+  const hidden = (await request(base, otherReviewer, { method: "POST", body: reviewBody() })).body;
+  const adminBase = `/api/studio/admin/library/${publication}/reviews`;
+  assert.equal((await request(adminBase + "/" + hidden.id + "/moderation", admin, { method: "POST", body: { revision: 1, hidden: true, reason: "Moderation" } })).status, 200);
+  const hiddenView = (await request(adminBase, superadmin)).body.items.find(item => item.id === hidden.id);
+  assert.equal(hiddenView.hidden, true);
+  assert.equal(hiddenView.canDelete, true);
+  await ageReviewWrites(superadmin);
+  assert.equal((await request(base + "/" + hidden.id, superadmin, { method: "DELETE", body: { revision: 2 } })).status, 200);
+  assert.equal((await pool.query("SELECT count(*)::int AS count FROM studio_review_audit WHERE actor_id=$1 AND action='delete'", [superadmin.id])).rows[0].count, 2);
+});
+
+test("superadmin comment deletion preserves other authors' replies and the revision audit", async () => {
+  const owner = await account("Author"), writer = await account("Writer"), superadmin = await account("Superadmin"), admin = await account("Administrator");
+  await require("../helpers/access").grantOwner(pool, superadmin);
+  await pool.query("UPDATE users SET is_admin=TRUE WHERE id=$1", [admin.id]);
+  const publication = (await save(owner, model.newProject("superadmin-comments", "Discussion"), 0, true)).body.publicationId;
+  const base = `/api/studio/library/${publication}/comments`;
+  const root = (await request(base, writer, { method: "POST", body: { body: "Root comment", clientRequestId: randomUUID() } })).body;
+  const reply = (await request(base, owner, { method: "POST", body: { body: "Preserve this reply", replyToCommentId: root.id, clientRequestId: randomUUID() } })).body;
+  const itemPath = base + "/" + root.id;
+  assert.equal((await request(base, superadmin)).body.items[0].canDelete, true);
+  assert.equal((await request(itemPath, admin, { method: "DELETE", body: { revision: 1 } })).status, 403);
+  assert.equal((await request(itemPath, superadmin, { method: "PATCH", body: { body: "Not my comment", revision: 1 } })).status, 403);
+  assert.equal((await request(itemPath, superadmin, { method: "DELETE", body: { revision: 2 } })).status, 409);
+  const adminBase = `/api/studio/admin/library/${publication}/comments`;
+  assert.equal((await request(adminBase + "/" + root.id + "/moderation", admin, { method: "POST", body: { revision: 1, hidden: true, reason: "Moderation" } })).status, 200);
+  assert.equal((await request(adminBase, superadmin)).body.items[0].canDelete, true);
+  assert.equal((await request(itemPath, superadmin, { method: "DELETE", body: { revision: 2 } })).status, 200);
+  const thread = (await request(base)).body.items[0];
+  assert.equal(thread.deleted, true);
+  assert.equal(thread.body, null);
+  assert.equal(thread.replies[0].id, reply.id);
+  assert.equal(thread.replies[0].body, "Preserve this reply");
+  assert.equal((await pool.query("SELECT count(*)::int AS count FROM studio_comment_audit WHERE comment_id=$1 AND actor_id=$2 AND action='delete'", [root.id, superadmin.id])).rows[0].count, 1);
+});
+
 test("Studio reviews enforce identity, ownership and one vote, with idempotent notifications", async () => {
   const owner = await account("Owner"), reviewer = await account("Reviewer"), outsider = await account("Outsider");
   const publication = (await save(owner, model.newProject("review-team", "Review team"), 0, true)).body.publicationId;

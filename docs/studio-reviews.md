@@ -35,6 +35,14 @@ scores; remaining notification entries are redacted on retrieval.
 - Each rating is a keyboard-accessible radio group without a default score.
 - Reviews can be edited or deleted by their author. Conflicts preserve the form
   and offer to load the current revision before saving again.
+- Superadmins can also delete other users' reviews, including hidden reviews.
+  Deletion is audited and excludes all version ratings from the library averages;
+  it does not grant permission to edit another author's text or scores.
+- Superadmins can delete a published team from its library tile or viewer after
+  confirmation. The server checks the project revision and deletes the owner's
+  draft, publication, TTS exports, reviews and discussions through the existing
+  project cleanup. The action is recorded in the administrative audit log.
+  Ordinary administrators do not receive this deletion permission.
 - Public text is escaped, keeps line breaks and is not interpreted as HTML.
   Long reviews can be expanded. URLs remain plain text.
 - Review lists use cursor pagination (20 entries), with a direct fetch for links

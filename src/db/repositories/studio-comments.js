@@ -15,7 +15,7 @@ function view(row,user,team,admin=false){
     versionLabel:row.version_label,previousVersion:row.publication_revision!==team.published_revision,
     createdAt:row.created_at,updatedAt:row.updated_at,revision:row.revision,
     canEdit:available&&user?.id===row.author_id&&!team.locked_at,
-    canDelete:!row.deleted_at&&user?.id===row.author_id,
+    canDelete:!row.deleted_at&&(user?.id===row.author_id||!!user?.isSuperAdmin),
     canReply:available&&!!user&&!team.locked_at};
 }
 async function counts(client,ids){
@@ -103,7 +103,7 @@ async function create(client,id,user,input){
 async function change(client,id,commentId,user,input,remove=false){
   const team=await reviews.publication(client,id,true),row=await find(client,id,commentId);
   if(row.deleted_at)throw new HttpError(404,'Комментарий удалён.');
-  if(row.author_id!==user.id)throw new HttpError(403,'Можно изменять только свои комментарии.');
+  if(row.author_id!==user.id&&!(remove&&user.isSuperAdmin))throw new HttpError(403,'Можно изменять только свои комментарии.');
   if(!remove&&(team.locked_at||row.hidden_at))throw new HttpError(403,'Редактирование недоступно.');
   if(row.revision!==input.revision)throw new HttpError(409,'Комментарий изменён в другой вкладке. Обновите данные перед сохранением.');
   await reviews.rate(client,user.id);await audit(client,row,user,remove?'delete':'update');

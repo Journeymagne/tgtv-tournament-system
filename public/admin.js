@@ -2161,7 +2161,7 @@ function renderAdministration() {
   const tile = (href, title, hint) => `<a href="/tournament#/${href}" data-app-link data-app-route class="card administration-tile"><h3>${title}</h3><p class="muted">${hint}</p></a>`;
   let body = '';
   if (tab === 'tournaments') body = adminTournamentsPanel();
-  else if (tab === 'people' && state.me.isAdmin) body = `<div class="row-actions"><button class="small-button" data-admin-people="players">${adminLabel('Игроки', 'Players')}</button><button class="small-button" data-admin-people="teams">${t('nav.teams')}</button></div>${state.adminPeopleTab === 'teams' ? adminTeamsPanel() : adminUsersPanel()}`;
+  else if (tab === 'people' && state.me.isAdmin) body = `<div class="tabs"><button type="button" class="tab ${state.adminPeopleTab !== 'teams' ? 'active' : ''}" aria-pressed="${state.adminPeopleTab !== 'teams'}" data-admin-people="players">${adminLabel('Игроки', 'Players')}</button><button type="button" class="tab ${state.adminPeopleTab === 'teams' ? 'active' : ''}" aria-pressed="${state.adminPeopleTab === 'teams'}" data-admin-people="teams">${t('nav.playerTeams')}</button></div>${state.adminPeopleTab === 'teams' ? adminTeamsPanel() : adminUsersPanel()}`;
   else if (tab === 'content' && state.me.isAdmin) body = `<div class="administration-tiles">${tile('administration/documentation', adminLabel('Документация', 'Documentation'), adminLabel('Редактирование инструкций и страниц помощи', 'Edit instructions and help pages'))}${tile('administration/achievements', t('nav.achievements'), adminLabel('Достижения, награды и зал славы', 'Achievements, awards and hall of fame'))}${tile('administration/people', adminLabel('Kill Team Challenge', 'Kill Team Challenge'), adminLabel('Выберите игрока и откройте его прогресс Challenge', 'Choose a player and open their Challenge progress'))}</div>`;
   else {
     const events = state.adminTournaments || [];
@@ -2181,7 +2181,8 @@ function administrationDialog(title, body) {
   document.querySelector('[data-administration-dialog]')?.remove();
   const dialog = document.createElement('dialog');
   dialog.className='administration-dialog'; dialog.dataset.administrationDialog='';
-  dialog.innerHTML=`<h3>${escapeHtml(title)}</h3>${body}<p data-dialog-error role="alert"></p><div class="row-actions"><button type="button" class="small-button" data-dialog-close>${adminLabel('Закрыть', 'Close')}</button></div>`;
+  dialog.setAttribute('aria-labelledby', 'administration-dialog-title');
+  dialog.innerHTML=`<header class="administration-dialog-heading"><h3 id="administration-dialog-title">${escapeHtml(title)}</h3></header><div class="administration-dialog-body">${body}</div><p data-dialog-error role="alert"></p><div class="row-actions administration-dialog-actions" data-dialog-actions><button type="button" class="small-button" data-dialog-close>${adminLabel('Закрыть', 'Close')}</button></div>`;
   document.body.appendChild(dialog);
   dialog.querySelector('[data-dialog-close]').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>dialog.remove());
@@ -2219,14 +2220,28 @@ function wireRoleUserButtons() {
 function showRoleUser(id) {
   const user=state.adminUsers.find(item=>item.id===id); if(!user)return;
   const canManage=state.me.isSuperAdmin || (!user.isAdmin&&!user.isSuperAdmin);
-  const roleForm=state.me.isSuperAdmin?`<form data-user-permissions><h4>${adminLabel('Доступы', 'Permissions')}</h4><label><input type="checkbox" name="isAdmin" ${user.isAdmin?'checked':''} ${user.isSuperAdmin?'disabled':''}> ${adminLabel('Администратор платформы (судья всех турниров)', 'Platform administrator (judge of every tournament)')}</label><label><input type="checkbox" name="canCreateTournaments" ${user.canCreateTournaments?'checked':''}> ${adminLabel('Может создавать турниры', 'Can create tournaments')}</label><label>${adminLabel('Причина изменения', 'Reason for change')}<input name="reason" required maxlength="1000"></label><button class="primary-button">${t('common.save')}</button></form>`:'';
-  const dialog=administrationDialog(user.name,`<p>${escapeHtml(user.telegramContact||'')} · ${escapeHtml(user.registerNickname||'')}</p>${user.isSuperAdmin?`<p>${adminLabel('Владелец платформы. Супер-администратора нельзя удалить или понизить.', 'Platform owner. The super administrator cannot be deleted or demoted.')}</p>`:''}${roleForm}${canManage&&id!==state.me.id?`<details class="admin-settings-section"><summary>${adminLabel('Безопасность аккаунта', 'Account security')}</summary><button class="small-button" data-role-reset>${t('profile.admin.resetPassword')}</button><p data-role-password></p><form data-user-suspension><label>${adminLabel('Заблокировать до', 'Suspend until')}<input name="until" type="datetime-local" required></label><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><button class="danger-button">${adminLabel('Заблокировать', 'Suspend')}</button> <button type="button" class="small-button" data-role-restore>${adminLabel('Снять блокировку', 'Restore account')}</button></form></details>`:''}${state.me.isSuperAdmin?`<details class="admin-settings-section"><summary>${adminLabel('Коррекция рейтинга', 'Rating correction')}</summary><form data-user-rating>${['Combined','Tts','Irl'].map(mode=>`<label>${mode}<input type="number" min="0" max="5000" name="rating${mode}" value="${playerRating(user,mode.toLowerCase())}" required></label>`).join('')}<label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><button class="danger-button">${adminLabel('Подтвердить коррекцию', 'Confirm correction')}</button></form></details>`:''}`);
+  const roleForm = state.me.isSuperAdmin ? `<form class="admin-dialog-form" data-user-permissions>
+    <h4>${adminLabel('Доступы', 'Permissions')}</h4>
+    <div class="admin-permission-options">
+      <label class="checkbox-line admin-permission-option"><input type="checkbox" name="isAdmin" ${user.isAdmin ? 'checked' : ''} ${user.isSuperAdmin ? 'disabled' : ''}><span><strong>${adminLabel('Администратор платформы', 'Platform administrator')}</strong><small>${adminLabel('Судейский доступ ко всем турнирам', 'Judge access to every tournament')}</small></span></label>
+      <label class="checkbox-line admin-permission-option"><input type="checkbox" name="canCreateTournaments" ${user.canCreateTournaments ? 'checked' : ''}><span><strong>${adminLabel('Создание турниров', 'Create tournaments')}</strong><small>${adminLabel('Может создавать турниры и управлять ими', 'Can create and manage tournaments')}</small></span></label>
+    </div>
+    <label>${adminLabel('Причина изменения', 'Reason for change')}<input name="reason" required maxlength="1000"></label>
+    <div class="row-actions"><button type="submit" class="primary-button">${t('common.save')}</button></div>
+  </form>` : '';
+  const contacts = [user.telegramContact, user.registerNickname].filter(Boolean).map(escapeHtml).join(' · ');
+  const dialog = administrationDialog(user.name, `${contacts ? `<p class="admin-user-meta">${contacts}</p>` : ''}${user.isSuperAdmin ? `<p class="admin-user-notice">${adminLabel('Владелец платформы. Супер-администратора нельзя удалить или понизить.', 'Platform owner. The super administrator cannot be deleted or demoted.')}</p>` : ''}${roleForm}
+    ${canManage && id !== state.me.id ? `<details class="admin-settings-section"><summary>${adminLabel('Безопасность аккаунта', 'Account security')}</summary>
+      <div class="admin-dialog-form"><div class="row-actions"><button type="button" class="small-button" data-role-reset>${t('profile.admin.resetPassword')}</button></div><p class="admin-user-notice" data-role-password></p>
+      <form class="admin-dialog-form" data-user-suspension><label>${adminLabel('Заблокировать до', 'Suspend until')}<input name="until" type="datetime-local" required></label><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><div class="row-actions"><button type="button" class="small-button" data-role-restore>${adminLabel('Снять блокировку', 'Restore account')}</button><button type="submit" class="danger-button">${adminLabel('Заблокировать', 'Suspend')}</button></div></form></div>
+    </details>` : ''}
+    ${state.me.isSuperAdmin ? `<details class="admin-settings-section"><summary>${adminLabel('Коррекция рейтинга', 'Rating correction')}</summary><form class="admin-dialog-form" data-user-rating><div class="admin-rating-fields">${['Combined', 'Tts', 'Irl'].map(mode => `<label>${mode === 'Combined' ? t('venue.combined') : mode.toUpperCase()}<input type="number" min="0" max="5000" name="rating${mode}" value="${playerRating(user, mode.toLowerCase())}" required></label>`).join('')}</div><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><div class="row-actions"><button type="submit" class="danger-button">${adminLabel('Подтвердить коррекцию', 'Confirm correction')}</button></div></form></details>` : ''}`);
   const run=async action=>{try{await action();await loadAdminUsers();renderShell();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
   if (state.me.isSuperAdmin && !user.isSuperAdmin && id !== state.me.id) {
     const remove = document.createElement('button');
     remove.type = 'button'; remove.className = 'danger-button';
     remove.textContent = adminLabel('Удалить аккаунт', 'Delete account');
-    dialog.querySelector('.row-actions').appendChild(remove);
+    dialog.querySelector('[data-dialog-actions]').prepend(remove);
     remove.onclick = async () => {
       if (!await confirmDelete(t('dialog.admin.deleteUser', { name: user.name }))) return;
       await run(async () => { await api(`/api/admin/users/${id}`, { method: 'DELETE' }); dialog.close(); });
