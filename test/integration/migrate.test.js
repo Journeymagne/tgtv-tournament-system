@@ -61,6 +61,29 @@ test("повторный migrate ничего не применяет", async ()
   assert.deepEqual(applied, []);
 });
 
+test("team Killzone help migration corrects seeded rules and preserves administrator revisions", async () => {
+  await migrate(pool);
+  const migration = MIGRATIONS.find(item => item.version === 51);
+  const { rows: [editor] } = await pool.query(
+    "INSERT INTO users(name,name_key,password_hash,rating,is_admin) VALUES('Docs Editor','docs editor','salt:hash',1000,true) RETURNING id"
+  );
+  await pool.query("UPDATE documentation_pages SET markdown='три разные Killzones', version=1, updated_by=NULL WHERE page_id='wtc-pairings' AND locale='ru'");
+  for (const [version, author] of [[2, null], [1, editor.id]]) {
+    await pool.query("UPDATE documentation_pages SET markdown='Administrator text: three different Killzones', version=$1, updated_by=$2 WHERE page_id='wtc-pairings' AND locale='en'", [version, author]);
+    await migration.up(pool);
+    const { rows } = await pool.query("SELECT locale, markdown, version, updated_by FROM documentation_pages WHERE page_id='wtc-pairings' ORDER BY locale");
+    const ru = rows.find(row => row.locale === "ru");
+    const en = rows.find(row => row.locale === "en");
+    assert.match(ru.markdown, /Killzones могут повторяться/);
+    assert.equal(ru.version, 2);
+    assert.equal(en.markdown, "Administrator text: three different Killzones");
+    assert.equal(en.version, version);
+    assert.equal(en.updated_by, author);
+    await migration.up(pool);
+    assert.deepEqual((await pool.query("SELECT locale, markdown, version, updated_by FROM documentation_pages WHERE page_id='wtc-pairings' ORDER BY locale")).rows, rows);
+  }
+});
+
 test("migrate на живой базе не ломает данные", async () => {
   await migrate(pool);
   const { rows: [user] } = await pool.query(

@@ -48,7 +48,8 @@ const MIGRATIONS = [
   require("./migrations/047_classic_player_points"),
   require("./migrations/048_community_faq"),
   require("./migrations/049_faq_info"),
-  require("./migrations/050_faq_comment_edits")
+  require("./migrations/050_faq_comment_edits"),
+  require("./migrations/051_team_killzone_docs")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

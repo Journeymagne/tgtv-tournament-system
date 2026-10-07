@@ -35,6 +35,16 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+## Release 5.4.5
+
+Team tournaments allow repeated Killzones on any tables, in WTC and Classic,
+TTS and IRL. Migration **051_team_killzone_docs** corrects untouched seeded WTC
+help pages while preserving administrator edits.
+
+Application and client asset versions are 5.4.5. No new dependencies or environment
+variables are required. Repeated Killzones and updated help pages were verified
+locally through the interface and API. See [the changelog](CHANGELOG.md).
+
 ## Release 5.4.4
 
 TTS WTC team rounds use exactly three virtual tables shared by every team matchup.

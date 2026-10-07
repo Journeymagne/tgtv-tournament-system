@@ -6,7 +6,7 @@ One of each team's three players serves as captain and represents the team durin
 
 In the first round, teams from the top half of the seed list face teams from the bottom half. Later opponents are determined by the current team standings. Repeat matchups are avoided where possible, and the organizer confirms the final pairings.
 
-Each round has three prepared tables: three different Killzones, each with a deployment numbered 1–6. Every team match in that round uses the same set of tables. The set may change for the next round.
+In TTS WTC, each round has three shared virtual tables. Each table has a Killzone and a deployment numbered 1–6. Killzones may repeat, including on all three tables. Every team match in that round uses the same set of tables. The set may change for the next round. IRL matches use separate lines of three tables. No team tournament format requires different Killzones.
 
 ## The roll-off and mission bans
 

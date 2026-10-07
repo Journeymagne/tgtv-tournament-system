@@ -17,11 +17,7 @@ function validateTeamTables(tables, venueMode = "tts") {
       tables.some((table) => !table || !validTableKillzone(table, venueMode) ||
         !["number", "string"].includes(typeof table.deployment) ||
         !Number.isInteger(Number(table.deployment)) || Number(table.deployment) < 1 || Number(table.deployment) > 6)) {
-    throw new ValidationError(venueMode === "irl" ? "Configure three tables with deployments from 1 to 6; Killzones are optional" : "Configure three Killzones, each with a deployment from 1 to 6");
-  }
-  const named = tables.map(table => table.killzone).filter(Boolean);
-  if (new Set(named).size !== named.length) {
-    throw new ValidationError("Choose three different Killzones");
+    throw new ValidationError(venueMode === "irl" ? "Configure three tables with deployments from 1 to 6; Killzones are optional" : "Configure three tables, each with a Killzone and a deployment from 1 to 6");
   }
   return tables;
 }

@@ -169,12 +169,21 @@ test("legacy team rounds require three distinct canonical Crit Ops", () => {
   assert.throws(() => normalizeRoundMissions([CRIT_OPS[0], CRIT_OPS[0], CRIT_OPS[1]]), ValidationError);
 });
 
-test("shared team tables require three different Killzones and layouts 1-6", () => {
+test("shared team tables require three valid tables and layouts 1-6", () => {
   const tables = ["Volkus", "Gallowdark", "Tomb World"].map((killzone, index) => ({ killzone, deployment: index + 1 }));
   assert.doesNotThrow(() => validateTeamTables(tables));
   for (const invalid of [null, tables.slice(0, 2), [...tables, tables[0]], [null, ...tables.slice(1)],
-    [tables[0], tables[0], tables[2]], ...[0, 7, 1.5, true, null, ""].map((deployment) => [{ ...tables[0], deployment }, ...tables.slice(1)])]) {
+    [{ ...tables[0], killzone: "Unknown Killzone" }, ...tables.slice(1)],
+    ...[0, 7, 1.5, true, null, ""].map((deployment) => [{ ...tables[0], deployment }, ...tables.slice(1)])]) {
     assert.throws(() => validateTeamTables(invalid), ValidationError);
+  }
+});
+
+test("team tables allow repeated Killzones and deployments in TTS and IRL", () => {
+  for (const venueMode of ["tts", "irl"]) {
+    const tables = Array.from({ length: 3 }, () => ({ killzone: "Volkus", deployment: 1 }));
+    assert.deepEqual(validateTeamTables(tables, venueMode), tables);
+    assert.doesNotThrow(() => validateTeamTables([tables[0], tables[1], { killzone: "Gallowdark", deployment: 2 }], venueMode));
   }
 });
 

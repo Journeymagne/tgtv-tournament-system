@@ -67,6 +67,9 @@ test("documented WTC points and the nine-mission pool match the implementation",
   assert.deepEqual(teamTournamentPoints(27), { a: 0, b: 2 });
   assert.deepEqual(teamTournamentPoints(33), { a: 2, b: 0 });
   for (const locale of ["ru", "en"]) {
+    const pairingRules = book(locale, "wtc-pairings").page.markdown;
+    assert.doesNotMatch(pairingRules, /три разные Killzones|three different Killzones/);
+    assert.match(pairingRules, locale === "ru" ? /Killzones могут повторяться/ : /Killzones may repeat/);
     const html = docs.render(locale, "wtc-pairings", false, book(locale, "wtc-pairings"));
     for (const mission of CRIT_OPS) assert.ok(html.includes(mission), mission);
     const source = book(locale, "team-tiebreakers").page.markdown;

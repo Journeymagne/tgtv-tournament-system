@@ -1776,8 +1776,8 @@ for (const venueMode of ["tts", "irl"]) test(`team round tables are editable per
   }
   const terrain = (values) => values.map(({ killzone, deployment }) => ({ killzone, deployment }));
   const tableCount = venueMode === "tts" ? 3 : 6;
-  const firstTables = Array.from({ length: tableCount }, (_, index) => ({ killzone: ["Volkus", "Gallowdark", "Tomb World"][index % 3], deployment: index % 3 + 1 }));
-  const secondTables = Array.from({ length: tableCount }, (_, index) => ({ killzone: ["Tomb World", "WTC ITD", "Volkus"][index % 3], deployment: 6 - index % 3 }));
+  const firstTables = Array.from({ length: tableCount }, (_, index) => ({ killzone: "Volkus", deployment: index % 3 + 1 }));
+  const secondTables = Array.from({ length: tableCount }, (_, index) => ({ killzone: ["Tomb World", "Tomb World", "Volkus"][index % 3], deployment: 6 - index % 3 }));
   await tournamentsApi.closeRegistration({ client, user: root, params });
   await tournamentsApi.generateNextRoundAdmin({ client, user: root, params, body: { tables: firstTables.map(table => ({ ...table, ...(venueMode === "tts" ? { imageData: firstImage } : {}) })) } });
   const started = await tournamentsApi.startAdmin({ client, user: root, params });
@@ -1836,7 +1836,7 @@ for (const venueMode of ["tts", "irl"]) test(`team round tables are editable per
   const preview = await tournamentsApi.previewNextRoundAdmin({ client, user: root, params });
   assert.equal(preview.round.roundNumber, 2);
   assert.deepEqual(terrain(preview.tables), firstTables);
-  for (const invalid of [null, firstTables.slice(0, 2), [firstTables[0], firstTables[0], firstTables[2]],
+  for (const invalid of [null, firstTables.slice(0, 2),
     firstTables.map((table, index) => ({ ...table, deployment: index === 0 ? 7 : table.deployment }))]) {
     await assert.rejects(() => tournamentsApi.generateNextRoundAdmin({ client, user: root, params, body: { tables: invalid } }), /three|deployment/i);
   }
@@ -1950,7 +1950,7 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
   assert.equal(preview.lines, venueMode === "irl");
   if (venueMode === "tts") {
     assert.ok(preview.round.matches.every(match => match.lineNumber === null));
-    await assert.rejects(() => tournamentsApi.generateNextRoundAdmin({ client, user: root, params: { id: String(tournament.id) }, body: { tables } }), /three Killzones/);
+    await assert.rejects(() => tournamentsApi.generateNextRoundAdmin({ client, user: root, params: { id: String(tournament.id) }, body: { tables } }), /three tables/);
   }
   await tournamentsApi.generateNextRoundAdmin({
     client,
