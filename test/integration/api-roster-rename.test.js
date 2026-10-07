@@ -78,7 +78,7 @@ async function prepareRound() {
   }
   await expect(admin.http.post(`/api/admin/tournaments/${cup.id}/registration/close`));
   await expect(admin.http.post(`/api/admin/tournaments/${cup.id}/rounds/next`, {
-    tables: Array.from({ length: 2 }, () => [{ killzone: "Volkus", deployment: 1 }, { killzone: "Gallowdark", deployment: 2 }, { killzone: "Octarius", deployment: 3 }]).flat()
+    tables: [{ killzone: "Volkus", deployment: 1 }, { killzone: "Gallowdark", deployment: 2 }, { killzone: "Octarius", deployment: 3 }]
   }));
 }
 async function preservedData() {

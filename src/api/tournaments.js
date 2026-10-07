@@ -23,6 +23,7 @@ const { matchParticipant, participantResultKey, winnerParticipantIdFromResult, a
 const { calculateSubmittedResult, parseKillzone } = require("../domain/scoring");
 const { calculateParticipantElo } = require("../domain/elo");
 const { requireKillTeam } = require("../domain/kill-teams");
+const { usesSharedTeamTables } = require("../domain/team-tournaments");
 const { uniqueSlug } = require("../domain/tournaments/slug");
 const { decodeDataUrl, contentVersion } = require("../domain/data-url");
 const { buildSwissNextRound } = require("../domain/tournaments/swiss");
@@ -871,6 +872,9 @@ async function addTableAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   assertEditableSetup(tournament);
   assertTablesAvailable(tournament);
+  if (usesSharedTeamTables(tournament) && (await tablesRepo.listByTournament(client, tournament.id)).length >= 3) {
+    throw new ValidationError("TTS WTC tournaments use exactly three shared tables");
+  }
   const payload = normalizeTablePayload(body);
   try {
     const table = await tablesRepo.insert(client, {

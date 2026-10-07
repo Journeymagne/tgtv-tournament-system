@@ -35,6 +35,19 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+## Release 5.4.4
+
+TTS WTC team rounds use exactly three virtual tables shared by every team matchup.
+Round setup has no line selector, and the server rejects additional tables.
+Classic Sword Shield and IRL retain separate lines of three tables. Existing
+round assignments and results are preserved; table edits apply to their round.
+
+Administration navigation and account controls use consistent panels and
+responsive permission, security and rating blocks. Application and client asset
+versions are 5.4.4. No new dependencies, migrations or environment variables are
+required. See [WTC pairing rules](docs/team-pairing-rules.md),
+[Classic setup](docs/sword-shield-classic.md) and [the changelog](CHANGELOG.md).
+
 ## Release 5.4.3
 
 Administration has consistent account-permission dialogs and working Players/Teams

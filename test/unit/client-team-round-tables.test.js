@@ -35,6 +35,22 @@ test("round generation submits all three new table selections alongside team pai
   assert.deepEqual(payload({ elements, querySelectorAll: () => [] }, { participantMode: "team" }), { tables: expected, matchups: [] });
 });
 
+test("TTS WTC has three shared tables and no matchup line selector; Classic and IRL keep lines", () => {
+  const tables = Array.from({ length: 6 }, (_, index) => ({ tableNumber: index + 1, killzone: ["Volkus", "Gallowdark", "Tomb World"][index % 3], deployment: 1 }));
+  for (const [venueMode, pairingType, expectedCount] of [["tts", "shield_sword", 3], ["tts", "sword_shield_classic", 6], ["irl", "shield_sword", 6]]) {
+    const state = { adminTournamentDetail: { tournament: { venueMode, pairingType } } };
+    const render = new Function("state", "t", "optionsHtml", "killzoneOptions", "escapeHtml", "teamRoundSetupRosterSelect",
+      `${sourceOf("teamTableImageField")}; ${sourceOf("teamTableSetupFields")}; ${sourceOf("savedTeamLinesMarkup")}; ${sourceOf("teamRoundMissionFields")}; ${sourceOf("teamRoundSetupMatchRow")}; return { fields: teamRoundMissionFields, row: teamRoundSetupMatchRow };`
+    )(state, key => key, () => "", [], String, name => `<select name="${name}"></select>`);
+    const html = render.fields(tables);
+    assert.equal((html.match(/data-team-table-setup=/g) || []).length, expectedCount);
+    assert.equal(html.includes("classic.linesHint"), expectedCount === 6);
+    assert.equal(html.includes("team-line-heading"), expectedCount === 6);
+    assert.equal(render.row({ rosterAId: 1, rosterBId: 2 }, tables).includes('name="lineNumber"'), expectedCount === 6);
+    if (expectedCount === 3) assert.doesNotMatch(render.fields(tables, {}, true), /data-saved-team-lines|team-line-heading/);
+  }
+});
+
 test("captain table choices use the match's round snapshot, not a cached tournament's latest tables", () => {
   const form = new Function("state", "t", "escapeHtml", "tableLabel", "teamTournamentTables", "teamEnvironmentStep",
     `${sourceOf("teamPairingMemberLabel")}; ${sourceOf("teamRosterMemberLabel")}; ${sourceOf("teamPairingMatchupLabel")}; ${sourceOf("teamEnvironmentChoiceForm")}; ${sourceOf("teamPairingControlForSide")}; return teamPairingControlForSide;`

@@ -257,11 +257,11 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
   assert.equal((await admin.http.post(`/api/admin/tournaments/${cup.id}/registration/close`)).status, 200);
   await assertHidden();
   const started = await admin.http.post(`/api/admin/tournaments/${cup.id}/rounds/next`, {
-    tables: Array.from({ length: 2 }, () => [
+    tables: [
       { killzone: "Volkus", deployment: 1 },
       { killzone: "Gallowdark", deployment: 2 },
       { killzone: "Octarius", deployment: 3 }
-    ]).flat()
+    ]
   });
   assert.equal(started.status, 200, JSON.stringify(started.body));
   assert.equal(started.body.rounds.length, 1);
@@ -417,11 +417,11 @@ test("after the start a roster removal forfeits its open matches instead of eras
   }
   assert.equal((await admin.http.post(`/api/admin/tournaments/${cup.id}/registration/close`)).status, 200);
   const prepared = await admin.http.post(`/api/admin/tournaments/${cup.id}/rounds/next`, {
-    tables: Array.from({ length: 2 }, () => [
+    tables: [
       { killzone: "Volkus", deployment: 1 },
       { killzone: "Gallowdark", deployment: 2 },
       { killzone: "Octarius", deployment: 3 }
-    ]).flat()
+    ]
   });
   assert.equal(prepared.status, 200, JSON.stringify(prepared.body));
   const started = await admin.http.post(`/api/admin/tournaments/${cup.id}/start`);

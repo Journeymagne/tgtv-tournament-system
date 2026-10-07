@@ -1507,7 +1507,7 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
   }
   await tournamentsApi.closeRegistration({ client, user: root, params: tournamentParams });
   await tournamentsApi.generateNextRoundAdmin({ client, user: root, params: tournamentParams,
-    body: { tables: ["Volkus", "Gallowdark", "Tomb World", "Volkus", "Gallowdark", "Tomb World"].map((killzone, index) => ({ killzone, deployment: index % 3 + 1 })) } });
+    body: { tables: ["Volkus", "Gallowdark", "Tomb World"].map((killzone, index) => ({ killzone, deployment: index + 1 })) } });
   const started = await tournamentsApi.startAdmin({ client, user: root, params: tournamentParams });
   const original = started.teamMatches[0];
   const params = { ...tournamentParams, matchId: String(original.id) };
@@ -1701,7 +1701,7 @@ test("non-captain admin can run both captain sides, edit pairs and reset a compl
   }
   await tournamentsApi.closeRegistration({ client, user: root, params: tournamentParams });
   await tournamentsApi.generateNextRoundAdmin({ client, user: root, params: tournamentParams,
-    body: { tables: ["Volkus", "Gallowdark", "Tomb World", "Volkus", "Gallowdark", "Tomb World"].map((killzone, index) => ({ killzone, deployment: index % 3 + 1 })) } });
+    body: { tables: ["Volkus", "Gallowdark", "Tomb World"].map((killzone, index) => ({ killzone, deployment: index + 1 })) } });
   const generated = await tournamentsApi.startAdmin({ client, user: root, params: tournamentParams, body: {} });
   const outsider = await createUser("Pairing Observer");
   for (const match of generated.teamMatches) {
@@ -1775,8 +1775,9 @@ for (const venueMode of ["tts", "irl"]) test(`team round tables are editable per
     } });
   }
   const terrain = (values) => values.map(({ killzone, deployment }) => ({ killzone, deployment }));
-  const firstTables = ["Volkus", "Gallowdark", "Tomb World", "Volkus", "Gallowdark", "Tomb World"].map((killzone, index) => ({ killzone, deployment: index % 3 + 1 }));
-  const secondTables = ["Tomb World", "WTC ITD", "Volkus", "Tomb World", "WTC ITD", "Volkus"].map((killzone, index) => ({ killzone, deployment: 6 - index % 3 }));
+  const tableCount = venueMode === "tts" ? 3 : 6;
+  const firstTables = Array.from({ length: tableCount }, (_, index) => ({ killzone: ["Volkus", "Gallowdark", "Tomb World"][index % 3], deployment: index % 3 + 1 }));
+  const secondTables = Array.from({ length: tableCount }, (_, index) => ({ killzone: ["Tomb World", "WTC ITD", "Volkus"][index % 3], deployment: 6 - index % 3 }));
   await tournamentsApi.closeRegistration({ client, user: root, params });
   await tournamentsApi.generateNextRoundAdmin({ client, user: root, params, body: { tables: firstTables.map(table => ({ ...table, ...(venueMode === "tts" ? { imageData: firstImage } : {}) })) } });
   const started = await tournamentsApi.startAdmin({ client, user: root, params });
@@ -1790,8 +1791,8 @@ for (const venueMode of ["tts", "irl"]) test(`team round tables are editable per
   const defaultIds = started.tables.map((table) => table.id);
   const finishRound = async (round, expected) => {
     for (const match of round.matches) {
-      const expectedLine = expected.slice((match.lineNumber - 1) * 3, match.lineNumber * 3);
-      const lineIds = defaultIds.slice((match.lineNumber - 1) * 3, match.lineNumber * 3);
+      const expectedLine = venueMode === "tts" ? expected : expected.slice((match.lineNumber - 1) * 3, match.lineNumber * 3);
+      const lineIds = venueMode === "tts" ? defaultIds : defaultIds.slice((match.lineNumber - 1) * 3, match.lineNumber * 3);
       assert.deepEqual(terrain(match.tables), expectedLine);
       assert.deepEqual(match.tableIds, lineIds);
       const matchParams = { ...params, matchId: String(match.id) };
@@ -1935,7 +1936,7 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
     params: { id: String(tournament.id) }
   });
   await assert.rejects(() => tournamentsApi.generateNextRoundAdmin({ client, user: root, params: { id: String(tournament.id) } }), /three tables|three Killzones/);
-  const sharedTables = [
+  const tables = [
     { killzone: "Volkus", deployment: 1 },
     { killzone: "Gallowdark", deployment: 2 },
     { killzone: "Tomb World", deployment: 6 },
@@ -1943,6 +1944,14 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
     { killzone: "Gallowdark", deployment: 2 },
     { killzone: "Tomb World", deployment: 6 }
   ];
+  const sharedTables = venueMode === "tts" ? tables.slice(0, 3) : tables;
+  const preview = await tournamentsApi.previewNextRoundAdmin({ client, user: root, params: { id: String(tournament.id) } });
+  assert.equal(preview.tables.length, sharedTables.length);
+  assert.equal(preview.lines, venueMode === "irl");
+  if (venueMode === "tts") {
+    assert.ok(preview.round.matches.every(match => match.lineNumber === null));
+    await assert.rejects(() => tournamentsApi.generateNextRoundAdmin({ client, user: root, params: { id: String(tournament.id) }, body: { tables } }), /three Killzones/);
+  }
   await tournamentsApi.generateNextRoundAdmin({
     client,
     user: root,
@@ -1952,7 +1961,8 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
   const started = await tournamentsApi.startAdmin({ client, user: root, params: { id: String(tournament.id) } });
   assert.equal(started.tournament.status, "in_progress");
   assert.equal(started.tournament.teamTablesLocked, true);
-  assert.equal(started.tables.length, 6);
+  assert.equal(started.tables.length, sharedTables.length);
+  assert.equal(started.rounds[0].metadata.lines, venueMode === "irl");
   await assert.rejects(() => tournamentsApi.addTableAdmin({ client, user: root, params: { id: String(tournament.id) }, body: sharedTables[0] }), /locked/i);
   assert.equal(started.rosters.filter((roster) => roster.status === "active").length, 4);
 
@@ -1977,7 +1987,9 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
   for (const originalMatch of view.rounds[0].matches) {
     assert.equal(originalMatch.pairingVersion, 2);
     assert.deepEqual(originalMatch.missions.map((mission) => mission.critOp), CRIT_OPS);
-    assert.deepEqual(originalMatch.tableIds, started.tables.slice((originalMatch.lineNumber - 1) * 3, originalMatch.lineNumber * 3).map(table => table.id));
+    const expectedTables = venueMode === "tts" ? started.tables : started.tables.slice((originalMatch.lineNumber - 1) * 3, originalMatch.lineNumber * 3);
+    assert.deepEqual(originalMatch.tableIds, expectedTables.map(table => table.id));
+    if (venueMode === "tts") assert.equal(originalMatch.lineNumber, null);
     const params = { id: String(tournament.id), matchId: String(originalMatch.id) };
     const captainA = usersById.get(originalMatch.rosterA.captainUserId);
     const captainB = usersById.get(originalMatch.rosterB.captainUserId);

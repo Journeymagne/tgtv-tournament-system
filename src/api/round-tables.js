@@ -28,7 +28,7 @@ async function context(client, user, params, forUpdate = false) {
 
 function view(round, selected) {
   return { round: { id: round.id, roundNumber: round.roundNumber, updatedAt: round.updatedAt },
-    tables: selected.map(tournamentTableView) };
+    tables: selected.map(tournamentTableView), lines: Boolean(round.metadata?.lines) };
 }
 
 async function getAdmin({ client, user, params }) {

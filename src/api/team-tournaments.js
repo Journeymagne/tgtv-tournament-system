@@ -31,6 +31,7 @@ const {
   teamMatchProgress,
   validateTeamTables,
   validateTeamLines,
+  usesSharedTeamTables,
   normalizeRoundMissions,
   numberTeamTables,
   teamEnvironmentPlan,
@@ -409,8 +410,12 @@ async function nextTeamRoundTables(client, tournament, values) {
   const defaults = await tablesRepo.listByTournament(client, tournament.id);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const previous = tournament.roundDraft?.tables || tablesForRound(rounds.at(-1), defaults);
-  const selected = validateTeamLines(values === undefined ? previous : values, tournament.venueMode);
-  if (tournament.pairingType !== "sword_shield_classic") {
+  const sharedTables = usesSharedTeamTables(tournament);
+  const input = values === undefined ? (sharedTables ? previous.slice(0, 3) : previous) : values;
+  const selected = sharedTables
+    ? numberTeamTables(validateTeamTables(input, tournament.venueMode))
+    : validateTeamLines(input, tournament.venueMode);
+  if (!sharedTables && tournament.pairingType !== "sword_shield_classic") {
     for (let index = 0; index < selected.length; index += 3) validateTeamTables(selected.slice(index, index + 3), tournament.venueMode);
   }
   const used = new Set();
@@ -536,14 +541,15 @@ async function previewNextRound(client, tournament) {
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const defaults = await tablesRepo.listByTournament(client, tournament.id);
   const previous = tournament.roundDraft?.tables || tablesForRound(rounds.at(-1), defaults);
-  const count = Math.max(3, blueprint.pairings.filter(pair => pair.rosterBId !== null).length * 3, Math.ceil(previous.length / 3) * 3);
+  const sharedTables = usesSharedTeamTables(tournament);
+  const count = sharedTables ? 3 : Math.max(3, blueprint.pairings.filter(pair => pair.rosterBId !== null).length * 3, Math.ceil(previous.length / 3) * 3);
   const highestNumber = Math.max(0, ...previous.map(table => table.tableNumber));
   const tables = Array.from({ length: count }, (_, index) => previous[index] || {
     tableNumber: highestNumber + index - previous.length + 1,
     killzone: previous[index % 3]?.killzone || "", deployment: previous[index % 3]?.deployment || null
   });
-  const pairings = assignLines(blueprint.pairings, tables);
-  let reuseLines = previous.length === tables.length && Boolean(tournament.roundDraft?.tables?.length || rounds.at(-1)?.metadata?.lines);
+  const pairings = sharedTables ? blueprint.pairings.map(pairing => ({ ...pairing, lineNumber: null })) : assignLines(blueprint.pairings, tables);
+  let reuseLines = !sharedTables && previous.length === tables.length && Boolean(tournament.roundDraft?.tables?.length || rounds.at(-1)?.metadata?.lines);
   if (reuseLines) {
     try {
       validateTeamLines(previous, tournament.venueMode);
@@ -558,7 +564,7 @@ async function previewNextRound(client, tournament) {
   return {
     tournament: tournamentSummaryView(tournament),
     round: { ...blueprint, matches: pairings, missions: CRIT_OPS.map((critOp) => ({ critOp })) },
-    tables: tables.map(tournamentTableView), teamRound: true, reuseLines,
+    tables: tables.map(tournamentTableView), teamRound: true, reuseLines, lines: !sharedTables,
     restoredDraft: Boolean(tournament.roundDraft), prepared: tournament.status === "registration_closed"
   };
 }
@@ -568,7 +574,8 @@ async function generateRound(client, tournament, user, body = {}) {
     ? normalizeRoundMissions(body.missions) : CRIT_OPS.map((critOp) => ({ critOp }));
   const { blueprint, rosters } = await buildRoundPreview(client, tournament, body);
   const tables = await nextTeamRoundTables(client, tournament, body.tables);
-  blueprint.pairings = assignLines(blueprint.pairings, tables);
+  const sharedTables = usesSharedTeamTables(tournament);
+  blueprint.pairings = sharedTables ? blueprint.pairings.map(pairing => ({ ...pairing, lineNumber: null })) : assignLines(blueprint.pairings, tables);
   const prepared = tournament.status === "registration_closed";
   if (prepared) await clearPreparedRounds(client, tournament);
   const round = await roundsRepo.insert(client, {
@@ -576,7 +583,7 @@ async function generateRound(client, tournament, user, body = {}) {
     roundNumber: blueprint.roundNumber,
     status: prepared ? "not_ready" : "active",
     generatedBy: "admin",
-    metadata: { participantMode: "team", pairingType: tournament.pairingType, missions, tables, lines: true },
+    metadata: { participantMode: "team", pairingType: tournament.pairingType, missions, tables, lines: !sharedTables },
     startedAt: prepared ? null : nowIso()
   });
   for (const pairing of blueprint.pairings) {
@@ -592,7 +599,7 @@ async function generateRound(client, tournament, user, body = {}) {
       rosterAId: pairing.rosterAId,
       rosterBId: pairing.rosterBId,
       missions,
-      tableIds: pairing.lineNumber ? tables.slice((pairing.lineNumber - 1) * 3, pairing.lineNumber * 3).map(table => table.id) : []
+      tableIds: pairing.rosterBId === null ? [] : (sharedTables ? tables : tables.slice((pairing.lineNumber - 1) * 3, pairing.lineNumber * 3)).map(table => table.id)
     });
   }
   if (!prepared && blueprint.pairings.every((pairing) => pairing.rosterBId === null)) {

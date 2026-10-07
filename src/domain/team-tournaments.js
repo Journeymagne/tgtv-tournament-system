@@ -7,6 +7,11 @@ function validTableKillzone(table, venueMode) {
   return KILLZONES.includes(table.killzone) || (venueMode === "irl" && (table.killzone == null || table.killzone === ""));
 }
 
+function usesSharedTeamTables(tournament) {
+  return tournament.participantMode === "team" && tournament.venueMode === "tts" &&
+    tournament.pairingType !== "sword_shield_classic";
+}
+
 function validateTeamTables(tables, venueMode = "tts") {
   if (!Array.isArray(tables) || tables.length !== 3 ||
       tables.some((table) => !table || !validTableKillzone(table, venueMode) ||
@@ -368,6 +373,7 @@ function validateTeamLines(tables, venueMode = "tts") {
 }
 
 module.exports = {
+  usesSharedTeamTables,
   validateTeamLines,
   teamPointsForMatch,
   teamMatchProgress,

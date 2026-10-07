@@ -104,8 +104,7 @@ test("a completed proxy game keeps its identity and empty faction after replacem
   await expect(admin.http.post(`/api/admin/tournaments/${tournament.id}/publish`));
   await expect(admin.http.post(`/api/admin/tournaments/${tournament.id}/registration/close`));
   await expect(admin.http.post(`/api/admin/tournaments/${tournament.id}/rounds/next`, {
-    tables: Array.from({ length: 2 }, () => ["Volkus", "Gallowdark", "Octarius"]
-      .map((killzone, index) => ({ killzone, deployment: index + 1 }))).flat()
+    tables: ["Volkus", "Gallowdark", "Octarius"].map((killzone, index) => ({ killzone, deployment: index + 1 }))
   }));
   const started = await expect(admin.http.post(`/api/admin/tournaments/${tournament.id}/start`));
   const match = started.teamMatches.find(item => [item.rosterAId, item.rosterBId].includes(roster.id));

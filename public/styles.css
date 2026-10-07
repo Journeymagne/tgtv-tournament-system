@@ -4242,14 +4242,15 @@ tr:last-child td {
 }
 
 /* Administration: four destinations, contextual actions. */
-.administration-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
-.administration-heading h2 { margin:0 0 8px; }
-.administration-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; }
-.administration-tile { display:block; color:inherit; text-decoration:none; padding:24px; }
-.administration-tile h3 { margin:0 0 10px; }
+.administration-navigation { margin-bottom:18px; }
+.administration-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr)); gap:16px; margin-bottom:18px; }
+.administration-tile { display:block; color:inherit; text-decoration:none; font:inherit; line-height:1.5; text-align:left; min-width:0; }
+.administration-tile h3 { margin:0 0 8px; font-weight:900; }
+.administration-tile p { margin:0; }
 .administration-tile:hover { border-color:var(--accent); }
-.administration-tabs { display:flex; gap:8px; overflow-x:auto; margin:0 0 20px; }
-.administration-tabs .tab { white-space:nowrap; }
+.administration-tile:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.administration-tabs { margin-bottom:0; }
+.administration-people-tabs { max-width:440px; }
 .admin-settings-section { margin:16px 0; padding:16px; border:1px solid var(--line); border-radius:8px; }
 .admin-settings-section > summary { cursor:pointer; font-weight:900; line-height:1.4; }
 .admin-settings-section[open] > summary { margin-bottom:16px; }
@@ -4290,12 +4291,31 @@ tr:last-child td {
 .admin-permission-option strong { font-size:14px; }
 .admin-permission-option small { color:var(--muted); font-size:12px; font-weight:400; }
 .admin-rating-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.admin-user-dialog { width:min(1040px,calc(100vw - 32px)); overflow:hidden; }
+.admin-user-dialog[open] { display:grid; grid-template-rows:auto minmax(0,1fr) auto auto; }
+.admin-user-dialog .administration-dialog-heading { margin-bottom:0; }
+.admin-user-dialog .administration-dialog-body { min-height:0; overflow:auto; padding-top:20px; scrollbar-gutter:stable; }
+.admin-user-sections { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:16px; }
+.admin-user-section { min-width:0; box-shadow:none; }
+.admin-user-section:only-child,
+.admin-user-permissions { grid-column:1 / -1; }
+.admin-user-section-heading { margin-bottom:16px; }
+.admin-user-section-heading h4 { margin:0; color:var(--accent); font-size:16px; font-weight:900; text-transform:uppercase; }
+.admin-user-section-heading p { margin:6px 0 0; font-size:13px; line-height:1.5; }
+.admin-user-permissions .admin-permission-options { grid-template-columns:repeat(2,minmax(0,1fr)); }
 @media(max-width:480px) {
   .administration-dialog { padding:16px; }
   .admin-rating-fields { grid-template-columns:minmax(0,1fr); }
   .admin-dialog-form .row-actions > button { flex:1 1 140px; }
 }
-@media(max-width:600px) { .administration-heading { align-items:flex-start; flex-direction:column; } }
+@media(max-width:700px) {
+  .admin-user-sections,
+  .admin-user-permissions .admin-permission-options { grid-template-columns:minmax(0,1fr); }
+}
+@media(max-width:600px) {
+  .administration-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .administration-heading { align-items:flex-start; flex-direction:column; }
+}
 
 /* Team round lines and direct pair assignments. */
 .team-line-heading { grid-column: 1 / -1; margin: 12px 0 0; }

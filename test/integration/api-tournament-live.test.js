@@ -15,7 +15,7 @@ const { saveTableImage } = require("../../src/api/tournament-table-images");
 const { pngImage } = require("../helpers/png");
 let pool, client, admin, otherAdmin;
 const PNG = `data:image/png;base64,${pngImage(300, 200).toString("base64")}`;
-const tableSetup = Array.from({ length: 2 }, () => [{ killzone: "Volkus", deployment: 1, imageData: PNG }, { killzone: "Gallowdark", deployment: 2 }, { killzone: "Octarius", deployment: 3 }]).flat();
+const tableSetup = [{ killzone: "Volkus", deployment: 1, imageData: PNG }, { killzone: "Gallowdark", deployment: 2 }, { killzone: "Octarius", deployment: 3 }];
 const context = (cup, body = {}, user = admin) => ({ client, user, params: { id: cup.id }, body });
 test.before(async () => { pool = new Pool({ connectionString: TEST_DATABASE_URL }); await migrate(pool); });
 test.after(async () => { await pool.end(); });
@@ -134,7 +134,7 @@ async function preparedRound(rosterCount = 4) {
   const tournament = await cup();
   for (let n = 0; n < rosterCount; n++) { const group = await club(n); await teams.registerRoster(context(tournament, group.body)); }
   await cups.closeRegistration(context(tournament));
-  const data = await cups.generateNextRoundAdmin(context(tournament, { tables: Array.from({ length: rosterCount / 2 }, () => tableSetup.slice(0, 3)).flat() }));
+  const data = await cups.generateNextRoundAdmin(context(tournament, { tables: tableSetup }));
   const request = { ...context(tournament, {}, otherAdmin), params: { id: tournament.id, roundId: data.rounds[0].id } };
   const preview = await roundTables.getAdmin(request);
   return { tournament, data, request, preview };
@@ -226,7 +226,7 @@ test("editing prepared tables retains the round and pairings; Undo restores an e
   const selected = roundTableInput(preview.tables).map((table, index) => ({ ...table, tableNumber: 10 + index, deployment: 6 - index }));
   const saved = await roundTables.updateAdmin({ ...request, body: { tables: [...selected].reverse(), expectedUpdatedAt: preview.round.updatedAt } });
   assert.equal(saved.round.id, data.rounds[0].id);
-  assert.deepEqual(saved.tables.map(table => table.tableNumber), [10, 11, 12, 13, 14, 15]);
+  assert.deepEqual(saved.tables.map(table => table.tableNumber), [10, 11, 12]);
   assert.equal(saved.tables[0].imageId, preview.tables[0].imageId);
   const unchanged = await cups.getAdmin(context(tournament));
   assert.deepEqual(unchanged.teamMatches.map(match => [match.id, match.rosterAId, match.rosterBId, match.phase]),
@@ -235,17 +235,17 @@ test("editing prepared tables retains the round and pairings; Undo restores an e
   await assert.rejects(() => cups.rollbackLatestRoundAdmin(context(tournament, { roundId: 999999 })), error => error.status === 409);
   const undone = await cups.rollbackLatestRoundAdmin(context(tournament, { roundId: saved.round.id }, otherAdmin));
   assert.equal(undone.rounds.length, 0);
-  assert.deepEqual(undone.tournament.roundDraft.tables.map(table => table.tableNumber), [10, 11, 12, 13, 14, 15]);
+  assert.deepEqual(undone.tournament.roundDraft.tables.map(table => table.tableNumber), [10, 11, 12]);
   assert.equal(undone.tournament.roundDraft.tables[0].imageId, preview.tables[0].imageId);
   const resumed = await cups.previewNextRoundAdmin(context(tournament));
   assert.equal(resumed.restoredDraft, true);
-  assert.deepEqual(resumed.tables.map(table => table.tableNumber), [10, 11, 12, 13, 14, 15]);
+  assert.deepEqual(resumed.tables.map(table => table.tableNumber), [10, 11, 12]);
   const [a, b] = data.teamMatches;
   const matchups = [{ rosterAId: a.rosterAId, rosterBId: b.rosterBId }, { rosterAId: b.rosterAId, rosterBId: a.rosterBId }];
   const regenerated = await cups.generateNextRoundAdmin(context(tournament, { matchups,
     tables: selected.map((table, index) => ({ ...table, tableNumber: 20 + index })) }));
   assert.deepEqual(regenerated.teamMatches.map(match => ({ rosterAId: match.rosterAId, rosterBId: match.rosterBId })), matchups);
-  assert.deepEqual(regenerated.tables.map(table => table.tableNumber), [20, 21, 22, 23, 24, 25]);
+  assert.deepEqual(regenerated.tables.map(table => table.tableNumber), [20, 21, 22]);
   assert.equal(regenerated.tables[0].imageId, preview.tables[0].imageId);
   await cups.startAdmin(context(tournament));
   const restored = await cups.getAdmin(context(tournament));

@@ -9107,7 +9107,7 @@ function renderRoundSetupModal(preview) {
           <button class="ghost-button" type="button" data-round-setup-close>${t("common.cancel")}</button>
         </div>
         <form class="round-setup-form" data-round-setup-form>
-          ${preview.tableOnly ? teamTableSetupFields(tables, tournament.venueMode) : preview.teamRound ? teamRoundMissionFields(tables, round, preview.reuseLines) : roundMissionFields(tournament, round)}
+          ${preview.tableOnly ? teamTableSetupFields(tables, tournament.venueMode, preview.lines === false && tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic") : preview.teamRound ? teamRoundMissionFields(tables, round, preview.reuseLines) : roundMissionFields(tournament, round)}
           <div class="round-setup-list" data-round-setup-list>
             ${(preview.tableOnly ? [] : round.matches || []).filter((match) => !match.isBye).map((match) =>
               preview.teamRound ? teamRoundSetupMatchRow(match, tables) : roundSetupMatchRow(match, tournament, tables)
@@ -9128,9 +9128,10 @@ function renderRoundSetupModal(preview) {
 function teamRoundMissionFields(tables = [], round = {}, reuseLines = false) {
   const classic = state.adminTournamentDetail?.tournament?.pairingType === "sword_shield_classic";
   const venue = state.adminTournamentDetail?.tournament?.venueMode;
-  return `<section class="admin-subpanel"><p class="muted">${t(venue === "irl" ? "classic.readyIrl" : "classic.readyTts")}</p>
+  const sharedTables = !classic && venue !== "irl";
+  return `<section class="admin-subpanel"><p class="muted">${t(sharedTables ? "teams.tournament.tablesHint" : venue === "irl" ? "classic.readyIrl" : "classic.readyTts")}</p>
     <p class="muted">${t(classic ? "classic.missionsHint" : "teams.tournament.missionPoolHint")}</p>
-    ${reuseLines ? savedTeamLinesMarkup(tables) : teamTableSetupFields(tables, venue)}</section>`;
+    ${reuseLines && !sharedTables ? savedTeamLinesMarkup(tables) : teamTableSetupFields(tables, venue, sharedTables)}</section>`;
 }
 
 function savedTeamLinesMarkup(tables) {
@@ -9145,10 +9146,10 @@ function savedTeamLinesMarkup(tables) {
   </section>`;
 }
 
-function teamTableSetupFields(tables = [], venueMode = "tts") {
+function teamTableSetupFields(tables = [], venueMode = "tts", sharedTables = false) {
   const optionalKillzone = venueMode === "irl";
-  return `<p class="muted">${t(optionalKillzone ? "classic.linesHintIrl" : "classic.linesHint")}</p><div class="team-table-setup">${Array.from({ length: Math.max(3, tables.length) }, (_, index) => `
-    ${index % 3 === 0 ? `<h4 class="team-line-heading">${t("classic.line", { number: index / 3 + 1 })}</h4>` : ""}
+  return `${sharedTables ? "" : `<p class="muted">${t(optionalKillzone ? "classic.linesHintIrl" : "classic.linesHint")}</p>`}<div class="team-table-setup">${Array.from({ length: sharedTables ? 3 : Math.max(3, tables.length) }, (_, index) => `
+    ${!sharedTables && index % 3 === 0 ? `<h4 class="team-line-heading">${t("classic.line", { number: index / 3 + 1 })}</h4>` : ""}
     <section class="team-table-setup-card" data-team-table-setup="${index}">
       ${tables[index]?.id ? `<input type="hidden" name="teamTableId-${index}" value="${Number(tables[index].id)}">` : ""}
       <div class="grid-3">
@@ -9270,7 +9271,9 @@ function wireTeamTableImages(form) {
 }
 
 function teamRoundSetupMatchRow(match = {}, tables = []) {
-  return `<div class="row-card compact-row-card round-setup-match-row"><div class="row-main"><div class="round-setup-match-grid">${teamRoundSetupRosterSelect("rosterAId", match.rosterAId)}${teamRoundSetupRosterSelect("rosterBId", match.rosterBId)}<label>${t("classic.line", { number: "" })}<select name="lineNumber">${Array.from({ length: tables.length / 3 }, (_, index) => `<option value="${index+1}" ${Number(match.lineNumber || match.bracketPosition) === index+1 ? "selected" : ""}>${t("classic.line", { number: index+1 })} · ${tables.slice(index*3,index*3+3).map(table => table.tableNumber).join(", ")}</option>`).join("")}</select></label></div></div></div>`;
+  const tournament = state.adminTournamentDetail?.tournament || {};
+  const sharedTables = tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic";
+  return `<div class="row-card compact-row-card round-setup-match-row"><div class="row-main"><div class="round-setup-match-grid">${teamRoundSetupRosterSelect("rosterAId", match.rosterAId)}${teamRoundSetupRosterSelect("rosterBId", match.rosterBId)}${sharedTables ? "" : `<label>${t("classic.line", { number: "" })}<select name="lineNumber">${Array.from({ length: tables.length / 3 }, (_, index) => `<option value="${index+1}" ${Number(match.lineNumber || match.bracketPosition) === index+1 ? "selected" : ""}>${t("classic.line", { number: index+1 })} · ${tables.slice(index*3,index*3+3).map(table => table.tableNumber).join(", ")}</option>`).join("")}</select></label>`}</div></div></div>`;
 }
 
 function teamRoundSetupRosterSelect(name, selectedId = "") {
