@@ -35,6 +35,25 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+## Release 1.0.0
+
+KT Companion starts a new version sequence at 1.0.0; earlier release history is
+preserved below.
+
+Individual Swiss tournaments support removing players and proxies after the start
+and repairing unplayed pairings in the latest active round. Completed games,
+ratings and pending results remain protected; revision checks reject stale edits.
+
+Tables share consistent numeric columns and mobile scrolling. Active team pairing
+pages show both three-player rosters with faction visibility respected. Back from
+a result form immediately restores My Games and recovers from duplicate history
+entries. The new KT Companion book-and-blade branding covers the home page,
+shared headers, sign-in, browser icons, email and link previews in both themes.
+
+Application, lockfile and client asset versions are 1.0.0. No new dependencies,
+database migrations or environment variables are required. See
+[the changelog](CHANGELOG.md) and [release validation](docs/release-1.0.0-validation.md).
+
 ## Release 5.4.5
 
 Team tournaments allow repeated Killzones on any tables, in WTC and Classic,

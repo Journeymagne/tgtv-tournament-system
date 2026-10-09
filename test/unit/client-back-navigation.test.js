@@ -31,13 +31,15 @@ function navigationHarness(initial = "/tournaments/cup") {
     forward() { move(index + 1); }
   };
   let routed = 0;
+  const pending = [];
+  window.setTimeout = callback => pending.push(callback);
   const names = ["navigationUrl", "currentNavigationEntry", "navigationContextKeys", "rememberNavigationContext",
     "restoreNavigationContext", "pushAppLocation", "navigateBack", "gameBackFallback", "gameTeamMatchId"];
   const navigation = new Function("state", "window", "document", "handleHashNavigation", "tournamentPublicPath",
     `${names.map(sourceOf).join("\n")}; return { ${names.join(",")} };`
   )(state, window, { querySelector: () => selectedRound ? { dataset: { tournamentRoundTab: selectedRound } } : null },
     () => { routed += 1; }, (slug) => `/tournaments/${slug}`);
-  return { ...navigation, state, window, entries, routed: () => routed, round: (value) => { selectedRound = value; } };
+  return { ...navigation, state, window, entries, routed: () => routed, round: (value) => { selectedRound = value; }, settleBack: () => pending.splice(0).forEach(callback => callback()) };
 }
 
 test("Back retraces tournament, roster, team match, game and result, preserving the original tournament context", () => {
@@ -96,6 +98,56 @@ test("reopening the same page does not add a duplicate Back destination", () => 
   assert.equal(nav.entries.length, 1);
   nav.pushAppLocation("https://other.example/");
   assert.equal(nav.entries.length, 1);
+});
+
+test("returning to My Games leaves the result form before a slow or failed refresh", async () => {
+  for (const fail of [false, true]) {
+    const state = { view: "gameDetail", selectedGameId: 42, gameDetailMode: "result", games: [{ id: 42 }] };
+    const rendered = [];
+    let resolveRefresh, rejectRefresh;
+    const refresh = new Promise((resolve, reject) => { resolveRefresh = resolve; rejectRefresh = reject; });
+    const applyRoute = new Function("state", "renderShell", "refresh",
+      `${sourceOf("applyAppRoute")}; return applyAppRoute;`
+    )(state, () => rendered.push({ view: state.view, mode: state.gameDetailMode, games: state.games }), () => refresh);
+    const navigation = applyRoute({ view: "play" });
+    assert.deepEqual(rendered, [{ view: "play", mode: "", games: [{ id: 42 }] }]);
+    if (fail) {
+      rejectRefresh(new Error("Account refresh unavailable"));
+      await assert.rejects(navigation, /Account refresh unavailable/);
+    } else {
+      resolveRefresh();
+      await navigation;
+    }
+    assert.equal(state.view, "play");
+    assert.equal(state.gameDetailMode, "");
+  }
+});
+
+test("result Back returns to My Games even when browser history stays on the result URL", () => {
+  const nav = navigationHarness("/tournament#/mygames");
+  nav.rememberNavigationContext();
+  nav.pushAppLocation("/tournament#/games/game/42/result");
+  nav.window.history.back = () => {};
+  nav.navigateBack("/tournament#/games/game/42");
+  nav.settleBack();
+  assert.equal(nav.navigationUrl(), "/tournament#/mygames");
+  assert.equal(nav.currentNavigationEntry().previous, null);
+  assert.equal(nav.routed(), 1);
+});
+
+test("Back recovery preserves successful browser navigation and avoids self-referencing entries", () => {
+  const nav = navigationHarness("/tournament#/mygames");
+  nav.rememberNavigationContext();
+  nav.pushAppLocation("/tournament#/games/game/42/result");
+  nav.navigateBack("/tournament#/games/game/42");
+  nav.settleBack();
+  assert.equal(nav.navigationUrl(), "/tournament#/mygames");
+  assert.equal(nav.entries.length, 2);
+  assert.equal(nav.routed(), 0);
+  nav.window.history.replaceState({ tgtvNavigation: { url: nav.navigationUrl(), previous: nav.navigationUrl() } }, "");
+  nav.navigateBack("/tournament#/games");
+  assert.equal(nav.navigationUrl(), "/tournament#/games");
+  assert.equal(nav.routed(), 1);
 });
 
 test("result and review URLs restore their screen on reload or Forward", () => {

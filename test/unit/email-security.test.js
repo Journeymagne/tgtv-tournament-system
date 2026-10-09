@@ -43,7 +43,7 @@ test("webhook accepts signed raw bytes, rejects tampering and expired timestamps
 test("email HTML escapes account-controlled names and has readable text", () => {
   const result = message("reset", { name: '<img src=x onerror="alert(1)">', link: "https://example.com/account-email.html#reset=abc", locale: "en" });
   assert.ok(!result.html.includes("<img src=x"));
-  assert.match(result.html, /<img src="https:\/\/example\.com\/logo\.png"/);
+  assert.match(result.html, /<img src="https:\/\/example\.com\/brand\/kt-companion\/app-icon\.png"/);
   assert.ok(result.html.includes("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;"));
   assert.match(result.text, /30 minutes/);
   assert.match(result.text, /https:\/\/example.com\/account-email.html#reset=abc/);

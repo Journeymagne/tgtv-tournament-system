@@ -252,6 +252,11 @@ async function update(client, id, patch) {
   return mapTournamentMatch(rows[0]);
 }
 
+async function remove(client, id) {
+  const { rows } = await client.query(`DELETE FROM tournament_matches WHERE id = $1 RETURNING ${COLUMNS}`, [id]);
+  return mapTournamentMatch(rows[0]);
+}
+
 module.exports = {
   insert,
   findById,
@@ -264,5 +269,6 @@ module.exports = {
   listCompletedUnlinkedForUser,
   ratingPoliciesByGameIds,
   syncEloFromLinkedGames,
-  update
+  update,
+  remove
 };

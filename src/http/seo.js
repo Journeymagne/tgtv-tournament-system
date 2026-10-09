@@ -7,7 +7,7 @@ const { siteOrigin } = require("./sites");
 const SITE_NAME = "TGTV Ranking Tournament System";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "5.4.5";
+const ASSET_VERSION = "1.0.0";
 
 function requestOrigin(req) {
   const serviceOrigin = siteOrigin(req);
@@ -173,8 +173,9 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <meta name="description" content="${escapeHtml(description)}">
     <meta name="robots" content="${escapeHtml(robots)}">
     <link rel="canonical" href="${escapeHtml(canonical)}">
-    <link rel="icon" type="image/webp" href="/logo.webp?v=20260908-webp-logo">
-    <link rel="apple-touch-icon" href="/logo.png?v=20260808-favicon">
+    <link rel="icon" type="image/x-icon" href="/brand/kt-companion/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/kt-companion/icon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/kt-companion/apple-touch-icon.png">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="${escapeHtml(SITE_NAME)}">
     <meta property="og:title" content="${escapeHtml(title)}">
@@ -205,7 +206,7 @@ function tournamentHtml(origin, tournament) {
   const url = tournamentPublicUrl(origin, tournament);
   const title = `${tournament.name || "Kill Team tournament"} | ${SITE_NAME}`;
   const description = metaDescription(tournament.description || tournament.rulesSummary);
-  const imageUrl = `${origin}/logo.png`;
+  const imageUrl = `${origin}/brand/kt-companion/social.png`;
   const facts = [
     ["Format", tournamentFormatLabel(tournament)],
     ["Status", tournamentStatusLabel(tournament.status)],
@@ -260,7 +261,7 @@ function notFoundHtml(origin, slug) {
       title,
       description,
       canonical,
-      imageUrl: `${origin}/logo.png`,
+      imageUrl: `${origin}/brand/kt-companion/social.png`,
       robots: "noindex, follow"
     })}
   </head>

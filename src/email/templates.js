@@ -30,7 +30,7 @@ function message(kind, { name, link, locale = "ru" }) {
   const greeting = (en ? "Hello, " : "Здравствуйте, ") + name + "!";
   const action = link || configuration().site + "/account-email.html";
   const time = new Date().toISOString();
-  const logo = new URL("/logo.png", action).href;
+  const logo = new URL("/brand/kt-companion/app-icon.png", action).href;
   return {
     subject: "KT Companion — " + title,
     text: [greeting, intro, button + ": " + action, note, time].join("\n\n"),
@@ -43,7 +43,7 @@ function message(kind, { name, link, locale = "ru" }) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${palette.surface}" style="max-width:624px;margin:auto;background:${palette.surface};border:1px solid ${palette.border};border-radius:16px">
       <tr><td style="padding:28px 24px;color:${palette.text};font:16px/1.6 Arial,sans-serif">
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px">
-          <tr><td width="60" style="padding-right:12px"><img src="${escapeHtml(logo)}" width="48" height="48" alt="KT Companion" style="display:block;border:0;border-radius:50%"></td>
+          <tr><td width="60" style="padding-right:12px"><img src="${escapeHtml(logo)}" width="48" height="48" alt="KT Companion" style="display:block;border:0;border-radius:8px"></td>
           <td style="color:${palette.accent};font:700 14px/1.4 Arial,sans-serif;letter-spacing:2px">KT COMPANION</td></tr>
         </table>
         <h1 style="margin:0 0 24px;color:${palette.text};font-size:26px;line-height:1.3">${escapeHtml(title)}</h1>

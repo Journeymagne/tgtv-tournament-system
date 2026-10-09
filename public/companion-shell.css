@@ -41,20 +41,20 @@ body {
 }
 
 .companion-service-brand img {
-  border-radius: 50%;
   flex: none;
+  object-fit: contain;
 }
 
 .companion-logo-link {
   display: grid;
   place-items: center;
-  width: 44px;
+  width: 48px;
   height: 44px;
   flex: none;
-  border-radius: 50%;
+  border-radius: 6px;
 }
 
-/* Match the home heading's text-to-logo ratio: the header logo is 32px vs 80px. */
+/* Keep service titles legible beside the compact book-and-blade mark. */
 .companion-service-link {
   display: flex;
   align-items: center;
@@ -220,17 +220,14 @@ body {
 .companion-home-brand {
   display: flex;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 18px;
+  margin: 0 0 18px;
 }
 
 .companion-home-brand img {
-  border-radius: 50%;
-  flex: none;
-}
-
-.companion-home-brand h1 {
-  margin: 0;
+  display: block;
+  width: min(100%, 350px);
+  height: auto;
+  object-fit: contain;
 }
 
 .companion-gate {
@@ -558,17 +555,8 @@ body[data-companion-section="studio"] .workspace {
     padding-top: 14px;
   }
 
-  .companion-home-brand {
-    gap: 12px;
-  }
-
   .companion-home-brand img {
-    width: 48px;
-    height: 48px;
-  }
-
-  .companion-home-brand h1 {
-    font-size: 27px;
+    width: min(100%, 280px);
   }
 
   .tools-grid {

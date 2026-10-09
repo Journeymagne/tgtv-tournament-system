@@ -1,5 +1,16 @@
 (function () {
   "use strict";
+  function brandLogoUrl(kind = "mark") {
+    const theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+    return `/brand/kt-companion/${kind}-${theme}.png`;
+  }
+  function syncBrandLogos() {
+    for (const image of document.querySelectorAll("img[data-companion-logo]")) {
+      image.src = brandLogoUrl(image.dataset.companionLogo);
+    }
+  }
+  window.addEventListener("kt:appearance", syncBrandLogos);
+  syncBrandLogos();
   const sites = window.KT_SITES || { subdomains: false, urls: {
     home: "/", initiative: "/initiative", tracker: "/tracker",
     tournament: "/tournament", studio: "/studio", dice: "/dice", faq: "/faq"
@@ -24,7 +35,7 @@
     brand.className = "companion-service-brand";
     const home = document.createElement("a"); home.className = "companion-logo-link";
     home.href = serviceUrl("home"); home.setAttribute("aria-label", "На главную KT Companion"); home.title = "На главную KT Companion";
-    const logo = document.createElement("img"); logo.src = "/logo.webp"; logo.alt = ""; logo.width = 32; logo.height = 32;
+    const logo = document.createElement("img"); logo.dataset.companionLogo = "mark"; logo.src = brandLogoUrl(); logo.alt = ""; logo.width = 48; logo.height = 32;
     home.append(logo);
     const title = document.createElement(["home", "account"].includes(active) ? "span" : "a");
     title.className = "companion-service-link";
@@ -168,7 +179,7 @@
     setUser(null);
     for (const account of accounts) account.querySelector("a").textContent = "Войти / проверить вход";
   });
-  window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader };
+  window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader, brandLogoUrl };
   const exports = document.querySelector(".studio-export-menu");
   if (exports) {
     document.addEventListener("click", event => {

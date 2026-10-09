@@ -588,6 +588,10 @@ function adminTournamentActionButtons(data) {
   }
   if (tournament.status === "in_progress") {
     const rollbackState = rollbackRoundActionState(data);
+    if (tournament.participantMode !== "team" && tournament.format === "swiss" &&
+        data.rounds?.at(-1)?.status === "active" && !tournament.roundDraft) {
+      buttons.push(`<button class="small-button" data-admin-tournament-action="edit-active-pairings">${t("admin.round.editPairings")}</button>`);
+    }
     if (tournament.participantMode === "team" && (data.rounds || []).length && !tournament.roundDraft) {
       buttons.push(`<button class="small-button" data-admin-tournament-action="edit-round-tables">${t("admin.round.editTables")}</button>`);
     }
@@ -1795,6 +1799,12 @@ async function runAdminTournamentAction(action) {
         method: "POST",
         body: { participantIds }
       });
+    } else if (action === "edit-active-pairings") {
+      const round = state.adminTournamentDetail?.rounds?.at(-1);
+      if (!round) return;
+      const preview = await api(`/api/admin/tournaments/${tournament.id}/rounds/${round.id}/pairings`);
+      renderRoundSetupModal(preview);
+      return;
     } else if (action === "edit-round-tables") {
       const round = state.adminTournamentDetail?.rounds?.at(-1);
       if (!round) return;
@@ -1972,10 +1982,13 @@ async function removeAdminTournamentParticipant(participantId) {
   const tournament = detail?.tournament;
   if (!tournament) return;
   const participant = (detail.participants || []).find((item) => item.id === participantId);
-  if (!await confirmDelete(t("dialog.admin.removeParticipant", { name: participant?.displayName || t("dialog.admin.participantFallback") }), t("admin.tournament.participants.remove"))) return;
+  if (!await confirmDelete(t(tournament.status === "in_progress" ? "dialog.admin.removeStartedParticipant" : "dialog.admin.removeParticipant", { name: participant?.displayName || t("dialog.admin.participantFallback") }), t("admin.tournament.participants.remove"))) return;
   try {
-    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, { method: "DELETE" });
+    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, { method: "DELETE", body: {
+      expectedIdentity: { userId: participant.userId, displayName: participant.displayName, isProxy: Boolean(participant.isProxy) }
+    } });
     await refreshTournamentParticipantView(tournament);
+    if (tournament.status === "in_progress") setMessage(t("admin.round.participantRemoved"));
   } catch (err) {
     setMessage(err.message, true);
   }

@@ -434,6 +434,19 @@ module.exports = [
   },
   {
     method: "GET",
+    path: "/api/admin/tournaments/:id/rounds/:roundId/pairings",
+    handler: tournaments.getActivePairingsAdmin,
+    auth: "admin"
+  },
+  {
+    method: "PATCH",
+    path: "/api/admin/tournaments/:id/rounds/:roundId/pairings",
+    handler: tournaments.updateActivePairingsAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
+    method: "GET",
     path: "/api/admin/tournaments/:id/rounds/:roundId/tables",
     handler: require("./round-tables").getAdmin,
     auth: "admin"

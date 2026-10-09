@@ -112,13 +112,10 @@ button:disabled {
 }
 
 .brand-logo {
-  width: 126px;
-  height: 126px;
+  width: 190px;
+  height: auto;
   margin-bottom: 20px;
-  border: 2px solid var(--accent);
-  border-radius: 50%;
-  object-fit: cover;
-  box-shadow: 0 0 34px rgb(var(--accent-rgb) / 0.36);
+  object-fit: contain;
 }
 
 .brand-panel p {
@@ -695,12 +692,9 @@ button:disabled {
 }
 
 .app-logo {
-  width: 46px;
-  height: 46px;
-  border: 2px solid var(--accent);
-  border-radius: 50%;
-  object-fit: cover;
-  box-shadow: 0 0 22px rgb(var(--accent-rgb) / 0.26);
+  width: 64px;
+  height: 42px;
+  object-fit: contain;
 }
 
 .app-brand-name {
@@ -1890,6 +1884,7 @@ button:disabled {
 
 .team-detail {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 
@@ -1950,6 +1945,8 @@ button:disabled {
 }
 
 /* Recessed detail and result panels. */
+.team-detail-section { min-width: 0; }
+
 .team-detail-section,
 .settings-block,
 .score-card,
@@ -2207,6 +2204,8 @@ button:disabled {
 }
 
 .table-wrap {
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2265,6 +2264,66 @@ tr:last-child td {
   width: 54px;
   color: var(--gold);
   font-weight: 950;
+}
+
+/* Shared data-table geometry. Content never determines numeric-column widths. */
+.data-table {
+  --table-rank-width: 54px;
+  --table-number-width: 112px;
+  --table-rating-width: 128px;
+  --table-text-width: 200px;
+  --table-name-min-width: 200px;
+  table-layout: fixed;
+  min-width: calc(var(--table-name-min-width) + var(--table-metric-count, 0) * var(--table-number-width));
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+.data-table .table-col-rank { width: var(--table-rank-width); }
+.data-table .table-col-number { width: var(--table-number-width); }
+.data-table .table-col-rating { width: var(--table-rating-width); }
+.data-table .table-col-text { width: var(--table-text-width); }
+
+.leaderboard-table {
+  --table-name-min-width: 140px;
+  min-width: calc(var(--table-rank-width) + var(--table-name-min-width) + var(--table-rating-width));
+}
+.teams-leaderboard-table {
+  min-width: calc(var(--table-rank-width) + var(--table-name-min-width) + var(--table-number-width) + var(--table-rating-width));
+}
+.admin-teams-table {
+  min-width: calc(var(--table-name-min-width) + var(--table-text-width) + var(--table-number-width) + 2 * var(--table-rating-width));
+}
+.individual-standings-table {
+  min-width: calc(var(--table-rank-width) + var(--table-name-min-width) + var(--table-text-width) + var(--table-metric-count) * var(--table-number-width));
+}
+.team-standings-table {
+  min-width: calc(var(--table-rank-width) + var(--table-name-min-width) + var(--table-metric-count) * var(--table-number-width));
+}
+
+.data-table :is(th, td) {
+  vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.data-table th { height: 48px; padding: 10px 12px; }
+.data-table tbody tr { height: 60px; }
+.data-table td { padding: 12px; }
+:is(.statistics-table, .individual-standings-table, .team-standings-table) th { height: 72px; }
+
+.leaderboard-table :is(th, td):last-child,
+:is(.teams-leaderboard-table, .admin-teams-table, .team-standings-table) :is(th, td):nth-child(n+3):not([colspan]),
+.statistics-table :is(th, td):nth-child(n+2):not([colspan]),
+.individual-standings-table :is(th, td):nth-child(n+4):not([colspan]) {
+  text-align: right;
+}
+.data-table .sort-button { width: 100%; white-space: normal; line-height: inherit; text-align: inherit; }
+.data-table .leaderboard-player-button { display: flex; width: 100%; min-width: 0; text-align: left; }
+.data-table .leaderboard-player-button > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ======================================================================
@@ -3384,6 +3443,43 @@ tr:last-child td {
   line-height: 1.4;
 }
 
+.team-pairing-rosters {
+  margin-top: 18px;
+}
+
+.team-pairing-rosters > h3 {
+  margin-bottom: 10px;
+  font-size: 1rem;
+}
+
+.team-pairing-rosters-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.team-pairing-rosters-grid > h4,
+.team-pairing-roster-member {
+  min-width: 0;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  overflow-wrap: anywhere;
+}
+
+.team-pairing-roster-member {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.team-pairing-roster-faction {
+  color: var(--muted);
+  font-size: 0.875em;
+}
+
 .team-match-result {
   margin-top: 10px;
   color: var(--ink);
@@ -4054,7 +4150,7 @@ tr:last-child td {
   }
 
   .app-logo {
-    width: 32px;
+    width: 48px;
     height: 32px;
   }
 

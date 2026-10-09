@@ -753,7 +753,35 @@ async function updateParticipant({ client, user, params, body }) {
   return { participant: updated };
 }
 
-async function removeParticipant({ client, user, params }) {
+function pairingIsEditable(match) {
+  return !match.isBye && [MATCH_STATUSES.ACTIVE, MATCH_STATUSES.NOT_READY].includes(match.status) &&
+    !match.pendingResult && !match.result && !match.elo && !match.completedAt && !match.submittedByUserId &&
+    !match.winnerParticipantId && !match.matchPoints;
+}
+
+async function requireUnplayedGames(client, matches) {
+  if (!matches.length) return;
+  // Legacy data can contain more than one game for a source. Protect every
+  // linked result before deleting unplayed games, not just the current game_id.
+  const { rows } = await client.query(`SELECT status, pending_result, result, elo FROM games
+    WHERE source_type = 'tournament_match' AND source_id = ANY($1::int[]) ORDER BY id FOR UPDATE`,
+  [matches.map(match => match.id)]);
+  if (rows.some(game => game.status !== "open" || game.pending_result || game.result || game.elo)) {
+    throw new HttpError(409, "A linked game has changed. Refresh the round before editing pairings");
+  }
+  for (const match of matches) {
+    if (!pairingIsEditable(match)) throw new HttpError(409, "A submitted result must be resolved before changing its pairing");
+    if (!match.gameId) continue;
+    const game = await gamesRepo.lockById(client, match.gameId);
+    if (!game || game.sourceType !== "tournament_match" || Number(game.sourceId) !== match.id ||
+        game.status !== "open" || game.pendingResult || game.result || game.elo) {
+      throw new HttpError(409, "A linked game has changed. Refresh the round before editing pairings");
+    }
+  }
+}
+
+async function removeParticipant({ client, user, params, body = {} }) {
+  if (!canManageTournament(user, params.id)) throw new HttpError(403, "Tournament access required");
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   assertEditableSetup(tournament);
   const participantId = requirePositiveIntId(params.participantId, 404, "Participant not found");
@@ -761,14 +789,41 @@ async function removeParticipant({ client, user, params }) {
   if (!participant || participant.tournamentId !== tournament.id) {
     throw new HttpError(404, "Participant not found");
   }
+  if (!isListedParticipant(participant)) throw new HttpError(409, "Participant has already left the tournament");
+  const changedMatches = [];
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
     const matches = await matchesRepo.listByTournament(client, tournament.id);
-    if (
+    if (tournament.participantMode === "team" || (tournament.format !== TOURNAMENT_FORMATS.SWISS && (
       participant.status !== PARTICIPANT_STATUSES.PENDING_PLACEMENT ||
       participantHasGeneratedMatch(participant.id, matches)
-    ) {
+    ))) {
       throw new HttpError(409, "Participants with generated matches cannot be removed after start");
     }
+    const identity = body.expectedIdentity;
+    if ((identity || participantHasGeneratedMatch(participant.id, matches)) &&
+        (!identity || identity.userId !== participant.userId || identity.displayName !== participant.displayName ||
+         identity.isProxy !== Boolean(participant.isProxy))) {
+      throw new HttpError(409, "Participant changed. Refresh the participant list before removing them");
+    }
+    const related = matches.filter(match => matchParticipantIds(match).includes(participant.id) &&
+      match.status !== MATCH_STATUSES.COMPLETED);
+    const latest = (await roundsRepo.listByTournament(client, tournament.id)).at(-1);
+    if (related.some(match => match.roundId !== latest?.id)) {
+      throw new HttpError(409, "Only pairings in the latest round can be changed");
+    }
+    await requireUnplayedGames(client, related);
+    await gamesRepo.removeBySourceIds(client, "tournament_match", related.map(match => match.id));
+    for (const match of related) {
+      // Keep an unfinished slot until the administrator repairs the pairing.
+      // Removing somebody must never award an automatic win or finish the round.
+      const updated = await matchesRepo.update(client, match.id, {
+        participantAId: match.participantAId === participant.id ? null : match.participantAId,
+        participantBId: match.participantBId === participant.id ? null : match.participantBId,
+        participantSnapshots: {}, gameId: null, status: MATCH_STATUSES.NOT_READY
+      });
+      changedMatches.push({ before: match, after: updated });
+    }
+    if (related.length) await roundsRepo.update(client, latest.id, { status: ROUND_STATUSES.ACTIVE, completedAt: null });
   }
   const updated = await participantsRepo.update(client, participant.id, {
     status: PARTICIPANT_STATUSES.REMOVED,
@@ -779,9 +834,132 @@ async function removeParticipant({ client, user, params }) {
     entityType: "participant",
     entityId: participant.id,
     before: participant,
-    after: updated
+    after: updated,
+    metadata: { changedMatches }
   });
   return { participant: updated };
+}
+
+async function activePairingsContext(client, user, params, forUpdate = false) {
+  if (!canManageTournament(user, params.id)) throw new HttpError(403, "Tournament access required");
+  const tournament = await requireTournament(client, params.id, { forUpdate });
+  if (tournament.participantMode === "team" || tournament.format !== TOURNAMENT_FORMATS.SWISS) {
+    throw new HttpError(409, "Active round editing is available for individual Swiss tournaments");
+  }
+  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS || tournament.roundDraft) {
+    throw new HttpError(409, "Tournament has no active round to edit");
+  }
+  const roundId = requirePositiveIntId(params.roundId, 404, "Round not found");
+  const rounds = await roundsRepo.listByTournament(client, tournament.id);
+  const round = rounds.find(item => item.id === roundId);
+  if (!round) throw new HttpError(404, "Round not found");
+  if (round.id !== rounds.at(-1)?.id || round.status !== ROUND_STATUSES.ACTIVE) {
+    throw new HttpError(409, "Only the latest active round can be edited");
+  }
+  const participants = forUpdate
+    ? await participantsRepo.lockByTournament(client, tournament.id)
+    : await participantsRepo.listByTournament(client, tournament.id);
+  const matches = await matchesRepo.listByRound(client, round.id);
+  const tables = await tablesRepo.listByTournament(client, tournament.id);
+  const revision = require("node:crypto").createHash("sha256")
+    .update(JSON.stringify({ round, participants, matches })).digest("hex");
+  return { tournament, round, participants, matches, tables, revision };
+}
+
+async function getActivePairingsAdmin({ client, user, params }) {
+  const { round, participants, matches, tables, revision } = await activePairingsContext(client, user, params);
+  const editable = matches.filter(pairingIsEditable);
+  const locked = matches.filter(match => !pairingIsEditable(match));
+  const occupied = new Set(locked.flatMap(matchParticipantIds));
+  return {
+    activePairings: true, revision,
+    round: roundSetupView({ ...round, mission: round.metadata?.mission, matches: editable }, tables, participants),
+    lockedMatches: roundSetupView({ ...round, matches: locked }, tables, participants).matches,
+    participants: participants.filter(p => isListedParticipant(p) && !occupied.has(p.id) &&
+      ([PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.JOINED].includes(p.status) ||
+       editable.some(match => matchParticipantIds(match).includes(p.id)))),
+    tables: tables.map(tournamentTableView)
+  };
+}
+
+async function updateActivePairingsAdmin({ client, user, params, body = {} }) {
+  const { tournament, round, participants, matches, tables, revision } = await activePairingsContext(client, user, params, true);
+  if (body.expectedRevision !== revision) throw new HttpError(409, "Round changed. Reopen the pairing editor and try again");
+  if (!Array.isArray(body.matchups) || body.matchups.length > 128 ||
+      Object.keys(body).some(key => !["matchups", "expectedRevision"].includes(key))) {
+    throw new ValidationError("Provide the editable round pairings");
+  }
+  const editable = matches.filter(pairingIsEditable);
+  const locked = matches.filter(match => !pairingIsEditable(match));
+  const occupied = new Set(locked.flatMap(matchParticipantIds));
+  const eligible = new Set(participants.filter(p => isListedParticipant(p) &&
+    ([PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.JOINED].includes(p.status) ||
+     editable.some(match => matchParticipantIds(match).includes(p.id)))).map(p => p.id));
+  const seen = new Set(occupied);
+  const seenMatches = new Set();
+  const plans = body.matchups.map(input => {
+    if (!input || typeof input !== "object" || Object.keys(input).some(key =>
+      !["matchId", "participantAId", "participantBId", "tableId"].includes(key))) {
+      throw new ValidationError("Invalid pairing fields");
+    }
+    const optionalId = value => value === "" || value === null || value === undefined
+      ? null : requirePositiveIntId(value, 400, "Invalid pairing identifier");
+    const matchId = optionalId(input.matchId);
+    const previous = matchId ? editable.find(match => match.id === matchId) : null;
+    if (matchId && (!previous || seenMatches.has(matchId))) throw new ValidationError("Include each editable match exactly once");
+    if (matchId) seenMatches.add(matchId);
+    const participantAId = optionalId(input.participantAId);
+    const participantBId = optionalId(input.participantBId);
+    for (const id of [participantAId, participantBId].filter(Boolean)) {
+      if (!eligible.has(id)) throw new ValidationError("Pairing uses an unavailable tournament participant");
+      if (seen.has(id)) throw new ValidationError("Each player can appear only once in the round");
+      seen.add(id);
+    }
+    const tableId = tournament.venueMode === "irl" ? optionalId(input.tableId) : null;
+    if (tableId && !tables.some(table => table.id === tableId)) throw new ValidationError("Pairing uses an unknown table");
+    return { previous, participantAId, participantBId, tableId };
+  });
+  if (seenMatches.size !== editable.length) throw new ValidationError("Include each editable match exactly once");
+  if ([...eligible].some(id => !seen.has(id))) throw new ValidationError("Assign every active player to a pairing or remove them from the tournament first");
+  if (!locked.length && !plans.some(plan => plan.participantAId || plan.participantBId)) {
+    throw new ValidationError("The round must contain at least one pairing");
+  }
+  const changed = plans.filter(plan => !plan.previous ||
+    plan.previous.participantAId !== plan.participantAId || plan.previous.participantBId !== plan.participantBId ||
+    plan.previous.tableId !== plan.tableId || (!plan.participantAId && !plan.participantBId));
+  await requireUnplayedGames(client, changed.map(plan => plan.previous).filter(Boolean));
+  await gamesRepo.removeBySourceIds(client, "tournament_match", changed.map(plan => plan.previous?.id).filter(Boolean));
+  let position = Math.max(0, ...matches.map(match => match.bracketPosition || 0));
+  for (const plan of changed) {
+    const { previous, participantAId, participantBId, tableId } = plan;
+    if (!participantAId && !participantBId) {
+      if (previous) await matchesRepo.remove(client, previous.id);
+      continue;
+    }
+    const table = tables.find(item => item.id === tableId);
+    const mission = previous?.tableId === tableId ? previous.mission :
+      missionForMatch(tournament, table, round.metadata?.mission || {});
+    const patch = { participantAId, participantBId, tableId, mission, participantSnapshots: {},
+      gameId: null, status: participantAId && participantBId ? MATCH_STATUSES.ACTIVE : MATCH_STATUSES.NOT_READY };
+    const match = previous ? await matchesRepo.update(client, previous.id, patch) : await matchesRepo.insert(client, {
+      ...patch, tournamentId: tournament.id, roundId: round.id, roundNumber: round.roundNumber,
+      bracketPosition: ++position, isBye: false
+    });
+    if (match.status === MATCH_STATUSES.ACTIVE) {
+      const { participantA, participantB } = requireMatchParticipants(match, participants);
+      await ensureTournamentGame(client, tournament, match, participantA, participantB);
+    }
+  }
+  const after = await matchesRepo.listByRound(client, round.id);
+  const completed = after.length > 0 && after.every(match => match.status === MATCH_STATUSES.COMPLETED);
+  await roundsRepo.update(client, round.id, {
+    status: completed ? ROUND_STATUSES.COMPLETED : ROUND_STATUSES.ACTIVE,
+    completedAt: completed ? nowIso() : null
+  });
+  await audit(client, tournament, user, "round_pairings_edit", {
+    entityType: "round", entityId: round.id, before: { matches }, after: { matches: after }
+  });
+  return fullView(client, tournament, user, { includeAudit: true, includePrivate: true });
 }
 
 function competitiveSeedParticipants(participants) {
@@ -2091,6 +2269,8 @@ module.exports = {
   bulkParticipants,
   updateParticipant,
   removeParticipant,
+  getActivePairingsAdmin,
+  updateActivePairingsAdmin,
   updateSeeds,
   regenerateSeeds,
   previewNextRoundAdmin,
