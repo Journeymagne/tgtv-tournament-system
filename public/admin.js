@@ -941,13 +941,17 @@ function adminTournamentRoundsPanel(data) {
           <p class="muted">${t("admin.tournament.rounds.hint")}</p>
         </div>
       </div>
-      ${tournamentRoundsTabbedMarkup(rounds, adminTournamentMatchMarkup, data.tournament?.id)}
+      ${tournamentRoundsTabbedMarkup(rounds, match => adminTournamentMatchMarkup(match, data), data.tournament?.id)}
     </section>
   `;
 }
 
-function adminTournamentMatchMarkup(match) {
-  const canResult = ["active", "pending_confirmation", "completed"].includes(match.status) && !match.isBye;
+function adminTournamentMatchMarkup(match, data = {}) {
+  const canResult = ["active", "pending_confirmation", "completed"].includes(match.status) && !match.isBye && match.participantA && match.participantB;
+  const canReset = data.tournament?.status === "in_progress" && data.tournament?.format === "swiss" &&
+    data.tournament?.participantMode !== "team" && !data.tournament?.roundDraft &&
+    data.rounds?.at(-1)?.id === match.roundId && !match.isBye &&
+    ["completed", "pending_confirmation"].includes(match.status);
   const actionLabel = match.status === "completed" ? t("play.action.editResult") : t("play.action.enterResult");
   const meta = [publicMatchScore(match), matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
@@ -959,6 +963,7 @@ function adminTournamentMatchMarkup(match) {
       <div class="row-actions">
         <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
         ${canResult ? `<button class="small-button" data-admin-tournament-match-result="${match.id}">${actionLabel}</button>` : ""}
+        ${canReset ? `<button class="danger-button" data-admin-tournament-match-reset="${match.id}">${t("admin.round.resetMatch")}</button>` : ""}
       </div>
     </div>
   `;
@@ -1631,6 +1636,29 @@ function wireAdminTournamentControls() {
       const detail = state.adminTournamentDetail;
       const match = findTournamentMatch(detail, Number(button.dataset.adminTournamentMatchResult));
       if (match) renderTournamentResultForm(detail, match, { admin: true });
+    });
+  });
+  document.querySelectorAll("[data-admin-tournament-match-reset]").forEach((button) => {
+    onLive(button, "click", async () => {
+      const tournament = state.adminTournamentDetail?.tournament;
+      if (!tournament || button.disabled) return;
+      button.disabled = true;
+      try {
+        const endpoint = `/api/admin/tournaments/${tournament.id}/matches/${button.dataset.adminTournamentMatchReset}/reset`;
+        const preview = await api(endpoint);
+        if (!await confirmAction({ message: t("dialog.admin.resetMatch", {
+          playerA: preview.match.participantA?.displayName || t("tournaments.participant.fallback"),
+          playerB: preview.match.participantB?.displayName || t("tournaments.participant.fallback")
+        }), confirmLabel: t("admin.round.resetMatch"), danger: true })) return;
+        await api(endpoint, { method: "POST", body: { expectedRevision: preview.revision, confirmResultsReset: true } });
+        await loadTournamentAdmin();
+        state.tournamentInfoTab = "matches";
+        renderTournaments();
+        setMessage(t("admin.round.matchReset"));
+        const pairings = await api(`/api/admin/tournaments/${tournament.id}/rounds/${preview.roundId}/pairings`);
+        renderRoundSetupModal(pairings);
+      } catch (err) { setMessage(err.message, true); }
+      finally { button.disabled = false; }
     });
   });
 }

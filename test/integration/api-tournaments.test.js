@@ -2467,3 +2467,92 @@ test("active Swiss editor protects submitted results, player coverage, scope and
   assert.deepEqual((await client.query("SELECT * FROM games ORDER BY id")).rows, gamesBefore);
   assert.deepEqual((await client.query("SELECT id,rating,rating_tts,rating_irl FROM users ORDER BY id")).rows, ratingsBefore);
 });
+
+test("resetting one Swiss result against a removed proxy restores an editable slot and preserves other results", async () => {
+  const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 2, ratingPolicy: "unranked", venueMode: "irl" });
+  for (const name of ["Max", "Other A", "Proxy Seat", "Other B"]) await addUserParticipant(tournament, await createUser(name));
+  const params = { id: String(tournament.id) };
+  const started = await closeAndStart(tournament);
+  const target = started.rounds[0].matches[0];
+  await tournamentsApi.updateParticipant({ client, user: root,
+    params: { ...params, participantId: String(target.participantBId) }, body: { proxy: true } });
+  const current = await tournamentsApi.getAdmin({ client, user: root, params });
+  for (const match of current.rounds[0].matches) {
+    const key = participant => participant.userId ?? -participant.id;
+    await tournamentsApi.saveMatchResultAdmin({ client, user: root, params: { ...params, matchId: String(match.id) },
+      body: { scores: scores(key(match.participantA), key(match.participantB)) } });
+  }
+  const proxy = current.participants.find(p => p.isProxy);
+  await tournamentsApi.removeParticipant({ client, user: root, params: { ...params, participantId: String(proxy.id) },
+    body: { expectedIdentity: { userId: null, displayName: proxy.displayName, isProxy: true } } });
+  const publicView = await tournamentsApi.getPublic({ client, user: null, params: { slug: tournament.slug } });
+  assert.equal(publicView.participants.some(p => p.id === proxy.id), false);
+  assert.equal(publicView.rounds[0].matches.find(m => m.id === target.id).participantB.displayName, proxy.displayName);
+  const adminView = await tournamentsApi.getAdmin({ client, user: root, params });
+  const other = adminView.rounds[0].matches.find(m => m.id !== target.id);
+  const otherGame = await gamesRepo.findById(client, other.gameId);
+  params.matchId = String(target.id);
+  const preview = await tournamentsApi.previewMatchResetAdmin({ client, user: root, params });
+  assert.equal(preview.match.participantB.displayName, proxy.displayName);
+  await assert.rejects(() => tournamentsApi.resetMatchResultAdmin({ client, user: root, params,
+    body: { expectedRevision: preview.revision } }), error => error.status === 400);
+  await assert.rejects(() => tournamentsApi.resetMatchResultAdmin({ client, user: root, params,
+    body: { expectedRevision: "stale", confirmResultsReset: true } }), error => error.status === 409);
+  const saved = await tournamentsApi.resetMatchResultAdmin({ client, user: root, params,
+    body: { expectedRevision: preview.revision, confirmResultsReset: true } });
+  const reset = saved.rounds[0].matches.find(m => m.id === target.id);
+  assert.equal(saved.rounds[0].status, "active");
+  assert.equal(reset.status, "not_ready");
+  assert.equal(reset.participantAId, target.participantAId);
+  assert.equal(reset.participantBId, null);
+  assert.equal(reset.gameId, null);
+  assert.equal(reset.result, null);
+  assert.equal(reset.winnerParticipantId, null);
+  assert.equal(reset.tableId, target.tableId);
+  assert.deepEqual(reset.mission, target.mission);
+  assert.equal(saved.standings.find(row => row.participantId === target.participantAId).matchPoints, 0);
+  assert.deepEqual(saved.rounds[0].matches.find(m => m.id === other.id), other);
+  assert.deepEqual(await gamesRepo.findById(client, other.gameId), otherGame);
+  assert.equal(await gamesRepo.findById(client, target.gameId), null);
+  const audit = (await client.query("SELECT * FROM tournament_audit_events WHERE event_type='match_result_reset'")).rows;
+  assert.equal(audit.length, 1);
+  assert.equal(audit[0].before.match.id, target.id);
+  assert.ok(audit[0].before.match.result);
+  await assert.rejects(() => tournamentsApi.previewMatchResetAdmin({ client, user: root, params }), error => error.status === 409);
+});
+
+test("Swiss result reset replays later Elo and rejects old rounds and unauthorized callers", async () => {
+  const alpha = await createUser("Reset Alpha");
+  const outside = await createUser("Reset Outside");
+  const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 2 });
+  await addUserParticipant(tournament, alpha);
+  for (const name of ["Reset Bravo", "Reset Charlie", "Reset Delta"]) await addUserParticipant(tournament, await createUser(name));
+  const started = await closeAndStart(tournament);
+  const match = activeMatchForUser(started, alpha.id);
+  const opponentId = matchOpponentUserId(match, alpha.id);
+  const params = { id: String(tournament.id), matchId: String(match.id) };
+  await tournamentsApi.saveMatchResultAdmin({ client, user: root, params, body: { scores: scores(alpha.id, opponentId) } });
+  const later = await gamesRepo.insert(client, { playerIds: [alpha.id, outside.id] });
+  await gamesApi.submitResult({ client, user: alpha, params: { id: String(later.id) }, body: { scores: scores(alpha.id, outside.id) } });
+  await gamesApi.respondToResult({ client, user: outside, params: { id: String(later.id), action: "confirm-result" } });
+  const resultBefore = (await gamesRepo.findById(client, later.id)).result;
+  await assert.rejects(() => tournamentsApi.previewMatchResetAdmin({ client, user: alpha, params }), error => error.status === 403);
+  await assert.rejects(() => tournamentsApi.resetMatchResultAdmin({ client, user: alpha, params, body: {} }), error => error.status === 403);
+  const preview = await tournamentsApi.previewMatchResetAdmin({ client, user: root, params });
+  const saved = await tournamentsApi.resetMatchResultAdmin({ client, user: root, params,
+    body: { expectedRevision: preview.revision, confirmResultsReset: true } });
+  const reset = saved.rounds[0].matches.find(m => m.id === match.id);
+  assert.equal(reset.status, "active");
+  assert.notEqual(reset.gameId, match.gameId);
+  assert.equal((await gamesRepo.findById(client, reset.gameId)).status, "open");
+  assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1016);
+  assert.equal((await usersRepo.findById(client, opponentId)).rating, 1000);
+  assert.equal((await usersRepo.findById(client, outside.id)).rating, 984);
+  assert.equal((await gamesRepo.findById(client, later.id)).elo[alpha.id].before, 1000);
+  assert.deepEqual((await gamesRepo.findById(client, later.id)).result, resultBefore);
+  await tournamentsApi.saveMatchResultAdmin({ client, user: root, params, body: { scores: scores(alpha.id, opponentId) } });
+  await client.query("INSERT INTO tournament_rounds (tournament_id,round_number,status) VALUES ($1,2,'active')", [tournament.id]);
+  await assert.rejects(() => tournamentsApi.previewMatchResetAdmin({ client, user: root, params }), error => error.status === 409);
+  await assert.rejects(() => tournamentsApi.resetMatchResultAdmin({ client, user: root, params,
+    body: { expectedRevision: preview.revision, confirmResultsReset: true } }), error => error.status === 409);
+});

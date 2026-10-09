@@ -304,6 +304,7 @@ function tournamentTableView(table) {
 function tournamentDetailView({
   tournament,
   participants = [],
+  matchParticipants = participants,
   people = [],
   rounds = [],
   matches = [],
@@ -314,15 +315,18 @@ function tournamentDetailView({
   auditEvents = []
 }) {
   const hideFactions = tournamentFactionsHidden(rounds) && !viewer.canAdmin;
-  const participantViews = participants.map((participant) => {
+  const participantView = (participant) => {
     const view = tournamentParticipantView(participant, people);
     if (viewer.canAdmin) view.paid = Boolean(participant.paid);
     if (hideFactions && participant.id !== viewer.participantId) {
       return { ...view, faction: "", factionRules: "", factionHidden: true };
     }
     return view;
-  });
-  const participantById = new Map(participantViews.map((participant) => [participant.id, participant]));
+  };
+  // Removed seats remain available to historical matches, while the current
+  // roster and standings contain only participants who are still listed.
+  const participantById = new Map(matchParticipants.map(participant => [participant.id, participantView(participant)]));
+  const participantViews = participants.map(participant => participantById.get(participant.id) || participantView(participant));
   const tableViews = tables.map(tournamentTableView);
   const tableById = new Map(tableViews.map((table) => [table.id, table]));
   const matchesWithTables = matches.map((match) => ({

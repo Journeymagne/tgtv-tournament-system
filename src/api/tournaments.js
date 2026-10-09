@@ -354,6 +354,7 @@ async function fullView(client, tournament, user, { includeAudit = false } = {})
   return tournamentDetailView({
     tournament,
     participants: visibleParticipants,
+    matchParticipants: participants,
     people,
     rounds,
     matches,
@@ -759,6 +760,76 @@ function pairingIsEditable(match) {
     !match.winnerParticipantId && !match.matchPoints;
 }
 
+async function matchResetContext(client, user, params, forUpdate = false) {
+  const tournament = await requireTournament(client, params.id, { forUpdate });
+  if (!canManageTournament(user, tournament)) throw new HttpError(403, "Tournament access required");
+  if (tournament.participantMode === "team" || tournament.format !== TOURNAMENT_FORMATS.SWISS ||
+      tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS || tournament.roundDraft) {
+    throw new HttpError(409, "Only results in a running individual Swiss tournament can be reset");
+  }
+  const matchId = requirePositiveIntId(params.matchId, 404, "Tournament match not found");
+  const match = forUpdate ? await matchesRepo.lockById(client, matchId) : await matchesRepo.findById(client, matchId);
+  if (!match || match.tournamentId !== tournament.id) throw new HttpError(404, "Tournament match not found");
+  const rounds = await roundsRepo.listByTournament(client, tournament.id);
+  const round = rounds.at(-1);
+  if (match.roundId !== round?.id || round.status === ROUND_STATUSES.NOT_READY) {
+    throw new HttpError(409, "A result cannot be reset after a later round has been generated");
+  }
+  if (match.isBye || ![MATCH_STATUSES.COMPLETED, MATCH_STATUSES.PENDING_CONFIRMATION].includes(match.status)) {
+    throw new HttpError(409, "This match has no submitted result to reset");
+  }
+  const participants = forUpdate ? await participantsRepo.lockByTournament(client, tournament.id)
+    : await participantsRepo.listByTournament(client, tournament.id);
+  const { rows } = await client.query(`SELECT id FROM games WHERE source_type = 'tournament_match'
+    AND source_id = $1 ORDER BY id${forUpdate ? " FOR UPDATE" : ""}`, [match.id]);
+  const games = await gamesRepo.listByIds(client, rows.map(row => row.id));
+  if (match.gameId && !games.some(game => game.id === match.gameId)) {
+    throw new HttpError(409, "Tournament game link changed. Refresh the match before resetting it");
+  }
+  const revision = require("node:crypto").createHash("sha256")
+    .update(JSON.stringify({ tournament: [tournament.id, tournament.updatedAt], round, match, participants, games })).digest("hex");
+  return { tournament, round, match, participants, games, revision };
+}
+
+async function previewMatchResetAdmin({ client, user, params }) {
+  const { round, match, participants, revision } = await matchResetContext(client, user, params);
+  return { revision, roundId: round.id,
+    match: roundSetupView({ ...round, matches: [match] }, [], participants).matches[0] };
+}
+
+async function resetMatchResultAdmin({ client, user, params, body = {} }) {
+  const { tournament, round, match, participants, games, revision } = await matchResetContext(client, user, params, true);
+  if (body.expectedRevision !== revision) throw new HttpError(409, "Match changed. Reopen the reset confirmation and try again");
+  if (body.confirmResultsReset !== true || Object.keys(body).some(key => !["expectedRevision", "confirmResultsReset"].includes(key))) {
+    throw new ValidationError("Confirm removal of this match result before resetting it");
+  }
+  const available = new Set(participants.filter(isListedParticipant).map(participant => participant.id));
+  const participantAId = available.has(match.participantAId) ? match.participantAId : null;
+  const participantBId = available.has(match.participantBId) ? match.participantBId : null;
+  // Clear the outcome before removing its game: historical identities can differ
+  // from the current seat, and FK updates must not reinterpret the old winner.
+  let updated = await matchesRepo.update(client, match.id, {
+    participantAId, participantBId, participantSnapshots: {},
+    status: participantAId && participantBId ? MATCH_STATUSES.ACTIVE : MATCH_STATUSES.NOT_READY,
+    winnerParticipantId: null, pendingResult: null, result: null, matchPoints: null,
+    elo: null, gameId: null, submittedByUserId: null, completedAt: null
+  });
+  await gamesRepo.removeBySourceIds(client, "tournament_match", [match.id]);
+  await revertGameEloDeltas(client, games.length ? games : [match]);
+  await recalculateCompletedGameRatings(client);
+  if (updated.status === MATCH_STATUSES.ACTIVE) {
+    const { participantA, participantB } = requireMatchParticipants(updated, participants);
+    await ensureTournamentGame(client, tournament, updated, participantA, participantB);
+    updated = await matchesRepo.findById(client, match.id);
+  }
+  await roundsRepo.update(client, round.id, { status: ROUND_STATUSES.ACTIVE, completedAt: null });
+  await audit(client, tournament, user, "match_result_reset", {
+    entityType: "match", entityId: match.id, before: { match, games }, after: updated,
+    metadata: { roundId: round.id, roundNumber: round.roundNumber }
+  });
+  return fullView(client, tournament, user, { includeAudit: true });
+}
+
 async function requireUnplayedGames(client, matches) {
   if (!matches.length) return;
   // Legacy data can contain more than one game for a source. Protect every
@@ -1132,8 +1203,8 @@ function roundSetupView(roundBlueprint, tables, participants) {
       isBye: Boolean(match.isBye),
       participantAId: match.participantAId || null,
       participantBId: match.participantBId || null,
-      participantA: participantsById.get(match.participantAId) || null,
-      participantB: participantsById.get(match.participantBId) || null,
+      participantA: matchParticipant(match, participantsById.get(match.participantAId)),
+      participantB: matchParticipant(match, participantsById.get(match.participantBId)),
       tableId: match.tableId || null,
       table: tablesById.get(match.tableId) || null,
       mission: match.mission || null
@@ -2271,6 +2342,8 @@ module.exports = {
   removeParticipant,
   getActivePairingsAdmin,
   updateActivePairingsAdmin,
+  previewMatchResetAdmin,
+  resetMatchResultAdmin,
   updateSeeds,
   regenerateSeeds,
   previewNextRoundAdmin,

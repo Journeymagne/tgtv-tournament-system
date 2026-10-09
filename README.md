@@ -35,6 +35,22 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+## Release 1.0.1
+
+Administrators can reset a single submitted or completed match in the latest
+round of a running individual Swiss tournament, then replace its participants
+in the active pairings editor. Resetting removes that result and its points,
+recalculates ratings and reopens the round while retaining other results.
+Confirmation checks reject stale edits and matches with a later generated round.
+
+Removed players and proxies retain their names and scores in historical matches
+without returning to the current roster or exposing hidden factions.
+
+Application, lockfile and client asset versions are 1.0.1. No new dependencies,
+database migrations or environment variables are required. See
+[the changelog](CHANGELOG.md), [administrator workflow](docs/solo-player-replacements.md)
+and [release validation](docs/release-1.0.1-validation.md).
+
 ## Release 1.0.0
 
 KT Companion starts a new version sequence at 1.0.0; earlier release history is

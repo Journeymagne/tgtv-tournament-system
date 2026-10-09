@@ -502,6 +502,19 @@ module.exports = [
     tx: true
   },
   {
+    method: "GET",
+    path: "/api/admin/tournaments/:id/matches/:matchId/reset",
+    handler: tournaments.previewMatchResetAdmin,
+    auth: "admin"
+  },
+  {
+    method: "POST",
+    path: "/api/admin/tournaments/:id/matches/:matchId/reset",
+    handler: tournaments.resetMatchResultAdmin,
+    auth: "admin",
+    tx: true
+  },
+  {
     method: "POST",
     path: "/api/admin/tournaments/:id/matches/:matchId/result",
     handler: tournaments.saveMatchResultAdmin,
