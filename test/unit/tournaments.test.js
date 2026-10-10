@@ -52,9 +52,14 @@ function pairingSignature(round) {
     .join("|");
 }
 
-test("new tournaments default to the latest configured Q3 Dataslate", () => {
-  const tournament = normalizeNewTournament({}, 1, "q3-default");
-  assert.equal(tournament.seasonId, "2026-q3-dataslate");
+test("new tournaments default to the current season and retain an explicitly selected season", (t) => {
+  for (const [at, seasonId] of [["2026-09-25T19:59:59Z", "2026-q2-dataslate"], ["2026-10-09T10:00:00Z", "2026-q3-dataslate"]]) {
+    t.mock.method(Date, "now", () => Date.parse(at));
+    assert.equal(normalizeNewTournament({}, 1, "current-default").seasonId, seasonId);
+    t.mock.restoreAll();
+  }
+  assert.equal(normalizeNewTournament({ seasonId: "2026-q2-dataslate" }, 1, "explicit-season").seasonId, "2026-q2-dataslate");
+  assert.throws(() => normalizeNewTournament({ seasonId: "unknown-season" }, 1, "invalid-season"), /valid season/);
 });
 
 test("tournament description keeps its markdown line structure", () => {

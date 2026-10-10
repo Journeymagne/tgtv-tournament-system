@@ -1344,7 +1344,7 @@ async function attachTeamGameDetails(client, games) {
     `SELECT l.*, tm.tournament_id, tm.round_number, tm.phase, tm.roster_a_id, tm.roster_b_id, tm.pairing_version,
             ra.name AS roster_a_name, ra.team_id AS team_a_id, ra.team_name_snapshot AS team_a_name, ra.captain_user_id AS captain_a_id,
             rb.name AS roster_b_name, rb.team_id AS team_b_id, rb.team_name_snapshot AS team_b_name, rb.captain_user_id AS captain_b_id,
-            t.slug AS tournament_slug, t.name AS tournament_name, t.venue_mode
+            t.slug AS tournament_slug, t.name AS tournament_name, t.venue_mode, t.season_id
      FROM tournament_team_match_games l
      JOIN tournament_team_matches tm ON tm.id = l.team_match_id
      JOIN tournament_team_rosters ra ON ra.id = tm.roster_a_id
@@ -1381,6 +1381,7 @@ async function attachTeamGameDetails(client, games) {
         id: link.tournament_id,
         slug: link.tournament_slug,
         name: link.tournament_name,
+        seasonId: link.season_id,
         venueMode: link.venue_mode,
         participantMode: "team"
       },

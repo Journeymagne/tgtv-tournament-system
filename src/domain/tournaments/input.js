@@ -1,4 +1,5 @@
 const { ValidationError } = require("../../http/io");
+const { seasons, currentSeason } = require("../../../public/game-data");
 const { normalizeTeamLogo } = require("../player-teams");
 const {
   normalizeName,
@@ -126,8 +127,8 @@ function normalizeTeamPairingType(value, participantMode) {
 }
 
 function normalizeSeasonId(value) {
-  const seasonId = optionalTournamentText(value, "Season", SEASON_ID_MAX) || "2026-q3-dataslate";
-  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(seasonId)) {
+  const seasonId = optionalTournamentText(value, "Season", SEASON_ID_MAX) || currentSeason().id;
+  if (!seasons.some(season => season.id === seasonId)) {
     throw new ValidationError("Choose a valid season");
   }
   return seasonId;
@@ -266,7 +267,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
   const patch = normalizeTournamentPatch({
     format: TOURNAMENT_FORMATS.SINGLE_ELIMINATION,
     gameSystem: "Warhammer 40k Kill Team",
-    seasonId: "2026-q3-dataslate",
+    seasonId: currentSeason().id,
     venueMode: "tts",
     singleEliminationSize: 8,
     ratingPolicy: "ranked",
@@ -298,7 +299,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     tiebreakerOrder: patch.tiebreakerOrder || [],
     ratingPolicy: patch.ratingPolicy || "ranked",
     challengeCreditPolicy: patch.challengeCreditPolicy || "count",
-    seasonId: patch.seasonId || "2026-q3-dataslate",
+    seasonId: patch.seasonId || currentSeason().id,
     venueMode: patch.venueMode || "tts"
   };
 }
@@ -354,6 +355,7 @@ module.exports = {
   normalizeTiebreakerOrder,
   normalizeSingleEliminationSize,
   normalizeRulesLink,
+  normalizeSeasonId,
   normalizeParticipantMode,
   normalizeTeamPairingType
 };

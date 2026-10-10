@@ -2428,16 +2428,11 @@ function tournamentParticipantStatusLabel(status) {
 }
 
 function latestSeason() {
-  const now = Date.now();
-  return seasons.find((season) => {
-    const startsAt = season.startsAt ? Date.parse(season.startsAt) : Number.NEGATIVE_INFINITY;
-    const endsAt = season.endsAt ? Date.parse(season.endsAt) : Number.POSITIVE_INFINITY;
-    return now >= startsAt && now < endsAt;
-  }) || seasons[seasons.length - 1] || { id: "2026-q3-dataslate", name: "2026 Q3 Dataslate" };
+  return currentSeason();
 }
 
 function newTournamentDefaultSeason() {
-  return seasons[seasons.length - 1] || latestSeason();
+  return latestSeason();
 }
 
 function seasonLabel(seasonId) {
@@ -3107,7 +3102,7 @@ function emailProfileMarkup() {
   const email = state.me.emailAccount;
   const details = email?.pendingEmail ? adminLabel("Ожидает подтверждения: ", "Awaiting confirmation: ") + email.pendingEmail :
     email?.email ? adminLabel("Подтверждена: ", "Confirmed: ") + email.email : adminLabel("Добавьте почту для восстановления доступа.", "Add an email to recover access.");
-  return '<div class="settings-block"><h3>' + adminLabel("Почта и доступ", "Email & access") + '</h3><p class="muted">' + escapeHtml(details) +
+  return '<div class="settings-block profile-dashboard-card"><h3>' + adminLabel("Почта и доступ", "Email & access") + '</h3><p class="muted">' + escapeHtml(details) +
     '</p><a class="small-button" href="/account-email.html">' + adminLabel("Настроить почту", "Email settings") + "</a></div>";
 }
 
@@ -4053,17 +4048,20 @@ function achievementCards(achievements, { compact = false } = {}) {
 
 async function mountProfileAchievements(container, field, id) {
   if (!container || !id) return;
-  const panel = document.createElement("section");
-  panel.className = "card panel profile-achievements";
-  panel.innerHTML = `<h3>${t("achievements.title")}</h3><div data-achievement-profile>${t("achievements.loading")}</div>`;
+  const slot = container.querySelector("[data-profile-achievements]");
+  const panel = slot || document.createElement("section");
   const compact = field === "userId";
-  const challengePanel = compact ? container.querySelector("[data-profile-challenge-progress]")?.closest(".card.panel") : null;
-  if (challengePanel) {
-    const pair = document.createElement("div");
-    pair.className = "grid-2 wide-panel profile-progress-panels";
-    challengePanel.before(pair);
-    pair.append(challengePanel, panel);
-  } else container.prepend(panel);
+  if (!slot) {
+    panel.className = "card panel profile-achievements";
+    panel.innerHTML = `<h3>${t("achievements.title")}</h3><div data-achievement-profile>${t("achievements.loading")}</div>`;
+    const challengePanel = compact ? container.querySelector("[data-profile-challenge-progress]")?.closest(".card.panel") : null;
+    if (challengePanel) {
+      const pair = document.createElement("div");
+      pair.className = "grid-2 wide-panel profile-progress-panels";
+      challengePanel.before(pair);
+      pair.append(challengePanel, panel);
+    } else container.prepend(panel);
+  }
   const target = panel.querySelector("[data-achievement-profile]");
   try {
     const data = await api(`/api/achievements?${field}=${encodeURIComponent(id)}`);
@@ -4285,41 +4283,42 @@ function renderProfile() {
   const latestActiveMatchmaking = latestActiveMatchmakingItem(stats);
   const challengeProgress = ownChallengeProgress();
   content.innerHTML = `
-    <section class="card panel profile-hero">
+    <section class="card panel profile-dashboard" aria-labelledby="profile-dashboard-title">
+    <header class="profile-hero profile-dashboard-hero">
       <div class="profile-avatar">${avatarMarkup(state.me)}</div>
       <div class="profile-main">
         <p class="profile-label">${t("profile.hero.label")}</p>
-        <h2>${escapeHtml(state.me.name)}</h2>
+        <h2 id="profile-dashboard-title">${escapeHtml(state.me.name)}</h2>
         <p class="muted">${state.me.isAdmin ? t("profile.hero.role.admin") : t("profile.hero.role.player")} &middot; ${t("profile.hero.joined", { date: fmtDate(state.me.createdAt) })}</p>
         ${profileInfoMarkup(state.me)}
-        <div class="row-actions"><button class="ghost-button" data-profile-back>${t("common.back")}</button></div>
       </div>
+      <button class="ghost-button profile-back-button" data-profile-back>${t("common.back")}</button>
       ${profileRatingsMarkup(state.me)}
-    </section>
+    </header>
 
-    <section class="profile-grid">
+    <div class="profile-grid profile-dashboard-metrics">
       ${metricCard(t("profile.metric.matches"), stats.completedGames.length)}
       ${metricCard(t("stats.column.wins"), stats.wins)}
       ${metricCard(t("stats.column.draws"), stats.draws)}
       ${metricCard(t("stats.column.losses"), stats.losses)}
       ${metricCard(t("profile.metric.eloChange"), signed(stats.eloDelta))}
       ${metricCard(t("profile.metric.winRate"), `${stats.winRate}%`)}
-    </section>
+    </div>
 
-    <section class="card panel">
-      <div class="panel-header">
+      <div class="panel-header profile-dashboard-heading">
         <div>
-          <h2>${t("profile.settings.title")}</h2>
-          <p class="muted">${t("profile.settings.subtitle")}</p>
+          <h2>${t("profile.dashboard.title")}</h2>
+          <p class="muted">${t("profile.dashboard.subtitle")}</p>
         </div>
       </div>
-      <div class="settings-grid">
-        <div class="settings-block">
+      <div class="profile-dashboard-grid">
+        <div class="settings-block profile-dashboard-card">
           <h3>${t("profile.settings.avatarTitle")}</h3>
           <div class="avatar-settings-row">
             <div class="profile-avatar compact-avatar" data-avatar-preview>${avatarMarkup(state.me)}</div>
             <div>
-              <input class="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-avatar-input>
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-avatar-input hidden>
+              <button class="primary-button" type="button" data-avatar-choose>${t("profile.settings.chooseAvatar")}</button>
               <p class="muted small-note">${t("profile.settings.avatarHint")}</p>
               <div class="row-actions">
                 <button class="danger-button" data-remove-avatar type="button">${t("profile.settings.removeAvatar")}</button>
@@ -4327,7 +4326,7 @@ function renderProfile() {
             </div>
           </div>
         </div>
-        <form class="settings-block" data-profile-name-form>
+        <form class="settings-block profile-dashboard-card" data-profile-name-form>
           <h3>${t("profile.settings.nicknameTitle")}</h3>
           <div class="field">
             <label for="profile-name">${t("auth.field.name")}</label>
@@ -4335,7 +4334,7 @@ function renderProfile() {
           </div>
           <button class="primary-button" type="submit">${t("profile.settings.saveNickname")}</button>
         </form>
-        <form class="settings-block" data-profile-contact-form>
+        <form class="settings-block profile-dashboard-card" data-profile-contact-form>
           <h3>${t("profile.contacts.title")}</h3>
           <div class="field">
             <label for="profile-register-nickname">${t("auth.field.registerNickname")}</label>
@@ -4348,7 +4347,7 @@ function renderProfile() {
           <button class="primary-button" type="submit">${t("profile.settings.saveContacts")}</button>
         </form>
         ${emailProfileMarkup()}
-        <form class="settings-block" data-profile-password-form>
+        <form class="settings-block profile-dashboard-card" data-profile-password-form>
           <h3>${t("auth.field.password")}</h3>
           <div class="field">
             <label for="current-password">${t("profile.settings.currentPassword")}</label>
@@ -4360,38 +4359,39 @@ function renderProfile() {
           </div>
           <button class="primary-button" type="submit">${t("profile.settings.changePassword")}</button>
         </form>
-      </div>
-      <div class="message" data-profile-message></div>
-    </section>
-
-    <section class="grid-2">
-      <div class="card panel">
+      <section class="settings-block profile-dashboard-card">
         <div class="panel-header">
           <div>
             <h3>${t("profile.matchmaking.title")}</h3>
             <p class="muted">${latestActiveMatchmaking ? t("profile.matchmaking.subtitleLatest") : t("profile.matchmaking.subtitleEmpty")}</p>
           </div>
         </div>
-        ${latestActiveMatchmaking ? activeMatchmakingPreview(latestActiveMatchmaking) : `<div class="empty">${t("profile.matchmaking.empty")}</div>`}
-      </div>
-      <div class="card panel">
+        <div class="profile-card-content">${latestActiveMatchmaking ? activeMatchmakingPreview(latestActiveMatchmaking) : `<div class="empty">${t("profile.matchmaking.empty")}</div>`}</div>
+      </section>
+      <section class="settings-block profile-dashboard-card">
         <div class="panel-header">
           <div>
             <h3>${t("challenge.title")}</h3>
             <p class="muted">${t("profile.challenge.subtitle")}</p>
           </div>
         </div>
-        ${profileChallengeNextCard(challengeProgress)}
-      </div>
-      <div class="card panel wide-panel">
+        <div class="profile-card-content">${profileChallengeNextCard(challengeProgress)}</div>
+      </section>
+      <section class="settings-block profile-dashboard-card profile-achievements" data-profile-achievements>
+        <div class="panel-header"><h3>${t("achievements.title")}</h3></div>
+        <div class="profile-card-content" data-achievement-profile>${t("achievements.loading")}</div>
+      </section>
+      <section class="settings-block profile-dashboard-card profile-teams-card">
         ${profileTeamsMarkup(state.teamsDashboard?.myTeams || [])}
-      </div>
-      <div class="card panel wide-panel">
+      </section>
+      <section class="settings-block profile-dashboard-card">
         <div class="panel-header"><h3>${t("profile.recent.title")}</h3></div>
-        <div class="list">
+        <div class="list profile-card-content">
           ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`}
         </div>
+      </section>
       </div>
+      <div class="message" data-profile-message role="status" aria-live="polite"></div>
     </section>
   `;
 
@@ -4638,6 +4638,7 @@ function renderPlayerProfile() {
 
 function wireProfileSettings() {
   const avatarInput = document.querySelector("[data-avatar-input]");
+  document.querySelector("[data-avatar-choose]")?.addEventListener("click", () => avatarInput?.click());
   const removeAvatar = document.querySelector("[data-remove-avatar]");
   const nameForm = document.querySelector("[data-profile-name-form]");
   const contactForm = document.querySelector("[data-profile-contact-form]");
@@ -5277,7 +5278,7 @@ function wireStatsSorting() {
 function filterGamesBySeason(games, season) {
   if (!season) return games;
   return games.filter((game) => {
-    if (game.sourceType === "tournament_match" && game.tournament?.seasonId) {
+    if (["tournament_match", "team_match_game"].includes(game.sourceType) && game.tournament?.seasonId) {
       return game.tournament.seasonId === season.id;
     }
     const timestamp = game.submittedAt || game.result?.confirmedAt || game.createdAt || "";

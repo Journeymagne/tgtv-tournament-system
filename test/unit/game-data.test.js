@@ -25,6 +25,7 @@ function loadKillTeamOptions() {
 test("game-data exposes every reference table", () => {
   assert.deepEqual(Object.keys(gameData).sort(), [
     "critOpOptions",
+    "currentSeason",
     "gameSystemOptions",
     "killzoneOptions",
     "seasons",

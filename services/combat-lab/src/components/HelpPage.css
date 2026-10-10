@@ -1,0 +1,44 @@
+/* Whole-row doc links on /help. */
+.HelpDoc {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  color: #1f2329;
+  text-decoration: none;
+}
+
+.HelpDoc + .HelpDoc {
+  border-top: 1px solid #e5e7eb;
+}
+
+.HelpDoc:hover {
+  background-color: #f7f8fa;
+  color: #1f2329;
+  text-decoration: none;
+}
+
+.HelpDoc-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0b63c4;
+  text-wrap: pretty;
+}
+
+.HelpDoc:hover .HelpDoc-title {
+  color: #084a93;
+}
+
+.HelpDoc-blurb {
+  font-size: 13px;
+  color: #4b5563;
+  margin-top: 3px;
+  text-wrap: pretty;
+}
+
+.HelpDoc-arrow {
+  flex: none;
+  color: #c2410c;
+  font-size: 16px;
+  line-height: 24px;
+}

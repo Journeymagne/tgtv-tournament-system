@@ -622,6 +622,7 @@ function adminTournamentEditForm(tournament) {
   const readOnly = ["completed", "cancelled"].includes(tournament.status);
   const lockAttrs = setupLocked || readOnly ? "disabled" : "";
   const textLockAttrs = readOnly ? "disabled" : "";
+  const canChangeSeason = Boolean(state.me?.isSuperAdmin);
   const existingRulesLinkType = tournament.rulesLinkType || "";
   const rulesLinkValue = existingRulesLinkType === "url" ? tournament.rulesLink : "";
   return `
@@ -691,9 +692,10 @@ function adminTournamentEditForm(tournament) {
         </div>
         <div class="field">
           <label>${t("tournaments.field.season")}</label>
-          <select name="seasonId" ${lockAttrs}>
+          <select name="seasonId" ${canChangeSeason ? "" : "disabled"}>
             ${seasons.map((season) => `<option value="${escapeHtml(season.id)}" ${(tournament.seasonId || newTournamentDefaultSeason().id) === season.id ? "selected" : ""}>${escapeHtml(season.name)}</option>`).join("")}
           </select>
+          <p class="field-help">${t(canChangeSeason ? "admin.tournament.season.hint" : "admin.tournament.season.superAdminOnly")}</p>
         </div>
         <div class="field">
           <label>${t("tournaments.field.venue")}</label>
@@ -725,7 +727,7 @@ function adminTournamentEditForm(tournament) {
         ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], lockAttrs)}
       </div>
       <div class="admin-save-row">
-        <button class="primary-button admin-save-button" type="submit" data-admin-tournament-save-button ${readOnly ? "disabled" : ""}>${t("admin.tournament.edit.save")}</button>
+        <button class="primary-button admin-save-button" type="submit" data-admin-tournament-save-button ${readOnly && !canChangeSeason ? "disabled" : ""}>${t("admin.tournament.edit.save")}</button>
         <span class="autosave-status" data-admin-tournament-autosave-status aria-live="polite"></span>
       </div>
     </form>
@@ -1680,6 +1682,10 @@ async function saveAdminTournamentUpdate(form, options = {}) {
     state.adminTournaments = (state.adminTournaments || []).map((tournament) =>
       tournament.id === data.tournament.id ? { ...tournament, ...data.tournament } : tournament
     );
+    for (const collection of ["statisticsGames", "games"]) {
+      state[collection] = (state[collection] || []).map(game => game.tournament?.id === data.tournament.id
+        ? { ...game, tournament: { ...game.tournament, seasonId: data.tournament.seasonId } } : game);
+    }
   }
   if (renderAfterSave) {
     await loadTournamentAdmin();

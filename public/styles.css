@@ -4279,6 +4279,273 @@ tr:last-child td {
 .profile-achievements { margin-block: 16px; }
 .profile-progress-panels { align-items: start; }
 .profile-progress-panels .profile-achievements { margin: 0; }
+
+.profile-dashboard {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.profile-dashboard .profile-dashboard-hero {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "avatar main back" "avatar main rating";
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+  background: none;
+}
+
+.profile-dashboard-hero > .profile-avatar { grid-area: avatar; }
+.profile-dashboard-hero > .profile-main { grid-area: main; }
+.profile-dashboard-hero > .profile-ratings { grid-area: rating; }
+
+.profile-dashboard-hero > .profile-back-button {
+  grid-area: back;
+  align-self: start;
+  justify-self: end;
+}
+
+.profile-dashboard .profile-main,
+.profile-dashboard .profile-info-item {
+  min-width: 0;
+}
+
+.profile-dashboard .profile-main h2 {
+  overflow-wrap: anywhere;
+}
+
+.profile-dashboard .profile-dashboard-metrics,
+.profile-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.profile-dashboard-heading {
+  margin: 0;
+}
+
+.profile-dashboard-grid {
+  --profile-card-height: 240px;
+  grid-auto-rows: var(--profile-card-height);
+}
+
+.profile-dashboard-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 12px 16px;
+  overflow: hidden;
+}
+
+.profile-dashboard-card > h3,
+.profile-dashboard-card > .panel-header {
+  flex: 0 0 auto;
+  margin: 0 0 10px;
+}
+
+.profile-dashboard-card .panel-header h3 {
+  margin: 0;
+}
+
+.profile-dashboard-card .field {
+  flex: 0 0 auto;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.profile-dashboard-card :is(input, a, button) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.profile-dashboard-card :is(a, button) {
+  flex-shrink: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.profile-dashboard-card :is(.primary-button, .small-button, .danger-button) {
+  overflow-wrap: normal;
+  text-decoration: none;
+}
+
+.profile-dashboard-card :is(p, .row-title, .row-meta) {
+  overflow-wrap: anywhere;
+}
+
+.profile-dashboard-card > :is(button[type="submit"], a.small-button) {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.profile-dashboard-card .avatar-settings-row {
+  flex: 1;
+  min-width: 0;
+  align-items: flex-start;
+}
+
+.profile-dashboard-card .avatar-settings-row > div:last-child {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-self: stretch;
+  min-width: 0;
+}
+
+.profile-dashboard-card [data-avatar-choose] {
+  align-self: flex-start;
+}
+
+.profile-dashboard-card .avatar-settings-row .row-actions {
+  margin-top: auto;
+}
+
+.profile-dashboard-card .row-actions {
+  flex-shrink: 0;
+  justify-content: flex-start;
+}
+
+.profile-card-content,
+.profile-teams-card > .list {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.profile-card-content > :is(.row-card, .empty),
+.profile-dashboard-card.profile-achievements {
+  margin: 0;
+}
+
+.profile-card-content.list,
+.profile-teams-card > .list {
+  grid-auto-rows: max-content;
+  align-content: start;
+}
+
+.profile-dashboard .profile-challenge-next-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.profile-dashboard .profile-challenge-logo {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 64px;
+}
+
+.profile-dashboard > [data-profile-message]:empty {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .profile-dashboard-grid {
+    --profile-card-height: 380px;
+  }
+
+  .profile-dashboard .profile-dashboard-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "back back" "avatar main" "rating rating";
+  }
+
+  .profile-dashboard-hero .profile-ratings {
+    justify-content: flex-start;
+  }
+
+  .profile-dashboard-card {
+    padding: 12px;
+  }
+
+  .profile-dashboard-card .avatar-settings-row,
+  .profile-dashboard-card .row-card,
+  .profile-dashboard .profile-challenge-next-main {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profile-dashboard-card .avatar-settings-row {
+    gap: 12px;
+  }
+
+  .profile-dashboard-card .avatar-settings-row > div:last-child {
+    width: 100%;
+  }
+
+  .profile-dashboard-card :is(.primary-button, .small-button, .danger-button) {
+    width: 100%;
+    height: auto;
+    min-height: var(--button-height);
+    padding: 8px;
+  }
+
+  .profile-dashboard-card .row-actions {
+    width: 100%;
+  }
+
+  .profile-dashboard-card .row-card {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .profile-dashboard .profile-challenge-logo {
+    flex-basis: 48px;
+    width: 48px;
+    height: 48px;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-dashboard {
+    padding: 12px;
+    gap: 16px;
+  }
+
+  .profile-dashboard-grid,
+  .profile-dashboard .profile-dashboard-metrics {
+    gap: 10px;
+  }
+
+  .profile-dashboard .profile-dashboard-hero {
+    gap: 12px;
+  }
+
+  .profile-dashboard-hero > .profile-avatar {
+    width: 64px;
+    height: 64px;
+  }
+
+  .profile-dashboard .profile-main h2 {
+    font-size: 26px;
+  }
+
+  .profile-dashboard-card {
+    padding: 10px;
+  }
+
+  .profile-dashboard-card h3 {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .profile-dashboard-card :is(.primary-button, .small-button, .danger-button) {
+    font-size: 14px;
+  }
+
+  .profile-dashboard-card .profile-achievement-item {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    padding: 8px;
+  }
+}
+
 .profile-achievement-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .profile-achievement-item {
   display: inline-flex; align-items: center; gap: 8px; max-width: 100%;

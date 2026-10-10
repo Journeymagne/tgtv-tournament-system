@@ -59,6 +59,14 @@ const seasons = [
   }
 ];
 
+function currentSeason(at = Date.now(), available = seasons) {
+  const time = new Date(at).getTime();
+  const startsAt = season => season.startsAt ? Date.parse(season.startsAt) : Number.NEGATIVE_INFINITY;
+  const ordered = [...available].sort((a, b) => startsAt(b) - startsAt(a));
+  return ordered.find(season => time >= startsAt(season) && (!season.endsAt || time < Date.parse(season.endsAt))) ||
+    ordered.find(season => time >= startsAt(season)) || ordered.at(-1);
+}
+
 const venueModeOptions = [
   { key: "tts", labelKey: "venue.tts" },
   { key: "irl", labelKey: "venue.irl" }
@@ -71,6 +79,7 @@ if (typeof module !== "undefined") {
     killzoneOptions,
     gameSystemOptions,
     seasons,
+    currentSeason,
     venueModeOptions
   };
 }

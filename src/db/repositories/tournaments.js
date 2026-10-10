@@ -1,4 +1,5 @@
 const { TOURNAMENT_COLUMNS: COLUMNS, mapTournament } = require("../rows");
+const { currentSeason } = require("../../../public/game-data");
 
 const PUBLISHED_STATUSES = [
   "registration_open",
@@ -81,7 +82,7 @@ async function insert(client, tournament) {
       tournament.tiebreakerOrder || [],
       tournament.ratingPolicy || "ranked",
       tournament.challengeCreditPolicy || "count",
-      tournament.seasonId || "2026-q3-dataslate",
+      tournament.seasonId || currentSeason().id,
       tournament.venueMode || "tts",
       tournament.participantMode || "individual",
       tournament.teamSize || null,

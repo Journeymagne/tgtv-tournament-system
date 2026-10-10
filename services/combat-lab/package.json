@@ -1,0 +1,91 @@
+{
+  "homepage": "/",
+  "name": "companion-combat-lab",
+  "version": "1.1.0",
+  "private": true,
+  "dependencies": {
+    "bootstrap": "^4.6.0",
+    "lodash": "^4.17.21",
+    "mathjs": "^12.2.0",
+    "react": "^17.0.2",
+    "react-bootstrap": "^2.0.0-rc.0",
+    "react-dom": "^17.0.2",
+    "react-error-boundary": "^4.0.12",
+    "react-markdown": "^8.0.7",
+    "react-router-dom": "^6.3.0",
+    "react-scripts": "^5.0.0",
+    "recharts": "^2.15.4",
+    "remark-gfm": "^3.0.1"
+  },
+  "scripts": {
+    "copy-rules": "node scripts/copy-rules.js",
+    "prestart": "npm run copy-rules",
+    "start": "node server.cjs",
+    "prebuild": "npm run copy-rules",
+    "build": "react-scripts build",
+    "postbuild": "react-snap",
+    "build:react": "npm run build",
+    "build:cloudflare": "npm run copy-rules && react-scripts build && node scripts/prerender.js && node scripts/strip-netlify-redirects.js",
+    "test": "react-scripts test",
+    "testq": "react-scripts test --watchAll=false --watch=false",
+    "eject": "react-scripts eject",
+    "lint": "eslint src/**/*.ts src/**/*.tsx",
+    "lintf": "eslint --fix src/**/*.ts src/**/*.tsx",
+    "dev": "react-scripts start",
+    "build:demo": "npm run copy-rules && react-scripts build",
+    "import:catalog": "python tools/import_catalog.py"
+  },
+  "eslintConfig": {
+    "extends": "react-app",
+    "rules": {},
+    "overrides": []
+  },
+  "reactSnap": {
+    "source": "build",
+    "include": [
+      "/",
+      "/fight",
+      "/help",
+      "/rules/combat",
+      "/rules/fight",
+      "/rules/weapon",
+      "/rules/retained-vs-modified",
+      "/rules/cover-saves",
+      "/rules/weapon-balance",
+      "/notes/lethal-relentless",
+      "/notes/mystic-scry-buff",
+      "/notes/punishing"
+    ],
+    "puppeteerArgs": [
+      "--no-sandbox",
+      "--disable-setuid-sandbox"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@testing-library/react": "^12.1.2",
+    "@types/jest": "^29.5.11",
+    "@types/lodash": "^4.14.175",
+    "@types/node": "^20.10.5",
+    "@types/react": "17.0.3",
+    "@types/react-dom": "17.0.3",
+    "eslint-plugin-react-hooks": "^4.3.0",
+    "jsdom": "^29.1.1",
+    "react-snap": "^1.23.0",
+    "typescript": "^4.9.5"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

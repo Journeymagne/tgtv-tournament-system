@@ -33,6 +33,7 @@ const {
   normalizeTournamentPatch,
   validatePublishable,
   normalizeParticipantName,
+  normalizeSeasonId,
   participantNameKey,
   normalizeFactionRules
 } = require("../domain/tournaments/input");
@@ -433,12 +434,17 @@ function assertEditableSetup(tournament) {
 async function updateAdmin({ client, user, params, body }) {
   if (Object.hasOwn(body, "ownerUserId") || Object.hasOwn(body, "owner_user_id")) throw new HttpError(403, "Tournament ownership cannot be changed here");
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
-  assertEditableSetup(tournament);
+  if (!canManageTournament(user, tournament)) throw new HttpError(403, "Tournament access required");
   if (body.expectedUpdatedAt && body.expectedUpdatedAt !== tournament.updatedAt) throw new HttpError(409, "Tournament was changed by another administrator. Reload its settings before saving.");
   const { expectedUpdatedAt, ...changes } = body;
   body = changes;
+  const seasonChanged = Object.hasOwn(body, "seasonId") && normalizeSeasonId(body.seasonId) !== tournament.seasonId;
+  if (seasonChanged && !user.isSuperAdmin) throw new HttpError(403, "Only the super administrator can change a tournament season");
+  if (seasonChanged && !expectedUpdatedAt) throw new HttpError(409, "Reload the tournament before changing its season");
+  const seasonOnly = user.isSuperAdmin && Object.keys(body).length > 0 && Object.keys(body).every(key => key === "seasonId");
+  if (!seasonOnly) assertEditableSetup(tournament);
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
-    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules", ...(tournament.participantMode === "team" ? ["captainPairingEnabled", "teamTiebreakerOrder"] : [])]);
+    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules", ...(user.isSuperAdmin ? ["seasonId"] : []), ...(tournament.participantMode === "team" ? ["captainPairingEnabled", "teamTiebreakerOrder"] : [])]);
     for (const key of Object.keys(body || {})) {
       if (!allowed.has(key)) throw new HttpError(409, "Tournament setup is locked after start");
     }
@@ -464,6 +470,13 @@ async function updateAdmin({ client, user, params, body }) {
       AND pairing_history = '[]'::jsonb AND resolution IS NULL`, [tournament.id, patch.captainPairingEnabled]);
   }
   await audit(client, updated, user, "update", { before: tournament, after: updated });
+  if (seasonChanged) {
+    // Statistics join each game to its tournament, so changing this reference
+    // moves every existing result without rewriting scores, dates or ratings.
+    await audit(client, updated, user, "season_changed", {
+      before: { seasonId: tournament.seasonId }, after: { seasonId: updated.seasonId }
+    });
+  }
   return { tournament: tournamentSummaryView(updated) };
 }
 

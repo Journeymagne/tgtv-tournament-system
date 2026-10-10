@@ -2253,6 +2253,19 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
   }
 
   assert.equal(dice.length, 0);
+  const resultGames = (await gamesApi.listCompleted({ client })).games.filter(game => game.tournament?.id === tournament.id);
+  assert.equal(resultGames.length, 6);
+  assert.ok(resultGames.every(game => game.tournament.seasonId === published.tournament.seasonId));
+  const gameRows = (await client.query("SELECT * FROM games ORDER BY id")).rows;
+  const teamRows = (await client.query("SELECT * FROM tournament_team_matches ORDER BY id")).rows;
+  await tournamentsApi.updateAdmin({ client, user: { ...root, isSuperAdmin: true }, params: { id: String(tournament.id) },
+    body: { seasonId: "2026-q2-dataslate", expectedUpdatedAt: published.tournament.updatedAt } });
+  const movedGames = (await gamesApi.listCompleted({ client })).games.filter(game => game.tournament?.id === tournament.id);
+  assert.ok(movedGames.every(game => game.tournament.seasonId === "2026-q2-dataslate"));
+  assert.deepEqual((await client.query("SELECT * FROM games ORDER BY id")).rows, gameRows);
+  const afterSeason = await tournamentsApi.getAdmin({ client, user: root, params: { id: String(tournament.id) } });
+  assert.deepEqual(afterSeason.finalResults, published.finalResults);
+  assert.deepEqual((await client.query("SELECT * FROM tournament_team_matches ORDER BY id")).rows, teamRows);
 });
 
 
@@ -2555,4 +2568,58 @@ test("Swiss result reset replays later Elo and rejects old rounds and unauthoriz
   await assert.rejects(() => tournamentsApi.previewMatchResetAdmin({ client, user: root, params }), error => error.status === 409);
   await assert.rejects(() => tournamentsApi.resetMatchResultAdmin({ client, user: root, params,
     body: { expectedRevision: preview.revision, confirmResultsReset: true } }), error => error.status === 409);
+});
+
+test("only a super administrator can move an event and its existing results to another season", async () => {
+  const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 1, seasonId: "2026-q2-dataslate" });
+  const params = { id: String(tournament.id) };
+  const superAdmin = { ...root, isSuperAdmin: true };
+  for (const name of ["Season Alpha", "Season Bravo", "Season Charlie", "Season Delta"]) {
+    await addUserParticipant(tournament, await createUser(name));
+  }
+  const started = await closeAndStart(tournament);
+  for (const match of started.rounds[0].matches) {
+    await tournamentsApi.saveMatchResultAdmin({ client, user: root,
+      params: { ...params, matchId: String(match.id) }, body: { scores: scores(match.participantA.userId, match.participantB.userId) } });
+  }
+  const before = await tournamentsApi.getAdmin({ client, user: root, params });
+  const beforeGames = (await client.query("SELECT * FROM games ORDER BY id")).rows;
+  const beforeMatches = (await client.query("SELECT * FROM tournament_matches ORDER BY id")).rows;
+  const beforeRatings = (await client.query("SELECT id,rating,rating_tts,rating_irl FROM users ORDER BY id")).rows;
+  assert.ok((await gamesApi.listCompleted({ client })).games.every(game => game.tournament.seasonId === "2026-q2-dataslate"));
+  const body = { seasonId: "2026-q3-dataslate", expectedUpdatedAt: before.tournament.updatedAt };
+  await assert.rejects(() => tournamentsApi.updateAdmin({ client, user: root, params, body }), error => error.status === 403);
+  await assert.rejects(() => tournamentsApi.updateAdmin({ client, user: { id: 999 }, params, body }), error => error.status === 403);
+  await assert.rejects(() => tournamentsApi.updateAdmin({ client, user: superAdmin, params,
+    body: { seasonId: body.seasonId } }), error => error.status === 409);
+  await assert.rejects(() => tournamentsApi.updateAdmin({ client, user: superAdmin, params,
+    body: { ...body, expectedUpdatedAt: "stale" } }), error => error.status === 409);
+  await assert.rejects(() => tournamentsApi.updateAdmin({ client, user: superAdmin, params,
+    body: { ...body, seasonId: "unknown-season" } }), error => error.status === 400);
+
+  await tournamentsApi.updateAdmin({ client, user: superAdmin, params, body });
+  const after = await tournamentsApi.getAdmin({ client, user: root, params });
+  assert.equal(after.tournament.seasonId, "2026-q3-dataslate");
+  assert.deepEqual(after.rounds, before.rounds);
+  assert.deepEqual(after.standings, before.standings);
+  assert.deepEqual((await client.query("SELECT * FROM games ORDER BY id")).rows, beforeGames);
+  assert.deepEqual((await client.query("SELECT * FROM tournament_matches ORDER BY id")).rows, beforeMatches);
+  assert.deepEqual((await client.query("SELECT id,rating,rating_tts,rating_irl FROM users ORDER BY id")).rows, beforeRatings);
+  assert.ok((await gamesApi.listCompleted({ client })).games.every(game => game.tournament.seasonId === "2026-q3-dataslate"));
+  const events = (await client.query("SELECT * FROM tournament_audit_events WHERE event_type='season_changed'")).rows;
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0].before, { seasonId: "2026-q2-dataslate" });
+  assert.deepEqual(events[0].after, { seasonId: "2026-q3-dataslate" });
+
+  const published = await tournamentsApi.publishFinalStandingsAdmin({ client, user: root, params,
+    body: { participantIds: after.standings.map(row => row.participantId) } });
+  assert.equal(published.tournament.status, "completed");
+  await assert.rejects(() => tournamentsApi.updateAdmin({ client, user: superAdmin, params,
+    body: { seasonId: "2026-q2-dataslate", name: "Changed after completion", expectedUpdatedAt: published.tournament.updatedAt } }), error => error.status === 409);
+  await tournamentsApi.updateAdmin({ client, user: superAdmin, params,
+    body: { seasonId: "2026-q2-dataslate", expectedUpdatedAt: published.tournament.updatedAt } });
+  const moved = await tournamentsApi.getAdmin({ client, user: root, params });
+  assert.deepEqual(moved.finalResults, published.finalResults);
+  assert.equal(moved.tournament.status, "completed");
+  assert.ok((await gamesApi.listCompleted({ client })).games.every(game => game.tournament.seasonId === "2026-q2-dataslate"));
 });

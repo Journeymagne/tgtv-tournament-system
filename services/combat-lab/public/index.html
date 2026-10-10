@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+<!-- Google tag (gtag.js) -->
+
+
+    <meta charset="utf-8" />
+    <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.png" type="image/png" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.png" type="image/png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+
+    <!-- Site-constant meta only. Per-page title, description, canonical, and the
+         og/twitter *text* tags are owned by the dependency-free Seo component
+         (src/components/Seo.tsx), which upserts them into <head> in an effect, and
+         are prerendered per route by react-snap — keeping them out of this template
+         avoids duplicate/conflicting tags in the generated pages. The tags below are
+         identical on every page, so they live here once. <title> is a fallback for
+         any route that renders before hydration. -->
+    <title>Kill Team 2024 Calculator — Shooting &amp; Fighting Odds | ktcalc</title>
+    <meta name="author" content="John Farrell" />
+
+    <!-- Open Graph (constant across pages) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ktcalc" />
+    <meta property="og:image" content="https://ktcalc.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ktcalc — Kill Team 2024 shooting and fighting calculator" />
+
+    <!-- Twitter (constant across pages) -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://ktcalc.com/og-image.png" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Kill Team 2024 Calculator",
+      "alternateName": "ktcalc",
+      "url": "https://ktcalc.com/",
+      "description": "Free web calculator for Kill Team 2024 (KT24) that computes shooting and fighting attack probabilities and compares weapons against defensive profiles.",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Web",
+      "browserRequirements": "Requires JavaScript",
+      "inLanguage": "en",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "creator": {
+        "@type": "Person",
+        "name": "John Farrell"
+      }
+    }
+    </script>
+  </head>
+  <body>
+    <noscript>
+      ktcalc is a free Kill Team 2024 dice calculator for shooting and fighting
+      attack odds. You need to enable JavaScript to run the interactive calculator.
+    </noscript>
+    <div id="root"></div>
+  </body>
+</html>

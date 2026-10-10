@@ -1,0 +1,25 @@
+# ktcalc — Kill Team 2024 Calculator
+
+> Free web calculator for Kill Team 2024 (KT24) that computes shooting and
+> fighting attack probabilities and compares weapons against defensive profiles.
+> Maintained by John Farrell throughout the edition.
+
+## Calculators
+- [Shooting calculator](https://ktcalc.com/?view=shoot): odds for ranged attacks given BS, attacks, weapon rules, cover, and target save/wounds.
+- [Fighting calculator](https://ktcalc.com/fight/): odds for melee combat resolution between two fighters.
+
+## Reference
+- [How it works](https://ktcalc.com/help/): guide to using the calculators and reading results.
+- [Combat rules](https://ktcalc.com/rules/combat/): how the combat math is modeled.
+- [Fight rules](https://ktcalc.com/rules/fight/): how the fighting sequence is modeled.
+- [Weapon rules](https://ktcalc.com/rules/weapon/): supported weapon special rules and how they affect the math.
+- [When not to take cover saves](https://ktcalc.com/rules/cover-saves/): the rare matchups where declining an optional cover save reduces damage, with measured numbers.
+- [Retained vs modified dice](https://ktcalc.com/rules/retained-vs-modified/): why a dice can only be retained once, which rules lock a dice (cover, Accurate, Punishing) and which can still change one (Severe, Waaagh).
+- [Comparing weapons by power level](https://ktcalc.com/rules/weapon-balance/): measured comparison of KT24 melee and heavy weapon profiles against a fixed slate of targets, plain and buffed, with the balanced sets that result.
+- [Lethal + Relentless: why kill chance can rise as BS gets worse](https://ktcalc.com/notes/lethal-relentless/): walks the math for a scenario where the reported kill chance is higher at BS 5+ than BS 2+.
+- [Mystic Scry Buff + Rending: why the best choice depends on what you rolled](https://ktcalc.com/notes/mystic-scry-buff/): the "retain a fail as a norm, or a norm as a crit" decision is not fixed.
+- [Why Punishing can lower your damage](https://ktcalc.com/notes/punishing/): how an optional ability that adds a hit can cost damage by locking a contested fail.
+
+## About
+Kill Team is a tabletop skirmish game by Games Workshop. ktcalc is an unofficial,
+fan-made tool and is not affiliated with or endorsed by Games Workshop.

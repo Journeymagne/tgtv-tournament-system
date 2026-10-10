@@ -35,6 +35,30 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+New individual and team events default to the latest active
+[season](docs/tournament-seasons.md). A super administrator can change an event's
+season in its settings, including after completion. Existing results then count
+toward statistics for the selected season while scores and ratings are retained.
+
+## Release 1.1.0
+
+The profile uses a compact two-column dashboard with equal-sized cards. New
+individual and team tournaments default to the latest active season; a super
+administrator can move an existing tournament and its game statistics to another
+season while retaining scores, pairings and ratings.
+
+[Companion Combat Lab](services/combat-lab/README.md) is included as a separate
+service in `services/combat-lab`: the ktcalc calculator, operative duels for
+shooting and melee, and an official catalogue snapshot of 48 Kill Teams.
+Both tabs share controls; newly added rules are enabled immediately. Build and
+start it from its own directory. It is not mounted by the tournament server.
+
+Application, lockfile and client asset versions are 1.1.0. The main Companion
+service has no new dependencies, database migrations or required environment
+variables. Combat Lab has its own package and optional PDF library configuration.
+See [the changelog](CHANGELOG.md) and
+[release validation](docs/release-1.1.0-validation.md).
+
 ## Release 1.0.1
 
 Administrators can reset a single submitted or completed match in the latest
