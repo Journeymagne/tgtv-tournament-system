@@ -9,6 +9,7 @@ const { sendText } = require("./src/http/io");
 const { logError } = require("./src/http/logger");
 const { handleSeoRequest } = require("./src/http/seo");
 const { handleSiteRequest } = require("./src/http/sites");
+const { handleCombatRequest } = require("./src/http/combat");
 const routes = require("./src/api/routes");
 const { startWorker } = require("./src/email/worker");
 let stopEmailWorker = async () => {};
@@ -22,6 +23,7 @@ const router = createRouter(routes, {
 
 const server = http.createServer((req, res) => {
   if (handleSiteRequest(req, res)) return;
+  if (handleCombatRequest(req, res)) return;
   if ((req.url || "").startsWith("/api/")) {
     router(req, res);
     return;

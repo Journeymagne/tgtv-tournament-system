@@ -127,3 +127,6 @@ pkg/
 # Local demo runtime and PDF extraction dependencies
 work/
 tools/vendor/
+
+# Build mounted by the Companion server at /combat
+build-companion/

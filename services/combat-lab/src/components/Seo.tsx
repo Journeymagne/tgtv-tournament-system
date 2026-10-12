@@ -1,4 +1,5 @@
 import { FC, useEffect } from 'react';
+import {appPath} from 'src/lab/appPath';
 
 // Per-route <head> manager. Deliberately dependency-free: it upserts the title,
 // description, canonical, and og/twitter text tags directly into <head> in an
@@ -7,7 +8,7 @@ import { FC, useEffect } from 'react';
 // react-snap snapshots each route at build time, so crawlers get correct static
 // HTML too. The site-constant tags (og:image, twitter:card, JSON-LD, etc.) live
 // in public/index.html; only the per-page values are managed here.
-const SITE = 'https://ktcalc.com';
+const SITE = window.location.origin;
 
 function upsertMeta(attr: 'name' | 'property', key: string, content: string): void {
   let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
@@ -39,7 +40,7 @@ interface SeoProps {
 
 const Seo: FC<SeoProps> = ({ title, description, path }) => {
   useEffect(() => {
-    const url = `${SITE}${path}`;
+    const url = `${SITE}${appPath(path)}`;
     document.title = title;
     upsertMeta('name', 'description', description);
     upsertLink('canonical', url);

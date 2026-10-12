@@ -3,6 +3,9 @@
 (function () {
   "use strict";
   const pairs = [
+    ["КТ Калькулятор", "KT Calculator"],
+    ["Вероятности стрельбы и ближнего боя, симуляции дуэлей оперативников с оружием и правилами команд.", "Shooting and melee probabilities, operative duels with weapons and team rules."],
+    ["Инструменты для Warhammer Kill Team: боевые расчёты, инициатива, активации, турниры, создание собственных команд и FAQ. Проект сообщества", "Tools for Warhammer Kill Team: combat probabilities, initiative, activations, tournaments, custom teams and FAQ. A community project by"],
     ["Почта и доступ", "Email & access"],
     ["Размер цифр и точек", "Number and pip size"],
     ["Логотип можно увеличить до 200%. Части за краями грани обрезаются.", "The logo can be enlarged to 200%. Parts beyond the face edges are cropped."],

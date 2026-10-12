@@ -13,7 +13,7 @@
   syncBrandLogos();
   const sites = window.KT_SITES || { subdomains: false, urls: {
     home: "/", initiative: "/initiative", tracker: "/tracker",
-    tournament: "/tournament", studio: "/studio", dice: "/dice", faq: "/faq"
+    tournament: "/tournament", studio: "/studio", dice: "/dice", faq: "/faq", combat: "/combat"
   } };
   const serviceUrl = name => new URL(sites.urls[name], location.origin).href;
   const path = location.pathname;

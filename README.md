@@ -3,7 +3,7 @@
 Account email verification and password recovery are available behind EMAIL_PROVIDER.
 See [Email setup and local capture](docs/email-service.md) before enabling Resend.
 
-The site opens on the Companion home page with six sections: initiative
+The site opens on the Companion home page with seven sections: Combat Lab, initiative
 calculator, activation tracker, tournament system, KT Studio, the D6 dice generator
 and [TTS Community FAQ](docs/community-faq.md). The calculators,
 Studio editor, published team library and dice editor are public. Saving or publishing a team
@@ -11,7 +11,7 @@ requires the same account and session as the tournament system. Existing
 public tournament pages remain available. See [Companion integration](docs/companion-integration.md)
 for routes, imported sources, account-owned drafts and deployment settings.
 The home page is a service selector. Each service opens on its own page under
-the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio`, `/dice` and `/faq`,
+the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio`, `/dice`, `/faq` and `/combat`,
 with a shared account. The header logo opens the service selector; the service
 name opens its start page (Studio library or tournament My Games).
 Sun and moon buttons select a shared light or dark theme.
@@ -40,6 +40,15 @@ New individual and team events default to the latest active
 season in its settings, including after completion. Existing results then count
 toward statistics for the selected season while scores and ratings are retained.
 
+## Release 1.0.2
+
+The home menu now includes **КТ Калькулятор / KT Calculator** at `/combat`,
+with the calculator and operative duel simulator on the Companion host.
+The deployment script installs and builds Combat Lab before starting the app.
+Player/team leaderboard ranks and numeric values stay on one line, including
+on mobile screens. Application, lockfile and asset versions are 1.0.2.
+See [release validation and deployment](docs/release-1.0.2-validation.md).
+
 ## Release 1.1.0
 
 The profile uses a compact two-column dashboard with equal-sized cards. New
@@ -51,7 +60,9 @@ season while retaining scores, pairings and ratings.
 service in `services/combat-lab`: the ktcalc calculator, operative duels for
 shooting and melee, and an official catalogue snapshot of 48 Kill Teams.
 Both tabs share controls; newly added rules are enabled immediately. Build and
-start it from its own directory. It is not mounted by the tournament server.
+start it from its own directory for standalone use. To include it at `/combat`
+on the Companion server, install its dependencies and run `npm run build:combat`
+from the repository root. The deployment script performs these steps.
 
 Application, lockfile and client asset versions are 1.1.0. The main Companion
 service has no new dependencies, database migrations or required environment

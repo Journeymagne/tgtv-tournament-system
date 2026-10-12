@@ -68,6 +68,8 @@ rsync -av --delete \
 echo "=== [4/6] Installing npm dependencies from package-lock.json ==="
 cd "$APP_DIR"
 npm ci --omit=dev
+npm ci --prefix services/combat-lab --include=dev --ignore-scripts
+npm run build:combat
 
 echo "=== [5/6] Copying .env ==="
 if [ ! -f "$ENV_FILE" ]; then

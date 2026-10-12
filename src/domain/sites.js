@@ -1,4 +1,4 @@
-const SERVICE_PATHS = { home: "/", tournament: "/tournament", initiative: "/initiative", tracker: "/tracker", studio: "/studio", dice: "/dice", faq: "/faq" };
+const SERVICE_PATHS = { home: "/", tournament: "/tournament", initiative: "/initiative", tracker: "/tracker", studio: "/studio", dice: "/dice", faq: "/faq", combat: "/combat" };
 
 function buildSites(value) {
   if (!String(value || "").trim()) return null;

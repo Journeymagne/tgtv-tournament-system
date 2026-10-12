@@ -2284,6 +2284,9 @@ tr:last-child td {
 .data-table .table-col-rating { width: var(--table-rating-width); }
 .data-table .table-col-text { width: var(--table-text-width); }
 
+:is(.leaderboard-table, .teams-leaderboard-table) {
+  --table-rank-width: 72px;
+}
 .leaderboard-table {
   --table-name-min-width: 140px;
   min-width: calc(var(--table-rank-width) + var(--table-name-min-width) + var(--table-rating-width));
@@ -2309,6 +2312,11 @@ tr:last-child td {
 .data-table th { height: 48px; padding: 10px 12px; }
 .data-table tbody tr { height: 60px; }
 .data-table td { padding: 12px; }
+/* Keep places, ratings and member counts on one line. */
+:is(.leaderboard-table, .teams-leaderboard-table) tbody td:not(:nth-child(2)):not([colspan]) {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
 :is(.statistics-table, .individual-standings-table, .team-standings-table) th { height: 72px; }
 
 .leaderboard-table :is(th, td):last-child,

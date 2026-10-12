@@ -23,6 +23,7 @@ contain only theme/language labels and do not change the host-only login cookie.
 | --- | --- | --- |
 | `ktcompanion.ru` | Companion home | Public |
 | `ktcompanion.ru/tournament` | Tournament system | Existing tournament account |
+| `ktcompanion.ru/combat` | Combat calculator and operative duel simulator | Public |
 | `ktcompanion.ru/initiative` | Initiative calculator | Public |
 | `ktcompanion.ru/tracker` | Activation tracker | Public |
 | `ktcompanion.ru/studio` | KT Studio editor and published library | Public; saving and publishing require the tournament account |
@@ -55,7 +56,7 @@ is sufficient because all sections run in the same application. See
 The deployment script does not change proxy rules. Update the external environment
 file used by that script (normally `/app/tgtv-ts.env`), deploy the new code and
 restart the app with those settings. Check `nginx -t` before reloading Nginx.
-Verify `/`, all six service URLs and `/api/session` over public HTTPS. Updating
+Verify `/`, all seven service URLs and `/api/session` over public HTTPS. Updating
 Git alone leaves the old root website in place until its proxy is switched.
 
 Keep `rating.ktcompanion.ru` as a redirect for existing links, using its existing
@@ -189,3 +190,29 @@ published snapshots over HTTP with PostgreSQL.
 host-only cookie creation/clearing and the login-return allowlist. Browser checks
 cover all service roots, mobile calculator results, shared login/logout and
 guest draft recovery after registration.
+
+## Combat Lab
+
+The home menu links to `/combat` on the same origin. The Companion server serves
+the nested React build and its `/combat/api/health`, `/combat/api/catalog` and
+optional `/combat/library/<team>.pdf` endpoints without a second server process.
+The calculator, fight, simulation, rules, share links and saved scenarios retain
+the `/combat` prefix. Its logo returns to the Companion home menu.
+
+Before starting Companion, run `npm ci --prefix services/combat-lab --include=dev --ignore-scripts`
+and `npm run build:combat` from the root. `update_tgtv-ts.sh` includes these steps.
+The compiled `services/combat-lab/build-companion` directory is ignored by Git.
+Set optional `COMBAT_REFERENCE_DIR` to the existing official PDF snapshot for
+source links; the bundled JSON catalogue works without PDFs. Standalone builds
+with `npm run build:demo` keep their original root routes.
+
+Menu integration verification used the production `/combat` build and real
+calculator workers. Shooting with four/five attacks produced 3.29/5.04 average
+damage while the other profile stayed at 3.29. In the Vespid duel, adding Neutron
+Charge enabled it immediately and changed damage from 3.25 to 4.29. Melee,
+scenario reloads, rules pages, RU/EN menu labels and mobile layout were checked.
+Public HTML and health/catalog endpoints returned 200; missing assets returned
+404 and an encoded traversal was rejected with 403. TypeScript and syntax checks
+passed. These checks used a temporary public-UI harness with no PostgreSQL;
+account flows were not exercised. Evidence is in the ignored nested
+`verify-artifacts/combat-menu` directory.

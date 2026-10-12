@@ -1,7 +1,16 @@
-# Companion Combat Lab 1.1.0
+# Companion Combat Lab 1.0.2
 
 Separate local demonstration service, based on jfreal/ktcalc commit 80760be900c72831dde9da53071510901af3ab95 (2026-10-06).
 The original shooting/fight engines and calculator parameters are retained. Both screens now use the same Companion controls and an explicit Calculate action. The Companion shell uses the shared Companion design tokens and logos. /simulation adds official operative/weapon selection, optional rule-to-engine effects, cover, remaining wounds, worker calculations, share URLs and browser-local saved scenarios.
+
+## Companion integration
+
+The main menu links to this calculator at `/combat`. From the repository root,
+run `npm ci --prefix services/combat-lab --include=dev --ignore-scripts` followed
+by `npm run build:combat`. The main Companion server serves this build, including
+simulation, share links and rules, without a separate process. Optional
+`COMBAT_REFERENCE_DIR` configures PDFs on that server. Standalone use below
+keeps its own root routes and `REFERENCE_DIR` setting.
 
 ## Start
 
