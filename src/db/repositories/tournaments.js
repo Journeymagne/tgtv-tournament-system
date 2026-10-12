@@ -30,6 +30,7 @@ const FIELD_COLUMNS = {
   challengeCreditPolicy: "challenge_credit_policy",
   seasonId: "season_id",
   venueMode: "venue_mode",
+  venueAddress: "venue_address",
   finalResults: "final_results",
   roundDraft: "round_draft",
   participantMode: "participant_mode",
@@ -65,8 +66,8 @@ async function insert(client, tournament) {
        (owner_user_id, slug, name, description, game_system, starts_at,
         rules_summary, rules_link, status, format, swiss_round_count,
         single_elimination_size, tiebreaker_order, rating_policy,
-         challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type, logo_data, registration_limit, captain_pairing_enabled, team_tiebreaker_order, faction_count)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23::text[], $24)
+        challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type, logo_data, registration_limit, captain_pairing_enabled, team_tiebreaker_order, faction_count, venue_address)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23::text[], $24, $25)
      RETURNING ${COLUMNS}`,
     [
       tournament.ownerUserId || null,
@@ -92,7 +93,8 @@ async function insert(client, tournament) {
       tournament.registrationLimit || null,
       tournament.captainPairingEnabled !== false,
       tournament.teamTiebreakerOrder ?? null,
-      tournament.factionCount || 1
+      tournament.factionCount || 1,
+      tournament.venueAddress || ""
     ]
   );
   return mapTournament(rows[0]);
@@ -145,7 +147,7 @@ async function listPublished(client) {
        GROUP BY tournament_id
      ) rc ON rc.tournament_id = t.id
      WHERE t.status = ANY($1::text[])
-     ORDER BY COALESCE(t.starts_at, t.created_at) DESC, t.id DESC`,
+     ORDER BY t.created_at DESC, t.id DESC`,
     [PUBLISHED_STATUSES]
   );
   return rows.map(mapTournament);

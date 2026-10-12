@@ -25,6 +25,7 @@ const DESCRIPTION_MAX = 6000;
 const RULES_MAX = 6000;
 const GAME_SYSTEM_MAX = 80;
 const SEASON_ID_MAX = 80;
+const VENUE_ADDRESS_MAX = 500;
 const FACTION_RULES_MAX = 1000;
 const RULES_LINK_MAX = 2_800_000;
 const GAME_SYSTEMS = ["Warhammer 40k Kill Team"];
@@ -258,6 +259,13 @@ function normalizeTournamentPatch(body = {}, current = {}) {
   if (Object.prototype.hasOwnProperty.call(body, "venueMode")) {
     patch.venueMode = normalizePolicy(body.venueMode, VENUE_MODES, "tts", "venue");
   }
+  if (Object.hasOwn(body, "venueAddress")) {
+    patch.venueAddress = optionalTournamentText(body.venueAddress, "Venue address", VENUE_ADDRESS_MAX);
+  }
+  if ((patch.venueMode || current.venueMode || "tts") !== "irl" &&
+      (Object.hasOwn(patch, "venueMode") || Object.hasOwn(patch, "venueAddress"))) {
+    patch.venueAddress = "";
+  }
   if ((Object.hasOwn(patch, "pairingType") ? patch.pairingType : current.pairingType) === "doubles") {
     if ((patch.venueMode || current.venueMode || "irl") !== "irl") throw new ValidationError("Doubles is available only for IRL");
     if (body.captainPairingEnabled === true) throw new ValidationError("Doubles uses manual captain pairings");
@@ -314,7 +322,8 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     ratingPolicy: patch.ratingPolicy || "ranked",
     challengeCreditPolicy: patch.challengeCreditPolicy || "count",
     seasonId: patch.seasonId || currentSeason().id,
-    venueMode: patch.venueMode || "tts"
+    venueMode: patch.venueMode || "tts",
+    venueAddress: patch.venueAddress || ""
   };
 }
 

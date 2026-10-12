@@ -19,7 +19,7 @@ function harness(state = {}) {
   const helpers = ["escapeHtml", "pageTabs", "paginate", "paginationMarkup", "teamsTable", "filterAdminTeams", "renderTop", "adminTeamsPanel"];
   const factory = new Function("state", "document", "t", "plural", "avatarMarkup", `
     const LEADERBOARD_PAGE_SIZE = 20;
-    const wirePageTabs = () => {}, wireVenueTabs = () => {}, wirePaginationControls = () => {}, wireTeamLinks = () => {}, wireLeaderboardProfiles = () => {}, wireAdminUserControls = () => {};
+    const wirePageTabs = () => {}, wireVenueTabs = () => {}, wirePaginationControls = () => {}, wireTeamLinks = () => {}, wireLeaderboardProfiles = () => {}, wireLeaderboardSearch = () => {}, wireAdminUserControls = () => {};
     const venueTabs = () => '', usersTable = () => 'player rows', adminUsersPanel = () => 'user admin';
     ${helpers.map(extract).join("\n")}
     return { pageTabs, renderTop, teamsTable, filterAdminTeams, adminTeamsPanel };

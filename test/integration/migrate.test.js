@@ -61,6 +61,29 @@ test("повторный migrate ничего не применяет", async ()
   assert.deepEqual(applied, []);
 });
 
+test("venue address upgrade follows 1.2.0 without replacing Studio migration 32 or existing data", async () => {
+  const client = await pool.connect();
+  try {
+    await client.query("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+    for (const migration of MIGRATIONS.filter(item => item.version <= 54)) {
+      await migration.up(client);
+      await client.query("INSERT INTO schema_migrations(version,name) VALUES($1,$2)", [migration.version, migration.name]);
+    }
+    await client.query("INSERT INTO tournaments(slug,name,status,format,venue_mode,faction_count) VALUES('existing-irl','Existing IRL','draft','swiss','irl',3)");
+  } finally {
+    client.release();
+  }
+  assert.deepEqual(await migrate(pool), [55]);
+  const { rows: [event] } = await pool.query("SELECT name, venue_address, faction_count FROM tournaments WHERE slug='existing-irl'");
+  assert.deepEqual(event, { name: "Existing IRL", venue_address: "", faction_count: 3 });
+  const { rows: migrations } = await pool.query("SELECT version,name FROM schema_migrations WHERE version IN (32,55) ORDER BY version");
+  assert.deepEqual(migrations, [{version:32,name:"studio_projects"}, {version:55,name:"tournament_venue_address"}]);
+  assert.ok((await pool.query("SELECT to_regclass('studio_projects') AS name")).rows[0].name);
+  await assert.rejects(pool.query("UPDATE tournaments SET venue_address=$1", ["x".repeat(501)]), { code: "23514" });
+  await pool.query("UPDATE tournaments SET venue_address=$1", ["x".repeat(500)]);
+  assert.deepEqual(await migrate(pool), []);
+});
+
 test("team Killzone help migration corrects seeded rules and preserves administrator revisions", async () => {
   await migrate(pool);
   const migration = MIGRATIONS.find(item => item.version === 51);

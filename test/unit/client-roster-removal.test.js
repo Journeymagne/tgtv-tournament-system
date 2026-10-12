@@ -10,7 +10,7 @@ const source = ["app.js", "admin.js"]
 const extract = (name) => source.match(new RegExp(`function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))[0];
 const t = (key) => key;
 test("admin roster removal remains available after start and completed removal is not offered twice", () => {
-  const render = new Function("t", "escapeHtml", "teamRosterLabel", "teamRosterStatusLabel", "activeRosterMembersForUi", `${["rosterTeamLinkMarkup", "rosterTeamLogoMarkup", "playerTeamPublicPath", "registrationPaymentCheckbox", "adminTeamRostersContent"].map(extract).join("\n")}; return adminTeamRostersContent;`)(t, String, (r) => r.name, String, () => []);
+  const render = new Function("t", "escapeHtml", "teamRosterLabel", "teamRosterStatusLabel", "activeRosterMembersForUi", "canEditTeamRosterDetails", `${["rosterTeamLinkMarkup", "rosterTeamLogoMarkup", "playerTeamPublicPath", "registrationPaymentCheckbox", "adminTeamRostersContent"].map(extract).join("\n")}; return adminTeamRostersContent;`)(t, String, (r) => r.name, String, () => [], () => false);
   for (const status of ["draft", "registration_open", "registration_closed", "in_progress", "completed", "cancelled"]) {
     const html = render({ tournament: { status }, rosters: [{ id: 7, name: "Squad", status: status === "completed" ? "finished" : "active" }] });
     assert.match(html, /data-admin-team-roster-delete="7"/);

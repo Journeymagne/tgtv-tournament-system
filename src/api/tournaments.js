@@ -444,7 +444,7 @@ async function updateAdmin({ client, user, params, body }) {
   const seasonOnly = user.isSuperAdmin && Object.keys(body).length > 0 && Object.keys(body).every(key => key === "seasonId");
   if (!seasonOnly) assertEditableSetup(tournament);
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
-    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules", ...(user.isSuperAdmin ? ["seasonId"] : []), ...(tournament.participantMode === "team" ? ["captainPairingEnabled", "teamTiebreakerOrder"] : [])]);
+    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules", "venueAddress", ...(user.isSuperAdmin ? ["seasonId"] : []), ...(tournament.participantMode === "team" ? ["captainPairingEnabled", "teamTiebreakerOrder"] : [])]);
     for (const key of Object.keys(body || {})) {
       if (!allowed.has(key)) throw new HttpError(409, "Tournament setup is locked after start");
     }

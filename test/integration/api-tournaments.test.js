@@ -2623,3 +2623,28 @@ test("only a super administrator can move an event and its existing results to a
   assert.equal(moved.tournament.status, "completed");
   assert.ok((await gamesApi.listCompleted({ client })).games.every(game => game.tournament.seasonId === "2026-q2-dataslate"));
 });
+
+test("IRL venue addresses persist in public lists, remain optional and can change after start", async () => {
+  const withoutAddress = await createPublishedTournament({ venueMode: "irl", startsAt: "2030-01-01T10:00:00Z" });
+  assert.equal(withoutAddress.venueAddress, "");
+  const tournament = await createPublishedTournament({ venueMode: "irl", venueAddress: "  Ереван, улица 1  " });
+  const params = { id: String(tournament.id) };
+  assert.equal(tournament.venueAddress, "Ереван, улица 1");
+  const listed = await tournamentsApi.listPublic({ client });
+  assert.deepEqual(listed.tournaments.map(item => item.id), [tournament.id, withoutAddress.id]);
+  assert.equal(listed.tournaments[0].venueAddress, "Ереван, улица 1");
+  const detail = await tournamentsApi.getPublic({ client, params: { slug: tournament.slug }, query: new URLSearchParams() });
+  assert.equal(detail.tournament.venueAddress, "Ереван, улица 1");
+  await tournamentsApi.updateAdmin({ client, user: root, params, body: { venueMode: "tts" } });
+  assert.equal((await tournamentsApi.listPublic({ client })).tournaments[0].venueAddress, "");
+  await tournamentsApi.updateAdmin({ client, user: root, params, body: { venueMode: "irl", venueAddress: "New venue" } });
+  await client.query("UPDATE tournaments SET status = 'in_progress' WHERE id = $1", [tournament.id]);
+  const changed = await tournamentsApi.updateAdmin({ client, user: root, params, body: { venueAddress: "Ереван, улица 2" } });
+  assert.equal(changed.tournament.status, "in_progress");
+  assert.equal(changed.tournament.venueAddress, "Ереван, улица 2");
+  const cleared = await tournamentsApi.updateAdmin({ client, user: root, params, body: { venueAddress: "" } });
+  assert.equal(cleared.tournament.venueAddress, "");
+  assert.equal((await client.query("SELECT venue_address FROM tournaments WHERE id = $1", [tournament.id])).rows[0].venue_address, "");
+  await client.query("UPDATE tournaments SET status = 'completed' WHERE id = $1", [tournament.id]);
+  await assert.rejects(tournamentsApi.updateAdmin({ client, user: root, params, body: { venueAddress: "Read-only" } }), /read-only/);
+});

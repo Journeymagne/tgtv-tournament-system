@@ -35,6 +35,12 @@ text and image frames, cropping, layers, text backgrounds and PDF overflow check
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+IRL tournaments can include an optional venue address of up to 500 characters.
+Organizers can edit or clear it before or after the event starts. Public tournament
+cards show the venue and address and list newer events first within each category.
+Migration **055_tournament_venue_address** adds an empty address to existing events
+without changing Studio migration 032. See [venue addresses](docs/tournament-venue-address.md).
+
 Tournament organizers can allow up to three [factions per player](docs/tournament-factions.md).
 Additional factions are optional in solo, WTC, Classic and Doubles events; match reports
 select one registered faction. Startup migration **053_tournament_factions**

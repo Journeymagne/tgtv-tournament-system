@@ -25,7 +25,7 @@ const TOURNAMENT_COLUMNS = `
   id, owner_user_id, slug, name, logo_data, description, game_system, starts_at,
   rules_summary, rules_link, status, format, swiss_round_count,
   single_elimination_size, tiebreaker_order, rating_policy,
-  challenge_credit_policy, season_id, venue_mode, final_results, round_draft,
+  challenge_credit_policy, season_id, venue_mode, venue_address, final_results, round_draft,
   participant_mode, team_size, pairing_type, team_tables_locked, registration_limit, captain_pairing_enabled, team_tiebreaker_order,
   faction_count, published_at, started_at,
   completed_at, cancelled_at, created_at, updated_at
@@ -172,6 +172,7 @@ function mapTournament(row) {
     challengeCreditPolicy: row.challenge_credit_policy || "count",
     seasonId: row.season_id || "2026-q3-dataslate",
     venueMode: row.venue_mode || "tts",
+    venueAddress: row.venue_address || "",
     finalResults: row.final_results || null,
     roundDraft: row.round_draft || null,
     participantMode: row.participant_mode || "individual",

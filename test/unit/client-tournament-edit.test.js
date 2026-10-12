@@ -36,9 +36,9 @@ test("public tournament Edit is limited to administrators and assigned tournamen
 
 test("public tournament cards offer Edit only to authorized users", () => {
   for (const isAdmin of [false, true]) {
-    const render = new Function("state", "t", "escapeHtml", "tournamentFormatLabel", "tournamentStatusLabel", "tournamentStatusClass", "tournamentParticipantCountLabel", "tournamentRoundCountLabel", "fmtDate",
+    const render = new Function("state", "t", "escapeHtml", "tournamentFormatLabel", "tournamentStatusLabel", "tournamentStatusClass", "tournamentParticipantCountLabel", "tournamentRoundCountLabel", "fmtDate", "venueModeLabel",
       `${sourceOf("tournamentEditButton")}; ${sourceOf("tournamentCardFact")}; ${sourceOf("publicTournamentCard")}; return publicTournamentCard;`
-    )({ me: { isAdmin } }, (key) => key, String, () => "Swiss", String, () => "open", () => "24", () => "4", String);
+    )({ me: { isAdmin } }, (key) => key, String, () => "Swiss", String, () => "open", () => "24", () => "4", String, () => "Tabletop Simulator");
     for (const participantMode of ["individual", "team"]) {
       for (const status of ["registration_open", "registration_closed", "in_progress", "completed", "cancelled"]) {
         const html = render({ id: 6, slug: "test-cup", participantMode, status });

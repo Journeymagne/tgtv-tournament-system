@@ -16,7 +16,7 @@ function sourceOf(name) {
 
 function publicRosterUi(me = null) {
   const functions = ["canManageTournamentParticipants", "tournamentInfoTabDefinitions", "tournamentInfoTabContent",
-    "publicTeamRostersList", "rosterTeamLinkMarkup", "rosterTeamLogoMarkup", "playerTeamPublicPath", "teamRosterLabel", "teamRosterStatusLabel", "tournamentParticipantProfileLink", "activeRosterMembersForUi"];
+    "publicTeamRostersList", "canEditTeamRosterDetails", "rosterTeamLinkMarkup", "rosterTeamLogoMarkup", "playerTeamPublicPath", "teamRosterLabel", "teamRosterStatusLabel", "tournamentParticipantProfileLink", "activeRosterMembersForUi"];
   const escape = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
   return new Function("state", "t", "escapeHtml", "playerProfileLink", "adminUi",
     `${functions.map(sourceOf).join("\n")}; return { tournamentInfoTabDefinitions, tournamentInfoTabContent };`)(
@@ -175,4 +175,30 @@ test("oversized or unsupported logos never replace the current image", async () 
     assert.equal(h.form.dataset.logoLoading, "");
     assert.equal(h.requests.length, 0);
   }
+});
+
+test("IRL address fields follow venue changes, preserve read-only settings and participate in autosave", () => {
+  const update = new Function(`${sourceOf("updateTournamentVenueAddressField")}; return updateTournamentVenueAddressField;`)();
+  const bodyFromForm = new Function("t", `${sourceOf("setFormValue")}; ${sourceOf("adminTournamentBodyFromForm")}; return adminTournamentBodyFromForm;`)((key) => key);
+  const field = { hidden: true };
+  const input = { value: "Ереван, улица 1", disabled: false, dataset: {} };
+  const form = { dataset: {}, elements: { venueAddress: input, venueMode: { value: "tts" }, participantMode: { value: "individual", disabled: true } },
+    querySelector: () => field, querySelectorAll: () => [] };
+  update(form);
+  assert.equal(field.hidden, true);
+  assert.equal(Object.hasOwn(bodyFromForm(form), "venueAddress"), false);
+  form.elements.venueMode.value = "irl";
+  update(form);
+  assert.equal(field.hidden, false);
+  assert.equal(input.disabled, false);
+  assert.equal(bodyFromForm(form).venueAddress, "Ереван, улица 1");
+  form.elements.venueMode.disabled = true;
+  assert.equal(bodyFromForm(form).venueAddress, "Ереван, улица 1");
+  input.value = "";
+  assert.equal(bodyFromForm(form).venueAddress, "");
+  const lockedInput = { value: "Read-only", disabled: true, dataset: {} };
+  form.elements.venueAddress = lockedInput;
+  update(form);
+  assert.equal(lockedInput.disabled, true);
+  assert.equal(Object.hasOwn(bodyFromForm(form), "venueAddress"), false);
 });

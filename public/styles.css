@@ -1424,13 +1424,17 @@ button:disabled {
 
 .tournament-card-facts {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px 16px;
   margin: 0;
 }
 
 .tournament-card-facts div {
   min-width: 0;
+}
+
+.tournament-card-address {
+  grid-column: 1 / -1;
 }
 
 .tournament-card-facts dt {

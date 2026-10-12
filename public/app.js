@@ -3044,8 +3044,15 @@ function publicTournamentCard(tournament) {
         <dl class="tournament-card-facts">
           ${tournamentCardFact(t(tournament.participantMode === "team" ? "teams.tournament.rosters" : "tournaments.field.participants"), tournamentParticipantCountLabel(tournament))}
           ${tournamentCardFact(t("tournaments.card.rating"), tournament.ratingPolicy === "ranked" ? t("tournaments.card.ranked") : t("tournaments.card.unranked"))}
+          ${tournamentCardFact(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
           ${tournamentCardFact(t("tournaments.card.starts"), tournament.startsAt ? fmtDate(tournament.startsAt) : t("tournaments.date.none"))}
           ${tournamentCardFact(t("tournaments.field.rounds"), tournamentRoundCountLabel(tournament))}
+          ${tournament.venueMode === "irl" && tournament.venueAddress ? `
+            <div class="tournament-card-address">
+              <dt>${t("tournaments.field.venueAddress")}</dt>
+              <dd>${escapeHtml(tournament.venueAddress)}</dd>
+            </div>
+          ` : ""}
         </dl>
       </div>
       <div class="tournament-card-actions">
@@ -9945,6 +9952,7 @@ function updateTournamentParticipantModeFields(form) {
     if (tts) tts.disabled = doubles;
     if (doubles) venue.value = "irl";
   }
+  updateTournamentVenueAddressField(form);
   if (doubles && form.dataset.previousPairingType && form.dataset.previousPairingType !== "doubles" && form.elements.swissRoundCount && !form.elements.swissRoundCount.disabled) form.elements.swissRoundCount.value = "4";
   form.dataset.previousPairingType = type?.value || "";
   if (type && !type.dataset.doublesWired) {
