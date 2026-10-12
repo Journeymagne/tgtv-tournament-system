@@ -40,6 +40,20 @@ New individual and team events default to the latest active
 season in its settings, including after completion. Existing results then count
 toward statistics for the selected season while scores and ratings are retained.
 
+## Release 1.0.3
+
+Combat Lab is prepared automatically during root installation, including
+production installs. Its completed build is preserved and reused when the
+calculator's inputs are unchanged. Changes to any other Companion module,
+including Studio, the dice generator and tournaments, and release-number-only
+bumps skip both its dependency installation and compilation. Missing or damaged
+builds are rebuilt; `/combat/api/health` reports unavailable when the build is
+missing. Calculator and simulation browser tabs use the KT Companion icon.
+
+Application, both package/lockfile pairs and client asset versions are 1.0.3.
+There are no new dependencies, database migrations or required environment
+variables. See [release validation and deployment](docs/release-1.0.3-validation.md).
+
 ## Release 1.0.2
 
 The home menu now includes **КТ Калькулятор / KT Calculator** at `/combat`,

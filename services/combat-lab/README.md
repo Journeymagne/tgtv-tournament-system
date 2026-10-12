@@ -1,4 +1,4 @@
-# Companion Combat Lab 1.0.2
+# Companion Combat Lab 1.0.3
 
 Separate local demonstration service, based on jfreal/ktcalc commit 80760be900c72831dde9da53071510901af3ab95 (2026-10-06).
 The original shooting/fight engines and calculator parameters are retained. Both screens now use the same Companion controls and an explicit Calculate action. The Companion shell uses the shared Companion design tokens and logos. /simulation adds official operative/weapon selection, optional rule-to-engine effects, cover, remaining wounds, worker calculations, share URLs and browser-local saved scenarios.
