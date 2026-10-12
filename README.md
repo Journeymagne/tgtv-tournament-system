@@ -2,6 +2,14 @@
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+## Unreleased
+
+IRL tournaments support an optional venue address in their settings and public
+list cards. Addresses remain editable after the start. Migration 032 adds an
+empty address field to existing tournaments automatically on startup. Tournament
+list cards show the venue and are ordered newest first by creation date within
+each status section.
+
 ## Release 3.1.4
 
 See [CHANGELOG.md](CHANGELOG.md) for the release history and upgrade notes.

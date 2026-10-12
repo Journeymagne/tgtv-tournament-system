@@ -477,6 +477,7 @@ function adminTournamentCreatePanel() {
               ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}">${escapeHtml(t(option.labelKey))}</option>`).join("")}
             </select>
           </div>
+          ${adminTournamentVenueAddressField()}
         </div>
         ${markdownEditorField({
           name: "tournamentRules",
@@ -601,6 +602,30 @@ function adminTournamentActionButtons(data) {
   return buttons.length ? buttons.join("") : `<span class="muted">${t("admin.tournament.action.locked")}</span>`;
 }
 
+function adminTournamentVenueAddressField(tournament = {}, disabledAttrs = "") {
+  const id = `tournament-venue-address-${tournament.id || "new"}`;
+  return `
+    <div class="field wide-panel" data-tournament-venue-address-field ${tournament.venueMode === "irl" ? "" : "hidden"}>
+      <label for="${id}">${t("admin.tournament.field.venueAddress")}</label>
+      <input id="${id}" name="venueAddress" type="text" maxlength="500"
+        value="${escapeHtml(tournament.venueAddress || "")}"
+        placeholder="${t("admin.tournament.field.venueAddressPlaceholder")}" ${disabledAttrs}>
+    </div>
+  `;
+}
+
+function updateTournamentVenueAddressField(form) {
+  const field = form.querySelector("[data-tournament-venue-address-field]");
+  const input = form.elements.venueAddress;
+  if (!field || !input) return;
+  if (input.dataset.venueBaseDisabled === undefined) {
+    input.dataset.venueBaseDisabled = input.disabled ? "1" : "0";
+  }
+  const isIrl = form.elements.venueMode?.value === "irl";
+  field.hidden = !isIrl;
+  input.disabled = !isIrl || input.dataset.venueBaseDisabled === "1";
+}
+
 function adminTournamentEditForm(tournament) {
   const setupLocked = tournament.status === "in_progress";
   const readOnly = ["completed", "cancelled"].includes(tournament.status);
@@ -685,6 +710,7 @@ function adminTournamentEditForm(tournament) {
             ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}" ${(tournament.venueMode || "tts") === option.key ? "selected" : ""}>${escapeHtml(t(option.labelKey))}</option>`).join("")}
           </select>
         </div>
+        ${adminTournamentVenueAddressField(tournament, textLockAttrs)}
       </div>
       ${markdownEditorField({
         name: "tournamentRules",
@@ -1340,6 +1366,8 @@ function wireAdminTournamentFormBehavior() {
     });
     form.querySelector('[name="singleEliminationSize"]')?.addEventListener("change", () => updateTournamentParticipantModeFields(form));
     updateTournamentParticipantModeFields(form);
+    form.elements.venueMode?.addEventListener("change", () => updateTournamentVenueAddressField(form));
+    updateTournamentVenueAddressField(form);
 
     const rulesFile = form.querySelector("[data-tournament-rules-file]");
     if (rulesFile) {
@@ -1695,6 +1723,7 @@ function adminTournamentBodyFromForm(form, options = {}) {
   setFormValue(body, form, "challengeCreditPolicy");
   setFormValue(body, form, "seasonId");
   setFormValue(body, form, "venueMode");
+  setFormValue(body, form, "venueAddress");
   if (includeSlug) setFormValue(body, form, "slug");
 
   const tournamentRulesField = form.elements.tournamentRules;

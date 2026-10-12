@@ -429,7 +429,7 @@ async function updateAdmin({ client, user, params, body }) {
   const { expectedUpdatedAt, ...changes } = body;
   body = changes;
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
-    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules"]);
+    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules", "venueAddress"]);
     for (const key of Object.keys(body || {})) {
       if (!allowed.has(key)) throw new HttpError(409, "Tournament setup is locked after start");
     }

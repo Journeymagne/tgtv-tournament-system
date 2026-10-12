@@ -437,3 +437,13 @@ test("standings calculate Strength of Schedule and trimmed Buchholz separately",
   assert.equal(row.strengthOfSchedule, 9);
   assert.equal(row.buchholz, 3);
 });
+
+test("IRL venue addresses are optional, trimmed, bounded and cleared when switching online", () => {
+  assert.equal(normalizeNewTournament({ venueMode: "irl" }, 1, "address-free").venueAddress, "");
+  assert.equal(normalizeNewTournament({ venueMode: "irl", venueAddress: "  Ереван,   улица 1  " }, 1, "address").venueAddress, "Ереван, улица 1");
+  assert.deepEqual(normalizeTournamentPatch({}, { venueMode: "irl", venueAddress: "Saved" }), {});
+  assert.equal(normalizeTournamentPatch({ venueAddress: null }, { venueMode: "irl" }).venueAddress, "");
+  assert.equal(normalizeTournamentPatch({ venueMode: "tts" }, { venueMode: "irl", venueAddress: "Saved" }).venueAddress, "");
+  assert.equal(normalizeNewTournament({ venueAddress: "Hidden online" }, 1, "online").venueAddress, "");
+  assert.throws(() => normalizeTournamentPatch({ venueAddress: "x".repeat(501) }, { venueMode: "irl" }), /500/);
+});

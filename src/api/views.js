@@ -249,6 +249,7 @@ function tournamentSummaryView(tournament) {
     challengeCreditPolicy: tournament.challengeCreditPolicy,
     seasonId: tournament.seasonId,
     venueMode: tournament.venueMode,
+    venueAddress: tournament.venueMode === "irl" ? tournament.venueAddress || "" : "",
     finalResults: tournament.finalResults,
     participantCount: tournament.participantCount,
     roundCount: tournament.roundCount,
