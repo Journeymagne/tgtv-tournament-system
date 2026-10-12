@@ -152,6 +152,13 @@ async function updateMe({ client, user, body, req }) {
   if (Object.prototype.hasOwnProperty.call(body, "telegramContact")) {
     patch.telegramContact = requiredProfileText(body.telegramContact, "Telegram Contact", 80);
   }
+  if (Object.prototype.hasOwnProperty.call(body, "bcpEmail")) {
+    if (body.bcpEmail !== null && typeof body.bcpEmail !== "string") {
+      throw new ValidationError("Enter a valid email address");
+    }
+    const email = (body.bcpEmail || "").trim();
+    patch.bcpEmail = email ? emailSecurity.normalizeEmail(email) : null;
+  }
 
   // Validate the password change (if any) before any write happens below,
   // so a wrong currentPassword can never leave a partially-applied patch.

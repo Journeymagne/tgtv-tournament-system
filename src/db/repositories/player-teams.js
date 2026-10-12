@@ -25,7 +25,7 @@ function mapMembership(row) {
     id: row.id,
     teamId: row.team_id,
     userId: row.user_id,
-    displayNameSnapshot: row.display_name_snapshot,
+    displayNameSnapshot: (!row.ended_at && row.user_name) || row.display_name_snapshot,
     role: row.role,
     joinedAt: toIso(row.joined_at),
     endedAt: toIso(row.ended_at),

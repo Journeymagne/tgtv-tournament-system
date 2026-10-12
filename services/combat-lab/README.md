@@ -18,6 +18,11 @@ simulation, share links and rules, without a separate process. Optional
 `COMBAT_REFERENCE_DIR` configures PDFs on that server. Standalone use below
 keeps its own root routes and `REFERENCE_DIR` setting.
 
+The integrated build uses the shared Companion header for the account, RU/EN
+language and light/dark theme controls. These preferences and the signed-in
+profile persist across modules. Calculator, simulation and help navigation sits
+below the shared header; standalone builds keep their local demonstration header.
+
 ## Start
 
 From `services/combat-lab`, copy `.env.example` to `.env`, choose a free port (for example 3007), and configure `REFERENCE_DIR` for your local PDF library. Node >=22.13. Run `npm ci --ignore-scripts`, then `npm run build:demo`, then `npm start`. Configuration is in `.env`; logs belong in `work/`. The demo has no database, accounts or remote writes. The prepared production build starts with Node built-ins and needs no node_modules at runtime. The prepared demo uses http://127.0.0.1:3007 (simulation: /simulation). Open the URL printed by the server.

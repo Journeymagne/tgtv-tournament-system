@@ -3,6 +3,11 @@
 Account email verification and password recovery are available behind EMAIL_PROVIDER.
 See [Email setup and local capture](docs/email-service.md) before enabling Resend.
 
+Players can save an optional Best Coast Pairings email in their profile settings
+for future tournament transfers. It is independent of the account sign-in email,
+is returned only in the player's own profile, and can be cleared. Startup migration
+**054_user_bcp_email** adds the nullable `users.bcp_email` column.
+
 The site opens on the Companion home page with seven sections: Combat Lab, initiative
 calculator, activation tracker, tournament system, KT Studio, the D6 dice generator
 and [TTS Community FAQ](docs/community-faq.md). The calculators,
@@ -48,6 +53,23 @@ New individual and team events default to the latest active
 [season](docs/tournament-seasons.md). A super administrator can change an event's
 season in its settings, including after completion. Existing results then count
 toward statistics for the selected season while scores and ratings are retained.
+
+## Release 1.2.0
+
+Players can save a separate, private BCP email for future tournament transfers.
+The leaderboard searches current and registration nicknames and Telegram handles
+while preserving overall ranks. Tournament administrators can edit roster
+captains and factions without discarding prepared pairings; active team members
+use their current account names.
+
+Combat Lab now uses the shared Companion account, language and theme controls.
+All modules share the updated header branding and service navigation. Profile
+game cards have an improved layout.
+
+Migration **054_user_bcp_email** adds a nullable profile field. Application,
+Combat Lab, both lockfiles and client asset markers use **1.2.0**. No new
+dependencies or environment variables are required. See
+[release validation](docs/release-1.2.0-validation.md).
 
 ## Release 1.1.1 — Multiple factions
 

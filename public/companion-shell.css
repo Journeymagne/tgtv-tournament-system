@@ -35,7 +35,7 @@ body {
 .companion-service-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   font-weight: 750;
   min-width: 0;
 }
@@ -48,20 +48,33 @@ body {
 .companion-logo-link {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 44px;
+  width: 56px;
+  height: 50px;
   flex: none;
   border-radius: 6px;
 }
 
-/* Keep service titles legible beside the compact book-and-blade mark. */
 .companion-service-link {
   display: flex;
-  align-items: center;
-  min-height: 44px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 50px;
   overflow-wrap: anywhere;
-  font: 700 clamp(10.4px,1.2vw,14.4px)/1.2 var(--font-ui);
   text-transform: uppercase;
+}
+
+.companion-service-name {
+  font: 850 16px/1.2 var(--font-ui);
+  letter-spacing: .025em;
+}
+
+.companion-service-tool {
+  color: var(--accent-text);
+  font: 750 11px/1.4 var(--font-ui);
+  letter-spacing: .19em;
 }
 
 .companion-tools {
@@ -514,8 +527,14 @@ body[data-companion-section="studio"] .workspace {
     display: none;
   }
 
-  .companion-service-link {
-    font-size: 18px;
+  .companion-service-name {
+    font-size: 13px;
+  }
+
+  .companion-logo-link,
+  .companion-logo-link img {
+    width: 44px;
+    height: 42px;
   }
 
   /* Home heading: 27px text / 48px logo. */

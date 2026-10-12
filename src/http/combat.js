@@ -6,6 +6,7 @@ const { SECURITY_HEADERS, sendJson, sendText } = require("./io");
 const SERVICE_ROOT = path.join(ROOT, "services", "combat-lab");
 const BUILD_ROOT = path.join(SERVICE_ROOT, "build-companion");
 const BUILD_PREFIX = BUILD_ROOT + path.sep;
+const ASSET_VERSION = require("../../package.json").version;
 const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
@@ -23,10 +24,32 @@ function buildReady() {
     return ["index.html", "asset-manifest.json"].every(file => fs.statSync(path.join(BUILD_ROOT, file)).isFile());
   } catch { return false; }
 }
+function companionHtml(source) {
+  // Resolve shared chrome on the Companion server so header/account updates
+  // apply even when an unchanged calculator build is reused across releases.
+  const head = `<script src="/theme-boot.js?v=${ASSET_VERSION}" data-companion-only></script>
+<link rel="stylesheet" href="/companion-shell.css?v=${ASSET_VERSION}">
+<script src="/companion-sites.js?v=${ASSET_VERSION}" defer></script>
+<script src="/companion-i18n.js?v=${ASSET_VERSION}" defer></script>
+<script src="/combat/companion-ui.js" defer></script>
+<script src="/companion-shell.js?v=${ASSET_VERSION}" defer></script>`;
+  return source.replace("<head>", "<head>" + head)
+    .replace("<body>", '<body data-companion-section="combat">')
+    .replace('<div id="root">', '<div data-companion-nav></div><div id="root">');
+}
 function sendFile(req, res, filename, missingStatus = 404) {
   fs.stat(filename, (error, stat) => {
     if (error || !stat.isFile()) {
       sendText(res, missingStatus, missingStatus === 503 ? "Калькулятор временно недоступен. Попробуйте позже." : "Not found");
+      return;
+    }
+    if (path.extname(filename) === ".html") {
+      fs.readFile(filename, "utf8", (readError, source) => {
+        if (readError) { sendText(res, 500, "Server error"); return; }
+        const html = companionHtml(source);
+        res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": MIME[".html"], "Content-Length": Buffer.byteLength(html), "Cache-Control": "no-store" });
+        res.end(req.method === "HEAD" ? undefined : html);
+      });
       return;
     }
     res.writeHead(200, {

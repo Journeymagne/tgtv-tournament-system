@@ -82,6 +82,8 @@ const state = {
   leaderboardTab: "leaderboard",
   leaderboardVenue: "combined",
   leaderboardPage: 1,
+  leaderboardQuery: "",
+  leaderboardUserIds: null,
   adminUsersPage: 1,
   adminUsersQuery: "",
   gamesTab: "history",
@@ -115,6 +117,8 @@ const state = {
 
 let searchDebounce = null;
 let searchRequestId = 0;
+let leaderboardSearchDebounce = null;
+let leaderboardSearchRequestId = 0;
 let gamesRequestId = 0;
 let gamesFilterDebounce = null;
 let publicTournamentRequestId = 0;
@@ -2632,7 +2636,7 @@ function tournamentInfoTabContent(activeTab, data, options = {}) {
   if (activeTab === "participants") {
     if (options.admin && canManageTournamentParticipants(data)) return adminUi().adminTournamentParticipantsContent(data);
     return data?.tournament?.participantMode === "team"
-      ? publicTeamRostersList(data.rosters || [])
+      ? publicTeamRostersList(data.rosters || [], data)
       : publicParticipantsList(listedTournamentParticipants(data.participants || []));
   }
   if (activeTab === "tables") return adminUi().adminTournamentTablesContent(data);
@@ -4382,6 +4386,15 @@ function renderProfile() {
           </div>
           <button class="primary-button" type="submit">${t("profile.settings.saveContacts")}</button>
         </form>
+        <form class="settings-block profile-dashboard-card" data-profile-bcp-form>
+          <h3>Best Coast Pairings</h3>
+          <div class="field">
+            <label for="profile-bcp-email">${t("profile.settings.bcpEmail")}</label>
+            <input id="profile-bcp-email" name="bcpEmail" type="email" value="${escapeHtml(state.me.bcpEmail || "")}" maxlength="254" autocomplete="email" aria-describedby="profile-bcp-email-hint">
+          </div>
+          <p id="profile-bcp-email-hint" class="muted small-note">${t("profile.settings.bcpEmailHint")}</p>
+          <button class="primary-button" type="submit">${t("profile.settings.saveBcpEmail")}</button>
+        </form>
         ${emailProfileMarkup()}
         <form class="settings-block profile-dashboard-card" data-profile-password-form>
           <h3>${t("auth.field.password")}</h3>
@@ -4678,6 +4691,7 @@ function wireProfileSettings() {
   const removeAvatar = document.querySelector("[data-remove-avatar]");
   const nameForm = document.querySelector("[data-profile-name-form]");
   const contactForm = document.querySelector("[data-profile-contact-form]");
+  const bcpForm = document.querySelector("[data-profile-bcp-form]");
   const passwordForm = document.querySelector("[data-profile-password-form]");
 
   avatarInput?.addEventListener("change", async () => {
@@ -4712,6 +4726,12 @@ function wireProfileSettings() {
       registerNickname: form.get("registerNickname"),
       telegramContact: form.get("telegramContact")
     }, t("profile.settings.contactsUpdated"));
+  });
+
+  bcpForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = new FormData(bcpForm);
+    await updateProfile({ bcpEmail: form.get("bcpEmail") }, t("profile.settings.bcpEmailUpdated"));
   });
 
   passwordForm?.addEventListener("submit", async (event) => {
@@ -4802,10 +4822,17 @@ async function updateProfile(body, successMessage) {
     state.me = data.user;
     state.challenges = data.challenges || [];
     state.games = data.games || [];
+    if (Object.hasOwn(body, "name")) {
+      state.teamProfile = null;
+      state.rosterProfile = null;
+      state.publicTournamentDetail = null;
+    }
     renderShell();
     setProfileMessage(successMessage);
   } catch (err) {
-    setProfileMessage(err.message, true);
+    const message = Object.hasOwn(body, "bcpEmail") && err.message === "Enter a valid email address"
+      ? t("profile.settings.bcpEmailInvalid") : err.message;
+    setProfileMessage(message, true);
   }
 }
 
@@ -7643,6 +7670,47 @@ function updateTotals() {
 async function loadTop() {
   const data = await api(`/api/users?venue=${encodeURIComponent(state.leaderboardVenue)}`);
   state.users = data.users || [];
+  await loadLeaderboardSearch();
+}
+
+async function loadLeaderboardSearch() {
+  const requestId = ++leaderboardSearchRequestId;
+  const query = state.leaderboardQuery;
+  const venue = state.leaderboardVenue;
+  if (!query.trim()) {
+    state.leaderboardUserIds = null;
+    return true;
+  }
+  const data = await api(`/api/users?venue=${encodeURIComponent(venue)}&q=${encodeURIComponent(query)}`);
+  if (requestId !== leaderboardSearchRequestId || query !== state.leaderboardQuery || venue !== state.leaderboardVenue) return false;
+  state.leaderboardUserIds = (data.users || []).map((user) => user.id);
+  return true;
+}
+
+function wireLeaderboardSearch() {
+  const input = document.querySelector("[data-leaderboard-search]");
+  input?.addEventListener("input", () => {
+    clearTimeout(leaderboardSearchDebounce);
+    leaderboardSearchRequestId += 1;
+    state.leaderboardQuery = input.value;
+    state.leaderboardPage = 1;
+    const query = state.leaderboardQuery;
+    const venue = state.leaderboardVenue;
+    const results = document.querySelector("[data-leaderboard-results]");
+    const isCurrent = () => input.isConnected && query === state.leaderboardQuery && venue === state.leaderboardVenue;
+    results.innerHTML = `<div class="empty">${t("play.search.searching")}</div>`;
+    leaderboardSearchDebounce = setTimeout(async () => {
+      if (!isCurrent()) return;
+      try {
+        if (!await loadLeaderboardSearch() || !isCurrent()) return;
+        results.innerHTML = usersTable(state.users);
+        wirePaginationControls();
+        wireLeaderboardProfiles();
+      } catch (err) {
+        if (isCurrent()) results.innerHTML = `<div class="empty">${escapeHtml(err.message)}</div>`;
+      }
+    }, query.trim() ? 220 : 0);
+  });
 }
 
 async function loadTeamLeaderboard() {
@@ -7717,7 +7785,16 @@ function renderTop() {
             : t("leaderboard.hintWithVenue", { venue: state.leaderboardVenue === "irl" ? t("venue.irl") : "TTS" })}</p>
         </div>
       </div>
-      ${activeTab === "teams" ? teamsTable(state.teamLeaderboard) : usersTable(state.users)}
+      ${activeTab === "teams" ? teamsTable(state.teamLeaderboard) : `
+        <div class="filter-row">
+          <div class="field compact-field">
+            <label for="leaderboard-search">${t("leaderboard.users.searchLabel")}</label>
+            <input id="leaderboard-search" type="search" value="${escapeHtml(state.leaderboardQuery)}" placeholder="${t("leaderboard.users.searchPlaceholderTelegram")}" autocomplete="off" data-leaderboard-search>
+            <span class="field-help">${t("leaderboard.users.searchHint")}</span>
+          </div>
+        </div>
+        <div data-leaderboard-results>${usersTable(state.users)}</div>
+      `}
       <div class="message" data-message></div>
       </section>
     `}
@@ -7727,7 +7804,10 @@ function renderTop() {
   wirePaginationControls();
   if (activeTab === "users") adminUi().wireAdminUserControls();
   else if (activeTab === "teams") wireTeamLinks();
-  else wireLeaderboardProfiles();
+  else {
+    wireLeaderboardSearch();
+    wireLeaderboardProfiles();
+  }
 }
 
 function teamsTable(teams, { admin = false } = {}) {
@@ -7754,18 +7834,20 @@ function wireTeamLinks() {
 }
 
 function usersTable(users) {
-  const pageData = paginate(users, state.leaderboardPage);
+  const matches = state.leaderboardUserIds && new Set(state.leaderboardUserIds);
+  const rankedUsers = users.map((user, index) => ({ ...user, rank: index + 1 }));
+  const pageData = paginate(matches ? rankedUsers.filter((user) => matches.has(user.id)) : rankedUsers, state.leaderboardPage);
   state.leaderboardPage = pageData.currentPage;
-  if (!pageData.total) return `<div class="empty">${t("leaderboard.empty")}</div>`;
+  if (!pageData.total) return `<div class="empty">${t(state.leaderboardQuery.trim() ? "leaderboard.users.searchEmpty" : "leaderboard.empty")}</div>`;
   return `
     <div class="table-wrap">
       <table class="data-table leaderboard-table">
         <colgroup><col class="table-col-rank"><col><col class="table-col-rating"></colgroup>
         <thead><tr><th class="rank">#</th><th>${t("games.filter.playerLabel")}</th><th>${t("tournaments.card.rating")}</th></tr></thead>
         <tbody>
-          ${pageData.items.map((user, index) => `
+          ${pageData.items.map((user) => `
             <tr>
-              <td class="rank">${pageData.start + index + 1}</td>
+              <td class="rank">${user.rank}</td>
               <td>
                 <a href="/tournament#/players/${user.id}" data-app-link class="text-button player-name-button leaderboard-player-button" data-profile-user="${user.id}" title="${escapeHtml(user.name)}">
                   <span class="leaderboard-avatar">${avatarMarkup(user)}</span>
@@ -8227,6 +8309,7 @@ function renderRosterProfile() {
         <button class="ghost-button" data-roster-back>${t("common.back")}</button>
         <button class="small-button" data-roster-tournament>${t("teams.pairing.openTournament")}</button>
         ${(data.viewer?.canRename && (state.administrationContext || data.viewer.isCaptain || data.viewer.isTeamLeader)) ? `<button class="small-button" data-roster-rename>${t("teams.roster.rename")}</button>` : ""}
+        ${canEditTeamRosterDetails(data, roster) ? `<button class="small-button" data-roster-details-edit="${roster.id}">${t("teams.roster.editDetails")}</button>` : ""}
         ${roster.team?.slug ? `<a href="/teams/${escapeHtml(roster.team.slug)}" data-app-link class="small-button" data-team-profile-link="${escapeHtml(roster.team.slug)}">${t("teams.roster.openTeam")}</a>` : ""}
       </div></div>
       <div class="roster-summary-metrics">${metrics.map(([label, value]) => `<div class="card metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("")}</div>
@@ -8241,6 +8324,7 @@ function renderRosterProfile() {
   content.querySelector("[data-roster-back]").addEventListener("click", () => navigateBack(state.administrationContext ? `/tournament#/administration/tournaments/admin/${tournament.id}` : tournamentPublicPath(tournament.slug), { tournamentTab: "standings" }));
   content.querySelector("[data-roster-tournament]").addEventListener("click", () => navigateToPublicTournament(tournament.slug, { tab: "standings" }));
   content.querySelector("[data-roster-rename]")?.addEventListener("click", () => openRosterNameEditor(data));
+  wireTeamRosterDetailsControls(data, { roster: true });
   wireTeamTournamentControls(data, { roster: true });
   wireLeaderboardProfiles();
 }
@@ -8320,7 +8404,76 @@ function teamRosterStatusLabel(status) {
   return key ? t(key) : String(status || "");
 }
 
-function publicTeamRostersList(rosters) {
+function canEditTeamRosterDetails(data, roster) {
+  return Boolean((data.viewer?.canEditDetails ?? canManageTournamentParticipants(data))
+    && !roster.isReserve && !["withdrawn", "finished"].includes(roster.status)
+    && !["completed", "cancelled"].includes(data.tournament?.status));
+}
+
+function wireTeamRosterDetailsControls(data, options = {}) {
+  document.querySelectorAll("[data-roster-details-edit]").forEach((button) => {
+    onLive(button, "click", () => {
+      const roster = (data.rosters || [data.roster]).find((item) => item?.id === Number(button.dataset.rosterDetailsEdit));
+      if (roster) openTeamRosterDetailsEditor(data, roster, options);
+    });
+  });
+}
+
+function openTeamRosterDetailsEditor(data, roster, options = {}) {
+  if (!canEditTeamRosterDetails(data, roster)) return;
+  const members = activeRosterMembersForUi(roster).slice().sort((a, b) => a.slot - b.slot);
+  const captains = members.filter((member) => member.userId && !member.isProxy);
+  const dialog = document.createElement("dialog");
+  dialog.className = "tiebreaker-help-dialog team-roster-editor-dialog";
+  dialog.setAttribute("aria-labelledby", "roster-details-title");
+  dialog.innerHTML = `<form class="tiebreaker-help-content" data-roster-details-form>
+    <div class="tiebreaker-help-header"><div><h3 id="roster-details-title">${t("teams.roster.editDetails")}</h3><p>${escapeHtml(roster.name)}</p></div><button class="dialog-close-button" type="button" data-roster-details-close aria-label="${t("common.close")}">&times;</button></div>
+    <div class="field"><label for="roster-details-captain">${t("teams.tournament.captain")}</label>
+      <select id="roster-details-captain" name="captainUserId" data-user-search ${captains.length ? "required" : "disabled"}>
+        ${captains.length ? captains.map((member) => `<option value="${member.userId}" ${member.userId === roster.captainUserId ? "selected" : ""}>${escapeHtml(member.displayNameSnapshot)}</option>`).join("") : `<option value="">${t("teams.tournament.noCaptain")}</option>`}
+      </select>
+    </div>
+    <div class="team-roster-member-grid">${members.map((member) => `<div class="team-roster-player-row">
+      <div class="field"><label>${t("teams.tournament.player", { number: member.slot })}</label><strong>${escapeHtml(member.displayNameSnapshot)}</strong></div>
+      <div>${tournamentFactionFields(data.tournament, `roster-details-faction-${member.id}`, member, { optional: member.isProxy, select: true })}</div>
+    </div>`).join("")}</div>
+    <div class="message error" data-roster-details-message role="alert" hidden></div>
+    <div class="row-actions"><button class="small-button" type="button" data-roster-details-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("common.save")}</button></div>
+  </form>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("[data-roster-details-close]").addEventListener("click", close);
+  dialog.querySelector("[data-roster-details-cancel]").addEventListener("click", close);
+  const form = dialog.querySelector("[data-roster-details-form]");
+  const message = form.querySelector("[data-roster-details-message]");
+  const submit = form.querySelector('[type="submit"]');
+  wireComboFields(form);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (submit.disabled) return;
+    submit.disabled = true;
+    message.hidden = true;
+    try {
+      await api(`/api/tournaments/${data.tournament.id}/rosters/${roster.id}`, { method: "PATCH", body: {
+        captainUserId: form.elements.captainUserId.value ? Number(form.elements.captainUserId.value) : null,
+        memberFactions: members.map(member => ({ memberId: member.id, factions: factionsFromForm(form, `roster-details-faction-${member.id}`) }))
+      } });
+      if (state.publicTournamentDetail?.tournament?.id === data.tournament.id) state.publicTournamentDetail = null;
+      if (state.teamProfile?.team?.id === roster.teamId) state.teamProfile = null;
+      close();
+      if (options.roster) await openRosterProfile(roster.id, { navigate: false });
+      else await refreshTeamTournamentUi(data, options);
+    } catch (err) {
+      message.textContent = err.message;
+      message.hidden = false;
+      submit.disabled = false;
+    }
+  });
+  dialog.showModal();
+}
+
+function publicTeamRostersList(rosters, data) {
   if (!rosters.length) return `<div class="empty">${t("teams.tournament.rostersEmpty")}</div>`;
   return `<div class="list public-team-rosters">${rosters.map((roster) => `
     <div class="row-card">
@@ -8333,6 +8486,7 @@ function publicTeamRostersList(rosters) {
           <span>${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })} · ${escapeHtml(tournamentFactionsLabel(member))}${member.userId && member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>
         `).join("")}</div>
       </div>
+      ${canEditTeamRosterDetails(data, roster) ? `<div class="row-actions"><button class="small-button" data-roster-details-edit="${roster.id}">${t("teams.roster.editDetails")}</button></div>` : ""}
     </div>
   `).join("")}</div>`;
 }
@@ -9126,6 +9280,7 @@ async function refreshTournamentParticipantView(tournament) {
 function wireTournamentInfoControls(data, options = {}) {
   wireLeaderboardProfiles();
   wireTournamentRoundTabs();
+  wireTeamRosterDetailsControls(data, options);
   if (data?.tournament?.participantMode === "team") wireTeamTournamentControls(data, options);
   document.querySelectorAll("[data-tournament-info-tab]").forEach((button) => {
     onLive(button, "click", async () => {

@@ -1050,6 +1050,7 @@ function adminTeamRostersContent(data) {
         <div class="row-actions">
           ${roster.status !== "withdrawn" ? `<input class="seed-input" type="number" min="1" max="128" value="${roster.seed || 1}" data-team-roster-seed="${roster.id}" ${seedLocked ? "disabled" : ""}>` : ""}
           ${registrationPaymentCheckbox(roster, "rosters")}
+          ${canEditTeamRosterDetails(data, roster) ? `<button class="small-button" data-roster-details-edit="${roster.id}">${t("teams.roster.editDetails")}</button>` : ""}
           ${!["withdrawn", "finished"].includes(roster.status) && !["completed", "cancelled"].includes(tournament.status) ? `<button class="small-button" data-admin-team-roster-edit="${roster.id}">${t(roster.isReserve ? "teams.reserve.fill" : "teams.tournament.edit")}</button>` : ""}
           ${!seedLocked && roster.status !== "withdrawn" ? `<button class="danger-button" data-admin-team-roster-withdraw="${roster.id}">${t("teams.tournament.withdraw")}</button>` : ""}
           ${!started || roster.status !== "withdrawn" ? `<button class="danger-button" data-admin-team-roster-delete="${roster.id}">${t("teams.tournament.delete")}</button>` : ""}

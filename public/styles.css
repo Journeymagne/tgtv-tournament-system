@@ -4415,6 +4415,11 @@ tr:last-child td {
   justify-content: flex-start;
 }
 
+.profile-card-content > .row-card:has([data-tournament-game-open]) {
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .profile-card-content,
 .profile-teams-card > .list {
   flex: 1;

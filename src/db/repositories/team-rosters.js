@@ -38,7 +38,7 @@ function mapRosterMember(row) {
     userId: row.user_id,
     isProxy: Boolean(row.is_proxy),
     slot: row.slot,
-    displayNameSnapshot: row.display_name_snapshot,
+    displayNameSnapshot: (!row.ended_at && row.user_name) || row.display_name_snapshot,
     factionSnapshot: row.faction_snapshot,
     factions: row.factions?.length ? row.factions : row.faction_snapshot ? [row.faction_snapshot] : [],
     joinedAt: toIso(row.joined_at),

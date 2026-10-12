@@ -103,7 +103,7 @@ function challengeProgressView(games, user) {
 
 function userSummary({ user, hasAdmin, challenges, games, teamPairings = [], people }) {
   return {
-    user: { ...publicUser(user), isSuperAdmin: Boolean(user.isSuperAdmin),
+    user: { ...publicUser(user), bcpEmail: user.bcpEmail || "", isSuperAdmin: Boolean(user.isSuperAdmin),
       isFAQModerator: Boolean(user.isFAQModerator),
       canCreateTournaments: Boolean(user.canCreateTournaments),
       capabilities: user.capabilities || {}, managedTournamentIds: user.managedTournamentIds || [] },

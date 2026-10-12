@@ -212,6 +212,26 @@ async function updateRoster({ client, user, params, body }) {
     patch.name = normalizeRosterName(body.name);
     patch.nameKey = teamNameKey(patch.name);
   }
+  if (Object.hasOwn(body, "memberFactions")) {
+    if (!canManageTournament(user, tournament)) throw new HttpError(403, "Only tournament administrators can change roster factions");
+    if (Object.hasOwn(body, "members")) throw new ValidationError("Change roster players and factions separately");
+    if (!Array.isArray(body.memberFactions) || !body.memberFactions.length || body.memberFactions.length > 3) {
+      throw new ValidationError("Choose valid roster players and factions");
+    }
+    const seen = new Set();
+    for (const entry of body.memberFactions) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new ValidationError("Choose a valid roster player");
+      const memberId = requirePositiveIntId(entry.memberId, 400, "Choose a valid roster player");
+      const member = rosterMember(roster, memberId);
+      if (!member || seen.has(memberId)) throw new ValidationError("Choose unique active players from this roster");
+      seen.add(memberId);
+      const factions = normalizeFactions(entry, tournament, { allowEmpty: member.isProxy });
+      await client.query(
+        "UPDATE tournament_team_roster_members SET faction_snapshot = $2, factions = $3::text[], updated_at = NOW() WHERE id = $1",
+        [member.id, factions[0] || "", factions]
+      );
+    }
+  }
   if (Array.isArray(body.members)) {
     const team = await teamsRepo.findById(client, roster.teamId, true);
     const members = await normalizeRosterMembers(client, team, body.members, {
@@ -256,8 +276,9 @@ async function updateRoster({ client, user, params, body }) {
   }
   try {
     const updated = await rostersRepo.update(client, roster.id, patch);
-    // A display-name change must not discard the organizer's prepared pairings.
-    if (!nameOnly) await clearPreparedRounds(client, tournament);
+    // Only changing players invalidates prepared pairings. Captain, faction and
+    // name edits retain the same tournament seats and existing game snapshots.
+    if (Array.isArray(body.members)) await clearPreparedRounds(client, tournament);
     await audit(client, tournament, user, "roster_update", { teamId: roster.teamId, entityType: "roster", entityId: roster.id, before, after: updated });
     return { roster: { ...updated, paid: canManageTournament(user, tournament) ? updated.paid : undefined } };
   } catch (err) {
@@ -668,6 +689,9 @@ async function getRoster({ client, user, params }) {
     viewer: {
       isTeamLeader: teamLeader,
       isCaptain: Boolean(user && roster.captainUserId === user.id),
+      canEditDetails: !roster.isReserve && !["withdrawn", "finished"].includes(roster.status)
+        && !["completed", "cancelled"].includes(tournament.status)
+        && canManageTournament(user, tournament),
       canRename: !roster.isReserve && !["withdrawn", "finished"].includes(roster.status)
         && !["completed", "cancelled"].includes(tournament.status)
         && canEditRoster(user, roster, teamLeader ? { role: "leader" } : null)

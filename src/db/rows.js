@@ -4,7 +4,7 @@ const { avatarUrl } = require("../domain/avatars");
 // GET /api/users/:id/avatar and never selected here.
 const USER_COLUMNS = `
   id, name, name_key, password_hash, avatar_version, register_nickname,
-  telegram_contact, challenge_credits, rating, rating_tts, rating_irl, rating_combined,
+  telegram_contact, bcp_email, challenge_credits, rating, rating_tts, rating_irl, rating_combined,
   is_admin, created_at, updated_at
 `;
 
@@ -88,6 +88,7 @@ function mapUser(row) {
     avatarUrl: avatarUrl(row.id, row.avatar_version),
     registerNickname: row.register_nickname || "",
     telegramContact: row.telegram_contact || "",
+    bcpEmail: row.bcp_email || "",
     challengeCredits: Array.isArray(row.challenge_credits) ? row.challenge_credits : [],
     rating: row.rating_tts ?? row.rating,
     ratings: {

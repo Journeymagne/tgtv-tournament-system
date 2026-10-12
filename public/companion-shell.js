@@ -35,18 +35,19 @@
     brand.className = "companion-service-brand";
     const home = document.createElement("a"); home.className = "companion-logo-link";
     home.href = serviceUrl("home"); home.setAttribute("aria-label", "На главную KT Companion"); home.title = "На главную KT Companion";
-    const logo = document.createElement("img"); logo.dataset.companionLogo = "mark"; logo.src = brandLogoUrl(); logo.alt = ""; logo.width = 48; logo.height = 32;
+    const logo = document.createElement("img"); logo.dataset.companionLogo = "mark"; logo.src = brandLogoUrl(); logo.alt = ""; logo.width = 56; logo.height = 50;
     home.append(logo);
-    const title = document.createElement(["home", "account"].includes(active) ? "span" : "a");
+    const title = document.createElement("a");
     title.className = "companion-service-link";
-    if (!["home", "account"].includes(active)) title.href = serviceUrl(active) + (active === "studio" ? "#/library" : active === "tournament" ? "#/mygames" : "");
-    if (["initiative", "tracker"].includes(active)) title.addEventListener("click", event => {
-      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || !window.KTCalculator) return;
-      event.preventDefault(); window.KTCalculator.reset();
-      document.querySelectorAll(".page-shell details[open]").forEach(details => { details.open = false; });
-      window.scrollTo(0, 0);
-    });
-    title.textContent = ({ home: "KT Companion", account: "Почта и доступ", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Dice Generator", faq: "TTS Community FAQ" })[active] || "KT Companion";
+    title.href = active === "account" ? "/account-email.html" : serviceUrl(active) + (active === "studio" ? "#/library" : active === "tournament" ? "#/mygames" : "");
+    const name = document.createElement("span"); name.className = "companion-service-name";
+    name.textContent = "KT COMPANION";
+    title.append(name);
+    const label = ({ account: "Почта и доступ", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Dice Generator", faq: "TTS Community FAQ", combat: "Combat Lab" })[active];
+    if (label) {
+      const tool = document.createElement("small"); tool.className = "companion-service-tool";
+      tool.textContent = label; title.append(tool);
+    }
     brand.append(home, title); mount.append(brand);
     const controls = document.createElement("div"); controls.className = "companion-tools"; mount.append(controls);
     if (window.KTAppearance) {

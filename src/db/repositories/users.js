@@ -76,15 +76,23 @@ async function isNameTaken(client, name, excludeId = null) {
   return rows.length > 0;
 }
 
-async function listLeaderboard(client, venueMode = "combined") {
+async function listLeaderboard(client, venueMode = "combined", query = "") {
   const mode = normalizeRatingMode(venueMode);
   const column = ratingColumn(mode);
+  const term = String(query || "").trim().toLocaleLowerCase();
+  const telegramUsername = (value) => String(value || "").trim().toLocaleLowerCase()
+    .replace(/^(?:https?:\/\/)?(?:t\.me\/)?@?/, "").replace(/\/$/, "");
+  const telegramTerm = telegramUsername(term);
   const { rows } = await client.query(
     `SELECT id, name, avatar_version, rating_tts, rating_irl, rating_combined,
-            ${column} AS selected_rating, is_admin
+            ${column} AS selected_rating, is_admin, register_nickname, telegram_contact
      FROM users ORDER BY ${column} DESC, name ASC`
   );
-  return rows.map((row) => ({
+  return rows.filter((row) => !term ||
+    String(row.name || "").toLocaleLowerCase().includes(term) ||
+    String(row.register_nickname || "").toLocaleLowerCase().includes(term) ||
+    (telegramTerm && telegramUsername(row.telegram_contact).includes(telegramTerm))
+  ).map((row) => ({
     id: row.id,
     name: row.name,
     avatarUrl: avatarUrl(row.id, row.avatar_version),
@@ -142,8 +150,8 @@ async function insert(client, user) {
   const { rows } = await client.query(
     `INSERT INTO users
        (name, name_key, password_hash, avatar_data, avatar_version, register_nickname,
-        telegram_contact, challenge_credits, rating, rating_tts, rating_irl, rating_combined, is_admin)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $9, $9, $9, $10)
+        telegram_contact, challenge_credits, rating, rating_tts, rating_irl, rating_combined, is_admin, bcp_email)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $9, $9, $9, $10, $11)
      RETURNING ${COLUMNS}`,
     [
       user.name,
@@ -155,7 +163,8 @@ async function insert(client, user) {
       user.telegramContact || null,
       JSON.stringify(user.challengeCredits || []),
       user.rating,
-      Boolean(user.isAdmin)
+      Boolean(user.isAdmin),
+      user.bcpEmail || null
     ]
   );
   return mapUser(rows[0]);
@@ -165,7 +174,8 @@ const PROFILE_COLUMNS = {
   name: "name",
   avatarData: "avatar_data",
   registerNickname: "register_nickname",
-  telegramContact: "telegram_contact"
+  telegramContact: "telegram_contact",
+  bcpEmail: "bcp_email"
 };
 
 // The bytes are the only thing that ever writes avatar_data, and the
