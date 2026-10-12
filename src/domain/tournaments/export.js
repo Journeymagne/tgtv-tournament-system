@@ -55,7 +55,7 @@ function tournamentExportTable({ tournament, participants = [], rounds = [], mat
   const rows = results.filter(row => row.participant).map(row => {
     const participant = row.participant;
     return [row.rank, false, participant.displayName || peopleById.get(participant.userId)?.name || "",
-      participant.faction || "", row.matchPoints,
+      (participant.factions?.length ? participant.factions : [participant.faction].filter(Boolean)).join(" / "), row.matchPoints,
       ...tiebreakers.map(entry => entry ? row[entry[0]] ?? null : null),
       ...groups.flatMap(group => roundValues(group.matches.get(participant.id), participant, participantById, tableById))];
   });

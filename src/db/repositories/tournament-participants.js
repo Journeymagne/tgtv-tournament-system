@@ -11,6 +11,7 @@ const FIELD_COLUMNS = {
   displayName: "display_name",
   displayNameKey: "display_name_key",
   faction: "faction",
+  factions: "factions",
   factionRules: "faction_rules",
   seed: "seed",
   status: "status",
@@ -37,8 +38,8 @@ async function insert(client, participant) {
   const { rows } = await client.query(
     `INSERT INTO tournament_participants
        (tournament_id, user_id, display_name, display_name_key, faction,
-        faction_rules, seed, status, source)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        faction_rules, seed, status, source, factions)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text[])
      RETURNING ${COLUMNS}`,
     [
       participant.tournamentId,
@@ -49,7 +50,8 @@ async function insert(client, participant) {
       participant.factionRules || null,
       seed,
       participant.status,
-      participant.source
+      participant.source,
+      participant.factions || (participant.faction ? [participant.faction] : [])
     ]
   );
   return mapTournamentParticipant(rows[0]);

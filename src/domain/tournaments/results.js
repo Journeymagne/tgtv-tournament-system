@@ -68,14 +68,16 @@ function matchParticipant(match, participant) {
   const saved = match.participantSnapshots?.[participant.id];
   if (!saved) return participant;
   return { ...participant, ...saved,
+    factions: saved.factions || (saved.faction ? [saved.faction] : []),
     user: participant.user?.id === saved.userId ? participant.user : null,
     userPublicId: null,
-    ...(participant.factionHidden ? { faction: "", factionRules: "" } : {}) };
+    ...(participant.factionHidden ? { faction: "", factions: [], factionRules: "" } : {}) };
 }
 
 function participantIdentity(participant) {
   return { id: participant.id, userId: participant.userId ?? null, resultKey: participantResultKey(participant),
     displayName: participant.displayName, faction: participant.faction || "",
+    factions: participant.factions || (participant.faction ? [participant.faction] : []),
     factionRules: participant.factionRules || "", isProxy: Boolean(participant.isProxy) };
 }
 

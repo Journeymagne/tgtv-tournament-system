@@ -2,6 +2,7 @@ const { HttpError, ValidationError } = require("../http/io");
 const { canManageTournament } = require("../domain/access");
 const { requirePositiveIntId } = require("./params");
 const { requireKillTeam } = require("../domain/kill-teams");
+const { normalizeFactions } = require("../domain/tournaments/factions");
 const { participantNameKey } = require("../domain/tournaments/input");
 const { participantIdentity, matchParticipant, participantResultKey } = require("../domain/tournaments/results");
 const participantsRepo = require("../db/repositories/tournament-participants");
@@ -46,6 +47,10 @@ async function replaceParticipant(client, tournament, participant, user, body) {
   const patch = { userId: replacementUser?.id ?? null, displayName,
     displayNameKey: participantNameKey(displayName), isProxy,
     ...(Object.hasOwn(body, "faction") ? { faction: requireKillTeam(body.faction) } : {}) };
+  if (Object.hasOwn(body, "factions") || Object.hasOwn(body, "faction")) {
+    patch.factions = normalizeFactions(body, tournament, { allowEmpty: isProxy });
+    patch.faction = patch.factions[0] || "";
+  }
   const next = { ...participant, ...patch };
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
   const { rows: locked } = await client.query(

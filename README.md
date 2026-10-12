@@ -30,6 +30,11 @@ text and image frames, cropping, layers, text backgrounds and PDF overflow check
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
 
+Tournament organizers can allow up to three [factions per player](docs/tournament-factions.md).
+Additional factions are optional in solo, WTC, Classic and Doubles events; match reports
+select one registered faction. Startup migration **053_tournament_factions**
+preserves the single-faction default for existing tournaments.
+
 Tournament administrators can register team rosters with empty proxies, including
 teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
@@ -43,6 +48,18 @@ New individual and team events default to the latest active
 [season](docs/tournament-seasons.md). A super administrator can change an event's
 season in its settings, including after completion. Existing results then count
 toward statistics for the selected season while scores and ratings are retained.
+
+## Release 1.1.1 — Multiple factions
+
+Tournament organizers can allow one, two or three factions per player in solo,
+WTC, Classic and IRL Doubles. Only one faction is required; additional slots
+are optional. Multi-faction match reports select a player's registered faction.
+See [faction settings](docs/tournament-factions.md) and
+[release validation](docs/release-1.1.1-validation.md).
+
+Migration **053_tournament_factions** runs after **052_doubles_irl** and keeps
+existing events at one faction. Application, Combat Lab, both lockfiles and
+client assets use version 1.1.1. No dependency or environment changes are needed.
 
 ## Release 1.1.0 — IRL Doubles
 

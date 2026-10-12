@@ -2094,7 +2094,7 @@ function renderTournamentJoinForm(data) {
               required
             >
           </div>
-          ${comboField(t("tournaments.field.faction"), "faction", "faction", "", t("tournaments.registration.factionPlaceholder"))}
+          ${tournamentFactionFields(tournament, "faction")}
           <button class="primary-button" type="submit">${t("tournaments.registration.submit")}</button>
           <div class="message" data-message></div>
         </form>
@@ -2129,7 +2129,7 @@ function renderTournamentJoinForm(data) {
       state.me = profile.user || state.me;
       await api(`/api/tournaments/${tournament.id}/join`, {
         method: "POST",
-        body: { faction }
+        body: { faction, factions: factionsFromForm(form, "faction") }
       });
       await renderPublicTournamentRoute(tournament.slug, { force: true });
     } catch (err) {
@@ -2146,7 +2146,38 @@ function usesIndividualTeamPoints(value) {
   return ["sword_shield_classic", "doubles"].includes(value?.pairingType);
 }
 
-function teamRosterMemberFields(team, roster = null, { allowProxies = false, teamSize = 3 } = {}) {
+function tournamentRegisteredFactions(participant = {}) {
+  const factions = participant.factions?.length ? participant.factions : [participant.faction || participant.factionSnapshot || ""];
+  return factions.map(faction => String(faction || "").trim()).filter(Boolean);
+}
+
+function tournamentFactionsLabel(participant = {}) {
+  return participant.factionHidden ? t("tournaments.participant.factionHidden")
+    : tournamentRegisteredFactions(participant).join(" / ") || t("tournaments.participant.factionMissing");
+}
+
+function tournamentFactionFields(tournament = {}, name, participant = {}, { optional = false, disabled = false, select = false } = {}) {
+  const count = tournament.factionCount || 1;
+  const factions = tournamentRegisteredFactions(participant);
+  return Array.from({ length: count }, (_, index) => {
+    const fieldName = index ? `${name}-extra-${index + 1}` : name;
+    const label = count > 1 ? t("tournaments.factions.number", { number: index + 1 }) : t("tournaments.field.faction");
+    const isOptional = optional || index > 0;
+    return select ? `<div class="field"><label for="${escapeHtml(fieldName)}">${escapeHtml(label)}</label>
+      <select id="${escapeHtml(fieldName)}" name="${escapeHtml(fieldName)}" ${isOptional ? "" : "required"} ${disabled ? "disabled" : ""}>
+        <option value="">${t(isOptional ? "tournaments.factions.optional" : "tournaments.registration.factionPlaceholder")}</option>
+        ${optionsHtml(killTeamOptions, factions[index] || "")}
+      </select></div>` : comboField(label, fieldName, "faction", factions[index] || "",
+        t(isOptional ? "tournaments.factions.optional" : "tournaments.registration.factionPlaceholder"), { optional: isOptional, disabled });
+  }).join("") + (count > 1 ? `<p class="field-help">${t("tournaments.factions.hint", { count })}</p>` : "");
+}
+
+function factionsFromForm(form, name) {
+  return [name, `${name}-extra-2`, `${name}-extra-3`]
+    .map(field => form.querySelector(`[name="${field}"]`)?.value?.trim() || "").filter(Boolean);
+}
+
+function teamRosterMemberFields(team, roster = null, { allowProxies = false, teamSize = 3, tournament = {} } = {}) {
   const members = [...(team?.members || [])].filter((member) => member.userId && !member.endedAt);
   members.sort((a, b) => (b.userId === state.me?.id) - (a.userId === state.me?.id));
   const options = (selectedId) => members.map((member) => `
@@ -2163,13 +2194,7 @@ function teamRosterMemberFields(team, roster = null, { allowProxies = false, tea
             <label>${t("teams.tournament.player", { number: index + 1 })}</label>
             <select name="member-${index + 1}" data-user-search required>${options(defaults[index])}${allowProxies || slots[index]?.isProxy ? `<option value="proxy" ${defaults[index] === "proxy" ? "selected" : ""}>${escapeHtml(slots[index]?.isProxy ? slots[index].displayNameSnapshot : t("teams.tournament.emptyProxy"))}</option>` : ""}</select>
           </div>
-          <div class="field">
-            <label>${t("tournaments.field.faction")}</label>
-            <select name="faction-${index + 1}" ${defaults[index] === "proxy" ? "" : "required"}>
-              <option value="">${t("tournaments.registration.factionPlaceholder")}</option>
-              ${optionsHtml(killTeamOptions, slots[index]?.factionSnapshot || "")}
-            </select>
-          </div>
+          <div>${tournamentFactionFields(tournament, `faction-${index + 1}`, slots[index] || {}, { optional: defaults[index] === "proxy", select: true })}</div>
         </div>
       `).join("")}
     </div>
@@ -2185,7 +2210,8 @@ function teamRosterMembersFromForm(form) {
   return [1, 2, 3].filter(slot => form.elements[`member-${slot}`]).map((slot) => {
     const value = form.elements[`member-${slot}`].value;
     return { userId: value === "proxy" ? null : Number(value),
-      ...(value === "proxy" ? { proxy: true } : {}), faction: form.elements[`faction-${slot}`].value };
+      ...(value === "proxy" ? { proxy: true } : {}), faction: form.elements[`faction-${slot}`].value,
+      factions: factionsFromForm(form, `faction-${slot}`) };
   });
 }
 
@@ -2265,7 +2291,7 @@ function renderTeamRosterRegistration(data, editingRoster = null) {
               <div class="field"><label>${t("teams.tournament.team")}</label><select name="teamId" required ${editingRoster ? "disabled" : ""}>${teams.map((team) => `<option value="${team.id}" ${team.id === firstTeam?.id ? "selected" : ""}>${escapeHtml(team.name)}</option>`).join("")}</select></div>
               <div class="field"><label>${t("teams.tournament.rosterName")}</label><input name="name" minlength="2" maxlength="80" data-default-name="${escapeHtml(suggestedRosterName(firstTeam, data.rosters))}" value="${escapeHtml(editingRoster?.name || suggestedRosterName(firstTeam, data.rosters))}" ${editingRoster ? "required" : ""}></div>
             </div>
-            <div data-team-roster-member-fields>${teamRosterMemberFields(firstTeam, editingRoster, { allowProxies, teamSize: teamSizeFor(tournament) })}</div>
+            <div data-team-roster-member-fields>${teamRosterMemberFields(firstTeam, editingRoster, { allowProxies, teamSize: teamSizeFor(tournament), tournament })}</div>
             <button class="primary-button" type="submit">${t(editingRoster ? "common.save" : "teams.tournament.registerSubmit")}</button>
             <div class="message" data-message></div>
           </form>
@@ -2278,7 +2304,7 @@ function renderTeamRosterRegistration(data, editingRoster = null) {
   form?.elements.teamId?.addEventListener("change", () => {
     const team = teams.find((item) => item.id === Number(form.elements.teamId.value));
     const fields = form.querySelector("[data-team-roster-member-fields]");
-    if (fields) fields.innerHTML = teamRosterMemberFields(team, null, { allowProxies, teamSize: teamSizeFor(tournament) });
+    if (fields) fields.innerHTML = teamRosterMemberFields(team, null, { allowProxies, teamSize: teamSizeFor(tournament), tournament });
     updateRosterNameDefault(form, team, data.rosters);
     wireTeamRosterMemberSelection(form);
   });
@@ -2398,17 +2424,19 @@ function formatLabel(format) {
 }
 
 function tournamentFormatLabel(tournament) {
-  return tournament?.participantMode === "team"
+  const format = tournament?.participantMode === "team"
     ? t("tournaments.participantMode.team")
     : formatLabel(tournament?.format);
+  return `${format} · ${t("tournaments.factions.tag", { count: tournament?.factionCount || 1 })}`;
 }
 
 function tournamentFormatSummary(tournament) {
-  if (tournament?.participantMode !== "team") return formatLabel(tournament?.format);
+  if (tournament?.participantMode !== "team") return tournamentFormatLabel(tournament);
   return [
     t("tournaments.participantMode.team"),
     t(tournament.pairingType === "doubles" ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree"),
-    t(tournament.pairingType === "doubles" ? "doubles.name" : tournament.pairingType === "sword_shield_classic" ? "classic.name" : "tournaments.pairingType.shieldSword")
+    t(tournament.pairingType === "doubles" ? "doubles.name" : tournament.pairingType === "sword_shield_classic" ? "classic.name" : "tournaments.pairingType.shieldSword"),
+    t("tournaments.factions.tag", { count: tournament.factionCount || 1 })
   ].join(" · ");
 }
 
@@ -2666,7 +2694,7 @@ function publicStandingsTable(data) {
               <tr>
                 <td class="rank">${row.rank}</td>
                 <td>${tournamentParticipantProfileLink(participant, t("tournaments.player.fallback"))}</td>
-                <td>${escapeHtml(participant?.factionHidden ? t("tournaments.participant.factionHidden") : participant?.faction || t("tournaments.participant.factionMissing"))}</td>
+                <td>${escapeHtml(tournamentFactionsLabel(participant || {}))}</td>
                 <td>${row.matchPoints}</td>
                 <td>${row.wins}-${row.draws}-${row.losses}</td>
                 ${tiebreakerColumns.map((column) => `<td>${column.value(row)}</td>`).join("")}
@@ -2687,7 +2715,7 @@ function publicParticipantsList(participants) {
         <div class="row-card compact-row-card">
           <div class="row-main">
             <div class="row-title">${tournamentParticipantProfileLink(participant)}</div>
-            <div class="row-meta">${escapeHtml(participant.factionHidden ? t("tournaments.participant.factionHidden") : participant.faction || t("tournaments.participant.factionMissing"))}</div>
+            <div class="row-meta">${escapeHtml(tournamentFactionsLabel(participant))}</div>
           </div>
           <span class="status ${participant.status === "active" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(tournamentParticipantStatusLabel(participant.status))}</span>
         </div>
@@ -6582,6 +6610,7 @@ function participantResultPlayer(participant) {
     participantId: participant.id,
     name: participant.displayName || participant.user?.name || t("tournaments.player.fallback"),
     faction: participant.faction || "",
+    factions: participant.factions,
     hasProfile: Boolean(participant.userId)
   };
 }
@@ -6608,6 +6637,7 @@ function renderTournamentResultForm(data, match, options = {}) {
   const { admin = false, publicRoute = false, returnTo = "" } = options;
   const tournament = data.tournament || {};
   const game = tournamentGameLike(match);
+  if ((tournament.factionCount || 1) === 1) game.players.forEach(player => delete player.factions);
   if (game.players.length !== 2) return;
   const existingResult = match.result || match.pendingResult?.result || null;
   const missionDefaults = existingResult?.killzone || match.mission || {};
@@ -6942,7 +6972,10 @@ function scoreCard(player, score = {}) {
     <div class="score-card" data-score-card="${player.id}">
       <h4>${playerProfileLink(player)}</h4>
       <div class="score-meta-grid">
-        ${comboField(t("games.filter.teamLabel"), `faction-${player.id}`, "faction", score.faction || player.faction || "", t("tournaments.score.searchKillTeam"))}
+        ${player.factions?.length ? `<div class="field"><label for="result-faction-${player.id}">${t("games.filter.teamLabel")}</label>
+          <select id="result-faction-${player.id}" name="faction-${player.id}" required>
+            ${optionsHtml(player.factions, player.factions.includes(score.faction) ? score.faction : player.factions[0])}
+          </select></div>` : comboField(t("games.filter.teamLabel"), `faction-${player.id}`, "faction", score.faction || player.faction || "", t("tournaments.score.searchKillTeam"))}
         ${comboField(t("op.tac"), `tac-op-${player.id}`, "tacOp", score.tacOp, t("tournaments.score.searchTacOp"))}
       </div>
       <div class="score-fields">
@@ -6982,7 +7015,7 @@ function debugRandomResultButtonMarkup() {
 
 function fillDebugRandomResult(players = []) {
   for (const player of players) {
-    setFormControlValue(`faction-${player.id}`, validKillTeamName(player.faction) || randomOption(killTeamOptions));
+    setFormControlValue(`faction-${player.id}`, player.factions?.length ? randomOption(player.factions) : validKillTeamName(player.faction) || randomOption(killTeamOptions));
     setFormControlValue(`tac-op-${player.id}`, randomOption(tacOpOptions));
     setFormControlValue(`crit-${player.id}`, randomInteger(0, 6));
     setFormControlValue(`tac-${player.id}`, randomInteger(0, 6));
@@ -7841,14 +7874,15 @@ function tournamentFactionPicks(data) {
   const participants = data.tournament?.participantMode === "team"
     ? (data.rosters || []).filter((roster) => roster.status !== "withdrawn")
       .flatMap((roster) => (roster.members || []).filter((member) => !member.endedAt)
-        .map((member) => ({ faction: member.factionSnapshot, factionHidden: member.factionHidden })))
+        .map((member) => ({ faction: member.factionSnapshot, factions: member.factions, factionHidden: member.factionHidden })))
     : (data.participants || []).filter((participant) => !["withdrawn", "removed"].includes(participant.status));
   // A partial view of the viewer's own roster would misrepresent the tournament's picks.
   if (participants.some((participant) => participant.factionHidden)) return { hidden: true, rows: [] };
   const byFaction = new Map();
   for (const participant of participants) {
-    const faction = (participant.faction || "").trim();
-    if (faction) byFaction.set(faction, (byFaction.get(faction) || 0) + 1);
+    for (const faction of tournamentRegisteredFactions(participant)) {
+      if (faction) byFaction.set(faction, (byFaction.get(faction) || 0) + 1);
+    }
   }
   return {
     hidden: false,
@@ -8199,7 +8233,7 @@ function renderRosterProfile() {
     </section>
     <section class="card panel"><h3>${t("teams.roster.players")}</h3><div class="list">${members.map((member) => `<div class="row-card"><div class="row-main">
       <div class="row-title">${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })}${member.userId && member.userId === roster.captainUserId && !member.endedAt ? ` · ${t("teams.role.captain")}` : ""}</div>
-      <div class="row-meta">${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot || t("tournaments.participant.factionMissing"))}${member.endedAt ? ` · ${t("teams.roster.formerPlayer")} · ${fmtDate(member.endedAt)}` : ""}</div>
+      <div class="row-meta">${escapeHtml(tournamentFactionsLabel(member))}${member.endedAt ? ` · ${t("teams.roster.formerPlayer")} · ${fmtDate(member.endedAt)}` : ""}</div>
     </div></div>`).join("")}</div></section>
     <section class="card panel"><h3>${t("teams.roster.matchHistory")}</h3><div class="list">${rosterMatchHistoryMarkup(data)}</div></section>
     <div class="message" data-message></div>
@@ -8296,7 +8330,7 @@ function publicTeamRostersList(rosters) {
           <div class="row-meta">${rosterTeamLinkMarkup(roster)} · ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
         </div></div>
         <div class="team-roster-members">${activeRosterMembersForUi(roster).slice().sort((a, b) => a.slot - b.slot).map((member) => `
-          <span>${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot || t("tournaments.participant.factionMissing"))}${member.userId && member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>
+          <span>${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })} · ${escapeHtml(tournamentFactionsLabel(member))}${member.userId && member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>
         `).join("")}</div>
       </div>
     </div>
@@ -8405,9 +8439,7 @@ function teamMatchPhaseLabel(phase) {
 function teamPairingMemberLabel(member) {
   if (!member) return t("tournaments.player.fallback");
   const name = member.displayNameSnapshot || t("tournaments.player.fallback");
-  const faction = member.factionHidden
-    ? t("tournaments.participant.factionHidden")
-    : member.factionSnapshot || t("tournaments.participant.factionMissing");
+  const faction = tournamentFactionsLabel(member);
   return `${name} (${faction})`;
 }
 
@@ -8422,8 +8454,7 @@ function teamPairingRostersMarkup(match) {
   const id = `team-pairing-rosters-${Number(match.id)}`;
   const memberMarkup = (member, side) => {
     if (!member) return `<div aria-hidden="true"></div>`;
-    const faction = member.factionHidden ? t("tournaments.participant.factionHidden")
-      : member.factionSnapshot || t("tournaments.participant.factionMissing");
+    const faction = tournamentFactionsLabel(member);
     return `<div class="team-pairing-roster-member" aria-labelledby="${id}-${side}">
       <strong>${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot }, t("tournaments.player.fallback"))}</strong>
       <span class="team-pairing-roster-faction">${escapeHtml(faction)}</span>
@@ -10229,7 +10260,7 @@ function teamRosterHistory(rosters) {
   return rosters.map((roster) => `<div class="row-card compact-row-card"><div class="row-main">
     <div class="row-title">${teamRosterLabel(roster)}</div>
     <div class="row-meta">${escapeHtml(roster.tournament?.name || "")} / ${t("teams.roster.seed", { seed: roster.seed || "-" })} / ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
-    ${activeRosterMembersForUi(roster).map((member) => `${escapeHtml(member.displayNameSnapshot)} (${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)})${member.userId && member.userId === roster.captainUserId ? ` — ${t("teams.role.captain")}` : ""}`).join("<br>")}
+    ${activeRosterMembersForUi(roster).map((member) => `${escapeHtml(member.displayNameSnapshot)} (${escapeHtml(tournamentFactionsLabel(member))})${member.userId && member.userId === roster.captainUserId ? ` — ${t("teams.role.captain")}` : ""}`).join("<br>")}
   </div><a href="/tournament#/rosters/${roster.id}" data-app-link class="small-button" data-roster-profile-link="${roster.id}">${t("common.open")}</a></div>`).join("");
 }
 

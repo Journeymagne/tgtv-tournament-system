@@ -6,7 +6,7 @@ const { createI18n } = require("../../public/i18n.js");
 
 const source = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf8");
 const i18n = createI18n({ en: require("../../public/i18n/en.js"), ru: require("../../public/i18n/ru.js") });
-const names = ["tournamentStatsContent", "tournamentFactionPicks", "tournamentKillTeamStatsTable",
+const names = ["tournamentRegisteredFactions", "tournamentStatsContent", "tournamentFactionPicks", "tournamentKillTeamStatsTable",
   "tournamentKillTeamStats", "addTournamentStatLine", "tournamentTacOpStats", "tournamentTacOpStatsTable",
   "tacOpWinrateSummary", "gameScoreEntries", "statsTeamFilterMatchesWithFilters", "statNumber", "formatAverage"];
 const functions = names.map(name => {
@@ -82,6 +82,17 @@ test("solo picks exclude withdrawn and removed participants; tied counts sort by
     { faction: "Kommandos", status: "active" }, { faction: "Death Korps", status: "finished" },
     { faction: "Mandrakes", status: "withdrawn" }, { faction: "Mandrakes", status: "removed" }
   ] }), { hidden: false, rows: [{ name: "Death Korps", picks: 1 }, { name: "Kommandos", picks: 1 }] });
+});
+
+test("every registered faction counts once per player even when extra slots are empty", () => {
+  const participants = [
+    { status: "active", faction: "Kommandos", factions: ["Kommandos", "Kasrkin", ""] },
+    { status: "active", faction: "Kasrkin", factions: ["Kasrkin"] }
+  ];
+  const expected = { hidden: false, rows: [{ name: "Kasrkin", picks: 2 }, { name: "Kommandos", picks: 1 }] };
+  assert.deepEqual(picks({ participants }), expected);
+  assert.deepEqual(picks({ tournament: { participantMode: "team" }, rosters: [{ status: "active",
+    members: participants.map(({ faction, factions }) => ({ factionSnapshot: faction, factions })) }] }), expected);
 });
 
 test("hidden factions never produce a misleading partial pick table", () => {

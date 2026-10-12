@@ -22,7 +22,7 @@ const { buildStandings } = require("../domain/tournaments/standings");
 const { matchParticipant, participantResultKey, winnerParticipantIdFromResult, assertMatchWinner, tournamentResultSnapshot } = require("../domain/tournaments/results");
 const { calculateSubmittedResult, parseKillzone } = require("../domain/scoring");
 const { calculateParticipantElo } = require("../domain/elo");
-const { requireKillTeam } = require("../domain/kill-teams");
+const { normalizeFactions, registeredFactions, validateResultFactions } = require("../domain/tournaments/factions");
 const { usesSharedTeamTables } = require("../domain/team-tournaments");
 const { uniqueSlug } = require("../domain/tournaments/slug");
 const { decodeDataUrl, contentVersion } = require("../domain/data-url");
@@ -454,6 +454,15 @@ async function updateAdmin({ client, user, params, body }) {
     const rosters = await require("../db/repositories/team-rosters").listByTournament(client, tournament.id);
     if (rosters.some(roster => !roster.isReserve && roster.status !== "withdrawn")) throw new HttpError(409, "Remove registered rosters before changing the roster size");
   }
+  if (patch.factionCount && patch.factionCount < (tournament.factionCount || 1)) {
+    const entries = tournament.participantMode === "team"
+      ? (await require("../db/repositories/team-rosters").listByTournament(client, tournament.id, { includeWithdrawn: false }))
+        .flatMap(roster => roster.members.filter(member => !member.endedAt))
+      : (await participantsRepo.listByTournament(client, tournament.id)).filter(isListedParticipant);
+    if (entries.some(entry => registeredFactions(entry).length > patch.factionCount)) {
+      throw new HttpError(409, "Faction count cannot be lower than the number already registered by a player");
+    }
+  }
   if (patch.registrationLimit) {
     const entries = tournament.participantMode === "team"
       ? await require("../db/repositories/team-rosters").listByTournament(client, tournament.id)
@@ -607,6 +616,7 @@ async function createParticipant(client, tournament, user, body, source) {
   await assertParticipantAddAllowed(client, tournament, source);
   await assertParticipantCapacityAllowed(client, tournament);
   const linkedUser = await participantLinkedUser(client, user, body, source);
+  const factions = normalizeFactions(body, tournament, { allowEmpty: source !== "self_join" });
   const displayName = normalizeParticipantName(body.displayName || body.name || linkedUser?.name);
   const status =
     tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS
@@ -619,7 +629,8 @@ async function createParticipant(client, tournament, user, body, source) {
       userId: linkedUser?.id || null,
       displayName,
       displayNameKey: participantNameKey(displayName),
-      faction: body.faction || "",
+      faction: factions[0] || "",
+      factions,
       factionRules: normalizeFactionRules(body.factionRules),
       status,
       source,
@@ -651,7 +662,7 @@ async function join({ client, user, params, body }) {
     client,
     tournament,
     user,
-    { ...body, faction: requireKillTeam(body.faction) },
+    body,
     "self_join"
   );
   await audit(client, tournament, user, "participant_join", {
@@ -756,7 +767,10 @@ async function updateParticipant({ client, user, params, body }) {
     patch.displayName = displayName;
     patch.displayNameKey = participantNameKey(displayName);
   }
-  if (Object.prototype.hasOwnProperty.call(body, "faction")) patch.faction = String(body.faction || "");
+  if (Object.hasOwn(body, "faction") || Object.hasOwn(body, "factions")) {
+    patch.factions = normalizeFactions(body, tournament, { allowEmpty: true });
+    patch.faction = patch.factions[0] || "";
+  }
   if (Object.prototype.hasOwnProperty.call(body, "factionRules")) {
     patch.factionRules = normalizeFactionRules(body.factionRules);
   }
@@ -2224,6 +2238,7 @@ async function submitResult({ client, user, params, body }) {
     participantResultKey(participantA),
     participantResultKey(participantB)
   );
+  validateResultFactions(tournament, result, [participantA, participantB]);
   const winnerParticipantId = winnerParticipantIdFromResult(result, participantA, participantB);
   assertCompletableResult(tournament, result, winnerParticipantId);
   const completed = await completeMatch(
@@ -2325,6 +2340,7 @@ async function saveMatchResultAdmin({ client, user, params, body }) {
   const playerAId = participantResultKey(participantA);
   const playerBId = participantResultKey(participantB);
   const result = calculateSubmittedResult(body, playerAId, playerBId);
+  validateResultFactions(tournament, result, [participantA, participantB]);
   const completed = await completeMatch(client, tournament, match, participants, user, result, user.id, {
     replaceCompleted
   });

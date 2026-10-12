@@ -86,7 +86,7 @@ async function profileData(client, team, user) {
   const firstRounds = await roundsRepo.listFirstByTournamentIds(client, [...new Set(rosters.map((roster) => roster.tournamentId))]);
   const firstRoundByTournamentId = new Map(firstRounds.map((round) => [round.tournamentId, round]));
   const { rows: tournamentRows } = await client.query(
-    `SELECT id, slug, name, format, venue_mode, status, starts_at
+    `SELECT id, slug, name, format, venue_mode, status, starts_at, faction_count
      FROM tournaments WHERE id = ANY($1::int[])`,
     [rosters.map((roster) => roster.tournamentId)]
   );
@@ -96,6 +96,7 @@ async function profileData(client, team, user) {
     name: row.name,
     format: row.format,
     venueMode: row.venue_mode,
+    factionCount: row.faction_count || 1,
     status: row.status,
     startsAt: row.starts_at instanceof Date ? row.starts_at.toISOString() : row.starts_at
   }]));

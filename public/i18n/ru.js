@@ -15,6 +15,12 @@ const TGTV_I18N_RU = {
   "doubles.progress": "Завершено игр: {count}/{total}",
   "doubles.breakdown": "Личные ТП {tpA}:{tpB} · VP {vpA}:{vpB} · Бонус {bonusA}:{bonusB}",
   "doubles.removeAfterStartConfirm": "Снять ростер «{name}» с сохранением сыгранной истории? Незавершённые встречи блокируют снятие: технический счёт Doubles не задан. Следующий тур требует чётного числа команд.",
+  "tournaments.factions.count": "Количество фракций",
+  "tournaments.factions.countHint": "Максимум фракций на одного игрока. Достаточно зарегистрировать одну.",
+  "tournaments.factions.number": "Фракция {number}",
+  "tournaments.factions.optional": "Необязательно",
+  "tournaments.factions.hint": "Можно указать от 1 до {count} фракций. Остальные поля можно оставить пустыми.",
+  "tournaments.factions.tag": "Фракций на игрока: {count}",
 
   "classic.removeAfterStartConfirm": "Исключить ростер «{name}» из дальнейших туров? Сыгранные результаты сохранятся. В незавершённой встрече соперник получит техническую победу: 9 ТП за три личные победы, без изменения Elo за технический результат.",
   "classic.playerTp": "ТП игроков",

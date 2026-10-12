@@ -1,6 +1,7 @@
 const { ValidationError } = require("../../http/io");
 const { seasons, currentSeason } = require("../../../public/game-data");
 const { normalizeTeamLogo } = require("../player-teams");
+const { normalizeFactionCount } = require("./factions");
 const {
   normalizeName,
   profileText,
@@ -147,6 +148,7 @@ function normalizeRulesLink(value) {
 
 function normalizeTournamentPatch(body = {}, current = {}) {
   const patch = {};
+  if (Object.hasOwn(body, "factionCount")) patch.factionCount = normalizeFactionCount(body.factionCount);
   if (Object.hasOwn(body, "captainPairingEnabled")) {
     if (typeof body.captainPairingEnabled !== "boolean") throw new ValidationError("Captain pairing must be enabled or disabled");
     patch.captainPairingEnabled = body.captainPairingEnabled;
@@ -294,6 +296,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     gameSystem: patch.gameSystem || "Warhammer 40k Kill Team",
     startsAt: patch.startsAt || null,
     registrationLimit: patch.registrationLimit || null,
+    factionCount: patch.factionCount || 1,
     rulesSummary: patch.rulesSummary || "",
     rulesLink: patch.rulesLink || "",
     logoData: patch.logoData || null,

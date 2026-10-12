@@ -11,6 +11,7 @@ function mapParticipant(row) {
     resultKey: row.result_key,
     displayNameSnapshot: row.display_name_snapshot,
     factionSnapshot: row.faction_snapshot || "",
+    factions: Array.isArray(row.registered_factions) ? row.registered_factions : row.faction_snapshot ? [row.faction_snapshot] : [],
     user: row.user_id
       ? {
           id: row.user_id,
@@ -87,6 +88,10 @@ async function listByGameIds(client, gameIds) {
          CASE WHEN gp.slot = 1 AND gp.user_id = ma.user_id THEN ma.faction_snapshot
               WHEN gp.slot = 2 AND gp.user_id = mb.user_id THEN mb.faction_snapshot END
        END, '') AS faction_snapshot,
+       CASE WHEN gp.result_key = COALESCE(tp.user_id, -tp.id) THEN tp.factions
+            WHEN gp.slot = 1 AND gp.result_key = COALESCE(ma.user_id, -ma.id) THEN ma.factions
+            WHEN gp.slot = 2 AND gp.result_key = COALESCE(mb.user_id, -mb.id) THEN mb.factions
+       END AS registered_factions,
        u.name AS user_name,
        u.avatar_version,
        u.register_nickname,
@@ -96,6 +101,7 @@ async function listByGameIds(client, gameIds) {
        u.created_at AS user_created_at
      FROM game_participants gp
      LEFT JOIN users u ON u.id = gp.user_id
+     LEFT JOIN tournament_participants tp ON tp.id = gp.tournament_participant_id
      LEFT JOIN tournament_team_match_games link ON link.game_id = gp.game_id
      LEFT JOIN tournament_team_roster_members ma ON ma.id = link.roster_a_member_id
      LEFT JOIN tournament_team_roster_members mb ON mb.id = link.roster_b_member_id

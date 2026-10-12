@@ -161,6 +161,7 @@ function tournamentParticipantView(participant, people = []) {
     displayName: participant.displayName,
     isProxy: Boolean(participant.isProxy),
     faction: participant.faction || "",
+    factions: participant.factions || (participant.faction ? [participant.faction] : []),
     factionRules: participant.factionRules || "",
     seed: participant.seed,
     status: participant.status,
@@ -254,6 +255,7 @@ function tournamentSummaryView(tournament) {
     gameSystem: tournament.gameSystem,
     startsAt: tournament.startsAt,
     registrationLimit: tournament.registrationLimit || null,
+    factionCount: tournament.factionCount || 1,
     rulesSummary: tournament.rulesSummary,
     // An uploaded PDF is served by its own route rather than inlined here: the
     // same summary object rides along with every game of the tournament, so a
@@ -319,7 +321,7 @@ function tournamentDetailView({
     const view = tournamentParticipantView(participant, people);
     if (viewer.canAdmin) view.paid = Boolean(participant.paid);
     if (hideFactions && participant.id !== viewer.participantId) {
-      return { ...view, faction: "", factionRules: "", factionHidden: true };
+      return { ...view, faction: "", factions: [], factionRules: "", factionHidden: true };
     }
     return view;
   };

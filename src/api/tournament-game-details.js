@@ -51,6 +51,7 @@ async function attachTournamentGameDetails(client, games) {
       isAdmin: Boolean(participant.user?.isAdmin),
       createdAt: participant.user?.createdAt || null,
       faction: participant.factionSnapshot || "",
+      ...(link.tournament.factionCount > 1 ? { factions: link.match.participantSnapshots?.[participant.tournamentParticipantId]?.factions || participant.factions } : {}),
       tournamentParticipantId: participant.tournamentParticipantId || null,
       hasProfile: Boolean(participant.userId)
     }));

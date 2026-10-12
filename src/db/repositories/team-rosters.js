@@ -40,6 +40,7 @@ function mapRosterMember(row) {
     slot: row.slot,
     displayNameSnapshot: row.display_name_snapshot,
     factionSnapshot: row.faction_snapshot,
+    factions: row.factions?.length ? row.factions : row.faction_snapshot ? [row.faction_snapshot] : [],
     joinedAt: toIso(row.joined_at),
     endedAt: toIso(row.ended_at),
     replacedByUserId: row.replaced_by_user_id,
@@ -68,10 +69,10 @@ async function insert(client, roster, members) {
 async function insertMember(client, roster, member, actorUserId) {
   const { rows } = await client.query(
     `INSERT INTO tournament_team_roster_members
-       (tournament_id, roster_id, user_id, slot, display_name_snapshot, faction_snapshot, changed_by_user_id, is_proxy)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+       (tournament_id, roster_id, user_id, slot, display_name_snapshot, faction_snapshot, changed_by_user_id, is_proxy, factions)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::text[]) RETURNING *`,
     [roster.tournamentId, roster.id, member.userId, member.slot, member.displayNameSnapshot,
-      member.factionSnapshot, actorUserId || null, Boolean(member.isProxy)]
+      member.factionSnapshot, actorUserId || null, Boolean(member.isProxy), member.factions || (member.factionSnapshot ? [member.factionSnapshot] : [])]
   );
   return mapRosterMember(rows[0]);
 }

@@ -16,7 +16,7 @@ function rosterForViewer(roster, user, { teamLeader = false, rounds = [] } = {})
     ...roster,
     members: (roster.members || []).map((member) => {
       if (user && member.userId === user.id) return member;
-      return { ...member, factionSnapshot: "", factionHidden: true };
+      return { ...member, factionSnapshot: "", factions: [], factionHidden: true };
     })
   };
 }

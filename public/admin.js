@@ -358,6 +358,13 @@ function adminRegistrationLimitField(tournament = {}, disabled = "") {
   </div>`;
 }
 
+function adminFactionCountField(tournament = {}, disabled = "") {
+  return `<div class="field"><label for="tournament-faction-count">${t("tournaments.factions.count")}</label>
+    <select id="tournament-faction-count" name="factionCount" ${disabled}>
+      ${[1, 2, 3].map(count => `<option value="${count}" ${(tournament.factionCount || 1) === count ? "selected" : ""}>${count}</option>`).join("")}
+    </select><span class="field-help">${t("tournaments.factions.countHint")}</span></div>`;
+}
+
 function registrationPaymentCheckbox(entry, kind) {
   return `<div class="registration-payment">
     <label><input type="checkbox" data-registration-paid="${entry.id}" data-registration-kind="${kind}" ${entry.paid ? "checked" : ""}><span>${t("tournaments.registration.paid")}</span></label>
@@ -452,6 +459,7 @@ function adminTournamentCreatePanel() {
             <input name="startsAt" type="datetime-local">
           </div>
           ${adminRegistrationLimitField()}
+          ${adminFactionCountField()}
           <div class="field">
             <label>${t("admin.tournament.field.ratingPolicy")}</label>
             <select name="ratingPolicy">
@@ -638,6 +646,7 @@ function adminTournamentEditForm(tournament) {
           <input name="startsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(tournament.startsAt))}" ${textLockAttrs}>
         </div>
         ${adminRegistrationLimitField(tournament, lockAttrs)}
+        ${adminFactionCountField(tournament, lockAttrs)}
         <div class="field">
           <label>${t("admin.tournament.field.participantMode")}</label>
           <select name="participantMode" data-admin-tournament-participant-mode ${lockAttrs}>
@@ -843,7 +852,7 @@ function adminTournamentParticipantsContent(data) {
             <input name="displayName" maxlength="80" placeholder="${t("admin.tournament.participants.displayNamePlaceholder")}">
           </div>
         </div>
-        ${comboField(t("tournaments.field.faction"), "faction", "faction", "", t("admin.tournament.optionalPlaceholder"), { optional: true })}
+        ${tournamentFactionFields(tournament, "faction", {}, { optional: true })}
         <button class="small-button" type="submit">${t("admin.tournament.participants.add")}</button>
       </form>
       ${canBulkAdd ? `
@@ -886,10 +895,10 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
     <div class="row-card compact-row-card participant-admin-row">
       <div class="row-main">
         <div class="row-title">${tournamentParticipantProfileLink(participant)}</div>
-        <div class="row-meta">${t("admin.tournament.participants.seedLabel", { seed: participant.seed || "-" })} / ${escapeHtml(participantUserLabel(participant))} / ${escapeHtml(participant.factionHidden ? t("tournaments.participant.factionHidden") : participant.faction || t("tournaments.participant.factionMissing"))}</div>
+        <div class="row-meta">${t("admin.tournament.participants.seedLabel", { seed: participant.seed || "-" })} / ${escapeHtml(participantUserLabel(participant))} / ${escapeHtml(tournamentFactionsLabel(participant))}</div>
         <div class="participant-admin-controls">
           <div class="participant-faction-control">
-            ${comboField(t("games.filter.teamLabel"), `participant-faction-${participant.id}`, "faction", participant.faction || "", t("admin.tournament.optionalPlaceholder"), { optional: true })}
+            ${tournamentFactionFields(tournament, `participant-faction-${participant.id}`, participant, { optional: true, disabled: locked })}
             <button class="small-button" data-admin-participant-save-faction="${participant.id}" ${locked ? "disabled" : ""}>${t("admin.tournament.participants.saveFaction")}</button>
           </div>
           <div class="participant-replace-control">
@@ -1036,7 +1045,7 @@ function adminTeamRostersContent(data) {
             <div class="row-title">${teamRosterLabel(roster)}</div>
             <div class="row-meta">${t("teams.roster.seed", { seed: roster.seed || "-" })} · ${rosterTeamLinkMarkup(roster)} · ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
           </div></div>
-          <div class="team-roster-members">${activeRosterMembersForUi(roster).map((member) => `<span>${escapeHtml(member.displayNameSnapshot)} · ${escapeHtml(member.factionHidden ? t("tournaments.participant.factionHidden") : member.factionSnapshot)}${member.userId && member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>`).join("")}</div>
+          <div class="team-roster-members">${activeRosterMembersForUi(roster).map((member) => `<span>${escapeHtml(member.displayNameSnapshot)} · ${escapeHtml(tournamentFactionsLabel(member))}${member.userId && member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>`).join("")}</div>
         </div>
         <div class="row-actions">
           ${roster.status !== "withdrawn" ? `<input class="seed-input" type="number" min="1" max="128" value="${roster.seed || 1}" data-team-roster-seed="${roster.id}" ${seedLocked ? "disabled" : ""}>` : ""}
@@ -1122,7 +1131,7 @@ async function openAdminTeamRosterCreator(data, reserve = null) {
       const profile = await api(`/api/teams/${team.id}/members`);
       if (version !== loadVersion) return;
       const selectedTeam = { ...profile.team, members: profile.currentMembers || [] };
-      fields.innerHTML = teamRosterMemberFields(selectedTeam, null, { allowProxies: true, teamSize: teamSizeFor(data.tournament) });
+      fields.innerHTML = teamRosterMemberFields(selectedTeam, null, { allowProxies: true, teamSize: teamSizeFor(data.tournament), tournament: data.tournament });
       wireTeamRosterMemberSelection(form);
       loadedTeamId = selectedTeam.id;
       submit.disabled = false;
@@ -1171,7 +1180,7 @@ async function openAdminTeamRosterEditor(data, roster) {
   dialog.innerHTML = `<form class="tiebreaker-help-content" data-admin-team-roster-editor>
     <div class="tiebreaker-help-header"><div><h3>${t("teams.tournament.editTitle")}</h3><p>${escapeHtml(roster.teamNameSnapshot || "")}</p></div><button class="dialog-close-button" type="button" data-team-roster-editor-close aria-label="${t("common.close")}">&times;</button></div>
     <div class="field"><label>${t("teams.tournament.rosterName")}</label><input name="name" minlength="2" maxlength="80" value="${escapeHtml(roster.name || "")}" required></div>
-    ${teamRosterMemberFields({ members }, roster, { allowProxies: true, teamSize: teamSizeFor(data.tournament) })}
+    ${teamRosterMemberFields({ members }, roster, { allowProxies: true, teamSize: teamSizeFor(data.tournament), tournament: data.tournament })}
     <div class="row-actions"><button class="small-button" type="button" data-team-roster-editor-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("common.save")}</button></div>
   </form>`;
   document.body.appendChild(dialog);
@@ -1706,6 +1715,7 @@ function adminTournamentBodyFromForm(form, options = {}) {
   setFormValue(body, form, "name");
   setFormValue(body, form, "gameSystem");
   setFormValue(body, form, "startsAt");
+  if (form.elements.factionCount && !form.elements.factionCount.disabled) body.factionCount = Number(form.elements.factionCount.value);
   if (form.elements.registrationLimit && !form.elements.registrationLimit.disabled) {
     body.registrationLimit = form.elements.registrationLimit.value.trim() === "" ? null : Number(form.elements.registrationLimit.value);
   }
@@ -1949,7 +1959,8 @@ async function submitAdminTournamentParticipant(form) {
   const formData = new FormData(form);
   const body = {
     displayName: formData.get("displayName") || "",
-    faction: formData.get("faction") || ""
+    faction: formData.get("faction") || "",
+    factions: factionsFromForm(form, "faction")
   };
   const userId = Number(formData.get("userId") || 0);
   if (userId) body.userId = userId;
@@ -2062,7 +2073,7 @@ async function saveAdminTournamentParticipantFaction(participantId) {
   try {
     await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, {
       method: "PATCH",
-      body: { faction: input?.value || "" }
+      body: { factions: factionsFromForm(input.closest(".participant-faction-control"), `participant-faction-${participantId}`) }
     });
     await refreshTournamentParticipantView(tournament);
   } catch (err) {

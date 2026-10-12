@@ -15,6 +15,12 @@ const TGTV_I18N_EN = {
   "doubles.progress": "Games completed: {count}/{total}",
   "doubles.breakdown": "Individual TP {tpA}:{tpB} · VP {vpA}:{vpB} · Bonus {bonusA}:{bonusB}",
   "doubles.removeAfterStartConfirm": "Remove roster “{name}” while preserving played history? Unfinished matches block removal because Doubles technical scoring is not defined. The next round requires an even number of teams.",
+  "tournaments.factions.count": "Number of factions",
+  "tournaments.factions.countHint": "Maximum factions per player. Registering one is enough.",
+  "tournaments.factions.number": "Faction {number}",
+  "tournaments.factions.optional": "Optional",
+  "tournaments.factions.hint": "Choose 1 to {count} factions. You can leave the other fields empty.",
+  "tournaments.factions.tag": "Factions per player: {count}",
 
   "classic.removeAfterStartConfirm": "Remove roster “{name}” from future rounds? Played results are preserved. Any unfinished match becomes a forfeit win for the opponent: 9 TP for three individual wins, without Elo changes for the forfeit.",
   "classic.playerTp": "Player TP",
