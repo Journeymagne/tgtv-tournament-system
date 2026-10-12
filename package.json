@@ -12,7 +12,8 @@
     "test": "node --test --test-concurrency=1 \"test/unit/**/*.test.js\" \"test/integration/**/*.test.js\"",
     "test:unit": "node --test \"test/unit/**/*.test.js\"",
     "test:integration": "node --test --test-concurrency=1 \"test/integration/**/*.test.js\"",
-    "build:combat": "node scripts/build-combat-lab.js"
+    "build:combat": "node scripts/build-combat-lab.js",
+    "postinstall": "node scripts/prepare-combat-lab.js"
   },
   "dependencies": {
     "markdown-it": "^15.0.1",

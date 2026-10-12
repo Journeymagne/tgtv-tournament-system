@@ -60,9 +60,10 @@ season while retaining scores, pairings and ratings.
 service in `services/combat-lab`: the ktcalc calculator, operative duels for
 shooting and melee, and an official catalogue snapshot of 48 Kill Teams.
 Both tabs share controls; newly added rules are enabled immediately. Build and
-start it from its own directory for standalone use. To include it at `/combat`
-on the Companion server, install its dependencies and run `npm run build:combat`
-from the repository root. The deployment script performs these steps.
+start it from its own directory for standalone use. Installing the main app with
+`npm ci` or `npm ci --omit=dev` also installs and builds Combat Lab at `/combat`.
+Its build tools are included even in production; no second process is required.
+Use `npm run build:combat` to rebuild after editing its sources.
 
 Application, lockfile and client asset versions are 1.1.0. The main Companion
 service has no new dependencies, database migrations or required environment

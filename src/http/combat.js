@@ -18,6 +18,11 @@ function getCatalog() {
   if (!catalog) catalog = JSON.parse(fs.readFileSync(path.join(SERVICE_ROOT, "public/catalog.json"), "utf8"));
   return catalog;
 }
+function buildReady() {
+  try {
+    return ["index.html", "asset-manifest.json"].every(file => fs.statSync(path.join(BUILD_ROOT, file)).isFile());
+  } catch { return false; }
+}
 function sendFile(req, res, filename, missingStatus = 404) {
   fs.stat(filename, (error, stat) => {
     if (error || !stat.isFile()) {
@@ -48,7 +53,8 @@ function handleCombatRequest(req, res) {
   catch { sendText(res, 400, "Bad request"); return true; }
   if (pathname.includes("\0")) { sendText(res, 400, "Bad request"); return true; }
   if (pathname === "/api/health") {
-    sendJson(res, 200, { status: "ok", service: "Companion Combat Lab", snapshot: "2026-09-25", ...getCatalog().counts });
+    const ready = buildReady();
+    sendJson(res, ready ? 200 : 503, { status: ready ? "ok" : "unavailable", buildReady: ready, service: "Companion Combat Lab", snapshot: "2026-09-25", ...getCatalog().counts });
     return true;
   }
   if (pathname === "/api/catalog") { sendJson(res, 200, getCatalog()); return true; }

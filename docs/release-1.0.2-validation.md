@@ -41,8 +41,41 @@ git -C /app/Repos/tgtv-tournament-system pull --ff-only origin main
 bash /app/Repos/tgtv-tournament-system/update_tgtv-ts.sh production
 ```
 
-This script installs the nested build dependencies and builds `build-companion`
-before starting PM2. An older external copy of the script lacks those build steps.
+The root `npm ci --omit=dev` now runs postinstall to install the nested build
+dependencies and build `build-companion` before PM2 starts. Older external copies
+that install only the root package also get this build step.
 After deployment, verify `/`, `/combat`, `/combat/simulation`, `/combat/api/health`
 and `/api/session` on the public host. Source PDFs remain optional and require
 `COMBAT_REFERENCE_DIR`; the bundled catalogue and calculations work without them.
+
+## Production install follow-up
+
+On 12 October, the public server served the updated menu and catalogue API but
+`/combat` returned 503 because its compiled page was unavailable. The original
+health response incorrectly reported success without checking the build.
+
+The repair adds the nested install/build to the root npm postinstall lifecycle.
+A fresh MMR KIT checkout with `NODE_ENV=production` completed the exact legacy
+deploy command `npm ci --omit=dev`; nested build tools were included and the
+production build completed successfully. Root and nested dependency graphs did
+not change. The deployment script avoids running the build twice.
+
+A temporary public-UI harness initially returned health 503 with no build, then
+served `/combat`, `/combat/simulation` and health with 200 after installation.
+Removing either HTML or the asset manifest made health return 503; restoring
+files restored 200 without restarting the process. Browser workers reproduced
+3.29/3.29 baseline, 5.04/3.29 after changing only profile A, and 3.25 in the Vespid
+simulation, with no page errors. Evidence is in ignored
+`services/combat-lab/verify-artifacts/install-fix`; the complete installer log is
+`work/production-install.log`. No database was started. Automated suites were
+not run for this standalone fix/push, following AGENTS.md.
+
+For immediate repair on an already updated server, run from `/app/tgtv-ts`:
+
+```sh
+npm ci --prefix services/combat-lab --include=dev --ignore-scripts
+npm run build:combat
+```
+
+The running server picks up the generated files without a restart. The next
+normal root install/update performs these steps automatically.

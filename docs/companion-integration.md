@@ -199,9 +199,25 @@ optional `/combat/library/<team>.pdf` endpoints without a second server process.
 The calculator, fight, simulation, rules, share links and saved scenarios retain
 the `/combat` prefix. Its logo returns to the Companion home menu.
 
-Before starting Companion, run `npm ci --prefix services/combat-lab --include=dev --ignore-scripts`
-and `npm run build:combat` from the root. `update_tgtv-ts.sh` includes these steps.
+Installing Companion with `npm ci` (including `--omit=dev`) runs the root
+`postinstall` hook. It installs Combat Lab from its own lockfile with build tools
+included, then builds `/combat`. This also covers older deployment scripts that
+only install the root package. `update_tgtv-ts.sh` uses that hook without building
+the calculator twice. Install/build failures stop the npm command.
 The compiled `services/combat-lab/build-companion` directory is ignored by Git.
+The health endpoint returns 503 with `buildReady: false` while its HTML/manifest
+are absent, and returns 200 only when those build files exist.
+
+For an already running server missing its build, run from the deployed app root:
+
+```sh
+npm ci --prefix services/combat-lab --include=dev --ignore-scripts
+npm run build:combat
+```
+
+The server serves new build files immediately; no database changes or restart
+are needed for this repair. Custom installers using root `--ignore-scripts`
+must run `npm run postinstall` explicitly.
 Set optional `COMBAT_REFERENCE_DIR` to the existing official PDF snapshot for
 source links; the bundled JSON catalogue works without PDFs. Standalone builds
 with `npm run build:demo` keep their original root routes.

@@ -6,8 +6,9 @@ The original shooting/fight engines and calculator parameters are retained. Both
 ## Companion integration
 
 The main menu links to this calculator at `/combat`. From the repository root,
-run `npm ci --prefix services/combat-lab --include=dev --ignore-scripts` followed
-by `npm run build:combat`. The main Companion server serves this build, including
+run `npm ci` (or `npm ci --omit=dev`). The root postinstall hook installs the
+nested dependencies and builds `/combat`. To rebuild installed sources, use
+`npm run build:combat`. The main Companion server serves this build, including
 simulation, share links and rules, without a separate process. Optional
 `COMBAT_REFERENCE_DIR` configures PDFs on that server. Standalone use below
 keeps its own root routes and `REFERENCE_DIR` setting.
