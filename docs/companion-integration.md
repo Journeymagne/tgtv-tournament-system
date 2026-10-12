@@ -200,10 +200,21 @@ The calculator, fight, simulation, rules, share links and saved scenarios retain
 the `/combat` prefix. Its logo returns to the Companion home menu.
 
 Installing Companion with `npm ci` (including `--omit=dev`) runs the root
-`postinstall` hook. It installs Combat Lab from its own lockfile with build tools
-included, then builds `/combat`. This also covers older deployment scripts that
-only install the root package. `update_tgtv-ts.sh` uses that hook without building
-the calculator twice. Install/build failures stop the npm command.
+`postinstall` hook. It compares a content fingerprint of Combat Lab's sources,
+public assets/catalogue, rules, scripts, package/lockfile, TypeScript/environment
+configuration and Node runtime with the last successful build. An unchanged,
+intact build skips both the nested dependency install and compilation; Studio,
+tournament and release-number-only package/lockfile changes do not invalidate it. Missing or
+damaged outputs trigger a rebuild. When needed, Combat Lab is installed from its
+own lockfile with build tools included, then built at `/combat`. Install/build
+failures stop the npm command and never record a successful fingerprint.
+
+`update_tgtv-ts.sh` preserves `services/combat-lab/build-companion/` during rsync,
+including its `.companion-build.json` stamp. Custom/older deploy scripts must
+also preserve that directory, or the missing build will be recreated each time.
+This first upgrade rebuilds existing unstamped builds once. Root installers that
+only install the main package still get the postinstall check automatically.
+`npm run build:combat` forces a rebuild and refreshes the stamp after success.
 The compiled `services/combat-lab/build-companion` directory is ignored by Git.
 The health endpoint returns 503 with `buildReady: false` while its HTML/manifest
 are absent, and returns 200 only when those build files exist.

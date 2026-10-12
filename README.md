@@ -61,9 +61,13 @@ service in `services/combat-lab`: the ktcalc calculator, operative duels for
 shooting and melee, and an official catalogue snapshot of 48 Kill Teams.
 Both tabs share controls; newly added rules are enabled immediately. Build and
 start it from its own directory for standalone use. Installing the main app with
-`npm ci` or `npm ci --omit=dev` also installs and builds Combat Lab at `/combat`.
-Its build tools are included even in production; no second process is required.
-Use `npm run build:combat` to rebuild after editing its sources.
+`npm ci` or `npm ci --omit=dev` prepares Combat Lab at `/combat` when its build
+is missing or its inputs have changed. An unchanged, intact build is reused
+without installing the nested dependencies or running the compiler. The deploy
+script preserves this build between releases, so Studio or tournament changes
+do not rebuild the calculator. Its build tools are included even in production
+when needed; no second process is required. Use `npm run build:combat` to force
+a rebuild. Existing builds without a fingerprint are rebuilt once on upgrade.
 
 Application, lockfile and client asset versions are 1.1.0. The main Companion
 service has no new dependencies, database migrations or required environment

@@ -58,17 +58,18 @@ echo "=== [2/6] Stopping pm2 app (if running) ==="
 pm2 stop "$APP_NAME" 2>/dev/null || true
 
 echo "=== [3/6] Syncing files to $APP_DIR ==="
-# node_modules исключены из --delete, чтобы не сносить их при каждом деплое
+# Сохраняем зависимости и сборку со штампом: postinstall проверит изменения.
 rsync -av --delete \
   --exclude='.git' \
   --exclude='.env' \
   --exclude='node_modules' \
+  --exclude='/services/combat-lab/build-companion/' \
   "$REPO_DIR/" "$APP_DIR/"
 
 echo "=== [4/6] Installing npm dependencies from package-lock.json ==="
 cd "$APP_DIR"
 npm ci --omit=dev
-# Root postinstall installs and builds Combat Lab, including with --omit=dev.
+# Root postinstall reuses an unchanged Combat Lab build, including with --omit=dev.
 
 echo "=== [5/6] Copying .env ==="
 if [ ! -f "$ENV_FILE" ]; then

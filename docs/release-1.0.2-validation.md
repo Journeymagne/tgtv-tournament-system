@@ -41,9 +41,12 @@ git -C /app/Repos/tgtv-tournament-system pull --ff-only origin main
 bash /app/Repos/tgtv-tournament-system/update_tgtv-ts.sh production
 ```
 
-The root `npm ci --omit=dev` now runs postinstall to install the nested build
-dependencies and build `build-companion` before PM2 starts. Older external copies
-that install only the root package also get this build step.
+The root `npm ci --omit=dev` runs postinstall to prepare `build-companion` before
+PM2 starts. It reuses an unchanged, intact build and installs/builds Combat Lab
+only when needed. The updated script preserves the build directory and its
+fingerprint during rsync. Use the script from the updated repository: external
+copies must also preserve `/services/combat-lab/build-companion/` to reuse it.
+Existing builds without a fingerprint are rebuilt once on this upgrade.
 After deployment, verify `/`, `/combat`, `/combat/simulation`, `/combat/api/health`
 and `/api/session` on the public host. Source PDFs remain optional and require
 `COMBAT_REFERENCE_DIR`; the bundled catalogue and calculations work without them.
@@ -78,4 +81,34 @@ npm run build:combat
 ```
 
 The running server picks up the generated files without a restart. The next
-normal root install/update performs these steps automatically.
+normal root install/update checks the fingerprint and performs these steps only
+when necessary. `npm run build:combat` remains a forced rebuild.
+
+## Incremental Combat Lab builds
+
+The postinstall hook now reuses a build only when both its input and output
+fingerprints match. Source or dependency changes, missing/modified assets and
+an invalid stamp all invalidate the cache. Release-number-only bumps in both
+package/lockfile pairs leave the calculator cache valid.
+
+In the MMR KIT verification copy, an actual production root install rebuilt
+after a build-input change and completed successfully. A subsequent
+`NODE_ENV=production npm ci --omit=dev --no-audit --no-fund`, with a temporary
+Studio CSS edit and version-only changes in both packages/lockfiles, completed
+in **1.3 seconds**. Its log confirmed both the nested install and build were
+skipped; compiled HTML and nested react-scripts timestamps stayed unchanged.
+Temporary verification edits were restored byte-for-byte. Direct cache checks
+confirmed invalidation after calculator source/dependency edits, a changed or
+missing compiled JS asset and a corrupt stamp; restoring the files restored
+cache validity.
+
+The production build was then served through the real public HTTP handlers in
+an isolated harness. Home, calculator, simulation, health and catalogue returned
+200. Real browser workers produced 3.29/3.29, then 5.04/3.29 after increasing
+profile A's attacks; the Vespid simulation produced 3.25. No page errors were
+reported. Screenshots and result transcripts are in ignored
+`services/combat-lab/verify-artifacts/incremental-build`; installer logs are in
+`work/incremental-install-*.log`. Node and deployment-shell syntax checks passed.
+Full PM2/rsync deployment was not executed locally. Automated test suites were
+not run for this standalone fix/push, following AGENTS.md. No database was
+started; the private verification server was stopped after these checks.

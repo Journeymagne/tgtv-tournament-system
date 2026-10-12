@@ -1,9 +1,14 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { inputFingerprint, isBuildCurrent } = require("./combat-build-state");
 
 const root = path.join(__dirname, "..");
 const serviceRoot = path.join(root, "services", "combat-lab");
+if (isBuildCurrent(inputFingerprint())) {
+  console.log("Combat Lab is unchanged; reusing the /combat build (install and build skipped).");
+  process.exit(0);
+}
 const npmCli = process.env.npm_execpath;
 if (!npmCli || !fs.existsSync(npmCli)) {
   console.error("Run this installer through npm: npm run postinstall");
