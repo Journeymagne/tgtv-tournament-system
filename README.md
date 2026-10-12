@@ -35,10 +35,27 @@ teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see
 [Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
 
+[IRL Doubles](docs/doubles-irl.md) adds two-player rosters, manual captain
+pairings, a four-mission pool and 2/1/0 TP plus the combined-VP bonus. Standings
+use TP, SOS and VP. Migration **052_doubles_irl** enables the new format.
+
 New individual and team events default to the latest active
 [season](docs/tournament-seasons.md). A super administrator can change an event's
 season in its settings, including after completion. Existing results then count
 toward statistics for the selected season while scores and ratings are retained.
+
+## Release 1.1.0 — IRL Doubles
+
+[IRL Doubles](docs/doubles-irl.md) uses two roster slots and two manual captain
+pairings, with four missions per round. Individual games award 2/1/0 TP, plus
+one team bonus for higher combined VP. Standings compare TP, SOS, then VP.
+Roster replacement, reserves and deletion reuse the existing team interfaces.
+
+Migration **052_doubles_irl** enables the format and snapshots match roster size
+and scoring version. New dependencies and environment variables are not required.
+Application, Combat Lab and both lockfiles use version 1.1.0. Browser assets use
+the unique 1.1.0-doubles marker to refresh caches from the earlier 1.1.0 release.
+See [release validation](docs/release-1.1.0-doubles-validation.md).
 
 ## Release 1.0.3
 
@@ -63,7 +80,7 @@ Player/team leaderboard ranks and numeric values stay on one line, including
 on mobile screens. Application, lockfile and asset versions are 1.0.2.
 See [release validation and deployment](docs/release-1.0.2-validation.md).
 
-## Release 1.1.0
+## Earlier release 1.1.0 — 11 October 2026
 
 The profile uses a compact two-column dashboard with equal-sized cards. New
 individual and team tournaments default to the latest active season; a super

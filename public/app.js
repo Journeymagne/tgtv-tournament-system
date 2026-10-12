@@ -2138,18 +2138,26 @@ function renderTournamentJoinForm(data) {
   });
 }
 
-function teamRosterMemberFields(team, roster = null, { allowProxies = false } = {}) {
+function teamSizeFor(value) {
+  return value?.pairingType === "doubles" ? 2 : 3;
+}
+
+function usesIndividualTeamPoints(value) {
+  return ["sword_shield_classic", "doubles"].includes(value?.pairingType);
+}
+
+function teamRosterMemberFields(team, roster = null, { allowProxies = false, teamSize = 3 } = {}) {
   const members = [...(team?.members || [])].filter((member) => member.userId && !member.endedAt);
   members.sort((a, b) => (b.userId === state.me?.id) - (a.userId === state.me?.id));
   const options = (selectedId) => members.map((member) => `
     <option value="${member.userId}" ${member.userId === Number(selectedId) ? "selected" : ""}>${escapeHtml(member.user?.name || member.displayNameSnapshot)}</option>
   `).join("");
   const rosterMembers = activeRosterMembersForUi(roster || {}).sort((a, b) => a.slot - b.slot);
-  const slots = [1, 2, 3].map((slot) => rosterMembers.find((member) => member.slot === slot));
+  const slots = Array.from({ length: teamSize }, (_, index) => rosterMembers.find(member => member.slot === index + 1));
   const defaults = slots.map((member, index) => member?.isProxy ? "proxy" : member?.userId || members[index]?.userId || (allowProxies ? "proxy" : ""));
   return `
     <div class="team-roster-member-grid">
-      ${[0, 1, 2].map((index) => `
+      ${slots.map((_, index) => `
         <div class="team-roster-player-row">
           <div class="field">
             <label>${t("teams.tournament.player", { number: index + 1 })}</label>
@@ -2174,7 +2182,7 @@ function teamRosterMemberFields(team, roster = null, { allowProxies = false } = 
 }
 
 function teamRosterMembersFromForm(form) {
-  return [1, 2, 3].map((slot) => {
+  return [1, 2, 3].filter(slot => form.elements[`member-${slot}`]).map((slot) => {
     const value = form.elements[`member-${slot}`].value;
     return { userId: value === "proxy" ? null : Number(value),
       ...(value === "proxy" ? { proxy: true } : {}), faction: form.elements[`faction-${slot}`].value };
@@ -2240,7 +2248,7 @@ function updateRosterNameDefault(form, team, rosters) {
 function renderTeamRosterRegistration(data, editingRoster = null) {
   const tournament = data.tournament || {};
   const allowProxies = canManageTournamentUi(tournament);
-  const teams = (data.viewerTeams || []).filter((team) => !team.archivedAt && (allowProxies || team.id === editingRoster?.teamId || (team.members || []).length >= 3));
+  const teams = (data.viewerTeams || []).filter((team) => !team.archivedAt && (allowProxies || team.id === editingRoster?.teamId || (team.members || []).length >= teamSizeFor(tournament)));
   const firstTeam = editingRoster
     ? teams.find((team) => team.id === editingRoster.teamId)
     : teams[0];
@@ -2257,7 +2265,7 @@ function renderTeamRosterRegistration(data, editingRoster = null) {
               <div class="field"><label>${t("teams.tournament.team")}</label><select name="teamId" required ${editingRoster ? "disabled" : ""}>${teams.map((team) => `<option value="${team.id}" ${team.id === firstTeam?.id ? "selected" : ""}>${escapeHtml(team.name)}</option>`).join("")}</select></div>
               <div class="field"><label>${t("teams.tournament.rosterName")}</label><input name="name" minlength="2" maxlength="80" data-default-name="${escapeHtml(suggestedRosterName(firstTeam, data.rosters))}" value="${escapeHtml(editingRoster?.name || suggestedRosterName(firstTeam, data.rosters))}" ${editingRoster ? "required" : ""}></div>
             </div>
-            <div data-team-roster-member-fields>${teamRosterMemberFields(firstTeam, editingRoster, { allowProxies })}</div>
+            <div data-team-roster-member-fields>${teamRosterMemberFields(firstTeam, editingRoster, { allowProxies, teamSize: teamSizeFor(tournament) })}</div>
             <button class="primary-button" type="submit">${t(editingRoster ? "common.save" : "teams.tournament.registerSubmit")}</button>
             <div class="message" data-message></div>
           </form>
@@ -2270,7 +2278,7 @@ function renderTeamRosterRegistration(data, editingRoster = null) {
   form?.elements.teamId?.addEventListener("change", () => {
     const team = teams.find((item) => item.id === Number(form.elements.teamId.value));
     const fields = form.querySelector("[data-team-roster-member-fields]");
-    if (fields) fields.innerHTML = teamRosterMemberFields(team, null, { allowProxies });
+    if (fields) fields.innerHTML = teamRosterMemberFields(team, null, { allowProxies, teamSize: teamSizeFor(tournament) });
     updateRosterNameDefault(form, team, data.rosters);
     wireTeamRosterMemberSelection(form);
   });
@@ -2399,8 +2407,8 @@ function tournamentFormatSummary(tournament) {
   if (tournament?.participantMode !== "team") return formatLabel(tournament?.format);
   return [
     t("tournaments.participantMode.team"),
-    t("tournaments.teamVariant.teamsOfThree"),
-    t(tournament.pairingType === "sword_shield_classic" ? "classic.name" : "tournaments.pairingType.shieldSword")
+    t(tournament.pairingType === "doubles" ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree"),
+    t(tournament.pairingType === "doubles" ? "doubles.name" : tournament.pairingType === "sword_shield_classic" ? "classic.name" : "tournaments.pairingType.shieldSword")
   ].join(" · ");
 }
 
@@ -2526,7 +2534,7 @@ function tournamentInfoPanel(data, options = {}) {
   };
   const subtitleByTab = {
     settings: t("tournaments.info.settingsSubtitle"),
-    standings: isTeamTournament ? t(tournament.pairingType === "sword_shield_classic" ? "classic.standingsHint" : "teams.tournament.standingsHint") : standingsSubtitle(tournament),
+    standings: isTeamTournament ? t(tournament.pairingType === "doubles" ? "doubles.standingsHint" : tournament.pairingType === "sword_shield_classic" ? "classic.standingsHint" : "teams.tournament.standingsHint") : standingsSubtitle(tournament),
     matches: t("tournaments.info.matchesSubtitle"),
     stats: t("tournaments.info.statsSubtitle", { name: tournament.name || t("tournaments.fallbackName") }),
     participants: isTeamTournament
@@ -3637,7 +3645,7 @@ function teamPairingCard(pairing) {
   const own = pairing.captainSide === "a" ? pairing.rosterA : pairing.rosterB;
   const opponent = pairing.captainSide === "a" ? pairing.rosterB : pairing.rosterA;
   const progress = pairing.progress || { completed: 0, total: 3, gpA: 0, gpB: 0 };
-  const status = pairing.phase === "in_progress" ? t(pairing.pairingType === "sword_shield_classic" ? "classic.progress" : "teams.results.progress", {
+  const status = pairing.phase === "in_progress" ? t(pairing.pairingType === "doubles" ? "doubles.progress" : pairing.pairingType === "sword_shield_classic" ? "classic.progress" : "teams.results.progress", {
     count: progress.completed, total: progress.total,
     a: pairing.pairingType === "sword_shield_classic" ? (pairing.captainSide === "a" ? progress.winsA : progress.winsB) : pairing.captainSide === "a" ? progress.gpA : progress.gpB,
     b: pairing.pairingType === "sword_shield_classic" ? (pairing.captainSide === "a" ? progress.winsB : progress.winsA) : pairing.captainSide === "a" ? progress.gpB : progress.gpA
@@ -8169,7 +8177,7 @@ function renderRosterProfile() {
   const { roster, tournament, standing = {} } = data;
   const metrics = [
     [t("teams.roster.place"), standing.rank ?? "—"],
-    [t(tournament.pairingType === "sword_shield_classic" ? "classic.playerTp" : "teams.tournament.ttp"), standing.teamTournamentPoints ?? 0],
+    [t(usesIndividualTeamPoints(tournament) ? "classic.playerTp" : "teams.tournament.ttp"), standing.teamTournamentPoints ?? 0],
     [t("tournaments.standings.column.wdl"), `${standing.wins ?? 0}-${standing.draws ?? 0}-${standing.losses ?? 0}`],
     [t("teams.tournament.individualWins"), standing.individualWins ?? 0],
     [t("teams.tournament.totalVp"), standing.totalVp ?? 0],
@@ -8299,6 +8307,8 @@ function teamTournamentSettingsFields(tournament = {}, disabled = "") {
   const custom = tournament.teamTiebreakerOrder != null || !tournament.id;
   const order = tournament.teamTiebreakerOrder || ["individual_wins", "vp_diff", "total_vp"];
   return `<section class="team-tournament-settings" data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
+    <p class="field-help" data-doubles-settings ${tournament.pairingType === "doubles" ? "" : "hidden"}>${t("doubles.standingsHint")} ${t("doubles.manualHint")}</p>
+    <div data-team-classic-settings ${tournament.pairingType === "doubles" ? "hidden" : ""}>
     <div class="team-tournament-setting">
       <label class="checkbox-line"><input type="checkbox" name="captainPairingEnabled" ${tournament.captainPairingEnabled !== false ? "checked" : ""} ${disabled}> <span>${t("classic.captainPairing")}</span></label>
       <p class="field-help">${t("classic.manualHint")}</p>
@@ -8315,12 +8325,13 @@ function teamTournamentSettingsFields(tournament = {}, disabled = "") {
       </label>`).join("")}</div>
       <p class="field-help">${t("classic.legacyOrder")}</p>
     </div>
+    </div>
   </section>`;
 
 }
 
 function teamMatchScoreLabel(match) {
-  if (match.pairingType === "sword_shield_classic") {
+  if (usesIndividualTeamPoints(match)) {
     return `${match.teamTournamentPointsA ?? 0}:${match.teamTournamentPointsB ?? 0} ${t("classic.tp")}`;
   }
   const points = `${match.teamTournamentPointsA ?? 0}:${match.teamTournamentPointsB ?? 0} TTP`;
@@ -8329,11 +8340,12 @@ function teamMatchScoreLabel(match) {
 
 function teamManualPairingForm(match) {
   const members = roster => (roster?.members || []).filter(member => !member.endedAt && (member.userId || member.isProxy));
-  const select = (name, values, label, selectedIndex) => `<label>${escapeHtml(label)}<select name="${name}" required>${values.map((value,index) => `<option value="${escapeHtml(value.value)}" ${index === selectedIndex ? "selected" : ""}>${escapeHtml(value.label)}</option>`).join("")}</select></label>`;
+  const select = (name, values, label, selectedIndex) => `<label>${escapeHtml(label)}<select name="${name}" required>${match.pairingType === "doubles" ? `<option value="">${t("games.result.notSelected")}</option>` : ""}${values.map((value,index) => `<option value="${escapeHtml(value.value)}" ${index === selectedIndex ? "selected" : ""}>${escapeHtml(value.label)}</option>`).join("")}</select></label>`;
   const players = roster => members(roster).map(member => ({ value: member.id, label: teamPairingMemberLabel(member) }));
   const tables = (match.tables || teamTournamentTables(match.tournamentId)).filter(table => match.tableIds.includes(table.id)).map(table => ({ value: table.id, label: tableLabel(table) }));
-  return `<form data-team-pairing-form="manual" data-team-match-id="${match.id}" class="team-manual-pairing"><h4>${t("classic.manual")}</h4>
-    ${[0,1,2].map(index => `<fieldset class="grid-2"><legend>${t("teams.pairing.game", { number: index+1 })}</legend>
+  return `<form data-team-pairing-form="manual" data-pairing-size="${teamSizeFor(match)}" data-team-match-id="${match.id}" class="team-manual-pairing"><h4>${t(match.pairingType === "doubles" ? "doubles.manual" : "classic.manual")}</h4>
+    ${match.pairingType === "doubles" ? `<p class="field-help">${t("doubles.pairingRules")}</p>` : ""}
+    ${Array.from({ length: teamSizeFor(match) }, (_, index) => `<fieldset class="grid-2"><legend>${t("teams.pairing.game", { number: index+1 })}</legend>
       ${select(`player-a-${index}`, players(match.rosterA), t("classic.playerA"), index)}
       ${select(`player-b-${index}`, players(match.rosterB), t("classic.playerB"), index)}
       ${select(`table-${index}`, tables, t("classic.table"), index)}
@@ -8346,7 +8358,9 @@ function teamStandingsTable(data) {
     ? data.tournament.finalResults
     : data.standings || [];
   const rosters = new Map((data.rosters || []).map((roster) => [roster.id, roster]));
-  const teamColumns = data.tournament?.teamTiebreakerOrder == null
+  const teamColumns = data.tournament?.pairingType === "doubles"
+    ? [["strengthOfSchedule", "doubles.sos"], ["totalVp", "classic.total_vp"]]
+    : data.tournament?.teamTiebreakerOrder == null
     ? [["individualWins", "teams.tournament.individualWins"], ["totalVp", "teams.tournament.totalVp"], ["tacOpPoints", "teams.tournament.tac"]]
     : data.tournament.teamTiebreakerOrder.map(key => [{ individual_wins: "individualWins", total_vp: "totalVp", vp_diff: "vpDiff" }[key], `classic.${key}`]);
   if (data.tournament?.pairingType === "sword_shield_classic") {
@@ -8360,7 +8374,7 @@ function teamStandingsTable(data) {
     <div class="table-wrap">
       <table class="data-table team-standings-table" style="--table-metric-count:${2 + teamColumns.length}">
         <colgroup><col class="table-col-rank"><col><col span="${2 + teamColumns.length}" class="table-col-number"></colgroup>
-        <thead><tr><th class="rank">#</th><th>${t("teams.tournament.roster")}</th><th>${t(data.tournament?.pairingType === "sword_shield_classic" ? "classic.playerTp" : "teams.tournament.ttp")}</th>${teamColumns.map(([, label]) => `<th>${t(label)}</th>`).join("")}<th>${t("tournaments.standings.column.wdl")}</th></tr></thead>
+        <thead><tr><th class="rank">#</th><th>${t("teams.tournament.roster")}</th><th>${t(usesIndividualTeamPoints(data.tournament) ? "classic.playerTp" : "teams.tournament.ttp")}</th>${teamColumns.map(([, label]) => `<th>${t(label)}</th>`).join("")}<th>${t("tournaments.standings.column.wdl")}</th></tr></thead>
         <tbody>${source.map((row) => {
           const roster = rosters.get(Number(row.rosterId || row.roster?.id));
           return `<tr><td class="rank">${row.rank}</td><td>${teamRosterLabel(roster)}</td><td>${row.teamTournamentPoints ?? 0}</td>${teamColumns.map(([key]) => `<td>${row[key] ?? data.standings?.find(item => item.rosterId === row.rosterId)?.[key] ?? 0}</td>`).join("")}<td>${row.wins ?? 0}-${row.draws ?? 0}-${row.losses ?? 0}</td></tr>`;
@@ -8370,7 +8384,7 @@ function teamStandingsTable(data) {
 }
 
 function teamPairingPhaseLabel(match) {
-  if (match.captainPairingEnabled === false && match.phase === "environment_selection") return t("classic.manual");
+  if (match.captainPairingEnabled === false && match.phase === "environment_selection") return t(match.pairingType === "doubles" ? "doubles.manual" : "classic.manual");
   if (match.pairingType === "sword_shield_classic" && match.phase === "awaiting_roll") return t("classic.initiative");
   return teamMatchPhaseLabel(match.phase);
 }
@@ -8404,7 +8418,7 @@ function teamRosterMemberLabel(roster, memberId) {
 function teamPairingRostersMarkup(match) {
   if (match.phase === "completed" || !match.rosterA || !match.rosterB) return "";
   const rosters = [match.rosterA, match.rosterB];
-  const members = rosters.map(roster => activeRosterMembersForUi(roster).slice().sort((a, b) => a.slot - b.slot).slice(0, 3));
+  const members = rosters.map(roster => activeRosterMembersForUi(roster).slice().sort((a, b) => a.slot - b.slot).slice(0, teamSizeFor(match)));
   const id = `team-pairing-rosters-${Number(match.id)}`;
   const memberMarkup = (member, side) => {
     if (!member) return `<div aria-hidden="true"></div>`;
@@ -8516,6 +8530,11 @@ function teamTournamentTables(tournamentId) {
 }
 
 function teamMatchProgressMarkup(match) {
+  if (match.pairingType === "doubles") {
+    const progress = match.progress || { completed: 0, total: 2 };
+    const s = match.scoring;
+    return `<p class="team-match-progress">${escapeHtml(t("doubles.progress", { count: progress.completed, total: 2 }))}${s ? ` · ${escapeHtml(t("doubles.breakdown", { tpA: s.baseTpA, tpB: s.baseTpB, vpA: s.totalVpA, vpB: s.totalVpB, bonusA: s.vpBonusA ?? "—", bonusB: s.vpBonusB ?? "—" }))}` : ""}</p>`;
+  }
   if (!(match.games || []).length) return "";
   const progress = match.progress || { completed: 0, total: 3, gpA: 0, gpB: 0 };
   return `<p class="team-match-progress">${escapeHtml(t(match.pairingType === "sword_shield_classic" ? "classic.progress" : "teams.results.progress", { count: progress.completed, total: progress.total, a: match.pairingType === "sword_shield_classic" ? progress.winsA : progress.gpA, b: match.pairingType === "sword_shield_classic" ? progress.winsB : progress.gpB, tpA: progress.tpA ?? 0, tpB: progress.tpB ?? 0 }))}</p>`;
@@ -8525,7 +8544,7 @@ function teamMatchGamesMarkup(match, options = {}) {
   const pairings = new Map((match.pairings || []).map((pairing) => [Number(pairing.slot), pairing]));
   const assignments = new Map((match.environment?.assignments || []).map((assignment) => [Number(assignment.slot), assignment]));
   const games = new Map((match.games || []).map((link) => [Number(link.slot), link]));
-  const slots = [...new Set([...(options.preview && !match.resolution ? [1, 2, 3] : []), ...pairings.keys(), ...assignments.keys(), ...games.keys()])].sort((a, b) => a - b);
+  const slots = [...new Set([...(options.preview && !match.resolution ? Array.from({ length: teamSizeFor(match) }, (_, index) => index + 1) : []), ...pairings.keys(), ...assignments.keys(), ...games.keys()])].sort((a, b) => a - b);
   if (!slots.length) return "";
   const summary = options.showProgress === false ? "" : teamMatchProgressMarkup(match);
   return `${summary}<div class="team-match-games">${slots.map((slot) => {
@@ -8553,7 +8572,7 @@ function teamMatchGamesMarkup(match, options = {}) {
       const [playerAId, playerBId] = game.resultPlayerIds || game.playerIds || [];
       const vpA = completed ? game.result.scores?.[playerAId]?.total ?? 0 : null;
       const vpB = completed ? game.result.scores?.[playerBId]?.total ?? 0 : null;
-      const score = completed ? `${vpA}:${vpB} VP${match.pairingType === "sword_shield_classic" ? "" : ` · ${link.gamePointsA}:${link.gamePointsB} GP`}` : match.pairingType === "sword_shield_classic" ? "" : t("teams.results.notCounted");
+      const score = completed ? `${vpA}:${vpB} VP${usesIndividualTeamPoints(match) ? "" : ` · ${link.gamePointsA}:${link.gamePointsB} GP`}` : usesIndividualTeamPoints(match) ? "" : t("teams.results.notCounted");
       result = `<span class="match-result-state" data-result-state="${resultState}">${[status, score].filter(Boolean).map(escapeHtml).join(" · ")}</span>`;
     }
     const resultAction = options.readOnly ? "" : link?.permissions?.canSubmit
@@ -8811,8 +8830,8 @@ function renderTeamPairing(live = false) {
       <div class="panel-header">
         <div>
           <p class="profile-label">${escapeHtml(tournament.name || "")} · ${t("notifications.round", { number: match.roundNumber })}</p>
-          <h2>${t(match.captainPairingEnabled === false ? "classic.manual" : match.pairingType === "sword_shield_classic" ? "classic.name" : "teams.pairing.screenTitle")}</h2>
-          <p class="muted">${t(match.captainPairingEnabled === false ? "classic.manualHint" : "teams.pairing.screenHint")}</p>
+          <h2>${t(match.captainPairingEnabled === false ? (match.pairingType === "doubles" ? "doubles.manual" : "classic.manual") : match.pairingType === "sword_shield_classic" ? "classic.name" : "teams.pairing.screenTitle")}</h2>
+          <p class="muted">${t(match.pairingType === "doubles" ? "doubles.manualHint" : match.captainPairingEnabled === false ? "classic.manualHint" : "teams.pairing.screenHint")}</p>
         </div>
         <div class="row-actions">
           <button class="ghost-button" data-team-pairing-back>${t("common.back")}</button>
@@ -9182,20 +9201,23 @@ function renderRoundSetupModal(preview) {
 }
 
 function teamRoundMissionFields(tables = [], round = {}, reuseLines = false) {
+  const doubles = state.adminTournamentDetail?.tournament?.pairingType === "doubles";
   const classic = state.adminTournamentDetail?.tournament?.pairingType === "sword_shield_classic";
   const venue = state.adminTournamentDetail?.tournament?.venueMode;
   const sharedTables = !classic && venue !== "irl";
   return `<section class="admin-subpanel"><p class="muted">${t(sharedTables ? "teams.tournament.tablesHint" : venue === "irl" ? "classic.readyIrl" : "classic.readyTts")}</p>
-    <p class="muted">${t(classic ? "classic.missionsHint" : "teams.tournament.missionPoolHint")}</p>
+    <p class="muted">${t(doubles ? "doubles.missionsHint" : classic ? "classic.missionsHint" : "teams.tournament.missionPoolHint")}</p>
+    ${doubles ? `<div class="grid-2">${Array.from({ length: 4 }, (_, index) => `<label>${t("classic.mission", { number: index + 1 })}<select name="doublesMission-${index}" required>${critOpOptions.map(mission => `<option value="${escapeHtml(mission)}" ${round.missions?.[index]?.critOp === mission ? "selected" : ""}>${escapeHtml(mission)}</option>`).join("")}</select></label>`).join("")}</div>` : ""}
     ${reuseLines && !sharedTables ? savedTeamLinesMarkup(tables) : teamTableSetupFields(tables, venue, sharedTables)}</section>`;
 }
 
 function savedTeamLinesMarkup(tables) {
+  const size = teamSizeFor(state.adminTournamentDetail?.tournament);
   return `<section class="saved-team-lines" data-saved-team-lines>
     <div data-team-lines-summary>
       <h4>${t("classic.savedLines")}</h4>
       <p class="muted">${t("classic.savedLinesHint")}</p>
-      <div class="saved-team-lines-list">${Array.from({ length: tables.length / 3 }, (_, index) => `<div class="row-card compact-row-card"><strong>${t("classic.line", { number: index + 1 })}</strong><span>${tables.slice(index * 3, index * 3 + 3).map(table => escapeHtml(t("tournaments.match.table", { number: table.tableNumber }))).join(" · ")}</span></div>`).join("")}</div>
+      <div class="saved-team-lines-list">${Array.from({ length: tables.length / size }, (_, index) => `<div class="row-card compact-row-card"><strong>${t("classic.line", { number: index + 1 })}</strong><span>${tables.slice(index * size, index * size + size).map(table => escapeHtml(t("tournaments.match.table", { number: table.tableNumber }))).join(" · ")}</span></div>`).join("")}</div>
       <button class="small-button" type="button" data-team-lines-edit>${t("classic.editLines")}</button>
     </div>
     <div data-team-lines-editor hidden></div>
@@ -9204,8 +9226,9 @@ function savedTeamLinesMarkup(tables) {
 
 function teamTableSetupFields(tables = [], venueMode = "tts", sharedTables = false) {
   const optionalKillzone = venueMode === "irl";
-  return `${sharedTables ? "" : `<p class="muted">${t(optionalKillzone ? "classic.linesHintIrl" : "classic.linesHint")}</p>`}<div class="team-table-setup">${Array.from({ length: sharedTables ? 3 : Math.max(3, tables.length) }, (_, index) => `
-    ${!sharedTables && index % 3 === 0 ? `<h4 class="team-line-heading">${t("classic.line", { number: index / 3 + 1 })}</h4>` : ""}
+  const size = teamSizeFor(state.adminTournamentDetail?.tournament);
+  return `${sharedTables ? "" : `<p class="muted">${t(size === 2 ? "doubles.linesHint" : optionalKillzone ? "classic.linesHintIrl" : "classic.linesHint")}</p>`}<div class="team-table-setup">${Array.from({ length: sharedTables ? 3 : Math.max(size, tables.length) }, (_, index) => `
+    ${!sharedTables && index % size === 0 ? `<h4 class="team-line-heading">${t("classic.line", { number: index / size + 1 })}</h4>` : ""}
     <section class="team-table-setup-card" data-team-table-setup="${index}">
       ${tables[index]?.id ? `<input type="hidden" name="teamTableId-${index}" value="${Number(tables[index].id)}">` : ""}
       <div class="grid-3">
@@ -9328,13 +9351,14 @@ function wireTeamTableImages(form) {
 
 function teamRoundSetupMatchRow(match = {}, tables = []) {
   const tournament = state.adminTournamentDetail?.tournament || {};
+  const size = teamSizeFor(tournament);
   const sharedTables = tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic";
-  return `<div class="row-card compact-row-card round-setup-match-row"><div class="row-main"><div class="round-setup-match-grid">${teamRoundSetupRosterSelect("rosterAId", match.rosterAId)}${teamRoundSetupRosterSelect("rosterBId", match.rosterBId)}${sharedTables ? "" : `<label>${t("classic.line", { number: "" })}<select name="lineNumber">${Array.from({ length: tables.length / 3 }, (_, index) => `<option value="${index+1}" ${Number(match.lineNumber || match.bracketPosition) === index+1 ? "selected" : ""}>${t("classic.line", { number: index+1 })} · ${tables.slice(index*3,index*3+3).map(table => table.tableNumber).join(", ")}</option>`).join("")}</select></label>`}</div></div></div>`;
+  return `<div class="row-card compact-row-card round-setup-match-row"><div class="row-main"><div class="round-setup-match-grid">${teamRoundSetupRosterSelect("rosterAId", match.rosterAId)}${teamRoundSetupRosterSelect("rosterBId", match.rosterBId)}${sharedTables ? "" : `<label>${t("classic.line", { number: "" })}<select name="lineNumber">${Array.from({ length: tables.length / size }, (_, index) => `<option value="${index+1}" ${Number(match.lineNumber || match.bracketPosition) === index+1 ? "selected" : ""}>${t("classic.line", { number: index+1 })} · ${tables.slice(index*size,index*size+size).map(table => table.tableNumber).join(", ")}</option>`).join("")}</select></label>`}</div></div></div>`;
 }
 
 function teamRoundSetupRosterSelect(name, selectedId = "") {
   const rosters = (state.adminTournamentDetail?.rosters || []).filter((roster) => ["registered", "active"].includes(roster.status));
-  const allowBye = name === "rosterBId" && rosters.length % 2 === 1;
+  const allowBye = state.adminTournamentDetail?.tournament?.pairingType !== "doubles" && name === "rosterBId" && rosters.length % 2 === 1;
   return `<div class="field"><label>${name === "rosterAId" ? t("teams.tournament.rosterA") : t("teams.tournament.rosterB")}</label><select name="${name}" ${allowBye ? "" : "required"}><option value="" ${!selectedId ? "selected" : ""}>${t(allowBye ? "teams.pairing.bye" : "games.result.notSelected")}</option>${rosters.map((roster) => `<option value="${roster.id}" ${Number(selectedId) === roster.id ? "selected" : ""}>${escapeHtml(roster.name)}</option>`).join("")}</select></div>`;
 }
 
@@ -9540,6 +9564,7 @@ function roundSetupPayload(form, tournament) {
   const rows = Array.from(form.querySelectorAll(".round-setup-match-row"));
   if (tournament.participantMode === "team") {
     return {
+      ...(tournament.pairingType === "doubles" ? { missions: Array.from({ length: 4 }, (_, index) => form.elements[`doublesMission-${index}`]?.value || "") } : {}),
       ...(form.elements["teamKillzone-0"] ? { tables: teamTableSetupPayload(form) } : {}),
       matchups: rows.map((row) => ({
         lineNumber: Number(row.querySelector('[name="lineNumber"]')?.value) || null,
@@ -9717,6 +9742,29 @@ function updateTournamentParticipantModeFields(form) {
   form.querySelectorAll("[data-individual-mode-field]").forEach((field) => {
     field.hidden = isTeam;
   });
+  const type = form.elements.pairingType;
+  const doubles = isTeam && type?.value === "doubles";
+  const sizeLabel = form.querySelector("[data-team-size-label]");
+  if (sizeLabel) sizeLabel.value = t(doubles ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree");
+  const classicSettings = form.querySelector("[data-team-classic-settings]");
+  if (classicSettings) {
+    classicSettings.hidden = doubles;
+    classicSettings.querySelectorAll("input,select").forEach(control => { control.disabled = doubles || !isTeam || control.dataset.modeBaseDisabled === "1"; });
+  }
+  const doublesSettings = form.querySelector("[data-doubles-settings]");
+  if (doublesSettings) doublesSettings.hidden = !doubles;
+  const venue = form.elements.venueMode;
+  if (venue) {
+    const tts = [...venue.options].find(option => option.value === "tts");
+    if (tts) tts.disabled = doubles;
+    if (doubles) venue.value = "irl";
+  }
+  if (doubles && form.dataset.previousPairingType && form.dataset.previousPairingType !== "doubles" && form.elements.swissRoundCount && !form.elements.swissRoundCount.disabled) form.elements.swissRoundCount.value = "4";
+  form.dataset.previousPairingType = type?.value || "";
+  if (type && !type.dataset.doublesWired) {
+    type.dataset.doublesWired = "1";
+    type.addEventListener("change", () => updateTournamentParticipantModeFields(form));
+  }
   updateTournamentFormatFields(form);
   const limitField = form.querySelector('[name="registrationLimit"]');
   if (limitField) {
@@ -9836,6 +9884,16 @@ function wireTeamTournamentControls(data, options = {}) {
     });
   });
   document.querySelectorAll("[data-team-pairing-form]").forEach((form) => {
+    if (form.dataset.teamPairingForm === "manual" && Number(form.dataset.pairingSize) === 2) {
+      const updateChoices = () => {
+        for (const prefix of ["player-a-", "player-b-", "table-", "mission-"]) {
+          const selects = [...form.querySelectorAll(`select[name^="${prefix}"]`)];
+          for (const select of selects) for (const option of select.options) option.disabled = Boolean(option.value && selects.some(other => other !== select && other.value === option.value));
+        }
+      };
+      onLive(form, "change", updateChoices);
+      updateChoices();
+    }
     onLive(form, "submit", async (event) => {
       event.preventDefault();
       const action = form.dataset.teamPairingForm;
@@ -9845,7 +9903,7 @@ function wireTeamTournamentControls(data, options = {}) {
         body.rollRound = Number(form.dataset.rollRound);
       }
       if (action === "initiative") body.winnerSide = form.elements.winnerSide.value;
-      if (action === "manual") body.pairings = [0,1,2].map(index => ({
+      if (action === "manual") body.pairings = Array.from({ length: Number(form.dataset.pairingSize || 3) }, (_, index) => ({
         rosterAMemberId: Number(form.elements[`player-a-${index}`].value), rosterBMemberId: Number(form.elements[`player-b-${index}`].value),
         tableId: Number(form.elements[`table-${index}`].value), mission: form.elements[`mission-${index}`].value
       }));

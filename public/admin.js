@@ -441,11 +441,11 @@ function adminTournamentCreatePanel() {
           </div>
           <div class="field" data-team-mode-field hidden>
             <label>${t("admin.tournament.field.teamSize")}</label>
-            <input value="${t("tournaments.teamVariant.teamsOfThree")}" readonly>
+            <input data-team-size-label value="${t("tournaments.teamVariant.teamsOfThree")}" readonly>
           </div>
           <div class="field" data-team-mode-field hidden>
             <label>${t("admin.tournament.field.pairingType")}</label>
-            <select name="pairingType"><option value="shield_sword">${t("tournaments.pairingType.shieldSword")}</option><option value="sword_shield_classic">${t("classic.name")}</option></select>
+            <select name="pairingType"><option value="shield_sword">${t("tournaments.pairingType.shieldSword")}</option><option value="sword_shield_classic">${t("classic.name")}</option><option value="doubles">${t("doubles.name")}</option></select>
           </div>
           <div class="field">
             <label>${t("admin.tournament.field.startsAt")}</label>
@@ -664,11 +664,11 @@ function adminTournamentEditForm(tournament) {
         </div>
         <div class="field" data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
           <label>${t("admin.tournament.field.teamSize")}</label>
-          <input value="${t("tournaments.teamVariant.teamsOfThree")}" readonly ${lockAttrs}>
+          <input data-team-size-label value="${t(tournament.pairingType === "doubles" ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree")}" readonly ${lockAttrs}>
         </div>
         <div class="field" data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
           <label>${t("admin.tournament.field.pairingType")}</label>
-          <select name="pairingType" ${lockAttrs}><option value="shield_sword" ${tournament.pairingType === "shield_sword" ? "selected" : ""}>${t("tournaments.pairingType.shieldSword")}</option><option value="sword_shield_classic" ${tournament.pairingType === "sword_shield_classic" ? "selected" : ""}>${t("classic.name")}</option></select>
+          <select name="pairingType" ${lockAttrs}><option value="shield_sword" ${tournament.pairingType === "shield_sword" ? "selected" : ""}>${t("tournaments.pairingType.shieldSword")}</option><option value="sword_shield_classic" ${tournament.pairingType === "sword_shield_classic" ? "selected" : ""}>${t("classic.name")}</option><option value="doubles" ${tournament.pairingType === "doubles" ? "selected" : ""}>${t("doubles.name")}</option></select>
         </div>
         <div class="field">
           <label>${t("admin.tournament.field.ratingPolicy")}</label>
@@ -744,6 +744,7 @@ function adminTournamentParticipantsPanel(data) {
 
 function adminTournamentTablesContent(data) {
   const tournament = data.tournament || {};
+  const size = teamSizeFor(tournament);
   const tables = data.tables || [];
   const readOnly = ["completed", "cancelled"].includes(tournament.status) || tournament.teamTablesLocked;
   const sharedTables = tournament.participantMode === "team" && tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic";
@@ -775,7 +776,7 @@ function adminTournamentTablesContent(data) {
         <button class="small-button" type="submit" ${cannotAdd ? "disabled" : ""}>${t("admin.tournament.tables.add")}</button>
       </form>
       <div class="list">
-        ${tables.length ? tables.map((table, index) => `${tournament.participantMode === "team" && !sharedTables && index % 3 === 0 ? `<h4>${t("classic.line", { number: index / 3 + 1 })}</h4>` : ""}${adminTournamentTableRow(table, readOnly)}`).join("") : `<div class="empty">${t("admin.tournament.tables.empty")}</div>`}
+        ${tables.length ? tables.map((table, index) => `${tournament.participantMode === "team" && !sharedTables && index % size === 0 ? `<h4>${t("classic.line", { number: index / size + 1 })}</h4>` : ""}${adminTournamentTableRow(table, readOnly)}`).join("") : `<div class="empty">${t("admin.tournament.tables.empty")}</div>`}
       </div>
     </div>
   `;
@@ -1121,7 +1122,7 @@ async function openAdminTeamRosterCreator(data, reserve = null) {
       const profile = await api(`/api/teams/${team.id}/members`);
       if (version !== loadVersion) return;
       const selectedTeam = { ...profile.team, members: profile.currentMembers || [] };
-      fields.innerHTML = teamRosterMemberFields(selectedTeam, null, { allowProxies: true });
+      fields.innerHTML = teamRosterMemberFields(selectedTeam, null, { allowProxies: true, teamSize: teamSizeFor(data.tournament) });
       wireTeamRosterMemberSelection(form);
       loadedTeamId = selectedTeam.id;
       submit.disabled = false;
@@ -1170,7 +1171,7 @@ async function openAdminTeamRosterEditor(data, roster) {
   dialog.innerHTML = `<form class="tiebreaker-help-content" data-admin-team-roster-editor>
     <div class="tiebreaker-help-header"><div><h3>${t("teams.tournament.editTitle")}</h3><p>${escapeHtml(roster.teamNameSnapshot || "")}</p></div><button class="dialog-close-button" type="button" data-team-roster-editor-close aria-label="${t("common.close")}">&times;</button></div>
     <div class="field"><label>${t("teams.tournament.rosterName")}</label><input name="name" minlength="2" maxlength="80" value="${escapeHtml(roster.name || "")}" required></div>
-    ${teamRosterMemberFields({ members }, roster, { allowProxies: true })}
+    ${teamRosterMemberFields({ members }, roster, { allowProxies: true, teamSize: teamSizeFor(data.tournament) })}
     <div class="row-actions"><button class="small-button" type="button" data-team-roster-editor-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("common.save")}</button></div>
   </form>`;
   document.body.appendChild(dialog);
@@ -1717,8 +1718,8 @@ function adminTournamentBodyFromForm(form, options = {}) {
     body.participantMode = participantMode;
     if (participantMode === "team") {
       body.format = "swiss";
-      body.teamSize = 3;
       body.pairingType = form.elements.pairingType?.value || "shield_sword";
+      body.teamSize = body.pairingType === "doubles" ? 2 : 3;
     } else {
       setFormValue(body, form, "format");
     }
@@ -1770,7 +1771,10 @@ function adminTournamentBodyFromForm(form, options = {}) {
     }
     body.tiebreakerOrder = selected.slice(0, 4);
   }
-  if (participantMode === "team" && form.elements.captainPairingEnabled && !form.elements.captainPairingEnabled.disabled) {
+  if (participantMode === "team" && form.elements.pairingType?.value === "doubles") {
+    body.captainPairingEnabled = false;
+    body.teamTiebreakerOrder = null;
+  } else if (participantMode === "team" && form.elements.captainPairingEnabled && !form.elements.captainPairingEnabled.disabled) {
     body.captainPairingEnabled = form.elements.captainPairingEnabled.checked;
     body.teamTiebreakerOrder = form.elements.customTeamTiebreakers.checked
       ? [0,1,2].map(index => form.elements[`teamTiebreaker-${index}`].value).filter(Boolean) : null;
@@ -2144,7 +2148,7 @@ function wireAdminTeamRosterControls(data) {
     button.addEventListener("click", async () => {
       const roster = (data.rosters || []).find((item) => item.id === Number(button.dataset.adminTeamRosterDelete));
       const started = Boolean(data.tournament.startedAt) || ["in_progress", "completed"].includes(data.tournament.status);
-      if (!await confirmDelete(t(started ? (data.tournament.pairingType === "sword_shield_classic" ? "classic.removeAfterStartConfirm" : "teams.tournament.removeAfterStartConfirm") : "teams.tournament.deleteConfirm", { name: roster?.name || roster?.teamNameSnapshot || "" }))) return;
+      if (!await confirmDelete(t(started ? (data.tournament.pairingType === "doubles" ? "doubles.removeAfterStartConfirm" : data.tournament.pairingType === "sword_shield_classic" ? "classic.removeAfterStartConfirm" : "teams.tournament.removeAfterStartConfirm") : "teams.tournament.deleteConfirm", { name: roster?.name || roster?.teamNameSnapshot || "" }))) return;
       try {
         await api(`/api/tournaments/${data.tournament.id}/rosters/${button.dataset.adminTeamRosterDelete}`, { method: "DELETE" });
         await refreshTeamTournamentUi(data, { admin: true });

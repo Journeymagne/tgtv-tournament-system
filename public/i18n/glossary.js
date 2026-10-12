@@ -31,7 +31,8 @@ const RULES_TERMS = [
   "Roll-off",
   "Elo",
   "Strength of Schedule",
-  "SoS"
+  "SoS",
+  "SOS"
 ];
 
 // Product and feature names.
@@ -45,6 +46,7 @@ const PROPER_NAMES = [
   "MMR",
   "WTC",
   "SWORD SHIELD CLASSIC",
+  "Doubles",
   "All Kill Team Challenge",
   "Classified",
   "Non-Classified",

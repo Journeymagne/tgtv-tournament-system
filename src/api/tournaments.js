@@ -450,6 +450,10 @@ async function updateAdmin({ client, user, params, body }) {
     }
   }
   const patch = normalizeTournamentPatch(body, tournament);
+  if (tournament.participantMode === "team" && patch.teamSize && patch.teamSize !== tournament.teamSize) {
+    const rosters = await require("../db/repositories/team-rosters").listByTournament(client, tournament.id);
+    if (rosters.some(roster => !roster.isReserve && roster.status !== "withdrawn")) throw new HttpError(409, "Remove registered rosters before changing the roster size");
+  }
   if (patch.registrationLimit) {
     const entries = tournament.participantMode === "team"
       ? await require("../db/repositories/team-rosters").listByTournament(client, tournament.id)

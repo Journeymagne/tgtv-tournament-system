@@ -16,6 +16,8 @@ function mapTeamMatch(row) {
     rollResult: row.roll_result,
     pairingVersion: row.pairing_version || 1,
     pairingType: row.pairing_type || "shield_sword",
+    teamSize: row.team_size || (row.pairing_type === "doubles" ? 2 : 3),
+    scoringVersion: row.scoring_version || 1,
     captainPairingEnabled: row.captain_pairing_enabled !== false,
     lineNumber: row.line_number || null,
     rollHistory: row.roll_history || [],
@@ -89,14 +91,14 @@ async function insert(client, match) {
     `INSERT INTO tournament_team_matches
        (tournament_id, round_id, round_number, bracket_position, roster_a_id, roster_b_id,
         phase, missions, table_ids, pairing_version, resolution,
-        team_game_points_a, team_game_points_b, team_tournament_points_a, team_tournament_points_b, completed_at, pairing_type, captain_pairing_enabled, line_number)
+        team_game_points_a, team_game_points_b, team_tournament_points_a, team_tournament_points_b, completed_at, pairing_type, captain_pairing_enabled, line_number, team_size, scoring_version)
      VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $10 THEN 'completed' WHEN NOT $12 THEN 'environment_selection' ELSE 'awaiting_roll' END,
        $7::jsonb, $8::int[], $9, CASE WHEN $10 THEN 'bye' END,
        CASE WHEN $10 AND $11 <> 'sword_shield_classic' THEN 60 END, CASE WHEN $10 AND $11 <> 'sword_shield_classic' THEN 0 END,
-       CASE WHEN $10 THEN CASE WHEN $11 = 'sword_shield_classic' THEN 9 ELSE 2 END END, CASE WHEN $10 THEN 0 END, CASE WHEN $10 THEN NOW() END, $11, $12, $13) RETURNING *`,
+       CASE WHEN $10 THEN CASE WHEN $11 = 'sword_shield_classic' THEN 9 ELSE 2 END END, CASE WHEN $10 THEN 0 END, CASE WHEN $10 THEN NOW() END, $11, $12, $13, $14, $15) RETURNING *`,
     [match.tournamentId, match.roundId, match.roundNumber, match.bracketPosition, match.rosterAId,
       match.rosterBId, JSON.stringify(match.missions || null), match.tableIds || [], match.pairingVersion || 1, match.rosterBId == null, match.pairingType || "shield_sword",
-      match.captainPairingEnabled !== false, match.lineNumber || null]
+      match.captainPairingEnabled !== false, match.lineNumber || null, match.pairingType === "doubles" ? 2 : 3, match.scoringVersion || 1]
   );
   return mapTeamMatch(rows[0]);
 }

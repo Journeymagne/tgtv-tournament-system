@@ -13,7 +13,7 @@ const sourceOf = (name) => {
 test("team round setup always renders three editable terrain/deployment pairs with preview defaults", () => {
   const tables = [{ killzone: "Volkus", deployment: 6 }, { killzone: "Gallowdark", deployment: 5 }, { killzone: "Tomb World", deployment: 4 }];
   const render = new Function("t", "optionsHtml", "killzoneOptions", "state",
-    `${sourceOf("teamTableImageField")}; ${sourceOf("teamTableSetupFields")}; ${sourceOf("teamRoundMissionFields")}; return teamRoundMissionFields;`
+    `${sourceOf("teamSizeFor")}; ${sourceOf("teamTableImageField")}; ${sourceOf("teamTableSetupFields")}; ${sourceOf("teamRoundMissionFields")}; return teamRoundMissionFields;`
   )((key) => key, (_options, value) => `<option selected>${value}</option>`, [], { adminTournamentDetail: { tournament: { teamTablesLocked: true } } });
   const html = render(tables);
   assert.equal((html.match(/<select /g) || []).length, 6);
@@ -40,7 +40,7 @@ test("TTS WTC has three shared tables and no matchup line selector; Classic and 
   for (const [venueMode, pairingType, expectedCount] of [["tts", "shield_sword", 3], ["tts", "sword_shield_classic", 6], ["irl", "shield_sword", 6]]) {
     const state = { adminTournamentDetail: { tournament: { venueMode, pairingType } } };
     const render = new Function("state", "t", "optionsHtml", "killzoneOptions", "escapeHtml", "teamRoundSetupRosterSelect",
-      `${sourceOf("teamTableImageField")}; ${sourceOf("teamTableSetupFields")}; ${sourceOf("savedTeamLinesMarkup")}; ${sourceOf("teamRoundMissionFields")}; ${sourceOf("teamRoundSetupMatchRow")}; return { fields: teamRoundMissionFields, row: teamRoundSetupMatchRow };`
+      `${sourceOf("teamSizeFor")}; ${sourceOf("teamTableImageField")}; ${sourceOf("teamTableSetupFields")}; ${sourceOf("savedTeamLinesMarkup")}; ${sourceOf("teamRoundMissionFields")}; ${sourceOf("teamRoundSetupMatchRow")}; return { fields: teamRoundMissionFields, row: teamRoundSetupMatchRow };`
     )(state, key => key, () => "", [], String, name => `<select name="${name}"></select>`);
     const html = render.fields(tables);
     assert.equal((html.match(/data-team-table-setup=/g) || []).length, expectedCount);

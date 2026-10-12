@@ -3,6 +3,18 @@
 // Keys are flat and dotted, grouped by screen with comment separators.
 
 const TGTV_I18N_EN = {
+  "doubles.name": "Doubles",
+  "doubles.manual": "Assign two games manually",
+  "doubles.teamSize": "Teams of 2",
+  "doubles.sos": "SOS",
+  "doubles.standingsHint": "Individual TP: win 2, draw 1, loss 0. The team with more total VP receives 1 extra TP. Standings: TP → SOS → VP.",
+  "doubles.manualHint": "Captains agree on two pairings at the venue, then enter players, tables and missions. Either captain can save both pairings.",
+  "doubles.pairingRules": "Roll D6 and reroll ties. The winner chooses to pair the players or assign the tables; the loser takes the other choice. The loser then chooses one of four missions for either table; the winner assigns one of the remaining three to the other table. Clear a selection first to swap players or tables.",
+  "doubles.missionsHint": "Choose four different missions for this round. Captains assign two of them in each matchup.",
+  "doubles.linesHint": "Prepare a line of two tables for each matchup. A table number and deployment 1–6 are required; the Killzone is optional.",
+  "doubles.progress": "Games completed: {count}/{total}",
+  "doubles.breakdown": "Individual TP {tpA}:{tpB} · VP {vpA}:{vpB} · Bonus {bonusA}:{bonusB}",
+  "doubles.removeAfterStartConfirm": "Remove roster “{name}” while preserving played history? Unfinished matches block removal because Doubles technical scoring is not defined. The next round requires an even number of teams.",
 
   "classic.removeAfterStartConfirm": "Remove roster “{name}” from future rounds? Played results are preserved. Any unfinished match becomes a forfeit win for the opponent: 9 TP for three individual wins, without Elo changes for the forfeit.",
   "classic.playerTp": "Player TP",

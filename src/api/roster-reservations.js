@@ -34,7 +34,7 @@ async function fill(client, tournament, roster, user, body) {
   const team = await teams.findById(client, requirePositiveIntId(body.teamId, 400, "Choose a team"), true);
   if (!team || team.archivedAt) throw new HttpError(409, "Choose an active team");
   const rosterApi = require("./team-tournaments");
-  const members = await rosterApi.normalizeRosterMembers(client, team, body.members, { allowProxies: true });
+  const members = await rosterApi.normalizeRosterMembers(client, team, body.members, { allowProxies: true, teamSize: tournament.teamSize || 3 });
   const captainUserId = rosterApi.rosterCaptainUserId(members, body.captainUserId, { allowNoCaptain: true });
   const name = normalizeRosterName(body.name || roster.name);
   const updated = await rosters.update(client, roster.id, { teamId: team.id, name, nameKey: teamNameKey(name), captainUserId,

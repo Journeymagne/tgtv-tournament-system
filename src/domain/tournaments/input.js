@@ -121,7 +121,7 @@ function normalizeTeamPairingType(value, participantMode) {
   if (participantMode !== PARTICIPANT_MODES.TEAM) return null;
   const pairingType = String(value || TEAM_PAIRING_TYPES.SHIELD_SWORD);
   if (!Object.values(TEAM_PAIRING_TYPES).includes(pairingType)) {
-    throw new ValidationError("Choose WTC or SWORD SHIELD CLASSIC");
+    throw new ValidationError("Choose WTC, SWORD SHIELD CLASSIC or Doubles");
   }
   return pairingType;
 }
@@ -206,11 +206,14 @@ function normalizeTournamentPatch(body = {}, current = {}) {
     Object.prototype.hasOwnProperty.call(body, "teamSize") ||
     Object.prototype.hasOwnProperty.call(body, "participantMode")
   ) {
-    patch.teamSize = participantMode === PARTICIPANT_MODES.TEAM ? 3 : null;
-    patch.pairingType = normalizeTeamPairingType(body.pairingType, participantMode);
+    patch.pairingType = normalizeTeamPairingType(body.pairingType ?? current.pairingType, participantMode);
+    patch.teamSize = participantMode === PARTICIPANT_MODES.TEAM ? (patch.pairingType === "doubles" ? 2 : 3) : null;
+    if (Object.hasOwn(body, "teamSize") && Number(body.teamSize) !== patch.teamSize) {
+      throw new ValidationError("Roster size must match the selected team format");
+    }
   }
 
-  const format = patch.format || body.format;
+  const format = selectedFormat;
   if (Object.prototype.hasOwnProperty.call(body, "swissRoundCount")) {
     patch.swissRoundCount = normalizeSwissRoundCount(body.swissRoundCount, normalizeFormat(format));
   } else if (patch.format && patch.format !== TOURNAMENT_FORMATS.SWISS) {
@@ -253,6 +256,14 @@ function normalizeTournamentPatch(body = {}, current = {}) {
   if (Object.prototype.hasOwnProperty.call(body, "venueMode")) {
     patch.venueMode = normalizePolicy(body.venueMode, VENUE_MODES, "tts", "venue");
   }
+  if ((Object.hasOwn(patch, "pairingType") ? patch.pairingType : current.pairingType) === "doubles") {
+    if ((patch.venueMode || current.venueMode || "irl") !== "irl") throw new ValidationError("Doubles is available only for IRL");
+    if (body.captainPairingEnabled === true) throw new ValidationError("Doubles uses manual captain pairings");
+    if (body.teamTiebreakerOrder != null) throw new ValidationError("Doubles standings use TP, SOS and VP");
+    patch.captainPairingEnabled = false;
+    patch.teamTiebreakerOrder = null;
+    if (!Object.hasOwn(body, "swissRoundCount") && !current.swissRoundCount) patch.swissRoundCount = 4;
+  }
   const limit = Object.hasOwn(patch, "registrationLimit") ? patch.registrationLimit : current.registrationLimit;
   const capacity = participantMode === PARTICIPANT_MODES.TEAM ? 128
     : selectedFormat === TOURNAMENT_FORMATS.SINGLE_ELIMINATION
@@ -268,7 +279,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     format: TOURNAMENT_FORMATS.SINGLE_ELIMINATION,
     gameSystem: "Warhammer 40k Kill Team",
     seasonId: currentSeason().id,
-    venueMode: "tts",
+    venueMode: body.pairingType === "doubles" ? "irl" : "tts",
     singleEliminationSize: 8,
     ratingPolicy: "ranked",
     challengeCreditPolicy: "count",
@@ -288,7 +299,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     logoData: patch.logoData || null,
     format: patch.format || TOURNAMENT_FORMATS.SINGLE_ELIMINATION,
     participantMode: patch.participantMode || PARTICIPANT_MODES.INDIVIDUAL,
-    teamSize: patch.participantMode === PARTICIPANT_MODES.TEAM ? 3 : null,
+    teamSize: patch.teamSize,
     pairingType: patch.participantMode === PARTICIPANT_MODES.TEAM
       ? patch.pairingType || TEAM_PAIRING_TYPES.SHIELD_SWORD
       : null,
@@ -311,9 +322,10 @@ function validatePublishable(tournament) {
   normalizeFormat(tournament.format);
   const participantMode = normalizeParticipantMode(tournament.participantMode);
   if (participantMode === PARTICIPANT_MODES.TEAM) {
-    if (tournament.format !== TOURNAMENT_FORMATS.SWISS || Number(tournament.teamSize) !== 3) {
-      throw new ValidationError("Team tournaments require Swiss and teams of three");
+    if (tournament.format !== TOURNAMENT_FORMATS.SWISS || Number(tournament.teamSize) !== (tournament.pairingType === "doubles" ? 2 : 3)) {
+      throw new ValidationError("Team tournaments require Swiss and the correct roster size");
     }
+    if (tournament.pairingType === "doubles" && (tournament.venueMode !== "irl" || tournament.captainPairingEnabled !== false)) throw new ValidationError("Doubles requires IRL and manual captain pairings");
     normalizeTeamPairingType(tournament.pairingType, participantMode);
   }
   if (tournament.format === TOURNAMENT_FORMATS.SWISS && !tournament.swissRoundCount) {

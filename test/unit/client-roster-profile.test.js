@@ -12,7 +12,7 @@ const t = (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_,
 const escapeHtml = (text) => String(text).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
 
 test("standings and team participation history open the particular roster, not the parent team", () => {
-  const render = new Function("t", "escapeHtml", ["teamRosterLabel", "teamStandingsTable", "teamRosterHistory", "teamRosterStatusLabel", "activeRosterMembersForUi"].map(extract).join("\n") + ";return {teamStandingsTable,teamRosterHistory};")(t, escapeHtml);
+  const render = new Function("t", "escapeHtml", ["usesIndividualTeamPoints", "teamRosterLabel", "teamStandingsTable", "teamRosterHistory", "teamRosterStatusLabel", "activeRosterMembersForUi"].map(extract).join("\n") + ";return {teamStandingsTable,teamRosterHistory};")(t, escapeHtml);
   const rosters = [1, 2].map((id) => ({ id, name: `Roster ${id}`, team: { slug: "same-team" }, tournament: { slug: "cup" } }));
   for (const html of [render.teamStandingsTable({ rosters, standings: rosters.map((roster) => ({ rosterId: roster.id, rank: roster.id })) }), render.teamRosterHistory(rosters)]) {
     assert.match(html, /data-roster-profile-link="1"/);
@@ -32,7 +32,7 @@ test("roster links round-trip through route state, including direct links", () =
 test("history shows newest rounds first, preserves A/B scores and hides result editing", () => {
   const renderedGames = [];
   const render = new Function("t", "escapeHtml", "teamMatchGamesMarkup", "teamPairingPhaseLabel",
-    ["teamRosterLabel", "teamMatchScoreLabel", "rosterMatchHistoryMarkup"].map(extract).join("\n") + ";return rosterMatchHistoryMarkup;"
+    ["usesIndividualTeamPoints", "teamRosterLabel", "teamMatchScoreLabel", "rosterMatchHistoryMarkup"].map(extract).join("\n") + ";return rosterMatchHistoryMarkup;"
   )(t, escapeHtml, (match, options) => { renderedGames.push([match.id, options.readOnly]); return "PERSONAL GAMES"; }, String);
   const matches = [1, 3, 2].map((id) => ({ id, roundNumber: id, phase: "completed", rosterA: { id: 10, name: "Opponent" }, rosterB: { id: 20, name: "My roster" }, teamTournamentPointsA: 0, teamTournamentPointsB: 2, teamGamePointsA: 20, teamGamePointsB: 40 }));
   const html = render({ tournament: { status: "in_progress" }, teamMatches: matches });
