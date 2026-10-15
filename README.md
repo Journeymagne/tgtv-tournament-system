@@ -72,6 +72,20 @@ Combat Lab now uses the shared Companion account, language and theme controls.
 All modules share the updated header branding and service navigation. Profile
 game cards have an improved layout.
 
+The October 15 update adds KT2024 melee abilities, configurable follow-up strikes
+and blocks, tactical decisions for the new effects and shared scenario links.
+Named obsolete 2021 effects are removed or renamed to generic effects; the
+short ability list is in [the changelog](CHANGELOG.md). IRL tournaments also
+support optional venue addresses through migration **055_tournament_venue_address**.
+
+Linux deployments through `bash update_tgtv-ts.sh production` now prepare an
+isolated release while the current site keeps running. Calculator dependencies
+have a separate cache, so changed calculator sources can rebuild without another
+nested `npm ci`. The script switches only after preparation, checks pages/API,
+and restores the previous release on failure when migrations are unchanged.
+Use `bash update_tgtv-ts.sh staging --prepare-only` to prepare without switching.
+See [deployment and recovery](docs/deployment.md) for layout and limitations.
+
 Migration **054_user_bcp_email** adds a nullable profile field. Application,
 Combat Lab, both lockfiles and client asset markers use **1.2.0**. No new
 dependencies or environment variables are required. See

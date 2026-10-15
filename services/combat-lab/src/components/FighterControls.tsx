@@ -7,6 +7,7 @@ import {
 
 import Ability, {
   mutuallyExclusiveFightAbilities as nicheAbilities,
+  fightAbilityLabels,
   rerollAbilities as rerolls,
 } from 'src/Ability';
 import { MaxWounds } from 'src/KtMisc';
@@ -38,7 +39,7 @@ import {
   notedControlsFromCheckboxes,
   notedControlsFromParams,
 } from 'src/components/controlNotes';
-import { Props as IncProps, propsToRows } from 'src/components/IncDecSelect';
+import { Props as IncProps, propsToFields, propsToRows } from 'src/components/IncDecSelect';
 import { useCheckboxAndVariable } from 'src/hooks/useCheckboxAndVariable';
 
 
@@ -61,11 +62,12 @@ export type FighterParamId =
   | 'normsToCrits'
   | 'failsToNorms'
   | 'fnp'
-  | 'relics';
+  | 'relics'
+  | 'devastating';
 
 // Order is the control order (params, then checkboxes). The Fight notes panel is built from this
 // same list, so a rule appears in Notes exactly when a fighter card has a control for it.
-// Close Assault and Waaagh are values of the NicheAbility dropdown, not their own controls.
+// Follow-up rules share the NicheAbility selector; other effects may be combined.
 export const fighterParamSpecs: readonly ParamSpec<FighterParamId>[] = [
   { id: 'wounds', label: 'Wounds', advanced: false },
   { id: 'attacks', label: 'Attacks', advanced: false },
@@ -74,6 +76,7 @@ export const fighterParamSpecs: readonly ParamSpec<FighterParamId>[] = [
   { id: 'critDmg', label: 'Critical Dmg', advanced: false },
   { id: 'reroll', label: N.Reroll, advanced: false },
   { id: 'lethal', label: 'Lethal', advanced: false },
+  { id: 'devastating', label: N.DevastatingMelee, advanced: true },
   { id: 'niche', label: N.NicheAbility, advanced: true },
   { id: 'autoNorms', label: N.AutoNorms, advanced: true },
   { id: 'normsToCrits', label: N.NormsToCrits, advanced: true },
@@ -89,12 +92,20 @@ export const fighterBasicCheckboxes: readonly AbilityCheckbox[] = [
 ];
 
 export const fighterAdvancedCheckboxes: readonly AbilityCheckbox[] = [
+  { note: N.Dueller, ability: Ability.Dueller },
+  { note: N.StrikeOnDeath, ability: Ability.StrikeOnDeath },
+  { note: N.CegorachsJest, ability: Ability.CegorachsJest },
+  { note: N.DoubleBlock, ability: Ability.DoubleBlock },
+  { note: N.BlessingsOfInfection, ability: Ability.BlessingsOfInfection },
+  { note: N.CritDamageBonus, ability: Ability.CritDamageBonus },
+  { note: N.FirstStrikeBonus, ability: Ability.FirstStrikeBonus },
+  { note: N.TiltingShields, ability: Ability.TiltingShields },
   { note: N.Shock, ability: Ability.Shock },
   { note: N.Punishing, ability: Ability.Punishing },
   { note: N.PuritySeal, ability: Ability.PuritySeal },
   { note: N.MysticScryBuff, ability: Ability.MysticScryBuff },
-  { note: N.Duelist, ability: Ability.Duelist },
-  { note: N.JustAScratch2021, ability: Ability.JustAScratch },
+  { note: N.PreParry, ability: Ability.PreParry },
+  { note: N.IgnoreOneHit, ability: Ability.JustAScratch },
   { note: N.JustAScratchNorms, ability: Ability.JustAScratchNorms },
   { note: N.HalfDamageFirstStrike, ability: Ability.HalfDamageFirstStrike },
   { note: N.CurseOfRot, ability: Ability.CurseOfRot },
@@ -161,8 +172,10 @@ const FighterControls: React.FC<Props> = (props: Props) => {
         return new IncProps(spec.label, atk.reroll, preX(rerolls), textHandler('reroll'));
       case 'lethal':
         return new IncProps(spec.label, atk.lethal + '+', xspan(5, 2, '+'), numHandler('lethal'));
+      case 'devastating':
+        return new IncProps(spec.label, atk.mwx, xspan(1, 9), numHandler('mwx'));
       case 'niche':
-        return new IncProps(spec.label, nicheAbility, nicheAbilities, subsetHandler(nicheAbilities));
+        return new IncProps(spec.label, nicheAbility, nicheAbilities, subsetHandler(nicheAbilities), fightAbilityLabels);
       case 'autoNorms':
         return new IncProps(spec.label, atk.autoNorms, xspan(1, 9), numHandler('autoNorms'));
       case 'normsToCrits':
@@ -192,8 +205,10 @@ const FighterControls: React.FC<Props> = (props: Props) => {
     ? fighterAdvancedCheckboxes
     : fighterAdvancedCheckboxes.filter(c => atk.has(c.ability));
 
+  // Ability names need the full card width to stay readable beside the stepper buttons.
+  const nicheParam = advancedParamsToShow.find(p => p.id === N.NicheAbility.name);
   const [paramsCol0, paramsCol1] = requiredAndOptionalItemsToTwoCols(
-    basicParams, advancedParamsToShow);
+    basicParams, advancedParamsToShow.filter(p => p !== nicheParam));
   const elemsCol0 = propsToRows(paramsCol0, props.idPrefix);
   const elemsCol1 = propsToRows(paramsCol1, props.idPrefix);
 
@@ -219,6 +234,7 @@ const FighterControls: React.FC<Props> = (props: Props) => {
           </Container>
         </Col>
       </Row>
+      {nicheParam && <Row className='mb-1'><Col>{propsToFields([nicheParam], props.idPrefix)}</Col></Row>}
       <Row>
         <Col>
           <div className='CheckCol'>

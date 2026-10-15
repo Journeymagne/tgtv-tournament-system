@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 import Note, * as N from 'src/Notes';
-import Ability, { mutuallyExclusiveFightAbilities } from 'src/Ability';
+import Ability, { fightAbilityLabels, mutuallyExclusiveFightAbilities } from 'src/Ability';
 import Model from 'src/Model';
 import { advancedMarkerTooltip } from 'src/components/AdvancedMarker';
 import AttackerControls, { attackerNotedControls } from 'src/components/AttackerControls';
@@ -86,13 +86,12 @@ describe('notes panels follow the controls', () => {
       <NotesList notes={notes} advancedNotes={advancedNotes} />,
     );
     expect(boldNoteNames(container)).toEqual(namesInPanelOrder(notes, advancedNotes));
-    expect(notes).not.toContain(N.CloseAssault2021);
-    expect(N.NicheAbility.description).toContain('CloseAssault is');
-    expect(N.NicheAbility.description).toContain('Waaagh2021');
+    expect(N.NicheAbility.description).not.toContain('CloseAssault');
+    expect(N.NicheAbility.description).not.toContain('Waaagh2021');
     for (const note of [
       N.Punishing,
-      N.Duelist,
-      N.JustAScratch2021,
+      N.PreParry,
+      N.IgnoreOneHit,
       N.JustAScratchNorms,
       N.HalfDamageFirstStrike,
       N.NormsToCrits,
@@ -107,7 +106,7 @@ describe('notes panels follow the controls', () => {
   it('NicheAbility note names every dropdown value exactly as the dropdown shows it', () => {
     for (const value of mutuallyExclusiveFightAbilities) {
       if (value === Ability.None) continue;
-      expect(N.NicheAbility.description).toContain(`${value} is `);
+      expect(N.NicheAbility.description).toContain(`${fightAbilityLabels[value] ?? value}:`);
     }
   });
 
@@ -131,10 +130,9 @@ describe('notes panels follow the controls', () => {
     const fightNotes = notesPanelBody();
     const fightDerived = notesFromControls(fighterNotedControls);
     expect(boldNoteNames(fightNotes)).toEqual(namesInPanelOrder(fightDerived.notes, fightDerived.advancedNotes));
-    expect(boldNoteNames(fightNotes)).not.toContain(N.CloseAssault2021.name);
     expect(boldNoteNames(fightNotes)).not.toContain('Waaagh2021');
-    expect(fightNotes.textContent).toContain('CloseAssault is Imperial Navy');
-    expect(fightNotes.textContent).toContain('Waaagh2021 is Kommandos');
+    expect(fightNotes.textContent).not.toContain('CloseAssault');
+    expect(fightNotes.textContent).not.toContain('Waaagh2021');
     expect(fightNotes.textContent).toContain('All strategies will do certain no-downside actions');
     expect(fightNotes.textContent).toContain('The next-strike kill check is an estimate');
     expect(fightNotes.textContent).toContain('can miss a kill that depends on a failed Feel No Pain or relic roll');

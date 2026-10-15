@@ -16,6 +16,7 @@ export interface IProps {
   hoverText?: string;
   label?: string;
   values: string[];
+  valueLabels?: Readonly<Record<string, string>>;
   selectedValue: number | string;
   valueChangeHandler: Util.Accepter<string>;
   // true when this control only appears under the panel's "Advanced" checkbox; shows the gear marker.
@@ -29,6 +30,7 @@ export class Props implements IProps {
   public hoverText?: string;
   public selectedValue: number | string;
   public values: string[];
+  public valueLabels?: Readonly<Record<string, string>>;
   public valueChangeHandler: Util.Accepter<string>;
   public advanced?: boolean;
 
@@ -37,6 +39,7 @@ export class Props implements IProps {
     selectedValue: string | number,
     values: string[] | number[],
     valueChangeHandler: Util.Accepter<string>,
+    valueLabels?: Readonly<Record<string, string>>,
   ) {
     if(idOrNote instanceof Note) {
       this.id = idOrNote.name;
@@ -49,6 +52,7 @@ export class Props implements IProps {
     this.values = values.map((val: any) => val.toString()) as string[];
     this.selectedValue = selectedValue.toString();
     this.valueChangeHandler = valueChangeHandler;
+    this.valueLabels = valueLabels;
   }
 }
 
@@ -59,7 +63,7 @@ function controlDomId(props: IProps): string {
 const IncDecSelect: React.FC<IProps> = (props: IProps) => {
   let selectedText = props.selectedValue.toString();
   const domId = controlDomId(props);
-  const options = props.values.map(x => <option key={x} value={x}>{x}</option>);
+  const options = props.values.map(x => <option key={x} value={x}>{props.valueLabels?.[x] ?? x}</option>);
 
   function handleIncDec(delta: number) {
     const newIdx = Math.max(0, props.values.indexOf(selectedText)) + delta;

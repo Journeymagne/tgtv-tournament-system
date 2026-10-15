@@ -31,7 +31,7 @@ Only saves that came off the dice can be promoted that way.
 
 A rule worded as *changing* a success rather than retaining one is not restricted like this, and
 could act on a cover save. Note that the change-worded promotions Kill Team actually gives you
-(Severe, the KT2021 Waaagh ploy) are **attack** rules, so they never apply to saves — on defence
+(Severe) are **attack** rules, so they never apply to saves — on defence
 the practical effect is simply that cover saves cannot be promoted.
 
 The same limit applies on the attack side to **Accurate** dice and to a **Punishing** fail

@@ -280,11 +280,6 @@ describe(Common.calcFinalDiceProb.name, () => {
   // success (Severe, Waaagh) still can, and spend a retained norm first so the rollable ones stay
   // available for the retain-style promotions that follow.
   const justSevere = new Set<Ability>([Ability.Severe]);
-  const justWaaagh = new Set<Ability>([Ability.NormToCritIfAtLeastTwoNorms]);
-  const severeAndWaaagh = new Set<Ability>([Ability.Severe, Ability.NormToCritIfAtLeastTwoNorms]);
-  const severeWaaaghAndRending = new Set<Ability>([
-    Ability.Severe, Ability.NormToCritIfAtLeastTwoNorms, Ability.Rending,
-  ]);
   const punishingAndRending = new Set<Ability>([Ability.Punishing, Ability.Rending]);
 
   it('normsToCrits with accurate/cover: {0c,0n rolled,1n retained} => {0c,1n} (retained norm cannot be promoted)', () => {
@@ -312,43 +307,6 @@ describe(Common.calcFinalDiceProb.name, () => {
     // norm for the normsToCrits retention. Taking the rolled norm instead would end at {1c,1n}.
     const actual = Common.calcFinalDiceProb(dieProbs, 0, 1, 0, Ability.None, 0, 1, 0, 1, justSevere);
     expectClose(actual, pn, 2, 0);
-  });
-  it('waaagh + normsToCrits: {0c,1n rolled,1n retained} => {2c,0n} (Waaagh promotes the retained norm)', () => {
-    // Same ordering as Severe: Waaagh promotes rather than retains, so it spends the retained norm
-    // and leaves the rolled one for normsToCrits.
-    const actual = Common.calcFinalDiceProb(dieProbs, 0, 1, 0, Ability.None, 0, 1, 0, 1, justWaaagh);
-    expectClose(actual, pn, 2, 0);
-  });
-  // Severe can fire only while no crit has been retained. Waaagh promotes a normal into a crit,
-  // so running it first spends Severe's only window. With 3+ normals, Severe first still leaves
-  // Waaagh two normals and both land. With exactly two, Severe would turn Waaagh off and the
-  // orders tie, so Waaagh stays first. A crit already in hand keeps Severe off either way.
-  it('waaagh + severe {0c,3n} => {2c,1n} (Severe before Waaagh, both fire)', () => {
-    const actual = Common.calcFinalDiceProb(dieProbs, 0, 3, 0, Ability.None, 0, 0, 0, 0, severeAndWaaagh);
-    expectClose(actual, pn * pn * pn, 2, 1);
-  });
-  it('waaagh + severe {0c,4n} => {2c,2n} (Severe before Waaagh, both fire)', () => {
-    const actual = Common.calcFinalDiceProb(dieProbs, 0, 4, 0, Ability.None, 0, 0, 0, 0, severeAndWaaagh);
-    expectClose(actual, pn * pn * pn * pn, 2, 2);
-  });
-  it('waaagh + severe {0c,2n} => {1c,1n} (either order; Waaagh stays first)', () => {
-    const actual = Common.calcFinalDiceProb(dieProbs, 0, 2, 0, Ability.None, 0, 0, 0, 0, severeAndWaaagh);
-    expectClose(actual, pn * pn, 1, 1);
-  });
-  it('waaagh + severe {1c,2n} => {2c,1n} (a crit already retained keeps Severe off)', () => {
-    const actual = Common.calcFinalDiceProb(dieProbs, 1, 2, 0, Ability.None, 0, 0, 0, 0, severeAndWaaagh);
-    expectClose(actual, pc * pn * pn * 3, 2, 1);
-  });
-  // Positive controls for the order choice. These already hold on main: Waaagh plus Rending
-  // reaches the same counts. They fail if Severe-first forgets to block Rending, or if Severe
-  // runs first on exactly two normals and turns both Waaagh and Rending off.
-  it('waaagh + severe + rending {0c,3n} => {2c,1n} (Severe blocks Rending; Waaagh still fires)', () => {
-    const actual = Common.calcFinalDiceProb(dieProbs, 0, 3, 0, Ability.None, 0, 0, 0, 0, severeWaaaghAndRending);
-    expectClose(actual, pn * pn * pn, 2, 1);
-  });
-  it('waaagh + severe + rending {0c,2n} => {2c,0n} (Waaagh first, then Rending; Severe stays off)', () => {
-    const actual = Common.calcFinalDiceProb(dieProbs, 0, 2, 0, Ability.None, 0, 0, 0, 0, severeWaaaghAndRending);
-    expectClose(actual, pn * pn, 2, 0);
   });
   it('mysticScryBuff with only a retained norm {0c,0n,0f,1n retained} => {0c,1n} (nothing it may retain)', () => {
     // crit-favored damage (3/8), but the lone norm is already retained and there is no fail to take.
@@ -474,12 +432,6 @@ describe(Common.calcFinalDiceProb.name, () => {
   it('severe + rending {0c,2n} => {0c,2n} at 5/3 (decline Severe; Rending has no crit)', () => {
     const actual = Common.calcFinalDiceProb(dieProbs, 0, 2, 0, Ability.None, 0, 0, 0, 0, severeAndRending, 5, 3);
     expectClose(actual, pn * pn, 0, 2);
-  });
-  it('waaagh + severe {0c,3n} => {1c,2n} at 5/3 (declining Severe leaves the better Waaagh line)', () => {
-    // Take: Severe then Waaagh = {2c,1n}=11, and that line blocks Rending. Decline: Waaagh
-    // only = {1c,2n}=13. Severe is optional, so the decline wins.
-    const actual = Common.calcFinalDiceProb(dieProbs, 0, 3, 0, Ability.None, 0, 0, 0, 0, severeAndWaaagh, 5, 3);
-    expectClose(actual, pn * pn * pn, 1, 2);
   });
   it('severe {0c,1n} => {1c,0n} when one cover save and Piercing Crits 1 beat the raw normal', () => {
     // Raw decline is 5 and the take is 3. The cover blocks that normal (0 through) while the

@@ -67,7 +67,7 @@ export const defenderParamSpecs: readonly ParamSpec<DefenderParamId>[] = [
 export const defenderBasicCheckboxes: readonly AbilityCheckbox[] = [
   { note: N.Indomitus, ability: Ability.Indomitus },
   { note: N.ObscuredTarget, ability: Ability.ObscuredTarget, label: 'Obscured' },
-  { note: N.JustAScratch2021, ability: Ability.JustAScratch },
+  { note: N.IgnoreOneHit, ability: Ability.JustAScratch },
   { note: N.JustAScratchNorms, ability: Ability.JustAScratchNorms },
   { note: N.CurseOfRot, ability: Ability.CurseOfRot },
 ];

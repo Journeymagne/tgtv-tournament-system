@@ -56,7 +56,9 @@ export function simulateFighterDice(
   model: Model,
   defender: Model | undefined,
   rng: RngFunction = Math.random,
-): { crits: number; norms: number; cursed: number } {
+): { crits: number; norms: number; cursed: number; options?: {crits: number; norms: number}[] } {
+  const shielded = defender?.has(Ability.TiltingShields) ?? false;
+  if (shielded) model = model.withProp('lethal', 6).withProp('normsToCrits', 0);
   // lethal must not promote a die that would have failed: clamp critThreshold >= normThreshold
   const critThreshold = Math.max(model.critSkill(), model.diceStat);
   const normThreshold = model.diceStat;
@@ -108,9 +110,14 @@ export function simulateFighterDice(
     else fails++;
   }
 
-  fails += cursed;
+  // Curse failures cannot be retained, including by Blessings of Infection.
 
   // Apply post-roll modifications (shared with exact engine)
+  const options = new Map<string, {crits: number; norms: number}>();
+  const score = abilities.has(Ability.BlessingsOfInfection) ? (c: number, n: number) => {
+    options.set(`${c},${n}`, {crits: c, norms: n});
+    return c * (model.critDmg + model.mwx) + n * model.normDmg;
+  } : undefined;
   const modified = applyPostRollModifications(
     crits, norms, fails,
     autoCrits, autoNorms,
@@ -118,7 +125,13 @@ export function simulateFighterDice(
     abilities,
     model.normDmg,
     model.critDmg + model.mwx,
+    score,
+    shielded,
   );
+  if (score) {
+    options.set(`${modified.crits},${modified.norms}`, modified);
+    return {...modified, cursed, options: [...options.values()]};
+  }
   return { crits: modified.crits, norms: modified.norms, cursed };
 }
 

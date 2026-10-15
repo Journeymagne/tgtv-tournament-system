@@ -22,6 +22,8 @@ const router = createRouter(routes, {
 });
 
 const server = http.createServer((req, res) => {
+  // Deployment checks must verify the new process, not another listener or an old release.
+  if (process.env.TGTV_RELEASE_ID) res.setHeader("X-KT-Release", process.env.TGTV_RELEASE_ID);
   if (handleSiteRequest(req, res)) return;
   if (handleCombatRequest(req, res)) return;
   if ((req.url || "").startsWith("/api/")) {

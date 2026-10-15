@@ -11,7 +11,7 @@ export default class Model {
   public diceStat: number; // all, bs/ws/save
   public normDmg: number; // fight and shoot-attack
   public critDmg: number; // fight and shoot-attack
-  public mwx: number; // shoot-attack only
+  public mwx: number; // Devastating damage per retained critical success, shooting and melee
   public apx: number; // shoot-attack only
   public px: number; // shoot-attack only
   public reroll: Ability; // all
@@ -92,7 +92,7 @@ export default class Model {
   }
 
   public cancelsPerParry(): number {
-    return this.abilities.has(Ability.StormShield2021) ? 2 : 1;
+    return 1;
   }
 
   public toAttackerDieProbs(): DieProbs {

@@ -63,7 +63,7 @@ export const rulesDocs: DocLink[] = [
     href: '/rules/retained-vs-modified',
     blurb:
       'A dice can only be retained once. Sorts every effect into the ones that lock a dice (cover, Accurate, Punishing) ' +
-      'and the ones that can still change it (Severe, Waaagh), and explains what the calculator does with each.',
+      'and the ones that can still change it (Severe), and explains what the calculator does with each.',
   },
   {
     title: 'When not to take cover saves',

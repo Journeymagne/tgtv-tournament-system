@@ -9,6 +9,27 @@ import { getFightStateFromUrl, useFightUrlState } from './useUrlState';
 
 afterEach(() => window.history.replaceState({}, '', '/'));
 
+it('round-trips combinable 2024 abilities and melee Devastating', () => {
+  const rules = [Ability.Dueller, Ability.StrikeOnDeath, Ability.CegorachsJest, Ability.DoubleBlock,
+    Ability.BlessingsOfInfection, Ability.CritDamageBonus, Ability.FirstStrikeBonus,
+    Ability.StealthAssault, Ability.TiltingShields];
+  const model = new Model(4, 3, 3, 5, 2, new Set(rules));
+  const share = renderFightShare(model, new Model());
+  window.history.replaceState({}, '', share.getShareUrl());
+  expect(getFightStateFromUrl()!.fighterA.abilities).toEqual(model.abilities);
+  expect(getFightStateFromUrl()!.fighterA.mwx).toBe(2);
+});
+
+it.each([
+  ['MurderousEntrance2021', Ability.CriticalStrike],
+  ['Hammerhand2021', Ability.FirstStrikeBonus],
+  ['Dueller2021', undefined], ['StormShield2021', undefined], ['Waaagh2021', undefined],
+])('handles old niche rule %s without changing its meaning', (name, expected) => {
+  const params = new URLSearchParams({fa: `12:4:3:3:5:X:0:0:0:0:0:${name}:`});
+  window.history.replaceState({}, '', `/?${params}`);
+  expect([...getFightStateFromUrl()!.fighterA.abilities]).toEqual(expected ? [expected] : []);
+});
+
 function renderFightShare(fighterA: Model, fighterB: Model) {
   let share!: ReturnType<typeof useFightUrlState>;
   function Harness() {
@@ -47,6 +68,8 @@ it('shares fight state on /fight so unfurls are not the shoot snapshot', () => {
 });
 
 it.each([
+  [Ability.StrikeStrike],
+  [Ability.CriticalStrike],
   [Ability.Shock],
   [Ability.JustAScratchNorms],
   [Ability.HalfDamageFirstStrike],

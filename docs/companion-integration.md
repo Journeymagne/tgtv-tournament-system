@@ -205,13 +205,18 @@ public assets/catalogue, rules, scripts, package/lockfile, TypeScript/environmen
 configuration and Node runtime with the last successful build. An unchanged,
 intact build skips both the nested dependency install and compilation; Studio,
 tournament and release-number-only package/lockfile changes do not invalidate it. Missing or
-damaged outputs trigger a rebuild. When needed, Combat Lab is installed from its
-own lockfile with build tools included, then built at `/combat`. Install/build
+damaged outputs trigger a rebuild. Dependencies have a separate fingerprint:
+source-only changes reuse the installed packages; changes to package/lockfile,
+Node/npm runtime or npm configuration trigger `npm ci` with build tools included.
+The calculator is then built at `/combat`. Install/build
 failures stop the npm command and never record a successful fingerprint.
 
-`update_tgtv-ts.sh` preserves `services/combat-lab/build-companion/` during rsync,
-including its `.companion-build.json` stamp. Custom/older deploy scripts must
-also preserve that directory, or the missing build will be recreated each time.
+`update_tgtv-ts.sh` copies `services/combat-lab/build-companion/` and its
+`.companion-build.json` stamp into a new, isolated release. A separate dependency
+cache restores calculator packages into that release when compilation is needed.
+The current server remains running throughout preparation. See
+[deployment and recovery](deployment.md). Custom/older deploy scripts must also
+preserve the build directory, or the missing build will be recreated each time.
 This first upgrade rebuilds existing unstamped builds once. Root installers that
 only install the main package still get the postinstall check automatically.
 `npm run build:combat` forces a rebuild and refreshes the stamp after success.

@@ -17,7 +17,6 @@ export enum Ability {
     Severe = "Severe", // if no crits, promote one normal hit to crit
     Rending = "Rending", // if have crit, promote one normal hit to crit
     Punishing = "Punishing", // crit triggers promotion of fail to norm; 2024 Punishing; 2021: Starfire, DakkaDakkaDakka, Toxin Sacs
-    FailToNormIfAtLeastTwoSuccesses = "CloseAssault", // if at least two successes, promote fail to norm; from Imperial Navy Breachers Close Assault
     JustAScratch = "JustAScratch", // cancel one attack die just before damage; both shoot and fight; shoot picks the die that minimizes damage
     JustAScratchNorms = "JustAScratchNorms", // cancel one normal hit just before damage
     HalfDamageFirstStrike = "HalfDamageFirstStrike", // first strike damage is halved and rounded up, never below 2 and never above the strike; a 0 or 1 is unchanged
@@ -31,13 +30,18 @@ export enum Ability {
     Brutal = "Brutal", // opponent can only parry with crit
     Shock = "Shock", // first crit strike discards one unresolved enemy normal, or a crit if there are none
 
-    // fight stuff relevant to only 2021 or I have not checked for 2024
-    StormShield2021 = "StormShield2021", // each parry cancels two successes
-    Hammerhand2021 = "Hammerhand2021", // first strike does one extra dmg
-    Dueller = "Dueller2021", // each crit parry cancels extra normal success
-    Duelist = "Duelist2021", // parry before usual dice resolution
-    NormToCritIfAtLeastTwoNorms = "Waaagh2021", // if at least two norms, promote norm to crit; from Kommandos Waaagh; fight only
-    MurderousEntrance2021 = "MurderousEntrance2021", // after a crit strike, do another strike (tactical ploy, so just once)
+    Dueller = "Dueller", // normal successes can block critical successes, except against Brutal
+    PreParry = "PreParry",
+    StrikeOnDeath = "StrikeOnDeath",
+    CegorachsJest = "CegorachsJest",
+    DoubleBlock = "DoubleBlock", // one enhanced block per fight: normal blocks crit, or crit blocks two
+    BlessingsOfInfection = "BlessingsOfInfection",
+    CritDamageBonus = "CritDamageBonus", // +1 damage on one chosen critical strike
+    FirstStrikeBonus = "FirstStrikeBonus", // +1 damage on the first normal OR critical strike
+    StealthAssault = "StealthAssault",
+    TiltingShields = "TiltingShields", // enemy cannot retain rolled results below 6 as critical successes
+    CriticalStrike = "Critical+Strike",
+    StrikeStrike = "Strike+Strike", // after the first strike, immediately strike with another success
 
 };
 
@@ -54,13 +58,33 @@ export const rerollAbilities = [
 
 export const mutuallyExclusiveFightAbilities = [
   Ability.None,
-  Ability.FailToNormIfAtLeastTwoSuccesses,
-  Ability.Dueller,
-  Ability.Hammerhand2021,
-  Ability.StormShield2021,
-  Ability.NormToCritIfAtLeastTwoNorms,
-  Ability.MurderousEntrance2021,
+  Ability.CriticalStrike,
+  Ability.StrikeStrike,
+  Ability.StealthAssault,
 ];
+
+export const fightAbilityLabels: Readonly<Record<string, string>> = {
+  [Ability.CriticalStrike]: 'Critical+Strike',
+  [Ability.StealthAssault]: 'Stealth Assault',
+  [Ability.StrikeOnDeath]: 'Strike On Death',
+  [Ability.CegorachsJest]: "Cegorach's Jest",
+  [Ability.DoubleBlock]: 'Double Block or Norm Blocks Crit',
+  [Ability.BlessingsOfInfection]: 'Blessings of Infection',
+  [Ability.CritDamageBonus]: '+1 DMG on 1 Crit',
+  [Ability.FirstStrikeBonus]: '+1 DMG on First Strike',
+  [Ability.TiltingShields]: 'Tilting Shields',
+};
+
+// Only equivalent, neutrally named effects migrate. Removed rules must not silently
+// turn into a different 2024 rule (in particular Dueller2021 != Dueller).
+export function currentAbility(value: string): Ability | undefined {
+  const aliases: Record<string, Ability> = {
+    MurderousEntrance2021: Ability.CriticalStrike,
+    Hammerhand2021: Ability.FirstStrikeBonus,
+    Duelist2021: Ability.PreParry,
+  };
+  return aliases[value] ?? (Object.values(Ability).includes(value as Ability) ? value as Ability : undefined);
+}
 
 export const rendingAndSevereAbilities = [
   Ability.None,

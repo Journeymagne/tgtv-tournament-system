@@ -16,13 +16,19 @@ export default class FighterState {
   public normScratchUsed: boolean; // JaS (Normals): whether this fighter's norm-only scratch is spent
   public relicUsed: boolean; // SaintlyRelics: whether this fighter's once-per-action ignore is spent
   public relicIgnoresUsed: number; // SaintlyRelics: ignores spent so far this battle (capped per battle)
-  public hasDuelistParried: boolean; // Duelist: whether this fighter's once-per-fight free parry is spent
+  public hasPreParried: boolean; // Duelist: whether this fighter's once-per-fight free parry is spent
   public rng: RngFunction | null;
   // set on lookahead clones only: apply damage prevention as expected values, never rolled
   public estimateMode: boolean = false;
   // estimate mode only: probability the Saintly Relics ignore is still unspent. A failed roll does
   // not consume it, so this decays by (1 - ignoreProb) per attempt rather than dropping to 0.
   public estimateRelicAvailProb: number = 1;
+  public hasResolvedDie = false;
+  public doubleBlockUsed = false;
+  public critBonusUsed = false;
+  public jestUsed = false;
+  public deathStrikeUsed = false;
+  public devastatingResolved = false;
 
   public constructor(
     profile: Model,
@@ -36,7 +42,7 @@ export default class FighterState {
     normScratchUsed: boolean = false,
     relicUsed: boolean = false,
     relicIgnoresUsed: number = 0,
-    hasDuelistParried: boolean = false,
+    hasPreParried: boolean = false,
   ) {
     this.profile = profile;
     this.crits = crits;
@@ -48,7 +54,7 @@ export default class FighterState {
     this.normScratchUsed = normScratchUsed;
     this.relicUsed = relicUsed;
     this.relicIgnoresUsed = relicIgnoresUsed;
-    this.hasDuelistParried = hasDuelistParried;
+    this.hasPreParried = hasPreParried;
     this.rng = rng;
   }
 
@@ -140,50 +146,41 @@ export default class FighterState {
     return this.currentWounds === this.profile.wounds;
   }
 
-  public hammerhandDmg(
+  public firstStrikeBonusDmg(
     crits: number | undefined = undefined,
     norms: number | undefined = undefined,
   ) {
     crits = crits ?? this.crits;
     norms = norms ?? this.norms;
-    return this.profile.abilities.has(Ability.Hammerhand2021)
+    return this.profile.abilities.has(Ability.FirstStrikeBonus)
       && !this.hasStruck
       && (crits > 0 || norms > 0)
       ? 1 : 0;
   }
 
   public possibleDmg(crits: number, norms: number): number {
-    return this.hammerhandDmg(crits, norms) + this.profile.possibleDmg(crits, norms);
+    return this.firstStrikeBonusDmg(crits, norms) + this.profile.possibleDmg(crits, norms);
   }
 
   public totalDmg(): number {
     return this.possibleDmg(this.crits, this.norms);
   }
 
+  public hasFollowUpStrike(isCrit: boolean): boolean {
+    return (this.profile.has(Ability.StrikeStrike) && !this.hasStruck)
+      || (this.profile.has(Ability.CriticalStrike) && isCrit && !this.hasCritStruck);
+  }
+
   public nextDmg(): number {
-    let dmg = 0;
-
-    if (this.crits > 0) {
-      dmg += this.profile.critDmg;
-
-      // The follow-up is another crit only while a second crit is still in hand.
-      // Otherwise it spends a normal, and only if one remains. Hammerhand is the
-      // first strike only, added once below.
-      if (this.profile.has(Ability.MurderousEntrance2021) && !this.hasCritStruck) {
-        if (this.crits > 1) {
-          dmg += this.profile.critDmg;
-        }
-        else if (this.norms > 0) {
-          dmg += this.profile.normDmg;
-        }
-      }
+    if (this.successes() === 0) return 0;
+    const isCrit = this.crits > 0;
+    let dmg = isCrit ? this.profile.critDmg : this.profile.normDmg;
+    // Spend an existing success, preferring a remaining crit. First-strike damage
+    // bonuses apply once, even when both strikes land before the opponent acts.
+    if (this.successes() > 1 && this.hasFollowUpStrike(isCrit)) {
+      dmg += this.crits > (isCrit ? 1 : 0) ? this.profile.critDmg : this.profile.normDmg;
     }
-    else if (this.norms > 0) {
-      dmg += this.profile.normDmg;
-    }
-
-    dmg += this.hammerhandDmg();
-    return dmg;
+    return dmg + this.firstStrikeBonusDmg();
   }
 
   public nextStrike(): FightChoice {
@@ -198,7 +195,14 @@ export default class FighterState {
     this.hasCritStruck = false;
     this.normScratchUsed = false;
     this.relicUsed = false;
-    this.hasDuelistParried = false;
+    this.hasPreParried = false;
+    this.hasResolvedDie = false;
+    this.doubleBlockUsed = false;
+    this.critBonusUsed = false;
+    this.jestUsed = false;
+    this.deathStrikeUsed = false;
+    this.devastatingResolved = false;
+    this.estimateRelicAvailProb = 1;
   }
 
   public clone(): FighterState {
@@ -214,12 +218,18 @@ export default class FighterState {
       this.normScratchUsed,
       this.relicUsed,
       this.relicIgnoresUsed,
-      this.hasDuelistParried,
+      this.hasPreParried,
     );
     // carried so a lookahead nested inside a lookahead stays an estimate, and so a nested clone
     // doesn't hand the relic back after earlier strikes in the same estimate already spent it
     copy.estimateMode = this.estimateMode;
     copy.estimateRelicAvailProb = this.estimateRelicAvailProb;
+    copy.hasResolvedDie = this.hasResolvedDie;
+    copy.doubleBlockUsed = this.doubleBlockUsed;
+    copy.critBonusUsed = this.critBonusUsed;
+    copy.jestUsed = this.jestUsed;
+    copy.deathStrikeUsed = this.deathStrikeUsed;
+    copy.devastatingResolved = this.devastatingResolved;
     return copy;
   }
 

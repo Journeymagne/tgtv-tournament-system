@@ -1,8 +1,8 @@
-import Ability from 'src/Ability';
+import Ability, {currentAbility, fightAbilityLabels} from 'src/Ability';
 import Model from 'src/Model';
 import {Bonus,Effect,Mode,Operative,PackedModel,Side,Team,Weapon} from './types';
 export const uid=()=>Math.random().toString(36).slice(2,10);
-export const abilityNames:Record<string,string>={Balanced:'Balanced · переброс 1',DoubleBalanced:'Переброс 2',Ceaseless:'Ceaseless',Relentless:'Relentless',CritFishRelentless:'Relentless · поиск критов',Ones:'Переброс единиц',BothOnesAndBalanced:'Единицы + Balanced',CeaselessPlusBalanced:'Ceaseless + Balanced',Rending:'Rending',Severe:'Severe',Punishing:'Punishing',Brutal:'Brutal',Shock:'Shock',JustAScratch:'Игнор одного попадания',JustAScratchNorms:'Игнор нормального попадания',HalfDamageFirstStrike:'Половина первого удара',PuritySeal:'Purity Seal',Indomitus:'Indomitus',MysticScryBuff:'Mystic Scry',CurseOfRot:'Curse of Rot',CloseAssault:'Close Assault',Duelist2021:'Парирование до боя',StormShield2021:'Парирование двух успехов',Dueller2021:'Dueller',Hammerhand2021:'+1 урон первого удара',Waaagh2021:'Waaagh',MurderousEntrance2021:'Murderous Entrance'};
+export const abilityNames:Record<string,string>={Balanced:'Balanced · переброс 1',DoubleBalanced:'Переброс 2',Ceaseless:'Ceaseless',Relentless:'Relentless',CritFishRelentless:'Relentless · поиск критов',Ones:'Переброс единиц',BothOnesAndBalanced:'Единицы + Balanced',CeaselessPlusBalanced:'Ceaseless + Balanced',Rending:'Rending',Severe:'Severe',Punishing:'Punishing',Brutal:'Brutal',Shock:'Shock',JustAScratch:'Игнор одного попадания',JustAScratchNorms:'Игнор нормального попадания',HalfDamageFirstStrike:'Половина первого удара',PuritySeal:'Purity Seal',Indomitus:'Indomitus',MysticScryBuff:'Mystic Scry',CurseOfRot:'Curse of Rot',PreParry:'PreParry',Dueller:'Dueller',...fightAbilityLabels,[Ability.StrikeStrike]:'Strike+Strike'};
 export const effectFields:[string,string][]=[['numDice','Кубики'],['diceStat','Порог попадания / сейва'],['normDmg','Обычный урон'],['critDmg','Критический урон'],['apx','Piercing'],['px','Piercing Crits'],['mwx','Devastating'],['lethal','Lethal'],['autoNorms','Accurate / авто normal'],['autoCrits','Авто crit'],['normsToCrits','Normal → crit'],['failsToNorms','Fail → normal'],['fnp','Feel No Pain'],['hardyx','Hardy'],['saintlyRelics','Saintly Relics'],...Object.entries(abilityNames).map(([k,v]):[string,string]=>['ability:'+k,v])];
 const rerolls=new Set(['Balanced','DoubleBalanced','Ceaseless','Relentless','CritFishRelentless','Ones','BothOnesAndBalanced','CeaselessPlusBalanced']);
 export function sourceBonus(name:string,text:string,sourcePage?:number):Bonus{
@@ -10,7 +10,15 @@ export function sourceBonus(name:string,text:string,sourcePage?:number):Bonus{
  let target:'attack'|'defense'='attack';if(/defence dice|defense dice|defending/i.test(text)&&!/attack dice|weapons have|weapons gain/i.test(text))target='defense';
  for(const rule of ['Balanced','Ceaseless','Relentless','Severe','Rending','Punishing','Brutal','Shock'])if(has(rule))effects.push({field:'ability:'+rule,value:1,operation:'set',target});
  for(const [regex,field] of [[/Lethal\s+(\d)\+/i,'lethal'],[/Accurate\s+(\d+)/i,'autoNorms'],[/Piercing Crits\s+(\d+)/i,'px'],[/Piercing\s+(\d+)/i,'apx'],[/Devastating\s+(\d+)/i,'mwx']] as [RegExp,string][]){const m=text.match(regex);if(m)effects.push({field,value:Number(m[1]),operation:'set',target});}
- if(/for cadia/i.test(name)){effects.push({field:'numDice',value:1,operation:'add',target:'attack',max:4},{field:'ability:Hammerhand2021',value:1,operation:'set',target:'attack'});}
+ const namedRules: [RegExp,Ability][] = [
+  [/^dueller$/i,Ability.Dueller], [/unending bloodshed|irrepressible purpose|glory to the martyrs/i,Ability.StrikeOnDeath],
+  [/cegorach.s jest/i,Ability.CegorachsJest], [/survival instincts/i,Ability.DoubleBlock],
+  [/blessings of infection/i,Ability.BlessingsOfInfection], [/animalistic fury/i,Ability.CritDamageBonus],
+  [/stealth assault/i,Ability.StealthAssault], [/tilting shields/i,Ability.TiltingShields],
+ ];
+ const named=namedRules.find(([pattern])=>pattern.test(name));
+ if(named)return {id:uid(),name,mode:'fight',enabled:true,effects:[{field:'ability:'+named[1],value:1,operation:'set',target:'attack'}],sourcePage,text};
+ if(/for cadia/i.test(name)){effects.push({field:'numDice',value:1,operation:'add',target:'attack',max:4},{field:'ability:'+Ability.FirstStrikeBonus,value:1,operation:'set',target:'attack'});}
  if(/just a scratch/i.test(name)&&/Normal Dmg/i.test(text)){return {id:uid(),name,mode:'both',enabled:true,effects:[{field:'ability:JustAScratchNorms',value:1,operation:'set',target:'defense'}],sourcePage,text};}
  if(/curse of rot/i.test(name))effects.push({field:'ability:CurseOfRot',value:1,operation:'set',target:'both'});
  if(/just a scratch/i.test(name))effects.push({field:'ability:JustAScratch',value:1,operation:'set',target:'both'});
@@ -28,7 +36,7 @@ export function weaponModel(op:Operative,weapon:Weapon,health:number):Model{
  return m;
 }
 export function applyEffect(model:Model,e:Effect){
- if(e.field.startsWith('ability:')){const value=e.field.slice(8) as Ability;if(!Object.values(Ability).includes(value))return;if(rerolls.has(value)){const old=model.reroll;if((old===Ability.Balanced&&value===Ability.RerollOnes)||(old===Ability.RerollOnes&&value===Ability.Balanced))model.reroll=Ability.RerollOnesPlusBalanced;else if((old===Ability.Balanced&&value===Ability.RerollMostCommonFail)||(old===Ability.RerollMostCommonFail&&value===Ability.Balanced))model.reroll=Ability.RerollMostCommonFailPlusBalanced;else if(old===Ability.Balanced&&value===Ability.Balanced)model.reroll=Ability.DoubleBalanced;else if(value===Ability.Relentless||old!==Ability.Relentless)model.reroll=value;}else model.abilities.add(value);return;}
+ if(e.field.startsWith('ability:')){const value=currentAbility(e.field.slice(8));if(!value)return;if(rerolls.has(value)){const old=model.reroll;if((old===Ability.Balanced&&value===Ability.RerollOnes)||(old===Ability.RerollOnes&&value===Ability.Balanced))model.reroll=Ability.RerollOnesPlusBalanced;else if((old===Ability.Balanced&&value===Ability.RerollMostCommonFail)||(old===Ability.RerollMostCommonFail&&value===Ability.Balanced))model.reroll=Ability.RerollMostCommonFailPlusBalanced;else if(old===Ability.Balanced&&value===Ability.Balanced)model.reroll=Ability.DoubleBalanced;else if(value===Ability.Relentless||old!==Ability.Relentless)model.reroll=value;}else model.abilities.add(value);return;}
  if(!effectFields.some(([f])=>f===e.field))return;const raw=Number(e.value);if(!Number.isFinite(raw))return;const v=Math.round(raw);(model as any)[e.field]=e.operation==='add'?Number((model as any)[e.field])+v:v;if(e.max!==undefined)(model as any)[e.field]=Math.min(e.max,(model as any)[e.field]);
 }
 export function makeModels(side:Side,team:Team,mode:Mode){const op=team.operatives.find(o=>o.id===side.operativeId)||team.operatives[0];const weapons=op.weapons.filter(w=>w.kind===(mode==='shoot'?'ranged':'melee'));const weapon=weapons.find(w=>w.id===(mode==='shoot'?side.rangedId:side.meleeId))||op.weapons[0];if(!weapon)return null;const attack=weaponModel(op,weapon,side.health);const defense=Model.basicDefender(op.save,side.health);defense.autoNorms=side.cover;defense.setAbility(Ability.ObscuredTarget,side.obscured);
@@ -37,5 +45,5 @@ export function makeModels(side:Side,team:Team,mode:Mode){const op=team.operativ
  if(mode==='fight'){attack.fnp=defense.fnp;attack.saintlyRelics=defense.saintlyRelics;for(const a of defense.abilities)if(a!==Ability.ObscuredTarget)attack.abilities.add(a);}
  return {op,weapon,attack,defense};}
 export function pack(m:Model):PackedModel{return {...m,abilities:[...m.abilities]};}
-export function hydrate(raw:PackedModel):Model{const m=new Model();Object.assign(m,raw);m.abilities=new Set(raw.abilities);return m;}
+export function hydrate(raw:PackedModel):Model{const m=new Model();Object.assign(m,raw);m.abilities=new Set(raw.abilities.map(currentAbility).filter((a):a is Ability=>a!==undefined));return m;}
 export function effectLabel(e:Effect){const name=effectFields.find(([f])=>f===e.field)?.[1]||e.field;return name+(e.field.startsWith('ability:')?'':` ${e.operation==='add'&&Number(e.value)>0?'+':''}${e.value}`);}

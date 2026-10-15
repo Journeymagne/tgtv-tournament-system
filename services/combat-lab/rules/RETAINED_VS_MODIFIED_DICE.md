@@ -75,7 +75,6 @@ legal target.
 | Effect | Wording | Where |
 |---|---|---|
 | **Severe** | "**Change** one of your normal successes to a critical success" | Attack |
-| **Waaagh!** (KT2021 Kommandos ploy) | "**Promote** a norm to a crit" | Attack |
 | **FailsToNorms** (calculator input) | "Modified to normal successes" | Both |
 
 ---
@@ -101,7 +100,7 @@ normal successes themselves. Every retention-worded promotion is offered only
 (`applyPostRollModifications`), so the exact Shoot calculator and the Monte Carlo Fight calculator
 behave identically here.
 
-One refinement worth knowing about: when a **change**-worded effect (Severe, Waaagh) consumes a
+One refinement worth knowing about: when a **change**-worded effect (Severe) consumes a
 normal success, the engine deliberately spends a **retained** one first. This is never worse for
 you and is sometimes better, because it leaves your rolled dice available for any retention-worded
 promotion that comes afterwards. It is not extra generosity — it is what a player who understood
@@ -235,4 +234,3 @@ slightly overstate it on rolls where the resulting norm goes on to be promoted.
 | Mystic Scry (norm→crit half) | — | Yes |
 | Mystic Scry (fail→norm half) | Yes | — |
 | Severe | — | No |
-| Waaagh! (KT2021) | — | No |

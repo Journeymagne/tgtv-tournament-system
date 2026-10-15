@@ -20,7 +20,7 @@ export const Reroll = new Note(
 );
 export const NoCover = new Note(
   `NoCover`,
-  `Defender can not use cover saves. Intercession Squad's Accurate chapter tactic triggers this only if a crit hit is retained.`,
+  `Defender can not use cover saves.`,
 );
 export const ObscuredTarget = new Note(
   `ObscuredTarget`,
@@ -50,11 +50,7 @@ export const NormsToCrits = new Note(
   `NormsToCrits`,
   `How many normal successes can be retained as critical successes instead. Because a dice can only be retained once, `
     + `this cannot promote a success that was already retained rather than rolled: cover saves, Accurate, or a Punishing `
-    + `fail retention. Rules worded as *changing* a success (Severe, Waaagh) are modeled separately and can take those.`,
-);
-export const CloseAssault2021 = new Note(
-  `CloseAssault2021`,
-  `If you have two or more successes, promote a fail to a normal success.  Imperial Navy Breachers strategic ploy.`,
+    + `fail retention. Rules worded as *changing* a success (Severe) are modeled separately and can take those.`,
 );
 export const Rending = new Note(
   `Rending`,
@@ -72,7 +68,7 @@ export const Severe = new Note(
 );
 export const Punishing = new Note(
   `Punishing`,
-  `Retain a failed hit as a normal hit if you had at least one critical hit; Necron equipment Starfire Core, Kommando strategic ploy "Dakka! Dakka! Dakka!", Hive Fleet equipment Toxin Sacs, Corsair Voidscarred strategic ploy Outcasts. `
+  `Retain a failed hit as a normal hit if you had at least one critical hit; `
     + `That die has now been retained, so Rending and NormsToCrits cannot promote it. Punishing is optional ("you can `
     + `retain"), so the calculator declines it when taking it deals less damage. On a shoot that comparison is `
     + `expected damage after the defender's saves, cover, and Piercing, not the raw dice total. The shoot score `
@@ -87,7 +83,7 @@ export const CoverCritSaves = new Note(
   `CoverCritSaves`,
   `How many saves can be automatically retained as a critical success. High enough APx/Px can limit these auto-saves.`,
 );
-export const JustAScratch2021 = new Note(
+export const IgnoreOneHit = new Note(
   `JaS (Crits)`,
   `Just a Scratch (JaS): Ignore damage from one attack die, choosing whichever die saves the most damage.`,
 );
@@ -127,7 +123,7 @@ export const CurseOfRot = new Note(
 );
 export const HardyX = new Note(
   `HardyX`,
-  `HardyX is like Lethal (changes what values give you a critical success), but for defense. Name comes from Intercession Squad chapter tactic Hardy.`,
+  `HardyX is like Lethal (changes what values give you a critical success), but for defense. `,
 );
 export const FeelNoPain = new Note(
   `FeelNoPain`,
@@ -156,15 +152,13 @@ export const Shock = new Note(
 );
 export const NicheAbility = new Note(
   `NicheAbility`,
-  `CloseAssault is Imperial Navy Breachers strategic ploy; if you have two or more successes, promote a fail to a normal success.`
-    + `  Dueller2021 is Intercession Squad chapter tactic; each crit parry discards additional 1 norm success of opponent.`
-    + `  Hammerhand2021 is Grey Knights psychic power; first strike deals +1 dmg.`
-    + `  StormShield2021 is a Custodes ability; each parry discards two successes of opponent instead of 1.`
-    + `  Waaagh2021 is Kommandos strategic ploy; if you have two or more normal successes, promote a norm to a crit.`
-    + `  MurderousEntrance2021 is a Void Troupe tactical ploy to strike again after a crit strike.`
+  `Critical+Strike: after your first critical strike, immediately strike with another retained success. `
+    + `Strike+Strike: after your first strike, immediately strike with another retained success. `
+    + `Stealth Assault: resolve your first two dice consecutively, with any legal strike/block combination. `
+    + `Normal and critical successes are allowed. No extra dice are created; stop if either fighter is incapacitated.`,
 );
-export const Duelist = new Note(
-  `Duelist/PreParry`,
+export const PreParry = new Note(
+  `PreParry`,
   `Do one parry before usual dice resolution.`,
 );
 export const HalfDamageFirstStrike = new Note(
@@ -175,3 +169,13 @@ export const Dummy = new Note(
   ``,
   ``,
 );
+
+export const Dueller = new Note('Dueller', 'Normal successes can block critical successes. Brutal still prevents normal blocks.');
+export const StrikeOnDeath = new Note('Strike On Death', 'On incapacitation, strike once with an unresolved success before removal. No extra follow-up strike.');
+export const CegorachsJest = new Note("Cegorach's Jest", 'When the enemy strikes with a normal success, roll D6 below its Hit stat to turn that strike into a block instead (ignoring Brutal). Stops after one successful use per fight.');
+export const DoubleBlock = new Note('Double Block or Norm Blocks Crit', 'Once per fight, enhance one block: a normal success blocks a critical success, or a critical success blocks two successes. Brutal still prevents normal blocks.');
+export const BlessingsOfInfection = new Note('Blessings of Infection', 'Choose one: with at least three rolled fails, discard one and retain another as a normal success; with at least three rolled successes, discard a fail and retain a rolled normal as a critical success.');
+export const CritDamageBonus = new Note('+1 DMG on 1 Crit', 'Add 1 damage to one chosen critical strike per fight. The strategy may save it for a later critical strike.');
+export const FirstStrikeBonus = new Note('+1 DMG on First Strike', 'Add 1 damage to the first strike per fight, normal or critical. Blocks do not consume the bonus.');
+export const DevastatingMelee = new Note('Devastating in Melee', 'Each retained critical success inflicts this much damage before resolving strikes and blocks. The critical success remains available.');
+export const TiltingShields = new Note('Tilting Shields', 'The enemy cannot retain rolled results below 6 as critical successes in this fight: disables Lethal and critical promotions. Automatically retained critical successes are unaffected.');

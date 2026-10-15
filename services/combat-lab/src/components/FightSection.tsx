@@ -20,7 +20,7 @@ interface FightSectionProps {
 }
 
 // Built from the same catalogs FighterControls renders, so the panel cannot list a rule the card
-// does not have (or omit one it does). Close Assault and Waaagh are NicheAbility dropdown values.
+// does not have (or omit one it does). Follow-up rules share the NicheAbility dropdown.
 const { notes, advancedNotes } = notesFromControls(fighterNotedControls);
 
 
@@ -54,7 +54,13 @@ const FightSection: React.FC<FightSectionProps> = ({ isActive }) => {
     </section>
     <details className="lab-notes"><summary>Правила и пояснения</summary><NotesList notes={notes} advancedNotes={advancedNotes}>
               <li>
-                All strategies will do certain no-downside actions, with the consequence that
+                New niche rules use the selected strategy for all legal continuations, including both
+                Stealth Assault dice. Min Dmg To Self maximizes expected remaining own wounds;
+                Max Dmg To Enemy minimizes enemy wounds. Cegorach&apos;s Jest uses its success probability;
+                FNP and Saintly Relics remain expected-value estimates during planning.
+              </li>
+              <li>
+                For profiles without new niche rules: All strategies will do certain no-downside actions, with the consequence that
                 "Strike" will still sometimes parry and "Parry" will still sometimes strike.
                 <ul>
                   <li>

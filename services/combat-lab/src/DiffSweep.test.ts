@@ -24,9 +24,7 @@ const ABILITY_SETS: [string, Ability[]][] = [
   ['punishing+rending', [Ability.Punishing, Ability.Rending]],
   ['mysticScry', [Ability.MysticScryBuff]],
   ['mysticScry+rending', [Ability.MysticScryBuff, Ability.Rending]],
-  ['waaagh', [Ability.NormToCritIfAtLeastTwoNorms]],
   ['puritySeal', [Ability.PuritySeal]],
-  ['closeAssault', [Ability.FailToNormIfAtLeastTwoSuccesses]],
   ['obscured', [Ability.ObscuredTarget]],
   ['rending+obscured', [Ability.Rending, Ability.ObscuredTarget]],
 ];

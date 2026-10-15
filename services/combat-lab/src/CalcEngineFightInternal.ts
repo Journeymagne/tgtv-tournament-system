@@ -6,6 +6,8 @@ import FightChoice from "src/FightChoice";
 import Ability from "src/Ability";
 import { simulateFighterDice, mulberry32 } from "src/MonteCarloFightDice";
 
+import { betterFightOutcome, modernFightDecision, modernMoveForChoice, legalFightMoves, resolveSingleFightDie, resolveModernMove, resolveDeathStrike, resolveDevastating, usesModernFight } from 'src/ModernFight';
+
 const DEFAULT_SEED = 0x4B54_4341; // "KTCA" - deterministic default for stable results
 
 // Lookaheads (strike-vs-parry, strike order, parry-then-kill) resolve throwaway fights to compare
@@ -160,6 +162,30 @@ export function calcRemainingWoundPairProbs(
       for (let i = 0; i < guy1Dice.cursed; i++) guy1State.applyDmg(1, false);
       for (let i = 0; i < guy2Dice.cursed; i++) guy2State.applyDmg(1, false);
 
+      // Blessings choices depend on the actual duel and the selected strategy.
+      // The retaliating fighter chooses after seeing the attacking fighter's retention.
+      if (guy1Dice.options || guy2Dice.options) {
+        let chosen: {a: typeof guy1Dice; b: typeof guy2Dice; wounds: [number, number]} | undefined;
+        for (const ao of guy1Dice.options ?? [guy1Dice]) {
+          let response: typeof chosen;
+          for (const bo of guy2Dice.options ?? [guy2Dice]) {
+            const a = guy1State.asEstimate(), b = guy2State.asEstimate();
+            a.crits = ao.crits; a.norms = ao.norms;
+            b.crits = bo.crits; b.norms = bo.norms;
+            resolveDevastating(a, b); resolveDevastating(b, a);
+            handlePreParry(a, b); handlePreParry(b, a);
+            const wounds = modernFightDecision(a, b).wounds;
+            const candidate = {a: {...guy1Dice, ...ao}, b: {...guy2Dice, ...bo}, wounds};
+            if (!response || betterFightOutcome([wounds[1], wounds[0]],
+              [response.wounds[1], response.wounds[0]], guy2Strategy)) response = candidate;
+          }
+          if (response && (!chosen || betterFightOutcome(response.wounds, chosen.wounds, guy1Strategy))) chosen = response;
+        }
+        if (chosen) {
+          guy1State.crits = chosen.a.crits; guy1State.norms = chosen.a.norms;
+          guy2State.crits = chosen.b.crits; guy2State.norms = chosen.b.norms;
+        }
+      }
       resolveFight(guy1State, guy2State);
 
       guy1Wounds = guy1State.currentWounds;
@@ -191,11 +217,18 @@ export function resolveFight(
   guy2State: FighterState,
 ): void
 {
+  if (guy1State.crits < 0 || guy1State.norms < 0 || guy2State.crits < 0 || guy2State.norms < 0)
+    throw new Error('bug: ended up with negative successes');
   let currentGuy = guy1State;
   let nextGuy = guy2State;
 
-  handleDuelist(guy1State, guy2State);
-  handleDuelist(guy2State, guy1State);
+  resolveDeathStrike(guy1State, guy2State);
+  resolveDeathStrike(guy2State, guy1State);
+  resolveDevastating(guy1State, guy2State);
+  resolveDevastating(guy2State, guy1State);
+  if (guy1State.currentWounds <= 0 || guy2State.currentWounds <= 0) return;
+  handlePreParry(guy1State, guy2State);
+  handlePreParry(guy2State, guy1State);
 
   while(currentGuy.crits + currentGuy.norms + nextGuy.crits + nextGuy.norms > 0
     && currentGuy.currentWounds > 0 && nextGuy.currentWounds > 0)
@@ -298,6 +331,9 @@ function strategyStrike(chooser: FighterState, enemy: FighterState): FightChoice
 }
 
 export function calcDieChoice(chooser: FighterState, enemy: FighterState): FightChoice {
+  if (usesModernFight(chooser, enemy)) {
+    return modernFightDecision(chooser, enemy).move!.choice;
+  }
   // note: this function assumes chooser has remaining successes
 
   // if enemy has no successes, parry would cancel nothing — must strike. Order still matters
@@ -401,12 +437,18 @@ export function resolveDieChoice(
   chooser: FighterState,
   enemy: FighterState,
 ): void {
+  if (usesModernFight(chooser, enemy)) {
+    const move = modernMoveForChoice(chooser, enemy, choice);
+    if (!move) throw new Error('Illegal fight choice');
+    resolveModernMove(chooser, enemy, move);
+    return;
+  }
   function applyDmgWithFirstStrikeHandling(dmg: number, isNorm: boolean) {
     if(!chooser.hasStruck) {
       if(enemy.profile.abilities.has(Ability.JustAScratch)) {
         dmg = 0;
       } else {
-        if(chooser.profile.abilities.has(Ability.Hammerhand2021)) {
+        if(chooser.profile.abilities.has(Ability.FirstStrikeBonus)) {
           dmg++;
         }
         if(enemy.profile.abilities.has(Ability.HalfDamageFirstStrike)) {
@@ -444,11 +486,12 @@ export function resolveDieChoice(
     enemy.applyDmg(dmg, dmg >= maxPendingDmg);
   }
 
-  if(choice === FightChoice.CritStrike) {
-    applyDmgWithFirstStrikeHandling(chooser.profile.critDmg, false);
-    chooser.crits--;
+  function resolveStrike(isCrit: boolean) {
+    applyDmgWithFirstStrikeHandling(isCrit ? chooser.profile.critDmg : chooser.profile.normDmg, !isCrit);
+    if(isCrit) chooser.crits--;
+    else chooser.norms--;
 
-    if(chooser.profile.has(Ability.Shock) && !chooser.hasCritStruck) {
+    if(isCrit && chooser.profile.has(Ability.Shock) && !chooser.hasCritStruck) {
       // First crit strike discards one unresolved normal, or a crit if there are none.
       if(enemy.norms > 0) {
         enemy.norms--;
@@ -457,52 +500,22 @@ export function resolveDieChoice(
       }
     }
 
-    // A dead fighter cannot be struck. The bonus die would not change this round's
-    // wounds, but applyDmg still rolls Saintly Relics and can spend a battle ignore.
-    if (
-      chooser.successes()
-      && chooser.profile.has(Ability.MurderousEntrance2021)
-      && !chooser.hasCritStruck
-      && enemy.currentWounds > 0
-    ) {
-      if(chooser.crits > 0) {
-        applyDmgWithFirstStrikeHandling(chooser.profile.critDmg, false);
-        chooser.crits--;
-      }
-      else {
-        applyDmgWithFirstStrikeHandling(chooser.profile.normDmg, true);
-        chooser.norms--;
-      }
-    }
-
-    chooser.hasCritStruck = true;
+    if(isCrit) chooser.hasCritStruck = true;
   }
-  else if(choice === FightChoice.NormStrike) {
-    applyDmgWithFirstStrikeHandling(chooser.profile.normDmg, true);
-    chooser.norms--;
+
+  if(choice === FightChoice.CritStrike || choice === FightChoice.NormStrike) {
+    const isCrit = choice === FightChoice.CritStrike;
+    const followUp = chooser.hasFollowUpStrike(isCrit);
+    resolveStrike(isCrit);
+    // Resolve only one follow-up, spending a retained die before the opponent acts.
+    // Stop on incapacitation so a dead target cannot spend damage-prevention resources.
+    if(followUp && chooser.successes() > 0 && enemy.currentWounds > 0) {
+      resolveStrike(chooser.crits > 0);
+    }
   }
   else if(choice === FightChoice.CritParry) {
-    // Dueller: critical parry can cancel additional normal success
-    if(chooser.profile.abilities.has(Ability.Dueller)) {
-      let numCritsCancelled = 0;
-
-      if(enemy.crits > 0) {
-        enemy.crits--;
-        numCritsCancelled++;
-      }
-
-      enemy.norms = Math.max(0, enemy.norms - 2 + numCritsCancelled);
-    }
-    else {
-      for(let numCancelled = 0; numCancelled < chooser.profile.cancelsPerParry(); numCancelled++) {
-        if(enemy.crits > 0) {
-          enemy.crits--;
-        }
-        else if(enemy.norms > 0) {
-          enemy.norms--;
-        }
-      }
-    }
+    if (enemy.crits > 0) enemy.crits--;
+    else if (enemy.norms > 0) enemy.norms--;
     chooser.crits--;
   }
   else if(choice === FightChoice.NormParry) {
@@ -537,16 +550,7 @@ export function calcParryForLastEnemySuccessThenKillEnemy(
   // AND kill enemy afterwards, then chooser should parry
   let fightChoice: FightChoice | null = null;
 
-  // special case for Dueller
-  if(chooser.profile.abilities.has(Ability.Dueller)
-    && chooser.crits > 0
-    && enemy.crits <= 1
-    && enemySuccesses <= 2
-  ) {
-    fightChoice = FightChoice.CritParry;
-  }
-  // handle StormShield and normal
-  else if(enemy.crits + enemy.norms <= chooser.profile.cancelsPerParry()) {
+  if(enemySuccesses <= 1) {
 
     if(enemy.crits > 0) {
       if(chooser.crits > 0) {
@@ -635,50 +639,29 @@ export function wiseParry(chooser: FighterState, enemy: FighterState): FightChoi
   return FightChoice.NormStrike;
 }
 
-export function handleDuelist(
+export function handlePreParry(
   guy1State: FighterState,
   guy2State: FighterState,
 ): void
 {
   if (
-    guy1State.hasDuelistParried
-    || !guy1State.profile.abilities.has(Ability.Duelist)
+    guy1State.hasPreParried
+    || !guy1State.profile.abilities.has(Ability.PreParry)
     || guy1State.successes() === 0
     || guy2State.successes() === 0
   ) {
     return;
   }
 
-  // A normal success cannot cancel a critical success, and against Brutal it can't parry at all.
-  // With no crit of our own and no enemy normal (or a Brutal enemy), NormParry would spend a die
-  // and cancel nothing. Return before the once-per-fight flag is set so the free parry stays
-  // available.
-  if (guy1State.crits === 0 && (guy2State.norms === 0 || guy2State.profile.has(Ability.Brutal))) {
-    return;
-  }
-
-  // Duelist's free parry happens once per fight. Mark it spent now so re-entrant resolveFight
-  // calls (e.g. the lookahead simulations in calcDieChoice / preferredStrikeChoice, which clone
-  // mid-fight state) don't grant it a second time and corrupt the estimate.
-  guy1State.hasDuelistParried = true;
-
-  // Brutal: only a crit can parry, and the guard above already returned when we have none.
-  if(guy2State.profile.has(Ability.Brutal)) {
-    resolveDieChoice(FightChoice.CritParry, guy1State, guy2State);
-    return;
-  }
-
-  let parryChoice: FightChoice;
-
-  if (guy1State.crits && guy2State.crits) {
-    parryChoice = FightChoice.CritParry;
-  }
-  else if (guy1State.norms === 0) {
-    parryChoice = FightChoice.CritParry;
-  }
-  else {
-    parryChoice = FightChoice.NormParry;
-  }
-
-  resolveDieChoice(parryChoice, guy1State, guy2State);
+  const blocks = legalFightMoves(guy1State, guy2State).filter(move =>
+    move.choice === FightChoice.CritParry || move.choice === FightChoice.NormParry);
+  if (!blocks.length) return;
+  // Prefer cancelling more dice, then crits; on equal targets preserve our crit.
+  blocks.sort((a, b) => ((b.blockCrits ?? 0) + (b.blockNorms ?? 0)) - ((a.blockCrits ?? 0) + (a.blockNorms ?? 0))
+    || (b.blockCrits ?? 0) - (a.blockCrits ?? 0) || b.choice - a.choice);
+  guy1State.hasPreParried = true;
+  const hadResolvedDie = guy1State.hasResolvedDie;
+  resolveSingleFightDie(guy1State, guy2State, blocks[0], 'any');
+  // This separate pre-resolution block must not consume Stealth Assault's opening window.
+  guy1State.hasResolvedDie = hadResolvedDie;
 }

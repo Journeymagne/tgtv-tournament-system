@@ -734,13 +734,38 @@ export function applyPostRollModifications(
   normDmg: number = 0,
   critDmgPlusMwx: number = 0,
   scoreHits?: (crits: number, norms: number) => number,
+  critRetentionBlocked: boolean = false,
 ): { crits: number; norms: number } {
+  if (abilities.has(Ability.BlessingsOfInfection)) {
+    const remaining = new Set(abilities);
+    remaining.delete(Ability.BlessingsOfInfection);
+    const finish = (c: number, n: number, f: number, retained: number) => applyPostRollModifications(
+      c, n, f, additionalCrits, retained, failsToNorms, normsToCrits, remaining,
+      normDmg, critDmgPlusMwx, scoreHits, critRetentionBlocked);
+    const choices = [finish(crits, norms, fails, additionalNorms)];
+    if (fails >= 3) choices.push(finish(crits, norms, fails - 2, additionalNorms + 1));
+    if (!critRetentionBlocked && crits + norms >= 3 && fails > 0 && norms > 0)
+      choices.push(finish(crits + 1, norms - 1, fails - 1, additionalNorms));
+    return choices.reduce((best, next) => preferDeclineWhenStrictlyBetter(
+      best, next, normDmg, critDmgPlusMwx, scoreHits));
+  }
+  if (critRetentionBlocked) {
+    abilities = new Set(abilities);
+    abilities.delete(Ability.Rending);
+    abilities.delete(Ability.Severe);
+    normsToCrits = 0;
+    // Mystic's fail retention remains legal; its critical retention does not.
+    if (abilities.delete(Ability.MysticScryBuff) && fails > 0) {
+      additionalNorms++;
+      fails--;
+    }
+  }
   crits += additionalCrits;
   // A dice can only be *retained* once. Dice retained without rolling (cover saves on defence,
   // Accurate on attack) and dice retained out of the fail pile (Punishing) are already spent in
   // that sense, so "retain a normal success as a critical success instead" style rules (Rending,
   // the NormsToCrits input, Mystic Scry) cannot upgrade them. Rules worded as *change/modify* an
-  // existing success (Severe, Waaagh) still can, so they consume a retained norm by preference,
+  // existing success (Severe) still can, so they consume a retained norm by preference,
   // leaving the rollable ones available for the retain-style promotions that follow.
   const retainedNorms = additionalNorms;
   norms += additionalNorms;
@@ -818,36 +843,7 @@ function resolveAfterPunishing(
     }
   }
 
-  if (abilities.has(Ability.FailToNormIfAtLeastTwoSuccesses)) {
-    if (crits + norms >= 2 && fails > 0) {
-      norms++;
-      fails--;
-    }
-  }
-
-  // Severe can fire only while no crit has been retained. Waaagh promotes a normal into a
-  // crit, which spends that window. When both are on, nothing is a crit yet, and three or
-  // more normals are in hand, Severe-before-Waaagh is the line that is scored: it leaves
-  // Waaagh two normals, so both can land. Declining leaves Waaagh (and then Rending) free.
-  // With exactly two normals Severe would consume the normal Waaagh needs (and, with
-  // Rending, would also block the promotion Waaagh's crit would have seeded), so Waaagh
-  // stays first. severeTriggered in resolveAfterPunishing is true only on the line where
-  // Severe fires, which still blocks Rending on that line.
-  const severeCanFire = (c: number, n: number) =>
-    abilities.has(Ability.Severe) && n > 0 && c === 0;
-
-  if (abilities.has(Ability.NormToCritIfAtLeastTwoNorms) && norms >= 3 && severeCanFire(crits, norms)) {
-    const takenState = changeOneNormToCrit(crits, norms, retainedNorms);
-    const taken = resolveFromWaaagh(
-      takenState.crits, takenState.norms, fails, takenState.retainedNorms, true,
-      failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits);
-    const declined = resolveFromWaaagh(
-      crits, norms, fails, retainedNorms, false,
-      failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits);
-    return preferDeclineWhenStrictlyBetter(taken, declined, normDmg, critDmgPlusMwx, scoreHits);
-  }
-
-  return resolveFromWaaagh(
+  return resolveConversions(
     crits, norms, fails, retainedNorms, false,
     failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits);
 }
@@ -866,8 +862,8 @@ function changeOneNormToCrit(
   };
 }
 
-// Waaagh, then FailsToNorms, then the general Severe window (no crit retained yet).
-function resolveFromWaaagh(
+// FailsToNorms, then the Severe window (no crit retained yet).
+function resolveConversions(
   crits: number,
   norms: number,
   fails: number,
@@ -880,13 +876,6 @@ function resolveFromWaaagh(
   critDmgPlusMwx: number,
   scoreHits?: (crits: number, norms: number) => number,
 ): { crits: number; norms: number } {
-  if (abilities.has(Ability.NormToCritIfAtLeastTwoNorms) && norms >= 2) {
-    const promoted = changeOneNormToCrit(crits, norms, retainedNorms);
-    crits = promoted.crits;
-    norms = promoted.norms;
-    retainedNorms = promoted.retainedNorms;
-  }
-
   const actualFailToNormPromotions = Math.min(failsToNorms, fails);
   norms += actualFailToNormPromotions;
   fails -= actualFailToNormPromotions;

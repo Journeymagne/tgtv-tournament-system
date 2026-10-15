@@ -17,6 +17,40 @@ The behavior described here lives in:
 
 ---
 
+## Current niche effects and strategy selection
+
+The old Close Assault, Waaagh, Storm Shield and Dueller 2021 mechanics have been removed.
+Equivalent generic effects remain as **PreParry**, **+1 DMG on First Strike**, and
+**Critical+Strike**; old share links migrate only those equivalent effects.
+
+| Setting | Effect within one fight |
+| --- | --- |
+| Dueller | Normal successes can block critical successes; Brutal still prevents normal blocks. |
+| Strike On Death | Before removal, strike with one unresolved success. No follow-up strike. |
+| Cegorach's Jest | Roll below the enemy weapon's Hit stat to turn its normal strike into a block, ignoring Brutal. One successful use. |
+| Double Block or Norm Blocks Crit | Enhance one block: critical blocks two successes, or normal blocks a critical success. |
+| Blessings of Infection | With 3+ rolled fails discard one and retain another as normal; OR with 3+ rolled successes discard a fail and retain a rolled normal as critical. |
+| +1 DMG on 1 Crit | Add 1 damage to one chosen critical strike; the strategy can save it. |
+| +1 DMG on First Strike | Add 1 damage to the first normal or critical strike. |
+| Devastating in Melee | Each retained critical success deals X damage before the exchange; the die remains available. |
+| Stealth Assault | Resolve the first two dice consecutively, with all legal normal/critical strike/block combinations. |
+| Tilting Shields | Enemy rolled results below 6 cannot become critical successes; automatic critical retentions remain available. |
+
+These effects can be combined. The three follow-up modes (Critical+Strike, Strike+Strike,
+Stealth Assault) share one selector. Toggle conditional rules only when their prerequisites
+are satisfied. One-use effects reset for each **Rounds** fight; CP and turning-point usage
+across separate actions are not tracked.
+
+When a new effect or melee Devastating is active, **Min Dmg To Self** compares legal
+continuations by expected remaining own wounds, then enemy wounds. **Max Dmg To Enemy**
+uses the reverse priority. Both account for the other fighter's selected strategy, block
+targets, one-use resources, death strikes and follow-up dice. **Strike** prefers strikes;
+**Parry** prefers legal blocks, with an exception for a lethal strike. A follow-up strike-only rule still requires a strike.
+Cegorach's Jest is evaluated with its success probability, and the defending strategy may
+decline it. FNP and Saintly Relics use expected prevention in lookahead; live fights roll
+these effects. These prevention estimates do not constitute an exact stochastic solution.
+The older heuristics described below remain in use for profiles without these new effects.
+
 ## Dice
 
 After rolling and retaining, each fighter holds some number of:
@@ -39,8 +73,8 @@ The loop continues while either fighter still has successes and both are alive
 (`resolveFight`). A fighter with no successes simply passes its turn; the other keeps
 resolving its remaining dice.
 
-Some abilities act **before** the alternation begins (e.g. **Duelist** forces one free parry
-up front — see `handleDuelist`).
+Some abilities act **before** the alternation begins (e.g. **PreParry** forces one free parry
+up front — see `handlePreParry`).
 
 ---
 
@@ -91,7 +125,7 @@ any of these is true:
 - the enemy **zeros or halves your first strike** (Just a Scratch, or Half Damage on the first
   strike). Leading with the cheaper die can leave the bigger one intact. An enemy crit does
   not skip this comparison: their crit may still parry yours if you lead with the normal.
-- your **normal out-damages your crit**. Hammerhand's +1 lands on whichever die is first, so
+- your **normal out-damages your crit**. the first-strike bonus's +1 lands on whichever die is first, so
   it keeps that gap.
 
 Norm-first is *not* always better: against a **striking** enemy in a death-race you may die
@@ -204,8 +238,15 @@ striking norm-first pushes more damage than crit-first (Scenario A). The same si
 runs when the enemy **does** hold a crit, if they zero or halve the first strike or if the
 normal out-damages the crit. It picks norm-first only when that order genuinely deals more —
 and stays crit-first in a death-race, where front-loading the bigger die wins, or on a tie.
-Because the decision runs through the real resolution path, first-strike effects (Hammerhand's
-+1, Just a Scratch, Murderous Entrance) are accounted for automatically.
+Because the decision runs through the real resolution path, first-strike effects (the first-strike bonus's
++1, Just a Scratch, Critical+Strike and Strike+Strike) are accounted for automatically.
+
+**Strike+Strike** resolves one additional strike immediately after the fighter's first
+strike in each fight, before the opponent acts. **Critical+Strike** instead triggers
+after the first critical strike. Both spend another retained success, preferring a
+critical success when available, so two critical strikes are allowed. The follow-up
+does not trigger another follow-up and is skipped if the target is incapacitated or
+no successes remain. Select either ability under Advanced → NicheAbility.
 
 Regression coverage lives in `CalcEngineFight.test.ts` under
 *"calcDieChoice, norm-first to deny a normal parry"* and

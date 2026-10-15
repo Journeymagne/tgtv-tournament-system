@@ -1,3 +1,4 @@
+import { currentAbility } from 'src/Ability';
 import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Model from 'src/Model';
@@ -28,7 +29,6 @@ function encodeAttacker(atk: Model): string {
   if (atk.has(Ability.Punishing)) abilities.push('pun');
   if (atk.has(Ability.PuritySeal)) abilities.push('purity');
   if (atk.has(Ability.MysticScryBuff)) abilities.push('mscry');
-  if (atk.has(Ability.FailToNormIfAtLeastTwoSuccesses)) abilities.push('close');
   if (atk.has(Ability.CurseOfRot)) abilities.push('curse');
 
   return [
@@ -118,7 +118,6 @@ function decodeAttacker(param: string): Model {
     if (abilities.includes('pun')) atk.abilities.add(Ability.Punishing);
     if (abilities.includes('purity')) atk.abilities.add(Ability.PuritySeal);
     if (abilities.includes('mscry')) atk.abilities.add(Ability.MysticScryBuff);
-    if (abilities.includes('close')) atk.abilities.add(Ability.FailToNormIfAtLeastTwoSuccesses);
     if (abilities.includes('curse')) atk.abilities.add(Ability.CurseOfRot);
   } else {
     // Old 11-field format (backward compat)
@@ -178,7 +177,7 @@ function encodeFighter(f: Model): string {
   if (f.has(Ability.Punishing)) abilities.push('pun');
   if (f.has(Ability.PuritySeal)) abilities.push('purity');
   if (f.has(Ability.MysticScryBuff)) abilities.push('mscry');
-  if (f.has(Ability.Duelist)) abilities.push('duelist');
+  if (f.has(Ability.PreParry)) abilities.push('duelist');
   if (f.has(Ability.JustAScratch)) abilities.push('jas');
   if (f.has(Ability.Shock)) abilities.push('shock');
   // Keep this token distinct from 'jas', which enables the other scratch ability.
@@ -204,7 +203,9 @@ function encodeFighter(f: Model): string {
     nicheAbility || '',
     abilities.join(''),
     f.saintlyRelics,
-    f.fnp
+    f.fnp,
+    f.mwx,
+    [...f.abilities].join(',')
   ].join(':');
 }
 
@@ -229,7 +230,7 @@ function decodeFighter(param: string): Model {
   // Niche ability
   const nicheStr = parts[11] || '';
   if (nicheStr) {
-    const nicheAbility = mutuallyExclusiveFightAbilities.find(a => a === nicheStr);
+    const nicheAbility = currentAbility(nicheStr);
     if (nicheAbility) f.abilities.add(nicheAbility);
   }
 
@@ -241,7 +242,7 @@ function decodeFighter(param: string): Model {
   if (abilities.includes('pun')) f.abilities.add(Ability.Punishing);
   if (abilities.includes('purity')) f.abilities.add(Ability.PuritySeal);
   if (abilities.includes('mscry')) f.abilities.add(Ability.MysticScryBuff);
-  if (abilities.includes('duelist')) f.abilities.add(Ability.Duelist);
+  if (abilities.includes('duelist')) f.abilities.add(Ability.PreParry);
   if (abilities.includes('jas')) f.abilities.add(Ability.JustAScratch);
   if (abilities.includes('shock')) f.abilities.add(Ability.Shock);
   if (abilities.includes('scratchnorm')) f.abilities.add(Ability.JustAScratchNorms);
@@ -257,6 +258,11 @@ function decodeFighter(param: string): Model {
   const fnp = Number(parts[14]);
   f.fnp = Number.isInteger(fnp) && fnp >= 4 && fnp <= 6 ? fnp : 0;
 
+  f.mwx = Math.max(0, Math.min(12, parseInt(parts[15]) || 0));
+  if (parts[16]) for (const value of parts[16].split(',')) {
+    const ability = currentAbility(value);
+    if (ability) f.abilities.add(ability);
+  }
   return f;
 }
 
