@@ -2,6 +2,7 @@ const { canManageTournament, tournamentPermissions } = require("../domain/access
 const crypto = require("node:crypto");
 const { HttpError, ValidationError } = require("../http/io");
 const { requirePositiveIntId } = require("./params");
+const pairingWarnings = require("./pairing-warnings");
 const { clearPreparedRounds, requirePreparedFirstRound } = require("./tournament-preparation");
 const tournamentsRepo = require("../db/repositories/tournaments");
 const roundsRepo = require("../db/repositories/tournament-rounds");
@@ -566,7 +567,7 @@ async function buildRoundPreview(client, tournament, body = {}) {
 }
 
 async function previewNextRound(client, tournament) {
-  const { blueprint } = await buildRoundPreview(client, tournament);
+  const { blueprint, rosters, matches } = await buildRoundPreview(client, tournament);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const defaults = await tablesRepo.listByTournament(client, tournament.id);
   const previous = tournament.roundDraft?.tables || tablesForRound(rounds.at(-1), defaults);
@@ -597,6 +598,7 @@ async function previewNextRound(client, tournament) {
       ? normalizeRoundMissions(tournament.roundDraft?.missions || rounds.at(-1)?.metadata?.missions || CRIT_OPS.slice(0, 4), "doubles")
       : CRIT_OPS.map((critOp) => ({ critOp })) },
     tables: tables.map(tournamentTableView), teamRound: true, reuseLines, lines: !sharedTables,
+    pairingHistory: { teams: matches.map(match => pairingWarnings.team(match, rosters)), players: [] },
     restoredDraft: Boolean(tournament.roundDraft), prepared: tournament.status === "registration_closed"
   };
 }
@@ -604,12 +606,15 @@ async function previewNextRound(client, tournament) {
 async function generateRound(client, tournament, user, body = {}) {
   const missions = usesIndividualTeamPoints(tournament)
     ? normalizeRoundMissions(body.missions, tournament.pairingType) : CRIT_OPS.map((critOp) => ({ critOp }));
-  const { blueprint, rosters } = await buildRoundPreview(client, tournament, body);
+  const { blueprint, rosters, matches } = await buildRoundPreview(client, tournament, body);
   const tables = await nextTeamRoundTables(client, tournament, body.tables);
   const sharedTables = usesSharedTeamTables(tournament);
   const size = teamSizeFor(tournament);
   blueprint.pairings = sharedTables ? blueprint.pairings.map(pairing => ({ ...pairing, lineNumber: null })) : assignLines(blueprint.pairings, tables, size);
   const prepared = tournament.status === "registration_closed";
+  if (!prepared) pairingWarnings.reviewPairingWarnings(body,
+    blueprint.pairings.map(match => pairingWarnings.team({ ...match, roundNumber: blueprint.roundNumber }, rosters)),
+    matches.map(match => pairingWarnings.team(match, rosters)), tournament.venueMode);
   if (prepared) await clearPreparedRounds(client, tournament);
   const round = await roundsRepo.insert(client, {
     tournamentId: tournament.id,
@@ -744,6 +749,9 @@ async function getPairingMatch({ client, user, params }) {
       }
     },
     teamMatch: redactTeamMatch({ ...match, tables }, rosterA, rosterB, user),
+    pairingHistory: pairingWarnings.history({ tournament, rosters: storedRosters, tables,
+      teamMatches: (await teamMatchesRepo.listByTournament(client, tournament.id))
+        .filter(previous => previous.roundNumber < match.roundNumber && previous.phase === "completed") }),
     eventLog: await pairingLog.read(client, match, rosterA, rosterB, user),
     tables
   };
@@ -936,7 +944,7 @@ async function selectClassicEnvironment(client, context, user, body) {
     assignments.push({ slot: 3, tableId: table.id, mission: { ...mission, killzone: table.killzone, layout: table.deployment } });
   }
   if (Number(state.step) + 1 === teamEnvironmentPlan(match).length) {
-    await createPersonalGames(client, context, assignments.sort((a,b) => a.slot - b.slot), user);
+    await createPersonalGames(client, context, assignments.sort((a,b) => a.slot - b.slot), user, body);
   } else await teamMatchesRepo.update(client, match.id, { environment: { step: Number(state.step) + 1, assignments, choices } });
   await audit(client, context.tournament, user, "environment_select", { entityType: "team_match", entityId: match.id,
     metadata: { step: { ...step, kind }, logAssignments: pairingLog.assignmentDetails(context, assignments, tables) } });
@@ -962,7 +970,7 @@ async function manualPairings({ client, user, params, body }) {
     assignments.push({ slot: index + 1, tableId: table.id, mission: { critOp: item.mission, killzone: table.killzone, layout: table.deployment } });
   }
   context.match = await teamMatchesRepo.update(client, match.id, { pairings });
-  await createPersonalGames(client, context, assignments, user);
+  await createPersonalGames(client, context, assignments, user, body);
 }
 
 async function roll({ client, user, params, body = {} }) {
@@ -1177,7 +1185,7 @@ async function selectEnvironment({ client, user, params, body }) {
     });
     assignments.sort((a, b) => a.slot - b.slot);
   }
-  await createPersonalGames(client, context, assignments, user);
+  await createPersonalGames(client, context, assignments, user, body);
   const updated = await teamMatchesRepo.findById(client, context.match.id);
   return { teamMatch: updated };
 }
@@ -1227,7 +1235,7 @@ async function selectTeamEnvironment(client, context, user, body) {
     if (assignments.length !== 3 || assignments.some((item) => !item.tableId || !item.mission.critOp || (context.tournament.venueMode !== "irl" && !item.mission.killzone) || !item.mission.layout)) {
       throw new HttpError(409, "Complete all three game assignments first");
     }
-    await createPersonalGames(client, context, assignments, user);
+    await createPersonalGames(client, context, assignments, user, body);
   } else {
     await teamMatchesRepo.update(client, match.id, { environment: { step: Number(state.step) + 1, assignments } });
   }
@@ -1235,7 +1243,7 @@ async function selectTeamEnvironment(client, context, user, body) {
   return { teamMatch: redactTeamMatch(updated, context.rosterA, context.rosterB, user) };
 }
 
-async function createPersonalGames(client, context, assignments, user) {
+async function createPersonalGames(client, context, assignments, user, body = {}) {
   const existing = context.match.games || await teamMatchesRepo.listGameLinks(client, context.match.id);
   if (existing.length === teamSizeFor(context.match)) {
     await teamMatchesRepo.update(client, context.match.id, { phase: "in_progress", environment: { step: "complete", assignments } });
@@ -1243,6 +1251,14 @@ async function createPersonalGames(client, context, assignments, user) {
   }
   const pairingBySlot = new Map(context.match.pairings.map((pairing) => [pairing.slot, pairing]));
   const roundTables = await tablesForTeamMatch(client, context.match);
+  if (body.reviewPairingWarnings === true) {
+    const rosters = await rostersRepo.listByTournament(client, context.tournament.id, { includeWithdrawn: true, includeHistory: true });
+    const previous = await teamMatchesRepo.listByTournament(client, context.tournament.id);
+    pairingWarnings.reviewPairingWarnings(body,
+      pairingWarnings.teamGames({ ...context.match, rosterA: context.rosterA, rosterB: context.rosterB,
+        environment: { assignments } }, rosters, roundTables),
+      previous.flatMap(match => pairingWarnings.teamGames(match, rosters, roundTables)), context.tournament.venueMode);
+  }
   for (const assignment of assignments) {
     if (existing.some((link) => link.slot === assignment.slot)) continue;
     const pairing = pairingBySlot.get(assignment.slot);

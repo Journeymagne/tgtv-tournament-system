@@ -290,6 +290,7 @@ test("a saved captain action invalidates an older poll and refreshes before enab
   let stopped = 0;
   const run = new Function("state", "api", "stopTeamPairingPoll",
     `let teamPairingMutationPending = false, teamPairingRequestId = 0, publicTournamentRequestId = 0;
+     const liveRefresh = { schedule() {} };
      ${sourceOf("loadTeamPairing")}
      async function refreshTeamTournamentUi() { await loadTeamPairing(7, { force: true }); }
      ${sourceOf("submitTeamPairingAction")}
@@ -298,7 +299,7 @@ test("a saved captain action invalidates an older poll and refreshes before enab
   const oldPoll = run.loadTeamPairing(7, { force: true });
   const action = run.submitTeamPairingAction({}, {}, "/action", {});
   assert.equal(run.pending(), true);
-  await Promise.resolve();
+  await new Promise(resolve => setImmediate(resolve));
   requests[1]({ teamMatch: { id: 7, phase: "mission_ban" } });
   await action;
   requests[0]({ teamMatch: { id: 7, phase: "awaiting_roll" } });

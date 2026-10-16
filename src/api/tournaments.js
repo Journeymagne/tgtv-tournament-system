@@ -27,6 +27,7 @@ const { usesSharedTeamTables } = require("../domain/team-tournaments");
 const { uniqueSlug } = require("../domain/tournaments/slug");
 const { decodeDataUrl, contentVersion } = require("../domain/data-url");
 const { buildSwissNextRound } = require("../domain/tournaments/swiss");
+const pairingWarnings = require("./pairing-warnings");
 const { recalculateCompletedGameRatings } = require("./rating-replay");
 const {
   normalizeNewTournament,
@@ -1277,7 +1278,7 @@ async function prepareRolledBackRoundSetup(
       roundBlueprint = preview.rounds[0];
     } else {
       const nextRoundNumber = assertNextSwissRoundAllowed(tournament, rounds, matches);
-      roundBlueprint = buildSwissNextRound(tournament, participants, matches, nextRoundNumber);
+      roundBlueprint = buildSwissNextRound(tournament, participants, matches, nextRoundNumber, Math.random, body.byeParticipantId);
       roundBlueprint.generatedBy = `admin:${user.id}`;
     }
   } else {
@@ -1394,7 +1395,7 @@ async function prepareNextRoundSetup(client, tournament, user, rounds, matches, 
   let roundBlueprint = null;
   if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
     const nextRoundNumber = assertNextSwissRoundAllowed(tournament, rounds, matches);
-    roundBlueprint = buildSwissNextRound(tournament, participants, matches, nextRoundNumber);
+    roundBlueprint = buildSwissNextRound(tournament, participants, matches, nextRoundNumber, Math.random, body.byeParticipantId);
     roundBlueprint.generatedBy = `admin:${user.id}`;
   } else {
     const { nextRound, nextMatches } = assertNextSingleEliminationRoundAllowed(rounds, matches);
@@ -1460,6 +1461,7 @@ async function previewNextRoundAdmin({ client, user, params }) {
   return {
     round: roundSetupView(round, tables, participants),
     tables: tables.map(tournamentTableView),
+    pairingHistory: { players: matches.map(match => pairingWarnings.individual(match, participants, tables)), teams: [] },
     restoredDraft,
     prepared: tournament.status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED
   };
@@ -1925,7 +1927,7 @@ async function generateSwissNextRound(client, tournament, user, rounds, matches,
   const pending = participants.filter(
     (participant) => participant.status === PARTICIPANT_STATUSES.PENDING_PLACEMENT
   );
-  const { round: nextRound } = await prepareNextRoundSetup(
+  const { round: nextRound, tables } = await prepareNextRoundSetup(
     client,
     tournament,
     user,
@@ -1934,6 +1936,9 @@ async function generateSwissNextRound(client, tournament, user, rounds, matches,
     participants,
     body
   );
+  pairingWarnings.reviewPairingWarnings(body,
+    nextRound.matches.map(match => pairingWarnings.individual(match, participants, tables)),
+    matches.map(match => pairingWarnings.individual(match, participants, tables)), tournament.venueMode);
   nextRound.metadata = {
     ...(nextRound.metadata || {}),
     activatedParticipantIds: pending.map((participant) => participant.id)
@@ -1959,6 +1964,10 @@ async function generateSingleEliminationNextRound(client, tournament, user, roun
     body
   );
   const nextRound = setup.round;
+
+  pairingWarnings.reviewPairingWarnings(body,
+    nextRound.matches.map(match => pairingWarnings.individual(match, participants, setup.tables)),
+    matches.map(match => pairingWarnings.individual(match, participants, setup.tables)), tournament.venueMode);
 
   if (setup.isFirstRound) {
     await persistPreview(client, tournament, setup.preview);

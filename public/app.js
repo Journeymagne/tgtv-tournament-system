@@ -97,6 +97,7 @@ const state = {
   adminTournamentDetail: null,
   publicTournamentDetail: null,
   tournamentInfoTab: "standings",
+  tournamentTableViews: {},
   adminPasswordReset: null,
   playerProfile: null,
   feedback: [],
@@ -405,7 +406,11 @@ async function api(path, options = {}) {
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 413) throw new Error(t("common.requestTooLarge"));
-    if (!res.ok) throw new Error(data.message || data.error || t("common.requestFailed"));
+    if (!res.ok) {
+      const error = new Error(data.message || data.error || t("common.requestFailed"));
+      if (data.pairingWarningReview) error.pairingWarningReview = data.pairingWarningReview;
+      throw error;
+    }
     if (data.compactTeamTournament) {
       const rosters = new Map((data.rosters || []).map(roster => [roster.id, roster]));
       for (const match of data.teamMatches || []) {
@@ -811,6 +816,54 @@ function confirmDelete(message, confirmLabel) {
     confirmLabel: confirmLabel || t("common.delete"),
     danger: true
   });
+}
+
+function pairingWarningText(warning) {
+  return t(`pairing.warning.${warning.kind}`, {
+    names: warning.names.join(" / "), rounds: warning.rounds.join(", "), number: warning.tableNumber || "—"
+  });
+}
+
+function pairingWarningsMarkup(warnings = []) {
+  return warnings.length ? `<div class="pairing-warnings" role="status"><strong>⚠ ${t("pairing.warning.title")}</strong><ul>${warnings.map(warning =>
+    `<li>${escapeHtml(pairingWarningText(warning))}</li>`).join("")}</ul></div>` : "";
+}
+
+async function apiWithPairingWarnings(path, options = {}) {
+  let body = { ...(options.body || {}), reviewPairingWarnings: true };
+  while (true) {
+    try { return await api(path, { ...options, body }); }
+    catch (error) {
+      const review = error.pairingWarningReview;
+      if (!review?.warnings?.length || !review.warningKey) throw error;
+      if (!await confirmAction({ title: t("pairing.warning.title"),
+        message: review.warnings.map(pairingWarningText).join("\n"),
+        confirmLabel: t("pairing.warning.reviewed"), danger: false })) return null;
+      if (!await confirmAction({ title: t("pairing.warning.confirmTitle"), message: t("pairing.warning.confirm"),
+        confirmLabel: t("pairing.warning.proceed"), danger: false })) return null;
+      body = { ...body, pairingWarningAcknowledgement: review.warningKey };
+    }
+  }
+}
+
+function tournamentPairingHistory(data) {
+  return data?.pairingHistory || TGTVPairingWarnings.history(data || {});
+}
+
+function individualPairingWarnings(match, data) {
+  return TGTVPairingWarnings.warnings(TGTVPairingWarnings.individual(match, data?.participants, data?.tables),
+    tournamentPairingHistory(data).players, data?.tournament?.venueMode);
+}
+
+function teamPairingWarnings(match, slot = null) {
+  const data = [state.teamPairingDetail, state.adminTournamentDetail, state.publicTournamentDetail]
+    .find(item => item?.tournament?.id === match.tournamentId);
+  if (!data) return [];
+  const history = tournamentPairingHistory(data);
+  const proposed = slot === null ? TGTVPairingWarnings.team(match, data.rosters)
+    : TGTVPairingWarnings.teamGames(match, data.rosters, data.tables).find(game => game.slot === slot);
+  return proposed ? TGTVPairingWarnings.warnings(proposed,
+    slot === null ? history.teams : history.players, data.tournament.venueMode) : [];
 }
 
 function userInitials(user) {
@@ -1611,7 +1664,7 @@ function currentNavigationEntry() {
 }
 
 function navigationContextKeys() {
-  return ["tournamentInfoTab", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
+  return ["tournamentInfoTab", "tournamentTableViews", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
     "selectedStatisticsTeam", "selectedSeasonId", "statisticsFilters", "statisticsSort",
     "gameFilters", "leaderboardPage", "teamLeaderboardPage", "adminUsersPage",
     "adminUsersQuery", "adminTeamsPage", "adminTeamsQuery", "teamsQuery", "challengeTab"];
@@ -2730,7 +2783,8 @@ function publicParticipantsList(participants) {
 
 function publicRoundsMarkup(rounds, tournament = {}) {
   if (!rounds.length) return `<div class="empty">${t("tournaments.matches.empty")}</div>`;
-  return tournamentRoundsTabbedMarkup(rounds, (match) => publicMatchMarkup(match, tournament), tournament.id);
+  return tournamentRoundsTabbedMarkup(rounds, (match) => publicMatchMarkup({ ...match,
+    pairingWarnings: individualPairingWarnings(match, { tournament, rounds }) }, tournament), tournament.id);
 }
 
 function defaultTournamentRoundNumber(rounds = []) {
@@ -2811,6 +2865,7 @@ function publicMatchMarkup(match, tournament = {}) {
       <div class="row-main">
           <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
           <div class="row-meta">${escapeHtml(meta)}</div>
+          ${pairingWarningsMarkup(match.pairingWarnings)}
         </div>
       <div class="row-actions">
         <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
@@ -8039,7 +8094,7 @@ function tournamentTacOpStatsTable(rows) {
     <section class="admin-subpanel tournament-stat-table">
       <h4>${t("tournaments.stats.tacOpTableTitle")}</h4>
       <div class="table-wrap">
-        <table class="data-table statistics-table" style="--table-metric-count:5">
+        <table class="data-table statistics-table" data-tournament-table-kind="tacOps" style="--table-metric-count:5">
           <colgroup><col><col span="5" class="table-col-number"></colgroup>
           <thead>
             <tr>
@@ -8075,7 +8130,7 @@ function tournamentKillTeamStatsTable(rows, picksHidden) {
       <h4>${t("tournaments.stats.killTeamTableTitle")}</h4>
       <p class="hint">${t(picksHidden ? "tournaments.stats.factionPicksHidden" : "tournaments.stats.factionPicksHint")}</p>
       <div class="table-wrap">
-        <table class="data-table statistics-table" style="--table-metric-count:6">
+        <table class="data-table statistics-table" data-tournament-table-kind="killTeams" style="--table-metric-count:6">
           <colgroup><col><col span="6" class="table-col-number"></colgroup>
           <thead>
             <tr>
@@ -8772,7 +8827,7 @@ function teamMatchGamesMarkup(match, options = {}) {
       : link?.permissions?.canReview ? `<button class="primary-button" data-team-game-review="${game?.id}">${t("play.action.reviewResult")}</button>` : "";
     const awaitingReview = game?.status === "pending_confirmation"
       ? `<p class="row-meta">${escapeHtml(teamGamePendingMessage({ ...game, teamMatch: match, resultPermissions: link.permissions }))}</p>` : "";
-    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${tableImage}${result}${awaitingReview}</div>${state.me && game?.id ? `<div class="row-actions team-game-actions">${resultAction}<a href="/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</a></div>` : ""}</div>`;
+    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${pairingWarningsMarkup(teamPairingWarnings(match, slot))}${tableImage}${result}${awaitingReview}</div>${state.me && game?.id ? `<div class="row-actions team-game-actions">${resultAction}<a href="/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</a></div>` : ""}</div>`;
   }).join("")}</div>`;
 }
 
@@ -8914,6 +8969,7 @@ function teamTournamentMatchMarkup(match, tournament, options = {}) {
   return `<article class="row-card team-match-card">
     <div class="row-main">
       <div class="row-title">${teamRosterLabel(match.rosterA)} vs ${teamRosterLabel(match.rosterB)}</div>
+      ${pairingWarningsMarkup(teamPairingWarnings(match))}
       ${teamMatchProgressMarkup(match)}
       ${resultMarkup || (status ? `<div class="row-meta">${escapeHtml(status)}</div>` : "")}
       ${options.standalone ? teamPairingRostersMarkup(match) : ""}
@@ -9058,6 +9114,7 @@ function teamTournamentMatchPreviewMarkup(match, tournament) {
     <div class="team-match-preview-header">
       <div class="row-main">
         <div class="row-title">${teamRosterLabel(match.rosterA)}${match.rosterB ? ` vs ${teamRosterLabel(match.rosterB)}` : ""}</div>
+        ${pairingWarningsMarkup(teamPairingWarnings(match))}
         ${teamMatchProgressMarkup(match)}
         ${meta ? `<div class="row-meta">${escapeHtml(meta)}</div>` : ""}
       </div>
@@ -9312,6 +9369,66 @@ function wireTournamentInfoControls(data, options = {}) {
     wireComboFields();
     adminUi().wireTournamentParticipantAdminControls();
   }
+  // Bind every row's profile links before restoring filters that hide some rows.
+  wireTournamentDataTables(data);
+}
+
+function wireTournamentDataTables(data) {
+  if (!data?.tournament) return;
+  const views = state.tournamentTableViews ||= {};
+  const factionsFor = person => person?.factionHidden ? [] : tournamentRegisteredFactions(person || {});
+  const matchesFaction = (row, filters) => (!filters.team && filters.classification === "all") ||
+    (row.factions || []).some(team => statsTeamFilterMatchesWithFilters(team, filters));
+  const enhance = (selector, key, options) => document.querySelectorAll(selector).forEach(table => {
+    const id = `${data.tournament.id}:${key}`;
+    scopeAdministrationLinks(table);
+    TGTVTournamentTables.enhance(table, { t, key, view: views[id] ||= {},
+      onChange: rememberNavigationContext, ...options,
+      factions: options.factions?.map(canonicalKillTeamName).filter(Boolean) });
+  });
+
+  const individualTable = document.querySelector(".individual-standings-table");
+  if (individualTable) {
+    const participants = new Map((data.participants || []).map(person => [person.id, person]));
+    const metadata = displayedStandings(data).map(row => ({ factions: factionsFor(participants.get(row.participantId)) }));
+    enhance(".individual-standings-table", "individualStandings", {
+      types: { 1: "text", 2: "text", 4: "record" }, ascendingColumns: [0], defaultSort: { column: 0, direction: "asc" },
+      metadata, factions: metadata.flatMap(row => row.factions), matches: matchesFaction,
+      searchPlaceholder: "tournaments.table.searchPlayers"
+    });
+  }
+  const teamTable = document.querySelector(".team-standings-table");
+  if (teamTable) {
+    const rosters = new Map((data.rosters || []).map(roster => [roster.id, roster]));
+    const metadata = displayedStandings(data).map(row => {
+      const roster = rosters.get(Number(row.rosterId || row.roster?.id));
+      const members = (roster?.members || []).filter(member => !member.endedAt);
+      return { factions: members.flatMap(factionsFor),
+        searchText: [roster?.team?.name || roster?.teamNameSnapshot, ...members.map(member => member.displayNameSnapshot)].filter(Boolean).join(" ") };
+    });
+    enhance(".team-standings-table", "teamStandings", {
+      types: { 1: "text", [teamTable.tHead.rows[0].cells.length - 1]: "record" },
+      ascendingColumns: [0], defaultSort: { column: 0, direction: "asc" },
+      metadata, factions: metadata.flatMap(row => row.factions), matches: matchesFaction,
+      searchPlaceholder: "tournaments.table.searchRosters"
+    });
+  }
+  if (document.querySelector("[data-tournament-table-kind]")) {
+    const games = (data.tournamentGames || []).filter(game => game.status === "completed" && game.result);
+    const picks = tournamentFactionPicks(data);
+    const teams = tournamentKillTeamStats(games, picks.rows);
+    const factions = [...teams.map(row => row.name), ...games.flatMap(game => gameScoreEntries(game).map(entry => entry.team))];
+    enhance('[data-tournament-table-kind="tacOps"]', "tacOps", {
+      types: { 0: "text" }, defaultSort: { column: 3, direction: "desc" }, gamesColumn: 1,
+      factions, classification: true, minimumGames: true, searchPlaceholder: "tournaments.table.searchTacOps",
+      filteredTable: filters => tournamentTacOpStatsTable(tacOpWinrateSummary(games, filters).rows)
+    });
+    enhance('[data-tournament-table-kind="killTeams"]', "killTeams", {
+      types: { 0: "text", 2: "record" }, factions, classification: true, minimumGames: true,
+      metadata: teams.map(row => ({ factions: [row.name], games: row.matches })), matches: matchesFaction,
+      searchPlaceholder: "tournaments.table.searchKillTeams"
+    });
+  }
 }
 
 function wireTournamentRoundTabs(root = document) {
@@ -9377,8 +9494,9 @@ function renderRoundSetupModal(preview) {
         <form class="round-setup-form" data-round-setup-form>
           ${preview.activePairings ? `<div class="field-help" data-round-setup-unassigned></div>${preview.lockedMatches.length ? `<section class="admin-subpanel"><h3>${t("admin.round.lockedPairings")}</h3><div class="list">${preview.lockedMatches.map(match => `<div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(match.participantA?.displayName || "—")} vs ${match.isBye ? t("tournaments.match.byeUpper") : escapeHtml(match.participantB?.displayName || "—")}</div><div class="row-meta">${escapeHtml(tournamentMatchStatusLabel(match.status))}</div></div></div>`).join("")}</div></section>` : ""}` : preview.tableOnly ? teamTableSetupFields(tables, tournament.venueMode, preview.lines === false && tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic") : preview.teamRound ? teamRoundMissionFields(tables, round, preview.reuseLines) : roundMissionFields(tournament, round)}
           <div class="round-setup-list" data-round-setup-list>
-            ${(preview.tableOnly ? [] : round.matches || []).filter((match) => !match.isBye).map((match) =>
-              preview.teamRound ? teamRoundSetupMatchRow(match, tables) : roundSetupMatchRow(match, tournament, tables, preview.participants)
+            ${(preview.tableOnly ? [] : round.matches || []).map((match, index) =>
+              match.isBye ? `<input type="hidden" data-round-bye-index="${index}" value="${match.participantAId || ""}">`
+              : preview.teamRound ? teamRoundSetupMatchRow(match, tables) : roundSetupMatchRow(match, tournament, tables, preview.participants)
             ).join("")}
           </div>
           <div class="row-actions">
@@ -9546,7 +9664,7 @@ function teamRoundSetupMatchRow(match = {}, tables = []) {
   const tournament = state.adminTournamentDetail?.tournament || {};
   const size = teamSizeFor(tournament);
   const sharedTables = tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic";
-  return `<div class="row-card compact-row-card round-setup-match-row"><div class="row-main"><div class="round-setup-match-grid">${teamRoundSetupRosterSelect("rosterAId", match.rosterAId)}${teamRoundSetupRosterSelect("rosterBId", match.rosterBId)}${sharedTables ? "" : `<label>${t("classic.line", { number: "" })}<select name="lineNumber">${Array.from({ length: tables.length / size }, (_, index) => `<option value="${index+1}" ${Number(match.lineNumber || match.bracketPosition) === index+1 ? "selected" : ""}>${t("classic.line", { number: index+1 })} · ${tables.slice(index*size,index*size+size).map(table => table.tableNumber).join(", ")}</option>`).join("")}</select></label>`}</div></div></div>`;
+  return `<div class="row-card compact-row-card round-setup-match-row"><div class="row-main"><div class="round-setup-match-grid">${teamRoundSetupRosterSelect("rosterAId", match.rosterAId)}${teamRoundSetupRosterSelect("rosterBId", match.rosterBId)}${sharedTables ? "" : `<label>${t("classic.line", { number: "" })}<select name="lineNumber">${Array.from({ length: tables.length / size }, (_, index) => `<option value="${index+1}" ${Number(match.lineNumber || match.bracketPosition) === index+1 ? "selected" : ""}>${t("classic.line", { number: index+1 })} · ${tables.slice(index*size,index*size+size).map(table => table.tableNumber).join(", ")}</option>`).join("")}</select></label>`}</div><div data-pairing-warnings></div></div></div>`;
 }
 
 function teamRoundSetupRosterSelect(name, selectedId = "") {
@@ -9591,6 +9709,7 @@ function roundSetupMatchRow(match = {}, tournament = {}, tables = [], participan
           ${roundSetupPlayerSelect("participantBId", match.participantBId, participants)}
           ${tournament.venueMode === "irl" ? roundSetupTableSelect(match.tableId, tables) : ""}
         </div>
+        <div data-pairing-warnings></div>
       </div>
       <div class="row-actions">
         <button class="small-button" type="button" data-round-setup-clear>${t("admin.roundSetup.clear")}</button>
@@ -9646,6 +9765,7 @@ function tableLabel(table = {}) {
 function wireRoundSetupModal(tournament, tables, preview = {}) {
   const updatePlayers = () => {
     updateRoundSetupPlayerSelects();
+    if (!preview.tableOnly) updateRoundSetupWarnings(tournament, tables, preview);
     const help = document.querySelector("[data-round-setup-unassigned]");
     if (!help) return;
     const assigned = new Set([...document.querySelectorAll('.round-setup-match-row select[name="participantAId"], .round-setup-match-row select[name="participantBId"]')].map(select => Number(select.value)));
@@ -9686,6 +9806,7 @@ function wireRoundSetupModal(tournament, tables, preview = {}) {
       return;
     }
     if (event.target?.name === "tableId") updateRoundSetupTableDeployment(event.target);
+    if (!preview.tableOnly) updateRoundSetupWarnings(tournament, tables, preview);
   });
   updatePlayers();
   document.querySelectorAll('[name="tableId"]').forEach(updateRoundSetupTableDeployment);
@@ -9697,7 +9818,8 @@ function wireRoundSetupModal(tournament, tables, preview = {}) {
       const submit = event.currentTarget.querySelector('[type="submit"]');
       submit.disabled = true;
       try {
-        await api(preview.activePairings
+        const request = preview.activePairings || preview.tableOnly || preview.prepared ? api : apiWithPairingWarnings;
+        const result = await request(preview.activePairings
           ? `/api/admin/tournaments/${tournament.id}/rounds/${preview.round.id}/pairings`
           : preview.tableOnly
           ? `/api/admin/tournaments/${tournament.id}/rounds/${preview.round.id}/tables`
@@ -9714,6 +9836,7 @@ function wireRoundSetupModal(tournament, tables, preview = {}) {
             ? { tables: teamTableSetupPayload(event.currentTarget), expectedUpdatedAt: preview.round.updatedAt }
             : roundSetupPayload(event.currentTarget, tournament)
         });
+        if (result === null) return;
       } finally { submit.disabled = false; }
       closeRoundSetupModal();
       await adminUi().loadTournamentAdmin();
@@ -9729,6 +9852,29 @@ function wireRoundSetupModal(tournament, tables, preview = {}) {
         setMessage(err.message, true);
       }
     }
+  });
+}
+
+function updateRoundSetupWarnings(tournament, tables, preview) {
+  const data = state.adminTournamentDetail || {};
+  const history = preview.pairingHistory || tournamentPairingHistory(data);
+  const rows = [...document.querySelectorAll(".round-setup-match-row")];
+  let proposed = rows.map(row => {
+    const value = name => Number(row.querySelector(`[name="${name}"]`)?.value) || null;
+    const roundNumber = preview.round?.roundNumber;
+    return preview.teamRound
+      ? TGTVPairingWarnings.team({ roundNumber, rosterAId: value("rosterAId"), rosterBId: value("rosterBId") }, data.rosters)
+      : TGTVPairingWarnings.individual({ roundNumber, participantAId: value("participantAId"),
+        participantBId: value("participantBId"), tableId: value("tableId") }, preview.participants || data.participants, tables);
+  });
+  if (!preview.teamRound && !preview.activePairings && tournament.venueMode === "irl") {
+    proposed = TGTVPairingWarnings.assignTables(proposed, tables, history.players);
+  }
+  rows.forEach((row, index) => {
+    row.dataset.resolvedTableId = proposed[index].tableId || "";
+    const container = row.querySelector("[data-pairing-warnings]");
+    if (container) container.innerHTML = pairingWarningsMarkup(TGTVPairingWarnings.warnings(proposed[index],
+      preview.teamRound ? history.teams : history.players, tournament.venueMode));
   });
 }
 
@@ -9766,16 +9912,20 @@ function roundSetupPayload(form, tournament) {
       }))
     };
   }
+  const matchups = rows.map((row) => ({
+    participantAId: row.querySelector('[name="participantAId"]')?.value || "",
+    participantBId: row.querySelector('[name="participantBId"]')?.value || "",
+    tableId: tournament.venueMode === "irl" ? row.querySelector('[name="tableId"]')?.value || row.dataset.resolvedTableId || "" : ""
+  }));
+  const byes = [...form.querySelectorAll("[data-round-bye-index]")];
+  for (const bye of byes) matchups.splice(Number(bye.dataset.roundByeIndex), 0, {});
   return {
+    ...(byes.length ? { byeParticipantId: Number(byes[0].value) } : {}),
     mission: {
       killzone: tournament.venueMode === "tts" ? form.elements.roundKillzone?.value || "" : "",
       critOp: form.elements.roundCritOp?.value || ""
     },
-    matchups: rows.map((row) => ({
-      participantAId: row.querySelector('[name="participantAId"]')?.value || "",
-      participantBId: row.querySelector('[name="participantBId"]')?.value || "",
-      tableId: tournament.venueMode === "irl" ? row.querySelector('[name="tableId"]')?.value || "" : ""
-    }))
+    matchups
   };
 }
 
@@ -10005,6 +10155,29 @@ async function refreshTeamTournamentUi(data, options = {}) {
   if (isCurrentPublicTournamentRoute(data.tournament.slug)) await renderPublicTournamentRoute(data.tournament.slug, { force: true });
 }
 
+function updateTeamPairingFormWarnings(form, data) {
+  const container = form.querySelector("[data-team-form-warnings]");
+  const match = [data.teamMatch, ...(data.teamMatches || [])].find(item => item?.id === Number(form.dataset.teamMatchId));
+  if (!container || !match) return;
+  const proposed = structuredClone(match);
+  if (form.dataset.teamPairingForm === "manual") {
+    proposed.games = [];
+    proposed.pairings = Array.from({ length: teamSizeFor(match) }, (_, index) => ({ slot: index + 1,
+      rosterAMemberId: Number(form.elements[`player-a-${index}`]?.value),
+      rosterBMemberId: Number(form.elements[`player-b-${index}`]?.value) }));
+    proposed.environment = { assignments: proposed.pairings.map(pair => ({ slot: pair.slot,
+      tableId: Number(form.elements[`table-${pair.slot - 1}`]?.value) || null })) };
+  } else if (form.elements.tableId) {
+    const slot = teamEnvironmentStep(match, data.tournament)?.slot;
+    const assignments = (proposed.environment?.assignments || []).filter(item => item.slot !== slot);
+    assignments.push({ slot, tableId: Number(form.elements.tableId.value) || null });
+    proposed.environment = { ...proposed.environment, assignments };
+  }
+  const history = tournamentPairingHistory(data).players;
+  container.innerHTML = pairingWarningsMarkup(TGTVPairingWarnings.teamGames(proposed, data.rosters, data.tables)
+    .flatMap(game => TGTVPairingWarnings.warnings(game, history, data.tournament.venueMode)));
+}
+
 async function submitTeamPairingAction(data, options, path, body, method = "POST") {
   if (teamPairingMutationPending) return;
   teamPairingMutationPending = true;
@@ -10012,7 +10185,7 @@ async function submitTeamPairingAction(data, options, path, body, method = "POST
   teamPairingRequestId += 1;
   publicTournamentRequestId += 1;
   try {
-    await api(path, { method, body });
+    if (await apiWithPairingWarnings(path, { method, body }) === null) return;
     await refreshTeamTournamentUi(data, options);
   } catch (err) {
     // Refresh conflicts too, so both captains continue from the saved step.
@@ -10020,6 +10193,7 @@ async function submitTeamPairingAction(data, options, path, body, method = "POST
     throw err;
   } finally {
     teamPairingMutationPending = false;
+    liveRefresh.schedule();
   }
 }
 
@@ -10078,6 +10252,13 @@ function wireTeamTournamentControls(data, options = {}) {
     });
   });
   document.querySelectorAll("[data-team-pairing-form]").forEach((form) => {
+    if (["manual", "environment"].includes(form.dataset.teamPairingForm)) {
+      if (!form.querySelector("[data-team-form-warnings]")) {
+        form.querySelector('[type="submit"]')?.insertAdjacentHTML("beforebegin", '<div data-team-form-warnings aria-live="polite"></div>');
+      }
+      onLive(form, "change", () => updateTeamPairingFormWarnings(form, data));
+      updateTeamPairingFormWarnings(form, data);
+    }
     if (form.dataset.teamPairingForm === "manual" && Number(form.dataset.pairingSize) === 2) {
       const updateChoices = () => {
         for (const prefix of ["player-a-", "player-b-", "table-", "mission-"]) {
@@ -10112,7 +10293,8 @@ function wireTeamTournamentControls(data, options = {}) {
       try {
         form.querySelector('[type="submit"]').disabled = true;
         await submitTeamPairingAction(data, options, `/api/tournaments/${data.tournament.id}/team-matches/${form.dataset.teamMatchId}/${action}`, body);
-      } catch (err) { setMessage(err.message, true); form.querySelector('[type="submit"]').disabled = false; }
+      } catch (err) { setMessage(err.message, true); }
+      finally { form.querySelector('[type="submit"]').disabled = false; }
     });
   });
   document.querySelectorAll("[data-team-match-undo]").forEach((button) => {

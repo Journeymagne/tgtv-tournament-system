@@ -278,6 +278,84 @@ test("Swiss pairing avoids rematches when a fresh perfect matching exists", () =
   assert.equal(pairingSignature(round), "1-3|2-4");
 });
 
+test("Swiss separates a drawn pair even when they are alone in an even score bracket", () => {
+  const participants = Array.from({ length: 4 }, (_, index) =>
+    participant(index + 1, index + 1, { status: "active" })
+  );
+  const previousMatches = [
+    completedSwissMatch(1, 1, 3, 1),
+    completedSwissMatch(2, 2, 4, 2),
+    completedSwissMatch(3, 1, 2, null),
+    completedSwissMatch(4, 3, 4, 3)
+  ];
+
+  for (const seed of [1, 7, 29]) {
+    const round = buildSwissNextRound(
+      { swissRoundCount: 3, tiebreakerOrder: [] },
+      participants, previousMatches, 3, seededRandom(seed)
+    );
+    assert.equal(pairingSignature(round), "1-4|2-3");
+  }
+});
+
+test("Swiss looks beyond the nearest lower bracket when all its players are previous opponents", () => {
+  const participants = Array.from({ length: 6 }, (_, index) =>
+    participant(index + 1, index + 1, { status: "active" })
+  );
+  const previousMatches = [
+    completedSwissMatch(1, 1, 2, null),
+    completedSwissMatch(2, 3, 4, 4),
+    completedSwissMatch(3, 5, 6, 5),
+    completedSwissMatch(4, 1, 3, null),
+    completedSwissMatch(5, 2, 5, 5),
+    completedSwissMatch(6, 4, 6, 4)
+  ];
+  // Player 1 has two points; both one-point players (2 and 3) have faced them.
+  const previousPairs = new Set(previousMatches.map(match =>
+    [match.participantAId, match.participantBId].sort((a, b) => a - b).join("-")
+  ));
+
+  for (const seed of [1, 7, 29]) {
+    const round = buildSwissNextRound(
+      { swissRoundCount: 3, tiebreakerOrder: [] },
+      participants, previousMatches, 3, seededRandom(seed)
+    );
+    assert.ok(pairingSignature(round).split("|").every(pair => !previousPairs.has(pair)));
+    assert.deepEqual(round.matches.flatMap(match => [match.participantAId, match.participantBId])
+      .sort((a, b) => a - b), [1, 2, 3, 4, 5, 6]);
+  }
+});
+
+test("Swiss still produces a complete round when every opponent has already been played", () => {
+  const participants = Array.from({ length: 4 }, (_, index) =>
+    participant(index + 1, index + 1, { status: "active" })
+  );
+  const previousMatches = [[1, 2], [3, 4], [1, 3], [2, 4], [1, 4], [2, 3]]
+    .map(([a, b], index) => completedSwissMatch(index + 1, a, b, a));
+  const round = buildSwissNextRound(
+    { swissRoundCount: 4, tiebreakerOrder: [] },
+    participants, previousMatches, 4, seededRandom(7)
+  );
+
+  assert.equal(round.matches.length, 2);
+  assert.deepEqual(round.matches.flatMap(match => [match.participantAId, match.participantBId])
+    .sort((a, b) => a - b), [1, 2, 3, 4]);
+});
+
+test("Swiss searches across score brackets for the maximum field of 128 participants", () => {
+  const participants = Array.from({ length: 128 }, (_, index) =>
+    participant(index + 1, index + 1, { status: "active" })
+  );
+  const round = buildSwissNextRound(
+    { swissRoundCount: 3, tiebreakerOrder: [] },
+    participants, [completedSwissMatch(1, 1, 2, null)], 2, seededRandom(7)
+  );
+
+  assert.equal(round.matches.length, 64);
+  assert.equal(new Set(round.matches.flatMap(match => [match.participantAId, match.participantBId])).size, 128);
+  assert.ok(!pairingSignature(round).split("|").includes("1-2"));
+});
+
 test("Swiss bye is random in the lowest eligible score bracket and does not repeat while avoidable", () => {
   const participants = Array.from({ length: 5 }, (_, index) =>
     participant(index + 1, index + 1, { status: "active" })

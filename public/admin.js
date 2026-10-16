@@ -997,6 +997,7 @@ function adminTournamentMatchMarkup(match, data = {}) {
       <div class="row-main">
         <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
         <div class="row-meta">${escapeHtml(meta)}</div>
+          ${pairingWarningsMarkup(individualPairingWarnings(match, data))}
       </div>
       <div class="row-actions">
         <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>

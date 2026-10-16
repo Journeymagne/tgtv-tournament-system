@@ -60,6 +60,18 @@ New individual and team events default to the latest active
 season in its settings, including after completion. Existing results then count
 toward statistics for the selected season while scores and ratings are retained.
 
+## Release 1.3.0
+
+Tournament standings and statistics support search, filters and sortable columns.
+Pairing previews and match cards warn about repeated opponents and IRL tables;
+starting affected games requires two confirmations. Swiss pairing searches across
+score brackets to reduce avoidable rematches and retains the preview's eligible bye.
+
+This release also includes the venue-address, KT2024 melee and Linux deployment
+updates merged after the original 1.2.0 tag. Migration 055 adds the venue address;
+no migration beyond 055, new dependencies or environment variables are introduced.
+See [release validation](docs/release-1.3.0-validation.md).
+
 ## Release 1.2.0
 
 Players can save a separate, private BCP email for future tournament transfers.
