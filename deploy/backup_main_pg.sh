@@ -13,7 +13,8 @@
 #   FTP_PASS=...
 #   BACKUP_ENCRYPT_PASS=...
 # Optional:
-#   FTP_DIR=/backups/tgtv-pg
+#   FTP_DIR=backups          # path INSIDE the FTP account (NOT a VPS path like /app/...)
+#                            # empty = FTP login home; script uses <FTP_DIR>/daily|weekly|monthly
 #   FTP_PORT=21
 #   FTP_DAILY_KEEP=14 FTP_WEEKLY_KEEP=8 FTP_MONTHLY_KEEP=6
 #   CONTAINER_NAME DB_USER DB_NAME BACKUP_ROOT BACKUP_ENV_FILE
@@ -69,7 +70,8 @@ FTP_HOST="${FTP_HOST:-}"
 FTP_USER="${FTP_USER:-}"
 FTP_PASS="${FTP_PASS:-}"
 FTP_PORT="${FTP_PORT:-21}"
-FTP_DIR="${FTP_DIR:-/backups/tgtv-pg}"
+# Empty = upload under the FTP account home (daily/weekly/monthly).
+FTP_DIR="${FTP_DIR:-}"
 BACKUP_ENCRYPT_PASS="${BACKUP_ENCRYPT_PASS:-}"
 
 FTP_DAILY_KEEP="${FTP_DAILY_KEEP:-14}"       # days
@@ -137,30 +139,45 @@ ftp_base_url() {
   printf 'ftp://%s:%s' "$FTP_HOST" "$FTP_PORT"
 }
 
+# Path relative to FTP login home (no leading slash). Example: daily, backups/daily
+ftp_rel_dir() {
+  local subdir="$1"
+  local base="${FTP_DIR#/}"
+  base="${base%/}"
+  if [[ -z "$base" ]]; then
+    printf '%s' "$subdir"
+  else
+    printf '%s/%s' "$base" "$subdir"
+  fi
+}
+
 upload_ftp() {
   local remote_subdir="$1"
   local remote_name="$2"
+  local dest_dir url
+  dest_dir="$(ftp_rel_dir "$remote_subdir")"
+  url="$(ftp_base_url)/${dest_dir}/${remote_name}"
 
-  local dest_dir="${FTP_DIR%/}/${remote_subdir}"
-  local url
-  url="$(ftp_base_url)${dest_dir}/${remote_name}"
-  echo "[backup] FTP put -> ${FTP_HOST}${dest_dir}/${remote_name}"
-  curl -sS --fail --ftp-create-dirs \
-    --user "${FTP_USER}:${FTP_PASS}" \
-    -T "$LOCAL_ARCHIVE" \
-    "$url"
+  echo "[backup] FTP put -> ${FTP_HOST}/${dest_dir}/${remote_name}"
+  if ! curl -sS --fail --ftp-create-dirs \
+      --user "${FTP_USER}:${FTP_PASS}" \
+      -T "$LOCAL_ARCHIVE" \
+      "$url"; then
+    echo "[backup] FTP upload failed. Check FTP_DIR (folder inside FTP account, not VPS /app/...)." >&2
+    echo "[backup] Current FTP_DIR='${FTP_DIR:-<empty=FTP home>}' -> remote path '/${dest_dir}/'" >&2
+    exit 1
+  fi
 }
 
 # Delete remote archives older than keep_days (age from backup_YYYYMMDD_* name).
 prune_ftp_dir() {
   local remote_subdir="$1"
   local keep_days="$2"
-  local dest_dir="${FTP_DIR%/}/${remote_subdir}"
-  local list_url
-  list_url="$(ftp_base_url)${dest_dir}/"
+  local dest_dir list_url listing
+  dest_dir="$(ftp_rel_dir "$remote_subdir")"
+  list_url="$(ftp_base_url)/${dest_dir}/"
 
-  local listing
-  listing="$(curl -sS --list-only --user "${FTP_USER}:${FTP_PASS}" "$list_url" || true)"
+  listing="$(curl -sS --list-only --user "${FTP_USER}:${FTP_PASS}" "$list_url" 2>/dev/null || true)"
   [[ -n "$listing" ]] || return 0
 
   local now_epoch cutoff name ymd file_epoch
@@ -173,10 +190,10 @@ prune_ftp_dir() {
     file_epoch="$(date -d "${ymd:0:4}-${ymd:4:2}-${ymd:6:2}" +%s 2>/dev/null || true)"
     [[ -n "$file_epoch" ]] || continue
     if (( now_epoch - file_epoch > cutoff )); then
-      echo "[backup] FTP del -> ${FTP_HOST}${dest_dir}/${name}"
+      echo "[backup] FTP del -> ${FTP_HOST}/${dest_dir}/${name}"
       curl -sS --user "${FTP_USER}:${FTP_PASS}" \
         -Q "DELE ${dest_dir}/${name}" \
-        "$(ftp_base_url)/" >/dev/null || true
+        "$(ftp_base_url)/" >/dev/null 2>&1 || true
     fi
   done <<<"$listing"
 }
@@ -186,11 +203,17 @@ if [[ -n "$FTP_HOST" ]]; then
     echo "[backup] FTP_HOST set but FTP_USER/FTP_PASS/BACKUP_ENCRYPT_PASS missing" >&2
     exit 1
   fi
+  # Common misconfig: paste VPS path into FTP_DIR
+  if [[ "${FTP_DIR}" == /app/* || "${FTP_DIR}" == app/* ]]; then
+    echo "[backup] FTP_DIR='${FTP_DIR}' looks like a VPS path, not an FTP folder." >&2
+    echo "[backup] Fix /app/backup-ftp.env: use e.g. FTP_DIR= or FTP_DIR=backups" >&2
+    exit 1
+  fi
 
   encrypt_archive "$LOCAL_DUMP"
   upload_ftp "daily" "$ARCHIVE_NAME"
-  [[ "$DOW" == "7" ]] && upload_ftp "weekly" "$ARCHIVE_NAME"
-  [[ "$DOM" == "01" ]] && upload_ftp "monthly" "$ARCHIVE_NAME"
+  if [[ "$DOW" == "7" ]]; then upload_ftp "weekly" "$ARCHIVE_NAME"; fi
+  if [[ "$DOM" == "01" ]]; then upload_ftp "monthly" "$ARCHIVE_NAME"; fi
   rm -rf -- "$(dirname -- "$LOCAL_ARCHIVE")"
   LOCAL_ARCHIVE=""
 
