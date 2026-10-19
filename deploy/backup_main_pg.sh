@@ -89,7 +89,9 @@ REMOTE_TMP=""
 cleanup() {
   local code=$?
   [[ -n "$REMOTE_TMP" ]] && docker exec "$CONTAINER_NAME" rm -f "$REMOTE_TMP" 2>/dev/null || true
-  [[ -n "$LOCAL_ARCHIVE" && -f "$LOCAL_ARCHIVE" ]] && rm -f "$LOCAL_ARCHIVE" || true
+  if [[ -n "$LOCAL_ARCHIVE" ]]; then
+    rm -rf -- "$(dirname -- "$LOCAL_ARCHIVE")" 2>/dev/null || true
+  fi
   exit "$code"
 }
 trap cleanup EXIT
@@ -119,9 +121,15 @@ echo "[backup] local ok $(du -h "$LOCAL_DUMP" | awk '{print $1}')"
 
 encrypt_archive() {
   local src="$1"
-  LOCAL_ARCHIVE="$(mktemp "${TMPDIR:-/tmp}/tgtv-pg-backup.XXXXXX.7z")"
+  local src_dir src_base tmp_dir
+  src_dir="$(dirname -- "$src")"
+  src_base="$(basename -- "$src")"
+  # mktemp must not pre-create the .7z path: 7z refuses to open an empty file as archive.
+  tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/tgtv-pg-backup.XXXXXX")"
+  LOCAL_ARCHIVE="${tmp_dir}/${ARCHIVE_NAME}"
   # -mhe=on: encrypt names; -mx=0: store only (-Fc already compressed)
-  7z a -t7z -mhe=on -mx=0 -p"${BACKUP_ENCRYPT_PASS}" "$LOCAL_ARCHIVE" "$src" >/dev/null
+  # Add by basename so the archive does not embed /app/pg_backups/...
+  (cd -- "$src_dir" && 7z a -t7z -mhe=on -mx=0 -p"${BACKUP_ENCRYPT_PASS}" "$LOCAL_ARCHIVE" "$src_base") >/dev/null
   chmod 600 "$LOCAL_ARCHIVE"
 }
 
