@@ -20,7 +20,8 @@ async function create(client, owner, pack) {
 
 async function list(client, owner, project) {
   const {rows} = await client.query(`SELECT id,name,created_at,byte_size,jsonb_array_length(manifest->'cards') AS cards,
-    jsonb_array_length(manifest->'tokens') AS tokens FROM studio_tts_exports WHERE owner_id=$1 AND project_id=$2 ORDER BY created_at DESC`, [owner,project]);
+    jsonb_array_length(manifest->'tokens') AS tokens,
+     COALESCE((SELECT sum((die->>'quantity')::int) FROM jsonb_array_elements(COALESCE(manifest->'dice','[]'::jsonb)) die),0)::int AS dice FROM studio_tts_exports WHERE owner_id=$1 AND project_id=$2 ORDER BY created_at DESC`, [owner,project]);
   return rows;
 }
 async function manifest(client, id) {

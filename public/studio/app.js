@@ -1,10 +1,10 @@
 'use strict';
 const $=s=>document.querySelector(s),esc=KTCards.esc;
-const SECTIONS={selectionCards:'Состав киллтима',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',tokenCards:'Жетоны и маркеры',operatives:'Оперативники',lorePages:'Картинки и лор',project:'Проект и исходники'};
+const SECTIONS={selectionCards:'Состав киллтима',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',tokenCards:'Жетоны и маркеры',dice:'Кубики D6',operatives:'Оперативники',lorePages:'Картинки и лор',project:'Проект и исходники'};
 const STORAGE='kt-studio-cards-v6',PREVIOUS=[];
 const PROJECTS=STORAGE+':project-list',ACTIVE=STORAGE+':active-project',projectList=new Map();
 const requestedSection=new URLSearchParams(location.search).get('section');
-let data,original,section=['tokenCards','lorePages'].includes(requestedSection)?requestedSection:'selectionCards',selected=0,side=0,assets={},timer;
+let data,original,section=['tokenCards','lorePages','dice'].includes(requestedSection)?requestedSection:'selectionCards',selected=0,side=0,assets={},timer;
 let previewOnly=false;
 let saveRevision=0,teamLoadRevision=0;
 const nestedStates=new WeakMap();
@@ -25,6 +25,7 @@ KTTokensEditor.bind({context:()=>({project:data,card:section==='tokenCards'?curr
   if(token){const pages=KTCards.renderCard(current(),data,assets,selected),target=pages.findIndex(p=>p.boxes.some(box=>box.id===token.id));if(target>=0)side=target}
   renderPreview();
  }});
+KTDiceEditor.bind({context:()=>section==='dice'?data:null,toast,export:()=>openTTS(),changed:()=>{persist();renderPreview();}});
 function rememberProject(team,active=false){
  projectList.set(team.id,team.name);
  try{KTAccount.storage.setItem(PROJECTS,JSON.stringify([...projectList]));if(active)KTAccount.storage.setItem(ACTIVE,team.id)}catch{}
@@ -241,11 +242,12 @@ function render(){
  $('#add-item').hidden=!list||fixed();
  $('#add-reference-page').hidden=section!=='lorePages';
  $('#add-item').textContent=section==='lorePages'?'+ Страница':'+ Карточка';
- $('#view-toggle').textContent=previewOnly?(section==='lorePages'?'Редактировать страницу':'Редактировать карточку'):(section==='lorePages'?'Показать страницу':'Показать карточку');
+ $('#view-toggle').textContent=previewOnly?(section==='dice'?'Настроить кубики':section==='lorePages'?'Редактировать страницу':'Редактировать карточку'):(section==='dice'?'Показать кубик':section==='lorePages'?'Показать страницу':'Показать карточку');
  renderRecordList();
  $('#section-note').textContent=section==='selectionCards'?'Группы выбора, варианты вооружения и общие ограничения — в формате оригинальной карточки состава.':section==='equipment'?'Четыре карточки снаряжения. Оружие и правила редактируются внутри каждой карточки.':section==='firefightPloys'?'Четыре карточки Firefight Ploys.':section==='strategicPloys'?'Четыре карточки Strategic Ploys.':section==='teamCards'?'Любое число карточек правил фракции. Состав находится в отдельной вкладке.':'';
  if(section==='lorePages')$('#section-note').textContent='Лор, фотографии и референсы моделей с подписями оружия. Отдельные страницы A4 после карточек в PDF.';
  if(section==='tokenCards')$('#section-note').textContent='Карточки жетонов для PDF и TTS. Круги по умолчанию 20 мм; размеры сохраняются при печати PDF в масштабе 100%.';
+ if(section==='dice'){$('#section-note').textContent='Кубики с логотипом вашей команды: настройте оформление и количество для общего набора TTS.';$('#breadcrumb').textContent=data.team.name+' / КУБИКИ';}
  renderEditor();renderPreview();
 }
 function abilityLabel(ability){return KTText.plain(ability.body||'').trim().split(/\r?\n/)[0].slice(0,80)||'Новая способность'}
@@ -409,6 +411,7 @@ function renderEditor(options={}){
   for(const el of document.querySelectorAll('#editor details[data-nested-type]')){const set=saved[el.dataset.nestedType]??=new Set();if(el.open)set.add(el.dataset.nestedId)}
   nestedStates.set(editorCard,saved);
  }
+ if(section==='dice'){editorCard=null;$('#editor').innerHTML=logoEditor()+KTDiceEditor.form(data);return;}
  const c=current();let out='';
  if(referenceTarget?.page!==c)referenceTarget=null;
  if(c&&options.openNested){const saved=nestedStates.get(c)||{};saved[options.openNested.type]=new Set([options.openNested.id]);nestedStates.set(c,saved)}
@@ -478,6 +481,12 @@ function editFreeLore(){
  }});
 }
 function renderPreview(){
+ const dice=section==='dice';$('#preview-panel').classList.toggle('dice-preview-panel',dice);
+ if(dice){
+  $('.preview-toolbar .eyebrow').textContent='ПРЕДПРОСМОТР D6';$('#card-size').textContent=data.dice.sizeMm+' мм';
+  $('#preview-note').textContent=data.dice.enabled?data.dice.quantity+' кубиков будут добавлены в новый TTS-набор команды.':'Кубики пока не включены в TTS-набор. Включите их в настройках слева.';
+  void KTDiceEditor.preview(data,$('#preview'));return;
+ }
  const lore=section==='lorePages';
  $('.preview-toolbar .eyebrow').textContent=lore?'СТРАНИЦА В ПЕЧАТИ':'КАРТОЧКА В ПЕЧАТИ';
  $('.print-hint span').textContent=lore?'Отдельные страницы после карточек':'Четыре стороны на листе · метки реза';
@@ -604,7 +613,7 @@ document.addEventListener('click',async e=>{
  if(b.dataset.nav){section=b.dataset.nav;selected=0;side=0;render();return}
  if(b.dataset.record!==undefined){if(recordClickSuppressed){recordClickSuppressed=false;return}selected=Number(b.dataset.record);side=0;render();return}
  if(b.id==='prev-side'||b.id==='next-side'){side+=b.id==='next-side'?1:-1;renderPreview();return}
- if(b.id==='view-toggle'){previewOnly=!previewOnly;$('.workspace').classList.toggle('show-preview',previewOnly);b.textContent=previewOnly?(section==='lorePages'?'Редактировать страницу':'Редактировать карточку'):(section==='lorePages'?'Показать страницу':'Показать карточку');return}
+ if(b.id==='view-toggle'){previewOnly=!previewOnly;$('.workspace').classList.toggle('show-preview',previewOnly);b.textContent=previewOnly?(section==='dice'?'Настроить кубики':section==='lorePages'?'Редактировать страницу':'Редактировать карточку'):(section==='dice'?'Показать кубик':section==='lorePages'?'Показать страницу':'Показать карточку');return}
  if(b.dataset.freeTemplate){
   if(data.lorePages.length>=100){toast('В проекте может быть до 100 страниц.');return}
   data.lorePages.push(KTFreeLore.template(uid(),b.dataset.freeTemplate,uid));section='lorePages';selected=data.lorePages.length-1;side=0;persist();render();editFreeLore();return;
@@ -721,7 +730,7 @@ async function importTeamLogo(file){
   if(data!==project||logoJobs.get(project)!==token)return;
   project.team.logo=logo;persist();renderProjectTitle();renderPreview();toast('Логотип добавлен');
  }catch(error){toast('Не удалось загрузить логотип: '+error.message)}
- finally{if(logoJobs.get(project)===token){logoJobs.delete(project);if(data===project&&section==='lorePages')renderEditor()}}
+ finally{if(logoJobs.get(project)===token){logoJobs.delete(project);if(data===project&&['lorePages','dice'].includes(section))renderEditor()}}
 }
 const loreJobs=new WeakMap();
 async function importLoreImages(files,replaceId=null){
@@ -813,7 +822,7 @@ function exportROSZ(project=data){
 function openTTS(project=data){
  if(ttsBusy||window.KTTTSShare?.isBusy())return;
  try{
-  const snapshot=structuredClone(project),p=KTTTS.plan(snapshot,{});ttsSnapshot=snapshot;$('#tts-summary').textContent=p.team.name+' · '+p.cardCount+' карт · '+p.doubleSided+' двусторонних'+(p.incomplete?' · Есть незаполненные места':'');
+  const snapshot=structuredClone(project),p=KTTTS.plan(snapshot,{});ttsSnapshot=snapshot;$('#tts-summary').textContent=p.team.name+' · '+p.cardCount+' карт · '+p.doubleSided+' двусторонних'+(p.diceCount?' · '+p.diceCount+' кубиков':'')+(p.incomplete?' · Есть незаполненные места':'');
   $('#tts-sheets').innerHTML=p.sheets.map(s=>'<section class="tts-sheet"><p data-ui-skip><b>Face:</b> '+s.faceFile+'<br><b>Back:</b> '+s.backFile+'</p><p data-ui-skip><b>Width:</b> '+s.columns+' · <b>Height:</b> '+s.rows+' · <b>Number:</b> '+s.count+'</p></section>').join('');
   $('#tts-limit').hidden=p.sheets.length===1;
   $('#tts-status').textContent='';$('#tts-result').hidden=true;$('#tts-dialog').showModal();window.KTTTSShare?.open(snapshot);
@@ -856,7 +865,7 @@ async function init(){
   render();if(migrated){persist();toast('Проект обновлён. Ваши правки сохранены.')}
   window.ktStudio={getData:()=>structuredClone(data),toast,validateData:KTModel.validate,buildDefinition:()=>buildTeamPDF(data,assets),preparePDF,exportPDF,prepareTTS,openTTS,exportTTS,exportROSZ,importOperativeImage,importCardImage,importLoreImages,renderCard:(section,index)=>section==='lorePages'?KTLore.renderPage(data.lorePages[index],data,assets):KTCards.renderCard(data[section][index],data,assets,index)};
   await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,renameProject,recoverProject,localIds:()=>[...projectList.keys()],downloadJSON,toast});
-  if(['tokenCards','lorePages'].includes(requestedSection)&&section!==requestedSection){section=requestedSection;selected=side=0;render()}
+  if(['tokenCards','lorePages','dice'].includes(requestedSection)&&section!==requestedSection){section=requestedSection;selected=side=0;render()}
   $('#new-project').disabled=false;
  }catch(e){$('#editor').textContent='Не удалось открыть проект: '+e.message}
 }

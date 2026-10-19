@@ -2,6 +2,13 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const notificationsApi = require("../../src/api/notifications");
+const { listActive } = require("../../src/notifications/tournament-source");
+const { rememberItems } = require("../../src/db/repositories/notifications");
+async function deliveredClient(options = {}) {
+  const client = fakeClient(options);
+  await rememberItems(client, 1, await listActive(client, 1), options.lastSeenAt || null);
+  return client;
+}
 
 function fakeClient(options = {}) {
   const now = new Date("2026-09-04T12:00:00.000Z");
@@ -99,7 +106,7 @@ function fakeClient(options = {}) {
 }
 
 test("notification inbox maps every supported source and deep link", async () => {
-  const inbox = await notificationsApi.list({ client: fakeClient(), user: { id: 1 } });
+  const inbox = await notificationsApi.list({ client: await deliveredClient(), user: { id: 1 } });
 
   assert.equal(inbox.generatedAt, "2026-09-04T12:00:00.000Z");
   assert.equal(inbox.unreadCount, 5);
@@ -116,7 +123,7 @@ test("notification inbox maps every supported source and deep link", async () =>
 
 test("read notifications stay active but are no longer counted as new", async () => {
   const inbox = await notificationsApi.list({
-    client: fakeClient({ lastSeenAt: "2026-09-04T11:30:00.000Z" }),
+    client: await deliveredClient({ lastSeenAt: "2026-09-04T11:30:00.000Z" }),
     user: { id: 1 }
   });
 

@@ -72,22 +72,22 @@ async function profile({ client, user, params }) {
   // Mirror that here instead of letting NaN reach the parameterized query.
   const targetId = requirePositiveIntId(params.id, 404, "Route not found");
   const target = await requireUser(client, targetId);
-  const isSelf = target.id === user.id;
+  const isSelf = target.id === user?.id;
 
   const completedGames = await attachTournamentGameDetails(
     client,
     await gamesRepo.listCompletedForUser(client, target.id)
   );
-  const activeGame = isSelf ? null : await gamesRepo.findActiveBetween(client, user.id, target.id);
-  const pendingChallenge = isSelf
+  const activeGame = !user || isSelf ? null : await gamesRepo.findActiveBetween(client, user.id, target.id);
+  const pendingChallenge = !user || isSelf
     ? null
     : await challengesRepo.findPendingBetween(client, user.id, target.id);
-  const adminPendingGames = user.isAdmin
+  const adminPendingGames = user?.isAdmin
     ? await attachTournamentGameDetails(client, await gamesRepo.listPendingForUser(client, target.id))
     : [];
   const playerTeams = await playerTeamsRepo.listForUser(client, target.id);
 
-  const peopleIds = new Set([target.id, user.id]);
+  const peopleIds = new Set([target.id, ...(user ? [user.id] : [])]);
   for (const game of [...completedGames, ...adminPendingGames]) {
     for (const id of game.playerIds) peopleIds.add(id);
   }
@@ -126,6 +126,7 @@ async function challengeProgress({ client, user, query }) {
   // a valid-but-unknown id gets) -- reproduce that instead of letting NaN
   // reach the parameterized query.
   const raw = query.get("userId");
+  if (!raw && !user) throw new HttpError(400, "Choose a player");
   const requestedId = raw ? requirePositiveIntId(raw, 404, "User not found") : user.id;
   const target = await requireUser(client, requestedId);
   const completedGames = await gamesRepo.listCompletedForUser(client, target.id);

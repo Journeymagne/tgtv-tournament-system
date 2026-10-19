@@ -2,6 +2,7 @@
 'use strict';
 const clone=x=>JSON.parse(JSON.stringify(x));
 const Tokens=root.KTTokens||(typeof require!=='undefined'?require('./tokens.js'):null);
+const Dice=root.KTDice||(typeof require!=='undefined'?require('../dice/renderer.js'):null);
 const collections=['selectionCards','teamCards','strategicPloys','firefightPloys','equipment','operatives'];
 const fixed=['strategicPloys','firefightPloys','equipment'];
 const archetypeOptions=['SEEK & DESTROY','SECURITY','RECON','INFILTRATION'];
@@ -77,7 +78,7 @@ function syncTeamKeywords(data){
 function newProject(id,name='Новая команда'){
  const slots=kind=>Array.from({length:4},(_,i)=>blank(kind+'-'+(i+1),kind));
  return {schemaVersion:5,team:{id,name,subtitle:'',version:'1.0',logo:'',profileSystem:'APL / MOVE / SAVE / WOUNDS'},
-  selectionCards:[{...newSelection(''),size:1,selectionGroups:[]}],teamCards:[],operatives:[],tokenCards:[],lorePages:[],weaponProfiles:[],
+  selectionCards:[{...newSelection(''),size:1,selectionGroups:[]}],teamCards:[],operatives:[],tokenCards:[],lorePages:[],weaponProfiles:[],dice:Dice.projectDefaults(),
   strategicPloys:slots('strategic'),firefightPloys:slots('firefight'),equipment:slots('equipment'),
   ployNote:'',equipmentIntro:'',layout:{accent:'#ed4b22',includeCover:false,includeAssembly:false},sourceArchive:{},notes:[]};
 }
@@ -110,6 +111,7 @@ function selectionGroups(d){
  d.tokenCards??=[];
  d.lorePages??=[];
  d.weaponProfiles??=[];
+ d.dice??=Dice.projectDefaults();
  // Older recruitment cards remain editable without a separate card type.
  for(const card of d.teamCards)if(card.kind==='recruitment')card.kind='faction';
  for(const c of d.selectionCards){
@@ -152,6 +154,7 @@ function validate(d){
  const tokenIds=new Set();for(const card of d.tokenCards){Tokens.validateCard(card);if(tokenIds.has(card.id))throw Error('Повторяется карточка жетонов');tokenIds.add(card.id)}
  if(d.team.logo!==undefined&&d.team.logo!==''&&!isLogo(d.team.logo))throw Error('Некорректный логотип команды');
  if(d.weaponProfiles!==undefined)validateWeaponProfiles(d.weaponProfiles);
+ if(d.dice!==undefined)Dice.validate(d.dice);
  for(const pool of ['weapons','abilities','actions'])if(pool in d)throw Error('Оружие, способности и действия должны находиться внутри карточек');
  if(d.lorePages!==undefined){
   if(!Array.isArray(d.lorePages)||d.lorePages.length>100)throw Error('Слишком много страниц картинок и лора');

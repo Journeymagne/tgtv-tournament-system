@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { Pool } = require("pg");
+const { SCHEMAS, SEARCH_PATH } = require("../../src/db/schemas");
 const { TEST_DATABASE_URL } = require("../helpers/db");
 const { migrate, MIGRATIONS } = require("../../src/db/migrate");
 const catalog = require("../../src/db/seeds/legacy-achievements.json");
@@ -8,9 +9,9 @@ const catalog = require("../../src/db/seeds/legacy-achievements.json");
 test("upgrade from 2.3.2 imports the achievement catalog without demo data or awards", async () => {
   const target = new URL(TEST_DATABASE_URL);
   assert.ok(["localhost", "127.0.0.1"].includes(target.hostname) && /test/.test(target.pathname));
-  const pool = new Pool({ connectionString: TEST_DATABASE_URL });
+  const pool = new Pool(require("../helpers/schema").poolOptions);
   try {
-    await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
+    await require("../helpers/schema").resetSchemas(pool);
     const client = await pool.connect();
     try {
       await client.query("BEGIN");

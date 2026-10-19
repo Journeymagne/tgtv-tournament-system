@@ -17,7 +17,7 @@ let pool, client, admin, otherAdmin;
 const PNG = `data:image/png;base64,${pngImage(300, 200).toString("base64")}`;
 const tableSetup = [{ killzone: "Volkus", deployment: 1, imageData: PNG }, { killzone: "Gallowdark", deployment: 2 }, { killzone: "Octarius", deployment: 3 }];
 const context = (cup, body = {}, user = admin) => ({ client, user, params: { id: cup.id }, body });
-test.before(async () => { pool = new Pool({ connectionString: TEST_DATABASE_URL }); await migrate(pool); });
+test.before(async () => { pool = new Pool(require("../helpers/schema").poolOptions); await migrate(pool); });
 test.after(async () => { await pool.end(); });
 test.beforeEach(async () => {
   client = await pool.connect();

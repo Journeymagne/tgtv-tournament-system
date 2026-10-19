@@ -8,12 +8,13 @@ async function ownerId(client) {
 
 async function hydrate(client, user) {
   if (!user) return null;
+  const tournamentAccess = ['monolith','tournaments'].includes(process.env.SERVICE_NAME || 'monolith');
   const { rows: [row] } = await client.query(`SELECT u.is_admin, u.can_create_tournaments, u.is_faq_moderator,
     u.suspended_until, u.suspension_reason,
     EXISTS (SELECT 1 FROM platform_ownership p WHERE p.owner_user_id=u.id) AS is_super_admin,
-    ARRAY(SELECT id FROM tournaments WHERE owner_user_id=u.id
+    ${tournamentAccess ? `ARRAY(SELECT id FROM tournaments WHERE owner_user_id=u.id
       UNION SELECT tournament_id FROM tournament_judges WHERE user_id=u.id AND revoked_at IS NULL
-      AND (expires_at IS NULL OR expires_at > NOW())) AS managed_tournament_ids
+      AND (expires_at IS NULL OR expires_at > NOW()))` : 'ARRAY[]::integer[]'} AS managed_tournament_ids
     FROM users u WHERE u.id=$1`, [user.id]);
   if (!row) return null;
   const result = { ...user, isSuperAdmin: row.is_super_admin,

@@ -1,5 +1,17 @@
 # Linux release deployment
 
+## Upgrading to 1.4.0
+
+Release 1.4.0 includes migrations 057–060; 056 is intentionally reserved.
+Migration 058 moves existing tables out of public. Before a production switch,
+verify a PostgreSQL backup and stop every old writer. The normal deployment
+starts the compatible monolith and runs these migrations. Older code cannot
+be restarted against the moved schema; automatic rollback remains disabled
+when migration code changes. See [service separation](service-separation.md)
+for the optional seven-process deployment and role provisioning.
+
+## Deployment wrapper
+
 Run the existing entry point on the Linux host as the same user that owns the
 app's PM2 process. It requires Node.js 22+, npm, Git, tar, flock and PM2. The
 external environment file must exist before starting. No new application

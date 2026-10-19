@@ -65,11 +65,14 @@ body[data-companion-section="faq"] .companion-utility .companion-theme-button[ar
 .question-edit-form,.question-item .reply-form { display:grid; gap:8px; margin-top:12px; }
 .question-edit-form label,.question-item .reply-form label { font-size:11px; color:var(--muted); }
 .question-edit-form textarea,.question-item .reply-form textarea { font-size:13px; }
-.comment-form-actions,.question-delete-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.comment-form-actions,.question-delete-actions,.entry-delete-actions { display:flex; flex-wrap:wrap; gap:8px; }
 .comment-form-actions button { font-size:11px; padding:7px 12px; }
-#question-delete-dialog .dialog-header { padding:0 0 16px; }
-#question-delete-dialog .dialog-header h2 { font-size:20px; }
-.question-delete-actions { justify-content:flex-end; margin-top:24px; }
+:is(#question-delete-dialog,#entry-delete-dialog) .dialog-header { padding:0 0 16px; }
+:is(#question-delete-dialog,#entry-delete-dialog) .dialog-header h2 { font-size:20px; }
+#entry-delete-dialog .dialog-header { margin:0; }
+#entry-delete-error:empty { display:none; }
+.question-delete-actions,.entry-delete-actions { justify-content:flex-end; margin-top:24px; }
+.entry-delete-question { border-left:2px solid var(--danger); padding:10px 14px; background:var(--panel-2); font-weight:650; overflow-wrap:anywhere; }
 @media(max-width:550px) { .question-item .comment-date { flex-basis:100%; margin-left:42px; } .question-reply { padding:10px; } }
 .info-section { scroll-margin-top:88px; }
 .info-section+ .info-section { margin-top:32px; padding-top:32px; border-top:1px solid var(--line); }

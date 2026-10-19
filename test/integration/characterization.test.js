@@ -102,7 +102,7 @@ test("вход по неверному паролю отдаёт 401", async () 
 
 test("защищённый маршрут без сессии отдаёт 401", async () => {
   const client = createClient(server.baseUrl);
-  const res = await client.get("/api/games");
+  const res = await client.get("/api/notifications");
   assert.equal(res.status, 401);
 });
 

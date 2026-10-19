@@ -19,8 +19,8 @@ let client;
 let root;
 
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
   await migrate(pool);
 });
 
@@ -1597,7 +1597,10 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
     const submitter = link.slot === 2 ? captainB : captainA;
     const confirmer = submitter.id === captainA.id ? captainB : captainA;
     assert.equal((await gamesApi.getOne({ client, user: submitter, params: gameParams })).game.resultPermissions.canSubmit, true);
-    await assert.rejects(() => gamesApi.getOne({ client, user: outsider, params: gameParams }), { status: 403 });
+    const publicGame = (await gamesApi.getOne({ client, user: outsider, params: gameParams })).game;
+    assert.equal(publicGame.resultPermissions.canSubmit, false);
+    assert.equal(publicGame.resultPermissions.canReview, false);
+    await assert.rejects(() => gamesApi.submitResult({ client, user: outsider, params: gameParams, body: { scores: scores(...link.game.playerIds) } }), { status: 403 });
     const submitted = await gamesApi.submitResult({ client, user: submitter, params: gameParams, body: { scores: scores(...link.game.playerIds) } });
     assert.equal(submitted.game.status, "pending_confirmation");
     const ownGame = link.game.playerIds.includes(submitter.id);

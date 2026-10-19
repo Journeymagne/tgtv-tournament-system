@@ -74,6 +74,14 @@ submissions. This role grants no tournament or global administrator access.
 Existing platform administrators can also moderate. The platform owner assigns
 or revokes the dedicated role in **Модерация → Роли**. Role changes are audited.
 
+Moderators can remove an entire FAQ card from its reading dialog or editor using
+**Удалить карточку**. A centred confirmation identifies the card before removal.
+The existing `archived` status hides it from the catalogue, search, bookmarks
+and counters; the content, discussion and a `deleted` history snapshot remain
+stored. The server checks the account, moderator role and current revision.
+Archived cards cannot be edited or receive new comments/corrections, and pending
+corrections cannot republish them. No schema migration is required.
+
 Players can edit and delete their own discussion comments. FAQ Moderators can
 delete any comment and edit or remove moderator replies; they cannot rewrite
 another player's text. Deleting a question hides its attached reply as well;

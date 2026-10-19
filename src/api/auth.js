@@ -56,6 +56,11 @@ async function startSession(client, userId) {
 
 async function buildUserSummary(client, user) {
   user = await access.hydrate(client, user);
+  if (process.env.SERVICE_NAME === 'accounts') {
+    const { passwordHash, ...identity } = user;
+    return { user: { ...identity, emailAccount: await mail.summary(client, user.id) },
+      hasAdmin: await users.hasAdmin(client), challenges: [], games: [], teamPairings: [] };
+  }
   // A route-scoped pg Client executes one query at a time. Keep these reads
   // sequential so a busy dashboard refresh never overlaps operations on it.
   const userChallenges = await challenges.listForUser(client, user.id);

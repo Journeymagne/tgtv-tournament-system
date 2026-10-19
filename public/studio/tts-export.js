@@ -48,14 +48,14 @@ function plan(input,assets={}){
    }
   }
  }
- if(!cards.length)throw Error('Добавьте хотя бы одну карточку');
+ if(!cards.length&&!root.KTTokens.playableTokens(data).length&&!data.dice?.enabled)throw Error('Добавьте карточки, жетоны или кубики');
  const hidden=backSVG(data,{label:'KILL TEAM'},false);
  for(let offset=0;offset<cards.length;offset+=MAX_CARDS){
   const batch=cards.slice(offset,offset+MAX_CARDS),number=sheets.length+1;
   const stem=cards.length>MAX_CARDS?'deck-'+number:'deck';
   sheets.push({...sheetGrid(batch.length),number,count:batch.length,cards:batch,faceFile:stem+'-faces.png',backFile:stem+'-backs.png',hidden});
  }
- return {team:data.team,slug:slug(data.team.name),cards,sheets,contentSides,cardCount:cards.length,doubleSided:cards.filter(c=>c.doubleSided).length,incomplete:Model.incomplete(data).length};
+ return {team:data.team,slug:slug(data.team.name),cards,sheets,contentSides,cardCount:cards.length,doubleSided:cards.filter(c=>c.doubleSided).length,incomplete:Model.incomplete(data).length,diceCount:data.dice?.enabled?data.dice.quantity:0};
 }
 function fontCSS(assets){
  const fonts=[['Roboto','Roboto-Regular.ttf','normal','normal'],['Roboto','Roboto-Medium.ttf','bold','normal'],['Roboto','Roboto-Italic.ttf','normal','italic'],['Roboto','Roboto-MediumItalic.ttf','bold','italic'],['Display','BebasNeue-Regular.ttf','normal','normal'],['Symbols','NotoSansSymbols2-Regular.ttf','normal','normal']];
@@ -97,13 +97,21 @@ async function browserExport(input,assets,options={}){
  const p=plan(input,assets),css=fontCSS(assets),ziplib=root.fflate;
  if(!ziplib)throw Error('Не загружен модуль архива');
  const files=await renderSheets(p,css,options.onProgress);
+ await addDice(Model.validate(Model.migrate(input)),files);
  const bytes=ziplib.zipSync(files,{level:0});return {blob:new Blob([bytes],{type:'application/zip'}),cardCount:p.cardCount,sheetCount:p.sheets.length,filename:p.slug+'-tts.zip'};
+}
+async function addDice(project,files){
+ if(!project.dice?.enabled)return [];
+ const settings=root.KTDice.validate(project.dice),logo=await root.KTDice.loadLogo(settings.logoFace?project.team.logo:'');
+ const canvas=root.KTDice.atlas(settings,logo),blob=await new Promise((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(Error('Не удалось сохранить кубики')),'image/png'));
+ files['team-dice.png']=new Uint8Array(await blob.arrayBuffer());canvas.width=canvas.height=1;
+ return [{name:settings.name.trim(),quantity:settings.quantity,sizeMm:settings.sizeMm,image:'team-dice.png'}];
 }
 async function browserPack(input,assets,options={}){
  const p=plan(input,assets),css=fontCSS(assets),data=Model.validate(Model.migrate(input)),Tokens=root.KTTokens;
  const tokens=Tokens.playableTokens(data);
  if(p.cardCount>690||tokens.length>300)throw Error('В наборе TTS может быть до 690 карт и до 300 жетонов.');
- const total=p.sheets.length*2+tokens.length;
+ const total=p.sheets.length*2+tokens.length+(data.dice?.enabled?1:0);
  const files=await renderSheets(p,css,done=>options.onProgress?.(done,total));
  for(const [index,token] of tokens.entries()){
   const canvas=await raster(token.svg,512,512,css,true);
@@ -111,6 +119,7 @@ async function browserPack(input,assets,options={}){
   token.image='token-'+(index+1)+'.png';files[token.image]=new Uint8Array(await blob.arrayBuffer());
   canvas.width=canvas.height=1;options.onProgress?.(p.sheets.length*2+index+1,total);
  }
+ const dice=await addDice(data,files);if(dice.length)options.onProgress?.(total,total);
  const bytes=Object.values(files).reduce((sum,file)=>sum+file.length,0);
  if(bytes>64*1024*1024)throw Error('Набор TTS больше 64 МБ. Уменьшите изображения.');
  const encoded=[];
@@ -121,7 +130,7 @@ async function browserPack(input,assets,options={}){
  return {version:1,team:{id:p.team.id,name:p.team.name,version:p.team.version||''},
   sheets:p.sheets.map(s=>({columns:s.columns,rows:s.rows,face:s.faceFile,back:s.backFile})),
   cards:p.sheets.flatMap((s,sheet)=>s.cards.map((c,slot)=>({name:c.name,sheet,slot,landscape:c.landscape}))),
-  tokens:tokens.map(({svg,...token})=>token),assets:encoded};
+  tokens:tokens.map(({svg,...token})=>token),...(dice.length?{dice}:{}),assets:encoded};
 }
 root.KTTTS={GROUPS,MAX_CARDS,slug,plan,browserExport,browserPack,fontCSS};
 if(typeof module!=='undefined')module.exports=root.KTTTS;

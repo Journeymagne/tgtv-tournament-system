@@ -99,7 +99,7 @@ async function rate(client, actor, reporting = false) {
   }
 }
 async function retractNotification(client, reviewId) {
-  await client.query("DELETE FROM notification_inbox_items WHERE notification_id=$1",["studio_review:"+reviewId]);
+  await client.query("DELETE FROM studio.notification_messages WHERE notification_id=$1",["studio_review:"+reviewId]);
 }
 async function saveRating(client,row){
   await client.query(`INSERT INTO studio_review_ratings(review_id,version_label,publication_revision,theme_score,balance_score,lore_score,updated_at)
@@ -133,7 +133,7 @@ async function create(client, id, user, input) {
   await saveRating(client,row);
   const payload = { id: "studio_review:"+row.id, type:"studio_review", createdAt:row.created_at,
     authorName:user.name, teamName:team.name, href:"/studio#/library/"+id+"/reviews?review="+row.id };
-  await client.query(`INSERT INTO notification_inbox_items(user_id,notification_id,payload,created_at)
+  await client.query(`INSERT INTO studio.notification_messages(user_id,notification_id,payload,created_at)
     SELECT $1,$2,$3,NOW() WHERE COALESCE((SELECT notifications FROM studio_review_preferences WHERE user_id=$1),TRUE)
     ON CONFLICT DO NOTHING`,[team.owner_id,payload.id,payload]);
   return { id:row.id, ratingSummary:(await summaries(client,[id]))[id] };

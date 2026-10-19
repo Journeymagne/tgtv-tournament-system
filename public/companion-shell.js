@@ -39,7 +39,7 @@
     home.append(logo);
     const title = document.createElement("a");
     title.className = "companion-service-link";
-    title.href = active === "account" ? "/account-email.html" : serviceUrl(active) + (active === "studio" ? "#/library" : active === "tournament" ? "#/mygames" : "");
+    title.href = active === "account" ? "/account" : serviceUrl(active) + (active === "studio" ? "#/library" : active === "tournament" ? "#/leaderboard" : "");
     const name = document.createElement("span"); name.className = "companion-service-name";
     name.textContent = "KT COMPANION";
     title.append(name);
@@ -104,7 +104,7 @@
     new ResizeObserver(updateHeight).observe(mounts[0]);
   }
   function loginUrl(next = location.href) {
-    const destination = new URL(serviceUrl("tournament"));
+    const destination = new URL('/account', location.origin);
     destination.searchParams.set("next", new URL(next, location.origin).href);
     return destination.href;
   }
@@ -119,11 +119,14 @@
   }
   function setUser(value) {
     user = value;
+    if (active === "tournament") {
+      for (const link of document.querySelectorAll('.companion-service-link')) link.href = serviceUrl('tournament') + (user ? '#/mygames' : '#/leaderboard');
+    }
     if (!user) setTournamentHeader();
     for (const account of accounts) {
       account.replaceChildren();
       const link = document.createElement("a");
-      link.href = user ? serviceUrl("tournament") + "#/profile" : loginUrl();
+      link.href = user ? '/account' : loginUrl();
       link.textContent = user ? user.name : "Войти";
       if (user) link.dataset.uiSkip = "";
       account.append(link);
@@ -181,6 +184,9 @@
     for (const account of accounts) account.querySelector("a").textContent = "Войти / проверить вход";
   });
   window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader, brandLogoUrl };
+  if (active !== 'tournament' && mounts[0]) {
+    const script = document.createElement('script'); script.src='/companion-notifications.js?v=1.4.0'; document.head.append(script);
+  }
   const exports = document.querySelector(".studio-export-menu");
   if (exports) {
     document.addEventListener("click", event => {

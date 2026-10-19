@@ -19,7 +19,7 @@ test.before(async () => {
   pool = getPool();
   assert.equal(new URL(TEST_DATABASE_URL).hostname, "127.0.0.1");
   assert.match(new URL(TEST_DATABASE_URL).pathname, /test/);
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
+  await require("../helpers/schema").resetSchemas(pool);
   await migrate(pool);
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   origin = "http://127.0.0.1:" + server.address().port;

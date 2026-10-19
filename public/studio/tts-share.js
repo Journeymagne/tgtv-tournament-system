@@ -27,7 +27,7 @@ async function list(version=generation){
  if(!root.KTAccount.id){$('#tts-share-list').textContent='Войдите в аккаунт, чтобы создавать ссылки.';return}
  const result=await api('exports?project='+encodeURIComponent(snapshot.team.id));
  if(version!==generation)return;
- $('#tts-share-list').innerHTML=result.exports.length?result.exports.map(item=>'<div class="tts-shared-item"><div><b data-ui-skip>'+esc(item.name)+'</b><p data-ui-skip>'+esc(new Date(item.createdAt).toLocaleString())+' · '+item.cards+' cards · '+item.tokens+' tokens · '+(item.byteSize/1048576).toFixed(1)+' MB</p></div><div class="row-actions"><button data-tts-copy="'+esc(item.url)+'">Копировать ссылку</button><button data-tts-remove="'+esc(item.id)+'" class="danger">Удалить ссылку</button></div></div>').join(''):'<p class="hint">Для этой команды пока нет ссылок.</p>';
+ $('#tts-share-list').innerHTML=result.exports.length?result.exports.map(item=>'<div class="tts-shared-item"><div><b data-ui-skip>'+esc(item.name)+'</b><p data-ui-skip>'+esc(new Date(item.createdAt).toLocaleString())+' · '+item.cards+' cards · '+item.tokens+' tokens · '+(item.dice||0)+' dice · '+(item.byteSize/1048576).toFixed(1)+' MB</p></div><div class="row-actions"><button data-tts-copy="'+esc(item.url)+'">Копировать ссылку</button><button data-tts-remove="'+esc(item.id)+'" class="danger">Удалить ссылку</button></div></div>').join(''):'<p class="hint">Для этой команды пока нет ссылок.</p>';
 }
 function open(project){
  snapshot=structuredClone(project);const version=++generation;
@@ -43,7 +43,7 @@ async function create(){
  try{
   await session();$('#tts-share-status').textContent='Подготавливаю изображения и шрифты…';
   const assets=await root.ktStudio.prepareTTS(project);
-  const payload=await root.KTTTS.browserPack(project,assets,{onProgress:(done,total)=>$('#tts-share-status').textContent='Собираю карты и жетоны: '+done+' / '+total});
+  const payload=await root.KTTTS.browserPack(project,assets,{onProgress:(done,total)=>$('#tts-share-status').textContent='Собираю карты, жетоны и кубики: '+done+' / '+total});
   $('#tts-share-status').textContent='Загружаю набор на сервер…';
   const result=await api('exports',{method:'POST',body:JSON.stringify(payload)});
   $('#tts-share-url').value=result.url;$('#tts-share-result').hidden=false;

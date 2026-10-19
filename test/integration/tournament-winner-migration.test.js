@@ -9,8 +9,8 @@ const tournamentsApi = require("../../src/api/tournaments");
 let pool;
 let client;
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
   await migrate(pool);
 });
 test.after(async () => { await pool.end(); });
