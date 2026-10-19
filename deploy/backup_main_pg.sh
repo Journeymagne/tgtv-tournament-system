@@ -1,10 +1,10 @@
-!/usr/bin/env bash
+#!/usr/bin/env bash
 # Daily Postgres backup: custom dump locally, AES-encrypted archive to FTP.
 # Retention: daily / weekly (Sunday) / monthly (1st). Secrets via env only.
 #
 # Install on the server, e.g.:
 #   install -m 700 deploy/backup_main_pg.sh /app/scripts/backup_main_pg.sh
-# Env file (chmod 600), sourced by cron вЂ” never commit:
+# Env file (chmod 600), sourced by cron - never commit:
 #   /app/backup-ftp.env
 #
 # Required for FTP upload:
@@ -18,6 +18,7 @@
 #   CONTAINER_NAME DB_USER DB_NAME BACKUP_ROOT DAILY_KEEP WEEKLY_KEEP MONTHLY_KEEP
 #
 # Needs: docker, curl, 7z (p7zip-full). Plain FTP is supported; encrypt before upload.
+# Note: use plain "docker exec" (no -t/-T). -T is only for "docker compose exec".
 set -Eeuo pipefail
 umask 077
 
@@ -42,7 +43,7 @@ FTP_DIR="${FTP_DIR:-/backups/tgtv-pg}"
 BACKUP_ENCRYPT_PASS="${BACKUP_ENCRYPT_PASS:-}"
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-DOW="$(date +%u)"   # 1=Mon вЂ¦ 7=Sun
+DOW="$(date +%u)"   # 1=Mon ... 7=Sun
 DOM="$(date +%d)"
 BASE="backup_${STAMP}"
 DUMP_NAME="${BASE}.dump"
@@ -53,7 +54,7 @@ REMOTE_TMP=""
 
 cleanup() {
   local code=$?
-  [[ -n "$REMOTE_TMP" ]] && docker exec -T "$CONTAINER_NAME" rm -f "$REMOTE_TMP" 2>/dev/null || true
+  [[ -n "$REMOTE_TMP" ]] && docker exec "$CONTAINER_NAME" rm -f "$REMOTE_TMP" 2>/dev/null || true
   [[ -n "$LOCAL_ARCHIVE" && -f "$LOCAL_ARCHIVE" ]] && rm -f "$LOCAL_ARCHIVE" || true
   exit "$code"
 }
@@ -66,12 +67,12 @@ command -v 7z >/dev/null
 mkdir -p "$DAILY_DIR" "$WEEKLY_DIR" "$MONTHLY_DIR"
 chmod 700 "$BACKUP_ROOT"
 
-echo "[backup] dumping ${DB_NAME} в†’ ${LOCAL_DUMP}"
+echo "[backup] dumping ${DB_NAME} -> ${LOCAL_DUMP}"
 REMOTE_TMP="/tmp/${DUMP_NAME}"
-docker exec -T "$CONTAINER_NAME" \
+docker exec "$CONTAINER_NAME" \
   pg_dump -U "$DB_USER" -d "$DB_NAME" -Fc -f "$REMOTE_TMP"
 docker cp "${CONTAINER_NAME}:${REMOTE_TMP}" "$LOCAL_DUMP"
-docker exec -T "$CONTAINER_NAME" rm -f "$REMOTE_TMP"
+docker exec "$CONTAINER_NAME" rm -f "$REMOTE_TMP"
 REMOTE_TMP=""
 
 test -s "$LOCAL_DUMP"
@@ -81,11 +82,11 @@ echo "[backup] local ok $(du -h "$LOCAL_DUMP" | awk '{print $1}')"
 
 if [[ "$DOW" == "7" ]]; then
   cp -p "$LOCAL_DUMP" "$WEEKLY_DIR/$DUMP_NAME"
-  echo "[backup] weekly в†’ $WEEKLY_DIR/$DUMP_NAME"
+  echo "[backup] weekly -> $WEEKLY_DIR/$DUMP_NAME"
 fi
 if [[ "$DOM" == "01" ]]; then
   cp -p "$LOCAL_DUMP" "$MONTHLY_DIR/$DUMP_NAME"
-  echo "[backup] monthly в†’ $MONTHLY_DIR/$DUMP_NAME"
+  echo "[backup] monthly -> $MONTHLY_DIR/$DUMP_NAME"
 fi
 
 encrypt_archive() {
@@ -112,7 +113,7 @@ upload_ftp() {
 
   local dest_dir="${FTP_DIR%/}/${remote_subdir}"
   local url="ftp://${FTP_HOST}:${FTP_PORT}${dest_dir}/${remote_name}"
-  echo "[backup] FTP в†’ ${FTP_HOST}${dest_dir}/${remote_name}"
+  echo "[backup] FTP -> ${FTP_HOST}${dest_dir}/${remote_name}"
   curl -sS --fail --ftp-create-dirs \
     --user "${FTP_USER}:${FTP_PASS}" \
     -T "$LOCAL_ARCHIVE" \
@@ -132,8 +133,8 @@ find "$MONTHLY_DIR" -name 'backup_*.dump' -mtime +"$((MONTHLY_KEEP * 30))" -dele
 echo "[backup] done"
 # Restore local:
 #   docker cp $LOCAL_DUMP tgtv-tournament-postgres:/tmp/restore.dump
-#   docker exec -T tgtv-tournament-postgres \
+#   docker exec tgtv-tournament-postgres \
 #     pg_restore -U tgtv -d tgtv_tournament --clean --if-exists --no-owner --role=tgtv \
 #     /tmp/restore.dump
 # Decrypt FTP archive:
-#   7z x backup_вЂ¦.dump.7z
+#   7z x backup_YYYYMMDD_HHMMSS.dump.7z
