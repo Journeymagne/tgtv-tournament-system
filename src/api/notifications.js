@@ -5,8 +5,6 @@ const { toIso } = require("../db/rows");
 async function list({ client, user }) {
   const { rows } = await client.query("SELECT NOW() AS generated_at");
   const lastSeenAt = await notificationsRepo.getLastSeenAt(client, user.id);
-  const active = await notificationsRepo.listActive(client, user.id);
-  await notificationsRepo.rememberItems(client, user.id, active, lastSeenAt);
   const items = await notificationsRepo.listRecent(client, user.id);
   const generatedAt = toIso(rows[0].generated_at);
   return {
@@ -20,7 +18,7 @@ async function list({ client, user }) {
 async function markRead({ client, user, body }) {
   if (Object.hasOwn(body, "id")) {
     if (typeof body.id !== "string" || body.id.length > 100 ||
-        !/^(?:(game_challenge|team_invitation|tournament_started|tournament_pairing|team_tournament_pairing):[1-9]\d*|studio_(?:review|comment):[0-9a-f-]{36})$/.test(body.id)) {
+        !/^[a-z][a-z0-9_]*:[a-zA-Z0-9-]{1,64}$/.test(body.id)) {
       throw new ValidationError("Choose a valid notification");
     }
     const item = await notificationsRepo.markItemRead(client, user.id, body.id);

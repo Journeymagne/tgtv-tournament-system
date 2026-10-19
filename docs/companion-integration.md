@@ -40,7 +40,7 @@ an alias for the tournament application.
 ## Running and deployment
 
 The existing `npm start` command, PostgreSQL connection, session store and user
-accounts serve all six sections. No second server, account database or frontend
+accounts serve all seven sections. No second server, account database or frontend
 build is needed. Migration `032_studio_projects` creates account-owned drafts and
 published snapshots in the existing database on startup. It does not alter
 tournament data or copy drafts from a standalone Studio installation.
@@ -83,6 +83,12 @@ account or FAQ access changes, including cross-tab login and logout. Its
 authenticated API calls carry `X-FAQ-Account` from `/api/session`; the server
 rejects a stale account id before reading private submissions or writing content.
 See [FAQ sources, permissions and moderation](community-faq.md).
+
+the common account header, theme tokens, controls and login return flow.
+Migration `056_training_progress` stores per-account sessions and cumulative
+statistics in PostgreSQL. Answers are checked on the server; revision checks
+and idempotent writes protect progress when multiple devices are open.
+See [training storage, routes and maintenance](know-thy-kill-team.md).
 
 Studio projects may include image albums, so `/api/studio/drafts/` accepts up to
 100 MiB of JSON. TTS snapshots at `POST /api/studio/tts/exports` accept up to

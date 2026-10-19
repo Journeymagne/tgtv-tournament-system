@@ -1,7 +1,26 @@
 # KT Companion / TGTV Ranking Tournament System
 
+Independent service processes are available with one PostgreSQL database and
+separate schemas. Gateway preserves the menu, shared login and existing URLs;
+notifications from tournaments, Studio, FAQ use a durable inbox.
+See [service separation, migration and deployment](docs/service-separation.md).
+The first schema migration requires a backup and a coordinated cutover; `npm start`
+remains the compatible single-process mode.
+
 Account email verification and password recovery are available behind EMAIL_PROVIDER.
 See [Email setup and local capture](docs/email-service.md) before enabling Resend.
+
+The Tournament System has an optional [Telegram bot](docs/telegram-bot.md):
+account linking, active games, tournament links and background notifications.
+It is disabled by default; migration **057_telegram_bot** stores links, events
+and delivery jobs. Run `npm run telegram:setup` after configuring a BotFather token.
+
+The [Telegram Mini App](docs/telegram-miniapp.md) at `/miniapp` provides four
+mobile screens: My Tournament, My Match, Standings and Profile. It reuses the
+website's scoring and permissions, supports Telegram account sign-in and the
+normal website session, and needs no additional migration or dependency.
+Set `TELEGRAM_MINI_APP_URL` only after publishing its HTTPS page, then run
+`npm run telegram:setup` to enable the bot's app menu and contextual buttons.
 
 Players can save an optional Best Coast Pairings email in their profile settings
 for future tournament transfers. It is independent of the account sign-in email,
@@ -13,7 +32,8 @@ calculator, activation tracker, tournament system, KT Studio, the D6 dice genera
 and [TTS Community FAQ](docs/community-faq.md). The calculators,
 Studio editor, published team library and dice editor are public. Saving or publishing a team
 requires the same account and session as the tournament system. Existing
-public tournament pages remain available. See [Companion integration](docs/companion-integration.md)
+public tournament pages, leaderboards, statistics, player profiles and match history
+are available without signing in. See [Companion integration](docs/companion-integration.md)
 for routes, imported sources, account-owned drafts and deployment settings.
 The home page is a service selector. Each service opens on its own page under
 the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio`, `/dice`, `/faq` and `/combat`,
@@ -59,6 +79,19 @@ New individual and team events default to the latest active
 [season](docs/tournament-seasons.md). A super administrator can change an event's
 season in its settings, including after completion. Existing results then count
 toward statistics for the selected season while scores and ratings are retained.
+
+## Release 1.4.0
+
+Telegram bot and Mini App, Studio D6 dice and TTS packs, FAQ card deletion,
+public guest browsing, shared account pages and a durable notification inbox
+are included. Seven optional service processes share one PostgreSQL database.
+Know Thy Kill Team is excluded from this release.
+
+Migrations 057–060 add Telegram storage, move tables into service schemas and
+add notification/session contracts. Version 056 remains reserved. Back up the
+database and stop the old application before applying 058; older application
+versions cannot use the migrated schema. See [service deployment](docs/service-separation.md)
+and [release validation](docs/release-1.4.0-validation.md).
 
 ## Release 1.3.0
 

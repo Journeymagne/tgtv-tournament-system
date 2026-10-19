@@ -173,10 +173,9 @@ function liveRefreshTarget() {
       ? match.phase === "in_progress" ? 10000 : 5000 : 0;
     return make("pairing", state.selectedTeamMatchId, interval, `/api/team-matches/${state.selectedTeamMatchId}`, data);
   }
-  if (!state.me) return null;
-  if (state.view === "play") {
+  if (state.view === "play" && state.me) {
     const project = (data) => ({ challenges: data.challenges || [], games: data.games || [], teamPairings: data.teamPairings || [] });
-    return make("play", state.me.id, 15000, "/api/me", project(state), project);
+    return make("play", state.me?.id, 15000, "/api/me", project(state), project);
   }
   if (state.view === "gameDetail") {
     const game = getKnownGame(state.selectedGameId);
@@ -186,7 +185,7 @@ function liveRefreshTarget() {
       (!game.tournament?.status || game.tournament.status === "in_progress") ? 10000 : 0;
     return make("game", state.selectedGameId, interval, `/api/games/${path}`, game, (data) => data.game);
   }
-  if (state.me.isAdmin && state.view === "games" && state.gamesTab === "sessions") {
+  if (state.me?.isAdmin && state.view === "games" && state.gamesTab === "sessions") {
     return make("sessions", "all", 15000, "/api/admin/games", state.adminGames, (data) => data.games || []);
   }
   if (canOpenAdministration() && state.view === "tournaments" && state.tournamentsTab === "admin" && state.adminTournamentMode === "detail") {
@@ -927,6 +926,7 @@ function notificationIcon(type) {
 }
 
 function notificationTitle(item) {
+  if (item.title) return item.title;
   if (item.type === "studio_comment") return (document.documentElement.lang === "en" ? (item.isReply ? "New reply: " : "New question: ") : (item.isReply ? "Новый ответ: " : "Новый вопрос: ")) + (item.teamName || "");
   if (item.type === "studio_review") return (document.documentElement.lang === "en" ? "New review: " : "Новый обзор: ") + (item.teamName || "");
   if (item.type === "tournament_started") return t("notifications.tournamentStarted.title", { tournament: item.tournament?.name || "" });
@@ -947,6 +947,7 @@ function notificationTitle(item) {
 }
 
 function notificationMetadata(item) {
+  if (['faq_submission','faq_reply'].includes(item.type)) return item.excerpt || '';
   if (item.type === "studio_comment") return [item.authorName,item.excerpt].filter(Boolean).join(" · ");
   if (item.type === "studio_review") return item.authorName || "";
   const parts = [];
@@ -1128,6 +1129,9 @@ async function openNotificationItem(item) {
   if (item.unread && !await markNotificationRead(item)) return;
   state.notificationsOpen = false;
   renderNotificationControl();
+  if (['faq_submission','faq_reply'].includes(item.type) && /^\/faq(?:[#?]|$)/.test(item.href || '')) {
+    location.assign(item.href); return;
+  }
   if (item.type === "studio_comment" && /^\/studio#\/library\/[0-9a-f-]{36}\/discussion\?comment=[0-9a-f-]{36}$/.test(item.href || "")) {
     location.href = item.href;
     return;
@@ -1273,6 +1277,18 @@ async function boot() {
   }
 }
 
+function publicAppRoute(route) {
+  if (!route || route.administrationContext) return false;
+  if (route.view === "gameDetail") return !route.gameDetailMode;
+  if (route.view === "challenge") return Number(route.selectedChallengeUserId) > 0;
+  return ["top", "player", "games", "tournaments", "teams", "statistics", "achievements", "documentation", "roster", "teamPairing"].includes(route.view);
+}
+
+function guestNeedsLogin(route = appRouteFromHash()) {
+  return !state.me && (Boolean(route && !publicAppRoute(route)) ||
+    ["login", "register"].includes(hashSegments()[0]) || Boolean(sharedChallengeTokenFromHash()));
+}
+
 function render() {
   renderNotificationControl();
   const tournamentSlug = tournamentSlugFromLocation();
@@ -1290,21 +1306,8 @@ function render() {
     openRosterProfile(appRouteFromHash().selectedRosterId, { navigate: false });
     return;
   }
-  if (!state.me) {
-    const route = appRouteFromHash();
-    if (route?.view === "documentation") {
-      state.view = "documentation";
-      state.documentationPage = route.documentationPage || "";
-      renderDocumentation();
-      return;
-    }
-    if (route?.view === "teamPairing" && route.selectedTeamMatchId) {
-      openTeamPairing(route.selectedTeamMatchId);
-      return;
-    }
-    renderAuth();
-    return;
-  }
+  if (guestNeedsLogin()) { renderAuth(); return; }
+  if (!state.me && !publicAppRoute({ view: state.view, selectedChallengeUserId: state.selectedChallengeUserId })) state.view = "top";
   renderShell();
   handleSharedChallengeHash();
 }
@@ -1328,7 +1331,10 @@ async function handleHashNavigation() {
   try {
     const route = appRouteFromHash();
     state.administrationContext = Boolean(route?.administrationContext);
-    if (state.administrationContext && !canOpenAdministration()) throw new Error(adminLabel("Нет доступа к администрированию", "Administration access required"));
+    if (state.administrationContext && !canOpenAdministration()) {
+      if (!state.me) { renderAuth(); return; }
+      throw new Error(adminLabel("Нет доступа к администрированию", "Administration access required"));
+    }
     const context = currentNavigationEntry()?.context;
     restoreNavigationContext(context);
     const tournamentSlug = tournamentSlugFromLocation();
@@ -1342,10 +1348,11 @@ async function handleHashNavigation() {
       await renderPlayerTeamRoute(teamSlug, { force: true });
     } else if (appRouteFromHash()?.view === "roster") {
       await openRosterProfile(appRouteFromHash().selectedRosterId, { navigate: false });
-    } else if (!state.me) {
-      render();
+    } else if (guestNeedsLogin(route)) {
+      renderAuth();
     } else {
       const routed = await applyAppRouteFromHash();
+      if (!routed && !state.me) state.view = "top";
       if (requestId !== navigationRequestId) return;
       restoreNavigationContext(context);
       if (routed) renderShell();
@@ -1508,8 +1515,8 @@ async function applyAppRoute(route) {
     const selectedChallengeUserId = Number(route.selectedChallengeUserId);
     state.selectedChallengeUserId = Number.isSafeInteger(selectedChallengeUserId) && selectedChallengeUserId > 0
       ? selectedChallengeUserId
-      : state.me.id;
-    state.challengeOpenedFromProfile = state.selectedChallengeUserId !== state.me.id;
+      : state.me?.id;
+    state.challengeOpenedFromProfile = state.selectedChallengeUserId !== state.me?.id;
   } else {
     state.selectedChallengeUserId = null;
     state.challengeOpenedFromProfile = false;
@@ -1569,18 +1576,18 @@ async function applyAppRoute(route) {
     state.statisticsVenue = route.statisticsVenue || "combined";
     await loadStatisticsGames();
   } else if (route.view === "profile") {
-    await loadChallengeProgress(state.me.id);
+    await loadChallengeProgress(state.me?.id);
   } else if (route.view === "player") {
-    const selectedPlayerId = Number.isInteger(route.selectedPlayerId) && route.selectedPlayerId > 0 ? route.selectedPlayerId : state.me.id;
-    if (selectedPlayerId === state.me.id) {
+    const selectedPlayerId = Number.isInteger(route.selectedPlayerId) && route.selectedPlayerId > 0 ? route.selectedPlayerId : state.me?.id;
+    if (selectedPlayerId === state.me?.id) {
       state.view = "profile";
       state.playerProfile = null;
-      await loadChallengeProgress(state.me.id);
+      await loadChallengeProgress(state.me?.id);
     } else {
       await loadPlayerProfile(selectedPlayerId);
     }
   } else if (route.view === "challenge") {
-    const userId = state.selectedChallengeUserId || state.me.id;
+    const userId = state.selectedChallengeUserId || state.me?.id;
     if (!getKnownChallengeProgress(userId)) await loadChallengeProgress(userId);
   }
 }
@@ -1632,7 +1639,7 @@ function appHashForState() {
     if (state.view === "profile") return "#/profile";
     if (state.view === "player" && state.playerProfile?.user?.id) return `#/players/${encodeURIComponent(state.playerProfile.user.id)}`;
     if (state.view === "challenge") {
-      return state.selectedChallengeUserId && state.selectedChallengeUserId !== state.me.id
+      return state.selectedChallengeUserId && state.selectedChallengeUserId !== state.me?.id
         ? `#/challenge/${encodeURIComponent(state.selectedChallengeUserId)}`
         : "#/challenge";
     }
@@ -1877,13 +1884,11 @@ async function openTeamPairing(matchId) {
   state.teamPairingDetail = null;
   state.focusChallengeId = null;
   syncAppHash();
-  if (state.me) renderShell();
-  else renderTeamPairing();
+  renderShell();
   try {
     await loadTeamPairing(id, { force: true });
     if (isCurrentTeamPairingRoute(id)) {
-      if (state.me) renderShell();
-      else renderTeamPairing();
+      renderShell();
     }
   } catch (err) {
     if (isCurrentTeamPairingRoute(id)) setMessage(err.message, true);
@@ -1979,7 +1984,6 @@ async function renderPublicTournamentRoute(slug, options = {}) {
 }
 
 function publicTournamentContainer() {
-  if (!state.me) return app;
   const shouldRenderShell = state.view !== "tournaments" || !document.querySelector("[data-content]");
   state.view = "tournaments";
   state.tournamentsTab = "public";
@@ -2045,7 +2049,7 @@ function publicTournamentViewerActions(data) {
   if (!state.me) return "";
   if (tournament.participantMode === "team") {
     const mine = (data.rosters || []).filter((item) =>
-      (item.members || []).some((member) => !member.endedAt && member.userId === state.me.id));
+      (item.members || []).some((member) => !member.endedAt && member.userId === state.me?.id));
     const roster = mine.find((item) => item.status !== "withdrawn");
     // A withdrawn roster still owns its players: the tournament allows a player
     // one active roster slot, so re-registering means deleting the old one first.
@@ -2053,8 +2057,8 @@ function publicTournamentViewerActions(data) {
     const preStart = ["draft", "registration_open", "registration_closed"].includes(tournament.status);
     const canManage = (item) => {
       const team = (data.viewerTeams || []).find((candidate) => candidate.id === item.teamId);
-      const membership = (team?.members || []).find((candidate) => candidate.userId === state.me.id && !candidate.endedAt);
-      return item.captainUserId === state.me.id || membership?.role === "leader";
+      const membership = (team?.members || []).find((candidate) => candidate.userId === state.me?.id && !candidate.endedAt);
+      return item.captainUserId === state.me?.id || membership?.role === "leader";
     };
     if (!roster) {
       const clear = withdrawn && preStart && canManage(withdrawn)
@@ -2869,6 +2873,7 @@ function publicMatchMarkup(match, tournament = {}) {
         </div>
       <div class="row-actions">
         <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
+        ${match.gameId && !match.isBye ? `<a class="small-button" data-app-link href="/tournament#/games/tournament-match/${match.id}">${t("play.action.details")}</a>` : ""}
         ${publicMatchActions(match, tournament)}
       </div>
     </div>
@@ -2884,7 +2889,7 @@ function publicMatchActions(match, tournament = {}) {
     return `<button class="small-button" data-public-tournament-result="${match.id}">${t("play.action.enterResult")}</button>`;
   }
   if (match.status === "pending_confirmation" && match.pendingResult?.result) {
-    if (match.pendingResult.submittedBy === state.me.id) {
+    if (match.pendingResult.submittedBy === state.me?.id) {
       return `<button class="small-button" data-public-tournament-result="${match.id}">${t("play.action.editResult")}</button>`;
     }
     return `<button class="primary-button" data-public-tournament-review="${match.id}">${t("tournaments.action.review")}</button>`;
@@ -3167,7 +3172,7 @@ async function handleSharedChallengeHash() {
     if (!challenge || challenge.status !== "pending") {
       throw new Error(t("play.share.alreadyHandled"));
     }
-    if (challenge.toUserId !== state.me.id) {
+    if (challenge.toUserId !== state.me?.id) {
       throw new Error(t("play.share.wrongRecipient"));
     }
     const opponentName = challenge.from?.name || t("games.review.opponentFallback");
@@ -3367,31 +3372,31 @@ function renderShell() {
           <span></span>
           <span></span>
         </button>
-        <a href="/tournament#/profile" data-app-link class="tournament-header-profile" data-header-profile aria-label="${t("nav.openProfile")}">
+        ${state.me ? `<a href="/tournament#/profile" data-app-link class="tournament-header-profile" data-header-profile aria-label="${t("nav.openProfile")}">
           <span class="mark avatar-button">${avatarMarkup(state.me)}</span>
           <span class="tournament-header-identity">
             <span class="tournament-header-name" data-ui-skip>${escapeHtml(state.me.name)}</span>
             <span class="rating-pill inline-rating">${t("profile.rating.mmr")} ${playerRating(state.me, "combined")}</span>
           </span>
-        </a>
+        </a>` : ""}
       </div>
     </header>
     <button class="sidebar-backdrop" data-sidebar-close aria-label="${t("nav.closeNavigation")}"></button>
     <main class="layout">
       <aside class="card sidebar">
         ${navButton("top", t("nav.leaderboard"))}
-        ${navButton("play", t("nav.myGames"))}
+        ${state.me ? navButton("play", t("nav.myGames")) : ""}
         ${navButton("games", t("nav.games"))}
         ${navButton("tournaments", t("nav.tournaments"))}
         ${navButton("teams", t("nav.playerTeams"))}
         ${navButton("statistics", t("nav.stats"))}
-        ${navButton("profile", t("nav.profile"))}
-        ${navButton("challenge", t("nav.challenge"))}
+        ${state.me ? navButton("profile", t("nav.profile")) : ""}
+        ${state.me ? navButton("challenge", t("nav.challenge")) : ""}
         ${navButton("achievements", t("achievements.title"))}
         ${navButton("documentation", t("nav.documentation"))}
-        ${navButton("feedback", t("nav.feedback"))}
+        ${state.me ? navButton("feedback", t("nav.feedback")) : ""}
         ${canOpenAdministration() ? navButton("administration", adminLabel("Администрирование", "Administration")) : ""}
-        <button class="nav-button sidebar-logout" data-logout>${t("nav.signOut")}</button>
+        ${state.me ? `<button class="nav-button sidebar-logout" data-logout>${t("nav.signOut")}</button>` : `<a class="nav-button" href="${escapeHtml(window.KTCompanion.loginUrl())}">${t("auth.tab.signIn")}</a>`}
       </aside>
       <div class="content">
         ${state.administrationContext && !["administration", "tournaments"].includes(state.view) ? `<nav class="administration-breadcrumb"><a href="/tournament#/administration/overview" data-app-link data-app-route class="text-link-button">← ${adminLabel("Администрирование", "Administration")}</a></nav>` : ""}
@@ -3406,17 +3411,17 @@ function renderShell() {
     setSidebarOpen(!document.body.classList.contains("sidebar-open"));
   });
   document.querySelector("[data-sidebar-close]").addEventListener("click", () => setSidebarOpen(false));
-  document.querySelector("[data-logout]").addEventListener("click", logout);
-  document.querySelector("[data-header-profile]").addEventListener("click", async () => {
+  document.querySelector("[data-logout]")?.addEventListener("click", logout);
+  document.querySelector("[data-header-profile]")?.addEventListener("click", async () => {
     setSidebarOpen(false);
     state.adminPasswordReset = null;
     state.administrationContext = false;
     state.view = "profile";
     state.playerProfile = null;
-    state.selectedChallengeUserId = state.me.id;
+    state.selectedChallengeUserId = state.me?.id;
     syncAppHash();
     renderShell();
-    await loadChallengeProgress(state.me.id);
+    await loadChallengeProgress(state.me?.id);
     if (state.view === "profile") renderShell();
   });
   document.querySelectorAll("[data-view]").forEach((button) => {
@@ -3435,7 +3440,7 @@ function renderShell() {
       state.focusInvitationId = null;
       if (targetView === "challenge") {
         state.challengeOpenedFromProfile = false;
-        state.selectedChallengeUserId = state.me.id;
+        state.selectedChallengeUserId = state.me?.id;
       } else {
         state.selectedChallengeUserId = null;
         state.challengeOpenedFromProfile = false;
@@ -3460,8 +3465,8 @@ function renderShell() {
         if (targetView === "tournaments") await loadTournaments();
         if (targetView === "teams") await loadTeamsDashboard();
         if (targetView === "statistics") await loadStatisticsGames();
-        if (targetView === "profile") await loadChallengeProgress(state.me.id);
-        if (targetView === "challenge") await loadChallengeProgress(state.selectedChallengeUserId || state.me.id);
+        if (targetView === "profile") await loadChallengeProgress(state.me?.id);
+        if (targetView === "challenge") await loadChallengeProgress(state.selectedChallengeUserId || state.me?.id);
         if (targetView === "top") await loadTop();
       } finally {
         if (state.view === targetView) renderShell();
@@ -3590,10 +3595,9 @@ async function renderDocumentation() {
   const requestId = ++documentationRequestId;
   const page = state.documentationPage || "";
   const locale = i18n.getLocale();
-  const container = state.me ? document.querySelector("[data-content]") : app;
+  const container = document.querySelector("[data-content]") || app;
   if (!container) return;
-  if (!state.me) container.innerHTML = '<main class="public-documentation" data-public-documentation></main>';
-  const target = state.me ? container : container.querySelector("[data-public-documentation]");
+  const target = container;
   target.innerHTML = `<section class="card panel" role="status">${t("common.loading")}</section>`;
   const current = () => requestId === documentationRequestId && target.isConnected &&
     state.view === "documentation" && (state.documentationPage || "") === page && i18n.getLocale() === locale &&
@@ -3605,7 +3609,7 @@ async function renderDocumentation() {
     if (!current()) return;
     target.innerHTML = documentation.render(locale, page, !state.me, data, Boolean(state.administrationContext && state.me?.isAdmin));
     if (state.administrationContext) target.querySelectorAll('a[href*="#/documentation"]').forEach(link => { link.href = link.href.replace("#/documentation", "#/administration/documentation"); });
-    documentation.mount(target, { api, locale, page: data.page, userId: state.administrationContext && state.me?.isAdmin ? state.me.id : null, rerender: renderDocumentation });
+    documentation.mount(target, { api, locale, page: data.page, userId: state.administrationContext && state.me?.isAdmin ? state.me?.id : null, rerender: renderDocumentation });
   } catch (err) {
     if (!current()) return;
     target.innerHTML = `<section class="card panel"><h2>${t("nav.documentation")}</h2><p role="alert">${escapeHtml(err.message)}</p><button class="small-button" data-documentation-retry>${t("documentation.retry")}</button></section>`;
@@ -3659,8 +3663,8 @@ async function logout() {
 function renderPlay(live = false) {
   const content = document.querySelector("[data-content]");
   const teamPairings = state.teamPairings || [];
-  const incoming = state.challenges.filter((item) => item.status === "pending" && item.toUserId === state.me.id);
-  const outgoing = state.challenges.filter((item) => item.status === "pending" && item.fromUserId === state.me.id);
+  const incoming = state.challenges.filter((item) => item.status === "pending" && item.toUserId === state.me?.id);
+  const outgoing = state.challenges.filter((item) => item.status === "pending" && item.fromUserId === state.me?.id);
   const openGames = state.games.filter((game) => ["open", "pending_confirmation"].includes(game.status));
   const completedGames = state.games.filter((game) => game.status === "completed").slice(0, 8);
 
@@ -3755,16 +3759,16 @@ function teamPairingCard(pairing) {
 }
 
 function challengeCard(challenge) {
-  const other = challenge.fromUserId === state.me.id ? challenge.to : challenge.from;
+  const other = challenge.fromUserId === state.me?.id ? challenge.to : challenge.from;
   const otherName = other?.name || t("feedback.inbox.deletedPlayer");
-  const direction = challenge.fromUserId === state.me.id
+  const direction = challenge.fromUserId === state.me?.id
     ? t("profile.matchmaking.youChallenged", { name: otherName })
     : t("profile.matchmaking.challengeFrom", { name: otherName });
   const shareUrl = challengeShareUrl(challenge);
   const shareAction = shareUrl
     ? `<button class="small-button" data-challenge-share="${escapeHtml(shareUrl)}">${t("admin.tournament.detail.copyLink")}</button>`
     : "";
-  const actions = challenge.toUserId === state.me.id
+  const actions = challenge.toUserId === state.me?.id
     ? `<button class="small-button" data-challenge-action="accept" data-id="${challenge.id}">${t("play.action.accept")}</button>
        <button class="small-button" data-challenge-action="decline" data-id="${challenge.id}">${t("play.action.decline")}</button>`
     : `${shareAction}<button class="small-button" data-challenge-action="cancel" data-id="${challenge.id}">${t("common.cancel")}</button>`;
@@ -3781,7 +3785,7 @@ function challengeCard(challenge) {
 }
 
 function challengeShareUrl(challenge) {
-  if (!challenge?.shareToken || challenge.fromUserId !== state.me.id || challenge.status !== "pending") return "";
+  if (!challenge?.shareToken || challenge.fromUserId !== state.me?.id || challenge.status !== "pending") return "";
   return `${window.location.origin}${window.location.pathname}#challenge/${encodeURIComponent(challenge.shareToken)}`;
 }
 
@@ -3865,9 +3869,9 @@ function gameCard(game) {
   const playerUserId = (player) => Number(player.userId || (player.hasProfile === false ? 0 : player.id));
   const title = players.map((player) => playerProfileLink({
     ...player,
-    name: playerUserId(player) === state.me.id ? t("play.game.you") : player.name
+    name: playerUserId(player) === state.me?.id ? t("play.game.you") : player.name
   })).join(" vs ");
-  const isParticipant = players.some((player) => playerUserId(player) === state.me.id);
+  const isParticipant = players.some((player) => playerUserId(player) === state.me?.id);
   const isPending = game.status === "pending_confirmation";
   const status = game.status === "completed" ? "completed" : isPending ? "pending" : "open";
   const result = game.status === "completed"
@@ -3879,7 +3883,7 @@ function gameCard(game) {
     ? `<button class="primary-button" data-game-result="${game.id}">${t("play.action.enterResult")}</button>`
     : isTournamentGame && isParticipant && isPending
       ? `<button class="primary-button" data-game-result="${game.id}">${t("play.action.enterResult")}</button>`
-    : isParticipant && isPending && game.pendingResult?.submittedBy === state.me.id
+    : isParticipant && isPending && game.pendingResult?.submittedBy === state.me?.id
       ? `<button class="small-button" data-game-result="${game.id}">${t("play.action.editResult")}</button>`
       : isParticipant && isPending
         ? `<button class="primary-button" data-game-review="${game.id}">${t("play.action.reviewResult")}</button>`
@@ -3887,7 +3891,7 @@ function gameCard(game) {
   const adminResultAction = state.administrationContext && canManageGameUi(game) && !isParticipant && game.status !== "completed"
     ? `<button class="primary-button" data-game-admin-result="${game.id}">${t("play.action.enterResult")}</button>`
     : "";
-  const canExit = !["tournament_match", "team_match_game"].includes(game.sourceType) && isParticipant && (game.status === "open" || (isPending && game.pendingResult?.submittedBy === state.me.id));
+  const canExit = !["tournament_match", "team_match_game"].includes(game.sourceType) && isParticipant && (game.status === "open" || (isPending && game.pendingResult?.submittedBy === state.me?.id));
   const exitAction = canExit
     ? `<button class="danger-button" data-game-exit="${game.id}">${isPending ? t("play.action.deletePending") : t("play.action.exitGame")}</button>`
     : "";
@@ -3953,7 +3957,7 @@ function pendingResultSummary(game) {
   const submitter = players.find((player) => player.id === pending?.submittedBy);
   if (!result) return t("games.pendingResult.awaitingConfirmation");
   const score = resultHeadline(game, result);
-  const submitterName = pending?.submittedBy === state.me.id
+  const submitterName = pending?.submittedBy === state.me?.id
     ? t("play.game.you")
     : submitter?.name || pending?.submittedByName || t("games.pendingResult.opponentFallback");
   const waiting = game.sourceType === "team_match_game" ? teamGamePendingMessage(game) : players.some((player) => player.hasProfile === false || Number(player.id) < 0)
@@ -3985,7 +3989,7 @@ async function loadFeedback() {
 
 function renderFeedback() {
   const content = document.querySelector("[data-content]");
-  const adminInbox = state.administrationContext && state.me.isAdmin && state.feedbackMode === "inbox";
+  const adminInbox = state.administrationContext && state.me?.isAdmin && state.feedbackMode === "inbox";
   content.innerHTML = `
     <section class="card panel">
       <div class="panel-header">
@@ -4097,13 +4101,13 @@ function tieBreakerLabel(value) {
 function getProfileStats() {
   const completedGames = state.games.filter((game) => game.status === "completed");
   const openGames = state.games.filter((game) => ["open", "pending_confirmation"].includes(game.status));
-  const pendingIncoming = state.challenges.filter((item) => item.status === "pending" && item.toUserId === state.me.id);
-  const pendingOutgoing = state.challenges.filter((item) => item.status === "pending" && item.fromUserId === state.me.id);
-  const wins = completedGames.filter((game) => game.result?.winnerId === state.me.id).length;
+  const pendingIncoming = state.challenges.filter((item) => item.status === "pending" && item.toUserId === state.me?.id);
+  const pendingOutgoing = state.challenges.filter((item) => item.status === "pending" && item.fromUserId === state.me?.id);
+  const wins = completedGames.filter((game) => game.result?.winnerId === state.me?.id).length;
   const draws = completedGames.filter((game) => game.result && !game.result.winnerId).length;
-  const losses = completedGames.filter((game) => game.result?.winnerId && game.result.winnerId !== state.me.id).length;
+  const losses = completedGames.filter((game) => game.result?.winnerId && game.result.winnerId !== state.me?.id).length;
   const eloDelta = completedGames.reduce(
-    (sum, game) => sum + Number(game.elo?.combined?.[state.me.id]?.delta ?? game.elo?.[state.me.id]?.delta ?? 0),
+    (sum, game) => sum + Number(game.elo?.combined?.[state.me?.id]?.delta ?? game.elo?.[state.me?.id]?.delta ?? 0),
     0
   );
   const winRate = completedGames.length ? Math.round((wins / completedGames.length) * 100) : 0;
@@ -4391,7 +4395,7 @@ function renderProfile() {
       <div class="profile-main">
         <p class="profile-label">${t("profile.hero.label")}</p>
         <h2 id="profile-dashboard-title">${escapeHtml(state.me.name)}</h2>
-        <p class="muted">${state.me.isAdmin ? t("profile.hero.role.admin") : t("profile.hero.role.player")} &middot; ${t("profile.hero.joined", { date: fmtDate(state.me.createdAt) })}</p>
+        <p class="muted">${state.me?.isAdmin ? t("profile.hero.role.admin") : t("profile.hero.role.player")} &middot; ${t("profile.hero.joined", { date: fmtDate(state.me.createdAt) })}</p>
         ${profileInfoMarkup(state.me)}
       </div>
       <button class="ghost-button profile-back-button" data-profile-back>${t("common.back")}</button>
@@ -4458,6 +4462,7 @@ function renderProfile() {
           <button class="primary-button" type="submit">${t("profile.settings.saveBcpEmail")}</button>
         </form>
         ${emailProfileMarkup()}
+        ${window.KTTelegram?.markup() || ""}
         <form class="settings-block profile-dashboard-card" data-profile-password-form>
           <h3>${t("auth.field.password")}</h3>
           <div class="field">
@@ -4506,7 +4511,7 @@ function renderProfile() {
     </section>
   `;
 
-  mountProfileAchievements(content, "userId", state.me.id);
+  mountProfileAchievements(content, "userId", state.me?.id);
   document.querySelector("[data-profile-back]").addEventListener("click", () => navigateBack("/tournament#/mygames"));
   wireProfileSettings();
   wireGameButtons();
@@ -4526,7 +4531,7 @@ function wireProfileTeamLinks() {
 }
 
 function ownChallengeProgress() {
-  return state.challengeProgress.find((item) => item.user.id === state.me.id) || null;
+  return state.challengeProgress.find((item) => item.user.id === state.me?.id) || null;
 }
 
 function profileChallengeNextCard(progress) {
@@ -4534,7 +4539,7 @@ function profileChallengeNextCard(progress) {
     return `
       <div class="empty">${t("profile.challenge.loading")}</div>
       <div class="row-actions profile-challenge-actions">
-        <a href="/tournament#/challenge/${state.me.id}" data-app-link class="small-button" data-profile-challenge-progress="${state.me.id}">${t("profile.challenge.openAction")}</a>
+        <a href="/tournament#/challenge/${state.me?.id}" data-app-link class="small-button" data-profile-challenge-progress="${state.me?.id}">${t("profile.challenge.openAction")}</a>
       </div>
     `;
   }
@@ -4582,7 +4587,7 @@ function wireOpenMatchmakingButton() {
         return;
       }
       if (game?.status === "pending_confirmation") {
-        if (game.pendingResult?.submittedBy === state.me.id) renderResultForm(gameId);
+        if (game.pendingResult?.submittedBy === state.me?.id) renderResultForm(gameId);
         else renderResultReview(gameId);
         return;
       }
@@ -4652,7 +4657,7 @@ function renderPlayerProfile() {
   const activeMatchup = profile.activeMatchup || {};
   const activeGame = activeMatchup.game || activeGameWith(user.id);
   const pendingChallenge = activeMatchup.challenge || pendingChallengeWith(user.id);
-  const challengeButton = user.id === state.me.id
+  const challengeButton = !state.me ? `<a class="primary-button" href="${escapeHtml(window.KTCompanion.loginUrl())}">${t("auth.tab.signIn")}</a>` : user.id === state.me?.id
     ? ""
     : activeGame
       ? `<a href="/tournament#/games/game/${activeGame.id}" data-app-link class="primary-button game-challenge-button" data-profile-game="${activeGame.id}">${t("profile.playerProfile.openGame")}</a>`
@@ -4681,7 +4686,7 @@ function renderPlayerProfile() {
     </section>
 
     <section class="grid-2">
-      ${state.administrationContext && state.me.isAdmin && user.id !== state.me.id ? adminUi().adminPlayerToolsCard(user) : ""}
+      ${state.administrationContext && state.me?.isAdmin && user.id !== state.me?.id ? adminUi().adminPlayerToolsCard(user) : ""}
       <div class="card panel">
         <div class="panel-header">
           <h3 class="icon-heading">${crossedSwordsIcon()}<span>${t("profile.playerProfile.gameChallengesTitle")}</span></h3>
@@ -4694,7 +4699,7 @@ function renderPlayerProfile() {
         </div>
         <div class="message" data-player-profile-message></div>
       </div>
-      ${state.administrationContext && state.me.isAdmin ? adminUi().adminPendingGamesCard(profile) : ""}
+      ${state.administrationContext && state.me?.isAdmin ? adminUi().adminPendingGamesCard(profile) : ""}
       <div class="card panel">
         ${profileTeamsMarkup(profile.playerTeams || [])}
       </div>
@@ -4748,6 +4753,7 @@ function renderPlayerProfile() {
 }
 
 function wireProfileSettings() {
+  window.KTTelegram?.mount(state.me?.id);
   const avatarInput = document.querySelector("[data-avatar-input]");
   document.querySelector("[data-avatar-choose]")?.addEventListener("click", () => avatarInput?.click());
   const removeAvatar = document.querySelector("[data-remove-avatar]");
@@ -4901,15 +4907,15 @@ async function updateProfile(body, successMessage) {
 function pendingChallengeWith(userId) {
   return (state.challenges || []).find((challenge) =>
     challenge.status === "pending" &&
-    ((challenge.fromUserId === state.me.id && challenge.toUserId === userId) ||
-      (challenge.fromUserId === userId && challenge.toUserId === state.me.id))
+    ((challenge.fromUserId === state.me?.id && challenge.toUserId === userId) ||
+      (challenge.fromUserId === userId && challenge.toUserId === state.me?.id))
   ) || null;
 }
 
 function activeGameWith(userId) {
   return (state.games || []).find((game) =>
     ["open", "pending_confirmation"].includes(game.status) &&
-    (game.playerIds || []).includes(state.me.id) &&
+    (game.playerIds || []).includes(state.me?.id) &&
     (game.playerIds || []).includes(userId)
   ) || null;
 }
@@ -4923,7 +4929,7 @@ async function loadPlayerProfile(userId) {
 
 async function openPlayerProfile(userId) {
   const id = Number(userId);
-  if (id === state.me.id) {
+  if (id === state.me?.id) {
     state.adminPasswordReset = null;
     state.view = "profile";
     state.playerProfile = null;
@@ -4956,18 +4962,18 @@ function getKnownChallengeProgress(userId) {
 
 async function loadChallengeProgress(userId = null) {
   try {
-    const targetUserId = Number(userId || state.selectedChallengeUserId || state.me.id);
+    const targetUserId = Number(userId || state.selectedChallengeUserId || state.me?.id);
     const data = await api(`/api/challenge-progress?userId=${targetUserId}`);
     (data.users || []).forEach(upsertChallengeProgress);
     state.challengeError = "";
-    if (!state.selectedChallengeUserId) state.selectedChallengeUserId = targetUserId || state.me.id;
+    if (!state.selectedChallengeUserId) state.selectedChallengeUserId = targetUserId || state.me?.id;
   } catch (err) {
     state.challengeError = err.message;
   }
 }
 
 function selectedChallengeProgress() {
-  return getKnownChallengeProgress(state.selectedChallengeUserId || state.me.id);
+  return getKnownChallengeProgress(state.selectedChallengeUserId || state.me?.id);
 }
 
 async function openChallengeProgress(userId) {
@@ -5980,7 +5986,7 @@ function renderChallenge() {
   const content = document.querySelector("[data-content]");
   const selected = selectedChallengeProgress();
   const activeProgress = selected ? challengeTrackProgress(selected) : null;
-  const subtitle = selected?.user?.id === state.me.id
+  const subtitle = selected?.user?.id === state.me?.id
     ? t("challenge.subtitle.mine")
     : t("challenge.subtitle.other", { name: selected ? escapeHtml(selected.user.name) : t("challenge.subtitle.otherPlayer") });
   content.innerHTML = `
@@ -6074,8 +6080,8 @@ function challengeDetail(progress) {
 }
 
 function canEditChallengeProgress(progress) {
-  if (!state.administrationContext || !state.me.isAdmin) return false;
-  if (progress.user.id === state.me.id) return true;
+  if (!state.administrationContext || !state.me?.isAdmin) return false;
+  if (progress.user.id === state.me?.id) return true;
   return state.challengeOpenedFromProfile;
 }
 
@@ -6149,8 +6155,8 @@ function renderGameDetail(live = false) {
   const match = game.tournamentMatch || {};
   const statusLabel = game.status === "completed" ? t("play.game.status.completed") : game.status === "pending_confirmation" ? t("play.game.status.pending") : t("play.game.status.active");
   const submitter = game.players?.find((player) => ("userId" in player ? player.userId : player.id) === (game.pendingResult?.submittedBy ?? game.submittedBy));
-  const isParticipant = game.players?.some((player) => Number("userId" in player ? player.userId : player.id) === state.me.id);
-  const canDeletePending = isParticipant && game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id;
+  const isParticipant = game.players?.some((player) => Number("userId" in player ? player.userId : player.id) === state.me?.id);
+  const canDeletePending = isParticipant && game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me?.id;
   const playerAction = state.administrationContext && canManageGameUi(game) && !isParticipant ? "" : isTeamTournamentGame ? teamGameResultAction(game) : isParticipant && game.status === "open"
     ? `<button class="primary-button" data-game-result="${game.id}">${t("play.action.enterResult")}</button>
        ${isTournamentGame || isTeamTournamentGame ? "" : `<button class="danger-button" data-exit-game="${game.id}">${t("play.action.exitGame")}</button>`}`
@@ -6266,13 +6272,13 @@ function gamePlayerLinks(game) {
 
 function playerProfileLink(player) {
   const userId = Number(player?.userId || (player?.hasProfile === false ? 0 : player?.id));
-  if (!state.me || !Number.isSafeInteger(userId) || userId <= 0) return escapeHtml(player?.name || t("tournaments.player.fallback"));
+  if (!Number.isSafeInteger(userId) || userId <= 0) return escapeHtml(player?.name || t("tournaments.player.fallback"));
   return `<a href="/tournament#/players/${userId}" data-app-link class="text-link-button inline-profile-link" data-profile-user="${userId}">${escapeHtml(player.name)}</a>`;
 }
 
 function tournamentParticipantProfileLink(participant, fallbackName = t("tournaments.participant.fallback")) {
   const displayName = participant?.displayName || fallbackName;
-  if (!state.me || !participant?.userId) return escapeHtml(displayName);
+  if (!participant?.userId) return escapeHtml(displayName);
   return playerProfileLink({ id: participant.userId, name: displayName });
 }
 
@@ -6483,11 +6489,11 @@ function renderResultForm(gameId, options = {}) {
   const content = document.querySelector("[data-content]");
   const existingResult = adminEdit
     ? game.result || game.pendingResult?.result || null
-    : game.pendingResult?.submittedBy === state.me.id ? game.pendingResult.result : null;
+    : game.pendingResult?.submittedBy === state.me?.id ? game.pendingResult.result : null;
   const missionLocked = Boolean(game.teamTournamentGame?.missionLocked);
   const allowTiebreakers = game.sourceType !== "team_match_game";
   const missionDefaults = missionLocked ? game.teamTournamentGame.mission : existingResult?.killzone || game.teamTournamentGame?.mission || {};
-  const canExitFromForm = !["tournament_match", "team_match_game"].includes(game.sourceType) && !adminEdit && (game.status === "open" || (game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me.id));
+  const canExitFromForm = !["tournament_match", "team_match_game"].includes(game.sourceType) && !adminEdit && (game.status === "open" || (game.status === "pending_confirmation" && game.pendingResult?.submittedBy === state.me?.id));
   content.innerHTML = `
     <section class="card panel">
       <div class="panel-header">
@@ -8301,8 +8307,7 @@ async function openRosterProfile(rosterId, { navigate = true } = {}) {
   state.rosterProfile = null;
   state.rosterProfileError = "";
   if (navigate) syncAppHash();
-  if (state.me) renderShell();
-  else renderRosterProfile();
+  renderShell();
   const isCurrent = () => requestId === rosterProfileRequestId && state.view === "roster"
     && appRouteFromHash()?.selectedRosterId === id && !playerTeamSlugFromLocation();
   try {
@@ -8344,7 +8349,7 @@ function rosterMatchHistoryMarkup(data) {
 }
 
 function renderRosterProfile() {
-  const content = state.me ? document.querySelector("[data-content]") : app;
+  const content = document.querySelector("[data-content]") || app;
   if (!content) return;
   const data = state.rosterProfile;
   if (!data) {
@@ -8827,7 +8832,7 @@ function teamMatchGamesMarkup(match, options = {}) {
       : link?.permissions?.canReview ? `<button class="primary-button" data-team-game-review="${game?.id}">${t("play.action.reviewResult")}</button>` : "";
     const awaitingReview = game?.status === "pending_confirmation"
       ? `<p class="row-meta">${escapeHtml(teamGamePendingMessage({ ...game, teamMatch: match, resultPermissions: link.permissions }))}</p>` : "";
-    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${pairingWarningsMarkup(teamPairingWarnings(match, slot))}${tableImage}${result}${awaitingReview}</div>${state.me && game?.id ? `<div class="row-actions team-game-actions">${resultAction}<a href="/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</a></div>` : ""}</div>`;
+    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${pairingWarningsMarkup(teamPairingWarnings(match, slot))}${tableImage}${result}${awaitingReview}</div>${game?.id ? `<div class="row-actions team-game-actions">${resultAction}<a href="/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</a></div>` : ""}</div>`;
   }).join("")}</div>`;
 }
 
@@ -8853,7 +8858,7 @@ function teamEnvironmentStep(match, tournament) {
 
 function teamCaptainPairingControl(match, tournament) {
   if (!state.me || tournament.status !== "in_progress" || ["in_progress", "completed"].includes(match.phase)) return "";
-  const side = match.rosterA?.captainUserId === state.me.id ? "a" : match.rosterB?.captainUserId === state.me.id ? "b" : null;
+  const side = match.rosterA?.captainUserId === state.me?.id ? "a" : match.rosterB?.captainUserId === state.me?.id ? "b" : null;
   if (match.captainPairingEnabled === false) return side || canManageTournamentUi(tournament) ? teamManualPairingForm(match) : "";
   if (!side && state.administrationContext && canManageTournamentUi(tournament)) {
     return `<section class="team-admin-pairing"><h4>${t("teams.pairing.adminControls")}</h4><p class="muted">${t("teams.pairing.adminHint")}</p><div class="team-pairing-selections">${["a", "b"].map((side) => `
@@ -9065,7 +9070,7 @@ function teamPairingLogMarkup(events = []) {
 }
 
 function renderTeamPairing(live = false) {
-  const content = state.me ? document.querySelector("[data-content]") : app;
+  const content = document.querySelector("[data-content]") || app;
   const data = state.teamPairingDetail;
   if (!data?.teamMatch) {
     content.innerHTML = `<section class="card panel"><div class="loading">${t("teams.pairing.loading")}</div><div class="message" data-message></div></section>`;
@@ -9100,6 +9105,7 @@ function renderTeamPairing(live = false) {
     navigateToPublicTournament(event.currentTarget.dataset.teamPairingTournament, { tab: "matches" });
   });
   wireTeamTournamentControls(data, { standalone: true });
+  wireLeaderboardProfiles();
   liveRefresh.schedule();
 }
 
@@ -10122,7 +10128,7 @@ function updateTournamentParticipantModeFields(form) {
 async function loadTeamsDashboard(query = "") {
   state.teamsQuery = String(query || "").trim();
   try {
-    const data = await api(`/api/teams/dashboard${state.teamsQuery ? `?q=${encodeURIComponent(state.teamsQuery)}` : ""}`);
+    const data = await api(`${state.me ? "/api/teams/dashboard" : "/api/teams"}${state.teamsQuery ? `?q=${encodeURIComponent(state.teamsQuery)}` : ""}`);
     state.teamsDashboard = data;
     state.teamsError = "";
     return data;
@@ -10347,7 +10353,6 @@ async function loadPlayerTeam(slug, options = {}) {
 }
 
 function playerTeamContainer() {
-  if (!state.me) return app;
   state.view = "teams";
   if (!document.querySelector("[data-content]")) renderShell();
   return document.querySelector("[data-content]");
@@ -10377,16 +10382,16 @@ function renderTeams() {
     ${tabs}
     <div class="teams-layout">
       <div class="teams-page-actions">
-        <button class="primary-button" type="button" data-team-create-open>${t("teams.create.title")}</button>
+        ${state.me ? `<button class="primary-button" type="button" data-team-create-open>${t("teams.create.title")}</button>` : ""}
       </div>
       <section class="card panel">
         <form class="teams-search" data-teams-search>
           <div class="field"><label for="teams-search">${t("teams.search.label")}</label><input id="teams-search" name="q" value="${escapeHtml(teamsQuery)}" placeholder="${t("teams.search.placeholder")}"></div>
           <button class="small-button" type="submit">${t("teams.search.submit")}</button>
         </form>
-        ${teamsQuery ? `<div class="list">${playerTeamCards(data.teams || [])}</div>` : ""}
+        ${teamsQuery || !state.me ? `<div class="list">${playerTeamCards(data.teams || [])}</div>` : ""}
       </section>
-      <section class="card panel">
+      ${state.me ? `<section class="card panel">
         <h3>${t("teams.mine.title")}</h3>
         <div class="list">${playerTeamCards(data.myTeams || [], t("teams.mine.empty"))}</div>
       </section>
@@ -10396,6 +10401,7 @@ function renderTeams() {
         <h3>${t("teams.invitations.outgoing")}</h3>
         <div class="list">${teamInvitationCards(data.outgoingInvitations || [], "outgoing")}</div>
       </section>
+      ` : ""}
       <div class="message ${state.teamsError ? "error" : ""}" data-message>${escapeHtml(state.teamsError || "")}</div>
     </div>`;
   wireTeamsDashboard();
@@ -10597,7 +10603,7 @@ function renderPlayerTeamProfile(data) {
 function teamMemberCards(members, team, canManage) {
   if (!members.length) return `<div class="empty">${t("teams.members.empty")}</div>`;
   return members.map((membership) => `
-    <div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</div><div class="row-meta">${membership.role === "leader" ? t("teams.role.leader") : t("teams.role.member")} / ${fmtDate(membership.joinedAt)}${membership.endedAt ? ` - ${fmtDate(membership.endedAt)}` : ""}</div></div><div class="row-actions">${state.me && membership.userId ? `<a href="/tournament#/players/${membership.userId}" data-app-link class="small-button" data-team-player="${membership.userId}">${t("common.open")}</a>` : ""}${canManage && (membership.role !== "leader" || (state.administrationContext && team.viewer?.canAdmin)) && !membership.endedAt ? `<button class="danger-button" data-team-member-remove="${membership.id}">${t("teams.action.remove")}</button>` : ""}</div></div>`).join("");
+    <div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</div><div class="row-meta">${membership.role === "leader" ? t("teams.role.leader") : t("teams.role.member")} / ${fmtDate(membership.joinedAt)}${membership.endedAt ? ` - ${fmtDate(membership.endedAt)}` : ""}</div></div><div class="row-actions">${membership.userId ? `<a href="/tournament#/players/${membership.userId}" data-app-link class="small-button" data-team-player="${membership.userId}">${t("common.open")}</a>` : ""}${canManage && (membership.role !== "leader" || (state.administrationContext && team.viewer?.canAdmin)) && !membership.endedAt ? `<button class="danger-button" data-team-member-remove="${membership.id}">${t("teams.action.remove")}</button>` : ""}</div></div>`).join("");
 }
 
 function teamRosterHistory(rosters) {
@@ -10615,7 +10621,7 @@ function activeRosterMembersForUi(roster) {
 
 function teamGameHistory(games) {
   if (!games.length) return `<div class="empty">${t("teams.history.empty")}</div>`;
-  return games.map((game) => `<div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(game.tournament?.name || "")}</div><div class="row-meta">${t("tournaments.round.title", { number: game.roundNumber })} / ${escapeHtml(game.rosterA?.name || "")} vs ${escapeHtml(game.rosterB?.name || "")}</div></div>${state.me ? `<a href="/tournament#/games/game/${game.id}" data-app-link class="small-button" data-team-game="${game.id}">${t("common.open")}</a>` : ""}</div>`).join("");
+  return games.map((game) => `<div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(game.tournament?.name || "")}</div><div class="row-meta">${t("tournaments.round.title", { number: game.roundNumber })} / ${escapeHtml(game.rosterA?.name || "")} vs ${escapeHtml(game.rosterB?.name || "")}</div></div><a href="/tournament#/games/game/${game.id}" data-app-link class="small-button" data-team-game="${game.id}">${t("common.open")}</a></div>`).join("");
 }
 
 function teamManagementPanel(data) {

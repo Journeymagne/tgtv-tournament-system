@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
 const { Pool } = require("pg");
+const { SCHEMAS, SEARCH_PATH } = require("../../src/db/schemas");
 
 const { TEST_DATABASE_URL } = require("../helpers/db");
 
@@ -10,7 +11,7 @@ const { migrate, MIGRATIONS } = require("../../src/db/migrate");
 let pool;
 
 test.before(() => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
+  pool = new Pool(require("../helpers/schema").poolOptions);
 });
 
 test.after(async () => {
@@ -18,7 +19,7 @@ test.after(async () => {
 });
 
 test.beforeEach(async () => {
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  await require("../helpers/schema").resetSchemas(pool);
 });
 
 test("версии миграций уникальны и идут по возрастанию", () => {
@@ -32,7 +33,7 @@ test("migrate на пустой базе создаёт схему", async () =>
   assert.ok(applied.includes(1));
 
   const { rows } = await pool.query(
-    `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`
+    `SELECT tablename FROM pg_tables WHERE schemaname = ANY($1) ORDER BY tablename`, [['public', ...SCHEMAS]]
   );
   const tables = rows.map((row) => row.tablename);
   for (const table of [
@@ -73,7 +74,7 @@ test("venue address upgrade follows 1.2.0 without replacing Studio migration 32 
   } finally {
     client.release();
   }
-  assert.deepEqual(await migrate(pool), [55]);
+  assert.deepEqual(await migrate(pool), MIGRATIONS.filter(item => item.version > 54).map(item => item.version));
   const { rows: [event] } = await pool.query("SELECT name, venue_address, faction_count FROM tournaments WHERE slug='existing-irl'");
   assert.deepEqual(event, { name: "Existing IRL", venue_address: "", faction_count: 3 });
   const { rows: migrations } = await pool.query("SELECT version,name FROM schema_migrations WHERE version IN (32,55) ORDER BY version");
@@ -108,7 +109,11 @@ test("team Killzone help migration corrects seeded rules and preserves administr
 });
 
 test("migrate на живой базе не ломает данные", async () => {
-  await migrate(pool);
+  await pool.query("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+  for (const migration of MIGRATIONS.filter(item => item.version <= 55)) {
+    await migration.up(pool);
+    await pool.query("INSERT INTO schema_migrations(version,name) VALUES($1,$2)", [migration.version,migration.name]);
+  }
   const { rows: [user] } = await pool.query(
     `INSERT INTO users (name, name_key, password_hash, rating, is_admin)
      VALUES ('Alpha', 'alpha', 'salt:hash', 1000, true) RETURNING id`

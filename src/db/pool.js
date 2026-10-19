@@ -2,6 +2,7 @@ const { Pool } = require("pg");
 
 const { DATABASE_URL, PGSSL, requireDatabaseUrl } = require("../config");
 const { logError } = require("../http/logger");
+const { SEARCH_PATH } = require('./schemas');
 
 // Bounds how long pool.connect() waits for a free client. Without this, pool
 // exhaustion (Blocker 2: e.g. several slow avatar uploads each holding a
@@ -16,7 +17,10 @@ function getPool(connectionString = DATABASE_URL) {
   pool = new Pool({
     connectionString: requireDatabaseUrl(connectionString),
     ssl: PGSSL ? { rejectUnauthorized: false } : undefined,
-    connectionTimeoutMillis: CONNECTION_TIMEOUT_MS
+    connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+    options: `-c search_path=${SEARCH_PATH}`,
+    application_name: 'kt-' + (process.env.SERVICE_NAME || 'monolith'),
+    max: Number(process.env.DB_POOL_SIZE || 5)
   });
   // node-postgres emits "error" on the Pool itself when an *idle* client
   // fails (e.g. Postgres drops the connection). EventEmitter's default

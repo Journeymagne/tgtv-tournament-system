@@ -284,7 +284,6 @@ async function appendChallengeCredit(client, id, credit) {
 }
 
 async function remove(client, id) {
-  await client.query("DELETE FROM games WHERE $1 = ANY(player_ids)", [id]);
   await client.query("DELETE FROM users WHERE id = $1", [id]);
 }
 

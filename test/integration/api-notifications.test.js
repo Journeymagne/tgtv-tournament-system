@@ -14,13 +14,14 @@ let alpha;
 let bravo;
 
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
   await migrate(pool);
 });
 
 test.after(async () => {
   await pool.end();
+  await require("../../src/db/pool").closePool();
 });
 
 test.beforeEach(async () => {
@@ -41,6 +42,7 @@ test.afterEach(() => {
 });
 
 async function listFor(user) {
+  await require("../helpers/notifications").deliverNotifications();
   return notificationsApi.list({ client, user });
 }
 
@@ -201,7 +203,7 @@ test("active inbox aggregates challenges and invitations and keeps read items ac
   const beforeRead = await listFor(alpha);
   assert.deepEqual(beforeRead.items.map((item) => item.type).sort(), ["game_challenge", "team_invitation"]);
   assert.equal(beforeRead.unreadCount, 2);
-  assert.match(beforeRead.items.find((item) => item.type === "game_challenge").href, /^#\/mygames\/challenge\/\d+$/);
+  assert.match(beforeRead.items.find((item) => item.type === "game_challenge").href, /^\/tournament#\/mygames\/challenge\/\d+$/);
 
   await notificationsApi.markRead({ client, user: alpha, body: { through: beforeRead.generatedAt } });
   const afterRead = await listFor(alpha);
@@ -229,7 +231,7 @@ test("individual and captain-completed team pairings create personal notificatio
   assert.equal(team.gameId, teamGame.id);
   assert.equal(team.opponentTeam.name, "Bravo Roster");
   assert.equal(team.mission.critOp, "Secure");
-  assert.equal(team.href, `#/games/game/${teamGame.id}`);
+  assert.equal(team.href, `/tournament#/games/game/${teamGame.id}`);
 
   await client.query("UPDATE games SET status = 'completed' WHERE id = ANY($1::int[])", [[individualGame.id, teamGame.id]]);
   const completed = await listFor(alpha);

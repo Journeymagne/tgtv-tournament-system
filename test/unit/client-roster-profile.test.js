@@ -51,7 +51,7 @@ test("a late roster response cannot replace a newer roster or a different page",
   let routeId = 0;
   const open = new Function("state", "api", "syncAppHash", "appRouteFromHash", `
     let rosterProfileRequestId = 0;
-    const stopTeamPairingPoll = () => {}, leavePublicTournamentRoute = () => {}, renderRosterProfile = () => {};
+    const stopTeamPairingPoll = () => {}, leavePublicTournamentRoute = () => {}, renderRosterProfile = () => {}, renderShell = () => {};
     const playerTeamSlugFromLocation = () => '';
     ${extract("openRosterProfile")};return openRosterProfile;`
   )(state, () => new Promise((resolve) => requests.push(resolve)), () => { routeId = state.selectedRosterId; }, () => ({ selectedRosterId: routeId }));

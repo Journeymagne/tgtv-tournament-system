@@ -3,7 +3,7 @@ const { avatarUrl } = require("../domain/avatars");
 // avatar_version, not avatar_data: the image itself is served by
 // GET /api/users/:id/avatar and never selected here.
 const USER_COLUMNS = `
-  id, name, name_key, password_hash, avatar_version, register_nickname,
+  id, name, name_key, ${['monolith','accounts'].includes(process.env.SERVICE_NAME || 'monolith') ? 'password_hash,' : ''} avatar_version, register_nickname,
   telegram_contact, bcp_email, challenge_credits, rating, rating_tts, rating_irl, rating_combined,
   is_admin, created_at, updated_at
 `;

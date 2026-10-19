@@ -50,16 +50,28 @@ async function list({client,user}){
  return {entries:rows.map(view),canModerate:canModerate(user),canManageRoles:!!user?.isSuperAdmin,
   teams:[...new Set(['Все команды',...KILL_TEAMS,...seed.entries.flatMap(e=>e.teams)])].sort((a,b)=>a.localeCompare(b)),logos,snapshot:seed.snapshot,communityVersion:seed.communityVersion,communitySource:seed.communitySource};
 }
-async function entry(client,id,lock=false){const {rows:[row]}=await client.query('SELECT * FROM faq_entries WHERE id=$1'+(lock?' FOR UPDATE':''),[id]);if(!row)throw new HttpError(404,'FAQ entry not found');return row;}
+async function entry(client,id,lock=false){const {rows:[row]}=await client.query('SELECT * FROM faq_entries WHERE id=$1'+(lock==='share'?' FOR SHARE':lock?' FOR UPDATE':''),[id]);if(!row)throw new HttpError(404,'FAQ entry not found');return row;}
+async function publishedEntry(client,id,lock=false){const row=await entry(client,id,lock);if(row.status!=='published')throw new HttpError(404,'FAQ entry not found');return row;}
 async function history(client,user,id,action,snapshot){await client.query('INSERT INTO faq_history(entry_id,actor_id,action,snapshot) VALUES($1,$2,$3,$4)',[id,user.id,action,JSON.stringify(snapshot)]);}
 async function save({client,user,params,body}){
  moderator(user);let payload=content(body),id=params.id||crypto.randomUUID(),before=null;
- if(params.id){before=await entry(client,id,true);if(before.revision!==body.revision)throw new HttpError(409,'Эта карточка уже изменена. Откройте её заново.');
+ if(params.id){before=await publishedEntry(client,id,true);if(before.revision!==body.revision)throw new HttpError(409,'Эта карточка уже изменена. Откройте её заново.');
   // Retain source provenance when editing imported records.
   payload={...before.content,...payload};
   await client.query('UPDATE faq_entries SET content=$2,revision=revision+1,updated_by=$3,updated_at=NOW() WHERE id=$1',[id,JSON.stringify(payload),user.id]);
  }else await client.query('INSERT INTO faq_entries(id,content,created_by,updated_by) VALUES($1,$2,$3,$3)',[id,JSON.stringify(payload),user.id]);
  await history(client,user,id,before?'edited':'created',{before:before?.content,after:payload});return {entry:view(await entry(client,id))};
+}
+async function removeEntry({client,user,params,body}){
+ moderator(user);const before=await publishedEntry(client,params.id,true);
+ if(!['community','official'].includes(before.content.category))throw new ValidationError('Only FAQ cards can be deleted');
+ if(!Number.isSafeInteger(body.revision)||body.revision<1)throw new ValidationError('Invalid card revision');
+ if(before.revision!==body.revision)throw new HttpError(409,'Эта карточка уже изменена. Откройте её заново.');
+ await client.query("UPDATE faq_entries SET status='archived',revision=revision+1,updated_by=$2,updated_at=NOW() WHERE id=$1",[before.id,user.id]);
+ await history(client,user,before.id,'deleted',{before:before.content,beforeStatus:before.status,afterStatus:'archived',revision:before.revision});
+ await client.query(`DELETE FROM faq.notification_messages n USING faq_questions q
+  WHERE q.entry_id=$1 AND n.notification_id='faq_reply:'||q.id::text`,[before.id]);
+ return {ok:true};
 }
 async function submissions({client,user}){
  const all=canModerate(user);const {rows}=await client.query(`SELECT s.*,u.name author FROM faq_submissions s LEFT JOIN users u ON u.id=s.author_id
@@ -67,7 +79,7 @@ async function submissions({client,user}){
 }
 async function submit({client,user,body}){
  const data=content(body,{submission:true}),id=crypto.randomUUID();let entryId=null;
- if(body.entryId){const row=await entry(client,String(body.entryId));if(row.status!=='published')throw new HttpError(404,'FAQ entry not found');entryId=row.id;}
+ if(body.entryId){const row=await publishedEntry(client,String(body.entryId),'share');entryId=row.id;}
  const {rows:[limit]}=await client.query("SELECT count(*) n FROM faq_submissions WHERE author_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",[user.id]);
  if(Number(limit.n)>=10)throw new HttpError(429,'Можно отправить до 10 заявок в час.');
  await client.query('INSERT INTO faq_submissions(id,author_id,entry_id,content) VALUES($1,$2,$3,$4)',[id,user.id,entryId,JSON.stringify(data)]);return {status:201,body:{id}};
@@ -80,12 +92,15 @@ async function decide({client,user,params,body}){
  if(body.status==='accepted'){
   const payload=content(body.entry);if(payload.category==='official')throw new ValidationError('Community submissions cannot publish as official GW answers');
   const original=s.entry_id?await entry(client,s.entry_id,true):null;
+  if(original&&original.status!=='published')throw new HttpError(409,'Исходная карточка удалена. Отклоните заявку или верните её автору.');
   if(original&&original.content.category!=='official'){const before=original;if(body.entry.revision!==before.revision)throw new HttpError(409,'Карточка изменилась. Откройте заявку заново.');
    resultId=s.entry_id;await client.query('UPDATE faq_entries SET content=$2,revision=revision+1,updated_by=$3,updated_at=NOW() WHERE id=$1',[resultId,JSON.stringify({...before.content,...payload}),user.id]);
    await history(client,user,resultId,'submission_accepted',{before:before.content,after:payload,submissionId:s.id});
   }else{resultId=crypto.randomUUID();await client.query('INSERT INTO faq_entries(id,content,created_by,updated_by) VALUES($1,$2,$3,$3)',[resultId,JSON.stringify(payload),user.id]);await history(client,user,resultId,'submission_accepted',{after:payload,submissionId:s.id});}
  }
- await client.query('UPDATE faq_submissions SET status=$2,resolution=$3,result_entry_id=$4,decided_by=$5,decided_at=NOW() WHERE id=$1',[s.id,body.status,note,resultId,user.id]);return {ok:true,entryId:resultId};
+ await client.query('UPDATE faq_submissions SET status=$2,resolution=$3,result_entry_id=$4,decided_by=$5,decided_at=NOW() WHERE id=$1',[s.id,body.status,note,resultId,user.id]);
+ await require('../notifications/publish').publish(client,'faq',s.author_id,{id:'faq_submission:'+s.id,type:'faq_submission',createdAt:new Date().toISOString(),title:'Решение по вашей заявке FAQ',status:body.status,excerpt:note,href:'/faq#view=mine'});
+ return {ok:true,entryId:resultId};
 }
 async function reviseSubmission({client,user,params,body}){
  const {rows:[s]}=await client.query('SELECT * FROM faq_submissions WHERE id=$1 FOR UPDATE',[params.id]);if(!s)throw new HttpError(404,'Submission not found');
@@ -105,7 +120,7 @@ async function questions({client,user,params}){
   canReply:canModerate(user),canEditReply:canModerate(user)&&!!q.reply,canDeleteReply:canModerate(user)&&!!q.reply}))};
 }
 async function ask({client,user,params,body}){
- const e=await entry(client,params.id);if(e.status!=='published')throw new HttpError(404,'FAQ entry not found');
+ const e=await publishedEntry(client,params.id,'share');
  const id=crypto.randomUUID(),s=text(body.body,'Question',3,2000);
  const {rows:[limit]}=await client.query("SELECT count(*) n FROM faq_questions WHERE author_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",[user.id]);if(Number(limit.n)>=20)throw new HttpError(429,'Можно оставить до 20 вопросов в час.');
  await client.query('INSERT INTO faq_questions(id,entry_id,author_id,body) VALUES($1,$2,$3,$4)',[id,params.id,user.id,s]);return {status:201,body:{id}};
@@ -113,7 +128,7 @@ async function ask({client,user,params,body}){
 async function question(client,id){
  if(!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id))throw new HttpError(404,'Question not found');
  const {rows:[q]}=await client.query('SELECT * FROM faq_questions WHERE id=$1 AND NOT hidden FOR UPDATE',[id]);
- if(!q)throw new HttpError(404,'Question not found');return q;
+ if(!q)throw new HttpError(404,'Question not found');await publishedEntry(client,q.entry_id,'share');return q;
 }
 function questionRevision(q,value,required=false){
  if(value===undefined&&!required)return;
@@ -132,6 +147,7 @@ async function updateQuestion({client,user,params,body}){
   await client.query(`UPDATE faq_questions SET reply=$2,replied_by=$3,
    replied_at=CASE WHEN reply='' THEN NOW() ELSE replied_at END,
    reply_updated_at=CASE WHEN reply='' THEN NULL ELSE NOW() END,revision=revision+1 WHERE id=$1`,[q.id,message,user.id]);
+  await require('../notifications/publish').publish(client,'faq',q.author_id,{id:'faq_reply:'+q.id,type:'faq_reply',createdAt:new Date().toISOString(),title:'Ответ на ваш вопрос в FAQ',excerpt:message.slice(0,160),href:'/faq#entry='+encodeURIComponent(q.entry_id)});
  }
  return {ok:true};
 }
@@ -139,13 +155,15 @@ async function removeQuestion({client,user,params,body}){
  const q=await question(client,params.questionId);
  if(q.author_id!==user.id&&!canModerate(user))throw new HttpError(403,'Можно удалять только свои комментарии.');
  questionRevision(q,body.revision,true);
- await client.query('UPDATE faq_questions SET hidden=TRUE,updated_at=NOW(),revision=revision+1 WHERE id=$1',[q.id]);return {ok:true};
+ await client.query('UPDATE faq_questions SET hidden=TRUE,updated_at=NOW(),revision=revision+1 WHERE id=$1',[q.id]);
+ await require('../notifications/publish').retract(client,'faq','faq_reply:'+q.id);return {ok:true};
 }
 async function removeReply({client,user,params,body}){
  moderator(user);const q=await question(client,params.questionId);questionRevision(q,body.revision,true);
  if(!q.reply)throw new HttpError(404,'Reply not found');
  await client.query(`UPDATE faq_questions SET reply='',replied_by=NULL,replied_at=NULL,
-  reply_updated_at=NULL,revision=revision+1 WHERE id=$1`,[q.id]);return {ok:true};
+  reply_updated_at=NULL,revision=revision+1 WHERE id=$1`,[q.id]);
+ await require('../notifications/publish').retract(client,'faq','faq_reply:'+q.id);return {ok:true};
 }
 async function moderators({client,user}){if(!user.isSuperAdmin)throw new HttpError(403,'Only the platform owner assigns FAQ Moderators');const {rows}=await client.query('SELECT id,name,is_faq_moderator FROM users ORDER BY name');return {users:rows};}
 async function setModerator({client,user,params,body}){
@@ -160,6 +178,7 @@ const routes=[
  {method:'POST',path:'/api/faq/render',handler:({body})=>({html:markdown.render(text(body.markdown||'','Text',0,30000))}),tx:true,maxBodyBytes:100000},
  {method:'POST',path:'/api/faq/entries',handler:save,auth:'user',tx:true,maxBodyBytes:4000000},
  {method:'PATCH',path:'/api/faq/entries/:id',handler:save,auth:'user',tx:true,maxBodyBytes:4000000},
+ {method:'DELETE',path:'/api/faq/entries/:id',handler:removeEntry,auth:'user',tx:true,maxBodyBytes:1000},
  {method:'GET',path:'/api/faq/entries/:id/history',handler:recordHistory,auth:'user'},
  {method:'GET',path:'/api/faq/submissions',handler:submissions,auth:'user'},
  {method:'POST',path:'/api/faq/submissions',handler:submit,auth:'user',tx:true,maxBodyBytes:4000000},

@@ -1,4 +1,5 @@
 const { Pool } = require("pg");
+const { SCHEMAS, SEARCH_PATH } = require("../../src/db/schemas");
 
 process.loadEnvFile?.(require("node:path").join(__dirname, "..", "..", ".env"));
 
@@ -10,7 +11,7 @@ if (!TEST_DATABASE_URL) {
 let pool = null;
 
 function testPool() {
-  if (!pool) pool = new Pool({ connectionString: TEST_DATABASE_URL });
+  if (!pool) pool = new Pool({ connectionString: TEST_DATABASE_URL, options: `-c search_path=${SEARCH_PATH}` });
   return pool;
 }
 
@@ -33,7 +34,7 @@ async function resetDatabase() {
   const client = await testPool().connect();
   try {
     const { rows } = await client.query(
-      `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`
+      `SELECT tablename FROM pg_tables WHERE schemaname = ANY($1)`, [['public', ...SCHEMAS]]
     );
     const existing = new Set(rows.map((row) => row.tablename));
     const present = TABLES.filter((table) => existing.has(table));

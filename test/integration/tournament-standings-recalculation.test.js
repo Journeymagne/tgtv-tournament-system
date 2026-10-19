@@ -13,8 +13,8 @@ let pool, client, server;
 const admin = { id: 178, isAdmin: true };
 
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
-  await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public');
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
   await migrate(pool);
   server = await startApiServer(createRouter(routes, {
     withClient: fn => fn(client),

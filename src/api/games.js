@@ -197,13 +197,23 @@ async function listCompleted({ client, query = new URLSearchParams() }) {
 async function getOne({ client, user, params }) {
   const game = await findGame(client, params.id);
   const view = await viewOf(client, game);
+  let publicTournament = false;
+  if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
+    const tournaments = require("../db/repositories/tournaments");
+    const tournament = view.tournament?.id ? await tournaments.findById(client, view.tournament.id) : null;
+    publicTournament = Boolean(tournament && tournaments.PUBLISHED_STATUSES.includes(tournament.status));
+    if (!publicTournament && !require("../domain/access").canManageTournament(user, tournament)) {
+      throw new HttpError(404, "Game not found");
+    }
+  }
   if (game.sourceType === "team_match_game") {
     const permissions = teamGamePermissions(view, view.teamMatch?.rosterA, view.teamMatch?.rosterB, user);
+    if (publicTournament) permissions.canView = true;
     if (!permissions.canView) throw new HttpError(403, "You cannot view this game");
     return { game: { ...view, resultPermissions: permissions } };
   }
-  const isParticipant = game.playerIds.includes(user.id);
-  if (game.status !== "completed" && !require("../domain/access").canManageTournament(user, view.tournament) && !isParticipant) {
+  const isParticipant = Boolean(user && game.playerIds.includes(user.id));
+  if (!publicTournament && game.status !== "completed" && !require("../domain/access").canManageTournament(user, view.tournament) && !isParticipant) {
     throw new HttpError(403, "You cannot view this game");
   }
   return { game: view };

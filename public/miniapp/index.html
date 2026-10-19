@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#050505">
+  <title>Турниры · KT Companion</title>
+  <link rel="icon" href="/brand/kt-companion/icon-32.png">
+  <script src="/theme-boot.js?v=1.4.0" data-companion-only></script>
+  <link rel="stylesheet" href="/companion-tokens.css?v=1.4.0">
+  <link rel="stylesheet" href="/companion-shell.css?v=1.4.0">
+  <link rel="stylesheet" href="/miniapp/app.css?v=1.4.0">
+  <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+  <script src="/miniapp/app.js?v=1.4.0" defer></script>
+</head>
+<body>
+  <header class="mini-header">
+    <div class="mini-header-inner">
+      <a class="mini-brand" href="#tournament" aria-label="KT Companion — мой турнир">
+        <img data-companion-logo="mark" src="/brand/kt-companion/mark-dark.png" alt="" width="44" height="44">
+        <span class="mini-brand-copy"><span class="companion-service-name">KT Companion</span><span class="companion-service-tool">Турнирная система</span></span>
+      </a>
+      <div class="header-actions"><button type="button" id="theme-button" class="icon-button" aria-label="Переключить тему"></button><button type="button" id="refresh-button" class="icon-button" aria-label="Обновить данные"></button></div>
+    </div>
+  </header>
+  <div class="mini-shell">
+    <div id="connection" class="connection" role="status" hidden></div>
+    <main id="content" tabindex="-1" aria-busy="true"><div class="loading"><span class="loader"></span><p>Загружаем ваши турниры…</p></div></main>
+    <nav id="bottom-nav" class="bottom-nav" aria-label="Разделы турниров" hidden></nav>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <dialog id="confirm-dialog"><form method="dialog"><h2 id="confirm-title">Проверить результат</h2><p id="confirm-copy"></p><div class="actions"><button value="cancel" class="secondary">Вернуться</button><button value="confirm" class="primary">Подтвердить</button></div></form></dialog>
+    <noscript><p class="notice">Для работы миниапа включите JavaScript.</p></noscript>
+  </div>
+</body>
+</html>

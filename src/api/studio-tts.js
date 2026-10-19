@@ -16,13 +16,13 @@ function origin(req) {
   return url.origin;
 }
 function validId(ctx) { if (!ID.test(ctx.params.id)) throw new HttpError(404, "Набор TTS не найден."); return ctx.params.id; }
-function entry(row, base) { return {id:row.id,name:row.name,createdAt:row.created_at,byteSize:row.byte_size,cards:row.cards,tokens:row.tokens,url:`${base}/api/studio/tts/exports/${row.id}/manifest`}; }
+function entry(row, base) { return {id:row.id,name:row.name,createdAt:row.created_at,byteSize:row.byte_size,cards:row.cards,tokens:row.tokens,dice:row.dice||0,url:`${base}/api/studio/tts/exports/${row.id}/manifest`}; }
 
 async function create(ctx) {
   checkWrite(ctx);
   const pack = validatePack(ctx.body);
   const row = await store.create(ctx.client,ctx.user.id,pack);
-  return {body:entry({...row,cards:pack.manifest.cards.length,tokens:pack.manifest.tokens.length},origin(ctx.req)),headers:noStore};
+  return {body:entry({...row,cards:pack.manifest.cards.length,tokens:pack.manifest.tokens.length,dice:(pack.manifest.dice||[]).reduce((sum,die)=>sum+die.quantity,0)},origin(ctx.req)),headers:noStore};
 }
 async function list(ctx) {
   checkAccount(ctx);
@@ -37,7 +37,7 @@ async function remove(ctx) {
 async function manifest(ctx) {
   const id = validId(ctx), data = await store.manifest(ctx.client,id);
   if (!data) throw new HttpError(404,"Набор TTS удалён или не найден.");
-  return {body:{format:"kt-studio-tts-v1",teamName:data.team.name,cardCount:data.cards.length,tokenCount:data.tokens.length,
+  return {body:{format:"kt-studio-tts-v1",teamName:data.team.name,cardCount:data.cards.length,tokenCount:data.tokens.length,diceCount:(data.dice||[]).reduce((sum,die)=>sum+die.quantity,0),
     object:buildObject(data,`${origin(ctx.req)}/api/studio/tts/exports/${id}/assets/`)},headers:noStore};
 }
 async function asset(ctx) {

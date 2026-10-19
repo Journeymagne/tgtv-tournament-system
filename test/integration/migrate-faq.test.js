@@ -8,10 +8,10 @@ let pool;
 test.before(() => {
   const target = new URL(TEST_DATABASE_URL);
   assert.ok(['localhost', '127.0.0.1'].includes(target.hostname) && /test/.test(target.pathname));
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
+  pool = new Pool(require("../helpers/schema").poolOptions);
 });
 test.after(async () => { await pool.end(); });
-test.beforeEach(async () => { await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public'); });
+test.beforeEach(async () => { await require("../helpers/schema").resetSchemas(pool); });
 
 test('5.4.0 upgrade adds FAQ without changing existing accounts, sessions or ratings', async () => {
   await pool.query('CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');

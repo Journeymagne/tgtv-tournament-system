@@ -40,13 +40,8 @@ test("MEDIUM 3: каждый мутирующий маршрут открыва�
 const REQUIRES_AUTHENTICATED_USER = [
   ["PATCH", "/api/me"],
   ["GET", "/api/users/search"],
-  ["GET", "/api/users/:id"],
-  ["GET", "/api/challenge-progress"],
   ["GET", "/api/notifications"],
   ["POST", "/api/notifications/read"],
-  ["GET", "/api/games"],
-  ["GET", "/api/games/tournament-match/:matchId"],
-  ["GET", "/api/games/:id"],
   ["POST", "/api/games/:id/result"],
   ["POST", "/api/games/:id/exit"],
   ["POST", "/api/games/:id/confirm-result"],
@@ -83,4 +78,11 @@ test("a team roster can be permanently deleted through an authenticated transact
   const withdraw = routes.find((route) =>
     route.method === "POST" && route.path === "/api/tournaments/:id/rosters/:rosterId/withdraw");
   assert.ok(withdraw, "withdrawing a roster must remain available alongside deletion");
+});
+
+test("public profile and match reads allow guests; mutations remain protected", () => {
+  for (const path of ["/api/users/:id","/api/challenge-progress","/api/games","/api/games/tournament-match/:matchId","/api/games/:id"]) {
+    const route = routes.find(route => route.method === "GET" && route.path === path);
+    assert.equal(route.auth, "none", path);
+  }
 });
