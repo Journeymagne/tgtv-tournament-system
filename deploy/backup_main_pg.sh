@@ -4,10 +4,10 @@
 #
 # Install on the server, e.g.:
 #   install -m 700 deploy/backup_main_pg.sh /app/scripts/backup_main_pg.sh
-# Env file (chmod 600), sourced by cron:
+# Env file (chmod 600). Auto-loaded from BACKUP_ENV_FILE (default below).
 #   /app/backup-ftp.env
 #
-# Required for FTP upload:
+# Required for FTP upload (exact names):
 #   FTP_HOST=ftp.example.com
 #   FTP_USER=...
 #   FTP_PASS=...
@@ -16,12 +16,47 @@
 #   FTP_DIR=/backups/tgtv-pg
 #   FTP_PORT=21
 #   FTP_DAILY_KEEP=14 FTP_WEEKLY_KEEP=8 FTP_MONTHLY_KEEP=6
-#   CONTAINER_NAME DB_USER DB_NAME BACKUP_ROOT
+#   CONTAINER_NAME DB_USER DB_NAME BACKUP_ROOT BACKUP_ENV_FILE
 #
 # Needs: docker, curl, 7z (p7zip-full).
 # Note: plain "docker exec" (no -t/-T). -T is only for "docker compose exec".
 set -Eeuo pipefail
 umask 077
+
+BACKUP_ENV_FILE="${BACKUP_ENV_FILE:-/app/backup-ftp.env}"
+if [[ -f "$BACKUP_ENV_FILE" ]]; then
+  # strip CR so Windows-edited env files still work
+  set -a
+  # shellcheck disable=SC1090
+  source <(tr -d '\r' <"$BACKUP_ENV_FILE")
+  set +a
+  echo "[backup] loaded env: $BACKUP_ENV_FILE"
+else
+  echo "[backup] env file not found: $BACKUP_ENV_FILE (local-only mode)"
+fi
+
+# Aliases from early drafts / common mistakes
+FTP_HOST="${FTP_HOST:-${FTP_SERVER:-${FTP_HOSTNAME:-}}}"
+FTP_USER="${FTP_USER:-${FTP_LOGIN:-${FTP_USERNAME:-}}}"
+FTP_PASS="${FTP_PASS:-${FTP_PASSWORD:-}}"
+if [[ -z "${FTP_HOST:-}" && -n "${FTP_URL:-}" ]]; then
+  _ftp_rest="${FTP_URL#ftp://}"
+  _ftp_rest="${_ftp_rest#ftps://}"
+  _ftp_rest="${_ftp_rest#FTPS://}"
+  _ftp_rest="${_ftp_rest#FTP://}"
+  _ftp_authority="${_ftp_rest%%/*}"
+  _ftp_authority="${_ftp_authority#*@}"   # drop user:pass@ if present
+  FTP_HOST="${_ftp_authority%%:*}"
+  _ftp_port_part="${_ftp_authority#"$FTP_HOST"}"
+  if [[ "$_ftp_port_part" == :* ]]; then
+    FTP_PORT="${FTP_PORT:-${_ftp_port_part#:}}"
+  fi
+  _ftp_path="${_ftp_rest#*/}"
+  if [[ "$_ftp_rest" == */* && -n "$_ftp_path" ]]; then
+    FTP_DIR="${FTP_DIR:-/${_ftp_path}}"
+  fi
+  unset _ftp_rest _ftp_authority _ftp_port_part _ftp_path
+fi
 
 CONTAINER_NAME="${CONTAINER_NAME:-tgtv-tournament-postgres}"
 DB_USER="${DB_USER:-tgtv}"
@@ -157,6 +192,11 @@ if [[ -n "$FTP_HOST" ]]; then
   echo "[backup] FTP ok"
 else
   echo "[backup] FTP_HOST empty - local only (keeping 1 dump)"
+  echo "[backup] expected keys: FTP_HOST FTP_USER FTP_PASS BACKUP_ENCRYPT_PASS"
+  if [[ -f "$BACKUP_ENV_FILE" ]]; then
+    echo "[backup] keys found in ${BACKUP_ENV_FILE}:"
+    tr -d '\r' <"$BACKUP_ENV_FILE" | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' | cut -d= -f1 || true
+  fi
 fi
 
 # Keep only the dump we just made. If FTP was required and failed, we never get here.
