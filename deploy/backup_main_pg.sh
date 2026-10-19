@@ -191,7 +191,7 @@ if [[ -n "$FTP_HOST" ]]; then
   upload_ftp "daily" "$ARCHIVE_NAME"
   [[ "$DOW" == "7" ]] && upload_ftp "weekly" "$ARCHIVE_NAME"
   [[ "$DOM" == "01" ]] && upload_ftp "monthly" "$ARCHIVE_NAME"
-  rm -f "$LOCAL_ARCHIVE"
+  rm -rf -- "$(dirname -- "$LOCAL_ARCHIVE")"
   LOCAL_ARCHIVE=""
 
   prune_ftp_dir "daily" "$FTP_DAILY_KEEP"
