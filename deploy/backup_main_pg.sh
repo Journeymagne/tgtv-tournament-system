@@ -3,9 +3,12 @@
 # Secrets via env only - never commit.
 #
 # Install on the server, e.g.:
-#   install -m 700 deploy/backup_main_pg.sh /app/scripts/backup_main_pg.sh
-# Env file (chmod 600). Auto-loaded from BACKUP_ENV_FILE (default below).
+#   install -m 700 deploy/backup_main_pg.sh /app/backups/backup.sh
+# Env file (chmod 600). Auto-loaded from BACKUP_ENV_FILE (default below):
 #   /app/backup-ftp.env
+# Schedule (root):
+#   crontab -e
+#   0 3 * * * /app/backups/backup.sh >>/var/log/tgtv-pg-backup.log 2>&1
 #
 # Required for FTP upload (exact names):
 #   FTP_HOST=ftp.example.com
@@ -104,9 +107,6 @@ command -v 7z >/dev/null
 
 mkdir -p "$LOCAL_DIR"
 chmod 700 "$BACKUP_ROOT"
-
-# Drop legacy local trees from older script versions (daily/weekly/monthly on disk).
-rm -rf "$BACKUP_ROOT/daily" "$BACKUP_ROOT/weekly" "$BACKUP_ROOT/monthly"
 
 echo "[backup] dumping ${DB_NAME} -> ${LOCAL_DUMP}"
 REMOTE_TMP="/tmp/${DUMP_NAME}"
@@ -232,8 +232,6 @@ fi
 
 # Keep only the dump we just made. If FTP was required and failed, we never get here.
 find "$LOCAL_DIR" -type f -name 'backup_*.dump' ! -name "$DUMP_NAME" -delete
-# Also clear any leftover archives in BACKUP_ROOT from older runs.
-find "$BACKUP_ROOT" -type f \( -name 'backup_*.dump.7z' -o -name 'backup_*.sql' \) -delete 2>/dev/null || true
 
 echo "[backup] done (local kept: $LOCAL_DUMP)"
 # Restore from local:
