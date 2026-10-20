@@ -12,6 +12,11 @@ const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 if (!TEST_DATABASE_URL) {
   throw new Error("TEST_DATABASE_URL is not set. See .env.example.");
 }
+// App code (notification workers, getPool) reads DATABASE_URL. Integration
+// suites often only export TEST_DATABASE_URL; mirror it before config loads.
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = TEST_DATABASE_URL;
+}
 
 let pool = null;
 

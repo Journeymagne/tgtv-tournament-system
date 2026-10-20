@@ -33,6 +33,7 @@ jobs:
 
     env:
       TEST_DATABASE_URL: postgres://tgtv:tgtv@127.0.0.1:5432/tgtv_test
+      DATABASE_URL: postgres://tgtv:tgtv@127.0.0.1:5432/tgtv_test
 
     steps:
       - name: Checkout
