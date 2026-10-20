@@ -55,9 +55,14 @@
   border: 1px solid currentColor;
   background: transparent;
   color: inherit;
+  flex: 0 0 32px;
   width: 32px;
   height: 32px;
-  font-size: 1.2rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
 }
@@ -75,7 +80,8 @@
   display: block;
   width: 100%;
   height: auto;
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
   cursor: pointer;
   background: transparent;
 }

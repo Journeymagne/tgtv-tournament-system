@@ -15,10 +15,20 @@
   const W = 720;
   const H = 220;
   const GROUND_Y = 178;
-  const GRAVITY = 0.65;
-  const JUMP_V = -11.2;
-  const BASE_SPEED = 6.2;
+  const GRAVITY = 0.52;
+  const JUMP_V = -10.4;
+  const DOUBLE_JUMP_V = -9.2;
+  const MAX_JUMPS = 2;
+  const BASE_SPEED = 4.2;
+  const MAX_SPEED_BONUS = 3.2;
   const SPRITE_SRC = "/easter/exodite-dragon-master.webp";
+  const FRAME_W = 144;
+  const FRAME_H = 120;
+  const WALK_FRAMES = 4;
+  const JUMP_FRAME = 4;
+  const DRAW_SCALE = 0.55;
+  const PLAYER_W = Math.round(FRAME_W * DRAW_SCALE);
+  const PLAYER_H = Math.round(FRAME_H * DRAW_SCALE);
 
   let buffer = [];
   let overlay = null;
@@ -37,11 +47,20 @@
     speed: BASE_SPEED,
     score: 0,
     hi: Number(localStorage.getItem(HI_KEY)) || 0,
-    player: { x: 54, y: 0, vy: 0, w: 56, h: 94, onGround: true },
+    player: {
+      x: 48,
+      y: 0,
+      vy: 0,
+      w: PLAYER_W,
+      h: PLAYER_H,
+      onGround: true,
+      jumpsLeft: MAX_JUMPS,
+      frame: 0
+    },
     obstacles: [],
     clouds: [],
     groundOffset: 0,
-    spawnIn: 90,
+    spawnIn: 110,
     flash: 0
   };
 
@@ -66,11 +85,11 @@
     overlay.className = "exodite-runner-overlay";
     overlay.setAttribute("role", "dialog");
     overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-label", "Exodite Dragon Master runner");
+    overlay.setAttribute("aria-label", "Exodite Dragon Master Shit Runner");
     overlay.innerHTML =
       '<div class="exodite-runner-panel">' +
       '<div class="exodite-runner-head">' +
-      "<h2>Exodite Dragon Master</h2>" +
+      "<h2>Exodite Dragon Master Shit Runner</h2>" +
       '<button type="button" class="exodite-runner-close" aria-label="Close">×</button>' +
       "</div>" +
       '<div class="exodite-runner-stage"><canvas width="' +
@@ -78,12 +97,13 @@
       '" height="' +
       H +
       '"></canvas></div>' +
-      '<p class="exodite-runner-hint">Space / ↑ / click — jump · Esc — close · Volkus ruins + Mindburn</p>' +
+      '<p class="exodite-runner-hint">Space / ↑ / click — jump (×2) · Esc — close · Volkus ruins + Mindburn</p>' +
       "</div>";
     document.body.appendChild(overlay);
     panel = overlay.querySelector(".exodite-runner-panel");
     canvas = overlay.querySelector("canvas");
     ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
     overlay.querySelector(".exodite-runner-close").addEventListener("click", close);
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) close();
@@ -96,9 +116,6 @@
     sprite.decoding = "async";
     sprite.onload = () => {
       spriteReady = true;
-      const ratio = sprite.naturalWidth / sprite.naturalHeight;
-      state.player.h = 94;
-      state.player.w = Math.round(state.player.h * ratio);
     };
     sprite.src = SPRITE_SRC;
   }
@@ -111,11 +128,13 @@
     state.obstacles = [];
     state.clouds = [];
     state.groundOffset = 0;
-    state.spawnIn = 70;
+    state.spawnIn = 100;
     state.flash = 0;
     state.player.y = 0;
     state.player.vy = 0;
     state.player.onGround = true;
+    state.player.jumpsLeft = MAX_JUMPS;
+    state.player.frame = 0;
     waiting = true;
     dead = false;
     running = true;
@@ -144,9 +163,13 @@
   }
 
   function jump() {
-    if (!state.player.onGround || dead) return;
-    state.player.vy = JUMP_V;
-    state.player.onGround = false;
+    if (dead) return;
+    const p = state.player;
+    if (p.jumpsLeft <= 0) return;
+    const first = p.onGround || p.jumpsLeft === MAX_JUMPS;
+    p.vy = first ? JUMP_V : DOUBLE_JUMP_V;
+    p.onGround = false;
+    p.jumpsLeft -= 1;
   }
 
   function onAction() {
@@ -167,12 +190,12 @@
 
   function spawnObstacle() {
     const roll = Math.random();
-    if (roll < 0.28 && state.score > 180) {
-      const lane = Math.random() < 0.55 ? 1 : 0;
+    if (roll < 0.2 && state.score > 280) {
+      const lane = Math.random() < 0.6 ? 1 : 0;
       state.obstacles.push({
         kind: "mindburn",
         x: W + 20,
-        y: lane === 0 ? GROUND_Y - 118 : GROUND_Y - 72,
+        y: lane === 0 ? GROUND_Y - 124 : GROUND_Y - 78,
         w: 108,
         h: 22
       });
@@ -180,9 +203,9 @@
     }
     const variant = Math.floor(Math.random() * 3);
     const sizes = [
-      { w: 36, h: 48 },
-      { w: 52, h: 62 },
-      { w: 74, h: 54 }
+      { w: 28, h: 38 },
+      { w: 40, h: 48 },
+      { w: 56, h: 42 }
     ];
     const size = sizes[variant];
     state.obstacles.push({
@@ -196,13 +219,14 @@
   }
 
   function hitbox(player) {
-    const padX = 10;
-    const padY = 12;
+    const padX = 14;
+    const padTop = 16;
+    const padBottom = 6;
     return {
       x: player.x + padX,
-      y: GROUND_Y - player.h - player.y + padY,
+      y: GROUND_Y - player.h - player.y + padTop,
       w: player.w - padX * 2,
-      h: player.h - padY * 1.4
+      h: player.h - padTop - padBottom
     };
   }
 
@@ -213,8 +237,8 @@
   function update() {
     if (!running || waiting || dead) return;
     state.t += 1;
-    state.speed = BASE_SPEED + Math.min(7, state.score / 420);
-    state.score += state.speed * 0.12;
+    state.speed = BASE_SPEED + Math.min(MAX_SPEED_BONUS, state.score / 650);
+    state.score += state.speed * 0.1;
     state.groundOffset = (state.groundOffset + state.speed) % 24;
 
     const p = state.player;
@@ -224,18 +248,25 @@
       p.y = 0;
       p.vy = 0;
       p.onGround = true;
+      p.jumpsLeft = MAX_JUMPS;
     } else {
       p.onGround = false;
+    }
+
+    if (p.onGround) {
+      p.frame = Math.floor(state.t / 6) % WALK_FRAMES;
+    } else {
+      p.frame = JUMP_FRAME;
     }
 
     state.spawnIn -= 1;
     if (state.spawnIn <= 0) {
       spawnObstacle();
-      state.spawnIn = 55 + Math.random() * 55 - Math.min(25, state.speed * 2);
+      state.spawnIn = 85 + Math.random() * 70 - Math.min(18, state.speed * 1.5);
     }
 
     for (const cloud of state.clouds) {
-      cloud.x -= state.speed * 0.22;
+      cloud.x -= state.speed * 0.2;
       if (cloud.x + cloud.w < 0) {
         cloud.x = W + Math.random() * 120;
         cloud.y = 24 + Math.random() * 48;
@@ -258,7 +289,7 @@
   }
 
   function ink() {
-    const night = Math.floor(state.score / 700) % 2 === 1;
+    const night = Math.floor(state.score / 900) % 2 === 1;
     panel?.classList.toggle("is-night", night);
     return night ? "#f0f3f6" : "#2a323a";
   }
@@ -279,7 +310,6 @@
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.5;
     if (variant === 0) {
-      // Broken pillar
       ctx.fillRect(x + w * 0.28, y + 8, w * 0.44, h - 8);
       ctx.fillRect(x + 2, y, w - 4, 10);
       ctx.beginPath();
@@ -288,18 +318,15 @@
       ctx.lineTo(x + w * 0.28, y + h * 0.78);
       ctx.fill();
     } else if (variant === 1) {
-      // Ruined wall with window
       ctx.fillRect(x, y + 10, w, h - 10);
       ctx.fillRect(x - 2, y, w + 4, 12);
       ctx.fillStyle = panel?.classList.contains("is-night") ? "#1a1f24" : "#f7f8f4";
       ctx.fillRect(x + w * 0.28, y + h * 0.35, w * 0.44, h * 0.28);
       ctx.fillStyle = color;
-      // Crenellations
       for (let i = 0; i < 3; i++) {
         ctx.fillRect(x + 4 + i * (w / 3), y - 6, w / 5, 8);
       }
     } else {
-      // Rubble pile + stub
       ctx.beginPath();
       ctx.moveTo(x, y + h);
       ctx.lineTo(x + w * 0.18, y + h * 0.55);
@@ -318,9 +345,7 @@
     ctx.fillStyle = color;
     ctx.font = "bold 18px 'Segoe UI', Tahoma, sans-serif";
     ctx.textBaseline = "middle";
-    const label = "Mindburn";
-    ctx.fillText(label, obs.x, obs.y + obs.h / 2);
-    // Small wing flourishes
+    ctx.fillText("Mindburn", obs.x, obs.y + obs.h / 2);
     ctx.globalAlpha = 0.55;
     ctx.beginPath();
     ctx.moveTo(obs.x - 6, obs.y + 6);
@@ -359,15 +384,24 @@
     const p = state.player;
     const x = p.x;
     const y = GROUND_Y - p.h - p.y;
-    const bob = p.onGround && !waiting && !dead ? Math.sin(state.t / 4) * 1.5 : 0;
     if (spriteReady) {
-      ctx.drawImage(sprite, x, y + bob, p.w, p.h);
+      const frame = waiting || dead ? 0 : p.frame;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(
+        sprite,
+        frame * FRAME_W,
+        0,
+        FRAME_W,
+        FRAME_H,
+        x,
+        y,
+        p.w,
+        p.h
+      );
     } else {
       ctx.fillStyle = color;
-      ctx.fillRect(x + 8, y + 20, 30, 50);
-      ctx.beginPath();
-      ctx.arc(x + 28, y + 14, 12, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillRect(x + 16, y + 28, 36, 28);
+      ctx.fillRect(x + 40, y + 18, 18, 16);
     }
   }
 
@@ -381,7 +415,7 @@
     ctx.textAlign = "left";
     if (waiting) {
       ctx.font = "13px 'Segoe UI', Tahoma, sans-serif";
-      ctx.fillText("Press Space / ↑ / click to start", 16, 22);
+      ctx.fillText("Press Space / ↑ / click to start · double jump", 16, 22);
     } else if (dead) {
       ctx.font = "bold 16px 'Segoe UI', Tahoma, sans-serif";
       ctx.textAlign = "center";
@@ -394,6 +428,7 @@
     if (!ctx) return;
     const color = ink();
     const night = panel?.classList.contains("is-night");
+    ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = night ? "#1a1f24" : "#f7f8f4";
     ctx.fillRect(0, 0, W, H);
