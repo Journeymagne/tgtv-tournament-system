@@ -1,7 +1,12 @@
+const fs = require("node:fs");
+const path = require("node:path");
 const { Pool } = require("pg");
 const { SCHEMAS, SEARCH_PATH } = require("../../src/db/schemas");
 
-process.loadEnvFile?.(require("node:path").join(__dirname, "..", "..", ".env"));
+const ENV_PATH = path.join(__dirname, "..", "..", ".env");
+if (fs.existsSync(ENV_PATH)) {
+  process.loadEnvFile?.(ENV_PATH);
+}
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 if (!TEST_DATABASE_URL) {
