@@ -1,0 +1,93 @@
+.exodite-runner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 12, 18, 0.72);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.exodite-runner-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.exodite-runner-panel {
+  width: min(720px, 100%);
+  background: #f7f8f4;
+  color: #1a1f24;
+  border: 2px solid #2a323a;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+  font-family: "Segoe UI", Tahoma, sans-serif;
+}
+
+.exodite-runner-panel.is-night {
+  background: #1a1f24;
+  color: #f7f8f4;
+  border-color: #9aa3ab;
+}
+
+.exodite-runner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid currentColor;
+}
+
+.exodite-runner-head h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.exodite-runner-close {
+  appearance: none;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.exodite-runner-close:hover {
+  background: rgba(127, 127, 127, 0.18);
+}
+
+.exodite-runner-stage {
+  position: relative;
+  padding: 8px 10px 12px;
+}
+
+.exodite-runner-stage canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: auto;
+  cursor: pointer;
+  background: transparent;
+}
+
+.exodite-runner-hint {
+  margin: 8px 10px 12px;
+  font-size: 0.78rem;
+  opacity: 0.72;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exodite-runner-overlay {
+    transition: none;
+  }
+}
