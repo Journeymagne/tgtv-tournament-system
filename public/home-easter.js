@@ -1,5 +1,5 @@
 (() => {
-  const HOLD_MS = 1500;
+  const HOLD_MS = 500;
   const SECRET = "rygau";
   const WORDS = ["БУРП!", "БУЭЭЭ!", "УРРП!", "ЫК!"];
 
