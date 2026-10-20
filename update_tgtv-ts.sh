@@ -1,14 +1,36 @@
 #!/bin/bash
 set -Eeuo pipefail
 
-# Usage: bash update_tgtv-ts.sh [production|staging] [--prepare-only]
+# Usage:
+#   bash update_tgtv-ts.sh [production|staging] [--prepare-only]
+#   bash update_tgtv-ts.sh production --ref <sha-or-tag> [--prepare-only]
 # Deployment details and recovery: docs/deployment.md
+usage() {
+  echo "Usage: $0 [production|staging] [--ref <sha-or-tag>] [--prepare-only]" >&2
+}
+
 TARGET="${1:-production}"
-MODE="${2:-}"
-if [[ $# -gt 2 || ( -n "$MODE" && "$MODE" != "--prepare-only" ) ]]; then
-  echo "Usage: $0 [production|staging] [--prepare-only]" >&2
-  exit 1
-fi
+shift || true
+REF=""
+MODE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prepare-only)
+      MODE="--prepare-only"
+      shift
+      ;;
+    --ref)
+      [[ $# -ge 2 && -n "${2:-}" ]] || { echo "Missing value for --ref" >&2; usage; exit 1; }
+      REF="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+  esac
+done
+
 case "$TARGET" in
   production|prod)
     REPO_DIR="/app/Repos/tgtv-tournament-system"
@@ -25,7 +47,7 @@ case "$TARGET" in
     BRANCH="feat/tournament-system-mvp"
     ;;
   *)
-    echo "Usage: $0 [production|staging] [--prepare-only]" >&2
+    usage
     exit 1
     ;;
 esac
@@ -49,14 +71,31 @@ export GIT_SSH_COMMAND="setsid -w ssh -o StrictHostKeyChecking=accept-new"
 
 cd "$REPO_DIR"
 [[ -z "$(git status --porcelain)" ]] || { echo "Repository has uncommitted changes" >&2; exit 1; }
-git fetch origin
-git checkout "$BRANCH"
-git merge --ff-only "origin/$BRANCH"
-# Avoid accidentally deploying local-only commits from this server.
-[[ "$(git rev-parse HEAD)" == "$(git rev-parse "origin/$BRANCH")" ]] || {
-  echo "Local branch differs from origin/$BRANCH" >&2; exit 1;
-}
-echo "Preparing $TARGET ($BRANCH) for $APP_NAME"
+git fetch origin --tags --prune
+git fetch origin "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+
+if [[ -n "$REF" ]]; then
+  # Resolve the requested tag/SHA to a commit and deploy exactly that tree.
+  if ! git cat-file -e "${REF}^{commit}" 2>/dev/null; then
+    git fetch origin "$REF"
+  fi
+  RESOLVED="$(git rev-parse --verify "${REF}^{commit}")"
+  git merge-base --is-ancestor "$RESOLVED" "origin/$BRANCH" || {
+    echo "Ref $REF ($RESOLVED) is not on origin/$BRANCH; refusing deploy" >&2
+    exit 1
+  }
+  git checkout --detach "$RESOLVED"
+  echo "Preparing $TARGET (ref $REF → $RESOLVED) for $APP_NAME"
+else
+  git checkout "$BRANCH"
+  git merge --ff-only "origin/$BRANCH"
+  # Avoid accidentally deploying local-only commits from this server.
+  [[ "$(git rev-parse HEAD)" == "$(git rev-parse "origin/$BRANCH")" ]] || {
+    echo "Local branch differs from origin/$BRANCH" >&2; exit 1;
+  }
+  echo "Preparing $TARGET ($BRANCH) for $APP_NAME"
+fi
+
 ARGS=("$REPO_DIR" "$APP_DIR" "$APP_NAME" "$ENV_FILE")
 [[ -z "$MODE" ]] || ARGS+=("$MODE")
 TGTV_DEPLOY_LOCKED="$APP_DIR" node scripts/deploy-release.js "${ARGS[@]}"
