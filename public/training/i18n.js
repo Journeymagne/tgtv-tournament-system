@@ -2,6 +2,22 @@
   'use strict';
   // The authored Russian question bank is deliberately excluded from UI translation.
   window.KTUI.register('training', { pairs: [
+    ['Модерация', 'Moderation'], ['МОДЕРАЦИЯ', 'MODERATION'], ['Модерация вопросов', 'Question moderation'],
+    ['Слоп', 'Slop'], ['Этот вопрос СЛОП', 'This question is SLOP'], ['· Оспорить вопрос', '· Report question'], ['Слоп · Оспорить вопрос', 'Slop · Report question'],
+    ['Войти и оспорить · Слоп', 'Sign in to report · Slop'], ['На модерации', 'Under review'], ['В пуле', 'In the pool'],
+    ['Удалён', 'Deleted'], ['Удалённые', 'Deleted'], ['Удалён из пула', 'Removed from the pool'], ['Вопрос уже исправлен', 'This question has been corrected'],
+    ['Редактирование вопроса', 'Edit question'], ['Вернуть в пул', 'Return to pool'], ['Сохранить правки', 'Save changes'], ['Добавить комментарий', 'Add comment'],
+    ['Обновить вопрос', 'Reload question'], ['Комментарий к вопросу', 'Question comment'], ['Объяснение правильного ответа', 'Correct answer explanation'],
+    ['Название источника', 'Source title'], ['Ссылка на правило', 'Rule link'], ['Раздел источника', 'Source section'],
+    ['Варианты ответа · отметьте правильный', 'Answer options · select the correct one'], ['Жалобы, комментарии и решения', 'Reports, comments and decisions'],
+    ['Слоп · жалоба', 'Slop · report'], ['Правки сохранены', 'Changes saved'], ['Возвращён в пул', 'Returned to pool'],
+    ['Версия вопроса в этот момент', 'Question version at this time'], ['Без комментария', 'No comment'], ['Все вопросы', 'All questions'],
+    ['Выберите вопрос из списка.', 'Select a question from the list.'], ['Вопросов по этому фильтру нет.', 'No questions match this filter.'],
+    ['Жалоба «Слоп» сразу снимает вопрос с выдачи. Проверьте правило, исправьте формулировку и примите решение.', 'A Slop report immediately removes a question from sessions. Check the rule, edit the wording and make a decision.'],
+    ['«Сохранить правки» оставляет вопрос вне пула. «Вернуть в пул» сохраняет форму и снова включает вопрос в тренировки. История ответов сохраняется.', 'Save changes keeps the question outside the pool. Return to pool saves the form and enables the question for training again. Answer history is preserved.'],
+    ['Вопрос сразу исчезнет из выдачи и отправится на проверку администраторам.', 'The question will immediately leave the pool and be sent to administrators for review.'],
+    ['Что не так?', 'What is wrong?'], ['Необязательно', 'Optional'], ['Отправить на модерацию', 'Send for review'],
+    ['Вопросы на модерации временно не выдаются. После удаления вопроса из курса требования к рангу пересчитываются.', 'Questions under review are temporarily excluded from sessions. Deleting a question from the course recalculates rank requirements.'],
     ['Мой путь', 'My journey'], ['МОЙ ПУТЬ', 'MY JOURNEY'], ['Ваш путь в киллтиме', 'Your Kill Team journey'],
     ['От первого вопроса до уверенного знания правил.', 'From your first question to confident rules knowledge.'],
     ['Подробная статистика ↗', 'Detailed statistics ↗'], ['ТЕКУЩИЙ РАНГ ·', 'CURRENT RANK ·'],
@@ -37,7 +53,7 @@
     ['Рекрут', 'Recruit'], ['Боец', 'Trooper'], ['Ветеран', 'Veteran'], ['Эксперт', 'Expert'],
     ['Смешанная подготовка', 'Mixed training'], ['Случайные вопросы всех четырёх уровней', 'Random questions from all four levels'],
     ['ВЫБЕРИТЕ УРОВЕНЬ ПОДГОТОВКИ', 'CHOOSE YOUR LEVEL'], ['Следующая операция', 'Next operation'],
-    ['25 вопросов в каждом уровне', '25 questions per level'], ['СЕССИЯ СОХРАНЕНА', 'SESSION SAVED'],
+    ['Четыре уровня сложности', 'Four difficulty levels'], ['СЕССИЯ СОХРАНЕНА', 'SESSION SAVED'],
     ['Можно продолжить с того же места.', 'Continue where you left off.'],
     ['ИЗУЧЕНО ВОПРОСОВ', 'QUESTIONS STUDIED'], ['ТОЧНОСТЬ', 'ACCURACY'], ['ЗАВЕРШЕНО СЕССИЙ', 'SESSIONS COMPLETED'], ['НУЖНО ПОВТОРИТЬ', 'TO REVIEW'],
     ['Уникальные вопросы с ответом', 'Unique answered questions'], ['Начните первую тренировку', 'Start your first session'],
@@ -69,6 +85,7 @@
     ['Почему так', 'Why this answer'], ['Ничего не найдено', 'No results'], ['Подходящих ошибок нет', 'No matching mistakes'], ['Сбросить фильтры', 'Reset filters'],
     ['Откуда берутся правила', 'Rules sources'], ['О базе правил ↗', 'About the rules bank ↗']
   ], patterns: [
+    [/^«Судья» открывается после двух верных ответов на каждый вопрос базы: (\d+) закреплённых вопросов и (\d+) XP\.$/, 'Judge unlocks after two correct answers to every question in the bank: $1 reinforced questions and $2 XP.'],
     [/^Ещё (\d+) XP до следующего ранга$/, '$1 XP to the next rank'],
     [/^До следующего ранга: (\d+) XP$/, 'Next rank in $1 XP'],
     [/^(\d+) из 20 ответов сохранено · (.+)$/, '$1 of 20 answers saved · $2'],

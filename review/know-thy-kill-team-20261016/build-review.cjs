@@ -3,9 +3,13 @@ const path = require('node:path');
 const root = __dirname;
 const questions = [1,2,3,4].flatMap(level => JSON.parse(fs.readFileSync(path.join(root, `level-${level}.json`), 'utf8')));
 const existing = JSON.parse(fs.readFileSync(path.join(root, '../../src/training-data/questions.json'), 'utf8'));
-const ids = new Set(existing.map(q => q.id)), texts = new Set(existing.map(q => q.question.trim().toLowerCase()));
+const existingById = new Map(existing.map(q => [q.id, q]));
+const ids = new Set(), texts = new Set();
 for (const q of questions) {
   if (ids.has(q.id) || texts.has(q.question.trim().toLowerCase())) throw Error('Duplicate question: ' + q.id);
+  const promoted = existingById.get(q.id);
+  if (promoted && JSON.stringify(promoted) !== JSON.stringify(q)) throw Error('Published question differs: ' + q.id);
+  if (existing.some(item => item.id !== q.id && item.question.trim().toLowerCase() === q.question.trim().toLowerCase())) throw Error('Duplicate published question: ' + q.id);
   ids.add(q.id); texts.add(q.question.trim().toLowerCase());
   if (![1,2,3,4].includes(q.difficulty) || q.options.length !== 4 || new Set(q.options).size !== 4 || !Number.isInteger(q.answer) || q.answer < 0 || q.answer > 3 || !q.explanation || !q.source?.section || !q.source.url.startsWith('https://')) throw Error('Invalid question: ' + q.id);
 }

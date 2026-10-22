@@ -19,7 +19,11 @@
     return data;
   }
   window.KTTrainingAPI = {
-    questions: () => request('questions'),
+    questions: revision => request('questions' + (revision === undefined ? '' : '?revision=' + encodeURIComponent(revision))),
+    report: (id, body) => request('questions/' + encodeURIComponent(id) + '/report', body),
+    moderation: () => request('moderation'),
+    moderationQuestion: id => request('moderation/' + encodeURIComponent(id)),
+    moderate: (id, body) => request('moderation/' + encodeURIComponent(id), body),
     async connect(user) {
       accountId = user.id;
       // Shared header also uses this fixed identity to detect account switches.

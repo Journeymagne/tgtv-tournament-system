@@ -1,4 +1,7 @@
 const { progression } = require('../../domain/training-progression');
+const bank = require('../../domain/training');
+const catalogStore = require('./training-catalog');
+const { reconcile } = require('../../../public/training/session-bank');
 
 function sessionView(row) {
   return row ? {
@@ -35,24 +38,37 @@ async function saveProfile(client, profile, completed = false) {
   if (completed) profile.completed_count += 1;
 }
 
-async function state(client, user, profile, bankVersion) {
-  const active = await activeSession(client, user.id);
+async function repairActive(client, userId, profile, catalog) {
+  const active = await activeSession(client, userId);
+  if (active && reconcile(active, catalog.questions, bank.sessionItem, pool => bank.shuffled(pool)[0])) {
+    await client.query('UPDATE training_sessions SET items=$2 WHERE id=$1', [active.id, JSON.stringify(active.items)]);
+    await saveProfile(client, profile);
+  }
+  return active;
+}
+async function state(client, user, profile, bankVersion, catalog) {
+  const active = await repairActive(client, user.id, profile, catalog);
   const { rows: history } = await client.query(`SELECT * FROM training_sessions WHERE user_id=$1
     AND status<>'active' ORDER BY started_at DESC,id DESC LIMIT 100`, [user.id]);
   return {
-    bankVersion, user: { id: user.id, name: user.name }, revision: profile.revision,
-    stats: profile.stats, completedCount: profile.completed_count, journey: progression(profile.stats),
+    bankVersion, bankRevision: catalog.revision, user: { id: user.id, name: user.name, isAdmin: Boolean(user.isAdmin) }, revision: profile.revision,
+    stats: profile.stats, completedCount: profile.completed_count, journey: progression(profile.stats, catalog.curriculum),
     active: sessionView(active), history: history.map(sessionView), historyLimit: 100
   };
 }
 
 // Public achievement only: never include individual answers, sessions or timestamps.
 async function publicJourney(client, userId) {
-  const { rows: [row] } = await client.query(`SELECT p.stats FROM users u
-    LEFT JOIN knowthykt.public_progress p ON p.user_id=u.id WHERE u.id=$1`, [userId]);
-  if (!row) return null;
-  const { xp, rank, next, remaining, percent, total, solved, mastered } = progression(row.stats);
+  let stats = {};
+  if (userId) {
+    const { rows: [row] } = await client.query(`SELECT p.stats FROM users u
+      LEFT JOIN knowthykt.public_progress p ON p.user_id=u.id WHERE u.id=$1`, [userId]);
+    if (!row) return null;
+    stats = row.stats;
+  }
+  const { rows } = await client.query("SELECT * FROM knowthykt.public_questions WHERE status<>'deleted' ORDER BY id");
+  const { xp, rank, next, remaining, percent, total, solved, mastered } = progression(stats, rows.map(catalogStore.view));
   return { xp, rank, next, remaining, percent, total, solved, mastered };
 }
 
-module.exports = { sessionView, lockProfile, findSession, activeSession, saveProfile, state, publicJourney };
+module.exports = { sessionView, lockProfile, findSession, activeSession, repairActive, saveProfile, state, publicJourney };

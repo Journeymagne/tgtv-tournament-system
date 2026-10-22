@@ -4,7 +4,6 @@ const { requirePositiveIntId } = require("./params");
 const { decodeDataUrl, contentVersion } = require("../domain/data-url");
 const { tournamentNumber } = require("../domain/achievements");
 const training = require('../db/repositories/training');
-const { progression } = require('../domain/training-progression');
 
 const idValue = (value) => requirePositiveIntId(value, 400, "Invalid achievement or recipient ID");
 async function requireAchievement(client, id) {
@@ -21,7 +20,7 @@ async function list({ client, query, user }) {
   const teamId = query.has('teamId') ? idValue(query.get('teamId')) : null;
   const showTraining = !teamId && kind !== 'team' && category !== 'title';
   const trainingAchievement = showTraining
-    ? (userId || user?.id ? await training.publicJourney(client, userId || user.id) : progression()) : null;
+    ? await training.publicJourney(client, userId || user?.id) : null;
   return { achievements: await repo.list(client, { kind, category, userId, teamId }), trainingAchievement };
 }
 async function get({ client, params }) {

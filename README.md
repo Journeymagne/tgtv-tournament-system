@@ -48,7 +48,7 @@ Sun and moon buttons select a shared light or dark theme.
 FAQ browsing is public. Questions, submissions and moderation use the same
 Companion account and session; FAQ Moderator is a separate role on that account.
 
-Know Thy Kill Team offers 100 Russian rules questions in four difficulties and
+Know Thy Kill Team offers 300 Russian rules questions (75 per difficulty) and
 20-question sessions. Browsing and training are public; guests keep progress in
 their browser, while Companion accounts enable cross-device progress.
 Migration **056_training_progress** stores account answers, active sessions and
@@ -60,7 +60,16 @@ must provision roles again after setting `KNOWTHYKT_DB_PASSWORD`.
 The trainer opens with a personal journey through six ranks, from Нубик to
 Судья. XP rewards the first two correct answers to each question; a shared
 evolving achievement updates on the journey and in the player's Companion
-profile. Earlier training is counted automatically; no new migration is needed.
+profile. Rank thresholds are 0 / 600 / 2,400 / 5,400 / 9,600 / 15,000 XP.
+Judge requires two correct answers to every question in the current bank;
+additional repetitions award no XP. Earlier answers, guest progress and active
+100-question-bank sessions remain valid; no new migration is needed.
+See [bank provenance and version compatibility](src/training-data/README.md).
+Migration **062_training_moderation** adds persistent Slop reports and the admin
+moderation tab. A report immediately withdraws the question; administrators can
+edit it, comment, restore it to the pool or archive it. Active sessions replace
+unanswered withdrawn questions while checked answers retain their original wording.
+See [moderation and versioned sessions](docs/know-thy-kill-team.md#slop-reports-and-moderation).
 
 Published teams also have [reviews and ratings](docs/studio-reviews.md): Theme,
 Balance and Lore scores, library averages, editable reviews and administrator

@@ -34,6 +34,7 @@ async function provision() {
       GRANT SELECT ON accounts.user_email_accounts TO kt_tournaments;
       GRANT USAGE ON SCHEMA knowthykt TO kt_tournaments;
       GRANT SELECT ON knowthykt.public_progress TO kt_tournaments;
+      GRANT SELECT ON knowthykt.public_questions TO kt_tournaments;
     `);
     await client.query('COMMIT');
     console.log('Provisioned six service roles; application processes do not own schemas.');

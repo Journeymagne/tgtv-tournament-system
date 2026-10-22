@@ -19,13 +19,14 @@ function progression(questions, ranks, stats = {}) {
     attempts += count; correct += wins;
   }
   const xp = levels.reduce((n, level) => n + level.xp, 0);
-  const rank = ranks.filter(rank => xp >= rank.xp).at(-1);
+  const rank = questions.length ? ranks.filter(rank => xp >= rank.xp).at(-1) : ranks[0];
   const next = ranks[rank.tier] || null;
   const remaining = next ? next.xp - xp : 0;
-  const percent = next ? Math.floor((xp - rank.xp) / (next.xp - rank.xp) * 100) : 100;
+  const percent = !questions.length ? 0 : next ? Math.floor((xp - rank.xp) / (next.xp - rank.xp) * 100) : 100;
   const incomplete = levels.filter(level => level.xp < level.maxXp);
   // Recommend the least practiced level, with easier levels winning a tie.
-  const recommended = [...incomplete].sort((a, b) => a.xp / a.maxXp - b.xp / b.maxXp || a.difficulty - b.difficulty)[0];
+  const recommended = incomplete.filter(level => questions.filter(q => q.difficulty === level.difficulty && (!q.status || q.status === 'active')).length >= 20)
+    .sort((a, b) => a.xp / a.maxXp - b.xp / b.maxXp || a.difficulty - b.difficulty)[0];
   return {
     version: 1, xp, rank, next, remaining, percent, ranks, levels,
     total: questions.length, maxXp: levels.reduce((n, level) => n + level.maxXp, 0),
