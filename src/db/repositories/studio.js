@@ -117,7 +117,7 @@ async function remove(client, owner, id, revision) {
   if ((previous?.revision || 0) !== revision) throw new HttpError(409, "Команда изменена в другой вкладке. Обновите список черновиков и проверьте её перед удалением.");
   await client.query("DELETE FROM studio_tts_exports WHERE owner_id=$1 AND project_id=$2", [owner, id]);
   if (previous?.publication_id) {
-    await client.query("DELETE FROM notification_inbox_items WHERE payload->>'type' IN ('studio_review','studio_comment') AND payload->>'href' LIKE $1",["/studio#/library/"+previous.publication_id+"/%"]);
+    await client.query("DELETE FROM studio.notification_messages WHERE payload->>'type' IN ('studio_review','studio_comment') AND payload->>'href' LIKE $1",["/studio#/library/"+previous.publication_id+"/%"]);
     await client.query("DELETE FROM studio_comments WHERE publication_id=$1",[previous.publication_id]);
     await client.query("DELETE FROM studio_reviews WHERE publication_id=$1",[previous.publication_id]);
     await client.query("DELETE FROM studio_discussion_state WHERE publication_id=$1",[previous.publication_id]);

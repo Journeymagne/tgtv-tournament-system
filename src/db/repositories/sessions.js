@@ -12,6 +12,10 @@ async function create(client, { token, userId, expiresAt }) {
 
 async function findActiveSession(client, token) {
   if (!token) return null;
+  if (!['monolith','accounts'].includes(process.env.SERVICE_NAME || 'monolith')) {
+    const {rows:[result]}=await client.query('SELECT accounts.session_identity($1) AS identity',[token]);
+    return result.identity ? {user:mapUser(result.identity),expiresAt:result.identity.expires_at} : null;
+  }
   const { rows } = await client.query(
     `SELECT ${JOINED_USER_COLUMNS}, s.expires_at
      FROM sessions s JOIN users u ON u.id = s.user_id
@@ -30,6 +34,9 @@ async function findActiveUser(client, token) {
 
 async function extend(client, token, expiresAt) {
   if (!token) return;
+  if (!['monolith','accounts'].includes(process.env.SERVICE_NAME || 'monolith')) {
+    await client.query('SELECT accounts.renew_session($1,$2)',[token,expiresAt]);return;
+  }
   await client.query("UPDATE sessions SET expires_at = $2 WHERE token = $1", [token, expiresAt]);
 }
 

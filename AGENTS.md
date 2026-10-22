@@ -20,7 +20,14 @@ instruction; do not ask again whether to create a local test administrator or si
 
 # Automated tests
 
-Run automated test suites only as part of merging changes into `main`. Do not
-run them for routine edits, local previews, or standalone commits and pushes.
+The full automated test suite runs in GitHub Actions CI (`.github/workflows/ci.yml`)
+on pushes and pull requests to `main`. CI runs `npm test` with a dedicated
+PostgreSQL test database.
+
+Do not run automated tests locally, including before merging into `main`, unless
+the user explicitly requests a local run. Check the CI result for the relevant
+commit and diagnose failures from the failed job's logs. Do not treat an older
+successful run as validation of newer changes.
+
 Visual inspection and local page/API availability checks remain part of the
 preview workflow.

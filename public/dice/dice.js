@@ -2,7 +2,7 @@
   'use strict';
   const $ = selector => document.querySelector(selector);
   const storageKey = 'kt-companion-d6-v1', projectId = 'companion-d6';
-  const defaults = {name:'Мой D6', body:'#202b30', ink:'#ff8a24', style:'pips', valueScale:100, logoFace:6, logoScale:65, tintLogo:false, sizeMm:16, logo:'', logoName:'', sourceId:''};
+  const defaults = {...window.KTDice.defaults, logo:'', logoName:'', sourceId:''};
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   const imageURI = value => typeof value === 'string' && value.length < 2000000 && /^data:image\/(png|jpeg);base64,[a-z0-9+/]+={0,2}$/i.test(value);
   const color = value => /^#[0-9a-f]{6}$/i.test(value);
@@ -58,27 +58,7 @@
     } catch(error) {if(job===logoJob)status('#logo-status',error.message,true);}
     finally {if(job===logoJob){logoLoading=false; updateButtons();}}
   }
-  const pips = {1:[[0,0]],2:[[-1,-1],[1,1]],3:[[-1,-1],[0,0],[1,1]],4:[[-1,-1],[1,-1],[-1,1],[1,1]],5:[[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],6:[[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]]};
-  function drawFace(canvas,value) {
-    const ctx=canvas.getContext('2d'), size=canvas.width;
-    ctx.clearRect(0,0,size,size); ctx.fillStyle=state.body; ctx.fillRect(0,0,size,size);
-    const shade=ctx.createLinearGradient(0,0,size,size); shade.addColorStop(0,'#ffffff09'); shade.addColorStop(.5,'#00000000'); shade.addColorStop(1,'#00000025');
-    ctx.fillStyle=shade; ctx.fillRect(0,0,size,size);
-    ctx.strokeStyle='#ffffff15'; ctx.lineWidth=size*.008; ctx.strokeRect(size*.03,size*.03,size*.94,size*.94);
-    ctx.fillStyle=state.ink;
-    if (value===state.logoFace && logoImage) {
-      const logo=document.createElement('canvas'); logo.width=logo.height=size;
-      const ink=logo.getContext('2d'), max=size*state.logoScale/100, ratio=Math.min(max/logoImage.naturalWidth,max/logoImage.naturalHeight);
-      const w=logoImage.naturalWidth*ratio,h=logoImage.naturalHeight*ratio;
-      ink.drawImage(logoImage,(size-w)/2,(size-h)/2,w,h);
-      if(state.tintLogo){ink.globalCompositeOperation='source-in'; ink.fillStyle=state.ink; ink.fillRect(0,0,size,size);}
-      ctx.drawImage(logo,0,0);
-    } else if(state.style==='numbers') {
-      ctx.font='700 '+size*.58*state.valueScale/100+'px Arial, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(value),size/2,size*.525);
-    } else {
-      for(const [x,y] of pips[value]){ctx.beginPath();ctx.arc(size*(.5+x*.245),size*(.5+y*.245),size*.067*state.valueScale/100,0,Math.PI*2);ctx.fill();}
-    }
-  }
+  function drawFace(canvas,value) { window.KTDice.drawFace(canvas,value,state,logoImage); }
   function render() {
     for(let i=0;i<6;i++){
       drawFace(faces[i],i+1);
@@ -87,18 +67,7 @@
     $('#logo-scale-value').textContent=state.logoScale+'%';
     $('#value-scale-value').textContent=state.valueScale+'%';
   }
-  function atlas() {
-    const canvas=document.createElement('canvas'); canvas.width=canvas.height=2048;
-    const ctx=canvas.getContext('2d'), cell=2048/3; ctx.fillStyle=state.body;ctx.fillRect(0,0,2048,2048);
-    // Native TTS D6.png: blank top third; middle row 2,4,5; bottom 1,3,6.
-    // Faces 1 and 6 are rotated 180 degrees in the official template.
-    for(const [value,column,row,rotate] of [[2,0,1,0],[4,1,1,0],[5,2,1,0],[1,0,2,1],[3,1,2,0],[6,2,2,1]]){
-      const face=document.createElement('canvas'); face.width=face.height=768;drawFace(face,value);
-      ctx.save();ctx.translate((column+.5)*cell,(row+.5)*cell);if(rotate)ctx.rotate(Math.PI);
-      ctx.drawImage(face,-cell/2,-cell/2,cell,cell);ctx.restore();
-    }
-    return canvas;
-  }
+  function atlas() { return window.KTDice.atlas(state,logoImage); }
   function validateFields() {
     for(const input of document.querySelectorAll('#design-fields input')) if(!input.checkValidity()){input.reportValidity();return false;}
     if(!state.name.trim()){status('#export-status','Укажи название кубика.',true);$('#die-name').focus();return false;}

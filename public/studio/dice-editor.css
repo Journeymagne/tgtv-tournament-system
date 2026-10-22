@@ -1,0 +1,26 @@
+.studio-dice-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+.studio-dice-settings .studio-dice-check{display:flex;align-items:center;gap:10px;line-height:1.5}
+#studio-workspace .studio-dice-check input[type=checkbox]{appearance:auto;width:20px;height:20px;margin:0;flex:none;box-shadow:none;accent-color:var(--accent)}
+.studio-dice-settings input[type=color]{height:42px;padding:4px;cursor:pointer}
+.studio-dice-settings input[type=range]{padding:0;accent-color:var(--accent);width:100%}
+.studio-dice-range output{float:right;color:var(--accent);font-variant-numeric:tabular-nums}
+.studio-dice-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.studio-dice-standalone{display:inline-block;color:var(--accent);margin-top:12px}
+.dice-preview-panel .side-controls,.dice-preview-panel .print-hint{display:none}
+.studio-dice-preview{width:100%;text-align:center;--cube-size:160px;--cube-half:80px}
+.studio-dice-stage{height:280px;display:flex;align-items:center;justify-content:center;perspective:850px;touch-action:none;cursor:grab;overflow:hidden;border-radius:12px;background:radial-gradient(ellipse at center,rgba(120,130,140,.12),transparent 70%)}
+.studio-dice-stage:active{cursor:grabbing}
+.studio-dice-stage:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.studio-dice-cube{width:var(--cube-size);height:var(--cube-size);position:relative;transform-style:preserve-3d}
+.studio-dice-cube canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:9px;backface-visibility:hidden;box-shadow:0 0 1px #000}
+.studio-dice-cube [data-dice-face="1"]{transform:rotateX(90deg) translateZ(var(--cube-half))}
+.studio-dice-cube [data-dice-face="2"]{transform:translateZ(var(--cube-half))}
+.studio-dice-cube [data-dice-face="3"]{transform:rotateY(90deg) translateZ(var(--cube-half))}
+.studio-dice-cube [data-dice-face="4"]{transform:rotateY(-90deg) translateZ(var(--cube-half))}
+.studio-dice-cube [data-dice-face="5"]{transform:rotateY(180deg) translateZ(var(--cube-half))}
+.studio-dice-cube [data-dice-face="6"]{transform:rotateX(-90deg) translateZ(var(--cube-half))}
+.studio-dice-faces{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:22px auto 0;max-width:330px}
+.studio-dice-faces figure{margin:0;min-width:0}
+.studio-dice-faces canvas{width:100%;height:auto;border-radius:9px}
+.studio-dice-faces figcaption{font-size:12px;color:var(--muted);margin-top:4px}
+@media(max-width:600px){.studio-dice-fields{gap:0 10px}.studio-dice-actions{flex-direction:column}.studio-dice-actions button{width:100%}}

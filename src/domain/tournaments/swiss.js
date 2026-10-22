@@ -98,18 +98,29 @@ function shuffled(items, random) {
   return result;
 }
 
-function chooseByeRow(rows, random) {
+function chooseByeRow(rows, random, preferredId = null) {
   const fewestByes = Math.min(...rows.map((row) => Number(row.byes || 0)));
   const leastByeRows = rows.filter((row) => Number(row.byes || 0) === fewestByes);
   const lowestScore = Math.min(...leastByeRows.map((row) => Number(row.matchPoints || 0)));
-  return randomChoice(
-    leastByeRows.filter((row) => Number(row.matchPoints || 0) === lowestScore),
-    random
-  );
+  const candidates = leastByeRows.filter((row) => Number(row.matchPoints || 0) === lowestScore);
+  if (preferredId != null) {
+    const preferred = candidates.find(row => row.participant.id === Number(preferredId));
+    if (!preferred) throw new ValidationError("The preview bye is no longer eligible; generate pairings again");
+    return preferred;
+  }
+  return randomChoice(candidates, random);
 }
 
 function repeatPenalty(rowA, rowB, pairHistory) {
   return pairHistory.has(playedPairKey(rowA.participant.id, rowB.participant.id)) ? 1 : 0;
+}
+
+function scoreGap(rowA, rowB) {
+  return Math.abs(Number(rowA.matchPoints || 0) - Number(rowB.matchPoints || 0));
+}
+
+function pairingScoreGap(pairs) {
+  return pairs.reduce((total, [rowA, rowB]) => total + scoreGap(rowA, rowB), 0);
 }
 
 function constrainedRow(remaining, pairHistory, random) {
@@ -139,8 +150,10 @@ function greedyPairing(rows, pairHistory, random) {
     remaining.splice(remaining.indexOf(rowA), 1);
     const opponents = shuffled(remaining, random);
     const lowestPenalty = Math.min(...opponents.map((rowB) => repeatPenalty(rowA, rowB, pairHistory)));
+    const candidates = opponents.filter((opponent) => repeatPenalty(rowA, opponent, pairHistory) === lowestPenalty);
+    const smallestGap = Math.min(...candidates.map((opponent) => scoreGap(rowA, opponent)));
     const rowB = randomChoice(
-      opponents.filter((opponent) => repeatPenalty(rowA, opponent, pairHistory) === lowestPenalty),
+      candidates.filter((opponent) => scoreGap(rowA, opponent) === smallestGap),
       random
     );
     remaining.splice(remaining.indexOf(rowB), 1);
@@ -156,13 +169,17 @@ function minimumRepeatPairing(rows, pairHistory, random) {
 
   const attempts = Math.min(256, Math.max(24, rows.length * 4));
   let best = null;
+  let bestScoreGap = Infinity;
   let equallyGood = [];
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const candidate = greedyPairing(rows, pairHistory, random);
-    if (!best || candidate.repeats < best.repeats) {
+    const candidateScoreGap = pairingScoreGap(candidate.pairs);
+    if (!best || candidate.repeats < best.repeats ||
+        (candidate.repeats === best.repeats && candidateScoreGap < bestScoreGap)) {
       best = candidate;
+      bestScoreGap = candidateScoreGap;
       equallyGood = [candidate];
-    } else if (candidate.repeats === best.repeats) {
+    } else if (candidate.repeats === best.repeats && candidateScoreGap === bestScoreGap) {
       equallyGood.push(candidate);
     }
     if (best.repeats === 0 && equallyGood.length >= 8) break;
@@ -184,7 +201,8 @@ function minimumRepeatPairing(rows, pairHistory, random) {
     const rowA = constrainedRow(remaining, pairHistory, random);
     const rest = remaining.filter((row) => row !== rowA);
     const opponents = shuffled(rest, random).sort(
-      (left, right) => repeatPenalty(rowA, left, pairHistory) - repeatPenalty(rowA, right, pairHistory)
+      (left, right) => repeatPenalty(rowA, left, pairHistory) - repeatPenalty(rowA, right, pairHistory) ||
+        scoreGap(rowA, left) - scoreGap(rowA, right)
     );
     for (const rowB of opponents) {
       const nextRepeats = repeats + repeatPenalty(rowA, rowB, pairHistory);
@@ -255,7 +273,7 @@ function pairScoreBrackets(rows, pairHistory, random) {
   return pairs;
 }
 
-function buildSwissNextRound(tournament, participants, matches, roundNumber, random = Math.random) {
+function buildSwissNextRound(tournament, participants, matches, roundNumber, random = Math.random, preferredByeId = null) {
   const eligible = eligibleForNextRound(participants);
   validateSwiss(eligible, tournament.swissRoundCount);
   if (!Number.isInteger(roundNumber) || roundNumber < 2 || roundNumber > tournament.swissRoundCount) {
@@ -268,7 +286,7 @@ function buildSwissNextRound(tournament, participants, matches, roundNumber, ran
   const roundMatches = [];
 
   if (rows.length % 2 === 1) {
-    const byeRow = chooseByeRow(rows, random);
+    const byeRow = chooseByeRow(rows, random, preferredByeId);
     rows.splice(rows.indexOf(byeRow), 1);
     roundMatches.push({
       key: `r${roundNumber}m1`,
@@ -284,7 +302,20 @@ function buildSwissNextRound(tournament, participants, matches, roundNumber, ran
     });
   }
 
-  const pairs = pairScoreBrackets(rows, pairHistory, random);
+  let pairs = pairScoreBrackets(rows, pairHistory, random);
+  const bracketRepeats = pairs.reduce((total, [rowA, rowB]) => total + repeatPenalty(rowA, rowB, pairHistory), 0);
+  // A score bracket can contain only previous opponents, especially after draws.
+  // Search the whole field before accepting a rematch; score proximity is secondary.
+  if (bracketRepeats > 0) {
+    const alternative = minimumRepeatPairing(rows, pairHistory, random);
+    if (alternative.repeats < bracketRepeats) {
+      const standingsIndex = new Map(rows.map((row, index) => [row.participant.id, index]));
+      pairs = alternative.pairs.sort((left, right) =>
+        Math.min(...left.map((row) => standingsIndex.get(row.participant.id))) -
+        Math.min(...right.map((row) => standingsIndex.get(row.participant.id)))
+      );
+    }
+  }
   for (const [rowA, rowB] of pairs) {
     roundMatches.push({
       key: `r${roundNumber}m${roundMatches.length + 1}`,

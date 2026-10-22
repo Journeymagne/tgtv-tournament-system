@@ -3,6 +3,8 @@ const { HttpError } = require("../http/io");
 const { requirePositiveIntId } = require("./params");
 const { decodeDataUrl, contentVersion } = require("../domain/data-url");
 const { tournamentNumber } = require("../domain/achievements");
+const training = require('../db/repositories/training');
+const { progression } = require('../domain/training-progression');
 
 const idValue = (value) => requirePositiveIntId(value, 400, "Invalid achievement or recipient ID");
 async function requireAchievement(client, id) {
@@ -10,14 +12,17 @@ async function requireAchievement(client, id) {
   if (!achievement) throw new HttpError(404, "Achievement not found");
   return achievement;
 }
-async function list({ client, query }) {
+async function list({ client, query, user }) {
   const kind = query.get("kind");
   const category = query.get("category");
   if (category && !["achievement", "title"].includes(category)) throw new HttpError(400, "Invalid achievement category");
   if (kind && !["player", "team"].includes(kind)) throw new HttpError(400, "Invalid achievement kind");
-  return { achievements: await repo.list(client, { kind, category,
-    userId: query.has("userId") ? idValue(query.get("userId")) : null,
-    teamId: query.has("teamId") ? idValue(query.get("teamId")) : null }) };
+  const userId = query.has('userId') ? idValue(query.get('userId')) : null;
+  const teamId = query.has('teamId') ? idValue(query.get('teamId')) : null;
+  const showTraining = !teamId && kind !== 'team' && category !== 'title';
+  const trainingAchievement = showTraining
+    ? (userId || user?.id ? await training.publicJourney(client, userId || user.id) : progression()) : null;
+  return { achievements: await repo.list(client, { kind, category, userId, teamId }), trainingAchievement };
 }
 async function get({ client, params }) {
   const achievement = await requireAchievement(client, params.id);

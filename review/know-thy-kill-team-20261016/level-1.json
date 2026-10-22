@@ -1,0 +1,952 @@
+[
+  {
+    "id": "kt-101",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "Что по обычным правилам происходит с состоянием ваших оперативников на шаге Ready в начале нового turning point?",
+    "options": [
+      "Все ваши оперативники становятся ready",
+      "Только командир становится ready",
+      "Ready становятся только оперативники с Engage",
+      "Оперативники с Conceal остаются expended"
+    ],
+    "answer": 0,
+    "explanation": "На шаге Ready игрок подготавливает всех своих оперативников. Это позволяет снова активировать их в новой Firefight phase.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Strategy Phase — Ready"
+    }
+  },
+  {
+    "id": "kt-102",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "Когда заканчивается обмен стратегическими гамбитами на шаге Gambit?",
+    "options": [
+      "После первого использованного гамбита",
+      "Когда оба игрока последовательно пасуют",
+      "Как только один игрок потратил все CP",
+      "Когда каждый игрок активировал одного оперативника"
+    ],
+    "answer": 1,
+    "explanation": "Игроки по очереди применяют STRATEGIC GAMBIT либо пасуют. Шаг заканчивается после двух последовательных пасов, по одному от каждого игрока.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Strategy Phase — Strategic Gambits"
+    }
+  },
+  {
+    "id": "kt-103",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "Вы уже использовали конкретный STRATEGIC GAMBIT в текущем turning point. Можно ли без специального исключения применить тот же гамбит ещё раз?",
+    "options": [
+      "Да, если после него пасовал соперник",
+      "Да, если выбрать другого оперативника",
+      "Нет, каждый такой гамбит используется не более одного раза за turning point",
+      "Да, если заплатить двойную стоимость"
+    ],
+    "answer": 2,
+    "explanation": "Ограничение относится к каждому отдельному STRATEGIC GAMBIT. Достаточное количество CP само по себе не снимает его.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Strategy Phase — Strategic Gambits"
+    }
+  },
+  {
+    "id": "kt-104",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "К какой категории для порядка применения относится любой strategy ploy?",
+    "options": [
+      "К действию Shoot",
+      "К контрдействию Counteract",
+      "К проверке инициативы",
+      "К STRATEGIC GAMBIT"
+    ],
+    "answer": 3,
+    "explanation": "Любой strategy ploy одновременно является STRATEGIC GAMBIT. Поэтому его используют в соответствующем обмене на шаге Gambit.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Strategy Phase"
+    }
+  },
+  {
+    "id": "kt-105",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "Сколько CP обычно стоит ploy, если в его правилах и других эффектах не указана иная стоимость?",
+    "options": [
+      "1 CP",
+      "0 CP",
+      "2 CP",
+      "Число CP, равное APL выбранного оперативника"
+    ],
+    "answer": 0,
+    "explanation": "Обычная стоимость ploy — 1 CP. AP действий и CP приёмов являются разными ресурсами.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Strategy Phase; Firefight Phase"
+    }
+  },
+  {
+    "id": "kt-106",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "Вы только что бросили кубики защиты при стрельбе. Как их позволяет изменить Command Re-roll?",
+    "options": [
+      "Превратить все провалы в обычные успехи",
+      "Перебросить один из этих кубиков",
+      "Заменить один результат автоматической шестёркой",
+      "Добавить ещё три кубика защиты"
+    ],
+    "answer": 1,
+    "explanation": "Command Re-roll можно использовать после броска своих кубиков атаки или защиты. Он разрешает один переброс из соответствующего броска.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Command Re-roll"
+    }
+  },
+  {
+    "id": "kt-107",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "Один и тот же firefight ploy уже использован вами в этом turning point. Это не Command Re-roll, специальных исключений нет. Можно ли применить его снова?",
+    "options": [
+      "Да, если сменить цель",
+      "Да, если другой оперативник начал активацию",
+      "Нет",
+      "Да, если оба оперативника с Engage"
+    ],
+    "answer": 2,
+    "explanation": "Один и тот же firefight ploy обычно нельзя применять повторно за turning point. Command Re-roll выделен как исключение.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Firefight Phase — Ploys"
+    }
+  },
+  {
+    "id": "kt-108",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "В третьем turning point вы выиграли бросок за инициативу. Можно ли по обычным правилам отдать инициативу сопернику?",
+    "options": [
+      "Нет, победитель обязательно получает её сам",
+      "Только если у соперника меньше оперативников",
+      "Только за 1 CP",
+      "Да, победитель выбирает, кто получит инициативу"
+    ],
+    "answer": 3,
+    "explanation": "Выигранный бросок даёт право решить, у кого будет инициатива. Вы можете выбрать соперника.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Strategy Phase — Initiative"
+    }
+  },
+  {
+    "id": "kt-109",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "Где нужно проверить, как определяется инициатива самого первого turning point в выбранной игре?",
+    "options": [
+      "В последовательности игры используемого набора миссий",
+      "В характеристике Move лидера",
+      "В размере баз оперативников",
+      "В описании правила оружия Balanced"
+    ],
+    "answer": 0,
+    "explanation": "Для первого turning point порядок задаётся используемым mission pack. Общая процедура последующих turning points не заменяет его указания.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3rd edition: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Strategy Phase — 1. Initiative"
+    }
+  },
+  {
+    "id": "kt-110",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "У обоих игроков все оперативники стали expended. Что происходит по обычной последовательности игры?",
+    "options": [
+      "Все немедленно получают бесплатный Shoot",
+      "Firefight phase завершается",
+      "Игра обязательно заканчивается независимо от миссии",
+      "Игрок с инициативой активирует всех заново"
+    ],
+    "answer": 1,
+    "explanation": "Firefight phase продолжается, пока игроки заканчивают активации своих оперативников. После того как все стали expended, фаза заканчивается.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Firefight Phase"
+    }
+  },
+  {
+    "id": "kt-111",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "Какой приказ получают оперативники при обычной начальной расстановке, если специальные правила команды или миссии не дают исключения?",
+    "options": [
+      "Engage",
+      "Приказ выбирает соперник",
+      "Conceal",
+      "Они остаются без приказа до второго turning point"
+    ],
+    "answer": 2,
+    "explanation": "При обычной расстановке оперативников выставляют с приказом Conceal. Выбор приказа при последующей активации является отдельным шагом.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Set Up"
+    }
+  },
+  {
+    "id": "kt-112",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "Как должна располагаться база оперативника относительно вашей drop zone при обычной начальной расстановке?",
+    "options": [
+      "Достаточно касаться границы зоны одной точкой",
+      "Достаточно расположить в зоне голову миниатюры",
+      "Не менее половины базы должно быть в зоне",
+      "Вся база должна находиться в пределах зоны"
+    ],
+    "answer": 3,
+    "explanation": "Требование wholly within означает, что оперативник должен полностью находиться в своей зоне высадки. Частичного захода базы недостаточно.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Set Up — wholly within drop zone"
+    }
+  },
+  {
+    "id": "kt-113",
+    "difficulty": 1,
+    "topic": "Действия",
+    "question": "Оперативник хочет выполнить обычный Charge, но в конце перемещения ни один враг не окажется в его зоне контроля. Разрешён ли такой Charge?",
+    "options": [
+      "Нет, Charge должен закончиться в зоне контроля врага",
+      "Да, если оперативник стал ближе к врагу",
+      "Да, если он прошёл всю доступную дистанцию",
+      "Да, если после этого он собирается стрелять"
+    ],
+    "answer": 0,
+    "explanation": "В конце Charge оперативник обязан оказаться в зоне контроля хотя бы одного врага. Просто использовать это действие как ускоренное перемещение нельзя.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Charge 1AP"
+    }
+  },
+  {
+    "id": "kt-114",
+    "difficulty": 1,
+    "topic": "Действия",
+    "question": "Какое условие обязательно для конечной точки обычного Fall Back?",
+    "options": [
+      "Оперативник обязан закончить движение в укрытии",
+      "Оперативник должен выйти из зон контроля всех врагов",
+      "Оперативник обязан вернуться в свою drop zone",
+      "Оперативник обязан закончить движение рядом с союзником"
+    ],
+    "answer": 1,
+    "explanation": "Fall Back позволяет проходить через зоны контроля врагов, но не завершать в них движение.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Fall Back 2AP"
+    }
+  },
+  {
+    "id": "kt-115",
+    "difficulty": 1,
+    "topic": "Действия",
+    "question": "Оперативник начинает действие в зоне контроля врага. Можно ли без специальных разрешений выбрать обычный Reposition?",
+    "options": [
+      "Да, если идти от врага по прямой",
+      "Да, если у оперативника Conceal",
+      "Нет, для выхода предусмотрен Fall Back",
+      "Да, если пройти не больше 1 дюйма"
+    ],
+    "answer": 2,
+    "explanation": "Reposition нельзя выполнять, уже находясь в зоне контроля врага. Обычный способ отступить из такой позиции — Fall Back.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Reposition 1AP; Fall Back 2AP"
+    }
+  },
+  {
+    "id": "kt-116",
+    "difficulty": 1,
+    "topic": "Действия",
+    "question": "Можно ли выполнять подъём — climb — во время обычного Dash?",
+    "options": [
+      "Да, если подъём ниже 3 дюймов",
+      "Да, если есть свободный AP",
+      "Да, если оперативник с Engage",
+      "Нет"
+    ],
+    "answer": 3,
+    "explanation": "Dash прямо запрещает climb. Короткая дистанция подъёма сама по себе не отменяет этот запрет.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Dash 1AP"
+    }
+  },
+  {
+    "id": "kt-117",
+    "difficulty": 1,
+    "topic": "Стрельба",
+    "question": "У оперативника есть пистолет и винтовка. Сколько его обычных дальнобойных оружий выбирают для одного Shoot, если нет специального правила?",
+    "options": [
+      "Одно",
+      "Оба одновременно",
+      "Все оружия с одинаковой дальностью",
+      "Столько, сколько у оперативника осталось AP"
+    ],
+    "answer": 0,
+    "explanation": "Первым шагом Shoot выбирают одно дальнобойное оружие оперативника. Наличие нескольких оружий не объединяет их в одну обычную атаку.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 2: Shoot — 1. Select Weapon"
+    }
+  },
+  {
+    "id": "kt-118",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "Откуда проводят линию видимости, чтобы определить, видит ли оперативник другую миниатюру?",
+    "options": [
+      "От любой точки базы до центра базы цели",
+      "От головы оперативника до части миниатюры цели, не её базы",
+      "От оружия оперативника только до головы цели",
+      "От центра игрового поля до базы цели"
+    ],
+    "answer": 1,
+    "explanation": "Видимость проверяют от головы смотрящего оперативника к самой миниатюре цели. Её база не считается видимой частью для этой проверки.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 2: Visible"
+    }
+  },
+  {
+    "id": "kt-119",
+    "difficulty": 1,
+    "topic": "Стрельба",
+    "question": "Видимый враг стоит за обычным укрытием всего в 1,5 дюйма от стрелка. Специальных исключений нет. Может ли этот террейн дать ему cover относительно стрелка?",
+    "options": [
+      "Да, если у врага Conceal",
+      "Да, если террейн Heavy",
+      "Нет: в пределах 2 дюймов от стрелка обычный cover не действует",
+      "Да, если стрелок уже двигался"
+    ],
+    "answer": 2,
+    "explanation": "По обычному правилу цель не может находиться в cover от оперативника, который расположен в пределах 2 дюймов от неё.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 2: Cover"
+    }
+  },
+  {
+    "id": "kt-120",
+    "difficulty": 1,
+    "topic": "Ближний бой",
+    "question": "Какое оружие обычно выбирают участники последовательности Fight?",
+    "options": [
+      "Любое дальнобойное оружие",
+      "Только оружие с Range 6 дюймов",
+      "Оружие выбирает только атакующий",
+      "Каждый выбирает одно своё оружие ближнего боя"
+    ],
+    "answer": 3,
+    "explanation": "И атакующий, и отвечающий оперативник используют своё melee weapon. Характеристика Save в этой процедуре не заменяет бросок оружия.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 2: Fight — 2. Select Weapons"
+    }
+  },
+  {
+    "id": "kt-121",
+    "difficulty": 1,
+    "topic": "Ближний бой",
+    "question": "Вы атаковали действием Fight врага, который уже expended. Способностей, запрещающих ответ, нет. Может ли он retaliate?",
+    "options": [
+      "Да, expended не лишает его обычного ответа в Fight",
+      "Нет, отвечать могут только ready-оперативники",
+      "Только если он заплатит 1 CP",
+      "Только если у него остался неиспользованный Counteract"
+    ],
+    "answer": 0,
+    "explanation": "Выбранный противник отвечает в этой последовательности Fight. Для обычного retaliate не требуется, чтобы он оставался ready.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 2: Fight — 1. Select Enemy Operative"
+    }
+  },
+  {
+    "id": "kt-122",
+    "difficulty": 1,
+    "topic": "Ближний бой",
+    "question": "Для чего используют block при разрешении подходящего успешного кубика в Fight?",
+    "options": [
+      "Чтобы восстановить оперативнику потерянные раны",
+      "Чтобы убрать один ещё не разрешённый успех противника",
+      "Чтобы отменить весь урон, уже нанесённый в этой битве",
+      "Чтобы заставить противника потратить дополнительный AP"
+    ],
+    "answer": 1,
+    "explanation": "Block расходует ваш успех на блокирование подходящего неразрешённого успеха противника. Уже выполненный удар этим не отменяется.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 2: Fight — 4. Resolve Attack Dice, Block"
+    }
+  },
+  {
+    "id": "kt-123",
+    "difficulty": 1,
+    "topic": "Оружие",
+    "question": "У оружия есть Range 6 дюймов. Враг находится в 7 дюймах; все остальные условия выбора цели выполнены. Можно ли выбрать его обычной целью этого оружия?",
+    "options": [
+      "Да, если он видим",
+      "Да, если у него Engage",
+      "Нет, он за пределами Range",
+      "Да, если у стрелка APL 3"
+    ],
+    "answer": 2,
+    "explanation": "Range ограничивает допустимую дистанцию до цели. Видимость и приказ цели не отменяют это ограничение.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Weapon Rules — Range x"
+    }
+  },
+  {
+    "id": "kt-124",
+    "difficulty": 1,
+    "topic": "Оружие",
+    "question": "Оперативник использовал оружие с Limited 1 один раз. Другие правила не восстанавливают оружие. Что с ним происходит после этого применения?",
+    "options": [
+      "Оно сохраняется, но ухудшает Hit на 1",
+      "Оно перезаряжается в следующем turning point",
+      "Его можно использовать снова за дополнительный CP",
+      "У оперативника больше нет этого оружия до конца битвы"
+    ],
+    "answer": 3,
+    "explanation": "Limited 1 допускает одно применение оружия за битву. После исчерпания этого количества оперативник больше не имеет данного оружия.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Weapon Rules — Limited x"
+    }
+  },
+  {
+    "id": "kt-125",
+    "difficulty": 1,
+    "topic": "Оружие",
+    "question": "Что запрещает защитнику правило оружия Saturate?",
+    "options": [
+      "Сохранять cover saves",
+      "Бросать любые кубики защиты",
+      "Использовать характеристику Save",
+      "Блокировать критические успехи"
+    ],
+    "answer": 0,
+    "explanation": "Saturate убирает возможность сохранять успехи от укрытия. Оно само по себе не отменяет обычный бросок защиты.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Weapon Rules — Saturate"
+    }
+  },
+  {
+    "id": "kt-126",
+    "difficulty": 1,
+    "topic": "Оружие",
+    "question": "При обычном броске атаки оружием с Punishing есть критический успех и провал. Что позволяет Punishing при сохранении результатов?",
+    "options": [
+      "Перебросить все кубики защиты цели",
+      "Сохранить один провал как обычный успех",
+      "Превратить каждый провал в критический успех",
+      "Удвоить характеристику Atk"
+    ],
+    "answer": 1,
+    "explanation": "Если сохраняется хотя бы один критический успех, Punishing позволяет сохранить один провал как обычный успех вместо его удаления.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Weapon Rules — Punishing"
+    }
+  },
+  {
+    "id": "kt-127",
+    "difficulty": 1,
+    "topic": "Оружие",
+    "question": "При обычном броске оружием с Rending есть критический и обычный успехи. Никаких ограничивающих эффектов нет. Что Rending позволяет сделать при сохранении результатов?",
+    "options": [
+      "Превратить критический успех в два обычных",
+      "Автоматически убрать кубик защиты",
+      "Сохранить один обычный успех как критический",
+      "Вернуть все проваленные кубики"
+    ],
+    "answer": 2,
+    "explanation": "Наличие критического успеха позволяет Rending повысить один обычный успех до критического. Дополнительный кубик при этом не создаётся.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Weapon Rules — Rending"
+    }
+  },
+  {
+    "id": "kt-128",
+    "difficulty": 1,
+    "topic": "Оружие",
+    "question": "При сохранении критического успеха сработало правило оружия Stun. Какую характеристику цели оно уменьшает?",
+    "options": [
+      "Wounds",
+      "Save",
+      "Move",
+      "APL"
+    ],
+    "answer": 3,
+    "explanation": "Stun уменьшает APL цели на 1 до конца её следующей активации. Это правило оружия, а не отдельный бросок stun test гранаты.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Weapon Rules — Stun"
+    }
+  },
+  {
+    "id": "kt-129",
+    "difficulty": 1,
+    "topic": "Оружие",
+    "question": "Какое из перечисленных действий движения допускает Heavy (Dash only) в активации, в которой используется это оружие?",
+    "options": [
+      "Dash",
+      "Reposition",
+      "Charge",
+      "Fall Back"
+    ],
+    "answer": 0,
+    "explanation": "Пометка Dash only делает исключение для Dash. Остальные перечисленные перемещения не разрешены этим вариантом Heavy.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Weapon Rules — Heavy"
+    }
+  },
+  {
+    "id": "kt-130",
+    "difficulty": 1,
+    "topic": "Оружие",
+    "question": "Видимый враг с Conceal находится в cover от Heavy terrain дальше 2 дюймов от стрелка. У оружия только Seek Light, Vantage и других обходящих укрытие эффектов нет. Можно ли выбрать этого врага?",
+    "options": [
+      "Да, Seek Light игнорирует любой террейн",
+      "Нет, Seek Light не отменяет укрытие от Heavy terrain",
+      "Да, если у стрелка Engage",
+      "Да, если стрелок ещё не использовал Shoot"
+    ],
+    "answer": 1,
+    "explanation": "Seek Light помогает выбирать цели, скрытые лёгким террейном. Укрытие от Heavy terrain остаётся действующим.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Weapon Rules — Seek"
+    }
+  },
+  {
+    "id": "kt-131",
+    "difficulty": 1,
+    "topic": "Оружие",
+    "question": "Стрелок применяет оружие с Piercing Crits 1, но не сохранил ни одного критического успеха. Других правил Piercing нет. Уменьшает ли это количество кубиков защиты?",
+    "options": [
+      "Да, на один",
+      "Да, на два",
+      "Нет",
+      "Только если цель имеет Engage"
+    ],
+    "answer": 2,
+    "explanation": "Вариант Piercing Crits действует только при наличии сохранённого критического успеха. Без него уменьшение защиты не включается.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (июль 2025)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Weapon Rules — Piercing x"
+    }
+  },
+  {
+    "id": "kt-132",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Какое универсальное гранатное оружие имеет Blast 2 дюйма и может поражать вторичные цели?",
+    "options": [
+      "Krak grenade",
+      "Stun grenade",
+      "Smoke grenade",
+      "Frag grenade"
+    ],
+    "answer": 3,
+    "explanation": "В профиле универсальной frag grenade есть Blast 2 дюйма. У krak grenade вместо этого указан Piercing 1; stun и smoke выполняются отдельными действиями.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 2: Explosive Grenades — Frag grenade"
+    }
+  },
+  {
+    "id": "kt-133",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Вы выбрали из Universal Equipment одну smoke и одну stun grenade. Союзник уже использовал единственную smoke. Может ли другой оперативник вашей команды бросить ещё одну smoke без иных источников гранат?",
+    "options": [
+      "Нет, выбранный лимит относится ко всей команде",
+      "Да, каждый оперативник получает свою копию",
+      "Да, если это новый turning point",
+      "Да, если второй оперативник является лидером"
+    ],
+    "answer": 0,
+    "explanation": "Количество применений выбранных utility grenades общее для kill team на всю битву. Смена оперативника не восстанавливает потраченную гранату.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 2–3: Utility Grenades — selection and use limit"
+    }
+  },
+  {
+    "id": "kt-134",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Какой результат D6 приводит к снижению APL при обычном stun test от Stun Grenade?",
+    "options": [
+      "Только 6",
+      "3+",
+      "Только 1",
+      "5+"
+    ],
+    "answer": 1,
+    "explanation": "При stun test результат 3 или выше уменьшает APL проверяемого оперативника на 1 до конца его следующей активации.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 2: Utility Grenades — Stun Grenade"
+    }
+  },
+  {
+    "id": "kt-135",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "При действии Smoke Grenade выбранное место видно оперативнику, остальные условия выполнены. Как далеко от него можно поставить маркер максимум?",
+    "options": [
+      "3 дюйма",
+      "9 дюймов",
+      "6 дюймов",
+      "На любое расстояние при наличии видимости"
+    ],
+    "answer": 2,
+    "explanation": "Smoke Grenade требует поставить маркер в пределах 6 дюймов. Видимость не снимает ограничение дальности.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 4: Utility Grenades — Smoke Grenade, placement"
+    }
+  },
+  {
+    "id": "kt-136",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Маркер Smoke Grenade установлен на верхней площадке. Распространяется ли созданная им область дыма ниже уровня маркера?",
+    "options": [
+      "Да, до пола killzone",
+      "Да, но только на 1 дюйм вниз",
+      "Да, если под площадкой нет стены",
+      "Нет"
+    ],
+    "answer": 3,
+    "explanation": "Область дыма распространяется от маркера вверх, но не ниже него. Поэтому один только такой маркер не создаёт дым под своей высотой.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 4: Smoke Grenade — area of smoke"
+    }
+  },
+  {
+    "id": "kt-137",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Сколько AP стоит обычное действие Ammo Resupply у вашего Ammo Cache, без модификаторов?",
+    "options": [
+      "0 AP",
+      "1 AP",
+      "2 AP",
+      "Все оставшиеся AP"
+    ],
+    "answer": 0,
+    "explanation": "Ammo Resupply напечатано со стоимостью 0 AP. При этом нужно выполнить условия самого действия.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 1: Ammo Cache — Ammo Resupply 0AP"
+    }
+  },
+  {
+    "id": "kt-138",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Один оперативник использовал ваш Ammo Cache в текущем turning point. Может ли второй затем выполнить Ammo Resupply у того же маркера в этом же turning point?",
+    "options": [
+      "Да, если у второго другой приказ",
+      "Нет, этот маркер уже использован в данном turning point",
+      "Да, если потратить 1 AP",
+      "Да, если первый оперативник уже expended"
+    ],
+    "answer": 1,
+    "explanation": "Ammo Resupply запрещено у маркера, уже использованного в текущем turning point. Ограничение относится к маркеру, а не только к первому оперативнику.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 1: Ammo Cache — Ammo Resupply, conditions"
+    }
+  },
+  {
+    "id": "kt-139",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Оперативник с Save 4+ получает cover от Portable Barricade. Других модификаторов нет. Какой Save даёт ему свойство Protective?",
+    "options": [
+      "5+",
+      "2+",
+      "3+",
+      "Save остаётся 4+"
+    ],
+    "answer": 2,
+    "explanation": "Protective улучшает Save на 1, поэтому 4+ превращается в 3+. У этого улучшения есть предел: не лучше 2+.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 3: Portable Barricade — Protective"
+    }
+  },
+  {
+    "id": "kt-140",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "К Portable Barricade не подключён ни один оперативник. Может ли она сама по себе дать cover по правилу Portable?",
+    "options": [
+      "Да, как любая Heavy-стена",
+      "Да, но только оперативнику с Conceal",
+      "Да, если она ближе 6 дюймов",
+      "Нет"
+    ],
+    "answer": 3,
+    "explanation": "Для cover от Portable требуется, чтобы к баррикаде был подключён оперативник и её щит был intervening. Без первого условия этот cover не предоставляется.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 3: Portable Barricade — Portable"
+    }
+  },
+  {
+    "id": "kt-141",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Оперативник с Move 6 дюймов законно выполняет Move With Barricade по свободной прямой. Других модификаторов нет. Как далеко он может переместиться максимум?",
+    "options": [
+      "4 дюйма",
+      "6 дюймов",
+      "8 дюймов",
+      "3 дюйма"
+    ],
+    "answer": 0,
+    "explanation": "Move With Barricade ограничивает движение значением Move минус 2 дюйма. При Move 6 доступно до 4 дюймов.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 3: Portable Barricade — Move With Barricade"
+    }
+  },
+  {
+    "id": "kt-142",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Оперативник пересекает Razor Wire, находясь в пределах 1 дюйма от неё. Как свойство Obstructing меняет учитываемую дистанцию?",
+    "options": [
+      "Уменьшает её на 1 дюйм",
+      "Добавляет 1 дюйм",
+      "Удваивает всё движение",
+      "Не меняет её, но наносит 1 урон"
+    ],
+    "answer": 1,
+    "explanation": "Obstructing добавляет к такому пересечению 1 дюйм учитываемой дистанции. Само это свойство не наносит урон.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 1: Razor Wire — Obstructing"
+    }
+  },
+  {
+    "id": "kt-143",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "При подъёме по террейну Ladder из Universal Equipment находится в зоне контроля оперативника на протяжении всего подъёма. Её льгота в этом действии ещё не использовалась. За какую вертикальную дистанцию считают этот подъём?",
+    "options": [
+      "0 дюймов",
+      "2 дюйма",
+      "1 дюйм",
+      "За полную высоту террейна без изменений"
+    ],
+    "answer": 2,
+    "explanation": "При соблюдении условий лестницы вертикальную часть этого подъёма считают за 1 дюйм. Это не делает остальное горизонтальное движение бесплатным.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 2: Ladders — climbing"
+    }
+  },
+  {
+    "id": "kt-144",
+    "difficulty": 1,
+    "topic": "Террейн",
+    "question": "Какая часть Light Barricade из Universal Equipment имеет свойства Insignificant и Exposed вместо Light?",
+    "options": [
+      "Весь центральный щит",
+      "Только верхняя кромка щита",
+      "Баррикада целиком",
+      "Её ножки"
+    ],
+    "answer": 3,
+    "explanation": "Основная часть Light Barricade является Light terrain. Ножки отдельно обозначены как Insignificant и Exposed.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 2: Light Barricades"
+    }
+  },
+  {
+    "id": "kt-145",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Какое ограничение расположения относительно вашей drop zone действует при обычной установке Heavy Barricade из Universal Equipment? Остальные условия установки считаем выполненными.",
+    "options": [
+      "Баррикада должна целиком находиться в пределах 4 дюймов от drop zone",
+      "Она должна касаться центральной линии",
+      "Она обязана стоять в drop zone противника",
+      "Расстояние до drop zone не ограничено"
+    ],
+    "answer": 0,
+    "explanation": "Heavy Barricade устанавливают wholly within 4 дюймов от своей drop zone. Требования к полу killzone и расстояниям до другого оборудования проверяют отдельно.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment (июнь 2026)",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 2: Heavy Barricade — set up"
+    }
+  },
+  {
+    "id": "kt-146",
+    "difficulty": 1,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Stake Claim: когда игроки объявляют маркер и заявку на текущий turning point?",
+    "options": [
+      "После первой активации в Firefight phase",
+      "В начале шага Gambit каждой Strategy phase, начиная со второй",
+      "Только после окончания всей битвы",
+      "В любой момент после броска атаки"
+    ],
+    "answer": 1,
+    "explanation": "Заявки объявляют в начале Gambit после первого turning point. Первым выбирает игрок с инициативой.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025: Update Log (август 2026)",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 2: Crit Ops — Stake Claim, Reveal"
+    }
+  },
+  {
+    "id": "kt-147",
+    "difficulty": 1,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Retrieval: во втором turning point ваш оперативник законно обыскал objective marker действием Retrieve. Это первый поиск вашей команды у этого маркера. Сколько VP начисляется за сам первый поиск?",
+    "options": [
+      "0 VP до конца битвы",
+      "2 VP",
+      "1 VP",
+      "3 VP"
+    ],
+    "answer": 2,
+    "explanation": "Первый поиск вашей команды у каждого objective marker приносит 1 VP. Награда за переносимый Retrieval marker в конце битвы считается отдельно.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025: Update Log (август 2026)",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Recon Tac Ops — Retrieval, Victory Points"
+    }
+  },
+  {
+    "id": "kt-148",
+    "difficulty": 1,
+    "topic": "Снаряжение",
+    "question": "Можно ли при обычном выборе снаряжения дважды выбрать один и тот же equipment option?",
+    "options": [
+      "Да, если в команде больше десяти оперативников",
+      "Да, если опция не даёт дальнобойного оружия",
+      "Да, если соперник не выбрал такую же опцию",
+      "Нет"
+    ],
+    "answer": 3,
+    "explanation": "Игрок выбирает каждую опцию снаряжения не более одного раза за игру. Количество предметов внутри выбранной опции определяется её собственным текстом.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3rd edition: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Key Principles — Equipment"
+    }
+  },
+  {
+    "id": "kt-149",
+    "difficulty": 1,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Sweep & Clear: в первом turning point оперативник контролирует objective marker и не находится рядом с врагами. Может ли он выполнить Clear?",
+    "options": [
+      "Нет, Clear запрещено в первом turning point",
+      "Да, за обычный 1 AP",
+      "Да, если маркер центральный",
+      "Да, если оперативник с Engage"
+    ],
+    "answer": 0,
+    "explanation": "У действия Clear есть отдельный запрет на первый turning point. Контроль маркера не снимает этот запрет.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025: Update Log (август 2026)",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 1: Seek & Destroy Tac Ops — Sweep & Clear, Clear 1AP"
+    }
+  },
+  {
+    "id": "kt-150",
+    "difficulty": 1,
+    "topic": "Основы",
+    "question": "У вас остались неистраченные CP в конце turning point. Что происходит с ними по обычным правилам?",
+    "options": [
+      "Все CP исчезают",
+      "Они сохраняются, пока вы их не потратите",
+      "Они превращаются в раны лидера",
+      "Их получает игрок с инициативой"
+    ],
+    "answer": 1,
+    "explanation": "CP не сбрасываются в конце turning point. Сохранённые CP можно использовать позднее.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3rd edition: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Strategy Phase — 2. Ready"
+    }
+  }
+]

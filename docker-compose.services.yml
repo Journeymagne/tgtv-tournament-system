@@ -1,0 +1,119 @@
+# Use with: docker compose -f docker-compose.yml -f docker-compose.services.yml up -d --build
+# Only the gateway publishes an application port. Backends share one private network.
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile.services
+  image: kt-companion-services:${SERVICE_IMAGE_TAG:-local}
+  restart: unless-stopped
+  init: true
+  depends_on:
+    prepare-services-db:
+      condition: service_completed_successfully
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+    interval: 15s
+    timeout: 5s
+    start_period: 15s
+    retries: 3
+x-env: &env
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  PORT: 3000
+  PGSSL: "false"
+  DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+  COOKIE_SECURE: ${COOKIE_SECURE:-true}
+  COMPANION_ORIGIN: ${COMPANION_ORIGIN:-}
+  SITE_URL: ${SITE_URL:-}
+  TRUST_PROXY: "true"
+  EMAIL_PROVIDER: disabled
+  TELEGRAM_MODE: disabled
+
+services:
+  prepare-services-db:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+    image: kt-companion-services:${SERVICE_IMAGE_TAG:-local}
+    command: ["node", "scripts/prepare-services-db.js"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://tgtv:${DB_PASSWORD}@postgres:5432/tgtv_tournament
+      ACCOUNTS_DB_PASSWORD: ${ACCOUNTS_DB_PASSWORD:?Set a random hexadecimal password}
+      NOTIFICATIONS_DB_PASSWORD: ${NOTIFICATIONS_DB_PASSWORD:?Set a random hexadecimal password}
+      TOURNAMENTS_DB_PASSWORD: ${TOURNAMENTS_DB_PASSWORD:?Set a random hexadecimal password}
+      STUDIO_DB_PASSWORD: ${STUDIO_DB_PASSWORD:?Set a random hexadecimal password}
+      FAQ_DB_PASSWORD: ${FAQ_DB_PASSWORD:?Set a random hexadecimal password}
+      KNOWTHYKT_DB_PASSWORD: ${KNOWTHYKT_DB_PASSWORD:?Set a random hexadecimal password}
+  gateway:
+    <<: *app
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-3000}:3000"
+    environment:
+      <<: *env
+      SERVICE_NAME: gateway
+      DATABASE_URL: ""
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      ACCOUNTS_URL: http://accounts:3000
+      NOTIFICATIONS_URL: http://notifications:3000
+      TOURNAMENTS_URL: http://tournaments:3000
+      STUDIO_URL: http://studio:3000
+      FAQ_URL: http://faq:3000
+      KNOWTHYKT_URL: http://knowthykt:3000
+      CALCULATORS_URL: http://calculators:3000
+  accounts:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_NAME: accounts
+      DATABASE_URL: postgres://kt_accounts:${ACCOUNTS_DB_PASSWORD}@postgres:5432/tgtv_tournament
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-disabled}
+      EMAIL_OUTBOX_KEY: ${EMAIL_OUTBOX_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
+      EMAIL_FROM: ${EMAIL_FROM:-KT Companion <account@auth.ktcompanion.ru>}
+      EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
+  notifications:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_NAME: notifications
+      DATABASE_URL: postgres://kt_notifications:${NOTIFICATIONS_DB_PASSWORD}@postgres:5432/tgtv_tournament
+  tournaments:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_NAME: tournaments
+      DATABASE_URL: postgres://kt_tournaments:${TOURNAMENTS_DB_PASSWORD}@postgres:5432/tgtv_tournament
+      TELEGRAM_MODE: ${TELEGRAM_MODE:-disabled}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_MINI_APP_URL: ${TELEGRAM_MINI_APP_URL:-}
+  studio:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_NAME: studio
+      DATABASE_URL: postgres://kt_studio:${STUDIO_DB_PASSWORD}@postgres:5432/tgtv_tournament
+  faq:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_NAME: faq
+      DATABASE_URL: postgres://kt_faq:${FAQ_DB_PASSWORD}@postgres:5432/tgtv_tournament
+  knowthykt:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_NAME: knowthykt
+      DATABASE_URL: postgres://kt_knowthykt:${KNOWTHYKT_DB_PASSWORD}@postgres:5432/tgtv_tournament
+  calculators:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_NAME: calculators
+      DATABASE_URL: ""

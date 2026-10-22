@@ -53,7 +53,12 @@ const MIGRATIONS = [
   require("./migrations/052_doubles_irl"),
   require("./migrations/053_tournament_factions"),
   require("./migrations/054_user_bcp_email"),
-  require("./migrations/055_tournament_venue_address")
+  require("./migrations/055_tournament_venue_address"),
+  require("./migrations/056_training_progress"),
+  require("./migrations/057_telegram_bot"),
+  require("./migrations/058_service_schemas"),
+  require("./migrations/059_notification_events"),
+  require("./migrations/060_account_session_contracts")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

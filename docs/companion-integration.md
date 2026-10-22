@@ -29,6 +29,7 @@ contain only theme/language labels and do not change the host-only login cookie.
 | `ktcompanion.ru/studio` | KT Studio editor and published library | Public; saving and publishing require the tournament account |
 | `ktcompanion.ru/dice` | D6 dice generator with published team logos | Public editor and PNG export; saved TTS links require the tournament account |
 | `ktcompanion.ru/faq` | TTS Community FAQ, official GW answers, Info and Code of Conduct | Public reading; questions and submissions require the Companion account; moderation requires FAQ Moderator or platform administrator |
+| `ktcompanion.ru/training` | Know Thy Kill Team: 100 rules questions, four difficulties, 20-question sessions | Public bank; sessions and progress require the Companion account |
 
 Existing `/tournaments/:slug` and `/teams/:slug` pages keep their public access
 on the same hostname. Legacy calculator HTML URLs, `/tournament/`, `/studio/`
@@ -40,7 +41,7 @@ an alias for the tournament application.
 ## Running and deployment
 
 The existing `npm start` command, PostgreSQL connection, session store and user
-accounts serve all six sections. No second server, account database or frontend
+accounts serve all eight sections. No second server, account database or frontend
 build is needed. Migration `032_studio_projects` creates account-owned drafts and
 published snapshots in the existing database on startup. It does not alter
 tournament data or copy drafts from a standalone Studio installation.
@@ -56,7 +57,7 @@ is sufficient because all sections run in the same application. See
 The deployment script does not change proxy rules. Update the external environment
 file used by that script (normally `/app/tgtv-ts.env`), deploy the new code and
 restart the app with those settings. Check `nginx -t` before reloading Nginx.
-Verify `/`, all seven service URLs and `/api/session` over public HTTPS. Updating
+Verify `/`, all eight service URLs and `/api/session` over public HTTPS. Updating
 Git alone leaves the old root website in place until its proxy is switched.
 
 Keep `rating.ktcompanion.ru` as a redirect for existing links, using its existing
@@ -83,6 +84,13 @@ account or FAQ access changes, including cross-tab login and logout. Its
 authenticated API calls carry `X-FAQ-Account` from `/api/session`; the server
 rejects a stale account id before reading private submissions or writing content.
 See [FAQ sources, permissions and moderation](community-faq.md).
+
+Know Thy Kill Team is linked from the same selector at `/training`. It reuses
+the common account header, theme tokens, controls and login return flow.
+Migration `056_training_progress` stores per-account sessions and cumulative
+statistics in PostgreSQL. Answers are checked on the server; revision checks
+and idempotent writes protect progress when multiple devices are open.
+See [training storage, routes and maintenance](know-thy-kill-team.md).
 
 Studio projects may include image albums, so `/api/studio/drafts/` accepts up to
 100 MiB of JSON. TTS snapshots at `POST /api/studio/tts/exports` accept up to

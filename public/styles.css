@@ -1116,6 +1116,21 @@ button:disabled {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.pairing-warnings {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--surface-well);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.pairing-warnings strong { color: var(--accent); }
+.pairing-warnings ul { margin: 4px 0 0; padding-left: 18px; }
+[data-team-form-warnings] { grid-column: 1 / -1; }
+
 /* ======================================================================
    Rendered markdown
    ====================================================================== */
@@ -2256,6 +2271,29 @@ th {
   color: var(--accent-hover);
 }
 
+.tournament-table-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+  margin: 14px 0 8px;
+}
+.tournament-table-controls > .field { flex: 1 1 160px; min-width: 0; margin-bottom: 0; }
+.tournament-table-controls > .field > span { color: var(--muted); font-size: 12px; font-weight: 900; text-transform: uppercase; }
+.tournament-table-controls > .tournament-table-query,
+.tournament-table-controls > .tournament-table-team { flex-basis: 200px; }
+.tournament-table-controls > .tournament-table-minGames { flex: 0 1 110px; }
+.tournament-table-controls input,
+.tournament-table-controls select { width: 100%; min-width: 0; }
+.tournament-table-reset { min-height: 40px; }
+.tournament-table-summary { margin: 0 0 10px; font-size: 12px; }
+[data-tournament-table-enhanced] .sort-button { min-height: 36px; }
+
+@media (max-width: 600px) {
+  .tournament-table-controls > .field { flex: 1 1 100%; }
+  .tournament-table-reset { width: 100%; }
+}
+
 td {
   color: var(--ink);
 }
@@ -2324,10 +2362,13 @@ tr:last-child td {
 :is(.statistics-table, .individual-standings-table, .team-standings-table) th { height: 72px; }
 
 .leaderboard-table :is(th, td):last-child,
-:is(.teams-leaderboard-table, .admin-teams-table, .team-standings-table) :is(th, td):nth-child(n+3):not([colspan]),
-.statistics-table :is(th, td):nth-child(n+2):not([colspan]),
-.individual-standings-table :is(th, td):nth-child(n+4):not([colspan]) {
+:is(.teams-leaderboard-table, .admin-teams-table) :is(th, td):nth-child(n+3):not([colspan]),
+.statistics-table :is(th, td):nth-child(n+2):not([colspan]) {
   text-align: right;
+}
+.team-standings-table :is(th, td):nth-child(n+3):not([colspan]),
+.individual-standings-table :is(th, td):nth-child(n+4):not([colspan]) {
+  text-align: center;
 }
 .data-table .sort-button { width: 100%; white-space: normal; line-height: inherit; text-align: inherit; }
 .data-table .leaderboard-player-button { display: flex; width: 100%; min-width: 0; text-align: left; }
@@ -3109,6 +3150,7 @@ tr:last-child td {
 .confirm-dialog-message {
   margin: 0;
   line-height: 1.5;
+  white-space: pre-line;
 }
 
 .confirm-dialog-note {
@@ -4417,6 +4459,30 @@ tr:last-child td {
 .profile-dashboard-card .row-actions {
   flex-shrink: 0;
   justify-content: flex-start;
+}
+
+.telegram-settings-card { grid-row: span 2; }
+.telegram-settings-card .field label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  cursor: pointer;
+  text-transform: none;
+}
+.telegram-settings-card input[type="checkbox"] {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.telegram-settings-card .row-actions { margin-top: 12px; }
+.telegram-settings-card [data-telegram-error]:empty { display: none; }
+@media (max-width: 700px) {
+  .telegram-settings-card { grid-column: 1 / -1; grid-row: span 1; }
 }
 
 .profile-card-content > .row-card:has([data-tournament-game-open]) {

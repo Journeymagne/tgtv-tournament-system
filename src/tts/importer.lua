@@ -25,7 +25,7 @@ end
 
 function onLoad()
     self.setName("KT Studio Importer")
-    self.setDescription("Import cards and tokens from " .. origin .. "/studio")
+    self.setDescription("Import cards, tokens and dice from " .. origin .. "/studio")
     self.createButton({label="IMPORT TEAM", click_function="chooseLink", function_owner=self,
         position={0,0.55,0}, rotation={0,0,0}, width=1800, height=480, font_size=210,
         color={1,0.28,0.03}, font_color={0.05,0.05,0.05}})

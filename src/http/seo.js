@@ -7,7 +7,7 @@ const { siteOrigin } = require("./sites");
 const SITE_NAME = "TGTV Ranking Tournament System";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.2.0-venue-address";
+const ASSET_VERSION = "20261018-public2";
 
 function requestOrigin(req) {
   const serviceOrigin = siteOrigin(req);
@@ -188,7 +188,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
     <link rel="stylesheet" href="/companion-tokens.css?v=${ASSET_VERSION}">
     <link rel="stylesheet" href="/styles.css?v=${ASSET_VERSION}">
-    <link rel="stylesheet" href="/companion-shell.css?v=${ASSET_VERSION}">
+    <link rel="stylesheet" href="/companion-shell.css?v=20261018-brand-themes">
     <script src="/companion-sites.js?v=${ASSET_VERSION}" defer></script>
     <script src="/companion-i18n.js?v=${ASSET_VERSION}" defer></script>
     <script src="/companion-shell.js?v=${ASSET_VERSION}" defer></script>`;
@@ -197,7 +197,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
 // No locale dictionaries here: theme-boot.js in baseHead() writes a tag for the
 // one the visitor is in, and app.js fetches the other only if they switch.
 function appScript() {
-  return ["game-data.js", "i18n.js", "live-refresh.js", "app.js"]
+  return ["game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "app.js"]
     .map((file) => `<script src="/${file}?v=${ASSET_VERSION}" defer></script>`).join("\n");
 }
 

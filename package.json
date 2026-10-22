@@ -8,6 +8,11 @@
   },
   "scripts": {
     "start": "node server.js",
+    "start:service": "node scripts/start-service.js",
+    "start:services": "node scripts/start-services.js",
+    "db:migrate": "node scripts/migrate.js",
+    "db:provision-services": "node scripts/provision-service-roles.js",
+    "telegram:setup": "node scripts/setup-telegram.js",
     "verify:migration:canonical-games": "node scripts/verify-canonical-games-migration.js",
     "test": "node --test --test-concurrency=1 \"test/unit/**/*.test.js\" \"test/integration/**/*.test.js\"",
     "test:unit": "node --test \"test/unit/**/*.test.js\"",

@@ -13,7 +13,7 @@
   syncBrandLogos();
   const sites = window.KT_SITES || { subdomains: false, urls: {
     home: "/", initiative: "/initiative", tracker: "/tracker",
-    tournament: "/tournament", studio: "/studio", dice: "/dice", faq: "/faq", combat: "/combat"
+    tournament: "/tournament", studio: "/studio", dice: "/dice", faq: "/faq", combat: "/combat", training: "/knowthykt"
   } };
   const serviceUrl = name => new URL(sites.urls[name], location.origin).href;
   const path = location.pathname;
@@ -39,11 +39,11 @@
     home.append(logo);
     const title = document.createElement("a");
     title.className = "companion-service-link";
-    title.href = active === "account" ? "/account-email.html" : serviceUrl(active) + (active === "studio" ? "#/library" : active === "tournament" ? "#/mygames" : "");
+    title.href = active === "account" ? "/account" : serviceUrl(active) + (active === "studio" ? "#/library" : active === "tournament" ? "#/leaderboard" : "");
     const name = document.createElement("span"); name.className = "companion-service-name";
     name.textContent = "KT COMPANION";
     title.append(name);
-    const label = ({ account: "Почта и доступ", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Dice Generator", faq: "TTS Community FAQ", combat: "Combat Lab" })[active];
+    const label = ({ account: "Почта и доступ", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Dice Generator", faq: "TTS Community FAQ", combat: "Combat Lab", training: "Know Thy Kill Team" })[active];
     if (label) {
       const tool = document.createElement("small"); tool.className = "companion-service-tool";
       tool.textContent = label; title.append(tool);
@@ -104,7 +104,7 @@
     new ResizeObserver(updateHeight).observe(mounts[0]);
   }
   function loginUrl(next = location.href) {
-    const destination = new URL(serviceUrl("tournament"));
+    const destination = new URL('/account', location.origin);
     destination.searchParams.set("next", new URL(next, location.origin).href);
     return destination.href;
   }
@@ -119,11 +119,14 @@
   }
   function setUser(value) {
     user = value;
+    if (active === "tournament") {
+      for (const link of document.querySelectorAll('.companion-service-link')) link.href = serviceUrl('tournament') + (user ? '#/mygames' : '#/leaderboard');
+    }
     if (!user) setTournamentHeader();
     for (const account of accounts) {
       account.replaceChildren();
       const link = document.createElement("a");
-      link.href = user ? serviceUrl("tournament") + "#/profile" : loginUrl();
+      link.href = user ? '/account' : loginUrl();
       link.textContent = user ? user.name : "Войти";
       if (user) link.dataset.uiSkip = "";
       account.append(link);
@@ -157,7 +160,7 @@
       ["isAdmin", "isSuperAdmin", "isFAQModerator"].some(flag => Boolean(user?.[flag]) !== Boolean(result.user?.[flag]));
     setUser(result.user);
     if ((window.KTAccount?.id != null && String(result.user?.id) !== String(window.KTAccount.id)) ||
-        (["tournament", "faq"].includes(active) && changedAccount) || changedFAQAccess) location.reload();
+        (["tournament", "faq", "training"].includes(active) && changedAccount) || changedFAQAccess) location.reload();
     return result;
   }
   function returnAfterLogin() {
@@ -181,6 +184,9 @@
     for (const account of accounts) account.querySelector("a").textContent = "Войти / проверить вход";
   });
   window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader, brandLogoUrl };
+  if (active !== 'tournament' && mounts[0]) {
+    const script = document.createElement('script'); script.src='/companion-notifications.js?v=20261018-services2'; document.head.append(script);
+  }
   const exports = document.querySelector(".studio-export-menu");
   if (exports) {
     document.addEventListener("click", event => {
@@ -192,7 +198,7 @@
   }
   window.addEventListener("storage", event => {
     if (event.key === "kt-companion-session-change") {
-      if (["tournament", "faq"].includes(active) || (active === "studio" && window.KTAccount?.id != null)) location.reload();
+      if (["tournament", "faq", "training"].includes(active) || (active === "studio" && window.KTAccount?.id != null)) location.reload();
       else void session().catch(() => {});
     }
   });

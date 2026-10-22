@@ -74,7 +74,7 @@ async function context(client,id,commentId,user,admin=false){
 async function audit(client,row,user,action,reason=''){
   await client.query('INSERT INTO studio_comment_audit(comment_id,actor_id,action,snapshot,reason) VALUES($1,$2,$3,$4,$5)',[row.id,user.id,action,row,reason]);
 }
-async function retract(client,id){await client.query('DELETE FROM notification_inbox_items WHERE notification_id=$1',['studio_comment:'+id]);}
+async function retract(client,id){await client.query('DELETE FROM studio.notification_messages WHERE notification_id=$1',['studio_comment:'+id]);}
 async function create(client,id,user,input){
   const team=await reviews.publication(client,id,true);
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['studio-reviews-user:'+user.id]);
@@ -94,7 +94,7 @@ async function create(client,id,user,input){
     const payload={id:'studio_comment:'+row.id,type:'studio_comment',commentId:row.id,createdAt:row.created_at,
       authorName:user.name,teamName:team.name,excerpt:row.body.slice(0,160),isReply:!!parent,
       href:'/studio#/library/'+id+'/discussion?comment='+row.id};
-    await client.query(`INSERT INTO notification_inbox_items(user_id,notification_id,payload,created_at)
+    await client.query(`INSERT INTO studio.notification_messages(user_id,notification_id,payload,created_at)
       SELECT $1,$2,$3,NOW() WHERE COALESCE((SELECT notifications FROM studio_review_preferences WHERE user_id=$1),TRUE)
       ON CONFLICT DO NOTHING`,[recipient,payload.id,payload]);
   }
@@ -110,7 +110,7 @@ async function change(client,id,commentId,user,input,remove=false){
   if(remove){await client.query('UPDATE studio_comments SET deleted_at=NOW(),updated_at=NOW(),revision=revision+1 WHERE id=$1',[commentId]);await retract(client,commentId);}
   else{
     await client.query('UPDATE studio_comments SET body=$2,updated_at=NOW(),revision=revision+1 WHERE id=$1',[commentId,input.body]);
-    await client.query(`UPDATE notification_inbox_items SET payload=jsonb_set(payload,'{excerpt}',to_jsonb($2::text)) WHERE notification_id=$1`,['studio_comment:'+commentId,input.body.slice(0,160)]);
+    await client.query(`UPDATE studio.notification_messages SET payload=jsonb_set(payload,'{excerpt}',to_jsonb($2::text)) WHERE notification_id=$1`,['studio_comment:'+commentId,input.body.slice(0,160)]);
   }
   return {id:commentId,count:(await counts(client,[id]))[id]||0};
 }

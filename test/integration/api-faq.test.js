@@ -199,3 +199,42 @@ test('avatars use Companion endpoints and deleting a moderator reply preserves i
   assert.equal(q.reply, '');
   assert.equal(q.moderatorAvatarUrl, null);
 });
+
+test('moderators delete entire cards with revision guards while retaining content and discussion history', async () => {
+  const { entry } = await expect(moderator.http.request('POST', '/api/faq/entries', ruling()));
+  const path = '/api/faq/entries/' + entry.id;
+  const { id: questionId } = await expect(player.http.request('POST', path + '/questions', { body: 'Preserve this discussion' }), 201);
+  await expect(moderator.http.request('PATCH', '/api/faq/questions/' + questionId, { reply: 'Preserve this reply', revision: 1 }));
+  await expect(client().request('DELETE', path, { revision: 1 }), 401);
+  await expect(player.http.request('DELETE', path, { revision: 1 }), 403);
+  await expect(moderator.http.request('DELETE', path, { revision: 1 }, { 'x-faq-account': String(player.id) }), 409);
+  await expect(moderator.http.request('DELETE', path, {}), 400);
+  await expect(moderator.http.request('DELETE', path, { revision: 99 }), 409);
+  await expect(moderator.http.request('DELETE', path, { revision: entry.revision }));
+  assert.equal((await expect(client().request('GET', '/api/faq'))).entries.some(e => e.id === entry.id), false);
+  await expect(client().request('GET', path + '/questions'), 404);
+  await expect(player.http.request('POST', path + '/questions', { body: 'No new discussion' }), 404);
+  await expect(player.http.request('PATCH', '/api/faq/questions/' + questionId, { body: 'No edits after removal', revision: 2 }), 404);
+  await expect(moderator.http.request('PATCH', path, ruling({ revision: 2 })), 404);
+  await expect(moderator.http.request('DELETE', path, { revision: 2 }), 404);
+  const stored = (await getPool().query('SELECT status,revision,content FROM faq_entries WHERE id=$1', [entry.id])).rows[0];
+  assert.equal(stored.status, 'archived'); assert.equal(stored.revision, entry.revision + 1);
+  assert.equal(stored.content.question, entry.question);
+  const discussion = (await getPool().query('SELECT body,reply FROM faq_questions WHERE id=$1', [questionId])).rows[0];
+  assert.deepEqual(discussion, { body: 'Preserve this discussion', reply: 'Preserve this reply' });
+  const audit = (await expect(moderator.http.request('GET', path + '/history'))).history.find(h => h.action === 'deleted');
+  assert.equal(audit.snapshot.before.question, entry.question); assert.equal(audit.snapshot.afterStatus, 'archived');
+});
+
+test('pending corrections cannot republish a deleted card', async () => {
+  const { entry } = await expect(moderator.http.request('POST', '/api/faq/entries', ruling()));
+  const { id } = await expect(player.http.request('POST', '/api/faq/submissions', ruling({ entryId: entry.id })), 201);
+  await expect(moderator.http.request('DELETE', '/api/faq/entries/' + entry.id, { revision: entry.revision }));
+  await expect(moderator.http.request('POST', '/api/faq/submissions/' + id + '/decision', {
+    status: 'accepted', entry: ruling({ revision: entry.revision + 1 })
+  }), 409);
+  const submission = (await expect(player.http.request('GET', '/api/faq/submissions'))).submissions.find(s => s.id === id);
+  assert.equal(submission.status, 'pending');
+  assert.equal((await expect(client().request('GET', '/api/faq'))).entries.some(e => e.id === entry.id), false);
+  await expect(player.http.request('POST', '/api/faq/submissions', ruling({ entryId: entry.id })), 404);
+});

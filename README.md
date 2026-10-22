@@ -1,27 +1,58 @@
 # KT Companion / TGTV Ranking Tournament System
 
+Independent service processes are available with one PostgreSQL database and
+separate schemas. Gateway preserves the menu, shared login and existing URLs;
+notifications from tournaments, Studio, FAQ and KnowThyKT use a durable inbox.
+See [service separation, migration and deployment](docs/service-separation.md).
+The first schema migration requires a backup and a coordinated cutover; `npm start`
+remains the compatible single-process mode.
+
 Account email verification and password recovery are available behind EMAIL_PROVIDER.
 See [Email setup and local capture](docs/email-service.md) before enabling Resend.
+
+The Tournament System has an optional [Telegram bot](docs/telegram-bot.md):
+account linking, active games, tournament links and background notifications.
+It is disabled by default; migration **057_telegram_bot** stores links, events
+and delivery jobs. Run `npm run telegram:setup` after configuring a BotFather token.
+
+The [Telegram Mini App](docs/telegram-miniapp.md) at `/miniapp` provides four
+mobile screens: My Tournament, My Match, Standings and Profile. It reuses the
+website's scoring and permissions, supports Telegram account sign-in and the
+normal website session, and needs no additional migration or dependency.
+Set `TELEGRAM_MINI_APP_URL` only after publishing its HTTPS page, then run
+`npm run telegram:setup` to enable the bot's app menu and contextual buttons.
 
 Players can save an optional Best Coast Pairings email in their profile settings
 for future tournament transfers. It is independent of the account sign-in email,
 is returned only in the player's own profile, and can be cleared. Startup migration
 **054_user_bcp_email** adds the nullable `users.bcp_email` column.
 
-The site opens on the Companion home page with seven sections: Combat Lab, initiative
+The site opens on the Companion home page with eight sections: Combat Lab, initiative
 calculator, activation tracker, tournament system, KT Studio, the D6 dice generator
-and [TTS Community FAQ](docs/community-faq.md). The calculators,
+and [TTS Community FAQ](docs/community-faq.md), plus
+[Know Thy Kill Team](docs/know-thy-kill-team.md). The calculators,
 Studio editor, published team library and dice editor are public. Saving or publishing a team
 requires the same account and session as the tournament system. Existing
-public tournament pages remain available. See [Companion integration](docs/companion-integration.md)
+public tournament pages, leaderboards, statistics, player profiles and match history
+are available without signing in. See [Companion integration](docs/companion-integration.md)
 for routes, imported sources, account-owned drafts and deployment settings.
 The home page is a service selector. Each service opens on its own page under
-the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio`, `/dice`, `/faq` and `/combat`,
+the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio`, `/dice`, `/faq`, `/combat` and `/training`,
 with a shared account. The header logo opens the service selector; the service
 name opens its start page (Studio library or tournament My Games).
 Sun and moon buttons select a shared light or dark theme.
 FAQ browsing is public. Questions, submissions and moderation use the same
 Companion account and session; FAQ Moderator is a separate role on that account.
+
+Know Thy Kill Team offers 100 Russian rules questions in four difficulties and
+20-question sessions. Browsing and training are public; guests keep progress in
+their browser, while Companion accounts enable cross-device progress.
+Migration **056_training_progress** stores account answers, active sessions and
+statistics in PostgreSQL so players can continue on another device.
+The trainer opens with a personal journey through six ranks, from Нубик to
+Судья. XP rewards the first two correct answers to each question; a shared
+evolving achievement updates on the journey and in the player's Companion
+profile. Earlier training is counted automatically; no new migration is needed.
 
 Published teams also have [reviews and ratings](docs/studio-reviews.md): Theme,
 Balance and Lore scores, library averages, editable reviews and administrator
@@ -831,14 +862,16 @@ without support for Excel's in-cell checkboxes show editable FALSE/TRUE values.
 
 ## Tests
 
-Tests need a separate database:
+The full automated test suite runs in
+[GitHub Actions CI](https://github.com/Journeymagne/tgtv-tournament-system/actions/workflows/ci.yml)
+on pushes and pull requests to `main`. The workflow runs `npm test` on Node.js 22
+with a dedicated PostgreSQL 16 test database. Both `TEST_DATABASE_URL` and
+`DATABASE_URL` point to that test database.
 
-```powershell
-docker compose exec postgres createdb -U tgtv tgtv_tournament_test
-npm test
-```
-
-`npm run test:unit` runs the tests that need no database.
+Use the CI result for the commit being reviewed; diagnose failures from the
+failed job's logs. Do not repeat automated tests locally, including before a
+merge, unless the user explicitly requests it. Visual inspection and local
+page/API availability checks remain part of preparing a local preview.
 
 ## Migrating from JSON storage
 

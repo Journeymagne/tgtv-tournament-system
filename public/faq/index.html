@@ -9,13 +9,13 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/brand/kt-companion/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/brand/kt-companion/apple-touch-icon.png">
  <link rel="stylesheet" href="/companion-tokens.css?v=1.2.0">
- <link rel="stylesheet" href="/companion-shell.css?v=1.2.0">
- <link rel="stylesheet" href="/faq/faq.css?v=1.2.0">
+ <link rel="stylesheet" href="/companion-shell.css?v=20261018-services2">
+ <link rel="stylesheet" href="/faq/faq.css?v=1.2.0-faq-delete-1">
  <script src="/companion-sites.js?v=1.2.0" defer></script>
  <script src="/companion-i18n.js?v=1.2.0" defer></script>
- <script src="/companion-shell.js?v=1.2.0" defer></script>
- <script src="/faq/i18n.js?v=1.2.0" defer></script>
- <script src="/faq/faq.js?v=1.2.0" defer></script>
+ <script src="/companion-shell.js?v=20261018-public2" defer></script>
+ <script src="/faq/i18n.js?v=1.2.0-faq-delete-1" defer></script>
+ <script src="/faq/faq.js?v=1.2.0-faq-delete-1" defer></script>
 </head>
 <body data-companion-section="faq">
  <div data-companion-nav></div>
@@ -55,6 +55,7 @@
   <footer class="faq-footer"><span><b>TTS</b> COMMUNITY FAQ <i>·</i> Справочник сообщества Kill Team</span><span id="snapshot-label"></span></footer>
  </main>
  <dialog id="detail-dialog" class="detail-dialog"><div id="detail-content"></div></dialog>
+ <dialog id="entry-delete-dialog" class="small-dialog" aria-labelledby="entry-delete-title" aria-describedby="entry-delete-description"><header class="dialog-header"><h2 id="entry-delete-title">Удалить карточку FAQ?</h2><button type="button" class="icon-button close-dialog" aria-label="Закрыть">×</button></header><p id="entry-delete-question" class="entry-delete-question" data-ui-skip></p><p id="entry-delete-description">Карточка и её обсуждение исчезнут из справочника. Запись сохранится в истории.</p><p id="entry-delete-error" class="editor-status" role="status"></p><footer class="entry-delete-actions"><button type="button" class="secondary close-dialog">Отмена</button><button type="button" class="danger-button" id="confirm-entry-delete">Удалить карточку</button></footer></dialog>
  <dialog id="question-delete-dialog" class="small-dialog"><header class="dialog-header"><h2 id="question-delete-title">Удалить комментарий?</h2><button class="icon-button close-dialog" aria-label="Закрыть">×</button></header><p id="question-delete-description"></p><footer class="question-delete-actions"><button type="button" class="secondary close-dialog">Отмена</button><button type="button" class="danger-button" id="confirm-question-delete">Удалить</button></footer></dialog>
  <dialog id="editor-dialog" class="editor-dialog"><form id="editor-form">
   <header class="dialog-header"><div><p class="eyebrow" id="editor-kicker">FAQ MODERATOR</p><h2 id="editor-title">Новая карточка</h2></div><button type="button" class="icon-button close-dialog" aria-label="Закрыть">×</button></header>
@@ -71,7 +72,7 @@
    <label id="moderator-note-wrap" hidden>Комментарий модератора<textarea id="moderator-note" rows="2" maxlength="2000" placeholder="Объяснение решения для автора заявки"></textarea></label>
    <p class="editor-status" id="editor-status" role="status"></p>
   </section><aside class="editor-preview"><p class="eyebrow">ТАК КАРТОЧКУ УВИДЯТ ИГРОКИ</p><div id="live-preview"></div><p class="preview-note">Форматирование, ссылки, таблицы и изображения сохраняются в карточке.</p></aside></div>
-  <footer class="dialog-footer"><span id="editor-footer-note">Одна карточка — одно разъяснение.</span><button type="button" class="secondary close-dialog">Отмена</button><button type="button" id="return-submission" class="secondary" hidden>На доработку</button><button type="button" id="reject-submission" class="danger-button" hidden>Отклонить</button><button type="submit" class="primary" id="save-entry">Опубликовать</button></footer>
+  <footer class="dialog-footer"><span id="editor-footer-note">Одна карточка — одно разъяснение.</span><button type="button" id="delete-edited-entry" class="danger-button" hidden>Удалить карточку</button><button type="button" class="secondary close-dialog">Отмена</button><button type="button" id="return-submission" class="secondary" hidden>На доработку</button><button type="button" id="reject-submission" class="danger-button" hidden>Отклонить</button><button type="submit" class="primary" id="save-entry">Опубликовать</button></footer>
  </form></dialog>
  <dialog id="roles-dialog" class="small-dialog"><header class="dialog-header"><div><p class="eyebrow">УПРАВЛЕНИЕ ДОСТУПОМ</p><h2>FAQ Moderator</h2></div><button class="icon-button close-dialog" aria-label="Закрыть">×</button></header><p>Модератор рассматривает заявки, отвечает на вопросы и редактирует FAQ. Роль назначает владелец платформы.</p><input type="search" id="role-search" placeholder="Найти аккаунт по никнейму" aria-label="Поиск аккаунта"><div id="role-users"></div></dialog>
  <div id="toast" class="toast" role="status" hidden></div>

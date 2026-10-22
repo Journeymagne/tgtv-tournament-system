@@ -1,0 +1,952 @@
+[
+  {
+    "id": "kt-201",
+    "difficulty": 3,
+    "topic": "Tomb World",
+    "question": "Tomb World, второй Turning Point: способность разрешает бесплатный Reposition, но запрещает закончить его ближе к любому врагу. Оперативник стоит на teleport pad; другой pad приблизит его к врагу с 8″ до 5″. Остальные условия выполнены. Может ли он использовать телепортацию в этом действии?",
+    "options": [
+      "Нет, телепортация не отменяет ограничение конечной позиции",
+      "Да, поскольку оперативник снимается и ставится, а не перемещается",
+      "Да, если действие бесплатное",
+      "Да, если враг имеет Conceal"
+    ],
+    "answer": 0,
+    "explanation": "Августовский FAQ прямо сохраняет ограничения вида «cannot end that move closer» при телепортации. Здесь конечная позиция нарушает такое условие.",
+    "source": {
+      "title": "Warhammer Community — Killzone: Tomb World Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_killzone_tomb_world_update_log-ptyzlo3dfr-ivlzsazxnf.pdf",
+      "section": "Физическая стр. 1: Rules Commentary August 2026, teleport and cannot end that move closer"
+    }
+  },
+  {
+    "id": "kt-202",
+    "difficulty": 3,
+    "topic": "Движение",
+    "question": "Во время Charge ваш оперативник входит в control range врага А. Другой ваш оперативник уже находится в control range А. До врага Б хватает движения; маршрут не проходит через чужие базы. Можно ли оставить control range А и закончить Charge у Б?",
+    "options": [
+      "Нет, первый встреченный враг всегда останавливает Charge",
+      "Да, если закончить в control range Б и выполнить остальные условия Charge",
+      "Да, но только если А имеет Conceal",
+      "Нет, если А ещё ready"
+    ],
+    "answer": 1,
+    "explanation": "Запрет покидать control range при Charge действует, когда встреченный враг не связан другим союзником. Здесь этот запрет не возникает.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Actions → Charge 1AP"
+    }
+  },
+  {
+    "id": "kt-203",
+    "difficulty": 3,
+    "topic": "Маркеры",
+    "question": "Способность оперативника создала на поле маркер. Позже создавший его оперативник был incapacitated и удалён. В правилах маркера нет срока действия или требования убрать его при удалении владельца. Что происходит с маркером?",
+    "options": [
+      "Его автоматически убирают вместе с владельцем",
+      "Его убирают в конце текущего действия",
+      "Он остаётся, пока собственные правила не потребуют его убрать",
+      "Он переходит под контроль соперника"
+    ],
+    "answer": 2,
+    "explanation": "Официальное уточнение не связывает автоматическое удаление такого маркера с удалением создавшего его оперативника. Для исчезновения маркера требуется отдельное указание правила.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "Физическая стр. 4: вопрос о маркере способности после удаления создавшего его оперативника"
+    }
+  },
+  {
+    "id": "kt-204",
+    "difficulty": 3,
+    "topic": "Действия",
+    "question": "Оперативник с APL 3 начинает активацию в control range врага, выполняет обычный Fall Back за 2 AP и выходит из control range всех врагов. Остался 1 AP; Dash ещё не использован. Что ему доступно без специальных правил?",
+    "options": [
+      "Только закончить активацию",
+      "Ещё один Fall Back",
+      "Reposition, но не Dash",
+      "Dash, если его путь и конечная позиция законны"
+    ],
+    "answer": 3,
+    "explanation": "Fall Back несовместим с Reposition и Charge в той же активации. Dash отдельно не запрещён после Fall Back.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Actions → Fall Back 2AP; Dash 1AP"
+    }
+  },
+  {
+    "id": "kt-205",
+    "difficulty": 3,
+    "topic": "Контроль",
+    "question": "Два врага стоят в 0,8″ друг от друга. Из-за формы моделей А видит Б, а Б не видит А. Специальных правил террейна нет. Б хочет выполнить Reposition, утверждая, что не видит врага. Что верно?",
+    "options": [
+      "Б находится в control range А и не может выполнить обычный Reposition",
+      "Б может выполнить Reposition, поскольку сам не видит А",
+      "Они связаны только для Shoot, но не для движения",
+      "Они связаны только при двух приказах Engage"
+    ],
+    "answer": 0,
+    "explanation": "Control range между оперативниками взаимна: достаточно видимости в одну сторону и расстояния не более 1″.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Key Principles → Control Range; Actions → Reposition 1AP"
+    }
+  },
+  {
+    "id": "kt-206",
+    "difficulty": 3,
+    "topic": "Ближний бой",
+    "question": "Атакующий имеет Hit 4+. Два его союзника находятся в control range выбранного врага. Первый союзник также находится в control range другого врага, второй — нет. Других модификаторов Hit нет. С каким Hit атакующий бросает?",
+    "options": [
+      "2+, потому что рядом два союзника",
+      "3+, потому что помогает только второй союзник",
+      "4+, помощь невозможна при нескольких врагах",
+      "5+, потому что первый союзник занят"
+    ],
+    "answer": 1,
+    "explanation": "Союзник помогает, только если он не находится в control range другого врага. Поэтому действует одно улучшение Hit.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Fight → Roll Attack Dice, assistance"
+    }
+  },
+  {
+    "id": "kt-207",
+    "difficulty": 3,
+    "topic": "Ближний бой",
+    "question": "В Fight у врага не осталось неразрешённых успехов. У вашего оперативника остался критический успех, который при strike убьёт врага. Вы хотите оставить врага живым. Что позволяют обычные правила?",
+    "options": [
+      "Нужно обязательно нанести strike",
+      "Критический успех можно отложить до следующего действия",
+      "Можно разрешить этот успех как block, даже если блокировать уже нечего",
+      "Можно превратить критический успех в лечение"
+    ],
+    "answer": 2,
+    "explanation": "Block разрешён даже при отсутствии неразрешённых успехов противника. Наносить урон последним успехом необязательно.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Fight → Resolve Attack Dice, blocking without unresolved enemy successes"
+    }
+  },
+  {
+    "id": "kt-208",
+    "difficulty": 3,
+    "topic": "Ближний бой",
+    "question": "На карточке сказано: «Когда этот оперативник fighting, его оружие получает Brutal». Враг выполняет Fight против него, и оперативник только retaliating. Других источников Brutal нет. Получает ли он Brutal?",
+    "options": [
+      "Да, любое участие в Fight считается fighting",
+      "Да, если его приказ Engage",
+      "Да, если он первым разрешает кубик",
+      "Нет, указанное условие fighting не охватывает retaliation"
+    ],
+    "answer": 3,
+    "explanation": "Активный оперативник fighting, выбранный противник retaliating. Условие только для fighting не распространяется на ответный бой.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Fight → Select Enemy Operative, fighting and retaliating"
+    }
+  },
+  {
+    "id": "kt-209",
+    "difficulty": 3,
+    "topic": "Кубики",
+    "question": "После завершения стрельбы оружием с Hot проверка перегрева дала опасный результат. У игрока есть 1 CP и неиспользованный Command Re-roll. Других перебросов нет. Можно ли потратить CP на этот кубик Hot?",
+    "options": [
+      "Нет, Command Re-roll применяется к кубикам атаки или защиты, а Hot — отдельная проверка",
+      "Да, потому что проверка следует за Shoot",
+      "Да, только если при стрельбе был критический успех",
+      "Да, но только до подсчёта урона цели"
+    ],
+    "answer": 0,
+    "explanation": "Проверка Hot не является кубиком атаки или защиты. Область действия Command Re-roll её не включает.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Key Principles → Ploys → Command Re-roll; Appendix → Hot"
+    }
+  },
+  {
+    "id": "kt-210",
+    "difficulty": 3,
+    "topic": "Кубики",
+    "question": "Ваш кубик атаки уже переброшен разрешённым правилом и теперь показывает 6. Противник применяет способность, заставляющую перебросить кубик, но в ней нет исключения из запрета повторного переброса. Что происходит?",
+    "options": [
+      "Кубик обязательно перебрасывают, потому что теперь действует другой игрок",
+      "Повторно перебросить этот кубик нельзя",
+      "Нужно вернуть первоначальный результат",
+      "Кубик становится обычным успехом без переброса"
+    ],
+    "answer": 1,
+    "explanation": "Запрет второго переброса действует независимо от того, кто требует его выполнить. Официальное уточнение прямо распространяет его на принудительный переброс противником.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "Физическая стр. 5: вопрос о повторном перебросе по правилу противника"
+    }
+  },
+  {
+    "id": "kt-211",
+    "difficulty": 3,
+    "topic": "Оружие",
+    "question": "Оперативник впервые использует оружие с Limited 1 и Blast 2″. После основной цели есть две законные вторичные цели. Когда оружие считается израсходованным?",
+    "options": [
+      "Сразу после основной цели; вторичные атаки не выполняются",
+      "После первой вторичной цели; вторую не обстреливают",
+      "Всё действие с обеими вторичными атаками считается одним использованием; затем оружия больше нет",
+      "Три цели требуют трёх зарядов Limited"
+    ],
+    "answer": 2,
+    "explanation": "Несколько применений оружия внутри одного действия, например через Blast, считаются одним использованием для Limited.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Appendix",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/appendix/",
+      "section": "Weapon Rules → Limited x; Blast x"
+    }
+  },
+  {
+    "id": "kt-212",
+    "difficulty": 3,
+    "topic": "Оружие",
+    "question": "Оружие с Hot и Torrent применяется к основной цели и двум выбранным вторичным целям за одно Shoot. Стрелок пережил все последовательности. Сколько проверок Hot необходимо сделать за это действие?",
+    "options": [
+      "Три, по одной за каждую цель",
+      "Две, только за вторичные цели",
+      "Ни одной, потому что Torrent заменяет Hot",
+      "Одну за всё действие"
+    ],
+    "answer": 3,
+    "explanation": "Hot проверяют один раз, даже когда оружие используется несколько раз внутри одного действия.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Appendix",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/appendix/",
+      "section": "Weapon Rules → Hot; Torrent x"
+    }
+  },
+  {
+    "id": "kt-213",
+    "difficulty": 3,
+    "topic": "Стрельба",
+    "question": "Стрелок видит врага с Conceal за Light terrain; враг в cover и дальше 2″. У оружия есть Saturate, но нет Seek, а стрелок не на Vantage. Можно ли начать Shoot по этой цели?",
+    "options": [
+      "Нет: Saturate не отменяет защиту Conceal при выборе цели",
+      "Да: Saturate удаляет cover уже при выборе цели",
+      "Да, но цель сохраняет один cover save",
+      "Да, только если Atk не меньше 4"
+    ],
+    "answer": 0,
+    "explanation": "Saturate запрещает cover saves на этапе защиты. Оно не снимает cover для проверки допустимости цели.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Appendix",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/appendix/",
+      "section": "Weapon Rules → Saturate; Core Rules → Shoot → Select Valid Target"
+    }
+  },
+  {
+    "id": "kt-214",
+    "difficulty": 3,
+    "topic": "Стрельба",
+    "question": "Стрелок не на Vantage. Он выбирает видимого врага с Conceal в cover благодаря Seek. Расстояние больше 2″, Saturate и иных правил нет. Что происходит с обычным cover save цели?",
+    "options": [
+      "Он исчезает вместе с cover при выборе цели",
+      "Цель по-прежнему может сохранить обычный cover save",
+      "Он автоматически становится критическим",
+      "Он разрешён только после успешного Save-броска"
+    ],
+    "answer": 1,
+    "explanation": "Seek меняет проверку допустимой цели, но прямо сохраняет её cover save. Улучшение от Vantage здесь отсутствует.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Appendix",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/appendix/",
+      "section": "Weapon Rules → Seek"
+    }
+  },
+  {
+    "id": "kt-215",
+    "difficulty": 3,
+    "topic": "Gallowdark",
+    "question": "Gallowdark: основная цель Blast 2″ и другой оперативник видят друг друга через открытый hatchway. По прямой между их базами 1,5″, но эта линия пересекает Wall; кратчайший путь вокруг Wall через проём составляет 2,5″. Попадает ли второй оперативник под Blast 2″?",
+    "options": [
+      "Да, для Blast всегда измеряют по прямой",
+      "Да, если он имеет Engage",
+      "Нет, расстояние вокруг Wall превышает 2″",
+      "Да, но с половиной кубиков атаки"
+    ],
+    "answer": 2,
+    "explanation": "На Gallowdark расстояния между оперативниками измеряют вокруг Wall. Условие дистанции Blast здесь не выполнено.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Gallowdark → Gallowdark Wall, distances; Appendix → Blast x"
+    }
+  },
+  {
+    "id": "kt-216",
+    "difficulty": 3,
+    "topic": "Оружие",
+    "question": "Оружие имеет Range 6″ и Torrent 2″. Основная цель в 5,5″ от стрелка. Вторая видимая цель находится в 1,5″ от основной, но в 7″ от стрелка; союзников рядом нет. Можно ли выбрать её вторичной?",
+    "options": [
+      "Да, достаточно находиться в 2″ от основной цели",
+      "Да, Range проверяется только для основной цели",
+      "Да, но без критических успехов",
+      "Нет, она должна быть допустимой целью и для Range 6″"
+    ],
+    "answer": 3,
+    "explanation": "Torrent требует выбирать допустимые вторичные цели. Близость к основной цели не отменяет Range оружия.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Appendix",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/appendix/",
+      "section": "Weapon Rules → Torrent x; Range x"
+    }
+  },
+  {
+    "id": "kt-217",
+    "difficulty": 3,
+    "topic": "Оружие",
+    "question": "Основная цель Blast 2″ законно выбрана. Ваш союзник находится в 1,5″ от неё и виден ей, но дальше 1″, поэтому не мешал выбору основной цели. Специальных исключений нет. Что делать с союзником?",
+    "options": [
+      "Обязательно разрешить по нему отдельную вторичную атаку Blast",
+      "Можно по желанию исключить его из Blast",
+      "Он получает только Devastating, если оно есть",
+      "Он не может стать вторичной целью, поскольку он союзник"
+    ],
+    "answer": 0,
+    "explanation": "Blast охватывает других оперативников, удовлетворяющих расстоянию и видимости от основной цели, включая союзников.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Appendix",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/appendix/",
+      "section": "Weapon Rules → Blast x; Core Rules → Shoot, attacker and defender may be the same player"
+    }
+  },
+  {
+    "id": "kt-218",
+    "difficulty": 3,
+    "topic": "Оружие",
+    "question": "Способность врага запрещает выбирать его допустимой целью Shoot, но не содержит защиты от Blast. Другой враг стал основной целью; защищённый оперативник виден ей и в пределах Blast. Спасает ли запрет выбора цели?",
+    "options": [
+      "Да, любая защита от выбора цели отменяет вторичные атаки",
+      "Нет, вторичные цели Blast не выбираются таким способом",
+      "Да, если у защищённого оперативника Conceal",
+      "Нет, но Blast наносит ему только половину урона"
+    ],
+    "answer": 1,
+    "explanation": "Официальный FAQ различает выбор допустимой цели и назначение вторичных целей Blast. Один лишь запрет выбора не даёт иммунитета от вторичной атаки.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "Физическая стр. 4: вопрос о запрете valid target и вторичных целях Blast"
+    }
+  },
+  {
+    "id": "kt-219",
+    "difficulty": 3,
+    "topic": "Оружие",
+    "question": "Оружие со Stun сохранило критический успех. Защитник затем заблокировал все успехи, не получив урона. Исходный APL цели — 3, других модификаторов нет. Каким будет её APL после завершения Shoot?",
+    "options": [
+      "3, поскольку урон не прошёл",
+      "3, поскольку критический успех заблокирован",
+      "2: Stun срабатывает от сохранённого критического успеха",
+      "1: Stun действует один раз за каждый заблокированный кубик"
+    ],
+    "answer": 2,
+    "explanation": "Stun запускается при сохранении критического успеха, а не при нанесении урона. Блокирование кубиков не отменяет уже возникший эффект.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Appendix",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/appendix/",
+      "section": "Weapon Rules → Stun; Core Rules → Datacards, stat changes during an action"
+    }
+  },
+  {
+    "id": "kt-220",
+    "difficulty": 3,
+    "topic": "Урон",
+    "question": "Один неблокированный кубик атаки наносит 4 урона. Способность добавляет ещё 2 урона именно к урону этого кубика; это не Devastating и не отдельная порция урона. Защита цели разрешает полностью игнорировать урон выбранного одного кубика. Сколько урона от этого кубика остаётся после применения защиты?",
+    "options": [
+      "2, поскольку добавочный урон никогда не относится к кубику",
+      "4, поскольку защита снимает только добавку",
+      "6, поскольку кубик с добавкой нельзя выбрать",
+      "0, защита включает добавочный урон, нанесённый этим кубиком"
+    ],
+    "answer": 3,
+    "explanation": "FAQ подтверждает, что снижение или игнорирование урона кубика распространяется и на добавочный урон этого кубика. Отдельное Devastating к этой категории не относится и в условии отсутствует.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "Физическая стр. 4: вопрос об additional damage inflicted by an attack dice"
+    }
+  },
+  {
+    "id": "kt-221",
+    "difficulty": 3,
+    "topic": "Gallowdark",
+    "question": "Gallowdark: SUPPORT не требует видимости, но выбирает союзника в пределах 6″. До него 4″ по прямой сквозь закрытую Wall и 7″ кратчайшим путём вокруг стены. Может ли способность выбрать этого союзника?",
+    "options": [
+      "Нет, отсутствие требования видимости не разрешает измерять расстояние сквозь Wall",
+      "Да, поскольку SUPPORT не требует видимости",
+      "Да, только если оба оперативника имеют Engage",
+      "Да, если заплатить на 1 AP больше"
+    ],
+    "answer": 0,
+    "explanation": "Wall ограничивает измерение расстояний отдельно от видимости. Для дистанции SUPPORT нужно использовать путь вокруг стены.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Gallowdark → Gallowdark Wall, distances"
+    }
+  },
+  {
+    "id": "kt-222",
+    "difficulty": 3,
+    "topic": "Gallowdark",
+    "question": "Gallowdark: во время Reposition оперативник оплачивает Operate Hatch и открывает закрытый проём. После открытия он оказался в control range единственного врага; союзник этого врага не связывает. У оперативника остаётся 3″ движения, специальных исключений нет. Что дальше?",
+    "options": [
+      "Он обязан пройти оставшиеся 3″",
+      "Reposition немедленно заканчивается",
+      "Оставшиеся 3″ становятся бесплатным Fall Back",
+      "Он может продолжить только с приказом Conceal"
+    ],
+    "answer": 1,
+    "explanation": "Открытие hatchway может сделать оперативников связанными. Без разрешения двигаться в control range врага текущий Reposition сразу заканчивается.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Gallowdark → Operate Hatch, final paragraph"
+    }
+  },
+  {
+    "id": "kt-223",
+    "difficulty": 3,
+    "topic": "Gallowdark",
+    "question": "Gallowdark: access point открытого hatchway находится в control range вашего оперативника. Враг также имеет этот access point в control range, но не находится в control range самого вашего оперативника. Можно ли закрыть hatchway действием Operate Hatch?",
+    "options": [
+      "Да, потому что оперативники не связаны",
+      "Да, если ваш APL выше",
+      "Нет, открытый hatchway нельзя закрывать, пока его access point в control range врага",
+      "Да, если ваш оперативник касается створки"
+    ],
+    "answer": 2,
+    "explanation": "Для закрытия достаточно вражеского control range на access point. Контакт между самими оперативниками не обязателен для запрета.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Gallowdark → Operate Hatch, restrictions"
+    }
+  },
+  {
+    "id": "kt-224",
+    "difficulty": 3,
+    "topic": "Compound Siege",
+    "question": "Killzone Upgrade: Compound Siege. Ваш оперативник On Guard стоит внутри bunker. Активировавшийся враг тоже внутри этого bunker, а снаружи есть другая допустимая цель. Можно ли прервать активацию внутреннего врага, чтобы выстрелить в наружного?",
+    "options": [
+      "Да, On Guard всегда позволяет стрелять в любую цель",
+      "Да, если враг внутри выполняет Shoot",
+      "Да, если наружная цель expended",
+      "Нет, для Guard из bunker прерываемый враг должен быть снаружи"
+    ],
+    "answer": 3,
+    "explanation": "Bunker отдельно ограничивает, чью активацию можно прервать. Наличие законной наружной цели не отменяет условие об активном враге.",
+    "source": {
+      "title": "Warhammer Community — Volkus Compound Mission Pack",
+      "url": "https://assets.warhammer-community.com/eng_kt_volkus_compound_mission_pack-oai8j5hmhd-a6ugpgdgkj.pdf",
+      "section": "Физическая стр. 2: Bunker"
+    }
+  },
+  {
+    "id": "kt-225",
+    "difficulty": 3,
+    "topic": "Gallowdark",
+    "question": "Gallowdark: два ваших оперативника On Guard. Первый уже прервал текущую активацию врага после Reposition. Тот же враг теперь закончил ещё одно действие. Можно ли вторым On Guard снова прервать эту же активацию?",
+    "options": [
+      "Нет, допускается только одно прерывание On Guard за активацию данного врага",
+      "Да, каждый On Guard даёт отдельное прерывание после каждого действия",
+      "Да, если второй выберет Fight вместо Shoot",
+      "Да, если первый не нанёс урона"
+    ],
+    "answer": 0,
+    "explanation": "Лимит On Guard установлен на активацию вражеского оперативника, а не отдельно на каждого вашего часового.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Close Quarters → On Guard, once during each enemy operative activation"
+    }
+  },
+  {
+    "id": "kt-226",
+    "difficulty": 3,
+    "topic": "Compound Siege",
+    "question": "Compound Siege: закрытая stockade с 8 ранами получает от Shoot четыре отдельные порции урона по 3. Иных источников урона нет. Сколько ран она теряет?",
+    "options": [
+      "8, и открывается",
+      "0, потому что каждая отдельная порция не превышает 3",
+      "3, потому что одинаковые порции объединяются",
+      "12, потому что учитывается сумма попаданий"
+    ],
+    "answer": 1,
+    "explanation": "Защита stockade проверяет каждую порцию урона стрельбы отдельно. Четыре порции по 3 не объединяются в одну порцию 12.",
+    "source": {
+      "title": "Warhammer Community — Volkus Compound Mission Pack",
+      "url": "https://assets.warhammer-community.com/eng_kt_volkus_compound_mission_pack-oai8j5hmhd-a6ugpgdgkj.pdf",
+      "section": "Физическая стр. 4: Opening a Stockade → Shoot"
+    }
+  },
+  {
+    "id": "kt-227",
+    "difficulty": 3,
+    "topic": "Gallowdark",
+    "question": "Gallowdark: оперативник с Engage выполнил Guard, но ни разу не прерывал врага. Все ваши оперативники теперь expended, у соперника есть ready. Все условия обычного Counteract выполнены. Можно ли этому часовому counteract?",
+    "options": [
+      "Нет, само выполнение Guard навсегда заменяет Counteract",
+      "Да, и после действия он обязательно остаётся On Guard",
+      "Да, но выполненное действие снимет состояние On Guard",
+      "Только если сначала изменить его приказ"
+    ],
+    "answer": 2,
+    "explanation": "Официальное уточнение разрешает Counteract после неиспользованного Guard. Выполнение действия при этом прекращает On Guard.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "Физическая стр. 6: вопрос о Counteract после Guard без прерывания"
+    }
+  },
+  {
+    "id": "kt-228",
+    "difficulty": 3,
+    "topic": "Gallowdark",
+    "question": "Gallowdark: оперативник уже выполнил Fight и убил врага в своей активации. Теперь он касается открытого hatchway; за ним есть законная цель Hatchway Fight, AP хватает. Разрешения на второй Fight нет. Может ли он выполнить Hatchway Fight?",
+    "options": [
+      "Да, названия действий различаются",
+      "Да, только если первая цель была incapacitated",
+      "Да, Hatchway Fight является mission action и не имеет ограничений Fight",
+      "Нет, Hatchway Fight считается Fight и подпадает под лимит повторения"
+    ],
+    "answer": 3,
+    "explanation": "Hatchway Fight прямо считается действием Fight. Новое название и другой способ выбора цели не отменяют ограничение повторного действия.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Close Quarters → Hatchway Fight 1AP; Core Rules → Action Restrictions"
+    }
+  },
+  {
+    "id": "kt-229",
+    "difficulty": 3,
+    "topic": "Gallowdark",
+    "question": "Gallowdark: оружие имеет только Devastating 2 — без указанного радиуса — и не имеет Blast, Torrent или собственного Lethal. Даёт ли Condensed Environment этому оружию Lethal 5+?",
+    "options": [
+      "Нет, для этого варианта требуется Devastating с расстоянием",
+      "Да, любая версия Devastating получает Lethal 5+",
+      "Да, но только против целей в cover",
+      "Да, но только когда цель дальше 2″"
+    ],
+    "answer": 0,
+    "explanation": "Condensed Environment различает обычное Devastating и вариант с радиусом. Обычное Devastating 2 само по себе не подходит.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Close Quarters → Condensed Environment"
+    }
+  },
+  {
+    "id": "kt-230",
+    "difficulty": 3,
+    "topic": "Compound Siege",
+    "question": "Compound Siege: оперативник бьёт закрытую stockade, у которой 8 ран. За Fight он наносит две отдельные порции урона: 5 и 6. Других эффектов нет. Каков результат?",
+    "options": [
+      "Stockade открывается от суммарных 11",
+      "Она теряет 6 ран и остаётся закрытой с 2 ранами",
+      "Обе порции игнорируются",
+      "Она теряет 5 ран и остаётся закрытой с 3 ранами"
+    ],
+    "answer": 1,
+    "explanation": "В ближнем бою stockade игнорирует отдельные порции урона 5 и меньше. Порция 6 проходит, но не снимает все 8 ран.",
+    "source": {
+      "title": "Warhammer Community — Volkus Compound Mission Pack",
+      "url": "https://assets.warhammer-community.com/eng_kt_volkus_compound_mission_pack-oai8j5hmhd-a6ugpgdgkj.pdf",
+      "section": "Физическая стр. 4: Opening a Stockade → Fight"
+    }
+  },
+  {
+    "id": "kt-231",
+    "difficulty": 3,
+    "topic": "Volkus",
+    "question": "Volkus: стрелок и цель находятся по разные стороны целого Barred window большого ruin. Оба дальше 1″ по горизонтали от окна; единственная потенциальная линия видимости проходит через него. У стрелка Seek. Можно ли выбрать цель?",
+    "options": [
+      "Да, Seek игнорирует все ограничения окна",
+      "Да, но цель получает критический cover save",
+      "Нет, Barred запрещает провести эту линию видимости",
+      "Да, если цель имеет Engage"
+    ],
+    "answer": 2,
+    "explanation": "Seek не создаёт видимость. Через Barred window её нельзя проводить, пока ни одна сторона не находится горизонтально в пределах 1″ от окна.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Volkus → Large Ruin → Barred terrain; Appendix → Seek"
+    }
+  },
+  {
+    "id": "kt-232",
+    "difficulty": 3,
+    "topic": "Volkus",
+    "question": "Volkus: враги стоят по разные стороны двери large ruin в пределах 1″. Для control range дверь игнорируется, но фактически закрывает всю видимость. Стрелок умеет выполнять Shoot в control range врага, иных разрешений нет. Может ли он стрелять сквозь дверь в этого врага?",
+    "options": [
+      "Да, control range автоматически заменяет видимость",
+      "Да, если оружие имеет Range 6″",
+      "Да, но с ухудшением Hit на 1",
+      "Нет, исключение для control range не делает цель видимой для Shoot"
+    ],
+    "answer": 3,
+    "explanation": "Официальный FAQ отделяет условную видимость для control range от настоящей видимости при стрельбе. Разрешения стрелять в ближнем бою недостаточно.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "Физическая стр. 6: вопрос о Shoot через дверь, игнорируемую для control range"
+    }
+  },
+  {
+    "id": "kt-233",
+    "difficulty": 3,
+    "topic": "Volkus",
+    "question": "Volkus: атакующий находится вне stronghold, а защищающийся полностью внутри него. Они законно выполняют Fight; специальных правил порядка разрешения нет. Кто первым разрешает успешный кубик?",
+    "options": [
+      "Защищающийся благодаря Garrisoned Stronghold",
+      "Атакующий, поскольку он выполняет действие",
+      "Всегда игрок с инициативой",
+      "Оперативник с большей характеристикой APL"
+    ],
+    "answer": 0,
+    "explanation": "Garrisoned Stronghold меняет обычный порядок, когда полностью находящийся внутри оперативник отвечает на атаку извне.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Volkus → Cityfight → Garrisoned Stronghold"
+    }
+  },
+  {
+    "id": "kt-234",
+    "difficulty": 3,
+    "topic": "Volkus",
+    "question": "Volkus: основная цель Blast находится полностью внутри stronghold на killzone floor. Вторичная цель находится снаружи stronghold. У оружия нет собственного Lethal. Как применяется Condensed Stronghold?",
+    "options": [
+      "Lethal 5+ получают обе последовательности, поскольку основная цель внутри",
+      "Lethal 5+ действует только против основной цели внутри",
+      "Lethal 5+ действует только против вторичной цели снаружи",
+      "Condensed Stronghold не действует на Blast"
+    ],
+    "answer": 1,
+    "explanation": "Condensed Stronghold проверяет расположение каждой цели отдельно. Основная цель не передаёт этот бонус внешней вторичной цели.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Volkus → Cityfight → Condensed Stronghold"
+    }
+  },
+  {
+    "id": "kt-235",
+    "difficulty": 3,
+    "topic": "Bheta-Decima",
+    "question": "Bheta-Decima: оба оперативника стоят на Vantage разных gantry. Между ними внизу 6″ hazardous area. Цель видима и иначе допустима. Мешает ли Restricted Targeting выбрать её?",
+    "options": [
+      "Да, hazardous area от 4″ запрещает любой выстрел",
+      "Да, если между gantry нет лестницы",
+      "Нет, Restricted Targeting не действует, когда обе стороны на Vantage",
+      "Да, если у цели Conceal, даже без cover"
+    ],
+    "answer": 2,
+    "explanation": "Особые ограничения Bheta-Decima применяются, когда хотя бы одна из двух сторон на killzone floor. Здесь обе стороны выше пола.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Bheta-Decima → Hazardous Area → Restricted Targeting"
+    }
+  },
+  {
+    "id": "kt-236",
+    "difficulty": 3,
+    "topic": "Bheta-Decima",
+    "question": "Bheta-Decima: стрелок на gantry A, видимая цель с Engage на killzone floor. Между ними проходит только footprint gantry A, на которой находится стрелок; чужих gantry между ними нет. Запрещает ли этот footprint выбрать цель?",
+    "options": [
+      "Да, любой footprint между разными уровнями запрещает цель",
+      "Да, кроме стрельбы с Seek",
+      "Да, но только для оружия Range 6″",
+      "Нет, footprint gantry стрелка игнорируется для этого ограничения"
+    ],
+    "answer": 3,
+    "explanation": "При проверке Restricted Targeting не учитывают footprint той gantry, на которой находится стрелок или цель.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Bheta-Decima → Hazardous Area → Restricted Targeting"
+    }
+  },
+  {
+    "id": "kt-237",
+    "difficulty": 3,
+    "topic": "Bheta-Decima",
+    "question": "Bheta-Decima: оперативник заканчивает Reposition на killzone floor. Почти вся база на безопасной части поля, но её край касается hazardous area. Базу можно сдвинуть так, чтобы она не касалась опасной зоны, и дистанции хватит. Какой вариант законен?",
+    "options": [
+      "Сдвинуть базу целиком с hazardous area; касание краем недопустимо",
+      "Оставить как есть, если центр базы в безопасности",
+      "Оставить как есть, если не меньше половины базы в безопасности",
+      "Оставить как есть и получить 1 урон"
+    ],
+    "answer": 0,
+    "explanation": "Для Restricted Movement важна вся база: никакая её часть не должна касаться hazardous area.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Bheta-Decima → Hazardous Area → Restricted Movement"
+    }
+  },
+  {
+    "id": "kt-238",
+    "difficulty": 3,
+    "topic": "Bheta-Decima",
+    "question": "Bheta-Decima: стрелок на Vantage gantry A, цель с Engage на полу. Между ними footprint отдельной gantry B; ни один оперативник не находится на B или внутри неё. Цель видима, стрелок имеет Seek. Что верно?",
+    "options": [
+      "Seek отменяет запрет, поскольку цель видима",
+      "Цель всё равно недопустима из-за Restricted Targeting",
+      "Можно стрелять, но нельзя сохранять критические успехи",
+      "Нужно лишь добавить цели один cover save"
+    ],
+    "answer": 1,
+    "explanation": "Seek влияет на cover, а Restricted Targeting — отдельное ограничение выбора цели между Vantage и полом через стороннюю gantry.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Bheta-Decima → Hazardous Area → Restricted Targeting; Appendix → Seek"
+    }
+  },
+  {
+    "id": "kt-239",
+    "difficulty": 3,
+    "topic": "Tomb World",
+    "question": "Tomb World: у оперативника только одно основание для скидки Breach — оружие с Piercing 2, но оно также имеет Blast. Нужных слов на датакарте и Breaching Charge нет. Он ещё не стрелял и не заряжал. Сколько стоит Breach?",
+    "options": [
+      "0 AP",
+      "1 AP",
+      "2 AP",
+      "3 AP"
+    ],
+    "answer": 2,
+    "explanation": "Оружие с Blast или Torrent исключено из оружейного основания для скидки Breach. Наличие Piercing 2 в таком профиле не помогает.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Tomb World → Breach Point → Breach 2AP"
+    }
+  },
+  {
+    "id": "kt-240",
+    "difficulty": 3,
+    "topic": "Tomb World",
+    "question": "Tomb World: оперативник с APL 3 и словом grenadier на датакарте уже выполнил Shoot за 1 AP. Закрытый breach point находится в его control range; сам оперативник не связан с врагом. Можно ли открыть его оставшимися AP?",
+    "options": [
+      "Нет, любое Shoot полностью запрещает Breach",
+      "Да, за 1 AP по обычной скидке grenadier",
+      "Да, бесплатно, поскольку Shoot уже оплачен",
+      "Да, за 2 AP; скидка в такой активации не применяется"
+    ],
+    "answer": 3,
+    "explanation": "Обновлённое правило не запрещает сочетание полностью: при Shoot или Charge стоимость Breach в той же активации не может быть ниже 2 AP.",
+    "source": {
+      "title": "Warhammer Community — Killzone: Tomb World Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_killzone_tomb_world_update_log-ptyzlo3dfr-ivlzsazxnf.pdf",
+      "section": "Физическая стр. 2: Previous Erratas → Breach action; Core Rules → APL"
+    }
+  },
+  {
+    "id": "kt-241",
+    "difficulty": 3,
+    "topic": "Tomb World",
+    "question": "Tomb World, третий Turning Point: оперативник на teleport pad хочет использовать Charge для телепортации на другой pad. После размещения там ни один враг не будет в его control range. Других исключений нет. Можно ли так телепортироваться?",
+    "options": [
+      "Нет, условия выбранного Charge всё равно должны быть выполнены",
+      "Да, телепортация заменяет все условия Charge",
+      "Да, но оперативник немедленно становится injured",
+      "Да, если другой pad свободен"
+    ],
+    "answer": 0,
+    "explanation": "Телепортация заменяет перемещение, но сохраняет остальные требования действия. Charge обязан закончиться в control range врага.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Tomb World → Teleport Pad, action requirements"
+    }
+  },
+  {
+    "id": "kt-242",
+    "difficulty": 3,
+    "topic": "Tomb World",
+    "question": "Tomb World, второй Turning Point: ваш оперативник А законно телепортируется через Reposition. На другом teleport pad стоит ваш союзник Б. После обмена позиции не нарушают условий Reposition. Что происходит с Б?",
+    "options": [
+      "Телепортация А запрещена, пока Б занимает pad",
+      "Б меняется местами с А и оказывается на исходном pad",
+      "Б снимается как incapacitated",
+      "Б выбирает любую точку в пределах 6″ от pad"
+    ],
+    "answer": 1,
+    "explanation": "Занятый второй pad не всегда блокирует телепортацию: находящихся на площадках оперативников меняют местами, соблюдая условия действия.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Killzone: Tomb World → Teleport Pad, occupied destination"
+    }
+  },
+  {
+    "id": "kt-243",
+    "difficulty": 3,
+    "topic": "Tomb World",
+    "question": "Tomb World, третий Turning Point: при Counteract оперативник на teleport pad выбирает Reposition. Другой pad находится в 12″, и размещение на нём не может оказаться wholly within 2″ от исходной позиции. Может ли он телепортироваться?",
+    "options": [
+      "Да, поскольку телепортация не тратит Move",
+      "Да, если APL не меньше 3",
+      "Нет, Counteract ограничивает также удаление и повторное размещение",
+      "Да, если оба pad свободны от врагов"
+    ],
+    "answer": 2,
+    "explanation": "Лимит Counteract отдельно ограничивает повторное размещение после удаления. Замена обычного движения телепортацией его не отменяет.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Firefight Phase → Counteract, removed and set up wholly within 2″; Killzones → Teleport Pad"
+    }
+  },
+  {
+    "id": "kt-244",
+    "difficulty": 3,
+    "topic": "Compound Siege",
+    "question": "Compound Siege: оперативники сражаются через окно stockade, стоя по разные стороны. Видимость не проходит через открытый breach point. Атакующий имеет способность, позволяющую ему разрешать первый кубик первым. Кто начинает?",
+    "options": [
+      "Атакующий благодаря способности на датакарте",
+      "Игрок с инициативой",
+      "Оперативник с большей базой",
+      "Защитник: Fortified Position для такого боя имеет приоритет над другими правилами"
+    ],
+    "answer": 3,
+    "explanation": "При бое через окно bunker или stockade правило Fortified Position отдаёт первое разрешение защитнику и прямо устанавливает свой приоритет.",
+    "source": {
+      "title": "Warhammer Community — Volkus Compound Mission Pack",
+      "url": "https://assets.warhammer-community.com/eng_kt_volkus_compound_mission_pack-oai8j5hmhd-a6ugpgdgkj.pdf",
+      "section": "Физическая стр. 3: Fortified Position → Fighting"
+    }
+  },
+  {
+    "id": "kt-245",
+    "difficulty": 3,
+    "topic": "Compound Siege",
+    "question": "Compound Siege: цель находится в cover от окна bunker, а стрелок по другую его сторону. Выстрел проходит через окно, не через открытый breach point. Оружие имеет Piercing 2. Сколько кубиков защиты собирает цель без иных модификаторов?",
+    "options": [
+      "Три: Fortified Position позволяет игнорировать Piercing",
+      "Один: Piercing 2 работает полностью",
+      "Два: Piercing 2 только уменьшается до Piercing 1",
+      "Четыре: bunker всегда добавляет кубик защиты"
+    ],
+    "answer": 0,
+    "explanation": "При стрельбе через bunker или stockade в укрытую с другой стороны цель Fortified Position позволяет игнорировать Piercing. Дополнительный четвёртый кубик относится к самой stockade, а не к оперативнику.",
+    "source": {
+      "title": "Warhammer Community — Volkus Compound Mission Pack",
+      "url": "https://assets.warhammer-community.com/eng_kt_volkus_compound_mission_pack-oai8j5hmhd-a6ugpgdgkj.pdf",
+      "section": "Физическая стр. 3: Fortified Position → Shooting"
+    }
+  },
+  {
+    "id": "kt-246",
+    "difficulty": 3,
+    "topic": "Compound Siege",
+    "question": "Compound Siege: основная цель Blast 2″ снаружи stockade. Другой оперативник в 1″ от неё внутри stockade и виден через окно. Между ними нет открытого breach point. Станет ли он вторичной целью?",
+    "options": [
+      "Да, достаточно расстояния 1″ и видимости",
+      "Нет, вторичные цели должны быть на той же стороне stockade, что и основная",
+      "Да, но получает критический cover save",
+      "Да, если имеет Engage"
+    ],
+    "answer": 1,
+    "explanation": "Fortified Position добавляет для Blast и Torrent ограничение по стороне укрепления. Исключение действует через открытый breach point, которого здесь нет.",
+    "source": {
+      "title": "Warhammer Community — Volkus Compound Mission Pack",
+      "url": "https://assets.warhammer-community.com/eng_kt_volkus_compound_mission_pack-oai8j5hmhd-a6ugpgdgkj.pdf",
+      "section": "Физическая стр. 3: Fortified Position → Shooting, secondary targets"
+    }
+  },
+  {
+    "id": "kt-247",
+    "difficulty": 3,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025: игрок выбросил 2 на инициативу, использовал карточку +2 и получил итог 4. Затем он применил Re-roll; новый кубик показал 5. Других изменений после переброса нет. Каков итоговый результат?",
+    "options": [
+      "7, поскольку +2 остаётся",
+      "4, потому что первый итог нельзя улучшить перебросом",
+      "5, поскольку переброс заменяет использованные до него модификации",
+      "2, поскольку обе карточки отменяют друг друга"
+    ],
+    "answer": 2,
+    "explanation": "В Approved Ops 2025 результат Re-roll заменяет предшествующие изменения результата. Старый +2 не прибавляется к новому кубику.",
+    "source": {
+      "title": "Wahapedia — Approved Ops 2025",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+      "section": "Game Sequence → 4. Play the Battle, Re-roll initiative card"
+    }
+  },
+  {
+    "id": "kt-248",
+    "difficulty": 3,
+    "topic": "Compound Siege",
+    "question": "Compound Siege: оперативник стоит снаружи stockade с дверью. Через окно он видит внутреннюю часть breach point, и она в его control range. Дверь закрыта, врагов рядом нет. Разрешено ли Open Stockade Door?",
+    "options": [
+      "Да, ведь control range выполнен",
+      "Да, если потратить 2 AP вместо 1",
+      "Да, если его APL 3",
+      "Нет, это действие нельзя выполнять снаружи stockade"
+    ],
+    "answer": 3,
+    "explanation": "У Open Stockade Door есть отдельный запрет для оперативника снаружи. Видимость и control range не заменяют нужную сторону укрепления.",
+    "source": {
+      "title": "Warhammer Community — Volkus Compound Mission Pack",
+      "url": "https://assets.warhammer-community.com/eng_kt_volkus_compound_mission_pack-oai8j5hmhd-a6ugpgdgkj.pdf",
+      "section": "Физическая стр. 4: Open Stockade Door 1AP, restrictions"
+    }
+  },
+  {
+    "id": "kt-249",
+    "difficulty": 3,
+    "topic": "Compound Siege",
+    "question": "Compound Siege: injured-оперативник стреляет в закрытую stockade. Обычный Hit его оружия — 5+; других изменений Hit нет. Какой Hit используется против stockade с учётом правила Opening a Stockade?",
+    "options": [
+      "3+: сначала Hit считается 2+, затем применяется injured",
+      "2+: stockade отменяет все штрафы Hit",
+      "5+: берётся неизменённая карточка оружия",
+      "6+: injured применяется только к исходному Hit 5+"
+    ],
+    "answer": 0,
+    "explanation": "При атаке stockade её правило сначала устанавливает Hit 2+, после чего применяются обычные изменения. Штраф injured ухудшает его до 3+.",
+    "source": {
+      "title": "Warhammer Community — Volkus Compound Mission Pack",
+      "url": "https://assets.warhammer-community.com/eng_kt_volkus_compound_mission_pack-oai8j5hmhd-a6ugpgdgkj.pdf",
+      "section": "Физическая стр. 4: Opening a Stockade → Shoot, Hit treated as 2+ then other changes"
+    }
+  },
+  {
+    "id": "kt-250",
+    "difficulty": 3,
+    "topic": "Gallowdark",
+    "question": "Gallowdark: учебная способность позволяет второй Shoot за активацию, только если он выполняется из bolt pistol. Оперативник уже выполнил первый Shoot, затем законно выбрал Guard как второй Shoot по этой способности. При прерывании у него есть допустимые цели для bolt pistol и plasma gun. Какое оружие можно выбрать?",
+    "options": [
+      "Любое: выбор Guard полностью отменяет оружейное условие",
+      "Только bolt pistol, как требует основание для дополнительного Shoot",
+      "Только plasma gun, поскольку bolt pistol уже зарезервирован для Guard",
+      "Никакое: Guard вообще нельзя использовать вместо такого Shoot"
+    ],
+    "answer": 1,
+    "explanation": "Официальный FAQ разрешает Guard при условии использования конкретного оружия. Если при прерывании выполняется Shoot, нужно выбрать именно предусмотренное оружие.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "Физическая стр. 4: Guard with rules requiring a specific weapon for Shoot"
+    }
+  }
+]

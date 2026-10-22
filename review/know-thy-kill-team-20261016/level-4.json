@@ -1,0 +1,952 @@
+[
+  {
+    "id": "kt-251",
+    "difficulty": 4,
+    "topic": "Стрельба",
+    "question": "Стрелок на Vantage на 4″ выше цели с Engage. Оружие: Atk 5, Hit 4+, собственный Accurate 1, Devastating 2 и Piercing Crits 2. Цель obscured из-за другого, отдельного элемента Heavy. Стрелок использовал максимальное число автоматических успехов; на оставшихся кубиках выпали 6, 4 и 1. Каков итог до броска защиты?",
+    "options": [
+      "Один критический и два обычных; 2 урона Devastating и один кубик защиты",
+      "Четыре обычных успеха; защитник собирает три кубика",
+      "Три обычных успеха, 0 урона Devastating; защитник собирает три кубика",
+      "Один критический и три обычных; 2 урона Devastating и один кубик защиты"
+    ],
+    "answer": 2,
+    "explanation": "Vantage даёт Accurate 2; несколько Accurate не складываются до 3. Два автоматических и два брошенных успеха дают четыре, затем obscured убирает один и исключает криты. Devastating и Piercing Crits не запускаются.",
+    "source": {
+      "title": "Wahapedia · Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Vantage; Appendix: Accurate; Core Rules: Obscured"
+    }
+  },
+  {
+    "id": "kt-252",
+    "difficulty": 4,
+    "topic": "Стрельба",
+    "question": "При Shoot оружием Dmg 3/5, Devastating 2 сохранены два критических и один обычный успех. Цель пережила Devastating. Защита сохранила один критический и один обычный успех и блокирует так, чтобы получить минимум урона. Других правил нет. Сколько урона получит цель суммарно?",
+    "options": [
+      "9",
+      "5",
+      "7",
+      "12"
+    ],
+    "answer": 0,
+    "explanation": "Два крита сразу наносят 4 урона Devastating. Крит защиты блокирует один крит атаки, обычный — обычный. Оставшийся крит наносит ещё 5: всего 9.",
+    "source": {
+      "title": "Wahapedia · Appendix",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/appendix/",
+      "section": "Devastating; Core Rules: Resolve Defence Dice / Resolve Attack Dice"
+    }
+  },
+  {
+    "id": "kt-253",
+    "difficulty": 4,
+    "topic": "Стрельба",
+    "question": "В учебном примере необычное оружие имеет Dmg 5/4. После бросков атаки остались один критический и два обычных успеха; защита сохранила один критический и один обычный. Эффектов критов и других правил нет. Как защитнику получить наименьший урон?",
+    "options": [
+      "Заблокировать критический и один обычный, получив 5 урона",
+      "Критом защиты заблокировать сразу два обычных и обычным — критический",
+      "Любое допустимое распределение даст 9 урона",
+      "Заблокировать оба обычных успеха и получить 4 урона от критического"
+    ],
+    "answer": 3,
+    "explanation": "Крит защиты может блокировать обычный успех. Здесь каждый обычный удар опаснее критического, поэтому выгодно оставить именно крит атаки. Один крит защиты не блокирует два кубика.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Shoot: Resolve Defence Dice; Dmg stats"
+    }
+  },
+  {
+    "id": "kt-254",
+    "difficulty": 4,
+    "topic": "Взаимодействия",
+    "question": "Оружие Dmg 3/4 нанесло два обычных и один критический неблокированный успех. Способность стрелка позволяет игнорировать любые изменения характеристик его оружия. У защитника два независимых эффекта: уменьшить обе Dmg-характеристики на 1 и уменьшить фактически получаемый урон каждого кубика на 1. Стрелок игнорирует все разрешённые изменения. Сколько урона остаётся?",
+    "options": [
+      "10",
+      "7",
+      "4",
+      "9"
+    ],
+    "answer": 1,
+    "explanation": "Игнорируется изменение Dmg, поэтому исходный урон равен 3+3+4. Уменьшение нанесённого урона не является изменением характеристики: оно убирает ещё по 1 с каждого кубика, оставляя 7.",
+    "source": {
+      "title": "Warhammer Community · Core Rules Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 6: ignoring weapon stat changes versus reducing damage inflicted"
+    }
+  },
+  {
+    "id": "kt-255",
+    "difficulty": 4,
+    "topic": "Оружие",
+    "question": "Оружие имеет базовый Hit 4+ и Hot. Ещё до начала Shoot действующий эффект улучшил его Hit до 3+; улучшение сохраняется и при проверке Hot. На кубике атаки выпало 3, а на Hot — тоже 3. Как трактуются результаты при отсутствии других правил?",
+    "options": [
+      "Атака 3 — обычный успех; Hot 3 не наносит урон",
+      "Атака 3 — обычный успех, но Hot наносит 6 урона по базовому Hit",
+      "Атака 3 — провал; Hot наносит 6 урона",
+      "Атака 3 — критический успех; Hot наносит 3 урона"
+    ],
+    "answer": 0,
+    "explanation": "В обеих проверках используется действующий Hit 3+, а не исходный 4+. Тройка успешно попадает и не меньше текущего Hit, поэтому не перегревает оружие. Модификация задана до действия, чтобы не возникало вопроса об отложенном изменении характеристики.",
+    "source": {
+      "title": "Warhammer Community · Core Rules Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 6: Hit changes and Hot; Appendix: Hot"
+    }
+  },
+  {
+    "id": "kt-256",
+    "difficulty": 4,
+    "topic": "Оружие",
+    "question": "При выборе цели учебный эффект одновременно улучшает Hit оружия с 4+ до 3+ до конца turning point и даёт ему Lethal 5+. Особого момента применения не указано. Следом на двух кубиках этой атаки выпали 3 и 5. Что получится?",
+    "options": [
+      "Оба — обычные успехи",
+      "3 — обычный, 5 — критический успех",
+      "3 — провал, 5 — критический успех",
+      "3 — провал, 5 — обычный успех"
+    ],
+    "answer": 2,
+    "explanation": "Изменение характеристики Hit ждёт завершения действия. Изменение правил оружия действует сразу, поэтому новый Lethal 5+ уже превращает успешную пятёрку в крит.",
+    "source": {
+      "title": "Warhammer Community · Core Rules Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 2: Datacards — changes to stats versus weapon rules"
+    }
+  },
+  {
+    "id": "kt-257",
+    "difficulty": 4,
+    "topic": "Оружие",
+    "question": "У оружия Hit 4+, Ceaseless и Balanced. Первоначальные результаты: 1, 2, 2, 4, 6. Через Ceaseless обе двойки уже переброшены в 1 и 5. Balanced ещё не использован. Какой из оставшихся провалов разрешено перебросить через Balanced?",
+    "options": [
+      "Только единицу, полученную при перебросе двойки",
+      "Только единицу из первоначального броска",
+      "Любую из двух единиц",
+      "Ни одну: после Ceaseless Balanced всегда запрещён"
+    ],
+    "answer": 1,
+    "explanation": "Разные источники перебросов можно применять к разным кубикам. Однако конкретный кубик нельзя перебросить повторно: новая единица уже исчерпала переброс, первоначальная — ещё нет.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Dice: one re-roll per dice; Appendix: Balanced / Ceaseless"
+    }
+  },
+  {
+    "id": "kt-258",
+    "difficulty": 4,
+    "topic": "Оружие",
+    "question": "Оружие Hit 4+ имеет Punishing и Rending; выпали 6, 4, 2, 1. Вы хотите сохранить максимум критов и обычных успехов. Нет Severe, автоматических успехов или иных правил. Какой результат достижим?",
+    "options": [
+      "Три критических и один провал",
+      "Один критический и три обычных",
+      "Два критических и два обычных",
+      "Два критических, один обычный и один провал"
+    ],
+    "answer": 3,
+    "explanation": "Rending позволяет сохранить успешную четвёрку как крит, Punishing — один провал как обычный. Один кубик нельзя сохранить дважды, поэтому превращать уже сохранённый через Punishing кубик ещё и через Rending нельзя.",
+    "source": {
+      "title": "Warhammer Community · Core Rules Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 5: retaining a die once; Appendix: Punishing / Rending"
+    }
+  },
+  {
+    "id": "kt-259",
+    "difficulty": 4,
+    "topic": "Взаимодействия",
+    "question": "От этой атаки цель уже получила 4 урона Devastating. После защиты остались два неблокированных кубика, наносящих 3 и 5 урона. Её одноразовая защита игнорирует весь урон первого разрешаемого кубика атаки, но не имеет отдельной защиты от Devastating. Каков минимальный суммарный урон?",
+    "options": [
+      "3",
+      "7",
+      "4",
+      "9"
+    ],
+    "answer": 1,
+    "explanation": "Защитник выбирает кубик с уроном 5 для своего эффекта, поскольку успехи стрельбы разрешаются одновременно. Отдельные 4 урона Devastating остаются, как и 3 урона второго кубика.",
+    "source": {
+      "title": "Warhammer Community · Core Rules Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 4: simultaneous shooting damage; Devastating is not attack-dice damage"
+    }
+  },
+  {
+    "id": "kt-260",
+    "difficulty": 4,
+    "topic": "Ближний бой",
+    "question": "В обычном Fight у атакующего осталось 5 ран, один критический и два обычных успеха с Dmg 3/4. У защитника 7 ран и два критических успеха с Dmg 3/4. Дополнительных правил нет. Какое первое решение атакующего гарантирует, что он выведет противника из строя и сам выживет, как бы защитник ни разрешил свой первый кубик?",
+    "options": [
+      "Заблокировать крит противника своим критом",
+      "Нанести обычный strike",
+      "Нанести критический strike",
+      "Заблокировать крит противника обычным успехом"
+    ],
+    "answer": 2,
+    "explanation": "После критического удара у защитника 3 раны. Он может ударить в ответ на 4 или заблокировать один обычный успех; в обоих случаях следующий обычный удар атакующего завершает бой. Критический block первым оставляет атакующему лишь 6 потенциального урона.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Fight: alternating strike/block and ending the sequence on incapacitation"
+    }
+  },
+  {
+    "id": "kt-261",
+    "difficulty": 4,
+    "topic": "Контроль маркеров",
+    "question": "До Shoot маркер контролирует единственный защитник с APL 3; его оспаривает и ваш оперативник с APL 2. Стрельба сохраняет крит с Stun, но защитник блокирует весь урон и остаётся на месте. Нет иных модификаторов. Как изменится контроль?",
+    "options": [
+      "До конца Shoot контроль прежний; после действия никто не контролирует маркер",
+      "Сразу после сохранения крита маркер контролируете вы",
+      "После Shoot защитник сохраняет контроль, потому что не потерял раны",
+      "После Shoot маркер контролируете вы, потому что атаковали последним"
+    ],
+    "answer": 0,
+    "explanation": "Stun уменьшает APL независимо от блокирования урона, но изменение характеристики применяется после действия. Получается 2 против 2: для контроля нужно строгое превосходство. Во время самого действия контроль не меняется.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Datacards; Markers; Appendix: Stun"
+    }
+  },
+  {
+    "id": "kt-262",
+    "difficulty": 4,
+    "topic": "Контроль маркеров",
+    "question": "У оперативника базовый APL 2. Одновременно действуют два независимых эффекта +1 APL и один эффект −1 APL. Он один оспаривает маркер против врага с APL 2; действий сейчас никто не выполняет. Других ограничений нет. Каковы APL и контроль?",
+    "options": [
+      "APL 2; маркер не контролирует никто",
+      "APL 4; маркер контролирует его сторона",
+      "APL 1; маркер контролирует враг",
+      "APL 3; маркер контролирует его сторона"
+    ],
+    "answer": 3,
+    "explanation": "Совокупное изменение равно +1 и укладывается в предел отклонения от обычного APL. Ограничение не заменяет базовый APL после каждого отдельного эффекта: итог 3 против 2 даёт контроль.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Datacards: APL modifiers; Markers"
+    }
+  },
+  {
+    "id": "kt-263",
+    "difficulty": 4,
+    "topic": "Движение",
+    "question": "Оперативник начинает Reposition с Move 6″. Пройдя 3″, он получает урон от эффекта, который не прерывает движение, и становится injured. Других модификаторов нет; путь свободен. После Reposition он хочет выполнить Dash. Сколько суммарно можно пройти этими двумя действиями?",
+    "options": [
+      "7″",
+      "6″",
+      "9″",
+      "5″"
+    ],
+    "answer": 2,
+    "explanation": "Изменение Move от injured применяется после текущего действия: Reposition сохраняет лимит 6″. Следующий Dash использует собственный лимит 3″, а не уменьшенный Move.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Datacards: stat changes during an action; Damage; Dash"
+    }
+  },
+  {
+    "id": "kt-264",
+    "difficulty": 4,
+    "topic": "Движение",
+    "question": "Базовый Move оперативника равен 5″. Он уже injured и дополнительно получает ещё −2″ к Move от отдельного действующего эффекта. Его Charge законен, местности и других ограничений нет. Каков максимальный лимит движения для Charge?",
+    "options": [
+      "6″",
+      "3″",
+      "5″",
+      "4″"
+    ],
+    "answer": 0,
+    "explanation": "Move не может стать ниже 4″, хотя сумма штрафов дала бы 1″. Charge добавляет 2″ к этой характеристике, поэтому его лимит равен 6″.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Datacards: minimum Move; Damage; Charge"
+    }
+  },
+  {
+    "id": "kt-265",
+    "difficulty": 4,
+    "topic": "Действия",
+    "question": "У учебного mission action исходная стоимость 1 AP; два действующих эффекта уменьшают её каждый на 1 AP. Оперативник уже выполнил это действие в текущей активации. Особого разрешения повторять его нет. Можно ли выполнить его ещё раз и получить AP за отрицательную стоимость?",
+    "options": [
+      "Да: второе выполнение вернёт 1 AP",
+      "Да, но только бесплатно, без возврата AP",
+      "Нет, потому что стоимость любого действия не может быть ниже 1 AP",
+      "Нет: минимальная стоимость 0 AP, а запрет повторять действие остаётся"
+    ],
+    "answer": 3,
+    "explanation": "Стоимость не опускается ниже 0 AP. Бесплатность сама по себе не отменяет action restrictions: для второго одинакового действия требуется отдельное разрешение.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Firefight Phase: Perform Actions; Actions: Free actions"
+    }
+  },
+  {
+    "id": "kt-266",
+    "difficulty": 4,
+    "topic": "Ближний бой",
+    "question": "Атакующий с оружием Dmg 3/4, Shock и Brutal сохранил два крита. Защитник имеет 8 ран, один крит и один обычный успех. Атакующий первым наносит критический strike. Дополнительных правил нет. Может ли защитник затем заблокировать второй крит и выжить?",
+    "options": [
+      "Нет: атакующий вправе убрать крит через Shock, оставив защитнику только обычный успех",
+      "Да: Shock убирает обычный успех, а оставшийся крит может блокировать; у защитника остаётся 4 раны",
+      "Нет: Brutal запрещает любые блоки против критических успехов",
+      "Да: обычный успех защитника блокирует второй крит, а его крит наносит ответный удар"
+    ],
+    "answer": 1,
+    "explanation": "При наличии обычного успеха Shock должен убрать именно его. Сохранившийся крит разрешено использовать для block против второго крита: требование Brutal соблюдено. Второго удара не происходит, поэтому остаются 8−4=4 раны.",
+    "source": {
+      "title": "Wahapedia · Appendix",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/appendix/",
+      "section": "Shock; Brutal; Core Rules: Fight — Resolve Attack Dice"
+    }
+  },
+  {
+    "id": "kt-267",
+    "difficulty": 4,
+    "topic": "Взаимодействия",
+    "question": "В одной последовательности Fight оба игрока могут перебрасывать свои кубики. У защитника инициатива, атакующий является активным оперативником. Никто ещё не сделал переброс. Кто первым решает, перебросить один кубик или спасовать, и когда этот обмен заканчивается?",
+    "options": [
+      "Защитник; после двух последовательных пасов",
+      "Атакующий; сразу после его первого паса",
+      "Защитник; сразу после его первого паса",
+      "Оба одновременно перебрасывают все выбранные кубики"
+    ],
+    "answer": 0,
+    "explanation": "Правило одновременных перебросов прямо задаёт чередование начиная с игрока с инициативой. Оно отдельно имеет приоритет над общим разрешением одновременных правил. Один пас не завершает обмен.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Dice: alternating re-rolls and passes"
+    }
+  },
+  {
+    "id": "kt-268",
+    "difficulty": 4,
+    "topic": "Взаимодействия",
+    "question": "Два учебных специальных правила вне Core Book конфликтуют: одно разрешает выполнить действие X, другое прямо говорит, что этот оперативник не может выполнять X. У правил нет специальных оговорок о приоритете, официальный FAQ этот конфликт не разбирает. Активный игрок хочет разрешить X, инициатива у соперника. Что решает конфликт?",
+    "options": [
+      "Активный игрок выбирает разрешение X",
+      "Решает только игрок с инициативой",
+      "Запрет X: при равном уровне правил «cannot» имеет приоритет",
+      "Нужно бросить roll-off"
+    ],
+    "answer": 2,
+    "explanation": "После отсутствующих явного приоритета и FAQ оба правила находятся на одинаковом уровне источника. Следующий критерий — запрет «cannot»; до выбора активного игрока или инициативы дело не доходит.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Precedence: ordered priority criteria"
+    }
+  },
+  {
+    "id": "kt-269",
+    "difficulty": 4,
+    "topic": "Оружие",
+    "question": "Учебная способность разрешает два Shoot за активацию, но требует использовать разное оружие в каждом. Других ограничений нет. У оперативника есть plasma gun (standard) и plasma gun (supercharge). Первым был standard. Разрешён ли supercharge вторым по этому условию?",
+    "options": [
+      "Нет: одно основное название всегда означает одно weapon",
+      "Да: профили используются как разные weapons",
+      "Да, только если первый Shoot не нанёс урон",
+      "Нет: смена профиля требует отдельного действия"
+    ],
+    "answer": 1,
+    "explanation": "В Core Rules профили с разными вторичными названиями используются как разные weapons. При этом правило, называющее только «plasma gun», охватывало бы оба профиля. Условие примера не добавляет такого запрета.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Datacards: Weapon stats, primary and secondary weapon names"
+    }
+  },
+  {
+    "id": "kt-270",
+    "difficulty": 4,
+    "topic": "Контроль маркеров",
+    "question": "На врага с APL 1, несущего objective marker по миссии, вышли два ваших оперативника с APL 3 каждый. Они в control range носителя; никакие действия сейчас не выполняются. Можно ли перехватить именно переносимый маркер превосходством APL?",
+    "options": [
+      "Да: 6 APL превосходят 1 APL",
+      "Да, если у носителя Conceal",
+      "Маркер становится ничейным до конца turning point",
+      "Нет: пока маркер несут, его оспаривает и контролирует только носитель"
+    ],
+    "answer": 3,
+    "explanation": "Для переносимого маркера действует специальная часть правила Markers: носитель — единственный, кто может его оспаривать и контролировать. Обычное сравнение сумм APL здесь не применяется.",
+    "source": {
+      "title": "Wahapedia · Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Markers: carrying a marker; Pick Up Marker"
+    }
+  },
+  {
+    "id": "kt-271",
+    "difficulty": 4,
+    "topic": "Террейн",
+    "question": "При одном непрерывном подъёме оперативник сначала поднимается на 2″, затем продолжает вверх ещё на 1,5″. Между участками условия продолжения climb соблюдены; весь горизонтальный путь составляет один прямой отрезок 1,2″. Падения нет. Какую суммарную дистанцию движения нужно оплатить?",
+    "options": [
+      "7″",
+      "6″",
+      "5,5″",
+      "5″"
+    ],
+    "answer": 1,
+    "explanation": "Для продолжающегося подъёма сначала суммируется вертикаль: 3,5″ округляются до 4″ один раз. Отдельный горизонтальный отрезок 1,2″ округляется до 2″. Вместе требуется 6″.",
+    "source": {
+      "title": "Warhammer Community · Core Rules Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 7: combined vertical distance before rounding; Core Rules: Reposition"
+    }
+  },
+  {
+    "id": "kt-272",
+    "difficulty": 4,
+    "topic": "Террейн",
+    "question": "За одно действие оперативник дважды падает вниз на 1,5″. Все условия перемещения соблюдены, подъёмов нет; два прямых горизонтальных отрезка имеют длину по 1,2″. Иных перемещений или скидок нет. Сколько движения расходуется?",
+    "options": [
+      "4″",
+      "6″",
+      "5″",
+      "7″"
+    ],
+    "answer": 2,
+    "explanation": "Вертикальные падения суммарно равны 3″; за всё действие игнорируются только 2″, остаётся 1″. Каждый отдельный горизонтальный отрезок округляется до 2″: итог 1+2+2=5″.",
+    "source": {
+      "title": "Warhammer Community · Core Rules Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 7: vertical distance; Killzones: Dropping; Reposition increments"
+    }
+  },
+  {
+    "id": "kt-273",
+    "difficulty": 4,
+    "topic": "Снаряжение",
+    "question": "Оперативник с обычным Move 5″ уже injured и соединён с внутренней стороной Portable Barricade. Он законно выполняет Move With Barricade по ровному свободному пути. Других эффектов нет. Как далеко он может передвинуться?",
+    "options": [
+      "2″",
+      "4″",
+      "3″",
+      "1″"
+    ],
+    "answer": 0,
+    "explanation": "Injured снижает характеристику Move до минимальных 4″. Действие ограничивает перемещение значением Move минус 2″ — это лимит действия, а не дальнейшее снижение характеристики, поэтому можно пройти 2″.",
+    "source": {
+      "title": "Warhammer Community · Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 3: Move With Barricade; Core Rules: minimum Move"
+    }
+  },
+  {
+    "id": "kt-274",
+    "difficulty": 4,
+    "topic": "Снаряжение",
+    "question": "В рамках одного действия первый подъём по Ladder законно считается за 1″. Затем оперативник непрерывно поднимается по другому элементу террейна ещё на 2,5″; рядом есть вторая Ladder и все дистанции позволяют продолжить climb. Какова суммарная стоимость только вертикального подъёма?",
+    "options": [
+      "2″",
+      "3″",
+      "5″",
+      "4″"
+    ],
+    "answer": 3,
+    "explanation": "Скидка Ladder применяется один раз за действие. Второй подъём определяется обычным образом: 1+2,5=3,5″, с округлением общей вертикали до 4″. Вторая лестница не даёт повторной скидки.",
+    "source": {
+      "title": "Warhammer Community · Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "Ladders: once per action; Core Rules Update Log с. 7: rounding combined vertical distance"
+    }
+  },
+  {
+    "id": "kt-275",
+    "difficulty": 4,
+    "topic": "Террейн",
+    "question": "Во время Counteract оперативник законно выполняет Dash с края Vantage. Весь горизонтальный путь — один отрезок ровно 1″; после него падение на пол ровно 3″. Он не поднимается, итоговую позицию можно занять, врагов рядом нет. Укладывается ли движение в лимит Counteract?",
+    "options": [
+      "Нет: геометрическая длина пути 4″ всегда превышает лимит",
+      "Нет: Counteract полностью запрещает падения",
+      "Да: 1″ горизонтали плюс 1″ учитываемого падения равны 2″",
+      "Да: при Counteract вертикальная дистанция вообще не учитывается"
+    ],
+    "answer": 2,
+    "explanation": "За действие игнорируются первые 2″ падения. FAQ подтверждает, что изменения учитываемой дистанции работают и для лимита Counteract. Dash позволяет падать, хотя не позволяет подниматься.",
+    "source": {
+      "title": "Warhammer Community · Core Rules Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 6: Counteract and counted distance; Killzones: Dropping; Dash"
+    }
+  },
+  {
+    "id": "kt-276",
+    "difficulty": 4,
+    "topic": "Стрельба",
+    "question": "Стрелок на Vantage на 3″ выше видимой цели с Conceal. Цель в cover только от Light и целиком в дыму; между моделями больше 2″. Оружие имеет Piercing 2 и Saturate. Других эффектов нет. Какие правила защиты и выбора цели действуют?",
+    "options": [
+      "Цель допустима; она obscured, защита бросает два кубика без cover save",
+      "Цель недопустима: дым и Conceal всегда запрещают выбирать её",
+      "Цель допустима; бросается один кубик защиты и сохраняются два cover save",
+      "Цель допустима; дым полностью отменяет Piercing, поэтому бросаются три кубика"
+    ],
+    "answer": 0,
+    "explanation": "Vantage позволяет выбрать Conceal-цель в Light cover. Дым даёт obscured и меняет Piercing 2 на 1. Из трёх кубиков остаются два; Saturate не позволяет сохранять cover saves, включая улучшенные от Vantage.",
+    "source": {
+      "title": "Warhammer Community · Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "Smoke Grenade; Killzones: Vantage; Appendix: Saturate / Piercing"
+    }
+  },
+  {
+    "id": "kt-277",
+    "difficulty": 4,
+    "topic": "Снаряжение",
+    "question": "Для дыма в Ready следующего turning point выпало 3 на D3. Первым активировался ваш оперативник и законно встал на Guard. Вторым активировался враг; внутри его активации Guard прервал одно из действий стрельбой. Удаляется ли дым сразу после завершения этой вражеской активации?",
+    "options": [
+      "Да: три действия уже превысили результат D3",
+      "Да: прерывание Guard считается третьей завершённой активацией",
+      "Нет: дым теперь остаётся до конца боя",
+      "Нет: завершились две активации, а Guard interrupt третьей активацией не является"
+    ],
+    "answer": 3,
+    "explanation": "Срок дыма измеряется завершёнными активациями, а не действиями. Прерывание Guard происходит внутри чужой активации. После двух активаций из необходимых трёх дым ещё действует, если turning point не закончился.",
+    "source": {
+      "title": "Warhammer Community · Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "Smoke Grenade: duration; Killzones: On Guard"
+    }
+  },
+  {
+    "id": "kt-278",
+    "difficulty": 4,
+    "topic": "Снаряжение",
+    "question": "Ваш SUPPORT-оперативник с APL 3 контролирует свой Comms Device; враг с APL 2 тоже оспаривает устройство. Вражеский Shoot со Stun закончился, SUPPORT-оперативник жив, APL-штраф применён. Теперь он хочет выбрать союзника в 8″ для SUPPORT-правила с обычной дальностью 6″. Иных эффектов нет. Можно ли использовать бонус устройства?",
+    "options": [
+      "Да: бонус держится до конца turning point независимо от контроля",
+      "Нет: при APL 2 против 2 устройство больше не контролируется",
+      "Да: достаточно оспаривать свой Comms Device",
+      "Нет: Comms Device прибавляет только 1″"
+    ],
+    "answer": 1,
+    "explanation": "Comms Device требует текущего контроля. После применения Stun возникает равенство APL, а значит контроль потерян. Дальность возвращается к 6″, и союзник в 8″ не подходит.",
+    "source": {
+      "title": "Warhammer Community · Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "Comms Device; Core Rules: Markers / Datacards; Appendix: Stun"
+    }
+  },
+  {
+    "id": "kt-279",
+    "difficulty": 4,
+    "topic": "Снаряжение",
+    "question": "Ammo Resupply уже действует на оперативника. Его учебное оружие с датакарты имеет Balanced; на разных кубиках выпали два провала, ещё не перебрасывавшихся. Можно ли через эти два эффекта перебросить оба провала в одном Shoot?",
+    "options": [
+      "Да: Balanced и Ammo Resupply дают по одному перебросу разных кубиков",
+      "Нет: любые источники одного переброса всегда заменяют друг друга",
+      "Да, а затем каждый из этих кубиков можно перебросить ещё раз",
+      "Нет: Ammo Resupply работает только с гранатами"
+    ],
+    "answer": 0,
+    "explanation": "Ammo Resupply даёт собственное разрешение перебросить один кубик, а не ещё один экземпляр Balanced. Оба эффекта применимы к оружию с датакарты, но ни один кубик нельзя перебрасывать дважды.",
+    "source": {
+      "title": "Warhammer Community · Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "Ammo Resupply; Appendix: Balanced; Core Rules: Dice"
+    }
+  },
+  {
+    "id": "kt-280",
+    "difficulty": 4,
+    "topic": "Подготовка к игре",
+    "question": "Approved Ops 2025: у игрока с инициативой 10 оперативников и четыре предмета устанавливаемого снаряжения (две лестницы и две лёгкие баррикады). У соперника 7 оперативников и три предмета. Как правильно чередовать размещение по правилам подготовки?",
+    "options": [
+      "Снаряжение целыми выбранными опциями; затем по одному оперативнику",
+      "Сначала всех оперативников игрока с инициативой, затем всё снаряжение",
+      "Снаряжение по одному предмету; затем группы оперативников 4 и 3 соответственно",
+      "Снаряжение по одному предмету; затем группы оперативников 3 и 2 соответственно"
+    ],
+    "answer": 2,
+    "explanation": "Снаряжение размещают предмет за предметом, а не опция за опцией. За ход выставления оперативников берут треть команды с округлением вверх: 10→4, 7→3; последняя группа содержит оставшихся.",
+    "source": {
+      "title": "Wahapedia · Approved Ops 2025",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+      "section": "Set Up Operatives: equipment item by item; thirds rounded up"
+    }
+  },
+  {
+    "id": "kt-281",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025 против Hierotek Circle: успешная реанимация уменьшила ваш kill grade по таблице с 4 до 3, и до конца боя он больше не менялся. Итоговый kill grade соперника тоже 3. Ранее вы получили 2 Tac VP за выведение этого врага из строя; других Tac VP нет, а Primary выбран Kill. Чему равна сумма ваших Kill VP, бонуса Primary и этих Tac VP, без учёта Crit?",
+    "options": [
+      "8 VP: 4 за Kill, 2 бонусных и 2 за Tac",
+      "7 VP: 3 за Kill, 2 бонусных и 2 за Tac",
+      "5 VP: 3 за Kill, 2 бонусных, а Tac VP потеряны",
+      "9 VP: 4 за Kill, 3 бонусных и 2 за Tac"
+    ],
+    "answer": 1,
+    "explanation": "Реанимация снимает соответствующий Kill VP, но не отменяет уже заработанные Tac VP. Равный kill grade не даёт очка за превосходство в конце. Итог Kill равен 3, бонус выбранного Primary — округлённая вверх половина, то есть 2. С прежними Tac VP получается 7.",
+    "source": {
+      "title": "Wahapedia · Approved Ops 2025",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+      "section": "Kill Op; Reanimation Protocols clarification; End the Battle: Primary Op"
+    }
+  },
+  {
+    "id": "kt-282",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, бросок на инициативу третьего turning point: итог после всех карт у обоих игроков равен 7. Предыдущая инициатива была у Анны. Борис решает отдать новую инициативу Анне. Кто получает новую инициативную карту за этот бросок и какого значения?",
+    "options": [
+      "Борис получает +3/−3",
+      "Анна получает Re-roll вместо числовой карты",
+      "Никто: при равенстве карта не выдаётся",
+      "Анна получает +3/−3"
+    ],
+    "answer": 3,
+    "explanation": "При итоговом равенстве побеждает игрок без текущей инициативы — Борис. Карту получает проигравшая бросок Анна, даже если победитель назначил её обладателем инициативы. Значение карты равно номеру turning point.",
+    "source": {
+      "title": "Wahapedia · Approved Ops 2025",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+      "section": "Play the Battle: tied roll-off and initiative card recipient"
+    }
+  },
+  {
+    "id": "kt-283",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, третий turning point: на инициативу Анна получила 4, Борис — 5. Анна первой спасовала. Борис применил сохранённую со второго turning point карту −2 к своему результату, сделав его 3. Может ли Анна снова принимать решение о карте или пасе?",
+    "options": [
+      "Нет: первый пас навсегда завершает участие игрока",
+      "Да: применение карты прервало последовательность пасов",
+      "Нет: после карты Бориса бросок автоматически завершён",
+      "Да, но она обязана сыграть карту, пас запрещён"
+    ],
+    "answer": 1,
+    "explanation": "Игроки чередуют карты и пас до двух пасов подряд. Между пасом Анны и её новой очередью была сыграна карта, поэтому последовательность не завершена. Анна снова может играть карту или пасовать.",
+    "source": {
+      "title": "Wahapedia · Approved Ops 2025",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+      "section": "Play the Battle: alternating initiative cards and consecutive passes"
+    }
+  },
+  {
+    "id": "kt-284",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Flank раскрыт вовремя. В конце третьего turning point вы контролируете только левый фланг. В конце четвёртого — оба; левый по-прежнему контролируется вами. Все условия contest выполнены. Сколько суммарно VP даёт Flank в этих двух turning points?",
+    "options": [
+      "4 VP",
+      "2 VP",
+      "3 VP",
+      "5 VP"
+    ],
+    "answer": 2,
+    "explanation": "В третьем turning point левый фланг даёт 1 VP. В четвёртом левый мог бы дать 2, правый — 1, но действует общий предел 2 VP за turning point. Итого 1+2=3.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Flank — continuity bonus and per-turn cap"
+    }
+  },
+  {
+    "id": "kt-285",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Martyrs: к концу третьего turning point на контролируемом вами маркере лежат три ваших Martyr tokens. Новых жетонов больше не будет; в четвёртом вы тоже контролируете этот маркер. Ранее VP за Martyrs не получали. Как потратить жетоны, чтобы набрать максимум и сохранить лишний?",
+    "options": [
+      "Снять один жетон в третьем и один в четвёртом: 4 VP, один жетон останется",
+      "Снять все три в третьем: сразу 6 VP",
+      "Снять все три в третьем: 2 VP сейчас и 2 VP автоматически в четвёртом",
+      "Обязательно снять два в третьем и один в четвёртом"
+    ],
+    "answer": 0,
+    "explanation": "При контроле один снятый жетон приносит 2 VP, что уже равно лимиту за turning point. Снимать дополнительные в тот же момент необязательно и невыгодно. Два жетона обеспечивают 4 VP за два момента подсчёта.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Martyrs — optional token removal and 2 VP cap"
+    }
+  },
+  {
+    "id": "kt-286",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Dominate: один ваш оперативник вывел из строя врага с Wounds stat 14 (у него оставалась всего 1 рана), а затем врага с Wounds stat 8. Он единственный носитель ваших Dominate tokens, но до конца третьего turning point сам incapacitated и удалён. Сколько жетонов он заработал и сколько VP вы можете получить за них сейчас?",
+    "options": [
+      "Заработал 2 жетона; сейчас 2 VP",
+      "Заработал 3 жетона; сейчас 3 VP",
+      "Заработал 2 жетона; сейчас 0 VP",
+      "Заработал 3 жетона; сейчас 0 VP"
+    ],
+    "answer": 3,
+    "explanation": "За Wounds stat не меньше 12 дают два жетона независимо от оставшихся ран, за второго врага — один. Для обмена жетонов носитель должен находиться в killzone и не быть incapacitated.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 1: Dominate — Wounds stat threshold and eligible token holders"
+    }
+  },
+  {
+    "id": "kt-287",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Dominate: по условиям двух эффектов можно определить сразу двух ваших оперативников как непосредственно вызвавших одну и ту же incapacitation врага с Wounds stat 12. Других исключений нет. Как распределяются жетоны за эту одну цель?",
+    "options": [
+      "Каждый получает по два жетона",
+      "Каждый обязательно получает по одному жетону",
+      "Выберите одного из этих оперативников; он получает два жетона",
+      "Жетоны не выдаются из-за неоднозначной причины"
+    ],
+    "answer": 2,
+    "explanation": "FAQ требует выбрать одного причинителя, если подходят несколько. Августовская редакция выдаёт за цель с Wounds stat 12 два жетона этому выбранному оперативнику, а не каждому участнику.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 4: multiple direct causes; с. 1: updated Dominate token amount"
+    }
+  },
+  {
+    "id": "kt-288",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Dominate: первый враг с Wounds stat 8 погиб от мины, чьё правило нанесения урона находится на датакарте вашего живого оперативника. Второй такой же враг погиб от универсальной Mine, полученной дополнительной опцией снаряжения. Условия прямой причины для первого соблюдены. Сколько Dominate tokens выдаётся за эти две потери?",
+    "options": [
+      "Один: только за мину из правила датакарты",
+      "Два: любая дружественная мина считается убийством оперативника",
+      "Ноль: мины никогда не дают Dominate tokens",
+      "Три: универсальная мина даёт двойной жетон"
+    ],
+    "answer": 0,
+    "explanation": "FAQ различает прямой урон из правил датакарты и косвенный источник вроде дополнительной опции оборудования. Первый случай учитывается, второй нет; за обычную цель выдаётся один жетон.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 4: Dominate — datacard damage versus indirect equipment sources"
+    }
+  },
+  {
+    "id": "kt-289",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Martyrs: ваш обычный оперативник погиб от собственного Hot, оспаривая objective marker A. Другой ваш оперативник с Expendable погиб от врага, оспаривая B. Это первая incapacitation каждого. Сколько ваших Martyr tokens появляется?",
+    "options": [
+      "Один, только на B",
+      "Два, по одному на каждом",
+      "Ни одного: на A нет вражеского убийцы, B имеет Expendable",
+      "Один, только на A"
+    ],
+    "answer": 3,
+    "explanation": "Для Martyrs не обязательно погибнуть от врага — собственный Hot тоже подходит. Но FAQ исключает получение Martyr token за incapacitation оперативника с Expendable.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 4: Martyrs non-enemy causes; Expendable interactions"
+    }
+  },
+  {
+    "id": "kt-290",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Retrieval: ваш оперативник впервые обыскал маркер A через Retrieve и получил 1 VP. Позже он погиб и выложил Retrieval marker. Союзник поднял его обычным Pick Up Marker и донёс до конца боя. Других поисков и маркеров нет. Каков общий результат Retrieval?",
+    "options": [
+      "3 VP",
+      "2 VP",
+      "1 VP",
+      "0 VP: гибель первого носителя аннулирует поиск"
+    ],
+    "answer": 1,
+    "explanation": "Первый поиск даёт 1 VP один раз. Поднятие уже созданного Retrieval marker не является новым поиском. Живой дружественный носитель в конце боя приносит ещё 1 VP.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Retrieval — first search and carrying at end of battle"
+    }
+  },
+  {
+    "id": "kt-291",
+    "difficulty": 4,
+    "topic": "Стрельба",
+    "question": "Оружие Dmg 3/4, Blast 2″ и 1″ Devastating 2 стреляет в врага A с 8 оставшимися ранами. Единственная вторичная цель B имеет 3 раны и находится в 0,5″ от A; A и B взаимно видимы. В каждой последовательности сохраняется ровно один крит, защита всё проваливает. Никто не obscured, других правил нет. Кто останется после всего Shoot?",
+    "options": [
+      "Оба врага будут incapacitated; A получает последние 2 урона от Devastating при стрельбе по B",
+      "A останется с 2 ранами, B будет incapacitated",
+      "A будет incapacitated, B останется с 1 раной",
+      "A останется с 2 ранами, B — с 1 раной"
+    ],
+    "answer": 0,
+    "explanation": "Первый крит наносит по 2 урона Devastating обоим: у A остаётся 6, у B — 1. Неблокированный крит наносит A ещё 4, оставляя 2. При стрельбе Blast по B следующий крит немедленно наносит ещё по 2 обоим, выводя их из строя до разрешения оставшегося урона второго выстрела.",
+    "source": {
+      "title": "Wahapedia · Appendix",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/appendix/",
+      "section": "Blast; distance Devastating; Core Rules: incapacitation"
+    }
+  },
+  {
+    "id": "kt-292",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Envoy, четвёртый turning point. Кандидат A уже был посланником раньше; B игнорируется для Kill Op; C ранен с прошлого turning point, но в этом ран не терял. Все живы, полностью в enemy territory и вне control range врагов в конце turning point. Кого можно выбрать сейчас, чтобы при этих условиях получить 2 VP?",
+    "options": [
+      "A",
+      "B",
+      "C",
+      "Никого: посланник обязан иметь все стартовые раны"
+    ],
+    "answer": 2,
+    "explanation": "Нельзя повторно назначать прежнего envoy или выбирать игнорируемого для Kill Op оперативника. Для бонусных 2 VP важно отсутствие потери ран в текущем turning point, а не полное исходное здоровье.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Envoy — selection and lost wounds during current turning point"
+    }
+  },
+  {
+    "id": "kt-293",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Flank уже раскрыт. В конце второго turning point ваш APL 3 полностью в левом фланге, другой ваш APL 2 пересекает разделительную линию флангов. У врага APL 2 полностью слева и APL 1 полностью справа. Все четыре целиком в территории своего противника; других оперативников там нет. Сколько VP даёт Flank вам сейчас?",
+    "options": [
+      "2 VP: пересекающий линию оперативник оспаривает оба фланга",
+      "1 VP: вы контролируете только левый фланг",
+      "2 VP: можно назначить пересекающего линию оперативника правому флангу",
+      "0 VP: фланг можно контролировать только без врагов в нём"
+    ],
+    "answer": 1,
+    "explanation": "Для contest оперативник должен быть целиком в конкретном фланге и территории противника. Пересекающая границу база не подходит ни одному. Слева ваше преимущество 3 против 2, справа — 0 против 1. Во втором turning point один контролируемый фланг приносит 1 VP.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Flank — wholly within flank and enemy territory; total APL"
+    }
+  },
+  {
+    "id": "kt-294",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Stake Claim: в turning points 2 и 3 вы выбирали A и B. Сейчас turning point 4; враг контролирует и оспаривает C, вы контролируете A и B. Положения до подсчёта не изменятся. Какой маркер остаётся для заявления и сколько VP получится за Crit Op?",
+    "options": [
+      "Можно снова выбрать A и получить 2 VP",
+      "Можно пропустить выбор и получить 2 VP",
+      "Нужно выбрать C; это автоматически обнуляет все VP за turning point",
+      "Нужно выбрать C; получится 1 VP за превосходство по числу маркеров"
+    ],
+    "answer": 3,
+    "explanation": "Каждый маркер выбирается не более одного раза за бой, поэтому остался C. Ни одно заявление о C не исполнится, но отдельное условие превосходства по контролю даёт 1 VP.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 2: Stake Claim — no repeated marker selection and separate scoring conditions"
+    }
+  },
+  {
+    "id": "kt-295",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Energy Cells: носитель objective marker законно Counteract-ит действием за 1 AP, которое по правилу команды снимает его и ставит заново. Обычная дальность этой способности — 8″. Какое ограничение установки действует при таком Counteract?",
+    "options": [
+      "До 6″: ограничение Energy Cells заменяет ограничение Counteract",
+      "Новая база должна быть целиком в пределах 2″ от прежнего положения",
+      "До 8″: правило команды всегда отменяет общие ограничения",
+      "Носителя objective marker вообще нельзя снимать и ставить заново"
+    ],
+    "answer": 1,
+    "explanation": "Energy Cells ограничивает такую переноску 6″, но Counteract имеет более строгий предел: установка wholly within 2″ с явным приоритетом над другими правилами. Большая штатная дальность способности его не отменяет.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 2: Energy Cells relocation limit; Core Rules: Counteract"
+    }
+  },
+  {
+    "id": "kt-296",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Energy Cells: за turning points 2 и 3 вы набрали суммарно 2 Crit VP. В конце четвёртого два ваших живых оперативника с APL 1 несут по одному objective marker; рядом с каждым стоит враг с APL 3 в control range. Третий objective marker на полу контролирует соперник. Сколько Crit VP у вас будет до бонуса Primary?",
+    "options": [
+      "4 VP",
+      "2 VP",
+      "5 VP",
+      "6 VP"
+    ],
+    "answer": 2,
+    "explanation": "Переносимые маркеры контролируют только их носители, несмотря на больший вражеский APL. Поэтому вы контролируете два против одного: ещё 1 VP за превосходство и 2 за переноску в конце боя. Вместе с прежними 2 получается 5.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 2: Energy Cells; Core Rules: carried markers"
+    }
+  },
+  {
+    "id": "kt-297",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Sweep & Clear после августовского обновления: центральный маркер cleared и swept. Его оспаривают ваш оперативник с APL 3 и враг с APL 2; вы его контролируете. Других подходящих маркеров нет. Сколько VP даёт Tac Op в конце turning point после первого?",
+    "options": [
+      "1 VP",
+      "2 VP",
+      "0 VP",
+      "3 VP"
+    ],
+    "answer": 0,
+    "explanation": "Условие cleared-маркера требует, чтобы враги его не оспаривали, и здесь не выполняется. Но отдельное условие дружественного контроля swept-маркера выполняется и даёт 1 VP.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 1: Sweep & Clear — two separate scoring conditions"
+    }
+  },
+  {
+    "id": "kt-298",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Sweep & Clear: в конце второго turning point центральный маркер cleared и swept, враги его не оспаривают, вы его контролируете. Кроме того, вы контролируете ещё один swept objective marker. Сколько максимум VP даёт Tac Op сейчас?",
+    "options": [
+      "3 VP",
+      "4 VP",
+      "1 VP",
+      "2 VP"
+    ],
+    "answer": 3,
+    "explanation": "Несколько выполненных условий не отменяют общий предел 2 VP за turning point. Уже сочетание cleared и swept на центре без вражеского contest достигает этого предела.",
+    "source": {
+      "title": "Warhammer Community · Approved Ops Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 1: Sweep & Clear — maximum 2 VP per turning point"
+    }
+  },
+  {
+    "id": "kt-299",
+    "difficulty": 4,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025 Tournament Companion: организатор заранее применяет рекомендованные критерии рейтинга. У двух игроков одинаковый результат по победам/ничьим/поражениям и одинаковая сила расписания. У A за турнир 58 общих VP и 7 бонусных VP от Primary, у B — 49 общих VP и 8 бонусных VP от Primary. Кто выше по следующему рекомендованному критерию?",
+    "options": [
+      "A: сравниваются все VP за турнир",
+      "A: меньший Primary-бонус считается лучшим результатом",
+      "B: сравниваются бонусные VP от выбранных Primary Ops",
+      "Обязательна дополнительная партия"
+    ],
+    "answer": 2,
+    "explanation": "Следующий рекомендованный критерий — суммарные очки именно бонуса Primary Op. Общий VP не предлагается как этот критерий; конкретное положение турнира может заранее задать другие правила.",
+    "source": {
+      "title": "Wahapedia · Approved Ops 2025",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+      "section": "Tournament Companion: Rankings, third criterion and Primary Op example"
+    }
+  },
+  {
+    "id": "kt-300",
+    "difficulty": 4,
+    "topic": "Взаимодействия",
+    "question": "Во время действия вашего активного оперативника два специальных правила равного уровня дают взаимоисключающие указания. Ни одно не говорит о приоритете или «cannot»; FAQ выбора не определяет. Инициатива принадлежит сопернику. По общему последнему порядку приоритетов кто выбирает, какое указание применить?",
+    "options": [
+      "Вы, как контролирующий активного оперативника игрок",
+      "Соперник, потому что у него инициатива",
+      "Тот, кто последним потратил CP",
+      "Победитель нового roll-off"
+    ],
+    "answer": 0,
+    "explanation": "В актуальном порядке Precedence выбор игрока активного оперативника находится раньше выбора игрока с инициативой. До этого шага нужно убедиться, что более высокие критерии действительно не разрешили конфликт.",
+    "source": {
+      "title": "Warhammer Community · Core Rules Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 2: Precedence, active operative’s controlling player before initiative"
+    }
+  }
+]

@@ -44,11 +44,15 @@ function resolveStaticPath(pathname) {
     return null;
   }
   if (requested.includes("\0")) return null;
+  if (requested === '/account' || requested === '/account/') requested = '/account/index.html';
+  if (requested === '/knowthykt' || requested === '/knowthykt/') requested = '/training/index.html';
   if (requested === "/initiative" || requested === "/initiative/") requested = "/killteam-initiative-calculator.html";
   if (requested === "/tracker" || requested === "/tracker/") requested = "/killteam-activation-tracker.html";
   if (requested === "/tournament" || requested === "/tournament/") requested = "/index.html";
+  if (requested === "/miniapp" || requested === "/miniapp/") requested = "/miniapp/index.html";
   if (requested === "/studio" || requested === "/studio/") requested = "/studio/index.html";
   if (requested === "/dice" || requested === "/dice/") requested = "/dice/index.html";
+  if (requested === "/training" || requested === "/training/") requested = "/training/index.html";
   if (["/faq", "/faq/", "/community-faq", "/community-faq/", "/faq/conduct", "/faq/conduct/", "/community-faq/conduct", "/community-faq/conduct/", "/faq/info", "/faq/info/", "/community-faq/info", "/community-faq/info/"].includes(requested)) requested = "/faq/index.html";
   if (requested === "/rygau" || requested === "/rygau/") requested = "/rygayu.html";
   // Team profiles use client-side rendering, including on direct visits/reloads.
@@ -133,6 +137,15 @@ function sendStatic(req, res) {
       ETag: entry.etag,
       ...SECURITY_HEADERS
     };
+
+    // Telegram Web embeds Mini Apps. Keep the exception scoped to this HTML
+    // document; the website and other pages retain their frame protection.
+    if (filePath === path.join(PUBLIC_DIR, "miniapp", "index.html")) {
+      delete headers["X-Frame-Options"];
+      headers["Content-Security-Policy"] = SECURITY_HEADERS["Content-Security-Policy"]
+        .replace("script-src 'self'", "script-src 'self' https://telegram.org")
+        .replace("frame-ancestors 'none'", "frame-ancestors 'self' https://web.telegram.org https://*.web.telegram.org");
+    }
 
     if (req.headers["if-none-match"] === entry.etag) {
       res.writeHead(304, headers);
