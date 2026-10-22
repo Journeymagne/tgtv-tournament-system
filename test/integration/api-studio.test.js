@@ -260,9 +260,12 @@ test("Studio and the library are public; personal drafts and mutations require a
 test("one login works in both sections and on another device without disclosing private account fields", async () => {
   const alpha = await account("Alpha");
   const identity = (await request("/api/session", alpha)).body.user;
-  assert.deepEqual(Object.keys(identity).sort(), ["id", "isAdmin", "isFAQModerator", "isSuperAdmin", "name"]);
+  assert.deepEqual(Object.keys(identity).sort(), ["avatarUrl", "id", "isAdmin", "isFAQModerator", "isSuperAdmin", "name", "rating"]);
   assert.equal(identity.isFAQModerator, false);
-  assert.equal(identity.id, (await request("/api/me", alpha)).body.user.id);
+  const tournamentUser = (await request("/api/me", alpha)).body.user;
+  assert.equal(identity.id, tournamentUser.id);
+  assert.equal(identity.rating, tournamentUser.ratings.combined);
+  assert.equal(identity.avatarUrl, tournamentUser.avatarUrl || null);
   const project = model.newProject("shared-device", "My team");
   assert.equal((await save(alpha, project)).status, 200);
   const otherDevice = await account("Alpha", true);

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Аудит UI Kit · 22 октября 2026</title>
+<style>
+*{box-sizing:border-box}html{color-scheme:dark;scroll-behavior:smooth}body{margin:0;background:#101010;color:#eee;font:16px/1.6 system-ui,sans-serif}main{max-width:1200px;margin:auto;padding:40px 24px 80px}a{color:#ffb14a;text-underline-offset:3px}a:focus-visible,summary:focus-visible{outline:2px solid #ff7a1a;outline-offset:4px}h1{font-size:clamp(30px,5vw,48px);line-height:1.15;margin:16px 0}h2{font-size:26px;margin:40px 0 16px}h3{font-size:19px;margin:0 0 10px}p{max-width:95ch}.muted{color:#b9b9b9}.eyebrow{color:#ff7a1a;font-size:12px;font-weight:750;letter-spacing:.1em}.lead{font-size:20px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:28px 0}.metrics div,.finding{border:1px solid #3b3b3b;border-radius:10px;background:#151515;padding:20px}.metrics strong{display:block;font-size:28px;color:#ffb14a}.metrics span{font-size:13px;color:#bbb}.finding{margin:12px 0;border-left:3px solid #ff7a1a}.finding p{margin:10px 0}.good{color:#69d39c}.table-wrap{overflow:auto;border:1px solid #3b3b3b;border-radius:10px}table{width:100%;border-collapse:collapse;min-width:780px;font-size:14px}th,td{text-align:left;vertical-align:top;padding:14px 16px;border-bottom:1px solid #3b3b3b}th{background:#202020;color:#ffb14a}tr:last-child td{border-bottom:0}td:first-child{min-width:155px;font-weight:700}code{font-size:.92em;overflow-wrap:anywhere;color:#ddd}.gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.gallery figure{margin:0;background:#151515;border:1px solid #3b3b3b;border-radius:8px;overflow:hidden}.gallery img{display:block;width:100%;height:auto}.gallery figcaption{padding:10px;font-size:13px}.links{display:flex;flex-wrap:wrap;gap:20px}li{margin:8px 0}.note{padding:16px 20px;background:#202020;border-radius:8px}details{margin:16px 0;padding:16px;border:1px solid #3b3b3b;border-radius:8px}summary{cursor:pointer;font-weight:700}footer{border-top:1px solid #3b3b3b;margin-top:40px;padding-top:24px;font-size:13px;color:#aaa}@media(max-width:700px){main{padding:24px 16px 48px}.metrics{grid-template-columns:repeat(2,1fr)}.gallery{grid-template-columns:repeat(2,minmax(0,1fr))}.finding{padding:16px}.lead{font-size:18px}}@media print{html{color-scheme:light}body{background:white;color:black}a{color:#843700}.metrics div,.finding,details{background:white}.gallery{grid-template-columns:repeat(4,1fr)}.table-wrap{overflow:visible}table{min-width:0;font-size:10px}.muted,footer{color:#555}code{color:#222}th{background:#eee}.gallery figure{break-inside:avoid}}
+</style>
+</head>
+<body><main>
+<a href="../../index.html">← Автономный UI Kit</a>
+<p class="eyebrow">KT COMPANION / АУДИТ / 22.10.2026</p>
+<h1>Общие элементы ещё не соответствуют киту полностью</h1>
+<p class="note"><strong>Архив исходного аудита.</strong> Найденные расхождения исправлены: <a href="fixes.html">изменения, повторная проверка и новые скриншоты</a>.</p>
+<p class="lead">Палитра и переключение тем согласованы. Расхождения сосредоточены в блоке аккаунта, уведомлениях, мобильных размерах и типографике кнопок.</p>
+<p class="muted">Проверены восемь сервисов, главная, аккаунт и Mini App. Это аудит текущей рабочей копии; подключение кита и исправления сервисов не выполнялись.</p>
+<div class="metrics"><div><strong>11</strong><span>основных страниц</span></div><div><strong>88</strong><span>сочетаний страницы, роли, темы и ширины</span></div><div><strong>4</strong><span>эталонных вида кита</span></div><div><strong>0</strong><span>страниц с горизонтальным переполнением в этой матрице</span></div></div>
+<nav class="links" aria-label="Содержание отчёта"><a href="#findings">Расхождения</a><a href="#services">Все сервисы</a><a href="#gaps">Пробелы кита</a><a href="#evidence">Скриншоты</a><a href="#method">Методика</a><a href="measurements.json">Замеры JSON</a></nav>
+
+<h2 id="findings">Что требует унификации</h2>
+<article class="finding"><h3>1. Сначала устранить конфликт стандартов кнопки</h3>
+<p>Сам каталог задаёт <strong>14 px / 650</strong> в <code>.kt-control</code>, высоту 40 px и 44 px при ширине ≤600 px. Но его <code>tokens.css</code> сохраняет старые <code>--button-font-size:16px</code>, <code>--button-font-weight:900</code> и <code>--button-height:40px</code>. На мобильном меняется только <code>--kt-control-size</code>.</p>
+<p>Старый документ <code>docs/button-standard.md</code> также предписывает 16 px / 900. Поэтому кнопка, собранная из токенов, и фабрика <code>KTComponents.button()</code> уже дают разные результаты. Это несогласованность самого эталона, а не только отдельных сервисов.</p>
+<p class="muted">Источники: <a href="../../tokens.css">tokens.css:47–56</a>, <a href="../../components.css">components.css:2–9, 34–39</a>, <a href="../../../../docs/button-standard.md">docs/button-standard.md:3–18</a>. Сначала выбрать единое значение или явно описать два допустимых варианта.</p>
+</article>
+
+<article class="finding"><h3>2. Два разных блока аккаунта</h3>
+<p>Кит: профиль с аватаром и MMR → язык → тема → выход → уведомления. Турнирная версия ближе всего к этому составу. В остальных семи сервисах, на главной и в аккаунте: уведомления → язык → тема → текстовое имя → выход. Аватар и MMR отсутствуют.</p>
+<p>Общая шапка использует насыщенность кнопок 600 вместо 650; «Выйти» — 13 px на компьютере и 12 px на мобильном вместо 14 px. В гостевом режиме «Войти» остаётся текстовой ссылкой высотой 40 px, тогда как кит показывает основную кнопку 40/44 px.</p>
+<p class="muted">Источники: <a href="../../../../public/companion-shell.js">companion-shell.js:119–145</a>, <a href="../../../../public/companion-shell.css">companion-shell.css:191–249, 578–598</a>. <a href="../../../../src/api/account.js">src/api/account.js:2–4</a> возвращает в общей сессии имя и роли, без аватара и MMR: для полного профиля понадобится согласовать и данные.</p>
+</article>
+
+<article class="finding"><h3>3. Уведомления имеют разные иконки, счётчики и размеры</h3>
+<p>Кит и турниры используют SVG-колокольчик, скрывают ноль и сокращают 128 до <strong>99+</strong>. Общий компонент показывает <strong>🔔 0</strong> или <strong>🔔 128</strong>; доступная подпись не включает число непрочитанных. Вместо квадрата 40/44 px его размер — примерно 57,9 × 37,6 px.</p>
+<p>В Dice Generator глобальный селектор <code>details</code> добавляет этому компоненту верхнюю границу, отступ 18 px и padding 15 px. Из-за этого колокольчик визуально опускается относительно кнопок темы; шрифт <code>summary</code> тоже меняется на 13 px / 650.</p>
+<p class="muted">Источники: <a href="../../../../public/companion-notifications.js">companion-notifications.js:5–17</a>, <a href="../../../../public/companion-notifications.css">companion-notifications.css:1</a>, <a href="../../../../public/dice/dice.css">dice/dice.css:336–347</a>. Сценарий 128 проверен подменой ответа только в локальном браузере. Открытие и закрытие по Escape работают в обеих реализациях.</p>
+</article>
+
+<article class="finding"><h3>4. Мобильные размеры переопределяются локальными стилями</h3>
+<p><strong>Studio:</strong> язык, тема и выход имеют высоту 40 px при ширине 390 px вместо 44 px. Общий селектор <code>body[data-companion-section="studio"] button</code> перекрывает мобильное правило шапки.</p>
+<p><strong>Турниры:</strong> аватар 36 × 36 px вместо 44 × 44 px; колокольчик 40 × 44 px. «Выйти» скрыт в шапке и доступен в боковом меню. Это иная композиция, которую кит сейчас не описывает.</p>
+<p><strong>Обычные действия:</strong> в Dice, Combat Lab и тренажёре встречаются кнопки высотой 40 px на мобильном; в FAQ — 42 и 34 px. Для компактных элементов редакторов и таблиц нужен явно описанный вариант.</p>
+<p class="muted">Источники: <a href="../../../../public/studio/style.css">studio/style.css:2204–2215, 2610–2612</a>, <a href="../../../../public/companion-shell.css">companion-shell.css:624–630, 656–659</a>. Подробные замеры ниже и в JSON.</p>
+</article>
+
+<h2 id="services">Результат по каждому сервису</h2>
+<p>Ни один из восьми сервисов не совпадает со всеми применимыми компонентами кита. Во всех совпали проверенные базовые цвета обеих тем. «Общая шапка» ниже означает расхождения №2–3.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Сервис / маршрут</th><th>Подтверждённые расхождения</th><th>Где смотреть</th></tr></thead>
+<tbody>
+<tr><td>Турниры<br><code>/tournament</code></td><td>На компьютере профиль, аватар, MMR и SVG-уведомления близки к киту. На мобильном аватар 36 px, колокольчик 40 × 44 px, выход перенесён в меню. Основные кнопки: 16 px / 900 вместо 14 px / 650.</td><td><a href="../../../../public/companion-shell.css">companion-shell.css:399, 624, 656</a><br><a href="../../../../public/styles.css">styles.css</a></td></tr>
+<tr><td>Инициатива<br><code>/initiative</code></td><td>Общая шапка. «Рассчитать»: 16 px / 700; высота 40/44 px соответствует. «Скачать журнал» остаётся высотой 40 px на мобильном.</td><td><a href="../../../../public/companion/css/initiative.css">initiative.css</a><br><a href="../../../../public/companion-shell.css">companion-shell.css</a></td></tr>
+<tr><td>Трекер<br><code>/tracker</code></td><td>Общая шапка. Для игровых счётчиков, переключателей и полей в текущем ките нет эталона: соответствие этих элементов не определено.</td><td><a href="../../../../public/companion/css/tracker.css">tracker.css</a><br><a href="../../../../public/companion-shell.js">companion-shell.js</a></td></tr>
+<tr><td>KT Studio<br><code>/studio</code></td><td>Общая шапка; на мобильном кнопки шапки 40 px. Кнопки рабочего пространства имеют насыщенность 600, основные — 750 вместо 650. Для редактора, вкладок и карточек нужен отдельный эталон.</td><td><a href="../../../../public/studio/style.css">studio/style.css:2204–2226</a></td></tr>
+<tr><td>Dice Generator<br><code>/dice</code></td><td>Общая шапка; уведомления наследуют оформление details/summary. Поиск и действия загрузки — 12 px / 650, основные действия экспорта — 15 px / 650; высота 40 px и на мобильном.</td><td><a href="../../../../public/dice/dice.css">dice/dice.css:16–31, 336–347</a></td></tr>
+<tr><td>Community FAQ<br><code>/faq</code></td><td>Общая шапка. «Предложить FAQ»: 43 px на компьютере и 42 px на мобильном, шрифт 13/12 px, насыщенность 800, радиус 6 px. «Карточка» на мобильном — 34 px вместо 44.</td><td><a href="../../../../public/faq/faq.css">faq/faq.css</a></td></tr>
+<tr><td>Combat Lab<br><code>/combat</code></td><td>Общая шапка. «Поделиться» и «Сохранить сценарий» — 40 px, шрифт 12 px на компьютере / 11 px на мобильном. «Рассчитать» — 44 px / 13 px / 800. Компактные переключатели не описаны в ките.</td><td><a href="../../../../services/combat-lab/src/lab/lab-ui.css">lab-ui.css:20–26, 35–41</a></td></tr>
+<tr><td>Know Thy Kill Team<br><code>/knowthykt</code></td><td>Общая шапка. «Начать тренировку» — 16 px / 700; высота около 41,2 px на компьютере и 40 px на мобильном. Карточки уровней и прогресса — самостоятельный паттерн, без эталона в ките.</td><td><a href="../../../../public/training/training.css">training/training.css:14–15</a></td></tr>
+<tr><td>Главная<br><code>/</code></td><td>Общая шапка. Карточки перехода между сервисами пока не покрыты китом.</td><td><a href="../../../../public/companion/css/home.css">home.css</a></td></tr>
+<tr><td>Аккаунт<br><code>/account</code></td><td>Общая шапка. «Сохранить» — 42 px, шрифт около 13,3 px / 700, верхний регистр и радиус 6 px вместо 40/44 px, 14 px / 650, обычного регистра и 7 px.</td><td><a href="../../../../public/companion/css/components.css">components.css:73–83</a></td></tr>
+<tr><td>Telegram Mini App<br><code>/miniapp</code></td><td>Собственная мобильная шапка, одна кнопка темы и обновление. Иконки 44 × 44 px / радиус 7 px соответствуют мобильным размерам. Ссылка-действие «Турниры на сайте» — 16 px / 900. Вариант Mini App с нижней навигацией в ките не определён; отсутствие полной шапки само по себе не считаем ошибкой.</td><td><a href="../../../../public/miniapp/app.css">miniapp/app.css:30–32, 53–57</a></td></tr>
+</tbody></table></div>
+
+<h2>Что уже согласовано</h2>
+<ul>
+<li class="good">Базовые фон, поверхности, текст, границы и оранжевый акцент совпали с китом в тёмной и светлой темах. Разница записи #fff / #ffffff в сборке Combat Lab не меняет цвет.</li>
+<li>Переключатели темы работают; переключение языка RU → EN → RU в общей шапке проверено во всех восьми сервисах.</li>
+<li>Клавиатурный фокус общего блока видим: обводка 2 px, отступ 3 px. Для уведомлений проверено закрытие по Escape.</li>
+<li>На ширинах 1440 и 390 px в проверенных состояниях нет горизонтального переполнения страницы. Необработанных ошибок JavaScript не зафиксировано.</li>
+<li>Турнирный счётчик уже скрывает 0, показывает 99+ и сообщает фактическое число через доступную подпись.</li>
+</ul>
+
+<h2 id="gaps">Что пока нельзя оценить по этому киту</h2>
+<p>Каталог v1 описывает аккаунт, кнопку, аватар, MMR, язык, тему и кнопку уведомлений. Формы, диалоги, таблицы, вкладки, карточки, состояния загрузки/ошибки/пустого списка, всплывающая панель уведомлений и Mini App не имеют согласованных образцов. Их различия зафиксированы как пробел покрытия, а не автоматически как нарушение.</p>
+<ol>
+<li><strong>Единый источник размеров.</strong> Согласовать существующий button-standard, токены и фабрики; определить, допустима ли отдельная компактная кнопка.</li>
+<li><strong>Оболочка сервиса.</strong> Зафиксировать обычную, турнирную и мобильную композиции шапки, гостевой режим и данные профиля.</li>
+<li><strong>Формы и состояния.</strong> Поля, выбор, ошибки, загрузка, успех, сохранение и пустые списки — следующие наиболее повторяемые элементы.</li>
+<li><strong>Навигация и данные.</strong> Вкладки, карточки, таблицы, фильтры, пагинация и диалоги; отдельно адаптация Mini App.</li>
+<li><strong>Проверка при добавлении сервиса.</strong> После согласования эталонов использовать общую визуальную матрицу в CI, чтобы локальные селекторы не меняли общие элементы.</li>
+</ol>
+<p class="note">Предлагаемая последовательность исправлений: согласовать сам кит → общая шапка и уведомления → конфликты CSS в Studio и Dice → обычные кнопки → расширение каталога. Этот отчёт ничего из перечисленного не внедряет.</p>
+
+<h2 id="evidence">Скриншоты</h2>
+<p class="muted">Мобильный viewport 390 × 844, тёмная тема, локальная тестовая учётная запись. Нажмите изображение, чтобы открыть оригинал. Сравнение не зависит от имени тестового пользователя.</p>
+<div class="gallery">
+<figure><a href="screenshots/kit-demo-390-dark.png"><img src="screenshots/kit-demo-390-dark.png" alt="UI Kit — эталон, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>UI Kit — эталон</figcaption></figure>
+<figure><a href="screenshots/tournament-admin-390-dark.png"><img src="screenshots/tournament-admin-390-dark.png" alt="Турниры, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>Турниры</figcaption></figure>
+<figure><a href="screenshots/initiative-admin-390-dark.png"><img src="screenshots/initiative-admin-390-dark.png" alt="Инициатива, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>Инициатива</figcaption></figure>
+<figure><a href="screenshots/tracker-admin-390-dark.png"><img src="screenshots/tracker-admin-390-dark.png" alt="Трекер, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>Трекер</figcaption></figure>
+<figure><a href="screenshots/studio-admin-390-dark.png"><img src="screenshots/studio-admin-390-dark.png" alt="KT Studio, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>KT Studio</figcaption></figure>
+<figure><a href="screenshots/dice-admin-390-dark.png"><img src="screenshots/dice-admin-390-dark.png" alt="Dice Generator, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>Dice Generator</figcaption></figure>
+<figure><a href="screenshots/faq-admin-390-dark.png"><img src="screenshots/faq-admin-390-dark.png" alt="Community FAQ, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>Community FAQ</figcaption></figure>
+<figure><a href="screenshots/combat-admin-390-dark.png"><img src="screenshots/combat-admin-390-dark.png" alt="Combat Lab, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>Combat Lab</figcaption></figure>
+<figure><a href="screenshots/training-admin-390-dark.png"><img src="screenshots/training-admin-390-dark.png" alt="Know Thy Kill Team, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>Know Thy Kill Team</figcaption></figure>
+<figure><a href="screenshots/home-admin-390-dark.png"><img src="screenshots/home-admin-390-dark.png" alt="Главная, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>Главная</figcaption></figure>
+<figure><a href="screenshots/account-admin-390-dark.png"><img src="screenshots/account-admin-390-dark.png" alt="Аккаунт, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>Аккаунт</figcaption></figure>
+<figure><a href="screenshots/miniapp-admin-390-dark.png"><img src="screenshots/miniapp-admin-390-dark.png" alt="Mini App, мобильный вид" loading="lazy" width="390" height="844"></a><figcaption>Mini App</figcaption></figure>
+</div>
+<p class="links"><a href="screenshots/kit-demo-1440-light.png">Кит: светлая тема, 1440 px</a><a href="screenshots/combat-admin-1440-dark.png">Combat Lab: компьютер</a><a href="screenshots/home-guest-390-dark.png">Гостевой блок</a></p>
+
+<h2 id="method">Методика и границы проверки</h2>
+<p>Источник: рабочая копия проекта на базе <code>974d7bb</code>, включая уже существовавшие незакоммиченные изменения тренажёра. Сервер запускался в отдельной локальной копии с изолированным PostgreSQL; рабочие сервисы и производственные данные не изменялись.</p>
+<p>Матрица: 11 начальных страниц × 2 ширины (1440 × 1000 и 390 × 844) × 2 темы × 2 роли (гость и локальный администратор) = 88 состояний. Ещё 4 состояния — эталонный каталог. Все страницы ответили HTTP 200; локальный <code>/api/me</code> проверен с <code>isAdmin === true</code>, гостевой режим — без пользователя.</p>
+<p>Сравнивались фактические CSS-значения, состав и расположение шапки, видимые стандартные действия, тема, язык и переполнение. Замеры охватывают элементы текущего документа, включая расположенные ниже первого экрана. Скриншоты показывают первый экран. Полная проверка внутренних сценариев, каждой модалки и всех ролей в этот аудит не входит. Mini App проверен в Chromium, без настоящего Telegram WebView.</p>
+<p>Проверка 128 уведомлений выполнена локальной подменой ответа API в браузере; данные в БД не создавались. Обычное состояние 0 проверено на реальном локальном ответе. Это визуальная проверка, полный автоматизированный набор тестов проекта не запускался.</p>
+<p><a href="measurements.json">Машиночитаемые замеры, сценарии и ограничения</a>. Поле <code>screenshot</code> содержит имя файла в соседней папке <code>screenshots/</code>. Все 918 отслеживаемых файлов сверены с хешами на начало аудита: содержимое не изменено.</p>
+<footer>Отчёт сохранён рядом с автономным UI Kit. Исправления компонентов и интеграция в сервисы не выполнялись.</footer>
+</main></body></html>

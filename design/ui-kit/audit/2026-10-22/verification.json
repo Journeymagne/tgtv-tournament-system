@@ -1,0 +1,8341 @@
+{
+  "date": "2026-10-22",
+  "result": "Visual discrepancies covered by UI Kit v1 corrected; catalog remains standalone.",
+  "automatedProjectTests": "Not run locally, as required by AGENTS.md; updated session contract test is for CI.",
+  "validation": {
+    "cases": 92,
+    "allPages200": true,
+    "noPageHorizontalOverflow": true,
+    "allStandardHeaderControlsMatchKit": true,
+    "uncaughtErrors": []
+  },
+  "matrix": [
+    {
+      "service": "kit",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления: 3",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1123",
+      "bodyActions": [
+        {
+          "text": "Сохранить",
+          "height": 40,
+          "width": 99.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Сохранить"
+          ]
+        },
+        {
+          "text": "Назад",
+          "height": 40,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Назад",
+            "Недоступно"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "kit",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления: 3",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1123",
+      "bodyActions": [
+        {
+          "text": "Сохранить",
+          "height": 40,
+          "width": 99.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Сохранить"
+          ]
+        },
+        {
+          "text": "Назад",
+          "height": 40,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Назад",
+            "Недоступно"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "kit",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления: 3",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1123",
+      "bodyActions": [
+        {
+          "text": "Сохранить",
+          "height": 44,
+          "width": 99.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Сохранить"
+          ]
+        },
+        {
+          "text": "Назад",
+          "height": 44,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Назад",
+            "Недоступно"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "kit",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления: 3",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1123",
+      "bodyActions": [
+        {
+          "text": "Сохранить",
+          "height": 44,
+          "width": 99.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Сохранить"
+          ]
+        },
+        {
+          "text": "Назад",
+          "height": 44,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Назад",
+            "Недоступно"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "home",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": []
+    },
+    {
+      "service": "home",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": []
+    },
+    {
+      "service": "home",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": []
+    },
+    {
+      "service": "home",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": []
+    },
+    {
+      "service": "tournament",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 186,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Выйти"
+          ]
+        },
+        {
+          "text": "Найти",
+          "height": 44,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "tournament",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 186,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Выйти"
+          ]
+        },
+        {
+          "text": "Найти",
+          "height": 44,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "tournament",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Открыть меню",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Закрыть меню",
+          "height": 844,
+          "width": 375,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Закрыть меню"
+          ]
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 282,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Выйти"
+          ]
+        },
+        {
+          "text": "Найти",
+          "height": 44,
+          "width": 313,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "tournament",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Открыть меню",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Закрыть меню",
+          "height": 844,
+          "width": 375,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Закрыть меню"
+          ]
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 282,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Выйти"
+          ]
+        },
+        {
+          "text": "Найти",
+          "height": 44,
+          "width": 313,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "initiative",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Рассчитать",
+          "height": 40,
+          "width": 103.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать"
+          ]
+        },
+        {
+          "text": "Скачать журнал",
+          "height": 40,
+          "width": 382,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Скачать журнал"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "initiative",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Рассчитать",
+          "height": 40,
+          "width": 103.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать"
+          ]
+        },
+        {
+          "text": "Скачать журнал",
+          "height": 40,
+          "width": 382,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Скачать журнал"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "initiative",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Рассчитать",
+          "height": 44,
+          "width": 103.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать"
+          ]
+        },
+        {
+          "text": "Скачать журнал",
+          "height": 44,
+          "width": 325,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Скачать журнал"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "initiative",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Рассчитать",
+          "height": 44,
+          "width": 103.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать"
+          ]
+        },
+        {
+          "text": "Скачать журнал",
+          "height": 44,
+          "width": 325,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Скачать журнал"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "tracker",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": []
+    },
+    {
+      "service": "tracker",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": []
+    },
+    {
+      "service": "tracker",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": []
+    },
+    {
+      "service": "tracker",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": []
+    },
+    {
+      "service": "studio",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "+ Создать команду",
+          "height": 40,
+          "width": 158.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "+ Создать команду",
+            "Сохранить команду",
+            "Скачать ростер команды (.rosz)"
+          ]
+        },
+        {
+          "text": "Опубликовать",
+          "height": 40,
+          "width": 123.1,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Опубликовать"
+          ]
+        },
+        {
+          "text": "Редактор",
+          "height": 40,
+          "width": 95.1,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Редактор",
+            "Мои черновики"
+          ]
+        },
+        {
+          "text": "Библиотека",
+          "height": 40,
+          "width": 110.9,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Библиотека"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "studio",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "+ Создать команду",
+          "height": 40,
+          "width": 158.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "+ Создать команду",
+            "Сохранить команду",
+            "Скачать ростер команды (.rosz)"
+          ]
+        },
+        {
+          "text": "Опубликовать",
+          "height": 40,
+          "width": 123.1,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Опубликовать"
+          ]
+        },
+        {
+          "text": "Редактор",
+          "height": 40,
+          "width": 95.1,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Редактор",
+            "Мои черновики"
+          ]
+        },
+        {
+          "text": "Библиотека",
+          "height": 40,
+          "width": 110.9,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Библиотека"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "studio",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "+ Создать команду",
+          "height": 44,
+          "width": 158.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "+ Создать команду",
+            "Сохранить команду",
+            "Скачать ростер команды (.rosz)"
+          ]
+        },
+        {
+          "text": "Опубликовать",
+          "height": 44,
+          "width": 150.1,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Опубликовать"
+          ]
+        },
+        {
+          "text": "Редактор",
+          "height": 44,
+          "width": 85.1,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Редактор",
+            "Мои черновики"
+          ]
+        },
+        {
+          "text": "Библиотека",
+          "height": 44,
+          "width": 100.9,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Библиотека"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "studio",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "+ Создать команду",
+          "height": 44,
+          "width": 158.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "+ Создать команду",
+            "Сохранить команду",
+            "Скачать ростер команды (.rosz)"
+          ]
+        },
+        {
+          "text": "Опубликовать",
+          "height": 44,
+          "width": 150.1,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Опубликовать"
+          ]
+        },
+        {
+          "text": "Редактор",
+          "height": 44,
+          "width": 85.1,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Редактор",
+            "Мои черновики"
+          ]
+        },
+        {
+          "text": "Библиотека",
+          "height": 44,
+          "width": 100.9,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Библиотека"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "dice",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Найти",
+          "height": 40,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти",
+            "Предыдущая страница команд",
+            "Следующая страница команд"
+          ]
+        },
+        {
+          "text": "Подготовить кубик для TTS",
+          "height": 40,
+          "width": 216.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Подготовить кубик для TTS"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "dice",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Найти",
+          "height": 40,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти",
+            "Предыдущая страница команд",
+            "Следующая страница команд"
+          ]
+        },
+        {
+          "text": "Подготовить кубик для TTS",
+          "height": 40,
+          "width": 216.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Подготовить кубик для TTS"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "dice",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Найти",
+          "height": 44,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти",
+            "Предыдущая страница команд",
+            "Следующая страница команд"
+          ]
+        },
+        {
+          "text": "Подготовить кубик для TTS",
+          "height": 44,
+          "width": 216.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Подготовить кубик для TTS"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "dice",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Найти",
+          "height": 44,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти",
+            "Предыдущая страница команд",
+            "Следующая страница команд"
+          ]
+        },
+        {
+          "text": "Подготовить кубик для TTS",
+          "height": 44,
+          "width": 216.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Подготовить кубик для TTS"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "faq",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "＋ Предложить FAQ",
+          "height": 40,
+          "width": 160.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Предложить FAQ"
+          ]
+        },
+        {
+          "text": "Мои заявки 0",
+          "height": 46,
+          "width": 101.7,
+          "font": "13px",
+          "weight": "650",
+          "radius": "0px",
+          "examples": [
+            "Мои заявки 0"
+          ]
+        },
+        {
+          "text": "◇ Модерация 0",
+          "height": 50,
+          "width": 126,
+          "font": "13px",
+          "weight": "650",
+          "radius": "0px",
+          "examples": [
+            "◇ Модерация 0"
+          ]
+        },
+        {
+          "text": "Сбросить",
+          "height": 15,
+          "width": 56.7,
+          "font": "12px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сбросить"
+          ]
+        },
+        {
+          "text": "Все источники\n131",
+          "height": 37,
+          "width": 194,
+          "font": "12px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Все источники\n131",
+            "Official · GW\n97"
+          ]
+        },
+        {
+          "text": "Community FAQ\n34",
+          "height": 37,
+          "width": 194,
+          "font": "12px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Community FAQ\n34"
+          ]
+        },
+        {
+          "text": "Corsair Voidscarred\n3",
+          "height": 38,
+          "width": 184,
+          "font": "11px",
+          "weight": "450",
+          "radius": "3px",
+          "examples": [
+            "Corsair Voidscarred\n3",
+            "Exaction Squad\n2",
+            "Kasrkin\n2"
+          ]
+        },
+        {
+          "text": "◇\nNavy Breachers\n0",
+          "height": 37,
+          "width": 184,
+          "font": "11px",
+          "weight": "450",
+          "radius": "3px",
+          "examples": [
+            "◇\nNavy Breachers\n0"
+          ]
+        },
+        {
+          "text": "RAW",
+          "height": 26,
+          "width": 40.1,
+          "font": "10px",
+          "weight": "600",
+          "radius": "6px",
+          "examples": [
+            "RAW",
+            "Правка",
+            "Спор"
+          ]
+        },
+        {
+          "text": "☆ Только сохранённые\n0",
+          "height": 38,
+          "width": 194,
+          "font": "11px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "☆ Только сохранённые\n0"
+          ]
+        },
+        {
+          "text": "＋ Карточка",
+          "height": 40,
+          "width": 107.7,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Карточка",
+            "Показать ещё"
+          ]
+        },
+        {
+          "text": "Сохранить карточку",
+          "height": 24,
+          "width": 22,
+          "font": "18px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сохранить карточку",
+            "Сохранить карточку",
+            "Сохранить карточку"
+          ]
+        },
+        {
+          "text": "Все команды",
+          "height": 21.3,
+          "width": 72.1,
+          "font": "9px",
+          "weight": "550",
+          "radius": "2px",
+          "examples": [
+            "Все команды",
+            "Все команды",
+            "Все команды"
+          ]
+        },
+        {
+          "text": "◌ 0",
+          "height": 24,
+          "width": 23,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "◌ 0",
+            "✎",
+            "◌ 0"
+          ]
+        },
+        {
+          "text": "Читать →",
+          "height": 22,
+          "width": 54.2,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Читать →",
+            "Читать →",
+            "Читать →"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "faq",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "＋ Предложить FAQ",
+          "height": 40,
+          "width": 160.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Предложить FAQ"
+          ]
+        },
+        {
+          "text": "Мои заявки 0",
+          "height": 46,
+          "width": 101.7,
+          "font": "13px",
+          "weight": "650",
+          "radius": "0px",
+          "examples": [
+            "Мои заявки 0"
+          ]
+        },
+        {
+          "text": "◇ Модерация 0",
+          "height": 50,
+          "width": 126,
+          "font": "13px",
+          "weight": "650",
+          "radius": "0px",
+          "examples": [
+            "◇ Модерация 0"
+          ]
+        },
+        {
+          "text": "Сбросить",
+          "height": 15,
+          "width": 56.7,
+          "font": "12px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сбросить"
+          ]
+        },
+        {
+          "text": "Все источники\n131",
+          "height": 37,
+          "width": 194,
+          "font": "12px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Все источники\n131",
+            "Official · GW\n97"
+          ]
+        },
+        {
+          "text": "Community FAQ\n34",
+          "height": 37,
+          "width": 194,
+          "font": "12px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Community FAQ\n34"
+          ]
+        },
+        {
+          "text": "Corsair Voidscarred\n3",
+          "height": 38,
+          "width": 184,
+          "font": "11px",
+          "weight": "450",
+          "radius": "3px",
+          "examples": [
+            "Corsair Voidscarred\n3",
+            "Exaction Squad\n2",
+            "Kasrkin\n2"
+          ]
+        },
+        {
+          "text": "◇\nNavy Breachers\n0",
+          "height": 37,
+          "width": 184,
+          "font": "11px",
+          "weight": "450",
+          "radius": "3px",
+          "examples": [
+            "◇\nNavy Breachers\n0"
+          ]
+        },
+        {
+          "text": "RAW",
+          "height": 26,
+          "width": 40.1,
+          "font": "10px",
+          "weight": "600",
+          "radius": "6px",
+          "examples": [
+            "RAW",
+            "Правка",
+            "Спор"
+          ]
+        },
+        {
+          "text": "☆ Только сохранённые\n0",
+          "height": 38,
+          "width": 194,
+          "font": "11px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "☆ Только сохранённые\n0"
+          ]
+        },
+        {
+          "text": "＋ Карточка",
+          "height": 40,
+          "width": 107.7,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Карточка",
+            "Показать ещё"
+          ]
+        },
+        {
+          "text": "Сохранить карточку",
+          "height": 24,
+          "width": 22,
+          "font": "18px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сохранить карточку",
+            "Сохранить карточку",
+            "Сохранить карточку"
+          ]
+        },
+        {
+          "text": "Все команды",
+          "height": 21.3,
+          "width": 72.1,
+          "font": "9px",
+          "weight": "550",
+          "radius": "2px",
+          "examples": [
+            "Все команды",
+            "Все команды",
+            "Все команды"
+          ]
+        },
+        {
+          "text": "◌ 0",
+          "height": 24,
+          "width": 23,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "◌ 0",
+            "✎",
+            "◌ 0"
+          ]
+        },
+        {
+          "text": "Читать →",
+          "height": 22,
+          "width": 54.2,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Читать →",
+            "Читать →",
+            "Читать →"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "faq",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "＋ Предложить FAQ",
+          "height": 44,
+          "width": 160.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Предложить FAQ"
+          ]
+        },
+        {
+          "text": "Мои заявки 0",
+          "height": 40,
+          "width": 82.2,
+          "font": "11px",
+          "weight": "650",
+          "radius": "0px",
+          "examples": [
+            "Мои заявки 0"
+          ]
+        },
+        {
+          "text": "◇ Модерация 0",
+          "height": 46,
+          "width": 105.9,
+          "font": "11px",
+          "weight": "650",
+          "radius": "0px",
+          "examples": [
+            "◇ Модерация 0"
+          ]
+        },
+        {
+          "text": "Фильтры",
+          "height": 46,
+          "width": 78.4,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Фильтры"
+          ]
+        },
+        {
+          "text": "＋ Карточка",
+          "height": 44,
+          "width": 107.7,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Карточка",
+            "Показать ещё"
+          ]
+        },
+        {
+          "text": "Сохранить карточку",
+          "height": 24,
+          "width": 22,
+          "font": "18px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сохранить карточку",
+            "Сохранить карточку",
+            "Сохранить карточку"
+          ]
+        },
+        {
+          "text": "Все команды",
+          "height": 21.3,
+          "width": 72.1,
+          "font": "9px",
+          "weight": "550",
+          "radius": "2px",
+          "examples": [
+            "Все команды",
+            "Все команды",
+            "Все команды"
+          ]
+        },
+        {
+          "text": "◌ 0",
+          "height": 24,
+          "width": 23,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "◌ 0",
+            "✎",
+            "◌ 0"
+          ]
+        },
+        {
+          "text": "Читать →",
+          "height": 22,
+          "width": 54.2,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Читать →",
+            "Читать →",
+            "Читать →"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "faq",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "＋ Предложить FAQ",
+          "height": 44,
+          "width": 160.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Предложить FAQ"
+          ]
+        },
+        {
+          "text": "Мои заявки 0",
+          "height": 40,
+          "width": 82.2,
+          "font": "11px",
+          "weight": "650",
+          "radius": "0px",
+          "examples": [
+            "Мои заявки 0"
+          ]
+        },
+        {
+          "text": "◇ Модерация 0",
+          "height": 46,
+          "width": 105.9,
+          "font": "11px",
+          "weight": "650",
+          "radius": "0px",
+          "examples": [
+            "◇ Модерация 0"
+          ]
+        },
+        {
+          "text": "Фильтры",
+          "height": 46,
+          "width": 78.4,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Фильтры"
+          ]
+        },
+        {
+          "text": "＋ Карточка",
+          "height": 44,
+          "width": 107.7,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Карточка",
+            "Показать ещё"
+          ]
+        },
+        {
+          "text": "Сохранить карточку",
+          "height": 24,
+          "width": 22,
+          "font": "18px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сохранить карточку",
+            "Сохранить карточку",
+            "Сохранить карточку"
+          ]
+        },
+        {
+          "text": "Все команды",
+          "height": 21.3,
+          "width": 72.1,
+          "font": "9px",
+          "weight": "550",
+          "radius": "2px",
+          "examples": [
+            "Все команды",
+            "Все команды",
+            "Все команды"
+          ]
+        },
+        {
+          "text": "◌ 0",
+          "height": 24,
+          "width": 23,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "◌ 0",
+            "✎",
+            "◌ 0"
+          ]
+        },
+        {
+          "text": "Читать →",
+          "height": 22,
+          "width": 54.2,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Читать →",
+            "Читать →",
+            "Читать →"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "combat",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "↗ Поделиться",
+          "height": 40,
+          "width": 125.6,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "↗ Поделиться",
+            "Сохранить сценарий",
+            "Скопировать A"
+          ]
+        },
+        {
+          "text": "⌖ Стрельба",
+          "height": 36,
+          "width": 108.4,
+          "font": "13px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⌖ Стрельба"
+          ]
+        },
+        {
+          "text": "⚔ Ближний бой",
+          "height": 36,
+          "width": 134.2,
+          "font": "13px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⚔ Ближний бой"
+          ]
+        },
+        {
+          "text": "decrease",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "6px 0px 0px 6px",
+          "examples": [
+            "decrease",
+            "decrease",
+            "decrease"
+          ]
+        },
+        {
+          "text": "increase",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "0px 6px 6px 0px",
+          "examples": [
+            "increase",
+            "increase",
+            "increase"
+          ]
+        },
+        {
+          "text": "Рассчитать\n→",
+          "height": 40,
+          "width": 195,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "combat",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "↗ Поделиться",
+          "height": 40,
+          "width": 125.6,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "↗ Поделиться",
+            "Сохранить сценарий",
+            "Скопировать A"
+          ]
+        },
+        {
+          "text": "⌖ Стрельба",
+          "height": 36,
+          "width": 108.4,
+          "font": "13px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⌖ Стрельба"
+          ]
+        },
+        {
+          "text": "⚔ Ближний бой",
+          "height": 36,
+          "width": 134.2,
+          "font": "13px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⚔ Ближний бой"
+          ]
+        },
+        {
+          "text": "decrease",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "6px 0px 0px 6px",
+          "examples": [
+            "decrease",
+            "decrease",
+            "decrease"
+          ]
+        },
+        {
+          "text": "increase",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "0px 6px 6px 0px",
+          "examples": [
+            "increase",
+            "increase",
+            "increase"
+          ]
+        },
+        {
+          "text": "Рассчитать\n→",
+          "height": 40,
+          "width": 195,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "combat",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "↗ Поделиться",
+          "height": 44,
+          "width": 169.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "↗ Поделиться",
+            "Сохранить сценарий",
+            "Скопировать A"
+          ]
+        },
+        {
+          "text": "⌖ Стрельба",
+          "height": 36,
+          "width": 168.5,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⌖ Стрельба"
+          ]
+        },
+        {
+          "text": "⚔ Ближний бой",
+          "height": 36,
+          "width": 168.5,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⚔ Ближний бой"
+          ]
+        },
+        {
+          "text": "decrease",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "6px 0px 0px 6px",
+          "examples": [
+            "decrease",
+            "decrease",
+            "decrease"
+          ]
+        },
+        {
+          "text": "increase",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "0px 6px 6px 0px",
+          "examples": [
+            "increase",
+            "increase",
+            "increase"
+          ]
+        },
+        {
+          "text": "Рассчитать\n→",
+          "height": 44,
+          "width": 313,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "combat",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "↗ Поделиться",
+          "height": 44,
+          "width": 169.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "↗ Поделиться",
+            "Сохранить сценарий",
+            "Скопировать A"
+          ]
+        },
+        {
+          "text": "⌖ Стрельба",
+          "height": 36,
+          "width": 168.5,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⌖ Стрельба"
+          ]
+        },
+        {
+          "text": "⚔ Ближний бой",
+          "height": 36,
+          "width": 168.5,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⚔ Ближний бой"
+          ]
+        },
+        {
+          "text": "decrease",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "6px 0px 0px 6px",
+          "examples": [
+            "decrease",
+            "decrease",
+            "decrease"
+          ]
+        },
+        {
+          "text": "increase",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "0px 6px 6px 0px",
+          "examples": [
+            "increase",
+            "increase",
+            "increase"
+          ]
+        },
+        {
+          "text": "Рассчитать\n→",
+          "height": 44,
+          "width": 313,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "training",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Начать тренировку\n→",
+          "height": 40,
+          "width": 187.9,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Начать тренировку\n→"
+          ]
+        },
+        {
+          "text": "01\nНубик\n0 XP\nВы здесь",
+          "height": 197,
+          "width": 171,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "01\nНубик\n0 XP\nВы здесь",
+            "02\nФрешблад\n600 XP\nВпереди",
+            "03\nСередняк\n2 400 XP\nВпереди"
+          ]
+        },
+        {
+          "text": "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+          "height": 155.4,
+          "width": 335.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+            "Ⅱ\nБоец\n+20 XP\n0 / 75\nвопросов закреплено\n0 / 3000 XP\n→",
+            "Ⅲ\nВетеран\n+30 XP\n0 / 75\nвопросов закреплено\n0 / 4500 XP\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "training",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Начать тренировку\n→",
+          "height": 40,
+          "width": 187.9,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Начать тренировку\n→"
+          ]
+        },
+        {
+          "text": "01\nНубик\n0 XP\nВы здесь",
+          "height": 197,
+          "width": 171,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "01\nНубик\n0 XP\nВы здесь",
+            "02\nФрешблад\n600 XP\nВпереди",
+            "03\nСередняк\n2 400 XP\nВпереди"
+          ]
+        },
+        {
+          "text": "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+          "height": 155.4,
+          "width": 335.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+            "Ⅱ\nБоец\n+20 XP\n0 / 75\nвопросов закреплено\n0 / 3000 XP\n→",
+            "Ⅲ\nВетеран\n+30 XP\n0 / 75\nвопросов закреплено\n0 / 4500 XP\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "training",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Начать тренировку\n→",
+          "height": 44,
+          "width": 302,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Начать тренировку\n→"
+          ]
+        },
+        {
+          "text": "01\nНубик\n0 XP\nВы здесь",
+          "height": 82,
+          "width": 317,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "01\nНубик\n0 XP\nВы здесь",
+            "02\nФрешблад\n600 XP\nВпереди",
+            "03\nСередняк\n2 400 XP\nВпереди"
+          ]
+        },
+        {
+          "text": "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+          "height": 146.4,
+          "width": 170.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+            "Ⅱ\nБоец\n+20 XP\n0 / 75\nвопросов закреплено\n0 / 3000 XP\n→",
+            "Ⅲ\nВетеран\n+30 XP\n0 / 75\nвопросов закреплено\n0 / 4500 XP\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "training",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Начать тренировку\n→",
+          "height": 44,
+          "width": 302,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Начать тренировку\n→"
+          ]
+        },
+        {
+          "text": "01\nНубик\n0 XP\nВы здесь",
+          "height": 82,
+          "width": 317,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "01\nНубик\n0 XP\nВы здесь",
+            "02\nФрешблад\n600 XP\nВпереди",
+            "03\nСередняк\n2 400 XP\nВпереди"
+          ]
+        },
+        {
+          "text": "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+          "height": 146.4,
+          "width": 170.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+            "Ⅱ\nБоец\n+20 XP\n0 / 75\nвопросов закреплено\n0 / 3000 XP\n→",
+            "Ⅲ\nВетеран\n+30 XP\n0 / 75\nвопросов закреплено\n0 / 4500 XP\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "account",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Сохранить",
+          "height": 40,
+          "width": 99.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Сохранить"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "account",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 40,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 40,
+        "width": 40,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Сохранить",
+          "height": 40,
+          "width": 99.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Сохранить"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "account",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Сохранить",
+          "height": 44,
+          "width": 99.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Сохранить"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "account",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Выйти",
+          "height": 44,
+          "width": 69.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Уведомления",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": {
+        "text": "L",
+        "height": 44,
+        "width": 44,
+        "font": "14px",
+        "weight": "800",
+        "radius": "50%"
+      },
+      "rating": "MMR 1000",
+      "bodyActions": [
+        {
+          "text": "Сохранить",
+          "height": 44,
+          "width": 99.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Сохранить"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "miniapp",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Включить светлую тему",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        },
+        {
+          "text": "Обновить данные",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "miniapp",
+      "role": "admin",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Включить тёмную тему",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        },
+        {
+          "text": "Обновить данные",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "miniapp",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 390,
+      "header": [
+        {
+          "text": "Включить светлую тему",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        },
+        {
+          "text": "Обновить данные",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "miniapp",
+      "role": "admin",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 390,
+      "header": [
+        {
+          "text": "Включить тёмную тему",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        },
+        {
+          "text": "Обновить данные",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "home",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "home",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "home",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "home",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "tournament",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Таблица лидеров",
+          "height": 40,
+          "width": 513,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Таблица лидеров",
+            "Combined MMR"
+          ]
+        },
+        {
+          "text": "Команды",
+          "height": 40,
+          "width": 513,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Команды",
+            "TTS",
+            "Вживую"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "tournament",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Таблица лидеров",
+          "height": 40,
+          "width": 513,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Таблица лидеров",
+            "Combined MMR"
+          ]
+        },
+        {
+          "text": "Команды",
+          "height": 40,
+          "width": 513,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Команды",
+            "TTS",
+            "Вживую"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "tournament",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Открыть меню",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Закрыть меню",
+          "height": 844,
+          "width": 375,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Закрыть меню"
+          ]
+        },
+        {
+          "text": "Таблица лидеров",
+          "height": 44,
+          "width": 167.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Таблица лидеров",
+            "Combined MMR"
+          ]
+        },
+        {
+          "text": "Команды",
+          "height": 44,
+          "width": 167.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Команды",
+            "TTS",
+            "Вживую"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "tournament",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Открыть меню",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Закрыть меню",
+          "height": 844,
+          "width": 375,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Закрыть меню"
+          ]
+        },
+        {
+          "text": "Таблица лидеров",
+          "height": 44,
+          "width": 167.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Таблица лидеров",
+            "Combined MMR"
+          ]
+        },
+        {
+          "text": "Команды",
+          "height": 44,
+          "width": 167.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Команды",
+            "TTS",
+            "Вживую"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "initiative",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Рассчитать",
+          "height": 40,
+          "width": 101.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать"
+          ]
+        },
+        {
+          "text": "Скачать журнал",
+          "height": 40,
+          "width": 382,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Скачать журнал"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "initiative",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Рассчитать",
+          "height": 40,
+          "width": 101.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать"
+          ]
+        },
+        {
+          "text": "Скачать журнал",
+          "height": 40,
+          "width": 382,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Скачать журнал"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "initiative",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Рассчитать",
+          "height": 44,
+          "width": 101.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать"
+          ]
+        },
+        {
+          "text": "Скачать журнал",
+          "height": 44,
+          "width": 325,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Скачать журнал"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "initiative",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Рассчитать",
+          "height": 44,
+          "width": 101.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать"
+          ]
+        },
+        {
+          "text": "Скачать журнал",
+          "height": 44,
+          "width": 325,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Скачать журнал"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "tracker",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "tracker",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "tracker",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "tracker",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": []
+    },
+    {
+      "service": "studio",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "+ Создать команду",
+          "height": 40,
+          "width": 158.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "+ Создать команду",
+            "Сохранить команду",
+            "Скачать ростер команды (.rosz)"
+          ]
+        },
+        {
+          "text": "Опубликовать",
+          "height": 40,
+          "width": 123.1,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Опубликовать"
+          ]
+        },
+        {
+          "text": "Редактор",
+          "height": 40,
+          "width": 95.1,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Редактор",
+            "Мои черновики"
+          ]
+        },
+        {
+          "text": "Библиотека",
+          "height": 40,
+          "width": 110.9,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Библиотека"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "studio",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "+ Создать команду",
+          "height": 40,
+          "width": 158.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "+ Создать команду",
+            "Сохранить команду",
+            "Скачать ростер команды (.rosz)"
+          ]
+        },
+        {
+          "text": "Опубликовать",
+          "height": 40,
+          "width": 123.1,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Опубликовать"
+          ]
+        },
+        {
+          "text": "Редактор",
+          "height": 40,
+          "width": 95.1,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Редактор",
+            "Мои черновики"
+          ]
+        },
+        {
+          "text": "Библиотека",
+          "height": 40,
+          "width": 110.9,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Библиотека"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "studio",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "+ Создать команду",
+          "height": 44,
+          "width": 158.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "+ Создать команду",
+            "Сохранить команду",
+            "Скачать ростер команды (.rosz)"
+          ]
+        },
+        {
+          "text": "Опубликовать",
+          "height": 44,
+          "width": 150.1,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Опубликовать"
+          ]
+        },
+        {
+          "text": "Редактор",
+          "height": 44,
+          "width": 85.1,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Редактор",
+            "Мои черновики"
+          ]
+        },
+        {
+          "text": "Библиотека",
+          "height": 44,
+          "width": 100.9,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Библиотека"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "studio",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "+ Создать команду",
+          "height": 44,
+          "width": 158.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "+ Создать команду",
+            "Сохранить команду",
+            "Скачать ростер команды (.rosz)"
+          ]
+        },
+        {
+          "text": "Опубликовать",
+          "height": 44,
+          "width": 150.1,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Опубликовать"
+          ]
+        },
+        {
+          "text": "Редактор",
+          "height": 44,
+          "width": 85.1,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Редактор",
+            "Мои черновики"
+          ]
+        },
+        {
+          "text": "Библиотека",
+          "height": 44,
+          "width": 100.9,
+          "font": "14px",
+          "weight": "600",
+          "radius": "7px",
+          "examples": [
+            "Библиотека"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "dice",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Найти",
+          "height": 40,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти",
+            "Предыдущая страница команд",
+            "Следующая страница команд"
+          ]
+        },
+        {
+          "text": "Подготовить кубик для TTS",
+          "height": 40,
+          "width": 216.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Подготовить кубик для TTS"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "dice",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Найти",
+          "height": 40,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти",
+            "Предыдущая страница команд",
+            "Следующая страница команд"
+          ]
+        },
+        {
+          "text": "Подготовить кубик для TTS",
+          "height": 40,
+          "width": 216.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Подготовить кубик для TTS"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "dice",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Найти",
+          "height": 44,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти",
+            "Предыдущая страница команд",
+            "Следующая страница команд"
+          ]
+        },
+        {
+          "text": "Подготовить кубик для TTS",
+          "height": 44,
+          "width": 216.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Подготовить кубик для TTS"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "dice",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Найти",
+          "height": 44,
+          "width": 67.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Найти",
+            "Предыдущая страница команд",
+            "Следующая страница команд"
+          ]
+        },
+        {
+          "text": "Подготовить кубик для TTS",
+          "height": 44,
+          "width": 216.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Подготовить кубик для TTS"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "faq",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "＋ Предложить FAQ",
+          "height": 40,
+          "width": 160.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Предложить FAQ"
+          ]
+        },
+        {
+          "text": "Сбросить",
+          "height": 15,
+          "width": 56.7,
+          "font": "12px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сбросить"
+          ]
+        },
+        {
+          "text": "Все источники\n131",
+          "height": 37,
+          "width": 194,
+          "font": "12px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Все источники\n131",
+            "Official · GW\n97"
+          ]
+        },
+        {
+          "text": "Community FAQ\n34",
+          "height": 37,
+          "width": 194,
+          "font": "12px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Community FAQ\n34"
+          ]
+        },
+        {
+          "text": "Corsair Voidscarred\n3",
+          "height": 38,
+          "width": 184,
+          "font": "11px",
+          "weight": "450",
+          "radius": "3px",
+          "examples": [
+            "Corsair Voidscarred\n3",
+            "Exaction Squad\n2",
+            "Kasrkin\n2"
+          ]
+        },
+        {
+          "text": "◇\nNavy Breachers\n0",
+          "height": 37,
+          "width": 184,
+          "font": "11px",
+          "weight": "450",
+          "radius": "3px",
+          "examples": [
+            "◇\nNavy Breachers\n0"
+          ]
+        },
+        {
+          "text": "RAW",
+          "height": 26,
+          "width": 40.1,
+          "font": "10px",
+          "weight": "600",
+          "radius": "6px",
+          "examples": [
+            "RAW",
+            "Правка",
+            "Спор"
+          ]
+        },
+        {
+          "text": "☆ Только сохранённые\n0",
+          "height": 38,
+          "width": 194,
+          "font": "11px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "☆ Только сохранённые\n0"
+          ]
+        },
+        {
+          "text": "Сохранить карточку",
+          "height": 24,
+          "width": 22,
+          "font": "18px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сохранить карточку",
+            "Сохранить карточку",
+            "Сохранить карточку"
+          ]
+        },
+        {
+          "text": "Все команды",
+          "height": 21.3,
+          "width": 72.1,
+          "font": "9px",
+          "weight": "550",
+          "radius": "2px",
+          "examples": [
+            "Все команды",
+            "Все команды",
+            "Все команды"
+          ]
+        },
+        {
+          "text": "◌ 0",
+          "height": 24,
+          "width": 23,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "◌ 0",
+            "◌ 0",
+            "◌ 0"
+          ]
+        },
+        {
+          "text": "Читать →",
+          "height": 22,
+          "width": 54.2,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Читать →",
+            "Читать →",
+            "Читать →"
+          ]
+        },
+        {
+          "text": "Показать ещё",
+          "height": 40,
+          "width": 210,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Показать ещё"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "faq",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "＋ Предложить FAQ",
+          "height": 40,
+          "width": 160.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Предложить FAQ"
+          ]
+        },
+        {
+          "text": "Сбросить",
+          "height": 15,
+          "width": 56.7,
+          "font": "12px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сбросить"
+          ]
+        },
+        {
+          "text": "Все источники\n131",
+          "height": 37,
+          "width": 194,
+          "font": "12px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Все источники\n131",
+            "Official · GW\n97"
+          ]
+        },
+        {
+          "text": "Community FAQ\n34",
+          "height": 37,
+          "width": 194,
+          "font": "12px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Community FAQ\n34"
+          ]
+        },
+        {
+          "text": "Corsair Voidscarred\n3",
+          "height": 38,
+          "width": 184,
+          "font": "11px",
+          "weight": "450",
+          "radius": "3px",
+          "examples": [
+            "Corsair Voidscarred\n3",
+            "Exaction Squad\n2",
+            "Kasrkin\n2"
+          ]
+        },
+        {
+          "text": "◇\nNavy Breachers\n0",
+          "height": 37,
+          "width": 184,
+          "font": "11px",
+          "weight": "450",
+          "radius": "3px",
+          "examples": [
+            "◇\nNavy Breachers\n0"
+          ]
+        },
+        {
+          "text": "RAW",
+          "height": 26,
+          "width": 40.1,
+          "font": "10px",
+          "weight": "600",
+          "radius": "6px",
+          "examples": [
+            "RAW",
+            "Правка",
+            "Спор"
+          ]
+        },
+        {
+          "text": "☆ Только сохранённые\n0",
+          "height": 38,
+          "width": 194,
+          "font": "11px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "☆ Только сохранённые\n0"
+          ]
+        },
+        {
+          "text": "Сохранить карточку",
+          "height": 24,
+          "width": 22,
+          "font": "18px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сохранить карточку",
+            "Сохранить карточку",
+            "Сохранить карточку"
+          ]
+        },
+        {
+          "text": "Все команды",
+          "height": 21.3,
+          "width": 72.1,
+          "font": "9px",
+          "weight": "550",
+          "radius": "2px",
+          "examples": [
+            "Все команды",
+            "Все команды",
+            "Все команды"
+          ]
+        },
+        {
+          "text": "◌ 0",
+          "height": 24,
+          "width": 23,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "◌ 0",
+            "◌ 0",
+            "◌ 0"
+          ]
+        },
+        {
+          "text": "Читать →",
+          "height": 22,
+          "width": 54.2,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Читать →",
+            "Читать →",
+            "Читать →"
+          ]
+        },
+        {
+          "text": "Показать ещё",
+          "height": 40,
+          "width": 210,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Показать ещё"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "faq",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "＋ Предложить FAQ",
+          "height": 44,
+          "width": 160.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Предложить FAQ"
+          ]
+        },
+        {
+          "text": "Фильтры",
+          "height": 46,
+          "width": 78.4,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Фильтры"
+          ]
+        },
+        {
+          "text": "Сохранить карточку",
+          "height": 24,
+          "width": 22,
+          "font": "18px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сохранить карточку",
+            "Сохранить карточку",
+            "Сохранить карточку"
+          ]
+        },
+        {
+          "text": "Все команды",
+          "height": 21.3,
+          "width": 72.1,
+          "font": "9px",
+          "weight": "550",
+          "radius": "2px",
+          "examples": [
+            "Все команды",
+            "Все команды",
+            "Все команды"
+          ]
+        },
+        {
+          "text": "◌ 0",
+          "height": 24,
+          "width": 23,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "◌ 0",
+            "◌ 0",
+            "◌ 0"
+          ]
+        },
+        {
+          "text": "Читать →",
+          "height": 22,
+          "width": 54.2,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Читать →",
+            "Читать →",
+            "Читать →"
+          ]
+        },
+        {
+          "text": "Показать ещё",
+          "height": 44,
+          "width": 210,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Показать ещё"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "faq",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "＋ Предложить FAQ",
+          "height": 44,
+          "width": 160.8,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "＋ Предложить FAQ"
+          ]
+        },
+        {
+          "text": "Фильтры",
+          "height": 46,
+          "width": 78.4,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Фильтры"
+          ]
+        },
+        {
+          "text": "Сохранить карточку",
+          "height": 24,
+          "width": 22,
+          "font": "18px",
+          "weight": "650",
+          "radius": "6px",
+          "examples": [
+            "Сохранить карточку",
+            "Сохранить карточку",
+            "Сохранить карточку"
+          ]
+        },
+        {
+          "text": "Все команды",
+          "height": 21.3,
+          "width": 72.1,
+          "font": "9px",
+          "weight": "550",
+          "radius": "2px",
+          "examples": [
+            "Все команды",
+            "Все команды",
+            "Все команды"
+          ]
+        },
+        {
+          "text": "◌ 0",
+          "height": 24,
+          "width": 23,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "◌ 0",
+            "◌ 0",
+            "◌ 0"
+          ]
+        },
+        {
+          "text": "Читать →",
+          "height": 22,
+          "width": 54.2,
+          "font": "10px",
+          "weight": "550",
+          "radius": "6px",
+          "examples": [
+            "Читать →",
+            "Читать →",
+            "Читать →"
+          ]
+        },
+        {
+          "text": "Показать ещё",
+          "height": 44,
+          "width": 210,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Показать ещё"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "combat",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "↗ Поделиться",
+          "height": 40,
+          "width": 125.6,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "↗ Поделиться",
+            "Сохранить сценарий",
+            "Скопировать A"
+          ]
+        },
+        {
+          "text": "⌖ Стрельба",
+          "height": 36,
+          "width": 108.4,
+          "font": "13px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⌖ Стрельба"
+          ]
+        },
+        {
+          "text": "⚔ Ближний бой",
+          "height": 36,
+          "width": 134.2,
+          "font": "13px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⚔ Ближний бой"
+          ]
+        },
+        {
+          "text": "decrease",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "6px 0px 0px 6px",
+          "examples": [
+            "decrease",
+            "decrease",
+            "decrease"
+          ]
+        },
+        {
+          "text": "increase",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "0px 6px 6px 0px",
+          "examples": [
+            "increase",
+            "increase",
+            "increase"
+          ]
+        },
+        {
+          "text": "Рассчитать\n→",
+          "height": 40,
+          "width": 195,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "combat",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "↗ Поделиться",
+          "height": 40,
+          "width": 125.6,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "↗ Поделиться",
+            "Сохранить сценарий",
+            "Скопировать A"
+          ]
+        },
+        {
+          "text": "⌖ Стрельба",
+          "height": 36,
+          "width": 108.4,
+          "font": "13px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⌖ Стрельба"
+          ]
+        },
+        {
+          "text": "⚔ Ближний бой",
+          "height": 36,
+          "width": 134.2,
+          "font": "13px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⚔ Ближний бой"
+          ]
+        },
+        {
+          "text": "decrease",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "6px 0px 0px 6px",
+          "examples": [
+            "decrease",
+            "decrease",
+            "decrease"
+          ]
+        },
+        {
+          "text": "increase",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "0px 6px 6px 0px",
+          "examples": [
+            "increase",
+            "increase",
+            "increase"
+          ]
+        },
+        {
+          "text": "Рассчитать\n→",
+          "height": 40,
+          "width": 195,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "combat",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "↗ Поделиться",
+          "height": 44,
+          "width": 169.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "↗ Поделиться",
+            "Сохранить сценарий",
+            "Скопировать A"
+          ]
+        },
+        {
+          "text": "⌖ Стрельба",
+          "height": 36,
+          "width": 168.5,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⌖ Стрельба"
+          ]
+        },
+        {
+          "text": "⚔ Ближний бой",
+          "height": 36,
+          "width": 168.5,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⚔ Ближний бой"
+          ]
+        },
+        {
+          "text": "decrease",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "6px 0px 0px 6px",
+          "examples": [
+            "decrease",
+            "decrease",
+            "decrease"
+          ]
+        },
+        {
+          "text": "increase",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "0px 6px 6px 0px",
+          "examples": [
+            "increase",
+            "increase",
+            "increase"
+          ]
+        },
+        {
+          "text": "Рассчитать\n→",
+          "height": 44,
+          "width": 313,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "combat",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "↗ Поделиться",
+          "height": 44,
+          "width": 169.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "↗ Поделиться",
+            "Сохранить сценарий",
+            "Скопировать A"
+          ]
+        },
+        {
+          "text": "⌖ Стрельба",
+          "height": 36,
+          "width": 168.5,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⌖ Стрельба"
+          ]
+        },
+        {
+          "text": "⚔ Ближний бой",
+          "height": 36,
+          "width": 168.5,
+          "font": "12px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "⚔ Ближний бой"
+          ]
+        },
+        {
+          "text": "decrease",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "6px 0px 0px 6px",
+          "examples": [
+            "decrease",
+            "decrease",
+            "decrease"
+          ]
+        },
+        {
+          "text": "increase",
+          "height": 40,
+          "width": 32,
+          "font": "16px",
+          "weight": "650",
+          "radius": "0px 6px 6px 0px",
+          "examples": [
+            "increase",
+            "increase",
+            "increase"
+          ]
+        },
+        {
+          "text": "Рассчитать\n→",
+          "height": 44,
+          "width": 313,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Рассчитать\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "training",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Начать тренировку\n→",
+          "height": 40,
+          "width": 185.9,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Начать тренировку\n→"
+          ]
+        },
+        {
+          "text": "01\nНубик\n0 XP\nВы здесь",
+          "height": 197,
+          "width": 171,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "01\nНубик\n0 XP\nВы здесь",
+            "02\nФрешблад\n600 XP\nВпереди",
+            "03\nСередняк\n2 400 XP\nВпереди"
+          ]
+        },
+        {
+          "text": "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+          "height": 155.4,
+          "width": 335.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+            "Ⅱ\nБоец\n+20 XP\n0 / 75\nвопросов закреплено\n0 / 3000 XP\n→",
+            "Ⅲ\nВетеран\n+30 XP\n0 / 75\nвопросов закреплено\n0 / 4500 XP\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "training",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1425,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Начать тренировку\n→",
+          "height": 40,
+          "width": 185.9,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Начать тренировку\n→"
+          ]
+        },
+        {
+          "text": "01\nНубик\n0 XP\nВы здесь",
+          "height": 197,
+          "width": 171,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "01\nНубик\n0 XP\nВы здесь",
+            "02\nФрешблад\n600 XP\nВпереди",
+            "03\nСередняк\n2 400 XP\nВпереди"
+          ]
+        },
+        {
+          "text": "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+          "height": 155.4,
+          "width": 335.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+            "Ⅱ\nБоец\n+20 XP\n0 / 75\nвопросов закреплено\n0 / 3000 XP\n→",
+            "Ⅲ\nВетеран\n+30 XP\n0 / 75\nвопросов закреплено\n0 / 4500 XP\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "training",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Начать тренировку\n→",
+          "height": 44,
+          "width": 302,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Начать тренировку\n→"
+          ]
+        },
+        {
+          "text": "01\nНубик\n0 XP\nВы здесь",
+          "height": 82,
+          "width": 317,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "01\nНубик\n0 XP\nВы здесь",
+            "02\nФрешблад\n600 XP\nВпереди",
+            "03\nСередняк\n2 400 XP\nВпереди"
+          ]
+        },
+        {
+          "text": "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+          "height": 146.4,
+          "width": 170.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+            "Ⅱ\nБоец\n+20 XP\n0 / 75\nвопросов закреплено\n0 / 3000 XP\n→",
+            "Ⅲ\nВетеран\n+30 XP\n0 / 75\nвопросов закреплено\n0 / 4500 XP\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "training",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 375,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Начать тренировку\n→",
+          "height": 44,
+          "width": 302,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Начать тренировку\n→"
+          ]
+        },
+        {
+          "text": "01\nНубик\n0 XP\nВы здесь",
+          "height": 82,
+          "width": 317,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "01\nНубик\n0 XP\nВы здесь",
+            "02\nФрешблад\n600 XP\nВпереди",
+            "03\nСередняк\n2 400 XP\nВпереди"
+          ]
+        },
+        {
+          "text": "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+          "height": 146.4,
+          "width": 170.5,
+          "font": "14px",
+          "weight": "650",
+          "radius": "8px",
+          "examples": [
+            "Ⅰ\nРекрут\n+10 XP\n0 / 75\nвопросов закреплено\n0 / 1500 XP\n→",
+            "Ⅱ\nБоец\n+20 XP\n0 / 75\nвопросов закреплено\n0 / 3000 XP\n→",
+            "Ⅲ\nВетеран\n+30 XP\n0 / 75\nвопросов закреплено\n0 / 4500 XP\n→"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "account",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 65,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Войти",
+            "Создать аккаунт",
+            "Войти"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "account",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 40,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 40,
+          "width": 40,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Войти",
+          "height": 40,
+          "width": 65,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Войти",
+            "Создать аккаунт",
+            "Войти"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "account",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 390,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 65,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Войти",
+            "Создать аккаунт",
+            "Войти"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "account",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 390,
+      "header": [
+        {
+          "text": "Switch to English",
+          "height": 44,
+          "width": 45.3,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Светлая тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Тёмная тема",
+          "height": 44,
+          "width": 44,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        },
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 67,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Войти",
+          "height": 44,
+          "width": 65,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Войти",
+            "Создать аккаунт",
+            "Войти"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "miniapp",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Включить светлую тему",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        },
+        {
+          "text": "Обновить данные",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Я подключил аккаунт",
+          "height": 40,
+          "width": 173.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Я подключил аккаунт"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "miniapp",
+      "role": "guest",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 1440,
+      "header": [
+        {
+          "text": "Включить тёмную тему",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        },
+        {
+          "text": "Обновить данные",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Я подключил аккаунт",
+          "height": 40,
+          "width": 173.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Я подключил аккаунт"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "miniapp",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "status": 200,
+      "scrollWidth": 390,
+      "header": [
+        {
+          "text": "Включить светлую тему",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        },
+        {
+          "text": "Обновить данные",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Я подключил аккаунт",
+          "height": 44,
+          "width": 173.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Я подключил аккаунт"
+          ]
+        }
+      ]
+    },
+    {
+      "service": "miniapp",
+      "role": "guest",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "status": 200,
+      "scrollWidth": 390,
+      "header": [
+        {
+          "text": "Включить тёмную тему",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        },
+        {
+          "text": "Обновить данные",
+          "height": 44,
+          "width": 44,
+          "font": "16px",
+          "weight": "400",
+          "radius": "7px"
+        }
+      ],
+      "avatar": null,
+      "rating": null,
+      "bodyActions": [
+        {
+          "text": "Я подключил аккаунт",
+          "height": 44,
+          "width": 173.2,
+          "font": "14px",
+          "weight": "650",
+          "radius": "7px",
+          "examples": [
+            "Я подключил аккаунт"
+          ]
+        }
+      ]
+    }
+  ],
+  "behavior": {
+    "combat": {
+      "before": {
+        "s1": "4",
+        "s2": "4",
+        "result": "РЕЗУЛЬТАТ РАСЧЁТА\nВероятности исходов\nEXACT · 3 мс\nSituation 1 · A\nAverage Damage\n:\n3.29\nInjury Chance\n:\n17.22%\nKill Chance\n:\n1.07%\nDmg probs for exact scenario\nSituation 2 · B\nAverage Damage\n:\n3.29\nInjury Chance\n:\n17.22%\nKill Chance\n:\n1.07%\nDmg probs for exact scenario\nComparison Matrix (Avg Dmg + Kill % vs W)\nBetter\nWorse\nEqual\nShow Sv 6+\nS1 & S2 Combined · vs W=12\nSv\tAvg\tKill%\n2+\t4.53\t4%\n3+\t6.59\t14%\n4+\t8.86\t30%\n5+\t11.33\t50%\nW\tSv 2+\tSv 3+\tSv 4+\tSv 5+\nS1\tS2\tΔ\tS1\tS2\tΔ\tS1\tS2\tΔ\tS1\tS2\tΔ\nAvg\t2.26\t2.26\t0.00\t3.29\t3.29\t0.00\t4.43\t4.43\t0.00\t5.66\t5.66\t0.00\n1\t51%\t51%\t0%\t63%\t63%\t0%\t75%\t75%\t0%\t84%\t84%\t0%\n2\t51%\t51%\t0%\t63%\t63%\t0%\t75%\t75%\t0%\t84%\t84%\t0%\n3\t51%\t51%\t0%\t63%\t63%\t0%\t75%\t75%\t0%\t84%\t84%\t0%\n4\t26%\t26%\t0%\t39%\t39%\t0%\t52%\t52%\t0%\t64%\t64%\t0%\n5\t15%\t15%\t0%\t28%\t28%\t0%\t43%\t43%\t0%\t58%\t58%\t0%\n6\t15%\t15%\t0%\t28%\t28%\t0%\t43%\t43%\t0%\t58%\t58%\t0%\n7\t10%\t10%\t0%\t18%\t18%\t0%\t28%\t28%\t0%\t39%\t39%\t0%\n8\t4%\t4%\t0%\t10%\t10%\t0%\t18%\t18%\t0%\t29%\t29%\t0%\n9\t2%\t2%\t0%\t7%\t7%\t0%\t15%\t15%\t0%\t27%\t27%\t0%\n10\t1%\t1%\t0%\t4%\t4%\t0%\t10%\t10%\t0%\t17%\t17%\t0%\n11\t1%\t1%\t0%\t2%\t2%\t0%\t5%\t5%\t0%\t9%\t9%\t0%\n12\t0%\t0%\t0%\t1%\t1%\t0%\t3%\t3%\t0%\t6%\t6%\t0%\n13\t0%\t0%\t0%\t1%\t1%\t0%\t2%\t2%\t0%\t4%\t4%\t0%\n14\t0%\t0%\t0%\t0%\t0%\t0%\t1%\t1%\t0%\t2%\t2%\t0%\n15\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\n16\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\n17+\t0%"
+      },
+      "after": {
+        "s1": "5",
+        "s2": "4",
+        "result": "РЕЗУЛЬТАТ РАСЧЁТА\nВероятности исходов\nEXACT · 3 мс\nSituation 1 · A\nAverage Damage\n:\n5.04\nInjury Chance\n:\n29.17%\nKill Chance\n:\n5.50%\nDmg probs for exact scenario\nSituation 2 · B\nAverage Damage\n:\n3.29\nInjury Chance\n:\n17.22%\nKill Chance\n:\n1.07%\nDmg probs for exact scenario\nComparison Matrix (Avg Dmg + Kill % vs W)\nBetter\nWorse\nEqual\nShow Sv 6+\nS1 & S2 Combined · vs W=12\nSv\tAvg\tKill%\n2+\t6.10\t11%\n3+\t8.33\t26%\n4+\t10.76\t44%\n5+\t13.34\t64%\nW\tSv 2+\tSv 3+\tSv 4+\tSv 5+\nS1\tS2\tΔ\tS1\tS2\tΔ\tS1\tS2\tΔ\tS1\tS2\tΔ\nAvg\t3.83\t2.26\t+1.57\t5.04\t3.29\t+1.75\t6.33\t4.43\t+1.90\t7.68\t5.66\t+2.01\n1\t70%\t51%\t+20%\t79%\t63%\t+16%\t86%\t75%\t+12%\t92%\t84%\t+8%\n2\t70%\t51%\t+20%\t79%\t63%\t+16%\t86%\t75%\t+12%\t92%\t84%\t+8%\n3\t70%\t51%\t+20%\t79%\t63%\t+16%\t86%\t75%\t+12%\t92%\t84%\t+8%\n4\t46%\t26%\t+19%\t58%\t39%\t+19%\t69%\t52%\t+17%\t79%\t64%\t+14%\n5\t34%\t15%\t+19%\t48%\t28%\t+20%\t62%\t43%\t+20%\t75%\t58%\t+17%\n6\t34%\t15%\t+19%\t48%\t28%\t+20%\t62%\t43%\t+20%\t75%\t58%\t+17%\n7\t24%\t10%\t+14%\t35%\t18%\t+16%\t46%\t28%\t+18%\t57%\t39%\t+19%\n8\t13%\t4%\t+9%\t24%\t10%\t+14%\t36%\t18%\t+18%\t49%\t29%\t+20%\n9\t9%\t2%\t+7%\t20%\t7%\t+13%\t33%\t15%\t+17%\t47%\t27%\t+21%\n10\t6%\t1%\t+5%\t14%\t4%\t+9%\t23%\t10%\t+13%\t33%\t17%\t+16%\n11\t4%\t1%\t+3%\t9%\t2%\t+6%\t15%\t5%\t+10%\t24%\t9%\t+15%\n12\t2%\t0%\t+1%\t5%\t1%\t+4%\t12%\t3%\t+9%\t20%\t6%\t+14%\n13\t1%\t0%\t+1%\t3%\t1%\t+3%\t8%\t2%\t+6%\t14%\t4%\t+10%\n14\t0%\t0%\t+0%\t2%\t0%\t+2%\t4%\t1%\t+4%\t8%\t2%\t+6%\n15\t0%\t0%\t+0%\t1%\t0%\t+1%\t2%\t0%\t+2%\t5%\t0%\t+4%\n16\t0%\t0%\t0%\t0%\t0%\t+0%\t1%\t0%\t+1%\t3%\t0%\t+3%\n17\t0%\t0%\t0%\t0%\t0%\t+0%\t1%\t0%\t+1%\t1%\t0%\t+1%\n18\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t+0%\t0%\t0%\t+0%\n19\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\n20\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\t0%\n21+\t0%"
+      }
+    },
+    "headers": [
+      {
+        "name": "tournament",
+        "en": "en",
+        "focus": {
+          "outline": "2px",
+          "offset": "3px"
+        },
+        "open": 1,
+        "closed": 0
+      },
+      {
+        "name": "initiative",
+        "en": "en",
+        "focus": {
+          "outline": "2px",
+          "offset": "3px"
+        },
+        "open": 1,
+        "closed": 0
+      },
+      {
+        "name": "tracker",
+        "en": "en",
+        "focus": {
+          "outline": "2px",
+          "offset": "3px"
+        },
+        "open": 1,
+        "closed": 0
+      },
+      {
+        "name": "studio",
+        "en": "en",
+        "focus": {
+          "outline": "2px",
+          "offset": "3px"
+        },
+        "open": 1,
+        "closed": 0
+      },
+      {
+        "name": "dice",
+        "en": "en",
+        "focus": {
+          "outline": "2px",
+          "offset": "3px"
+        },
+        "open": 1,
+        "closed": 0
+      },
+      {
+        "name": "faq",
+        "en": "en",
+        "focus": {
+          "outline": "2px",
+          "offset": "3px"
+        },
+        "open": 1,
+        "closed": 0
+      },
+      {
+        "name": "combat",
+        "en": "en",
+        "focus": {
+          "outline": "2px",
+          "offset": "3px"
+        },
+        "open": 1,
+        "closed": 0
+      },
+      {
+        "name": "training",
+        "en": "en",
+        "focus": {
+          "outline": "2px",
+          "offset": "3px"
+        },
+        "open": 1,
+        "closed": 0
+      }
+    ],
+    "edgeCases": [
+      {
+        "width": 320,
+        "overflow": false,
+        "avatarFallback": "О",
+        "unknownRatingHidden": true,
+        "nameTruncated": true,
+        "badge": "99+",
+        "aria": "Уведомления: 128"
+      },
+      {
+        "width": 900,
+        "overflow": false,
+        "avatarFallback": "О",
+        "unknownRatingHidden": true,
+        "nameTruncated": true,
+        "badge": "99+",
+        "aria": "Уведомления: 128"
+      },
+      {
+        "tournament128": "Уведомления, новых: 128"
+      },
+      {
+        "logoutFailure": "Выйти",
+        "retryEnabled": true,
+        "status": "Не удалось выйти. Повторите попытку."
+      },
+      {
+        "logoutSucceeded": true
+      },
+      {
+        "menuOpens": true
+      },
+      {
+        "profileUrl": "http://127.0.0.1:3038/tournament#/profile",
+        "admin": true
+      }
+    ]
+  },
+  "notes": [
+    "Mini App keeps its own mobile header.",
+    "Content cards, tabs, tables and numeric field controls are outside UI Kit v1 action-button coverage.",
+    "Long name, broken avatar, missing rating, 128 unread and logout failure used local browser response overrides; successful logout and combat calculation used the real local app."
+  ]
+}

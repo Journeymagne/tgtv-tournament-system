@@ -2677,3 +2677,9 @@ body[data-companion-section="studio"] :is(button,input,textarea,select,summary,a
     display: none;
   }
 }
+
+/* Keep workspace actions on the shared UI Kit density. */
+:root #studio-workspace :is(.header-actions button,.project-picker button,.studio-export-menu>summary) {
+  min-height:var(--button-height); padding:var(--button-padding); border-radius:var(--button-radius);
+  font:var(--button-font-weight) var(--button-font-size)/var(--button-line-height) var(--font-ui); box-shadow:none;
+}

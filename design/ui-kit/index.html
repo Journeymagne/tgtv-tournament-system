@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>UI Kit · KT Companion</title>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <link rel="stylesheet" href="catalog.css">
+  <script src="components.js" defer></script>
+  <script src="catalog.js" defer></script>
+</head>
+<body>
+  <header class="catalog-header"><a href="#account"><img src="icon.png" width="40" height="40" alt="">KT COMPANION <span>UI KIT</span></a><div id="catalog-appearance" aria-label="Настройки каталога"></div></header>
+  <main class="catalog">
+    <div class="catalog-intro">
+      <div><p class="eyebrow">KT COMPANION / UI KIT 01</p><h1>Общие элементы</h1><p class="catalog-lead">Каталог компонентов для будущих подсервисов. Автономный образец, сохранённый в проекте.</p></div>
+      <span class="catalog-version">Библиотека · v1</span>
+    </div>
+    <nav class="catalog-nav" aria-label="Разделы каталога"><a href="#account">Блок аккаунта</a><a href="#primitives">Элементы</a><a href="#tokens">Токены</a><a href="#connect">Подключение</a><a href="audit/2026-10-22/index.html">Аудит сервисов</a></nav>
+    <section id="account">
+      <div class="section-heading"><div><p class="eyebrow">01 / КОМПОЗИЦИЯ</p><h2>Блок аккаунта</h2></div><p>Профиль → язык → тема → выход → уведомления</p></div>
+      <div class="specimen"><div class="specimen-label"><h3>Игрок</h3><span>Аватар · имя · общий MMR</span></div><div class="demo-bar" data-example="player"></div></div>
+      <div class="specimen"><div class="specimen-label"><h3>Гость</h3><span>Настройки доступны до входа</span></div><div class="demo-bar" data-example="guest"></div></div>
+      <div class="specimen"><div class="specimen-label"><h3>Длинное имя и 99+</h3><span>Инициалы вместо фото · счётчик с ограничением</span></div><div class="demo-bar" data-example="long"></div></div>
+      <div class="specimen"><div class="specimen-label"><h3>Нет рейтинга</h3><span>Неизвестный MMR не подменяется числом</span></div><div class="demo-bar" data-example="unrated"></div></div>
+      <p class="catalog-note">Кнопки темы и языка работают во всех примерах. Демо-вход, выход и уведомления меняют только примеры. На узком экране профиль переносится на отдельную строку.</p>
+      <p id="demo-status" class="catalog-status" role="status">Нажмите на элемент, чтобы проверить его поведение.</p>
+    </section>
+    <section id="primitives">
+      <div class="section-heading"><div><p class="eyebrow">02 / ЭЛЕМЕНТЫ</p><h2>Небольшой набор, общие правила</h2></div><p>Одинаковые размеры, отступы и состояния</p></div>
+      <div class="component-grid">
+        <article class="component-card"><h3>Кнопки</h3><div class="component-preview" id="button-examples"></div><p>Основное действие, вторичное действие и недоступное состояние. Tab показывает фокус.</p></article>
+        <article class="component-card"><h3>Уведомления</h3><div class="component-preview" id="notification-examples"></div><p>Одна SVG-иконка. Ноль скрыт, большие значения сокращены до 99+.</p></article>
+        <article class="component-card"><h3>Идентичность</h3><div class="component-preview" id="identity-examples"></div><p>Аватар с запасными инициалами и бейдж общего рейтинга MMR.</p></article>
+      </div>
+    </section>
+    <section id="tokens">
+      <div class="section-heading"><div><p class="eyebrow">03 / ОСНОВА</p><h2>Цвет и размеры</h2></div><p>Токены следуют выбранной теме</p></div>
+      <div class="swatches"><div><span class="swatch swatch-bg"></span><strong>Фон</strong><code>--bg</code></div><div><span class="swatch swatch-surface"></span><strong>Поверхность</strong><code>--surface</code></div><div><span class="swatch swatch-ink"></span><strong>Текст</strong><code>--ink</code></div><div><span class="swatch swatch-accent"></span><strong>Акцент</strong><code>--accent</code></div><div><span class="swatch swatch-line"></span><strong>Граница</strong><code>--line-strong</code></div></div>
+      <dl class="metrics"><div><dt>Кнопка</dt><dd>40 px / 44 px на мобильном</dd></div><div><dt>Иконка</dt><dd>22 × 22 px</dd></div><div><dt>Промежуток</dt><dd>12 px</dd></div><div><dt>Скругление</dt><dd>7 px</dd></div></dl>
+    </section>
+    <section id="connect">
+      <div class="section-heading"><div><p class="eyebrow">04 / ПОВТОРНОЕ ИСПОЛЬЗОВАНИЕ</p><h2>Подключить в новом сервисе</h2></div></div>
+      <p>Для будущего использования скопируйте токены, стили и компоненты в новый сервис. Данные пользователя и обработчики действий передаются явно. Сейчас каталог работает автономно.</p>
+      <div class="code-heading"><span>Минимальный шаблон</span><button type="button" class="kt-control" id="copy-snippet">Копировать</button></div>
+      <pre><code id="integration-snippet">// После загрузки tokens.css, components.css и components.js:
+const bar = KTComponents.accountBar({
+  user: { name: 'Player', rating: 1123 },
+  locale: 'ru', theme: 'dark',
+  profileHref: '#profile', loginHref: '#login',
+  onTheme: value =&gt; { /* тема будущего сервиса */ },
+  onLocale: value =&gt; { /* язык будущего сервиса */ },
+  onLogout: async () =&gt; { /* выход в будущем сервисе */ }
+});
+document.querySelector('[data-account-bar]').append(bar.element);
+const bell = KTComponents.notificationButton({ count: 3 });
+bar.notifications.append(bell.element);</code></pre>
+      <p class="catalog-note">Для отдельных элементов: <code>KTComponents.button()</code>, <code>avatar()</code>, <code>rating()</code>, <code>notificationButton()</code>, <code>accountBar()</code>. <a href="components.js">Исходный код компонентов</a>.</p>
+    </section>
+    <footer>KT Companion · Общая библиотека интерфейса</footer>
+  </main>
+</body>
+</html>

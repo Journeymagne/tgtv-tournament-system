@@ -28,11 +28,11 @@ function companionHtml(source) {
   // Resolve shared chrome on the Companion server so header/account updates
   // apply even when an unchanged calculator build is reused across releases.
   const head = `<script src="/theme-boot.js?v=${ASSET_VERSION}" data-companion-only></script>
-<link rel="stylesheet" href="/companion-shell.css?v=20261018-services2">
+<link rel="stylesheet" href="/companion-shell.css?v=20261022-kit">
 <script src="/companion-sites.js?v=${ASSET_VERSION}" defer></script>
 <script src="/companion-i18n.js?v=${ASSET_VERSION}" defer></script>
 <script src="/combat/companion-ui.js" defer></script>
-<script src="/companion-shell.js?v=20261018-public2" defer></script>`;
+<script src="/companion-shell.js?v=20261022-kit" defer></script>`;
   return source.replace("<head>", "<head>" + head)
     .replace("<body>", '<body data-companion-section="combat">')
     .replace('<div id="root">', '<div data-companion-nav></div><div id="root">');

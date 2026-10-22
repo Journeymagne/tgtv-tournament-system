@@ -180,95 +180,34 @@ body {
   letter-spacing: .19em;
 }
 
-.companion-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px 12px;
+/* Account composition shared by every full Companion service. */
+.companion-account-bar { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:var(--kt-control-gap) 24px; min-width:0; max-width:100%; }
+.companion-tools { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:var(--kt-control-gap); min-width:0; }
+.companion-account { display:flex; align-items:center; min-width:0; }
+.companion-account-status { flex-basis:100%; color:var(--danger); font-size:12px; }
+.companion-account-status:empty { display:none; }
+:root .companion-utility :is(button,.companion-login,.shared-notifications>summary) {
+  box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; flex:none;
+  gap:8px; width:auto; min-width:var(--button-height); height:var(--button-height); min-height:var(--button-height);
+  margin:0; padding:var(--button-padding); border:1px solid var(--line-strong); border-radius:var(--button-radius);
+  font:var(--button-font-weight) var(--button-font-size)/var(--button-line-height) var(--font-ui);
+  letter-spacing:normal; text-transform:none; white-space:nowrap; text-decoration:none; list-style:none;
+  background:var(--panel-2); color:var(--ink); box-shadow:none; cursor:pointer;
 }
-
-.companion-utility button {
-  box-sizing: border-box;
-  min-height: 40px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--button-radius);
-  padding: 8px 10px;
-  font: 600 14px/1.4 var(--font-ui);
-  background: var(--panel-2);
-  color: var(--ink);
-  cursor: pointer;
-  box-shadow: none;
-  text-transform: none;
-  margin: 0;
-  width: auto;
-}
-
-.companion-theme-switch {
-  display: flex;
-  gap: 4px;
-}
-
-.companion-utility .companion-theme-button {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  padding: 7px;
-}
-
-.companion-utility .companion-theme-button[aria-pressed="true"] {
-  background: rgb(var(--accent-rgb)/.14);
-  color: var(--accent-text);
-  border-color: var(--accent);
-}
-
-.companion-theme-button svg {
-  display: block;
-  pointer-events: none;
-}
-
-.companion-account {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.companion-account>a {
-  display: block;
-  line-height: 40px;
-  min-height: 40px;
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.companion-account button {
-  font-size: 13px;
-}
-
-.companion-notifications {
-  position: relative;
-  display: flex;
-}
-
-.companion-notifications:has(> [data-notification-control][hidden]) {
-  display: none;
-}
-
-.companion-notifications .notification-toggle {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  padding: 8px;
-}
-
-.companion-notifications .notification-panel {
-  position: absolute;
-  top: calc(100% + 12px);
-  right: 0;
-}
+:root .companion-utility .companion-login { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+:root .companion-utility :is(button,.companion-login,.shared-notifications>summary):not(:disabled):hover { border-color:var(--accent); color:var(--accent-text); }
+:root .companion-utility .companion-login:hover { background:var(--accent-hover); color:var(--on-accent); }
+.companion-theme-switch { display:flex; gap:4px; }
+:root .companion-utility :is(.companion-theme-button,.notification-toggle,.shared-notifications>summary,.menu-toggle) { width:var(--button-height); padding:0; }
+:root .companion-utility .menu-toggle { flex-direction:column; gap:5px; padding:9px; }
+:root .companion-utility .menu-toggle span { margin:0; }
+:root .companion-utility :is(.companion-theme-button[aria-pressed="true"],.notification-toggle[aria-expanded="true"],details[open]>summary) { background:rgb(var(--accent-rgb)/.14); border-color:var(--accent); color:var(--accent-text); }
+:root .companion-utility button:disabled { opacity:.45; cursor:not-allowed; }
+:root .companion-utility :is(.companion-theme-button,.notification-toggle,.shared-notifications>summary) svg { display:block; flex:none; width:22px; height:22px; pointer-events:none; }
+.companion-notifications { position:relative; display:flex; }
+.companion-notifications:has(> [data-notification-control][hidden]) { display:none; }
+.companion-notifications .notification-panel { position:absolute; top:calc(100% + 12px); right:0; }
+:root .companion-utility .notification-badge { top:-6px; right:-6px; display:grid; place-items:center; min-width:20px; height:20px; padding:0 4px; border:2px solid var(--surface); border-radius:999px; background:var(--accent); color:var(--on-accent); font:800 10px/1 var(--font-ui); }
 
 .companion-utility :focus-visible,
 .page-shell :is(a,button,input,select,summary):focus-visible {
@@ -287,7 +226,7 @@ body {
 }
 
 .page-shell button {
-  font: 700 16px/1.25 var(--font-ui);
+  font: var(--button-font-weight) var(--button-font-size)/var(--button-line-height) var(--font-ui);
   min-height: 40px;
   border-radius: var(--button-radius);
   text-transform: none;
@@ -370,71 +309,6 @@ body[data-companion-section="tournament"] .app-brand {
   display: none;
 }
 
-.companion-tournament-header {
-  flex-wrap: nowrap;
-  gap: 12px 20px;
-}
-
-.companion-tournament-header .companion-service-brand {
-  margin-right: auto;
-}
-
-.companion-tournament-header .companion-service-link {
-  overflow-wrap: normal;
-}
-
-.companion-tournament-header .companion-tools {
-  flex-wrap: nowrap;
-  flex: none;
-}
-
-.companion-tournament-header .companion-account>a {
-  display: none;
-}
-
-.companion-tournament-profile {
-  min-width: 0;
-}
-
-.tournament-header-profile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  min-height: 44px;
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.tournament-header-profile .avatar-button {
-  flex: none;
-  width: 40px;
-  height: 40px;
-}
-
-.tournament-header-identity {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.tournament-header-name {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 16px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.tournament-header-identity .rating-pill {
-  flex: none;
-  white-space: nowrap;
-  font-size: 13px;
-}
-
 .companion-tournament-menu:has(.menu-toggle) {
   display: none;
 }
@@ -507,42 +381,8 @@ body[data-companion-section="studio"] .workspace {
     font-size: 14px;
   }
 
-  .companion-tools {
-    gap: 6px 10px;
-  }
-
-  .companion-tournament-header {
-    gap: 10px;
-  }
-
-  .companion-tournament-header .companion-service-brand {
-    gap: 6px;
-  }
-
   .companion-tournament-menu:has(.menu-toggle) {
     display: flex;
-  }
-
-  .companion-utility .menu-toggle {
-    width: 40px;
-    height: 40px;
-    padding: 7px;
-  }
-
-  .tournament-header-identity {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-  }
-
-  .tournament-header-name {
-    max-width: 130px;
-    font-size: 14px;
-  }
-
-  .tournament-header-identity .rating-pill {
-    font-size: 11px;
-    padding: 2px 6px;
   }
 
   body.sidebar-open .companion-utility {
@@ -569,67 +409,6 @@ body[data-companion-section="studio"] .workspace {
     flex: 1 1 100%;
   }
 
-  .companion-tools {
-    justify-content: flex-start;
-    width: 100%;
-    gap: 6px 8px;
-  }
-
-  .companion-utility button {
-    min-height: 44px;
-  }
-
-  .companion-utility .companion-theme-button {
-    width: 44px;
-  }
-
-  .companion-account>a {
-    max-width: 105px;
-    font-size: 13px;
-  }
-
-  .companion-account {
-    gap: 6px;
-  }
-
-  .companion-account button {
-    font-size: 12px;
-    padding: 6px;
-  }
-
-  .companion-tournament-header {
-    position: sticky;
-    display: grid;
-    grid-template-columns: minmax(0,1fr) auto;
-    gap: 8px;
-  }
-
-  .companion-tournament-header .companion-service-brand {
-    grid-area: 1 / 1 / 2 / 3;
-    padding-right: 48px;
-    margin: 0;
-  }
-
-  .companion-tournament-header .companion-tournament-profile {
-    grid-area: 2 / 1;
-  }
-
-  .companion-tournament-header .companion-tools {
-    grid-area: 2 / 2;
-    width: auto;
-    justify-content: flex-end;
-    gap: 4px;
-  }
-
-  .companion-tournament-header .companion-notifications {
-    grid-area: 1 / 2;
-    justify-self: end;
-  }
-
-  .companion-tournament-header .companion-account {
-    display: none;
-  }
-
   .companion-service-name {
     font-size: 13px;
   }
@@ -640,32 +419,10 @@ body[data-companion-section="studio"] .workspace {
     height: 42px;
   }
 
-  /* Home heading: 27px text / 48px logo. */
-  .companion-tournament-header .tournament-header-profile {
-    gap: 8px;
-  }
-
-  .companion-tournament-header .tournament-header-name {
-    max-width: 100%;
-  }
-
-  .companion-tournament-header .tournament-header-identity {
-    overflow: hidden;
-  }
-
-  .companion-tournament-header .avatar-button {
-    width: 36px;
-    height: 36px;
-  }
 
   .companion-notifications .notification-panel {
     top: 12px;
     max-height: calc(100dvh - 24px);
-  }
-
-  .companion-tournament-header .notification-panel {
-    top: calc(var(--companion-bar-height,120px) + 8px);
-    max-height: calc(100dvh - var(--companion-bar-height,120px) - 20px);
   }
 
   body[data-companion-section="tournament"] .topbar {
@@ -819,3 +576,41 @@ body[data-companion-section="studio"] .workspace {
     display: none !important;
   }
 }
+
+/* The profile slots have the same layout for session and tournament data. */
+.companion-profile-slot { min-width:0; max-width:100%; }
+:root .companion-utility .companion-profile { display:flex; align-items:center; gap:10px; min-width:0; max-width:100%; min-height:var(--button-height); padding:0; border-radius:var(--button-radius); color:var(--accent-text); text-decoration:none; }
+:root .companion-profile .tournament-header-identity { display:contents; }
+:root .companion-profile :is(.companion-profile-name,.tournament-header-name) { min-width:0; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:800 16px/1.3 var(--font-ui); text-transform:uppercase; }
+:root .companion-profile :is(.companion-avatar,.avatar-button) { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; flex:none; width:var(--button-height); height:var(--button-height); overflow:hidden; border:2px solid var(--accent); border-radius:50%; background:var(--surface-medallion); color:#ffb14a; box-shadow:none; font:800 14px/1 var(--font-ui); }
+:root .companion-profile :is(.companion-avatar,.avatar-button) img { display:block; width:100%; height:100%; object-fit:cover; }
+:root .companion-profile :is(.companion-rating,.rating-pill) { display:inline-flex; align-items:center; flex:none; min-height:28px; padding:0 9px; border:0; border-radius:var(--button-radius); background:var(--accent); color:var(--on-accent); font:800 13px/1 var(--font-ui); white-space:nowrap; }
+@media(max-width:600px) {
+  .companion-account-bar { width:100%; justify-content:flex-start; gap:12px; }
+  .companion-profile-slot { flex:1 1 100%; }
+  .companion-tools { justify-content:flex-start; }
+  .companion-notifications .notification-panel { top:calc(var(--companion-bar-height,180px) + 8px); }
+}
+
+/* Standard action buttons. Content cards, text links, fields and dense table controls
+   retain their own semantics; they are not implicitly converted into buttons. */
+:root body :is(
+  body[data-companion-section="initiative"] .page-shell button, body[data-companion-section="tracker"] .page-shell button,
+  body[data-companion-section="tournament"] :is(.primary-button,.ghost-button,.danger-button,.small-button),
+  .account-page button, .email-page button, .email-page .action,
+  .training-content .button, .lab-shell .lab-button,
+  .dice-controls button:not(.team-choice):not(.face-tab), .dice-preview .panel-title button, .export-panel button,
+  .mini-shell .primary, .mini-shell .secondary, .mini-shell .danger,
+  body[data-companion-section="faq"] button.primary, body[data-companion-section="faq"] button.secondary,
+  body[data-companion-section="faq"] button[id="new-entry"], body[data-companion-section="faq"] button[id="load-more"]
+) {
+  box-sizing:border-box; min-height:var(--button-height); height:auto; padding:var(--button-padding);
+  border-radius:var(--button-radius); font:var(--button-font-weight) var(--button-font-size)/var(--button-line-height) var(--font-ui);
+  text-transform:none; letter-spacing:normal; box-shadow:none;
+}
+
+/* Match the kit's primary and secondary fills as well as its dimensions. */
+:root body :is(.account-page button.primary,.training-content .button.primary,.primary-button) { color:var(--on-accent); border:1px solid var(--accent); }
+:root body[data-companion-section="initiative"] .page-shell button:not(.secondary) { border:1px solid var(--accent); }
+:root body[data-companion-section="initiative"] .page-shell button.secondary { background:var(--panel-2); border-color:var(--line-strong); }
+:root body :is(.lab-shell .lab-button-secondary,.mini-shell .secondary) { border-color:var(--line-strong); }

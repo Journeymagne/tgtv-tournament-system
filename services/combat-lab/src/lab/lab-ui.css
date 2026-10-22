@@ -136,3 +136,5 @@
 .lab-shell .sim-field select,.lab-shell .sim-scenario-picker select{min-height:40px;font-size:12px}
 
 .lab-shell .form-check-label{color:var(--muted)}
+
+:root .lab-shell .lab-button { min-height:var(--button-height); padding:var(--button-padding); font:var(--button-font-weight) var(--button-font-size)/var(--button-line-height) var(--font-ui); border-radius:var(--button-radius); }

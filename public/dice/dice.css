@@ -639,3 +639,5 @@ details[open]>summary {
     flex-wrap: wrap;
   }
 }
+
+:root .dice-controls button:not(.team-choice), :root body[data-companion-section="dice"] .panel-title button { min-height:var(--button-height); padding:var(--button-padding); font:var(--button-font-weight) var(--button-font-size)/var(--button-line-height) var(--font-ui); border-radius:var(--button-radius); }

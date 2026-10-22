@@ -1,5 +1,9 @@
 # KT Companion / TGTV Ranking Tournament System
 
+A standalone [UI kit reference](docs/ui-kit.md) is saved in `design/ui-kit/`.
+Open `design/ui-kit/index.html` directly to explore components for future
+services. It is not connected to the running application.
+
 Independent service processes are available with one PostgreSQL database and
 separate schemas. Gateway preserves the menu, shared login and existing URLs;
 notifications from tournaments, Studio, FAQ and KnowThyKT use a durable inbox.

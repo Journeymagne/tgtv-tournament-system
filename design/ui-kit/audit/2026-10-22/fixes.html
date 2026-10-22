@@ -1,0 +1,27 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UI Kit — исправления и проверка</title><style>
+*{box-sizing:border-box}html{color-scheme:dark}body{margin:0;background:#101010;color:#eee;font:16px/1.6 system-ui,sans-serif}main{max-width:1080px;margin:auto;padding:36px 24px}h1{font-size:clamp(28px,5vw,42px);line-height:1.2}h2{margin-top:36px}a{color:#ffb14a}a:focus-visible{outline:2px solid #ff7a1a;outline-offset:3px}.note{padding:20px;border-left:3px solid #39c27f;background:#202020}.muted{color:#bbb}li{margin:10px 0}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}figure{margin:0}img{display:block;width:100%;height:auto;border:1px solid #3b3b3b;border-radius:8px}figcaption{padding:8px 0}.wide{margin-top:24px}code{overflow-wrap:anywhere}@media(max-width:600px){main{padding:24px 16px}.grid{grid-template-columns:1fr}}
+</style></head><body><main>
+<a href="index.html">← Исходный аудит</a> · <a href="../../index.html">Каталог компонентов</a>
+<h1>Общие элементы приведены к UI Kit</h1><p class="muted">22 октября 2026 · исправления после аудита</p>
+<p class="note">В основных экранах восьми сервисов исправлены расхождения аккаунта, уведомлений и стандартных действий. Дополнительно проверены главная, аккаунт и Mini App. Автономный каталог остаётся в проекте.</p>
+<h2>Что изменилось</h2><ul>
+<li>Во всех полных сервисах: профиль с аватаром и MMR → язык → тема → выход → уведомления. Профиль переносится на отдельную строку на мобильном.</li>
+<li>Кнопки и аватар: 40 px на компьютере, 44 px при ширине ≤600 px. Текст кнопки: 14 px / 650, радиус 7 px. Старые токены и документ button-standard согласованы с каталогом.</li>
+<li>Одинаковый SVG-колокольчик: ноль скрыт, значения выше 99 показаны как 99+, фактическое число доступно в подписи для чтения с экрана.</li>
+<li>Устранены конфликты CSS шапки в Studio и Dice. Турнирный выход доступен в шапке на мобильном; боковое меню работает.</li>
+<li>Обычные действия в турнирах, инициативе, Studio, Dice, FAQ, Combat Lab, тренажёре и аккаунте используют общие размеры. Mini App сохраняет отдельную композицию.</li>
+<li>Неизвестный рейтинг скрывается; при ошибке изображения показываются инициалы. Ошибка выхода выводится отдельно, кнопка остаётся доступной для повторной попытки.</li>
+<li>Обновлены версии ресурсов, чтобы браузер получил изменённые стили и скрипты. Общая сессия передаёт только необходимые публичные поля профиля; проверка состава ответа обновлена для CI.</li>
+</ul>
+<h2>Проверено</h2><p><strong>88 состояний страниц + 4 эталонных состояния кита.</strong> Ширины 1440 и 390 px, две темы, гость и локальный администратор. Все страницы ответили HTTP 200; переполнения по горизонтали и необработанных ошибок JavaScript не обнаружено. Размеры, шрифт и радиус всех стандартных кнопок шапки совпали с китом.</p>
+<p>Дополнительно: длинное имя на 320 и 900 px, сломанный аватар, отсутствие MMR, счётчик 128, видимый клавиатурный фокус, язык, Escape, переход в профиль, меню, успешный выход и ошибка выхода с повторной попыткой.</p>
+<p>Combat Lab собран успешно. Реальное нажатие «+» изменило число атак первого сценария с 4 до 5 и средний урон с 3,29 до 5,04. Второй сценарий сохранил 4 атаки и урон 3,29.</p>
+<p class="muted">Полный автоматизированный набор тестов локально не запускался согласно AGENTS.md. Синтетические состояния проверялись подменой локальных ответов в браузере; расчёт Combat Lab и успешный выход — на реальном приложении. Все внутренние формы, роли и диалоги не входили в визуальную матрицу.</p>
+<p><a href="verification.json">Матрица замеров и результаты проверки JSON</a></p>
+<h2>После исправлений</h2><div class="grid">
+<figure><a href="fixed/tournament-admin-390-dark.png"><img src="fixed/tournament-admin-390-dark.png" width="390" height="844" alt="Исправленная мобильная шапка турниров"></a><figcaption>Турниры</figcaption></figure>
+<figure><a href="fixed/studio-admin-390-dark.png"><img src="fixed/studio-admin-390-dark.png" width="390" height="844" alt="Исправленная мобильная шапка Studio"></a><figcaption>Studio</figcaption></figure>
+<figure><a href="fixed/dice-admin-390-dark.png"><img src="fixed/dice-admin-390-dark.png" width="390" height="844" alt="Исправленная мобильная шапка Dice"></a><figcaption>Dice Generator</figcaption></figure>
+</div><figure class="wide"><a href="fixed/combat-admin-1440-dark.png"><img src="fixed/combat-admin-1440-dark.png" width="1440" height="1000" alt="Combat Lab с общим профилем и стандартными кнопками"></a><figcaption>Combat Lab · компьютер</figcaption></figure>
+<p class="muted">Формы, таблицы, вкладки, игровые счётчики и карточки уровней требуют отдельных образцов в будущей версии кита. Изменения настоящей проверки не задают для них новый стандарт.</p>
+</main></body></html>

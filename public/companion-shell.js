@@ -49,7 +49,11 @@
       tool.textContent = label; title.append(tool);
     }
     brand.append(home, title); mount.append(brand);
-    const controls = document.createElement("div"); controls.className = "companion-tools"; mount.append(controls);
+    const bar = document.createElement("div"); bar.className = "companion-account-bar";
+    const profile = document.createElement("div"); profile.className = "companion-profile-slot"; profile.hidden = true;
+    const controls = document.createElement("div"); controls.className = "companion-tools";
+    bar.append(profile, controls); mount.append(bar);
+    const status = document.createElement('span'); status.className = 'companion-account-status'; status.setAttribute('role','status'); bar.append(status);
     if (window.KTAppearance) {
       const language = document.createElement("button"); language.type = "button"; language.dataset.langToggle = "";
       const theme = document.createElement("div"); theme.className = "companion-theme-switch"; theme.setAttribute("role", "group");
@@ -89,15 +93,14 @@
   if (mounts[0]) {
     if (active === "tournament") {
       const menu = document.createElement("div"); menu.className = "companion-tournament-menu"; menu.hidden = true;
-      const profile = document.createElement("div"); profile.className = "companion-tournament-profile"; profile.hidden = true;
+      const profile = mounts[0].querySelector(".companion-profile-slot");
       mounts[0].querySelector(".companion-service-brand").prepend(menu);
-      mounts[0].insertBefore(profile, mounts[0].querySelector(".companion-tools"));
       tournamentHeader = { mount: mounts[0], menu, profile };
     }
     const notifications = document.querySelector(".floating-controls");
     if (notifications) {
       notifications.className = "companion-notifications";
-      (tournamentHeader ? mounts[0] : mounts[0].querySelector(".companion-tools")).append(notifications);
+      mounts[0].querySelector(".companion-tools").append(notifications);
     }
     const updateHeight = () => document.documentElement.style.setProperty("--companion-bar-height", mounts[0].offsetHeight + "px");
     updateHeight();
@@ -110,6 +113,16 @@
   }
   function setTournamentHeader(profile = null, menu = null) {
     if (!tournamentHeader) return false;
+    profile?.classList.add("companion-profile");
+    if (profile) {
+      const name = profile.querySelector('.tournament-header-name');
+      if (name) name.title = name.textContent;
+      const image = profile.querySelector('.avatar-button img');
+      image?.addEventListener('error', () => {
+        const initials = String(name?.textContent || 'KT').trim().split(/\s+/).slice(0,2).map(part=>Array.from(part)[0] || '').join('').toUpperCase();
+        image.parentElement?.replaceChildren(document.createTextNode(initials));
+      }, { once:true });
+    }
     tournamentHeader.profile.replaceChildren(...(profile ? [profile] : []));
     tournamentHeader.menu.replaceChildren(...(menu ? [menu] : []));
     tournamentHeader.profile.hidden = !profile;
@@ -118,6 +131,7 @@
     return true;
   }
   function setUser(value) {
+    const previousId = user?.id;
     user = value;
     if (active === "tournament") {
       for (const link of document.querySelectorAll('.companion-service-link')) link.href = serviceUrl('tournament') + (user ? '#/mygames' : '#/leaderboard');
@@ -125,16 +139,40 @@
     if (!user) setTournamentHeader();
     for (const account of accounts) {
       account.replaceChildren();
-      const link = document.createElement("a");
-      link.href = user ? '/account' : loginUrl();
-      link.textContent = user ? user.name : "Войти";
-      if (user) link.dataset.uiSkip = "";
-      account.append(link);
+      const slot = account.closest('.companion-account-bar').querySelector('.companion-profile-slot');
+      // Preserve the tournament's in-app profile link and its navigation handler.
+      if (!user || active !== 'tournament' || previousId !== user.id || !slot.querySelector('[data-header-profile]')) {
+        slot.replaceChildren(); slot.hidden = !user;
+        if (user) {
+          const profile = document.createElement('a'); profile.className = 'companion-profile';
+          profile.href = serviceUrl('tournament') + '#/profile'; profile.dataset.uiSkip = '';
+          const avatar = document.createElement('span'); avatar.className = 'companion-avatar'; avatar.setAttribute('aria-hidden', 'true');
+          const initials = String(user.name || 'KT').trim().split(/\s+/).slice(0,2).map(part=>Array.from(part)[0] || '').join('').toUpperCase() || 'KT';
+          avatar.textContent = initials;
+          if (user.avatarUrl) {
+            const image = document.createElement('img'); image.alt = ''; image.decoding = 'async';
+            image.addEventListener('error',()=>avatar.replaceChildren(document.createTextNode(initials)),{once:true});
+            image.src = user.avatarUrl; avatar.replaceChildren(image);
+          }
+          const name = document.createElement('span'); name.className = 'companion-profile-name'; name.textContent = user.name; name.title = user.name;
+          profile.append(avatar, name);
+          const rating = user.ratings?.combined ?? user.rating;
+          if (rating != null && Number.isFinite(Number(rating))) {
+            const badge = document.createElement('span'); badge.className = 'companion-rating'; badge.textContent = 'MMR ' + Number(rating); profile.append(badge);
+          }
+          slot.append(profile);
+        }
+      }
+      if (!user) {
+        const link = document.createElement('a'); link.className = 'companion-login'; link.href = loginUrl(); link.textContent = 'Войти'; account.append(link);
+      }
       if (user) {
         const button = document.createElement("button");
         button.type = "button";
         button.textContent = "Выйти";
         button.addEventListener("click", async () => {
+          const status = account.closest('.companion-account-bar').querySelector('.companion-account-status');
+          status.textContent = '';
           button.disabled = true;
           try {
             await window.KTCommunity?.flush?.();
@@ -142,7 +180,7 @@
             if (!response.ok) throw Error("Не удалось выйти. Повторите попытку.");
             changed();
             location.reload();
-          } catch (error) { button.disabled = false; button.textContent = error.message; }
+          } catch (error) { button.disabled = false; status.textContent = error.message; }
         });
         account.append(button);
       }
@@ -181,11 +219,11 @@
     // The tournament's /api/me may already have supplied a valid account.
     if (user !== undefined) return;
     setUser(null);
-    for (const account of accounts) account.querySelector("a").textContent = "Войти / проверить вход";
+    for (const account of accounts) account.closest('.companion-account-bar').querySelector('.companion-account-status').textContent = "Не удалось проверить вход. Обновите страницу.";
   });
   window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader, brandLogoUrl };
   if (active !== 'tournament' && mounts[0]) {
-    const script = document.createElement('script'); script.src='/companion-notifications.js?v=1.4.0'; document.head.append(script);
+    const script = document.createElement('script'); script.src='/companion-notifications.js?v=20261022-kit'; document.head.append(script);
   }
   const exports = document.querySelector(".studio-export-menu");
   if (exports) {
