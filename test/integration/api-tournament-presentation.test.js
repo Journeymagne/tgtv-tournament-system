@@ -102,7 +102,7 @@ test("individual factions and faction rules remain private until the first round
   assert.equal(started.body.rounds.length, 1);
   assert.equal(started.body.rounds[0].status, "not_ready");
   assert.equal(started.body.tournament.status, "registration_closed");
-  assert.equal((await alpha.http.get("/api/notifications")).body.items.length, 0);
+  assert.equal((await inbox(alpha)).body.items.length, 0);
   assert.equal((await getPool().query("SELECT count(*)::int AS n FROM games")).rows[0].n, 0);
   const match = started.body.rounds[0].matches.find((item) => item.participantA.userId === alpha.id || item.participantB.userId === alpha.id);
   assert.equal((await alpha.http.post(`/api/tournaments/${cup.id}/matches/${match.id}/result`, {})).status, 409);
@@ -114,8 +114,8 @@ test("individual factions and faction rules remain private until the first round
     assert.doesNotMatch(JSON.stringify(hidden), /Angels of Death|Kommandos|Private faction notes/);
   }
   assert.equal((await admin.http.post(`/api/admin/tournaments/${cup.id}/start`)).status, 200);
-  assert.equal((await alpha.http.get("/api/notifications")).body.items.filter((item) => item.type === "tournament_started").length, 1);
-  assert.equal((await outsider.http.get("/api/notifications")).body.items.length, 0);
+  assert.equal((await inbox(alpha)).body.items.filter((item) => item.type === "tournament_started").length, 1);
+  assert.equal((await inbox(outsider)).body.items.length, 0);
   assert.equal((await admin.http.post(`/api/admin/tournaments/${cup.id}/start`)).status, 409);
   for (const http of [guest, outsider.http]) {
     const revealed = (await http.get(`/api/tournaments/${cup.slug}`)).body;
@@ -267,7 +267,7 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
   assert.equal(started.body.rounds.length, 1);
   assert.equal(started.body.rounds[0].status, "not_ready");
   assert.equal(started.body.tournament.startedAt, null);
-  for (const person of people) assert.equal((await person.http.get("/api/notifications")).body.items.length, 0);
+  for (const person of people) assert.equal((await inbox(person)).body.items.length, 0);
   const pendingMatch = started.body.teamMatches[0];
   const pendingCaptain = people.find((person) => person.id === pendingMatch.rosterA.captainUserId);
   for (const http of [guest, outsider.http]) {
@@ -280,7 +280,7 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
   assert.ok(ownPairing.rosterB.members.every((member) => member.factionHidden && !member.factionSnapshot));
   assert.equal((await pendingCaptain.http.post(`/api/tournaments/${cup.id}/team-matches/${pendingMatch.id}/roll`, {})).status, 409);
   assert.equal((await admin.http.post(`/api/tournaments/${cup.id}/team-matches/${pendingMatch.id}/roll`, { side: "a" })).status, 409);
-  const notificationSnapshot = (await pendingCaptain.http.get("/api/notifications")).body;
+  const notificationSnapshot = (await inbox(pendingCaptain)).body;
   assert.equal((await pendingCaptain.http.post("/api/notifications/read", { through: notificationSnapshot.generatedAt })).status, 200);
   assert.equal((await admin.http.get(`/api/admin/tournaments/${cup.id}/rounds/next/preview`)).status, 200);
   await assertHidden();
@@ -292,12 +292,12 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
   assert.deepEqual(round.body.teamMatches.map((match) => match.id), started.body.teamMatches.map((match) => match.id));
   assert.equal((await pendingCaptain.http.post(`/api/tournaments/${cup.id}/team-matches/${pendingMatch.id}/roll`, { rollRound: 1 })).status, 200);
   for (const person of people) {
-    const notifications = (await person.http.get("/api/notifications")).body;
+    const notifications = (await inbox(person)).body;
     const startNotice = notifications.items.filter((item) => item.type === "tournament_started");
     assert.equal(startNotice.length, 1);
     assert.equal(startNotice[0].unread, true);
   }
-  assert.equal((await outsider.http.get("/api/notifications")).body.items.length, 0);
+  assert.equal((await inbox(outsider)).body.items.length, 0);
   for (const http of [guest, outsider.http]) {
     for (const url of [`/api/tournaments/${cup.slug}`, `/api/teams/${team.slug}`]) {
       const data = (await http.get(url)).body;
@@ -498,3 +498,8 @@ test("an external rules URL is passed through untouched", async () => {
   assert.equal(shown.rulesLinkType, "url");
   assert.equal((await fetch(`${server.baseUrl}/api/tournaments/${cup.slug}/rules`)).status, 404);
 });
+
+async function inbox(person) {
+  await require("../helpers/notifications").deliverNotifications();
+  return person.http.get("/api/notifications");
+}

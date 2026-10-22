@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
 const { Pool } = require("pg");
+const { SCHEMAS, SEARCH_PATH } = require("../../src/db/schemas");
 
 const { TEST_DATABASE_URL } = require("../helpers/db");
 
@@ -10,7 +11,7 @@ const { migrate, MIGRATIONS } = require("../../src/db/migrate");
 let pool;
 
 test.before(() => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
+  pool = new Pool(require("../helpers/schema").poolOptions);
 });
 
 test.after(async () => {
@@ -18,7 +19,7 @@ test.after(async () => {
 });
 
 test.beforeEach(async () => {
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  await require("../helpers/schema").resetSchemas(pool);
 });
 
 test("версии миграций уникальны и идут по возрастанию", () => {
@@ -32,7 +33,7 @@ test("migrate на пустой базе создаёт схему", async () =>
   assert.ok(applied.includes(1));
 
   const { rows } = await pool.query(
-    `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`
+    `SELECT tablename FROM pg_tables WHERE schemaname = ANY($1) ORDER BY tablename`, [['public', ...SCHEMAS]]
   );
   const tables = rows.map((row) => row.tablename);
   for (const table of [
@@ -61,6 +62,56 @@ test("повторный migrate ничего не применяет", async ()
   assert.deepEqual(applied, []);
 });
 
+test("training upgrades a released 1.4.x database without replaying service migrations", async () => {
+  const client = await pool.connect();
+  let user;
+  try {
+    await client.query("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+    for (const migration of MIGRATIONS.filter(item => item.version <= 60)) {
+      await migration.up(client);
+      await client.query("INSERT INTO schema_migrations(version,name) VALUES($1,$2)", [migration.version, migration.name]);
+    }
+    // Match the shipped 1.4.x schema: 058-060 applied, no trainer or 056 entry.
+    await client.query("DROP SCHEMA knowthykt CASCADE");
+    await client.query("DELETE FROM schema_migrations WHERE version=56");
+    user = (await client.query("INSERT INTO users(name,name_key,password_hash,rating) VALUES('Existing','existing','salt:hash',1234) RETURNING *")).rows[0];
+    await client.query("INSERT INTO sessions(token,user_id,expires_at) VALUES('existing-session',$1,NOW()+INTERVAL '1 day')", [user.id]);
+  } finally {
+    client.release();
+  }
+
+  assert.deepEqual(await migrate(pool), [56, 61]);
+  assert.deepEqual((await pool.query("SELECT * FROM users WHERE id=$1", [user.id])).rows[0], user);
+  assert.equal((await pool.query("SELECT user_id FROM sessions WHERE token='existing-session'")).rows[0].user_id, user.id);
+  assert.equal((await pool.query("SELECT to_regclass('public.training_profiles') AS name")).rows[0].name, null);
+  assert.ok((await pool.query("SELECT to_regclass('knowthykt.training_sessions') AS name")).rows[0].name);
+  const stats = { question: { correct: 2 } };
+  await pool.query("INSERT INTO training_profiles(user_id,stats) VALUES($1,$2)", [user.id, stats]);
+  assert.deepEqual((await pool.query("SELECT stats FROM knowthykt.public_progress WHERE user_id=$1", [user.id])).rows[0].stats, stats);
+  await pool.query("INSERT INTO knowthykt.notification_messages(user_id,notification_id,payload) VALUES($1,'training:upgrade',$2)", [user.id, { type: 'knowthykt_session' }]);
+  await pool.query("DELETE FROM knowthykt.notification_messages WHERE user_id=$1", [user.id]);
+  assert.deepEqual((await pool.query("SELECT operation FROM knowthykt.notification_outbox ORDER BY id")).rows.map(row => row.operation), ['upsert', 'delete']);
+  assert.deepEqual(await migrate(pool), []);
+});
+
+test("training service migration preserves existing preview progress and queued notifications", async () => {
+  await migrate(pool);
+  const user = (await pool.query("INSERT INTO users(name,name_key,password_hash,rating) VALUES('Preview','preview','salt:hash',1000) RETURNING id")).rows[0];
+  await pool.query("INSERT INTO training_profiles(user_id,revision,stats) VALUES($1,7,$2)", [user.id, { question: { correct: 2 } }]);
+  await pool.query("INSERT INTO knowthykt.notification_messages(user_id,notification_id,payload,read_at) VALUES($1,'training:preview',$2,NOW())", [user.id, { type: 'knowthykt_session' }]);
+  const progress = (await pool.query("SELECT * FROM training_profiles")).rows;
+  const messages = (await pool.query("SELECT * FROM knowthykt.notification_messages")).rows;
+  const outbox = (await pool.query("SELECT * FROM knowthykt.notification_outbox ORDER BY id")).rows;
+  await pool.query("DELETE FROM schema_migrations WHERE version=61");
+
+  assert.deepEqual(await migrate(pool), [61]);
+  assert.deepEqual((await pool.query("SELECT * FROM training_profiles")).rows, progress);
+  assert.deepEqual((await pool.query("SELECT * FROM knowthykt.notification_messages")).rows, messages);
+  assert.deepEqual((await pool.query("SELECT * FROM knowthykt.notification_outbox ORDER BY id")).rows, outbox);
+  await pool.query("UPDATE knowthykt.notification_messages SET payload=$1", [{ type: 'knowthykt_session', excerpt: 'Updated' }]);
+  assert.equal((await pool.query("SELECT COUNT(*)::integer AS count FROM knowthykt.notification_outbox")).rows[0].count, outbox.length + 1);
+});
+
 test("venue address upgrade follows 1.2.0 without replacing Studio migration 32 or existing data", async () => {
   const client = await pool.connect();
   try {
@@ -73,7 +124,7 @@ test("venue address upgrade follows 1.2.0 without replacing Studio migration 32 
   } finally {
     client.release();
   }
-  assert.deepEqual(await migrate(pool), [55]);
+  assert.deepEqual(await migrate(pool), MIGRATIONS.filter(item => item.version > 54).map(item => item.version));
   const { rows: [event] } = await pool.query("SELECT name, venue_address, faction_count FROM tournaments WHERE slug='existing-irl'");
   assert.deepEqual(event, { name: "Existing IRL", venue_address: "", faction_count: 3 });
   const { rows: migrations } = await pool.query("SELECT version,name FROM schema_migrations WHERE version IN (32,55) ORDER BY version");
@@ -108,7 +159,11 @@ test("team Killzone help migration corrects seeded rules and preserves administr
 });
 
 test("migrate на живой базе не ломает данные", async () => {
-  await migrate(pool);
+  await pool.query("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+  for (const migration of MIGRATIONS.filter(item => item.version <= 55)) {
+    await migration.up(pool);
+    await pool.query("INSERT INTO schema_migrations(version,name) VALUES($1,$2)", [migration.version,migration.name]);
+  }
   const { rows: [user] } = await pool.query(
     `INSERT INTO users (name, name_key, password_hash, rating, is_admin)
      VALUES ('Alpha', 'alpha', 'salt:hash', 1000, true) RETURNING id`

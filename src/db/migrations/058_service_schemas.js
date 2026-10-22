@@ -21,10 +21,9 @@ module.exports = {
     }
     await client.query(`SET search_path = ${SEARCH_PATH}`);
     await client.query(`
-      CREATE VIEW knowthykt.public_progress AS SELECT user_id,stats FROM knowthykt.training_profiles;
       CREATE FUNCTION tournaments.remove_account_games() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
         SET search_path=pg_catalog,tournaments,pg_temp AS $$
-      BEGIN DELETE FROM games WHERE OLD.id=ANY(player_ids); RETURN OLD; END $$;
+      BEGIN DELETE FROM games WHERE OLD.id=ANY(player_ids) AND source_type='challenge'; RETURN OLD; END $$;
       REVOKE ALL ON FUNCTION tournaments.remove_account_games() FROM PUBLIC;
       CREATE TRIGGER remove_account_games BEFORE DELETE ON accounts.users
         FOR EACH ROW EXECUTE FUNCTION tournaments.remove_account_games();

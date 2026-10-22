@@ -49,6 +49,10 @@ Know Thy Kill Team offers 100 Russian rules questions in four difficulties and
 their browser, while Companion accounts enable cross-device progress.
 Migration **056_training_progress** stores account answers, active sessions and
 statistics in PostgreSQL so players can continue on another device.
+Migration **061_training_service_contracts** installs the trainer's schema,
+public progress view and notification outbox when upgrading a 1.4.x database
+that already applied migrations 058-060 without training. Service deployments
+must provision roles again after setting `KNOWTHYKT_DB_PASSWORD`.
 The trainer opens with a personal journey through six ranks, from Нубик to
 Судья. XP rewards the first two correct answers to each question; a shared
 evolving achievement updates on the journey and in the player's Companion
@@ -90,6 +94,31 @@ New individual and team events default to the latest active
 [season](docs/tournament-seasons.md). A super administrator can change an event's
 season in its settings, including after completion. Existing results then count
 toward statistics for the selected season while scores and ratings are retained.
+
+## Release 1.4.0
+
+Telegram bot and Mini App, Studio D6 dice and TTS packs, FAQ card deletion,
+public guest browsing, shared account pages and a durable notification inbox
+are included. Seven optional service processes share one PostgreSQL database.
+Know Thy Kill Team is excluded from this release.
+
+Migrations 057–060 add Telegram storage, move tables into service schemas and
+add notification/session contracts. Version 056 remains reserved. Back up the
+database and stop the old application before applying 058; older application
+versions cannot use the migrated schema. See [service deployment](docs/service-separation.md)
+and [release validation](docs/release-1.4.0-validation.md).
+
+## Release 1.3.0
+
+Tournament standings and statistics support search, filters and sortable columns.
+Pairing previews and match cards warn about repeated opponents and IRL tables;
+starting affected games requires two confirmations. Swiss pairing searches across
+score brackets to reduce avoidable rematches and retains the preview's eligible bye.
+
+This release also includes the venue-address, KT2024 melee and Linux deployment
+updates merged after the original 1.2.0 tag. Migration 055 adds the venue address;
+no migration beyond 055, new dependencies or environment variables are introduced.
+See [release validation](docs/release-1.3.0-validation.md).
 
 ## Release 1.2.0
 

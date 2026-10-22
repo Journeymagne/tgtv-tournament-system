@@ -1,5 +1,17 @@
 # Linux release deployment
 
+## Upgrading to 1.4.0
+
+Release 1.4.0 includes migrations 057–060; 056 is intentionally reserved.
+Migration 058 moves existing tables out of public. Before a production switch,
+verify a PostgreSQL backup and stop every old writer. The normal deployment
+starts the compatible monolith and runs these migrations. Older code cannot
+be restarted against the moved schema; automatic rollback remains disabled
+when migration code changes. See [service separation](service-separation.md)
+for the optional seven-process deployment and role provisioning.
+
+## Deployment wrapper
+
 Run the existing entry point on the Linux host as the same user that owns the
 app's PM2 process. It requires Node.js 22+, npm, Git, tar, flock and PM2. The
 external environment file must exist before starting. No new application
@@ -7,6 +19,8 @@ environment variables or database migrations are required by this change.
 
 ```sh
 bash update_tgtv-ts.sh production
+bash update_tgtv-ts.sh production --ref v1.4.3
+bash update_tgtv-ts.sh production --ref <full-sha>
 bash update_tgtv-ts.sh staging
 bash update_tgtv-ts.sh staging --prepare-only
 ```
@@ -15,12 +29,66 @@ Production uses `main`, `/app/Repos/tgtv-tournament-system`, `/app/tgtv-ts`,
 `tgtv-app` and `/app/tgtv-ts.env`. Staging uses `feat/tournament-system-mvp`,
 the `-staging` directories/process and `/app/tgtv-ts-staging.env`.
 
-The script requires a clean repository, fetches the selected branch and accepts
-only a fast-forward to the exact remote commit. Only committed files enter a
-release (`git archive`); ignored local files are not deployed. The wrapper holds
-an OS lock across the whole operation. Do not invoke `scripts/deploy-release.js`
-directly. For the first upgrade, update the copy of `update_tgtv-ts.sh` used on
-the host too: an old copy still uses the old stop/install/start sequence.
+Without `--ref`, the script requires a clean repository, fetches the selected
+branch and accepts only a fast-forward to the exact remote tip. With `--ref`,
+it checks out that tag or commit (detached HEAD), refuses refs that are not
+ancestors of `origin/<branch>`, and deploys that tree. Only committed files
+enter a release (`git archive`); ignored local files are not deployed. The
+wrapper holds an OS lock across the whole operation. Do not invoke
+`scripts/deploy-release.js` directly. For the first upgrade, update the copy
+of `update_tgtv-ts.sh` used on the host too: an old copy still uses the old
+stop/install/start sequence.
+
+## GitHub Actions (production)
+
+CI runs on every push and pull request to `main` (`.github/workflows/ci.yml`).
+
+Production deploy (`.github/workflows/deploy.yml`) runs when a tag matching
+`vMAJOR.MINOR.PATCH` is pushed (for example `v1.4.3`). It waits until CI has
+succeeded for that commit, SSHs to the VM, runs
+`update_tgtv-ts.sh production --ref <sha>` (using the wrapper from that commit),
+then curls the public homepage and expects HTTP 200.
+
+### One-time GitHub setup
+
+1. Create a GitHub Environment named `production` (optional protection rules
+   can stay empty for a solo maintainer).
+2. Repository or environment **secrets**:
+   - `DEPLOY_HOST` — VM hostname or IP
+   - `DEPLOY_USER` — SSH user (typically `root`)
+   - `DEPLOY_SSH_KEY` — private key (PEM), full file contents
+   - `DEPLOY_KNOWN_HOSTS` — output of `ssh-keyscan -H <host>`
+3. Optional repository **variable** `DEPLOY_HEALTH_URL` (default
+   `https://ktcompanion.ru/` if unset).
+
+### SSH key on the VM
+
+Generate a dedicated deploy key pair (on a trusted machine or on the VM),
+install the **public** key in that user's `authorized_keys`, and put only the
+**private** key into `DEPLOY_SSH_KEY`. Restrict the key to what you need; the
+deploy user must be able to run the existing update script (git fetch via the
+host's GitHub SSH setup, pm2, flock, etc.).
+
+```sh
+ssh-keygen -t ed25519 -f tgtv-github-deploy -C "github-actions-deploy" -N ""
+# public → ~/.ssh/authorized_keys on the VM
+# private → GitHub secret DEPLOY_SSH_KEY
+ssh-keyscan -H YOUR_HOST
+# → GitHub secret DEPLOY_KNOWN_HOSTS
+```
+
+### Release flow
+
+```sh
+git push origin main
+# wait until Actions → CI is green for that commit
+git tag v1.4.3
+git push origin v1.4.3
+# Actions → Deploy production
+```
+
+Manual deploy on the host remains supported (`bash update_tgtv-ts.sh production`
+or with `--ref`).
 
 ## Preparation and switch
 

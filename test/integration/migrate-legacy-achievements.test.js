@@ -12,7 +12,7 @@ let pool, client;
 test.before(async () => {
   const target = new URL(TEST_DATABASE_URL);
   assert.ok(["localhost", "127.0.0.1"].includes(target.hostname) && /test/.test(target.pathname));
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
+  pool = new Pool(require("../helpers/schema").poolOptions);
   await migrate(pool);
 });
 test.beforeEach(async () => {

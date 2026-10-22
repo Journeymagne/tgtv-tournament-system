@@ -96,7 +96,7 @@ function route(method, path, handler, write = false) {
 }
 
 module.exports = { routes: [
-  { method: "POST", path: "/api/miniapp/session", handler: session, rateLimit: "auth", maxBodyBytes: 24576 },
+  { method: "POST", path: "/api/miniapp/session", handler: session, tx: true, rateLimit: "auth", maxBodyBytes: 24576 },
   route("GET", "/summary", summary),
   route("GET", "/tournaments/:slug", async ctx => noStore(await tournaments.getPublic(ctx))),
   route("GET", "/games/:id", async ctx => noStore(await gameDetail(ctx))),

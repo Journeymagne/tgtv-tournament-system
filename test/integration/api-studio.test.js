@@ -13,7 +13,7 @@ const { randomUUID } = require("node:crypto");
 
 let pool, server, origin;
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
+  pool = new Pool(require("../helpers/schema").poolOptions);
   await migrate(pool);
   const withClient = async fn => { const client = await pool.connect(); try { return await fn(client); } finally { client.release(); } };
   const withTransaction = fn => withClient(async client => {
@@ -27,9 +27,10 @@ test.before(async () => {
   origin = `http://127.0.0.1:${server.address().port}`;
 });
 test.beforeEach(async () => { await pool.query("TRUNCATE users RESTART IDENTITY CASCADE"); });
-test.after(async () => { await new Promise(resolve => server.close(resolve)); await pool.end(); });
+test.after(async () => { await new Promise(resolve => server.close(resolve)); await pool.end(); await require("../../src/db/pool").closePool(); });
 
 async function request(path, account, options = {}) {
+  if (path.startsWith("/api/notifications")) await require("../helpers/notifications").deliverNotifications();
   const response = await fetch(origin + path, { ...options, headers: {
     "Content-Type": "application/json", ...(account ? { Cookie: account.cookie, "X-Studio-Account": String(account.id), "X-CSRF-Token": account.csrf || "" } : {}),
     ...options.headers

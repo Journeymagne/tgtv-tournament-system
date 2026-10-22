@@ -185,7 +185,7 @@
   });
   window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader, brandLogoUrl };
   if (active !== 'tournament' && mounts[0]) {
-    const script = document.createElement('script'); script.src='/companion-notifications.js?v=20261018-services2'; document.head.append(script);
+    const script = document.createElement('script'); script.src='/companion-notifications.js?v=1.4.0'; document.head.append(script);
   }
   const exports = document.querySelector(".studio-export-menu");
   if (exports) {

@@ -97,10 +97,10 @@ test("avatar removal waits for explicit confirmation and cancellation leaves the
     const updates = [];
     const document = { querySelector: (selector) => selector === "[data-remove-avatar]"
       ? { addEventListener: (_event, handler) => { click = handler; } } : null };
-    const wire = new Function("document", "t", "confirmDelete", "updateProfile",
+    const wire = new Function("document", "t", "confirmDelete", "updateProfile", "window",
       `${functionSource("wireProfileSettings")}; return wireProfileSettings;`)(
       document, (key) => key, () => new Promise((resolve) => { answer = resolve; }),
-      async (patch) => { updates.push(patch); }
+      async (patch) => { updates.push(patch); }, {}
     );
     wire();
     const removing = click();

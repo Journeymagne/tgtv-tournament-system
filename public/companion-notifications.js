@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   const host=document.querySelector('.companion-tools');if(!host)return;
-  const styles=document.createElement('link');styles.rel='stylesheet';styles.href='/companion-notifications.css?v=20261018-services2';document.head.append(styles);
+  const styles=document.createElement('link');styles.rel='stylesheet';styles.href='/companion-notifications.css?v=1.4.0';document.head.append(styles);
   const panel=document.createElement('details');panel.className='shared-notifications';panel.hidden=true;
   const toggle=document.createElement('summary');toggle.setAttribute('aria-label','Уведомления');
   const badge=document.createElement('span');toggle.append('🔔 ',badge);

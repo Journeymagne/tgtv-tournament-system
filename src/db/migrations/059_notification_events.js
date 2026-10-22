@@ -1,4 +1,4 @@
-const SOURCES = ['tournaments','studio','faq','knowthykt'];
+const SOURCES = ['tournaments','studio','faq'];
 module.exports = {
   version: 59, name: 'notification_events',
   async up(client) {

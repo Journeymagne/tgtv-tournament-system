@@ -14,8 +14,8 @@ let pool, server, admin, player, guest;
 test.before(async () => {
   const target = new URL(TEST_DATABASE_URL);
   assert.ok(["localhost", "127.0.0.1"].includes(target.hostname) && /test/.test(target.pathname), "Use an isolated local test database");
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
   await migrate(pool);
   const run = async (fn, transaction = false) => {
     const client = await pool.connect();
@@ -64,7 +64,13 @@ test("saving publishes Markdown and metadata, survives reseeding, and leaves the
   const list = await guest.get("/api/documentation/ru");
   assert.equal(list.body.pages.find((page) => page.id === old.id).summary, "Обновлённое описание");
   const connection = await pool.connect();
-  try { await documentationMigration.up(connection); } finally { connection.release(); }
+  try {
+    await connection.query("SET search_path=tournaments,accounts,public");
+    await documentationMigration.up(connection);
+  } finally {
+    await connection.query("SET search_path=" + require("../../src/db/schemas").SEARCH_PATH);
+    connection.release();
+  }
   assert.equal((await read(guest)).markdown, response.body.page.markdown);
   assert.equal((await pool.query("SELECT updated_by FROM documentation_pages WHERE page_id=$1 AND locale='ru'", [old.id])).rows[0].updated_by, 1);
 });
