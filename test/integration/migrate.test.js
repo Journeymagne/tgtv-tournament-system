@@ -80,7 +80,7 @@ test("training upgrades a released 1.4.x database without replaying service migr
     client.release();
   }
 
-  assert.deepEqual(await migrate(pool), [56, 61, 62]);
+  assert.deepEqual(await migrate(pool), [56, ...MIGRATIONS.filter(item => item.version > 60).map(item => item.version)]);
   assert.deepEqual((await pool.query("SELECT * FROM users WHERE id=$1", [user.id])).rows[0], user);
   assert.equal((await pool.query("SELECT user_id FROM sessions WHERE token='existing-session'")).rows[0].user_id, user.id);
   assert.equal((await pool.query("SELECT to_regclass('public.training_profiles') AS name")).rows[0].name, null);

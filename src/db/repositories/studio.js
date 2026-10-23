@@ -8,7 +8,10 @@ function approval(row) {
 }
 function projectView(row, published = false) {
   const project = published ? row.published : row.project;
-  return { ...project, team: { ...project.team, sealOfApproval: !!row.approved_at } };
+  const team = { ...project.team };
+  if (row.approved_at) team.sealOfApproval = true;
+  else delete team.sealOfApproval;
+  return { ...project, team };
 }
 
 function summary(row, published = false) {
