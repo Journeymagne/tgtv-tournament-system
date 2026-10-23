@@ -37,7 +37,7 @@ function create({request,storage,loadProject,onChange=()=>{},onRemove=()=>{},onR
     // Even a clean editor may still display an older project. Advance its
     // revision only through accept(), after that project's content is loaded.
     entries.set(remote.id,{...remote,...local,name:local?.dirty?local.name:remote.name,logo:local?.dirty?local.logo:remote.logo,revision:local?(local.revision??0):remote.revision,remoteRevision:remote.revision,
-     publicationId:remote.publicationId,publishedAt:remote.publishedAt,dirty:!!local?.dirty});
+     publicationId:remote.publicationId,publishedAt:remote.publishedAt,approval:remote.approval,dirty:!!local?.dirty});
    }
    ready=true;notify();
   })().finally(()=>connection=null);

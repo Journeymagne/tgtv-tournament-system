@@ -107,7 +107,7 @@ async function createEmptyProject(templateId='empty'){
   let name=template?template.team.name+' (копия)':'Новая команда',number=2;
   const baseName=name;while([...projectList.values()].includes(name))name=baseName+' '+number++;
   const id='custom-'+uid(),next=KTModel.validate(template?KTModel.migrate(template):KTModel.newProject(id,name));
-  next.team.id=id;next.team.name=name;
+  next.team.id=id;next.team.name=name;delete next.team.sealOfApproval;
   if(template)for(const card of next.selectionCards)card.archetypes=['','','',''];
   KTModel.syncTeamKeywords(next);
   if(!await KTStorage.save(STORAGE+':'+next.team.id,JSON.stringify(next)))throw Error('Браузер не смог сохранить новый проект');
@@ -570,7 +570,7 @@ async function importJSON(file){
  if(!file)return;const revision=++teamLoadRevision;
  try{
   if(file.size>100e6)throw Error('Файл проекта больше 100 МБ');
-  const next=KTModel.validate(KTModel.migrate(JSON.parse(await file.text())));
+  const next=KTModel.validate(KTModel.migrate(JSON.parse(await file.text())));delete next.team.sealOfApproval;
   const optimized=await KTOperativeImage.shrinkProject(next,{isCurrent:()=>revision===teamLoadRevision});
   if(optimized.aborted)return;
   KTModel.validate(next);
@@ -796,7 +796,7 @@ async function preparePDF(snapshot=data){
  const [display,symbol]=await Promise.all([base64File('vendor/BebasNeue-Regular.ttf'),base64File('vendor/NotoSansSymbols2-Regular.ttf')]);
  pdfMake.addVirtualFileSystem({...vfs,'Display.ttf':display.split(',')[1],'Symbols.ttf':symbol.split(',')[1]});
  pdfMake.fonts={Roboto:{normal:'Roboto-Regular.ttf',bold:'Roboto-Medium.ttf',italics:'Roboto-Italic.ttf',bolditalics:'Roboto-MediumItalic.ttf'},Display:{normal:'Display.ttf',bold:'Display.ttf',italics:'Display.ttf',bolditalics:'Display.ttf'},Symbols:{normal:'Symbols.ttf',bold:'Symbols.ttf',italics:'Symbols.ttf',bolditalics:'Symbols.ttf'}};
- const paths=['assets/paper.jpg',...KTPageBackground.paths,...new Set([...snapshot.operatives,...snapshot.teamCards,...snapshot.lorePages.flatMap(p=>p.images)].map(o=>o.image).filter(p=>/^assets\/[a-z0-9.-]+\.(png|jpg|jpeg)$/i.test(p||'')))],loaded={};
+ const paths=['assets/paper.jpg',...(snapshot.team.sealOfApproval?[KTCards.APPROVAL_ASSET]:[]),...KTPageBackground.paths,...new Set([...snapshot.operatives,...snapshot.teamCards,...snapshot.lorePages.flatMap(p=>p.images)].map(o=>o.image).filter(p=>/^assets\/[a-z0-9.-]+\.(png|jpg|jpeg)$/i.test(p||'')))],loaded={};
  await Promise.all(paths.map(async p=>loaded[p]=await base64File(p)));
  if(snapshot===data){Object.assign(assets,loaded)}
  return loaded;
@@ -829,7 +829,7 @@ function openTTS(project=data){
  }catch(e){if(project!==data)throw e;toast('Не удалось подготовить колоду: '+e.message)}
 }
 async function prepareTTS(snapshot){
- const paths=['assets/paper.jpg','vendor/BebasNeue-Regular.ttf','vendor/NotoSansSymbols2-Regular.ttf','vendor/Roboto-Regular.ttf','vendor/Roboto-Medium.ttf','vendor/Roboto-Italic.ttf','vendor/Roboto-MediumItalic.ttf',...new Set([...snapshot.operatives,...snapshot.teamCards].map(o=>o.image).filter(Boolean))],result={};
+ const paths=['assets/paper.jpg',...(snapshot.team.sealOfApproval?[KTCards.APPROVAL_ASSET]:[]),'vendor/BebasNeue-Regular.ttf','vendor/NotoSansSymbols2-Regular.ttf','vendor/Roboto-Regular.ttf','vendor/Roboto-Medium.ttf','vendor/Roboto-Italic.ttf','vendor/Roboto-MediumItalic.ttf',...new Set([...snapshot.operatives,...snapshot.teamCards].map(o=>o.image).filter(Boolean))],result={};
  await Promise.all(paths.map(async path=>{if(path.startsWith('data:image/')){result[path]=path;return}if(!/^(assets\/[a-z0-9.-]+\.(png|jpg|jpeg)|vendor\/[a-z0-9-]+\.ttf)$/i.test(path))throw Error('Не найдено изображение для экспорта: '+path);result[path]=await base64File(path)}));
  return result;
 }
@@ -864,7 +864,7 @@ async function init(){
   for(const team of [original,data,...Object.values(window.KT_EXAMPLES||{})])for(const o of [...team.operatives,...team.teamCards,...(team.lorePages||[]).flatMap(p=>p.images)])if(o.image)assets[o.image]=window.KT_ASSETS?.[o.image]||o.image;
   render();if(migrated){persist();toast('Проект обновлён. Ваши правки сохранены.')}
   window.ktStudio={getData:()=>structuredClone(data),toast,validateData:KTModel.validate,buildDefinition:()=>buildTeamPDF(data,assets),preparePDF,exportPDF,prepareTTS,openTTS,exportTTS,exportROSZ,importOperativeImage,importCardImage,importLoreImages,renderCard:(section,index)=>section==='lorePages'?KTLore.renderPage(data.lorePages[index],data,assets):KTCards.renderCard(data[section][index],data,assets,index)};
-  await window.KTCommunity?.init({getData:()=>structuredClone(data),persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,renameProject,recoverProject,localIds:()=>[...projectList.keys()],downloadJSON,toast});
+  await window.KTCommunity?.init({getData:()=>structuredClone(data),setApproval:granted=>{if(data.team.sealOfApproval!==granted){data.team.sealOfApproval=granted;renderPreview()}},persist,openLocal:openProject,openData:openStoredProject,createEmptyProject,showCreateProject,removeProject,renameProject,recoverProject,localIds:()=>[...projectList.keys()],downloadJSON,toast});
   if(['tokenCards','lorePages','dice'].includes(requestedSection)&&section!==requestedSection){section=requestedSection;selected=side=0;render()}
   $('#new-project').disabled=false;
  }catch(e){$('#editor').textContent='Не удалось открыть проект: '+e.message}

@@ -107,4 +107,14 @@ async function removePublication(ctx) {
   return store.removePublication(ctx.client, ctx.user, ctx.params.id, ctx.body.revision);
 }
 
-module.exports = { session, drafts, draft, save, remove, removePublication, rename, publish: ctx => save(ctx, true), library, publication, MAX_BODY, checkWrite, checkAccount };
+async function setApproval(ctx) {
+  checkWrite(ctx);
+  if (!ctx.user.isSuperAdmin) throw new HttpError(403, "Выдавать Seal Of Approval может только superadmin.");
+  if (!PUBLICATION_ID.test(ctx.params.id)) throw new HttpError(404, "Команда не найдена.");
+  const input = ctx.body || {};
+  if (typeof input.approved !== 'boolean' || !Number.isSafeInteger(input.revision) || input.revision < 0 ||
+      !Number.isSafeInteger(input.publicationRevision) || input.publicationRevision < 1) throw new HttpError(400, "Некорректные параметры печати.");
+  return store.setApproval(ctx.client, ctx.user, ctx.params.id, input);
+}
+
+module.exports = { session, drafts, draft, save, remove, removePublication, rename, setApproval, publish: ctx => save(ctx, true), library, publication, MAX_BODY, checkWrite, checkAccount };

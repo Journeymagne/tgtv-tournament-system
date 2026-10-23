@@ -3,42 +3,50 @@ const { HttpError } = require("../../http/io");
 const reviews = require("./studio-reviews");
 const comments = require("./studio-comments");
 
+function approval(row) {
+  return { granted: !!row.approved_at, grantedAt: row.approved_at || null, revision: row.approval_revision || 0 };
+}
+function projectView(row, published = false) {
+  const project = published ? row.published : row.project;
+  return { ...project, team: { ...project.team, sealOfApproval: !!row.approved_at } };
+}
+
 function summary(row, published = false) {
   const project = published ? row.published : row.project;
   return {
     id: published ? row.publication_id : row.project_id,
     name: project.team.name, subtitle: project.team.subtitle || "", version: project.team.version || "", logo: project.team.logo || "",
     operativeCount: project.operatives.length, accent: project.layout.accent,
-    updatedAt: published ? row.published_at : row.updated_at,
+    updatedAt: published ? row.published_at : row.updated_at, approval: approval(row),
     ...(published ? {} : { revision: row.revision, publicationId: row.publication_id, publishedAt: row.published_at })
   };
 }
 
 async function drafts(client, owner) {
-  const { rows } = await client.query(`SELECT project_id, revision, updated_at, publication_id, published_at,
+  const { rows } = await client.query(`SELECT project_id, revision, updated_at, publication_id, published_at, approved_at, approval_revision,
     project->'team' AS team, jsonb_array_length(project->'operatives') AS count,
     project->'layout'->>'accent' AS accent FROM studio_projects WHERE owner_id=$1 AND deleted_at IS NULL ORDER BY updated_at DESC`, [owner]);
   return rows.map(row => ({ id: row.project_id, name: row.team.name, subtitle: row.team.subtitle || "",
     version: row.team.version || "", logo: row.team.logo || "", operativeCount: row.count, accent: row.accent, revision: row.revision,
-    updatedAt: row.updated_at, publicationId: row.publication_id, publishedAt: row.published_at }));
+    updatedAt: row.updated_at, publicationId: row.publication_id, publishedAt: row.published_at, approval: approval(row) }));
 }
 
 async function draft(client, owner, id) {
   const { rows } = await client.query("SELECT * FROM studio_projects WHERE owner_id=$1 AND project_id=$2 AND deleted_at IS NULL", [owner, id]);
-  return rows[0] ? { ...summary(rows[0]), project: rows[0].project } : null;
+  return rows[0] ? { ...summary(rows[0]), project: projectView(rows[0]) } : null;
 }
 
 function ownerControls(row, owner, superAdmin = false) {
   return { ...(owner != null && String(row.owner_id) === String(owner)
     ? { canRename: true, projectId: row.project_id, revision: row.revision } : {}),
-    ...(superAdmin ? { canDeletePublication: true, revision: row.revision } : {}) };
+    ...(superAdmin ? { canDeletePublication: true, canManageApproval: true, revision: row.revision } : {}) };
 }
 
 const author = row => ({ id: row.owner_id, name: row.author_name });
 
 async function library(client, search, offset, limit = 32, owner = null, superAdmin = false) {
   const where = "studio_projects.deleted_at IS NULL AND published IS NOT NULL AND strpos(lower((published->'team'->>'name') || ' ' || COALESCE(published->'team'->>'subtitle','')),lower($1))>0";
-  const { rows } = await client.query(`SELECT owner_id, project_id, revision, publication_id, published_at, published->'team' AS team,
+  const { rows } = await client.query(`SELECT owner_id, project_id, revision, publication_id, published_at, approved_at, approval_revision, published->'team' AS team,
     jsonb_array_length(published->'operatives') AS count, published->'layout'->>'accent' AS accent,
     users.name AS author_name FROM studio_projects JOIN users ON users.id=studio_projects.owner_id
     WHERE ${where} ORDER BY published_at DESC, publication_id LIMIT $2 OFFSET $3`, [search, limit, offset]);
@@ -46,7 +54,7 @@ async function library(client, search, offset, limit = 32, owner = null, superAd
   const ratings = await reviews.summaries(client, rows.map(row=>row.publication_id));
   const commentCounts = await comments.counts(client, rows.map(row=>row.publication_id));
   return { teams: rows.map(row => ({ id: row.publication_id, name: row.team.name, subtitle: row.team.subtitle || "",
-    version: row.team.version || "", logo: row.team.logo || "", operativeCount: row.count, accent: row.accent, updatedAt: row.published_at,
+    version: row.team.version || "", logo: row.team.logo || "", operativeCount: row.count, accent: row.accent, updatedAt: row.published_at, approval: approval(row),
     author: author(row), ratingSummary: ratings[row.publication_id], commentCount:commentCounts[row.publication_id]||0, ...ownerControls(row, owner, superAdmin) })), total: count.rows[0].total };
 }
 
@@ -54,7 +62,7 @@ async function publication(client, id, owner = null, superAdmin = false) {
   const { rows } = await client.query(`SELECT studio_projects.*, users.name AS author_name FROM studio_projects
     JOIN users ON users.id=studio_projects.owner_id
     WHERE publication_id=$1 AND published IS NOT NULL AND studio_projects.deleted_at IS NULL`, [id]);
-  return rows[0] ? { ...summary(rows[0], true), project: rows[0].published, author: author(rows[0]), publishedRevision: rows[0].published_revision,
+  return rows[0] ? { ...summary(rows[0], true), project: projectView(rows[0], true), author: author(rows[0]), publishedRevision: rows[0].published_revision,
     ratingSummary: (await reviews.summaries(client,[id]))[id], commentCount:(await comments.counts(client,[id]))[id]||0, ...ownerControls(rows[0], owner, superAdmin) } : null;
 }
 
@@ -76,6 +84,9 @@ async function rename(client, owner, id, name, revision) {
 // The router supplies a transaction. The lock covers first saves as well as
 // existing rows, so two tabs cannot both create revision 1 for the same draft.
 async function save(client, owner, project, revision, publish, recoveryId) {
+  // Approval is server-owned metadata, never an author-controlled JSON field.
+  project = { ...project, team: { ...project.team } };
+  delete project.team.sealOfApproval;
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["studio:" + owner + ":" + project.team.id]);
   const { rows } = await client.query("SELECT * FROM studio_projects WHERE owner_id=$1 AND project_id=$2", [owner, project.team.id]);
   const previous = rows[0];
@@ -142,4 +153,22 @@ async function removePublication(client, actor, publicationId, revision) {
   return { id: publicationId, deleted: true };
 }
 
-module.exports = { drafts, draft, library, publication, save, deletedIds, remove, removePublication, rename };
+async function setApproval(client, actor, id, input) {
+  if (!actor?.isSuperAdmin) throw new HttpError(403, "Выдавать Seal Of Approval может только superadmin.");
+  const { rows: [row] } = await client.query(`SELECT * FROM studio_projects
+    WHERE publication_id=$1 AND deleted_at IS NULL AND published IS NOT NULL FOR UPDATE`, [id]);
+  if (!row) throw new HttpError(404, "Команда не найдена.");
+  if (row.approval_revision !== input.revision || row.published_revision !== input.publicationRevision) {
+    throw new HttpError(409, "Команда или её печать изменились. Откройте команду заново и повторите действие.");
+  }
+  if (!!row.approved_at === input.approved) return { approval: approval(row) };
+  const { rows: [updated] } = await client.query(`UPDATE studio_projects SET
+    approved_at=CASE WHEN $2 THEN NOW() ELSE NULL END,
+    approved_by=CASE WHEN $2 THEN $3::integer ELSE NULL END,
+    approval_revision=approval_revision+1 WHERE publication_id=$1 RETURNING *`, [id, input.approved, actor.id]);
+  await require('./access').audit(client, actor, input.approved ? 'studio.approval.grant' : 'studio.approval.revoke',
+    'studio_publication', null, { publicationId: id, ...approval(row) }, { publicationId: id, ...approval(updated) });
+  return { approval: approval(updated) };
+}
+
+module.exports = { drafts, draft, library, publication, save, deletedIds, remove, removePublication, rename, setApproval };

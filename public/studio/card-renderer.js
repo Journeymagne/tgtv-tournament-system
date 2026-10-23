@@ -4,6 +4,7 @@ const F=root.KTFontMetrics||(typeof require!=='undefined'?require('./font-metric
 const Text=root.KTText||(typeof require!=='undefined'?require('./rich-text.js'):null);
 const Model=root.KTModel||(typeof require!=='undefined'?require('./model.js'):null);
 const Tokens=root.KTTokens||(typeof require!=='undefined'?require('./tokens.js'):null);
+const APPROVAL_ASSET='assets/seal-of-approval-cutout.png';
 const MM=72/25.4,SHORT=70*MM,LONG=121*MM,OPERATIVE_HEADER=33,BLACK='#141718',SAGE='#6e7b70';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 const face=s=>/[\u0400-\u04ff]/.test(s)?'RobotoBold':'Display';
@@ -296,8 +297,10 @@ function selectionCard(c,d,assets={},index=0){
   const p=base(w,h,d,true,assets),side=sides.length;
   let y=10;
   if(side===0){
-   const title=wrap(name.replace(/ KILL TEAM$/,'\nKILL TEAM'),inner,18,face(name));
-   title.forEach((t,i)=>p.s+=txt(t,pad,y+17+i*19,18,'white',face(name)));y+=title.length*19+6;
+   const approved=d.team.sealOfApproval===true,badgeSize=38;
+   const title=wrap(name.replace(/ KILL TEAM$/,'\nKILL TEAM'),inner-(approved?badgeSize+8:0),18,face(name));
+   if(approved)p.s+='<image class="seal-of-approval" x="'+(w-pad-badgeSize)+'" y="'+y+'" width="'+badgeSize+'" height="'+badgeSize+'" preserveAspectRatio="xMidYMid meet" xlink:href="'+esc(assets[APPROVAL_ASSET]||APPROVAL_ASSET)+'"/>';
+   title.forEach((t,i)=>p.s+=txt(t,pad,y+17+i*19,18,'white',face(name)));y+=Math.max(title.length*19+6,approved?badgeSize+6:0);
    const archetypes=c.archetypes.map(value=>value.trim()).filter(Boolean);
    if(archetypes.length){
     const text='ARCHETYPES: '+archetypes.join(', '),font=face(text);
@@ -328,6 +331,6 @@ function renderCard(c,d,assets={},index=0){return c.kind==='token-guide'?Tokens.
 function renderDeck(d,assets={}){
  return [...d.selectionCards,...d.teamCards,...(d.tokenCards||[]),...d.strategicPloys,...d.firefightPloys,...d.equipment,...d.operatives].flatMap((c,i)=>renderCard(c,d,assets,(['equipment','firefight','strategic'].includes(c.kind)?d[c.kind==='equipment'?'equipment':c.kind==='firefight'?'firefightPloys':'strategicPloys'].indexOf(c):i)));
 }
-root.KTCards={renderCard,renderDeck,selectionCard,measure,wrap,SHORT,LONG,esc,teamLogo,inlineSVG,portraitFrame,portraitPlacement};
+root.KTCards={renderCard,renderDeck,selectionCard,measure,wrap,SHORT,LONG,esc,teamLogo,inlineSVG,portraitFrame,portraitPlacement,APPROVAL_ASSET};
 if(typeof module!=='undefined')module.exports=root.KTCards;
 })(typeof window!=='undefined'?window:globalThis);

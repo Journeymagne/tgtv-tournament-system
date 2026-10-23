@@ -2683,3 +2683,8 @@ body[data-companion-section="studio"] :is(button,input,textarea,select,summary,a
   min-height:var(--button-height); padding:var(--button-padding); border-radius:var(--button-radius);
   font:var(--button-font-weight) var(--button-font-size)/var(--button-line-height) var(--font-ui); box-shadow:none;
 }
+
+/* Approval is a server-managed badge, separate from the team's own logo. */
+.team-tile-brand { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin:12px 0 4px; min-height:64px; }
+.team-tile-brand .team-tile-logo { margin:0; max-width:calc(100% - 80px); }
+.team-approval-seal { display:block; width:64px; height:64px; object-fit:contain; flex:0 0 64px; margin-left:auto; }
