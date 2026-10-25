@@ -47,7 +47,7 @@ test("optional solo round deadline survives preparation, start and rollback, and
   for (const format of ["swiss", "single_elimination"]) {
     const cup = await tournament({ format, singleEliminationSize: 8, venueMode: "tts" });
     for (let index = 0; index < (format === "single_elimination" ? 8 : 4); index++) {
-      const player = await register(`${format}Player${index}`);
+      const player = await register(`${format === "swiss" ? "Swiss" : "Elimination"}Player${index}`);
       assert.equal((await player.http.post(`/api/tournaments/${cup.id}/join`, { faction: "Kommandos" })).status, 200);
     }
     const base = `/api/admin/tournaments/${cup.id}`;
