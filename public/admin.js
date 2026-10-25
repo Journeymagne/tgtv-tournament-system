@@ -545,27 +545,15 @@ function adminTournamentDetailPanel(data) {
   const publicUrl = tournamentPublicUrl(tournament);
   return `
     <section class="card panel admin-tournament-detail" data-live-view="adminTournament">
-      <div class="panel-header admin-tournament-header">
-        <div class="tournament-heading">
-          ${tournament.logoData ? tournamentLogoMarkup(tournament) : ""}
-          <div>
-          <p class="profile-label">${escapeHtml(tournamentFormatSummary(tournament))}</p>
-          <h2>${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</h2>
-          <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}${tournament.startsAt ? ` / ${fmtDate(tournament.startsAt)}` : ""}</p>
-          </div>
-        </div>
-        <div class="row-actions admin-tournament-header-actions">
-          <a href="/tournaments/${tournament.slug}" data-app-link class="small-button" data-admin-tournament-public="${tournament.slug}">${t("admin.tournament.detail.viewPublic")}</a>
+      ${tournamentInfoPanel(data, { admin: true,
+        actions: `<button class="ghost-button" data-admin-tournament-close>${t("common.back")}</button>
+          <button class="small-button" data-tournament-info-tab="settings">${t("common.edit")}</button>`,
+        extraActions: `<a href="/tournaments/${tournament.slug}" data-app-link class="small-button" data-admin-tournament-public="${tournament.slug}">${t("admin.tournament.detail.viewPublic")}</a>
           <button class="small-button" data-admin-tournament-copy="${escapeHtml(publicUrl)}">${t("admin.tournament.detail.copyLink")}</button>
-          <button class="danger-button" data-admin-tournament-action="delete">${t("admin.tournament.detail.delete")}</button>
           <button class="small-button" data-tournament-history>${adminLabel("История", "History")}</button>
-          <button class="ghost-button" data-admin-tournament-close>${t("common.back")}</button>
-        </div>
-      </div>
-      <div class="admin-tournament-actions">
-        ${adminTournamentActionButtons(data)}
-      </div>
-      ${tournamentInfoPanel(data, { admin: true })}
+          ${adminTournamentActionButtons(data)}
+          <button class="danger-button" data-admin-tournament-action="delete">${t("admin.tournament.detail.delete")}</button>`
+      })}
       <div class="message" data-message></div>
     </section>
   `;

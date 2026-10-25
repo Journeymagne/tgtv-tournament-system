@@ -2013,26 +2013,12 @@ function renderPublicTournament(data, live = false) {
   state.publicTournamentDetail = data;
   setLiveContent(publicTournamentContainer(), `
     <div data-live-view="tournament" class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
-      <section class="card panel public-tournament-shell">
-        <div class="panel-header public-tournament-header">
-          <div class="tournament-heading">
-            <div>
-            <h2>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</h2>
-            </div>
-          </div>
-          <div class="row-actions">
-            <button class="ghost-button" data-public-back>${t("common.back")}</button>
-            ${state.me ? `
-              ${tournamentEditButton(tournament)}
-              ${publicTournamentViewerActions(data)}
-            ` : `
-              <button class="small-button" data-public-login>${t("auth.tab.signIn")}</button>
-              <button class="primary-button" data-public-register>${t("auth.tab.register")}</button>
-            `}
-          </div>
-        </div>
-      </section>
-      ${tournamentInfoPanel(data, { publicRoute: true })}
+      ${tournamentInfoPanel(data, { publicRoute: true,
+        actions: `<button class="ghost-button" data-public-back>${t("common.back")}</button>${state.me ? tournamentEditButton(tournament) : ""}`,
+        extraActions: state.me ? publicTournamentViewerActions(data) : `
+          <button class="small-button" data-public-login>${t("auth.tab.signIn")}</button>
+          <button class="primary-button" data-public-register>${t("auth.tab.register")}</button>`
+      })}
     </div>
   `, live);
   wirePublicTournamentNav(data);
@@ -2620,32 +2606,41 @@ function tournamentRoundDeadlineMarkup(round) {
   return `<time datetime="${escapeHtml(endsAt)}">${escapeHtml(label)}</time>`;
 }
 
-function tournamentPreviewMarkup(data) {
+function tournamentCompactHeaderMarkup(data, options = {}) {
   const tournament = data.tournament || {};
   const isTeam = tournament.participantMode === "team";
   const count = isTeam ? (data.rosters || []).filter(roster => roster.status !== "withdrawn").length
     : listedTournamentParticipants(data.participants || []).length;
-  const round = tournamentPreviewRound(data.rounds);
-  const mission = round?.metadata?.mission || round?.mission || round?.matches?.find(match => !match.isBye)?.mission || {};
-  const tables = round ? (isTeam ? round.tables || round.metadata?.tables || [] : [mission]) : [];
-  const missions = isTeam ? round?.metadata?.missions || round?.missions || [] : [];
-  return `<div class="tournament-preview">
+  return `<header class="tournament-compact-header">
+    ${options.actions ? `<div class="row-actions tournament-corner-actions">${options.actions}</div>` : ""}
     <div class="tournament-preview-hero ${tournament.logoData ? "has-logo" : ""}">
       ${tournament.logoData ? `<div class="tournament-preview-logo">${tournamentLogoMarkup(tournament)}</div>` : ""}
       <div class="tournament-preview-heading">
         <p class="profile-label">${escapeHtml(tournamentFormatSummary(tournament))}</p>
         <h2>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</h2>
-        <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}</p>
-        <div class="profile-grid tournament-metrics">
-          ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
-          ${metricCard(t(isTeam ? "teams.tournament.rosters" : "tournaments.field.participants"), tournamentParticipantCountLabel({ ...tournament, participantCount: count }))}
-          ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
-          ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
-          ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
-        </div>
-        ${tournament.venueMode === "irl" && tournament.venueAddress ? `<p class="muted">${escapeHtml(tournament.venueAddress)}</p>` : ""}
+        <p class="tournament-compact-status"><span class="status-dot ${tournamentStatusClass(tournament.status)}" aria-hidden="true"></span>${escapeHtml(tournamentStatusLabel(tournament.status))}</p>
       </div>
     </div>
+    <section class="profile-grid tournament-metrics">
+      ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
+      ${metricCard(t(isTeam ? "teams.tournament.rosters" : "tournaments.field.participants"), tournamentParticipantCountLabel({ ...tournament, participantCount: count }))}
+      ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
+      ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
+      ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
+    </section>
+    ${tournament.venueMode === "irl" && tournament.venueAddress ? `<p class="muted tournament-compact-address">${escapeHtml(tournament.venueAddress)}</p>` : ""}
+    ${options.extraActions ? `<div class="row-actions tournament-extra-actions">${options.extraActions}</div>` : ""}
+  </header>`;
+}
+
+function tournamentPreviewMarkup(data) {
+  const tournament = data.tournament || {};
+  const isTeam = tournament.participantMode === "team";
+  const round = tournamentPreviewRound(data.rounds);
+  const mission = round?.metadata?.mission || round?.mission || round?.matches?.find(match => !match.isBye)?.mission || {};
+  const tables = round ? (isTeam ? round.tables || round.metadata?.tables || [] : [mission]) : [];
+  const missions = isTeam ? round?.metadata?.missions || round?.missions || [] : [];
+  return `<div class="tournament-preview">
     <section class="tournament-preview-round">
       <div class="public-round-title">
         <h3>${t("tournaments.preview.currentRound")}${round ? ` · ${t("tournaments.round.title", { number: round.roundNumber })}` : ""}</h3>
@@ -2677,7 +2672,7 @@ function tournamentInfoPanel(data, options = {}) {
   const canManage = Boolean(options.admin && canManageTournamentParticipants(data));
   const activeTab = tournamentInfoActiveTab(data, options);
   const wrapperTag = options.admin ? "section" : "div";
-  const wrapperClass = options.admin ? "admin-subpanel wide-panel" : "card panel wide-panel";
+  const wrapperClass = options.admin ? "tournament-info-panel wide-panel tournament-compact-page" : "card panel wide-panel tournament-compact-page";
   const titleByTab = {
     preview: t("tournaments.tab.preview"),
     settings: t("tournaments.tab.settings"),
@@ -2700,13 +2695,14 @@ function tournamentInfoPanel(data, options = {}) {
   };
   return `
     <${wrapperTag} class="${wrapperClass}">
-      <div class="panel-header">
+      ${tournamentCompactHeaderMarkup(data, options)}
+      ${tournamentInfoTabs(activeTab, data, options)}
+      ${activeTab !== "preview" ? `<div class="panel-header tournament-tab-heading">
         <div>
           <h3>${titleByTab[activeTab]}</h3>
           <p class="muted">${escapeHtml(subtitleByTab[activeTab])}</p>
         </div>
-      </div>
-      ${tournamentInfoTabs(activeTab, data, options)}
+      </div>` : ""}
       ${tournamentInfoTabContent(activeTab, data, options)}
       ${canManage ? `<div class="message" data-message></div>` : ""}
     </${wrapperTag}>
