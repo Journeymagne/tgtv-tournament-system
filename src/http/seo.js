@@ -7,7 +7,7 @@ const { siteOrigin } = require("./sites");
 const SITE_NAME = "TGTV Ranking Tournament System";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.4.4";
+const ASSET_VERSION = "1.4.9";
 
 function requestOrigin(req) {
   const serviceOrigin = siteOrigin(req);
@@ -189,7 +189,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <link rel="stylesheet" href="/companion-tokens.css?v=20261022-kit">
     <link rel="stylesheet" href="/styles.css?v=${ASSET_VERSION}">
     <link rel="stylesheet" href="/training/journey-shared.css?v=${ASSET_VERSION}">
-    <link rel="stylesheet" href="/companion-shell.css?v=20261022-kit">
+    <link rel="stylesheet" href="/companion-shell.css?v=20261025-notifications">
     <script src="/companion-sites.js?v=${ASSET_VERSION}" defer></script>
     <script src="/companion-i18n.js?v=${ASSET_VERSION}" defer></script>
     <script src="/companion-shell.js?v=20261022-kit" defer></script>`;

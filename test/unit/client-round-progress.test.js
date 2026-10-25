@@ -6,16 +6,17 @@ const { createI18n } = require("../../public/i18n.js");
 
 const source = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf8");
 const i18n = createI18n({ en: require("../../public/i18n/en.js"), ru: require("../../public/i18n/ru.js") });
-const names = ["tournamentRoundMatchCounts", "tournamentRoundProgressMarkup", "defaultTournamentRoundNumber", "tournamentRoundsTabbedMarkup"];
+const names = ["tournamentRoundMatchCounts", "tournamentRoundProgressMarkup", "defaultTournamentRoundNumber", "tournamentRoundsTabbedMarkup",
+  "tournamentRoundDeadlineMarkup", "normalizeTournamentMatchSearch", "tournamentMatchSearchText"];
 const functions = names.map((name) => {
   const body = source.match(new RegExp(`function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];
   assert.ok(body, name);
   return body;
 }).join("\n");
 const { tournamentRoundMatchCounts: count, tournamentRoundsTabbedMarkup: render } = new Function(
-  "t", "plural", "escapeHtml", "tournamentMatchStatusLabel", "tournamentRoundSelections",
+  "t", "plural", "escapeHtml", "tournamentMatchStatusLabel", "tournamentRoundSelections", "state", "i18n",
   `${functions}; return { ${names.join(", ")} };`
-)(i18n.t, i18n.plural, String, String, new Map());
+)(i18n.t, i18n.plural, String, String, new Map(), {}, i18n);
 const teamTournament = { participantMode: "team", teamSize: 3 };
 const game = (slot, status) => ({ slot, game: { status, result: status === "completed" ? {} : null } });
 

@@ -96,7 +96,8 @@ const state = {
   selectedTournamentId: null,
   adminTournamentDetail: null,
   publicTournamentDetail: null,
-  tournamentInfoTab: "standings",
+  tournamentInfoTab: "preview",
+  tournamentMatchViews: {},
   tournamentTableViews: {},
   adminPasswordReset: null,
   playerProfile: null,
@@ -153,7 +154,7 @@ function setLiveContent(element, html, live = false) {
 
 function liveTournamentInterval(data, tab) {
   if (data?.tournament?.status !== "in_progress") return 0;
-  return tab === "matches" || tab === "stats" ? 5000 : tab === "standings" ? 15000 : 0;
+  return tab === "matches" || tab === "stats" ? 5000 : tab === "standings" || tab === "preview" ? 15000 : 0;
 }
 
 function liveRefreshTarget() {
@@ -1684,7 +1685,7 @@ function currentNavigationEntry() {
 }
 
 function navigationContextKeys() {
-  return ["tournamentInfoTab", "tournamentTableViews", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
+  return ["tournamentInfoTab", "tournamentTableViews", "tournamentMatchViews", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
     "selectedStatisticsTeam", "selectedSeasonId", "statisticsFilters", "statisticsSort",
     "gameFilters", "leaderboardPage", "teamLeaderboardPage", "adminUsersPage",
     "adminUsersQuery", "adminTeamsPage", "adminTeamsQuery", "teamsQuery", "challengeTab"];
@@ -1926,7 +1927,7 @@ function clearPlayerTeamRoute() {
 function navigateToPublicTournament(slug, options = {}) {
   if (!slug) return;
   state.administrationContext = false;
-  state.tournamentInfoTab = options.tab || "standings";
+  state.tournamentInfoTab = options.tab || "preview";
   pushAppLocation(tournamentPublicPath(slug));
   renderPublicTournamentRoute(slug, options);
 }
@@ -2009,21 +2010,14 @@ function publicTournamentContainer() {
 
 function renderPublicTournament(data, live = false) {
   const tournament = data.tournament || {};
-  const isTeamTournament = tournament.participantMode === "team";
-  const listedParticipants = isTeamTournament
-    ? (data.rosters || []).filter((roster) => roster.status !== "withdrawn")
-    : listedTournamentParticipants(data.participants || []);
   state.publicTournamentDetail = data;
   setLiveContent(publicTournamentContainer(), `
     <div data-live-view="tournament" class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
       <section class="card panel public-tournament-shell">
         <div class="panel-header public-tournament-header">
           <div class="tournament-heading">
-            ${tournament.logoData ? tournamentLogoMarkup(tournament) : ""}
             <div>
-            <p class="profile-label">${escapeHtml(tournamentFormatSummary(tournament))}</p>
             <h2>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</h2>
-            <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}${tournament.startsAt ? ` · ${fmtDate(tournament.startsAt)}` : ""}</p>
             </div>
           </div>
           <div class="row-actions">
@@ -2037,15 +2031,6 @@ function renderPublicTournament(data, live = false) {
             `}
           </div>
         </div>
-        ${tournament.description ? `<div class="public-tournament-description markdown-content">${markdownToHtml(tournament.description)}</div>` : ""}
-        ${tournamentRulesLinkMarkup(tournament)}
-        <section class="profile-grid tournament-metrics">
-          ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
-          ${metricCard(t(isTeamTournament ? "teams.tournament.rosters" : "tournaments.field.participants"), tournamentParticipantCountLabel({ ...tournament, participantCount: listedParticipants.length }))}
-          ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
-          ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
-          ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
-        </section>
       </section>
       ${tournamentInfoPanel(data, { publicRoute: true })}
     </div>
@@ -2619,6 +2604,73 @@ function canManageTournamentParticipants(data) {
   return Boolean(canManageTournamentUi(tournament) && tournament.id);
 }
 
+function tournamentPreviewRound(rounds = []) {
+  const ordered = [...rounds].sort((a, b) => Number(a.roundNumber) - Number(b.roundNumber));
+  return ordered.filter(round => round.status === "active").at(-1)
+    || ordered.filter(round => round.status === "completed").at(-1)
+    || ordered[0] || null;
+}
+
+function tournamentRoundDeadlineMarkup(round) {
+  const endsAt = round?.endsAt || round?.metadata?.endsAt;
+  if (!endsAt || !Number.isFinite(Date.parse(endsAt))) return `<span class="muted">${t("tournaments.round.noDeadline")}</span>`;
+  const label = i18n.formatDate(new Date(endsAt), {
+    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short"
+  });
+  return `<time datetime="${escapeHtml(endsAt)}">${escapeHtml(label)}</time>`;
+}
+
+function tournamentPreviewMarkup(data) {
+  const tournament = data.tournament || {};
+  const isTeam = tournament.participantMode === "team";
+  const count = isTeam ? (data.rosters || []).filter(roster => roster.status !== "withdrawn").length
+    : listedTournamentParticipants(data.participants || []).length;
+  const round = tournamentPreviewRound(data.rounds);
+  const mission = round?.metadata?.mission || round?.mission || round?.matches?.find(match => !match.isBye)?.mission || {};
+  const tables = round ? (isTeam ? round.tables || round.metadata?.tables || [] : [mission]) : [];
+  const missions = isTeam ? round?.metadata?.missions || round?.missions || [] : [];
+  return `<div class="tournament-preview">
+    <div class="tournament-preview-hero ${tournament.logoData ? "has-logo" : ""}">
+      ${tournament.logoData ? `<div class="tournament-preview-logo">${tournamentLogoMarkup(tournament)}</div>` : ""}
+      <div class="tournament-preview-heading">
+        <p class="profile-label">${escapeHtml(tournamentFormatSummary(tournament))}</p>
+        <h2>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</h2>
+        <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}</p>
+        <div class="profile-grid tournament-metrics">
+          ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
+          ${metricCard(t(isTeam ? "teams.tournament.rosters" : "tournaments.field.participants"), tournamentParticipantCountLabel({ ...tournament, participantCount: count }))}
+          ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
+          ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
+          ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
+        </div>
+        ${tournament.venueMode === "irl" && tournament.venueAddress ? `<p class="muted">${escapeHtml(tournament.venueAddress)}</p>` : ""}
+      </div>
+    </div>
+    <section class="tournament-preview-round">
+      <div class="public-round-title">
+        <h3>${t("tournaments.preview.currentRound")}${round ? ` · ${t("tournaments.round.title", { number: round.roundNumber })}` : ""}</h3>
+        ${round ? `<span class="status ${round.status === "completed" ? "completed" : "pending"}">${escapeHtml(tournamentMatchStatusLabel(round.status))}</span>` : ""}
+      </div>
+      ${round ? `<p class="tournament-round-deadline"><strong>${t("tournaments.round.deadline")}:</strong> ${tournamentRoundDeadlineMarkup(round)}</p>
+        ${tournamentRoundProgressMarkup(round, tournament)}
+        ${missions.length ? `<p class="muted">${t("op.crit")}: ${escapeHtml(missions.map(item => item.critOp || item).join(" · "))}</p>` : ""}
+        <div class="tournament-preview-maps ${isTeam ? "" : "is-individual"}">
+          ${tables.map(table => `<article class="tournament-preview-map">
+            ${isTeam ? `<h4>${t("tournaments.match.table", { number: table.tableNumber })}</h4>` : ""}
+            <strong>${escapeHtml(table.killzone || t("tournaments.preview.mapNotSet"))}</strong>
+            ${table.deployment || table.layout ? `<p class="muted">${escapeHtml(t("tournaments.mission.layout", { layout: table.deployment || table.layout }))}</p>` : ""}
+            ${!isTeam ? `<p class="muted">${t("op.crit")}: ${escapeHtml(table.critOp || t("tournaments.preview.missionNotSet"))}</p>` : ""}
+            ${teamTableImageMarkup(table)}
+          </article>`).join("")}
+        </div>
+        ${!tables.length ? `<p class="muted">${t("tournaments.preview.mapNotSet")}</p>` : ""}`
+        : `<p class="empty">${t("tournaments.preview.noRound")}</p>`}
+    </section>
+    ${tournament.description ? `<div class="public-tournament-description markdown-content">${markdownToHtml(tournament.description)}</div>` : ""}
+    ${tournamentRulesLinkMarkup(tournament)}
+  </div>`;
+}
+
 function tournamentInfoPanel(data, options = {}) {
   const tournament = data.tournament || {};
   const isTeamTournament = tournament.participantMode === "team";
@@ -2627,6 +2679,7 @@ function tournamentInfoPanel(data, options = {}) {
   const wrapperTag = options.admin ? "section" : "div";
   const wrapperClass = options.admin ? "admin-subpanel wide-panel" : "card panel wide-panel";
   const titleByTab = {
+    preview: t("tournaments.tab.preview"),
     settings: t("tournaments.tab.settings"),
     standings: t("tournaments.tab.standings"),
     matches: t("tournaments.tab.matches"),
@@ -2635,6 +2688,7 @@ function tournamentInfoPanel(data, options = {}) {
     tables: t("tournaments.tab.tables")
   };
   const subtitleByTab = {
+    preview: t("tournaments.preview.subtitle"),
     settings: t("tournaments.info.settingsSubtitle"),
     standings: isTeamTournament ? t(tournament.pairingType === "doubles" ? "doubles.standingsHint" : tournament.pairingType === "sword_shield_classic" ? "classic.standingsHint" : "teams.tournament.standingsHint") : standingsSubtitle(tournament),
     matches: t("tournaments.info.matchesSubtitle"),
@@ -2661,12 +2715,14 @@ function tournamentInfoPanel(data, options = {}) {
 
 function tournamentInfoTabDefinitions(data, options = {}) {
   if (options.admin) return [
+    { id: "preview", label: t("tournaments.tab.preview") },
     { id: "standings", label: adminLabel("Обзор", "Overview") },
     { id: "participants", label: adminLabel("Участники и составы", "Participants and rosters") },
     { id: "matches", label: adminLabel("Раунды", "Rounds") },
     { id: "settings", label: adminLabel("Настройки", "Settings") }
   ];
   const tabs = [
+    { id: "preview", label: t("tournaments.tab.preview") },
     { id: "standings", label: t("tournaments.tab.standings") },
     { id: "matches", label: t("tournaments.tab.matches") },
     { id: "stats", label: t("tournaments.tab.stats") }
@@ -2684,7 +2740,7 @@ function tournamentInfoTabDefinitions(data, options = {}) {
 
 function tournamentInfoActiveTab(data, options = {}) {
   const tabs = tournamentInfoTabDefinitions(data, options);
-  const fallbackTab = tabs[0]?.id || "standings";
+  const fallbackTab = tabs[0]?.id || "preview";
   const activeTab = tabs.some((tab) => tab.id === state.tournamentInfoTab) ? state.tournamentInfoTab : fallbackTab;
   state.tournamentInfoTab = activeTab;
   return activeTab;
@@ -2702,6 +2758,7 @@ function tournamentInfoTabs(activeTab, data, options = {}) {
 }
 
 function tournamentInfoTabContent(activeTab, data, options = {}) {
+  if (activeTab === "preview") return tournamentPreviewMarkup(data);
   if (activeTab === "settings" && options.admin) return adminUi().adminTournamentSettingsContent(data);
   if (activeTab === "participants") {
     if (options.admin && canManageTournamentParticipants(data)) return adminUi().adminTournamentParticipantsContent(data);
@@ -2801,7 +2858,7 @@ function publicParticipantsList(participants) {
 function publicRoundsMarkup(rounds, tournament = {}) {
   if (!rounds.length) return `<div class="empty">${t("tournaments.matches.empty")}</div>`;
   return tournamentRoundsTabbedMarkup(rounds, (match) => publicMatchMarkup({ ...match,
-    pairingWarnings: individualPairingWarnings(match, { tournament, rounds }) }, tournament), tournament.id);
+    pairingWarnings: individualPairingWarnings(match, { tournament, rounds }) }, tournament), tournament.id, tournament);
 }
 
 function defaultTournamentRoundNumber(rounds = []) {
@@ -2839,6 +2896,29 @@ function tournamentRoundProgressMarkup(round, tournament = {}) {
   return `<p class="round-match-summary" aria-live="polite" aria-atomic="true">${escapeHtml(plural("tournaments.round.matchCount", counts.total))} (<span class="match-result-state" data-result-state="completed">${escapeHtml(t("tournaments.round.playedCount", { count: counts.completed }))}</span>, <span class="match-result-state" data-result-state="pending">${escapeHtml(t("tournaments.round.pendingCount", { count: counts.pending }))}</span>, <span class="match-result-state" data-result-state="unplayed">${escapeHtml(t("tournaments.round.unplayedCount", { count: counts.unplayed }))}</span>)</p>`;
 }
 
+function normalizeTournamentMatchSearch(value) {
+  return String(value || "").normalize("NFKC").toLocaleLowerCase()
+    .replace(/(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\//g, "").replace(/@/g, "")
+    .replace(/\s+/g, " ").trim();
+}
+
+function tournamentMatchSearchText(match) {
+  const fields = [];
+  const person = entry => {
+    if (!entry) return;
+    fields.push(entry.displayName, entry.displayNameSnapshot, entry.name, entry.user?.name,
+      entry.registerNickname, entry.user?.registerNickname, entry.telegramContact, entry.user?.telegramContact);
+    if (!entry.factionHidden) fields.push(entry.faction, entry.factionSnapshot, ...(entry.factions || []));
+  };
+  for (const roster of [match.rosterA, match.rosterB]) {
+    if (!roster) continue;
+    fields.push(roster.name, roster.teamNameSnapshot, roster.team?.name);
+    (roster.members || []).forEach(person);
+  }
+  [match.participantA, match.participantB].forEach(person);
+  return normalizeTournamentMatchSearch(fields.filter(Boolean).join(" "));
+}
+
 function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "", tournament = {}) {
   const ordered = [...rounds].sort((a, b) => Number(a.roundNumber) - Number(b.roundNumber));
   const saved = selectionKey ? tournamentRoundSelections.get(String(selectionKey)) : null;
@@ -2863,10 +2943,20 @@ function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "", to
             <strong>${t("tournaments.round.title", { number: round.roundNumber })}</strong>
             <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(round.status))}</span>
           </div>
+          <p class="tournament-round-deadline"><strong>${t("tournaments.round.deadline")}:</strong> ${tournamentRoundDeadlineMarkup(round)}</p>
           ${tournamentRoundProgressMarkup(round, tournament)}
-          <div class="list">
-            ${(round.matches || []).map(matchMarkup).join("")}
+          <div class="tournament-round-search">
+            <div class="field">
+              <label for="round-search-${escapeHtml(selectionKey)}-${round.roundNumber}">${t("tournaments.round.search")}</label>
+              <input id="round-search-${escapeHtml(selectionKey)}-${round.roundNumber}" type="search" data-round-match-search placeholder="${t("tournaments.round.searchPlaceholder")}" value="${escapeHtml(state.tournamentMatchViews?.[selectionKey]?.queries?.[round.roundNumber] || "")}">
+            </div>
+            <button type="button" class="small-button" data-round-search-reset>${t("tournaments.table.reset")}</button>
           </div>
+          <p class="field-help" data-round-search-count aria-live="polite" aria-atomic="true"></p>
+          <div class="list tournament-round-matches">
+            ${(round.matches || []).map(match => `<div data-round-match="${match.id}" data-live-key="round-match-${match.id}" data-round-search-text="${escapeHtml(tournamentMatchSearchText(match))}">${matchMarkup(match)}</div>`).join("")}
+          </div>
+          <p class="empty" data-round-search-empty hidden>${t("tournaments.round.searchEmpty")}</p>
         </section>
         `).join("")}
       </div>
@@ -2878,18 +2968,23 @@ function publicMatchMarkup(match, tournament = {}) {
   const score = publicMatchScore(match);
   const meta = [score, matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
-    <div class="row-card compact-row-card">
-      <div class="row-main">
+    <details class="row-card tournament-match-disclosure" data-match-disclosure="${match.id}" ${state.tournamentMatchViews?.[tournament.id]?.expanded?.[match.id] ? "open" : ""}>
+      <summary>
+        <div class="row-main">
           <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
-          <div class="row-meta">${escapeHtml(meta)}</div>
-          ${pairingWarningsMarkup(match.pairingWarnings)}
+          <div class="row-meta">${escapeHtml(score)}</div>
         </div>
-      <div class="row-actions">
         <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
-        ${match.gameId && !match.isBye ? `<a class="small-button" data-app-link href="/tournament#/games/tournament-match/${match.id}">${t("play.action.details")}</a>` : ""}
-        ${publicMatchActions(match, tournament)}
+      </summary>
+      <div class="tournament-match-content">
+        <div class="row-meta">${escapeHtml(meta)}</div>
+        ${pairingWarningsMarkup(match.pairingWarnings)}
+        <div class="row-actions">
+          ${match.gameId && !match.isBye ? `<a class="small-button" data-app-link href="/tournament#/games/tournament-match/${match.id}">${t("play.action.details")}</a>` : ""}
+          ${publicMatchActions(match, tournament)}
+        </div>
       </div>
-    </div>
+    </details>
   `;
 }
 
@@ -9142,8 +9237,8 @@ function teamTournamentMatchPreviewMarkup(match, tournament) {
     : match.resolution === "forfeit" ? t("teams.pairing.forfeit")
     : ["in_progress", "completed"].includes(match.phase) ? "" : teamPairingPhaseLabel(match);
   const meta = [match.lineNumber ? t("classic.line", { number: match.lineNumber }) : "", status, score].filter(Boolean).join(" · ");
-  return `<article class="row-card team-match-card team-match-preview" data-team-match-preview="${match.id}">
-    <div class="team-match-preview-header">
+  return `<details class="row-card team-match-card team-match-preview tournament-match-disclosure" data-team-match-preview="${match.id}" data-match-disclosure="${match.id}" ${state.tournamentMatchViews?.[tournament.id]?.expanded?.[match.id] ? "open" : ""}>
+    <summary class="team-match-preview-header">
       <div class="row-main">
         <div class="row-title">${teamRosterLabel(match.rosterA)}${match.rosterB ? ` vs ${teamRosterLabel(match.rosterB)}` : ""}</div>
         ${pairingWarningsMarkup(teamPairingWarnings(match))}
@@ -9151,9 +9246,9 @@ function teamTournamentMatchPreviewMarkup(match, tournament) {
         ${meta ? `<div class="row-meta">${escapeHtml(meta)}</div>` : ""}
       </div>
       ${match.resolution === "bye" ? "" : `<a href="/tournament#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</a>`}
-    </div>
-    ${teamMatchGamesMarkup(match, { showProgress: false, readOnly: true, preview: true })}
-  </article>`;
+    </summary>
+    <div class="tournament-match-content">${teamMatchGamesMarkup(match, { showProgress: false, readOnly: true, preview: true })}</div>
+  </details>`;
 }
 
 function teamTournamentMatchPreviewsMarkup(data) {
@@ -9380,7 +9475,7 @@ function wireTournamentInfoControls(data, options = {}) {
   if (data?.tournament?.participantMode === "team") wireTeamTournamentControls(data, options);
   document.querySelectorAll("[data-tournament-info-tab]").forEach((button) => {
     onLive(button, "click", async () => {
-      state.tournamentInfoTab = button.dataset.tournamentInfoTab || "standings";
+      state.tournamentInfoTab = button.dataset.tournamentInfoTab || "preview";
       try {
         if (options.admin && state.tournamentInfoTab === "participants" && canManageTournamentParticipants(data)) {
           if (!state.adminUsers.length) await adminUi().loadAdminUsers();
@@ -9465,6 +9560,44 @@ function wireTournamentDataTables(data) {
 
 function wireTournamentRoundTabs(root = document) {
   root.querySelectorAll("[data-tournament-round-switcher]").forEach((switcher) => {
+    const views = state.tournamentMatchViews ||= {};
+    const view = views[switcher.dataset.roundSelectionKey] ||= { queries: {}, expanded: {} };
+    switcher.querySelectorAll("[data-tournament-round-panel]").forEach(panel => {
+      const input = panel.querySelector("[data-round-match-search]");
+      const reset = panel.querySelector("[data-round-search-reset]");
+      if (!input) return;
+      const rows = [...panel.querySelectorAll("[data-round-match]")];
+      const filter = () => {
+        const terms = normalizeTournamentMatchSearch(input.value).split(" ").filter(Boolean);
+        let shown = 0;
+        for (const row of rows) {
+          row.hidden = !terms.every(term => row.dataset.roundSearchText.includes(term));
+          if (!row.hidden) shown += 1;
+        }
+        panel.querySelector("[data-round-search-count]").textContent = t("tournaments.round.searchCount", { shown, total: rows.length });
+        panel.querySelector("[data-round-search-empty]").hidden = shown > 0;
+        reset.disabled = !input.value;
+      };
+      onLive(input, "input", () => {
+        (view.queries ||= {})[panel.dataset.tournamentRoundPanel] = input.value;
+        filter();
+        rememberNavigationContext();
+      });
+      onLive(reset, "click", () => {
+        input.value = "";
+        (view.queries ||= {})[panel.dataset.tournamentRoundPanel] = "";
+        filter();
+        rememberNavigationContext();
+        input.focus();
+      });
+      filter();
+    });
+    switcher.querySelectorAll("[data-match-disclosure]").forEach(details => {
+      onLive(details, "toggle", () => {
+        (view.expanded ||= {})[details.dataset.matchDisclosure] = details.open;
+        rememberNavigationContext();
+      });
+    });
     const selectRound = (roundNumber) => {
       switcher.querySelectorAll("[data-tournament-round-tab]").forEach((tab) => {
         const selected = tab.dataset.tournamentRoundTab === roundNumber;
@@ -9524,6 +9657,11 @@ function renderRoundSetupModal(preview) {
           <button class="ghost-button" type="button" data-round-setup-close>${t("common.cancel")}</button>
         </div>
         <form class="round-setup-form" data-round-setup-form>
+          ${tournament.venueMode === "tts" && !preview.activePairings && !preview.tableOnly ? `<div class="field round-deadline-field">
+            <label for="round-ends-at">${t("admin.roundSetup.deadline")}</label>
+            <input id="round-ends-at" name="roundEndsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(round.endsAt || round.metadata?.endsAt))}" aria-describedby="round-deadline-hint">
+            <span class="field-help" id="round-deadline-hint">${escapeHtml(t("admin.roundSetup.deadlineHint", { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }))}</span>
+          </div>` : ""}
           ${preview.activePairings ? `<div class="field-help" data-round-setup-unassigned></div>${preview.lockedMatches.length ? `<section class="admin-subpanel"><h3>${t("admin.round.lockedPairings")}</h3><div class="list">${preview.lockedMatches.map(match => `<div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(match.participantA?.displayName || "—")} vs ${match.isBye ? t("tournaments.match.byeUpper") : escapeHtml(match.participantB?.displayName || "—")}</div><div class="row-meta">${escapeHtml(tournamentMatchStatusLabel(match.status))}</div></div></div>`).join("")}</div></section>` : ""}` : preview.tableOnly ? teamTableSetupFields(tables, tournament.venueMode, preview.lines === false && tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic") : preview.teamRound ? teamRoundMissionFields(tables, round, preview.reuseLines) : roundMissionFields(tournament, round)}
           <div class="round-setup-list" data-round-setup-list>
             ${(preview.tableOnly ? [] : round.matches || []).map((match, index) =>
@@ -9713,6 +9851,13 @@ function roundMissionFields(tournament, round) {
       <select name="roundKillzone">
         <option value="">${t("games.result.notSelected")}</option>
         ${optionsHtml(killzoneOptions, mission.killzone || "")}
+      </select>
+    </div>
+    <div class="field">
+      <label>${t("admin.tournament.tables.field.deployment")}</label>
+      <select name="roundLayout">
+        <option value="">${t("games.result.notSelected")}</option>
+        ${[1, 2, 3, 4, 5, 6].map(layout => `<option value="${layout}" ${Number(mission.layout) === layout ? "selected" : ""}>${layout}</option>`).join("")}
       </select>
     </div>
   ` : "";
@@ -9933,8 +10078,10 @@ function updateRoundSetupTableDeployment(select) {
 
 function roundSetupPayload(form, tournament) {
   const rows = Array.from(form.querySelectorAll(".round-setup-match-row"));
+  const deadline = form.elements.roundEndsAt ? { endsAt: datetimeLocalToIso(form.elements.roundEndsAt.value) || null } : {};
   if (tournament.participantMode === "team") {
     return {
+      ...deadline,
       ...(tournament.pairingType === "doubles" ? { missions: Array.from({ length: 4 }, (_, index) => form.elements[`doublesMission-${index}`]?.value || "") } : {}),
       ...(form.elements["teamKillzone-0"] ? { tables: teamTableSetupPayload(form) } : {}),
       matchups: rows.map((row) => ({
@@ -9952,9 +10099,11 @@ function roundSetupPayload(form, tournament) {
   const byes = [...form.querySelectorAll("[data-round-bye-index]")];
   for (const bye of byes) matchups.splice(Number(bye.dataset.roundByeIndex), 0, {});
   return {
+    ...deadline,
     ...(byes.length ? { byeParticipantId: Number(byes[0].value) } : {}),
     mission: {
       killzone: tournament.venueMode === "tts" ? form.elements.roundKillzone?.value || "" : "",
+      ...(tournament.venueMode === "tts" && form.elements.roundLayout ? { layout: form.elements.roundLayout.value || "" } : {}),
       critOp: form.elements.roundCritOp?.value || ""
     },
     matchups

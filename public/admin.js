@@ -562,13 +562,6 @@ function adminTournamentDetailPanel(data) {
           <button class="ghost-button" data-admin-tournament-close>${t("common.back")}</button>
         </div>
       </div>
-      <section class="profile-grid tournament-metrics">
-        ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
-        ${metricCard(t(tournament.participantMode === "team" ? "teams.tournament.rosters" : "tournaments.field.participants"), tournamentParticipantCountLabel({ ...tournament, participantCount: tournamentRegistrationCount(data) }))}
-        ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
-        ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
-        ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
-      </section>
       <div class="admin-tournament-actions">
         ${adminTournamentActionButtons(data)}
       </div>
@@ -979,7 +972,7 @@ function adminTournamentRoundsPanel(data) {
           <p class="muted">${t("admin.tournament.rounds.hint")}</p>
         </div>
       </div>
-      ${tournamentRoundsTabbedMarkup(rounds, match => adminTournamentMatchMarkup(match, data), data.tournament?.id)}
+      ${tournamentRoundsTabbedMarkup(rounds, match => adminTournamentMatchMarkup(match, data), data.tournament?.id, data.tournament)}
     </section>
   `;
 }
@@ -993,18 +986,23 @@ function adminTournamentMatchMarkup(match, data = {}) {
   const actionLabel = match.status === "completed" ? t("play.action.editResult") : t("play.action.enterResult");
   const meta = [publicMatchScore(match), matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
-    <div class="row-card compact-row-card">
+    <details class="row-card tournament-match-disclosure" data-match-disclosure="${match.id}" ${state.tournamentMatchViews?.[data.tournament?.id]?.expanded?.[match.id] ? "open" : ""}>
+      <summary>
       <div class="row-main">
         <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
-        <div class="row-meta">${escapeHtml(meta)}</div>
-          ${pairingWarningsMarkup(individualPairingWarnings(match, data))}
+        <div class="row-meta">${escapeHtml(publicMatchScore(match))}</div>
       </div>
-      <div class="row-actions">
         <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
+      </summary>
+      <div class="tournament-match-content">
+        <div class="row-meta">${escapeHtml(meta)}</div>
+        ${pairingWarningsMarkup(individualPairingWarnings(match, data))}
+        <div class="row-actions">
         ${canResult ? `<button class="small-button" data-admin-tournament-match-result="${match.id}">${actionLabel}</button>` : ""}
         ${canReset ? `<button class="danger-button" data-admin-tournament-match-reset="${match.id}">${t("admin.round.resetMatch")}</button>` : ""}
+        </div>
       </div>
-    </div>
+    </details>
   `;
 }
 

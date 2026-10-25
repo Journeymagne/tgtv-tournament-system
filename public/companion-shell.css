@@ -186,7 +186,8 @@ body {
 .companion-account { display:flex; align-items:center; min-width:0; }
 .companion-account-status { flex-basis:100%; color:var(--danger); font-size:12px; }
 .companion-account-status:empty { display:none; }
-:root .companion-utility :is(button,.companion-login,.shared-notifications>summary) {
+/* Notification content keeps its own layout instead of toolbar button sizing. */
+:root .companion-utility :is(button,.companion-login,.shared-notifications>summary):not(:where(.notification-panel *)) {
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; flex:none;
   gap:8px; width:auto; min-width:var(--button-height); height:var(--button-height); min-height:var(--button-height);
   margin:0; padding:var(--button-padding); border:1px solid var(--line-strong); border-radius:var(--button-radius);
@@ -195,7 +196,7 @@ body {
   background:var(--panel-2); color:var(--ink); box-shadow:none; cursor:pointer;
 }
 :root .companion-utility .companion-login { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
-:root .companion-utility :is(button,.companion-login,.shared-notifications>summary):not(:disabled):hover { border-color:var(--accent); color:var(--accent-text); }
+:root .companion-utility :is(button,.companion-login,.shared-notifications>summary):not(:where(.notification-panel *)):not(:disabled):hover { border-color:var(--accent); color:var(--accent-text); }
 :root .companion-utility .companion-login:hover { background:var(--accent-hover); color:var(--on-accent); }
 .companion-theme-switch { display:flex; gap:4px; }
 :root .companion-utility :is(.companion-theme-button,.notification-toggle,.shared-notifications>summary,.menu-toggle) { width:var(--button-height); padding:0; }

@@ -44,7 +44,8 @@ function mapRosterMember(row) {
     joinedAt: toIso(row.joined_at),
     endedAt: toIso(row.ended_at),
     replacedByUserId: row.replaced_by_user_id,
-    user: row.user_id ? { id: row.user_id, name: row.user_name || row.display_name_snapshot, avatarUrl: avatarUrl(row.user_id, row.avatar_version) } : null
+    // Same public profile contact exposed by views.publicUser for solo players.
+    user: row.user_id ? { id: row.user_id, name: row.user_name || row.display_name_snapshot, telegramContact: row.telegram_contact || "", avatarUrl: avatarUrl(row.user_id, row.avatar_version) } : null
   };
 }
 
@@ -79,7 +80,7 @@ async function insertMember(client, roster, member, actorUserId) {
 
 async function listMembers(client, rosterId, includeHistory = true) {
   const { rows } = await client.query(
-    `SELECT rm.*, u.name AS user_name, u.avatar_version
+    `SELECT rm.*, u.name AS user_name, u.telegram_contact, u.avatar_version
      FROM tournament_team_roster_members rm
      LEFT JOIN users u ON u.id = rm.user_id
      WHERE rm.roster_id = $1 ${includeHistory ? "" : "AND rm.ended_at IS NULL"}
@@ -93,7 +94,7 @@ async function attachMembers(client, rosters, includeHistory = false) {
   if (!rosters.length) return rosters;
   const ids = rosters.map((roster) => roster.id);
   const { rows } = await client.query(
-    `SELECT rm.*, u.name AS user_name, u.avatar_version
+    `SELECT rm.*, u.name AS user_name, u.telegram_contact, u.avatar_version
      FROM tournament_team_roster_members rm
      LEFT JOIN users u ON u.id = rm.user_id
      WHERE rm.roster_id = ANY($1::int[]) ${includeHistory ? "" : "AND rm.ended_at IS NULL"}

@@ -18,6 +18,7 @@ const {
 } = require("./views");
 const { attachTournamentGameDetails } = require("./tournament-game-details");
 const { buildTournamentPreview } = require("../domain/tournaments/preview");
+const { normalizeRoundDeadline } = require("../domain/tournaments/round-deadline");
 const { buildStandings } = require("../domain/tournaments/standings");
 const { matchParticipant, participantResultKey, winnerParticipantIdFromResult, assertMatchWinner, tournamentResultSnapshot } = require("../domain/tournaments/results");
 const { calculateSubmittedResult, parseKillzone } = require("../domain/scoring");
@@ -286,6 +287,7 @@ function applyRoundSetupBody(roundBlueprint, participants, body = {}) {
   });
   return {
     ...roundBlueprint,
+    endsAt: normalizeRoundDeadline(body.endsAt),
     mission: roundMission,
     matches
   };
@@ -1226,6 +1228,7 @@ function roundSetupView(roundBlueprint, tables, participants) {
     id: roundBlueprint.id || null,
     roundNumber: roundBlueprint.roundNumber,
     status: roundBlueprint.status,
+    endsAt: roundBlueprint.endsAt ?? roundBlueprint.metadata?.endsAt ?? null,
     mission: roundBlueprint.mission || null,
     matches: (roundBlueprint.matches || []).map((match, index) => ({
       id: match.id || null,
@@ -1252,6 +1255,7 @@ function pairingsCountForTables(roundBlueprint) {
 
 function roundDraftSetupBody(draft, body = {}) {
   return {
+    endsAt: Object.hasOwn(body, "endsAt") ? body.endsAt : draft.endsAt,
     mission: Object.prototype.hasOwnProperty.call(body, "mission")
       ? body.mission
       : draft.mission || {},
@@ -1487,7 +1491,7 @@ async function persistPreview(client, tournament, preview) {
       tournamentId: tournament.id,
       roundNumber: setupRound.roundNumber,
       status: setupRound.status,
-      metadata: { format: preview.format, mission: setupRound.mission || null },
+      metadata: { format: preview.format, mission: setupRound.mission || null, endsAt: setupRound.endsAt || null },
       startedAt: setupRound.status === ROUND_STATUSES.ACTIVE ? nowIso() : null
     });
     createdRounds.push(round);
@@ -1850,6 +1854,7 @@ async function persistSwissRound(client, tournament, roundBlueprint) {
     metadata: {
       ...(roundBlueprint.metadata || {}),
       format: "swiss",
+      endsAt: roundBlueprint.endsAt || null,
       mission: roundBlueprint.mission || null
     },
     startedAt: nowIso()
@@ -1979,7 +1984,7 @@ async function generateSingleEliminationNextRound(client, tournament, user, roun
 
   await roundsRepo.update(client, nextRound.id, {
     status: ROUND_STATUSES.ACTIVE,
-    metadata: { format: "single_elimination", mission: nextRound.mission || null },
+    metadata: { format: "single_elimination", mission: nextRound.mission || null, endsAt: nextRound.endsAt || null },
     startedAt: nowIso()
   });
   for (const match of nextRound.matches) {
@@ -2041,6 +2046,7 @@ function rollbackRoundDraft(round, matches) {
   return {
     roundId: round.id,
     roundNumber: round.roundNumber,
+    endsAt: round.metadata?.endsAt || null,
     mission: round.metadata?.mission || {},
     matchups: matches
       .filter((match) => !match.isBye)

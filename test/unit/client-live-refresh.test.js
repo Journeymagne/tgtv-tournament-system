@@ -135,7 +135,7 @@ test("both tournament formats poll before the first round and between rounds unt
     h.slug("cup");
     for (const teamMatches of [[], [{ phase: "completed" }]]) {
       h.state.publicTournamentDetail = { tournament: { participantMode, status: "in_progress" }, teamMatches };
-      for (const [tab, interval] of [["matches", 5000], ["standings", 15000], ["stats", 5000]]) {
+      for (const [tab, interval] of [["preview", 15000], ["matches", 5000], ["standings", 15000], ["stats", 5000]]) {
         h.state.tournamentInfoTab = tab;
         assert.equal(h.target().interval, interval);
       }

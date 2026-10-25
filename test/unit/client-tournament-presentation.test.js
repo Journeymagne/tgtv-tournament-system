@@ -29,7 +29,7 @@ test("team roster tab is available to guests and players, and retains the admin 
   const data = { tournament: { id: 1, participantMode: "team" }, rosters: [] };
   for (const me of [null, { id: 2 }, { id: 1, isAdmin: true }]) {
     const ui = publicRosterUi(me);
-    assert.deepEqual(ui.tournamentInfoTabDefinitions(data).map((tab) => tab.id), ["standings", "matches", "stats", "participants"]);
+    assert.deepEqual(ui.tournamentInfoTabDefinitions(data).map((tab) => tab.id), ["preview", "standings", "matches", "stats", "participants"]);
     assert.match(ui.tournamentInfoTabContent("participants", data), /teams.tournament.rostersEmpty/);
     assert.doesNotMatch(ui.tournamentInfoTabContent("participants", data, { admin: true }), me?.isAdmin ? /rostersEmpty/ : /ADMIN EDITOR/);
   }

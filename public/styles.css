@@ -1345,6 +1345,80 @@ button:disabled {
   line-height: 2;
 }
 
+.tournament-round-search {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.tournament-round-search .field { flex: 1; min-width: 0; margin: 0; }
+.tournament-round-search input { width: 100%; min-width: 0; }
+.tournament-round-matches { grid-template-columns: minmax(0, 1fr); }
+.tournament-round-deadline { margin: 0; overflow-wrap: anywhere; }
+.tournament-round-deadline strong { color: var(--muted); }
+.round-deadline-field { max-width: 480px; }
+
+.row-card.tournament-match-disclosure {
+  display: block;
+  min-width: 0;
+  padding: 0;
+}
+
+.tournament-match-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--button-height);
+  padding: 14px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: var(--button-radius);
+}
+
+.tournament-match-disclosure > summary::-webkit-details-marker { display: none; }
+.tournament-match-disclosure > summary::before {
+  content: "";
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  margin: 0 8px 0 4px;
+  border-right: 2px solid var(--accent-text);
+  border-bottom: 2px solid var(--accent-text);
+  transform: rotate(-45deg);
+}
+.tournament-match-disclosure[open] > summary::before { transform: rotate(45deg); }
+.tournament-match-disclosure > summary:hover { background: var(--panel-3); }
+.tournament-match-disclosure > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.tournament-match-disclosure > summary > .row-main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.tournament-match-content { padding: 14px; border-top: 1px solid var(--line); }
+.tournament-match-content > .row-actions { margin-top: 12px; }
+.tournament-match-content .team-match-games { margin-top: 0; }
+
+.tournament-preview { display: grid; gap: 24px; min-width: 0; }
+.tournament-preview-hero { display: grid; gap: 24px; align-items: center; }
+.tournament-preview-hero.has-logo { grid-template-columns: minmax(160px, 280px) minmax(0, 1fr); }
+.tournament-preview-heading { min-width: 0; overflow-wrap: anywhere; }
+.tournament-preview-heading h2 { margin: 0; }
+.tournament-preview-logo .tournament-logo { width: 100%; height: auto; max-height: 320px; object-fit: contain; }
+.tournament-preview .tournament-metrics { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.tournament-preview-round { display: grid; gap: 12px; min-width: 0; padding: 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
+.tournament-preview-round .public-round-title { flex-wrap: wrap; }
+.tournament-preview-round h3, .tournament-preview-map h4, .tournament-preview-map p { margin: 0; }
+.tournament-preview-maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 14px; }
+.tournament-preview-maps.is-individual { grid-template-columns: minmax(0, 1fr); }
+.tournament-preview-map { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; }
+.tournament-preview-map .team-table-image { width: 100%; max-width: 100%; max-height: 420px; object-fit: contain; }
+.tournament-preview .public-tournament-description { max-width: 100%; margin: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 600px) {
+  .tournament-preview-hero.has-logo { grid-template-columns: minmax(0, 1fr); }
+  .tournament-preview-logo { width: min(240px, 100%); justify-self: center; }
+  .tournament-match-disclosure > summary { flex-wrap: wrap; gap: 8px; padding: 12px; }
+  .tournament-match-disclosure > summary > .row-main { flex-basis: calc(100% - 40px); }
+  .tournament-match-disclosure > summary > .small-button,
+  .tournament-match-disclosure > summary > .status { margin-left: 28px; }
+}
+
 .match-result-state {
   display: inline-block;
   max-width: 100%;
@@ -2822,6 +2896,11 @@ tr:last-child td {
   overflow-x: auto;
 }
 
+.tournament-info-tabs .tab {
+  flex: 1 0 auto;
+  white-space: nowrap;
+}
+
 .tournament-participant-admin {
   display: grid;
   gap: 12px;
@@ -4011,6 +4090,7 @@ tr:last-child td {
 
 .notification-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .notification-item {
@@ -4019,6 +4099,9 @@ tr:last-child td {
   grid-template-columns: 34px minmax(0, 1fr);
   gap: 11px;
   width: 100%;
+  min-width: 0;
+  height: auto;
+  white-space: normal;
   padding: 14px 16px;
   border: 0;
   border-bottom: 1px solid var(--line);
@@ -4064,6 +4147,7 @@ tr:last-child td {
 .notification-item-copy {
   min-width: 0;
   padding-right: 10px;
+  overflow-wrap: anywhere;
 }
 
 .notification-item-title,

@@ -109,6 +109,30 @@ test("images survive terrain changes; compact replies do not repeat image data o
   assert.equal(cached.status, 304);
 });
 
+test("team deadlines persist through prepared rounds and rollback; roster search uses the existing public contact", async () => {
+  const tournament = await cup();
+  const groups = [await club(1), await club(2), await club(3), await club(4)];
+  for (const group of groups) await teams.registerRoster(context(tournament, group.body));
+  const player = groups[0].people[0];
+  await client.query("UPDATE users SET telegram_contact = '@public_contact' WHERE id = $1", [player.id]);
+  await cups.closeRegistration(context(tournament));
+  const endsAt = "2026-10-30T19:30:00.000Z";
+  await assert.rejects(() => cups.generateNextRoundAdmin(context(tournament, { tables: tableSetup, endsAt: "invalid" })), error => error.status === 400);
+  assert.equal((await cups.getAdmin(context(tournament))).rounds.length, 0);
+  const prepared = await cups.generateNextRoundAdmin(context(tournament, { tables: tableSetup, endsAt }));
+  assert.equal(prepared.rounds[0].metadata.endsAt, endsAt);
+  assert.equal((await cups.previewNextRoundAdmin(context(tournament))).round.endsAt, endsAt);
+  await cups.startAdmin(context(tournament));
+  const publicData = await cups.getPublic({ client, user: null, params: { slug: tournament.slug } });
+  assert.equal(publicData.rounds[0].metadata.endsAt, endsAt);
+  assert.equal(publicData.rosters.flatMap(roster => roster.members).find(member => member.userId === player.id).user.telegramContact, '@public_contact');
+  await cups.rollbackLatestRoundAdmin(context(tournament));
+  assert.equal((await cups.previewNextRoundAdmin(context(tournament))).round.endsAt, endsAt);
+  assert.equal((await cups.generateNextRoundAdmin(context(tournament))).rounds[0].metadata.endsAt, endsAt);
+  await cups.rollbackLatestRoundAdmin(context(tournament));
+  assert.equal((await cups.generateNextRoundAdmin(context(tournament, { endsAt: null }))).rounds[0].metadata.endsAt, null);
+});
+
 test("revision observes committed changes and stale admin edits are rejected", async () => {
   const tournament = await cup();
   const before = await live.revision({ client });

@@ -2,6 +2,7 @@ const { canManageTournament, tournamentPermissions } = require("../domain/access
 const crypto = require("node:crypto");
 const { HttpError, ValidationError } = require("../http/io");
 const { requirePositiveIntId } = require("./params");
+const { normalizeRoundDeadline } = require("../domain/tournaments/round-deadline");
 const pairingWarnings = require("./pairing-warnings");
 const { clearPreparedRounds, requirePreparedFirstRound } = require("./tournament-preparation");
 const tournamentsRepo = require("../db/repositories/tournaments");
@@ -594,7 +595,8 @@ async function previewNextRound(client, tournament) {
   }
   return {
     tournament: tournamentSummaryView(tournament),
-    round: { ...blueprint, matches: pairings, missions: tournament.pairingType === "doubles"
+    round: { ...blueprint, endsAt: tournament.roundDraft?.endsAt || (tournament.status === "registration_closed" ? rounds[0]?.metadata?.endsAt : null) || null,
+      matches: pairings, missions: tournament.pairingType === "doubles"
       ? normalizeRoundMissions(tournament.roundDraft?.missions || rounds.at(-1)?.metadata?.missions || CRIT_OPS.slice(0, 4), "doubles")
       : CRIT_OPS.map((critOp) => ({ critOp })) },
     tables: tables.map(tournamentTableView), teamRound: true, reuseLines, lines: !sharedTables,
@@ -604,6 +606,7 @@ async function previewNextRound(client, tournament) {
 }
 
 async function generateRound(client, tournament, user, body = {}) {
+  const endsAt = normalizeRoundDeadline(Object.hasOwn(body, "endsAt") ? body.endsAt : tournament.roundDraft?.endsAt);
   const missions = usesIndividualTeamPoints(tournament)
     ? normalizeRoundMissions(body.missions, tournament.pairingType) : CRIT_OPS.map((critOp) => ({ critOp }));
   const { blueprint, rosters, matches } = await buildRoundPreview(client, tournament, body);
@@ -621,7 +624,7 @@ async function generateRound(client, tournament, user, body = {}) {
     roundNumber: blueprint.roundNumber,
     status: prepared ? "not_ready" : "active",
     generatedBy: "admin",
-    metadata: { participantMode: "team", pairingType: tournament.pairingType, teamSize: size, scoringVersion: 1, missions, tables, lines: !sharedTables },
+    metadata: { participantMode: "team", pairingType: tournament.pairingType, teamSize: size, scoringVersion: 1, missions, tables, lines: !sharedTables, endsAt },
     startedAt: prepared ? null : nowIso()
   });
   for (const pairing of blueprint.pairings) {
@@ -643,7 +646,7 @@ async function generateRound(client, tournament, user, body = {}) {
   if (!prepared && blueprint.pairings.every((pairing) => pairing.rosterBId === null)) {
     await roundsRepo.update(client, round.id, { status: "completed", completedAt: nowIso() });
   }
-  await audit(client, tournament, user, prepared ? "team_first_round_prepare" : "team_round_generate", { entityType: "round", entityId: round.id, metadata: { blueprint, missions, tables } });
+  await audit(client, tournament, user, prepared ? "team_first_round_prepare" : "team_round_generate", { entityType: "round", entityId: round.id, metadata: { blueprint, missions, tables, endsAt } });
   if (tournament.roundDraft) await tournamentsRepo.update(client, tournament.id, { roundDraft: null });
   return tournamentData(client, { ...tournament, roundDraft: null, teamTablesLocked: true }, user);
 }
@@ -1761,7 +1764,7 @@ async function rollbackLatestRound(client, tournament, user) {
     throw new HttpError(409, "Reset submitted team-match results before rolling back this round");
   }
   const draft = { roundNumber: round.roundNumber, tables: round.metadata?.tables || await tablesRepo.listByTournament(client, tournament.id),
-    missions: round.metadata?.missions,
+    missions: round.metadata?.missions, endsAt: round.metadata?.endsAt || null,
     matchups: matches.map(match => ({ rosterAId: match.rosterAId, rosterBId: match.rosterBId, lineNumber: match.lineNumber })) };
   await tournamentsRepo.update(client, tournament.id, { roundDraft: draft });
   await gamesRepo.removeBySourceIds(client, "team_match_game", matches.map((match) => match.id));

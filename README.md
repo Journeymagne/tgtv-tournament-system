@@ -94,6 +94,13 @@ Additional factions are optional in solo, WTC, Classic and Doubles events; match
 select one registered faction. Startup migration **053_tournament_factions**
 preserves the single-faction default for existing tournaments.
 
+Tournament pages open on **Tournament Preview**, with the event logo, description,
+rules and the current round's maps, mission and optional deadline. Each round has
+a nickname, team and public Telegram contact search; match details start collapsed.
+TTS organizers can set a deadline while generating or editing a prepared round.
+Times are entered and displayed in the viewer's local timezone and stored as UTC
+in round metadata, including rollback drafts. No database migration is required.
+
 Tournament administrators can register team rosters with empty proxies, including
 teams with fewer than three accounts. Proxies can later be replaced by team
 members. Migration **046_team_roster_proxies** stores their identity; see

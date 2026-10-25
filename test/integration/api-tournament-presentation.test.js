@@ -43,6 +43,43 @@ async function tournament(overrides = {}) {
   return saved;
 }
 
+test("optional solo round deadline survives preparation, start and rollback, and rejects invalid edits atomically", async () => {
+  for (const format of ["swiss", "single_elimination"]) {
+    const cup = await tournament({ format, singleEliminationSize: 8, venueMode: "tts" });
+    for (let index = 0; index < (format === "single_elimination" ? 8 : 4); index++) {
+      const player = await register(`${format}Player${index}`);
+      assert.equal((await player.http.post(`/api/tournaments/${cup.id}/join`, { faction: "Kommandos" })).status, 200);
+    }
+    const base = `/api/admin/tournaments/${cup.id}`;
+    const guest = createClient(server.baseUrl);
+    const endsAt = "2026-10-30T19:30:00.000Z";
+    assert.equal((await admin.http.post(`${base}/registration/close`)).status, 200);
+    const noDeadline = await admin.http.post(`${base}/rounds/next`);
+    assert.equal(noDeadline.status, 200, JSON.stringify(noDeadline.body));
+    assert.equal(noDeadline.body.rounds[0].metadata.endsAt, null);
+    const prepared = await admin.http.post(`${base}/rounds/next`, {
+      endsAt: "2026-10-30T23:30:00+04:00", mission: { killzone: "Volkus", layout: 3, critOp: "Loot" }
+    });
+    assert.equal(prepared.status, 200, JSON.stringify(prepared.body));
+    assert.equal(prepared.body.rounds[0].metadata.endsAt, endsAt);
+    assert.equal((await admin.http.get(`${base}/rounds/next/preview`)).body.round.endsAt, endsAt);
+    const invalid = await admin.http.post(`${base}/rounds/next`, { endsAt: "2026-10-30T19:30" });
+    assert.equal(invalid.status, 400);
+    assert.equal((await admin.http.get(base)).body.rounds[0].id, prepared.body.rounds[0].id);
+    assert.equal((await guest.post(`${base}/rounds/next`, { endsAt })).status, 401);
+    const started = await admin.http.post(`${base}/start`);
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    const publicRound = (await guest.get(`/api/tournaments/${cup.slug}`)).body.rounds[0];
+    assert.equal(publicRound.metadata.endsAt, endsAt);
+    assert.equal(publicRound.metadata.mission.layout, 3);
+    assert.equal((await admin.http.del(`${base}/rounds/latest`)).status, 200);
+    assert.equal((await admin.http.get(`${base}/rounds/next/preview`)).body.round.endsAt, endsAt);
+    const regenerated = await admin.http.post(`${base}/rounds/next`);
+    assert.equal(regenerated.status, 200, JSON.stringify(regenerated.body));
+    assert.equal(regenerated.body.rounds[0].metadata.endsAt, endsAt);
+  }
+});
+
 test("tournament logos persist on creation, lists, details and updates, and can be removed", async () => {
   const cup = await tournament({ logoData: PNG });
   const guest = createClient(server.baseUrl);
