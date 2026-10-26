@@ -2,6 +2,13 @@
   'use strict';
   // The authored Russian question bank is deliberately excluded from UI translation.
   window.KTUI.register('training', { pairs: [
+    ['Пора пройти переаттестацию', 'Time to recertify'], ['Пройти переаттестацию →', 'Recertify →'], ['Прогресс переаттестации', 'Recertification progress'],
+    ['База обновилась. Ваше звание и заработанный опыт сохранены. Подтвердите знания по актуальным вопросам в обычных тренировках.', 'The course has changed. Your title and earned XP are retained. Confirm your knowledge of the current questions in regular training sessions.'],
+    ['Звание сохранено. Пройдите переаттестацию по актуальной базе.', 'Title retained. Recertify against the current course.'],
+    ['Решено в актуальной базе', 'Solved in the current course'], ['Закреплено в актуальной базе', 'Reinforced in the current course'],
+    ['Заслуженное звание и XP сохраняются. При расширении базы может потребоваться переаттестация.', 'Earned titles and XP are retained. Course expansion may require recertification.'],
+    ['Вопросы «СЛОП» и удалённые вопросы не входят в требования курса. Их прежние ответы и XP остаются у вас.', 'Slop and deleted questions are excluded from course requirements. Your previous answers and XP are retained.'],
+    ['Шкала курса учитывает только действующие вопросы. XP за снятые вопросы сохраняются в общем опыте.', 'Course progress counts active questions only. XP from withdrawn questions remains in lifetime XP.'],
     ['Модерация', 'Moderation'], ['МОДЕРАЦИЯ', 'MODERATION'], ['Модерация вопросов', 'Question moderation'],
     ['Слоп', 'Slop'], ['Этот вопрос СЛОП', 'This question is SLOP'], ['· Оспорить вопрос', '· Report question'], ['Слоп · Оспорить вопрос', 'Slop · Report question'],
     ['Войти и оспорить · Слоп', 'Sign in to report · Slop'], ['На модерации', 'Under review'], ['В пуле', 'In the pool'],
@@ -85,6 +92,10 @@
     ['Почему так', 'Why this answer'], ['Ничего не найдено', 'No results'], ['Подходящих ошибок нет', 'No matching mistakes'], ['Сбросить фильтры', 'Reset filters'],
     ['Откуда берутся правила', 'Rules sources'], ['О базе правил ↗', 'About the rules bank ↗']
   ], patterns: [
+    [/^Ещё (\d+) XP курса до переаттестации$/, '$1 course XP to recertify'],
+    [/^Ещё (\d+) XP курса до следующего ранга$/, '$1 course XP to the next rank'],
+    [/^За всё время: решено (\d+), закреплено (\d+)\. Ответы на снятые вопросы сохранены\.$/, 'All time: $1 solved, $2 reinforced. Answers to withdrawn questions are retained.'],
+    [/^«Судья» открывается после двух верных ответов на каждый вопрос актуальной базы: (\d+) закреплённых вопросов и (\d+) XP курса\.$/, 'Judge unlocks after two correct answers to every active question: $1 reinforced questions and $2 course XP.'],
     [/^«Судья» открывается после двух верных ответов на каждый вопрос базы: (\d+) закреплённых вопросов и (\d+) XP\.$/, 'Judge unlocks after two correct answers to every question in the bank: $1 reinforced questions and $2 XP.'],
     [/^Ещё (\d+) XP до следующего ранга$/, '$1 XP to the next rank'],
     [/^До следующего ранга: (\d+) XP$/, 'Next rank in $1 XP'],

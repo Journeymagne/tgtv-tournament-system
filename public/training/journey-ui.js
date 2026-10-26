@@ -11,12 +11,16 @@
     const en = locale === 'en';
     const rank = en ? journey.rank.en : journey.rank.name;
     const next = journey.next && (en ? journey.next.en : journey.next.name);
+    const recertifying = journey.recertification;
+    const progressLabel = recertifying ? (en ? 'Recertification progress' : 'Прогресс переаттестации') : (en ? 'Progress to next rank' : 'Прогресс до следующего ранга');
+    const note = recertifying ? (en ? `Title retained · ${journey.recertificationRemaining} course XP to recertify` : `Звание сохранено · ещё ${journey.recertificationRemaining} XP курса до переаттестации`)
+      : next ? (en ? `${journey.remaining} course XP to ${next}` : `Ещё ${journey.remaining} XP курса до ранга «${next}»`) : (en ? 'All six ranks unlocked' : 'Все шесть рангов открыты');
     return `<a class="kt-training-achievement ${compact?'is-compact':''}" href="${esc(href)}" data-ui-skip>
       <div class="kt-achievement-seal" data-tier="${journey.rank.tier}">${emblem(journey.rank.tier)}<span>${String(journey.rank.tier).padStart(2,'0')} / 06</span></div>
       <div class="kt-achievement-copy"><span class="kt-achievement-label">${en?'EVOLVING ACHIEVEMENT':'РАСТУЩАЯ АЧИВКА'}</span><strong>Know Thy Kill Team</strong><span class="kt-achievement-rank">${esc(rank)}</span>
-      <div class="kt-achievement-progress"><span>${journey.xp} XP</span><span>${next?`${journey.percent}%`:(en?'MAX RANK':'ВЫСШИЙ РАНГ')}</span></div>
-      <div class="kt-xp-track" role="progressbar" aria-label="${en?'Progress to next rank':'Прогресс до следующего ранга'}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${journey.percent}"><span style="width:${journey.percent}%"></span></div>
-      <small>${next?(en?`${journey.remaining} XP to ${esc(next)}`:`Ещё ${journey.remaining} XP до ранга «${esc(next)}»`):(en?'All six ranks unlocked':'Все шесть рангов открыты')}</small></div><span class="kt-achievement-arrow" aria-hidden="true">↗</span></a>`;
+      <div class="kt-achievement-progress"><span>${journey.xp} XP</span><span>${recertifying?(en?'RECERTIFICATION':'ПЕРЕАТТЕСТАЦИЯ'):next?`${journey.percent}%`:(en?'MAX RANK':'ВЫСШИЙ РАНГ')}</span></div>
+      <div class="kt-xp-track" role="progressbar" aria-label="${progressLabel}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${journey.percent}"><span style="width:${journey.percent}%"></span></div>
+      <small>${esc(note)}</small></div><span class="kt-achievement-arrow" aria-hidden="true">↗</span></a>`;
   }
   window.KTTrainingJourneyUI = { emblem, achievement };
 })();

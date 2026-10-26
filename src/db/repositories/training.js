@@ -46,29 +46,61 @@ async function repairActive(client, userId, profile, catalog) {
   }
   return active;
 }
+async function syncJourney(client, profile, catalog) {
+  const journey = progression(profile.stats, catalog.questions, profile.rank_tier);
+  const key = journey.recertification ? `${journey.rank.tier}:${catalog.fingerprint}` : null;
+  const notify = key && key !== profile.recertification_key;
+  if (journey.rank.tier !== profile.rank_tier || notify) {
+    await client.query(`UPDATE knowthykt.training_profiles SET rank_tier=$2,recertification_key=$3 WHERE user_id=$1`,
+      [profile.user_id, journey.rank.tier, notify ? key : profile.recertification_key]);
+    profile.rank_tier = journey.rank.tier;
+    if (notify) profile.recertification_key = key;
+  }
+  if (notify) {
+    // A fixed ID and DO NOTHING preserve read state even if this course is
+    // withdrawn/restored again or the same profile is opened on another device.
+    const payload = { id: 'knowthykt_recertification:' + key, type: 'knowthykt_recertification',
+      title: 'Know Thy Kill Team · Переаттестация',
+      excerpt: `База вопросов обновилась. Звание «${journey.rank.name}» и ${journey.xp} XP сохранены. Подтвердите звание по актуальным вопросам: осталось ${journey.recertificationRemaining} XP курса.`,
+      href: '/knowthykt#journey', createdAt: new Date().toISOString() };
+    await client.query(`INSERT INTO knowthykt.notification_messages(user_id,notification_id,payload,created_at)
+      VALUES($1,$2,$3,$4) ON CONFLICT(user_id,notification_id) DO NOTHING`,
+      [profile.user_id, payload.id, JSON.stringify(payload), payload.createdAt]);
+  }
+  return journey;
+}
+async function syncAllJourneys(client, catalog) {
+  // Caller holds the exclusive bank lock. Preserve titles before changing the
+  // curriculum, then notify affected accounts after it changes, including offline users.
+  const { rows } = await client.query('SELECT * FROM knowthykt.training_profiles ORDER BY user_id FOR UPDATE');
+  for (const profile of rows) await syncJourney(client, profile, catalog);
+}
 async function state(client, user, profile, bankVersion, catalog) {
   const active = await repairActive(client, user.id, profile, catalog);
+  const journey = await syncJourney(client, profile, catalog);
   const { rows: history } = await client.query(`SELECT * FROM training_sessions WHERE user_id=$1
     AND status<>'active' ORDER BY started_at DESC,id DESC LIMIT 100`, [user.id]);
   return {
     bankVersion, bankRevision: catalog.revision, user: { id: user.id, name: user.name, isAdmin: Boolean(user.isAdmin) }, revision: profile.revision,
-    stats: profile.stats, completedCount: profile.completed_count, journey: progression(profile.stats, catalog.curriculum),
+    stats: profile.stats, completedCount: profile.completed_count, journey,
     active: sessionView(active), history: history.map(sessionView), historyLimit: 100
   };
 }
 
 // Public achievement only: never include individual answers, sessions or timestamps.
 async function publicJourney(client, userId) {
-  let stats = {};
+  let stats = {}, retainedTier = 1;
   if (userId) {
-    const { rows: [row] } = await client.query(`SELECT p.stats FROM users u
-      LEFT JOIN knowthykt.public_progress p ON p.user_id=u.id WHERE u.id=$1`, [userId]);
+    const { rows: [row] } = await client.query(`SELECT p.stats,r.rank_tier FROM users u
+      LEFT JOIN knowthykt.public_progress p ON p.user_id=u.id
+      LEFT JOIN knowthykt.public_ranks r ON r.user_id=u.id WHERE u.id=$1`, [userId]);
     if (!row) return null;
     stats = row.stats;
+    retainedTier = row.rank_tier;
   }
-  const { rows } = await client.query("SELECT * FROM knowthykt.public_questions WHERE status<>'deleted' ORDER BY id");
-  const { xp, rank, next, remaining, percent, total, solved, mastered } = progression(stats, rows.map(catalogStore.view));
-  return { xp, rank, next, remaining, percent, total, solved, mastered };
+  const { rows } = await client.query('SELECT * FROM knowthykt.public_questions ORDER BY id');
+  const { xp, courseXp, rank, next, remaining, percent, total, solved, mastered, recertification, recertificationRemaining } = progression(stats, rows.map(catalogStore.view), retainedTier);
+  return { xp, courseXp, rank, next, remaining, percent, total, solved, mastered, recertification, recertificationRemaining };
 }
 
-module.exports = { sessionView, lockProfile, findSession, activeSession, repairActive, saveProfile, state, publicJourney };
+module.exports = { sessionView, lockProfile, findSession, activeSession, repairActive, saveProfile, state, publicJourney, syncJourney, syncAllJourneys };

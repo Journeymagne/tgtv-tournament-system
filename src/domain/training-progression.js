@@ -13,10 +13,8 @@ const ranks = [
 ];
 
 const calculateProgression = require('../../public/training/progression');
-function progression(stats = {}, curriculum = questions) {
-  const maximum = curriculum.reduce((total, question) => total + question.difficulty * 20, 0);
-  const thresholds = [0, .04, .16, .36, .64, 1];
-  return calculateProgression(curriculum, ranks.map((rank, i) => ({ ...rank, xp: Math.round(maximum * thresholds[i]) })), stats);
+function progression(stats = {}, catalog = questions, retainedTier = 1) {
+  return calculateProgression(catalog, ranks, stats, retainedTier);
 }
 
 module.exports = { ranks, progression };

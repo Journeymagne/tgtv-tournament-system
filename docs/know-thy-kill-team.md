@@ -24,15 +24,35 @@ The first **two** correct answers to each question each earn `difficulty × 10`
 XP. A question is reinforced after two correct answers. Later correct answers
 earn no more XP; mistakes never remove XP. With the full 300-question curriculum,
 reinforcing every question gives 15,000 XP. The 200 reviewed additions are included.
-Questions under review remain part of the curriculum but are not drawn in sessions.
-Deleted questions leave the curriculum; thresholds use 0 / 4 / 16 / 36 / 64 / 100%
-of its current maximum. Existing checked answers are never rescored after an edit.
+Only active questions belong to the curriculum. Both review (Slop) and deleted
+questions are excluded from session draws, totals and qualification requirements.
+Thresholds use 0 / 4 / 16 / 36 / 64 / 100% of the active course maximum; the table
+above assumes all 300 questions are active. Existing checked answers are never rescored.
 
 `public/training/progression.js` is the shared browser/server calculation,
 called by the server through `src/domain/training-progression.js`.
-It derives credit from existing `training_profiles.stats`, including earlier
-answers, without rewriting history, a new migration or additional awards rows.
-Question bank changes must review progression thresholds as well as bank version.
+Lifetime XP is frozen in each question's `training_profiles.stats[id].xp` and
+includes withdrawn questions. Current course XP uses only active questions and
+cannot be replaced by credit from archived questions. Both counts are displayed;
+all-time solved/reinforced totals and answer history remain available.
+
+Migration `064_training_retained_ranks` persists the highest earned `rank_tier`.
+Titles never decrease. If the retained title exceeds the currently qualified
+rank, the journey and profile achievement show **Переаттестация** until ordinary
+training satisfies the current requirements. Companion delivers one inbox
+notification per account/title/course fingerprint, including to offline users.
+Repeated reads, retries and withdrawing/restoring the same course do not duplicate it.
+Reports and moderation preserve account titles before changing the course and
+synchronize them afterwards, under the bank lock. Future catalogue-import migrations
+must likewise call `syncAllJourneys` before and after altering the course.
+
+The migration recovers 100-question-era titles from saved answers dated before
+migration 062, and preserves titles earned in the expanded course. Later answers
+cannot retroactively earn a legacy title. It backfills XP without deleting sessions
+or changing answer correctness. Guests use the same formulas and retain titles
+in their browser; legacy recovery uses their remaining local history/dates and
+cannot reconstruct history that was already cleared. Guest notices appear on
+the journey; only accounts receive Companion inbox notifications.
 
 The shared `journey-ui.js` / `journey-shared.css` achievement shows the current
 rank, evolving emblem and progress bar on the journey, session results, player

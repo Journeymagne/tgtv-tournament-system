@@ -60,10 +60,13 @@ must provision roles again after setting `KNOWTHYKT_DB_PASSWORD`.
 The trainer opens with a personal journey through six ranks, from Нубик to
 Судья. XP rewards the first two correct answers to each question; a shared
 evolving achievement updates on the journey and in the player's Companion
-profile. Rank thresholds are 0 / 600 / 2,400 / 5,400 / 9,600 / 15,000 XP.
-Judge requires two correct answers to every question in the current bank;
-additional repetitions award no XP. Earlier answers, guest progress and active
-100-question-bank sessions remain valid; no new migration is needed.
+profile. With all 300 questions active, rank thresholds are
+0 / 600 / 2,400 / 5,400 / 9,600 / 15,000 course XP. Slop and deleted questions
+leave the course requirements, while earned XP and answer history remain.
+Migration **064_training_retained_ranks** retains the highest earned title,
+restores legacy titles from dated answers and notifies affected accounts about
+recertification. A new Judge title requires two correct answers to every active
+question; further repetitions award no XP. Earlier answers and guest progress remain valid.
 See [bank provenance and version compatibility](src/training-data/README.md).
 Migration **062_training_moderation** adds persistent Slop reports and the admin
 moderation tab. A report immediately withdraws the question; administrators can

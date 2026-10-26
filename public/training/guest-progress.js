@@ -16,6 +16,21 @@
     const empty = () => ({ bankVersion: bank.version, user: null, guest: true, revision: 0,
       active: null, history: [], stats: {}, completedCount: 0, historyLimit: 100 });
     let memory = empty(), persistent = true;
+    function prepare(value) {
+      let changed = false;
+      if (value.progressionVersion !== 2) {
+        const restored = window.KTTrainingProgressHistory.bootstrap(value.stats,
+          [...value.history, ...(value.active ? [value.active] : [])], bank.questions, bank.legacyRankCutoff);
+        const previous = window.KTTrainingProgression(bank.questions.filter(q => q.status !== 'deleted').map(q => ({ ...q, status: 'active' })), bank.journey.ranks, value.stats);
+        value.stats = restored.stats;
+        value.rankTier = Math.max(value.rankTier || 1, restored.legacyTier, previous.rank.tier);
+        value.progressionVersion = 2;
+        changed = true;
+      }
+      const next = window.KTTrainingProgression(bank.questions, bank.journey.ranks, value.stats, value.rankTier);
+      if (value.rankTier !== next.rank.tier) { value.rankTier = next.rank.tier; changed = true; }
+      return changed;
+    }
     function read() {
       if (!persistent) return structuredClone(memory);
       try {
@@ -31,12 +46,13 @@
     }
     function response(value) {
       const state = structuredClone(value);
-      state.journey = window.KTTrainingProgression(bank.questions.filter(q => q.status !== 'deleted'), bank.journey.ranks, state.stats);
+      state.journey = window.KTTrainingProgression(bank.questions, bank.journey.ranks, state.stats, state.rankTier);
       state.bankRevision = bank.revision;
       state.localPersistence = persistent;
       return { state, bank };
     }
     function save(value) {
+      prepare(value);
       value.revision += 1;
       value.history = value.history.slice(0, 100);
       memory = structuredClone(value);
@@ -57,6 +73,7 @@
         const value = read();
         if (snapshots.reconcile(value.active, bank.questions, makeItem, pool => shuffle(pool)[0])) save(value);
         if (body.revision !== value.revision) conflict();
+        prepare(value);
         action(value);
         return save(value);
       };
@@ -83,7 +100,8 @@
         await refreshBank();
         const readCurrent = () => {
           const value = read();
-          return snapshots.reconcile(value.active, bank.questions, makeItem, pool => shuffle(pool)[0]) ? save(value) : response(value);
+          const repaired = snapshots.reconcile(value.active, bank.questions, makeItem, pool => shuffle(pool)[0]);
+          return prepare(value) || repaired ? save(value) : response(value);
         };
         return navigator.locks ? navigator.locks.request(key, readCurrent) : readCurrent();
       },
@@ -107,7 +125,8 @@
         item.correct = body.selected === questions.get(item.questionId).answer;
         item.answeredAt = new Date().toISOString();
         const prior = value.stats[item.questionId] || { attempts: 0, correct: 0 };
-        value.stats[item.questionId] = { attempts: prior.attempts + 1, correct: prior.correct + Number(item.correct),
+        value.stats[item.questionId] = { ...prior, attempts: prior.attempts + 1, correct: prior.correct + Number(item.correct),
+          xp: (prior.xp || 0) + (item.correct && prior.correct < 2 ? question.difficulty * 10 : 0),
           lastCorrect: item.correct, lastAt: item.answeredAt };
       }),
       advance: (id, body) => change(body, value => {

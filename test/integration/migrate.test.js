@@ -94,6 +94,39 @@ test("training upgrades a released 1.4.x database without replaying service migr
   assert.deepEqual(await migrate(pool), []);
 });
 
+test('retained ranks migration restores legacy titles from dated history without promoting new players', async () => {
+  await pool.query('CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
+  for (const migration of MIGRATIONS.filter(m => m.version < 64)) {
+    await migration.up(pool);
+    await pool.query('INSERT INTO schema_migrations(version,name) VALUES($1,$2)', [migration.version, migration.name]);
+  }
+  await pool.query("UPDATE schema_migrations SET applied_at='2026-10-22T20:46:00Z' WHERE version=62");
+  const questions = require('../../src/domain/training').questions.slice(0, 100);
+  const stats = Object.fromEntries(questions.map(q => [q.id, { attempts: 3, correct: 2, lastAt: '2026-10-24T00:00:00Z' }]));
+  const ids = [];
+  for (const [name, answeredAt] of [['Legacy', '2026-10-21T00:00:00Z'], ['Modern', '2026-10-23T00:00:00Z']]) {
+    const id = (await pool.query('INSERT INTO users(name,name_key,password_hash,rating) VALUES($1,$1,$2,1000) RETURNING id', [name, 'test:hash'])).rows[0].id;
+    ids.push(id);
+    await pool.query('INSERT INTO training_profiles(user_id,stats,completed_count) VALUES($1,$2,10)', [id, JSON.stringify(stats)]);
+    const items = [...questions, ...questions].map(q => ({ questionId: q.id, question: q, optionOrder: [0, 1, 2, 3], selected: q.answer, correct: true, answeredAt }));
+    for (let i = 0; i < items.length; i += 20) await pool.query(`INSERT INTO training_sessions(id,user_id,bank_version,mode,status,cursor,items,started_at,finished_at)
+      VALUES($1,$2,'2026-10-15.1','mixed','completed',19,$3,$4,$4)`, [randomUUID(), id, JSON.stringify(items.slice(i, i + 20)), answeredAt]);
+  }
+  assert.deepEqual(await migrate(pool), [64]);
+  const { rows } = await pool.query('SELECT * FROM training_profiles ORDER BY user_id');
+  assert.equal(rows[0].rank_tier, 6);
+  assert.equal(rows[1].rank_tier, 3);
+  for (const profile of rows) {
+    assert.equal(Object.values(profile.stats).reduce((n, s) => n + s.xp, 0), 5000);
+    assert.equal(profile.completed_count, 10);
+    assert.equal(profile.revision, 0);
+  }
+  const notices = await pool.query("SELECT user_id FROM knowthykt.notification_messages WHERE payload->>'type'='knowthykt_recertification'");
+  assert.deepEqual(notices.rows.map(n => n.user_id), [ids[0]]);
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS count FROM training_sessions')).rows[0].count, 20);
+  assert.deepEqual(await migrate(pool), []);
+});
+
 test("training service migration preserves existing preview progress and queued notifications", async () => {
   await migrate(pool);
   const user = (await pool.query("INSERT INTO users(name,name_key,password_hash,rating) VALUES('Preview','preview','salt:hash',1000) RETURNING id")).rows[0];

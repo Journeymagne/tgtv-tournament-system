@@ -74,12 +74,57 @@ test('report requires account/CSRF, withdraws globally and replaces unanswered s
   assert.equal((await current(q.id)).status, 'review');
   assert.notEqual(result.state.active.items[0].questionId, q.id);
   assert.deepEqual(result.state.stats, {});
+  assert.equal(result.state.journey.total, bank.questions.length - 1, 'Slop leaves curriculum immediately');
   assert.equal(new Set(result.state.active.items.map(item => item.questionId)).size, 20);
   assert.equal((await request(`sessions/${state.active.id}/answers`, user, { revision: state.revision, questionId: q.id, questionVersion: q.version, selected: 0 })).status, 409);
   assert.equal((await request(`questions/${q.id}/report`, user, body)).status, 200);
   assert.equal((await request(`moderation/${q.id}`, admin)).events.filter(event => event.action === 'report').length, 1);
   const next = await start(user);
   assert.ok(next.state.active.items.every(item => item.questionId !== q.id));
+});
+
+test('earned XP and titles survive Slop; restoration requests recertification once across devices', async () => {
+  const user = await actor(), admin = await actor(true);
+  const stats = Object.fromEntries(bank.questions.map(q => [q.id, { attempts: 2, correct: 2, xp: q.difficulty * 20 }]));
+  const missing = bank.questions[0];
+  delete stats[missing.id];
+  await pool.query('UPDATE knowthykt.training_profiles SET stats=$2 WHERE user_id=$1', [user.id, JSON.stringify(stats)]);
+  const before = (await request('progress', user)).state;
+  assert.equal(before.journey.rank.id, 'tryhard');
+  await request(`questions/${missing.id}/report`, user, report(await current(missing.id)));
+  const reduced = (await request('progress', user)).state;
+  assert.equal(reduced.journey.rank.id, 'judge');
+  assert.equal(reduced.journey.total, bank.questions.length - 1);
+  await request(`moderation/${missing.id}`, admin, decision(await current(missing.id), 'restore'));
+  const pending = (await request('progress', user)).state;
+  assert.equal(pending.journey.rank.id, 'judge');
+  assert.equal(pending.journey.recertification, true);
+  assert.equal(pending.journey.xp, before.journey.xp);
+  const notifications = () => pool.query("SELECT * FROM knowthykt.notification_messages WHERE user_id=$1 AND payload->>'type'='knowthykt_recertification'", [user.id]);
+  const notices = (await notifications()).rows;
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].payload.href, '/knowthykt#journey');
+  await request('progress', user);
+  await request('progress', user);
+  assert.equal((await notifications()).rows.length, 1);
+  assert.equal((await request('progress', user)).state.revision, pending.revision);
+  await request(`questions/${missing.id}/report`, user, report(await current(missing.id)));
+  await request(`moderation/${missing.id}`, admin, decision(await current(missing.id), 'restore'));
+  assert.equal((await notifications()).rows.length, 1, 'restoring the same course does not resend a read notification');
+  const credited = await current(bank.questions[1].id);
+  await request(`questions/${credited.id}/report`, user, report(credited));
+  const withdrawn = (await request('progress', user)).state;
+  assert.equal(withdrawn.journey.xp, before.journey.xp);
+  assert.deepEqual(withdrawn.stats[credited.id], stats[credited.id]);
+  const achievement = await require('../../src/db/repositories/training').publicJourney(pool, user.id);
+  assert.equal(achievement.rank.id, 'judge');
+  assert.equal(achievement.xp, before.journey.xp);
+  assert.equal(achievement.recertification, true);
+  stats[missing.id] = { attempts: 2, correct: 2, xp: missing.difficulty * 20 };
+  await pool.query('UPDATE knowthykt.training_profiles SET stats=$2 WHERE user_id=$1', [user.id, JSON.stringify(stats)]);
+  const completed = (await request('progress', user)).state;
+  assert.equal(completed.journey.rank.id, 'judge');
+  assert.equal(completed.journey.recertification, false);
 });
 
 test('editing/restoring is revision guarded, preserves checked snapshots and does not revive a report retry', async () => {

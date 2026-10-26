@@ -5,6 +5,8 @@
 .question-action-buttons{display:flex;align-items:stretch;justify-content:flex-end;flex-wrap:wrap;gap:10px}
 .question-action-buttons>.button{flex:1 1 auto}
 .question-action-buttons>.moderation-status{align-self:center}
+.recertification-notice{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;padding:24px;margin-bottom:24px;border:1px solid var(--accent);border-radius:var(--card-radius,10px);background:var(--panel)}
+.recertification-notice>div{flex:1 1 280px;min-width:0}.recertification-notice h2{margin:0 0 10px;font-size:20px}.recertification-notice p{margin:6px 0;color:var(--muted);line-height:1.6}
 .training-content .slop-button{font-size:13px;gap:6px;min-height:38px}
 .moderation-notice{padding:12px 16px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--button-radius);color:var(--muted);font-size:13px}
 .moderation-status{display:inline-block;color:var(--muted);font-size:12px;font-weight:700}

@@ -39,7 +39,7 @@ async function response(ctx, profile) {
 async function questions(ctx) {
   const catalog = await catalogStore.load(ctx.client);
   if (ctx.query.get('revision') === String(catalog.revision)) return { body: { revision: catalog.revision, unchanged: true }, headers: { 'Cache-Control': 'no-store' } };
-  return { body: { version: bank.BANK_VERSION, revision: catalog.revision, compatibleVersions: bank.COMPATIBLE_VERSIONS, verifiedAt: "2026-10-16", questions: catalog.questions, journey: progression({}, catalog.curriculum) }, headers: { "Cache-Control": "no-store" } };
+  return { body: { version: bank.BANK_VERSION, revision: catalog.revision, legacyRankCutoff: catalog.legacyRankCutoff, compatibleVersions: bank.COMPATIBLE_VERSIONS, verifiedAt: "2026-10-16", questions: catalog.questions, journey: progression({}, catalog.questions) }, headers: { "Cache-Control": "no-store" } };
 }
 
 async function progress(ctx) {
@@ -105,7 +105,9 @@ async function answer(ctx) {
   item.correct = selected === question.answer;
   item.answeredAt = new Date().toISOString();
   const prior = profile.stats[questionId] || { attempts: 0, correct: 0 };
-  profile.stats[questionId] = { attempts: prior.attempts + 1, correct: prior.correct + Number(item.correct), lastCorrect: item.correct, lastAt: item.answeredAt };
+  const earned = Number.isFinite(prior.xp) ? prior.xp : Math.min(2, prior.correct) * (question.original?.difficulty || question.difficulty) * 10;
+  profile.stats[questionId] = { ...prior, attempts: prior.attempts + 1, correct: prior.correct + Number(item.correct),
+    xp: earned + (item.correct && prior.correct < 2 ? question.difficulty * 10 : 0), lastCorrect: item.correct, lastAt: item.answeredAt };
   await ctx.client.query("UPDATE training_sessions SET items=$3 WHERE id=$1 AND user_id=$2", [session.id, ctx.user.id, JSON.stringify(session.items)]);
   await store.saveProfile(ctx.client, profile);
   return response(ctx, profile);
@@ -157,10 +159,12 @@ async function report(ctx) {
     if (question.status === 'deleted') throw new HttpError(409, 'Вопрос уже удалён из пула.');
     if (ctx.body.questionVersion !== question.version || question.status === 'active' && ctx.body.questionRevision !== question.revision) throw new HttpError(409, 'Вопрос уже изменён модератором. Просмотрите актуальную версию.');
     const comment = validation.comment(ctx.body.comment);
+    if (question.status === 'active') await store.syncAllJourneys(ctx.client, ctx.catalog);
     await catalogStore.event(ctx.client, question.id, ctx.user, 'report', comment, question, ctx.body.requestId);
     await ctx.client.query("UPDATE knowthykt.training_questions SET status='review',revision=revision+1,updated_at=NOW() WHERE id=$1", [question.id]);
     await catalogStore.changed(ctx.client);
     ctx.catalog = await catalogStore.load(ctx.client);
+    if (question.status === 'active') await store.syncAllJourneys(ctx.client, ctx.catalog);
   }
   const profile = await store.lockProfile(ctx.client, ctx.user.id);
   return response(ctx, profile);
@@ -197,11 +201,14 @@ async function moderate(ctx) {
   const edited = ['save', 'restore'].includes(action) ? validation.content(ctx.body.question, question.id) : validation.content(question, question.id);
   const changed = !isDeepStrictEqual(edited, validation.content(question, question.id));
   const status = action === 'delete' ? 'deleted' : action === 'restore' ? 'active' : action === 'save' && question.status !== 'deleted' ? 'review' : question.status;
+  const courseChanged = (question.status === 'active') !== (status === 'active') || status === 'active' && question.difficulty !== edited.difficulty;
+  if (courseChanged) await store.syncAllJourneys(ctx.client, ctx.catalog);
   await ctx.client.query(`UPDATE knowthykt.training_questions SET content=$2,status=$3,version=version+$4,
     revision=revision+1,updated_at=NOW() WHERE id=$1`, [question.id, JSON.stringify(edited), status, Number(changed)]);
   await catalogStore.event(ctx.client, question.id, ctx.user, action, comment, { before: question, after: { ...edited, status, version: question.version + Number(changed) } }, ctx.body.requestId);
   await catalogStore.changed(ctx.client);
   ctx.catalog = await catalogStore.load(ctx.client);
+  if (courseChanged) await store.syncAllJourneys(ctx.client, ctx.catalog);
   return detail(ctx);
 }
 
