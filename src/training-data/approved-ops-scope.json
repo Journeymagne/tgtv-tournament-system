@@ -1,0 +1,27 @@
+{
+  "reviewedAt": "2026-10-27",
+  "missionPack": "Approved Ops 2025",
+  "reason": "Исключён из учебного курса по запросу пользователя: Compound Siege, Bheta-Decima и Octarius больше не входят в выбранный пул.",
+  "sources": [
+    "https://assets.warhammer-community.com/eng_kt_approved_ops_2025_tournament_companion-fpsaag6ryp-uwnxgflxow.pdf",
+    "https://assets.warhammer-community.com/eng_kt_volkus_compound_mission_pack-oai8j5hmhd-a6ugpgdgkj.pdf",
+    "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+    "https://wahapedia.ru/kill-team3/the-rules/killzones/"
+  ],
+  "excluded": [
+    { "id": "kt-182", "rule": "Bheta-Decima: equipment placement" },
+    { "id": "kt-183", "rule": "Octarius: Ramshackle Wall" },
+    { "id": "kt-224", "rule": "Bunker: restrictions on Guard" },
+    { "id": "kt-226", "rule": "Opening a Stockade: shooting damage" },
+    { "id": "kt-230", "rule": "Opening a Stockade: fighting damage" },
+    { "id": "kt-235", "rule": "Bheta-Decima: Restricted Targeting between Vantage points" },
+    { "id": "kt-236", "rule": "Bheta-Decima: ignoring own gantry footprint" },
+    { "id": "kt-237", "rule": "Bheta-Decima: Restricted Movement" },
+    { "id": "kt-238", "rule": "Bheta-Decima: Restricted Targeting and Seek" },
+    { "id": "kt-244", "rule": "Fortified Position: fight order" },
+    { "id": "kt-245", "rule": "Fortified Position: ignoring Piercing" },
+    { "id": "kt-246", "rule": "Fortified Position: Blast secondary targets" },
+    { "id": "kt-248", "rule": "Open Stockade Door" },
+    { "id": "kt-249", "rule": "Opening a Stockade: weapon Hit" }
+  ]
+}

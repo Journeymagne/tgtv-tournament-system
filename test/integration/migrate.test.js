@@ -112,7 +112,7 @@ test('retained ranks migration restores legacy titles from dated history without
     for (let i = 0; i < items.length; i += 20) await pool.query(`INSERT INTO training_sessions(id,user_id,bank_version,mode,status,cursor,items,started_at,finished_at)
       VALUES($1,$2,'2026-10-15.1','mixed','completed',19,$3,$4,$4)`, [randomUUID(), id, JSON.stringify(items.slice(i, i + 20)), answeredAt]);
   }
-  assert.deepEqual(await migrate(pool), [64]);
+  assert.deepEqual(await migrate(pool), MIGRATIONS.filter(m => m.version >= 64).map(m => m.version));
   const { rows } = await pool.query('SELECT * FROM training_profiles ORDER BY user_id');
   assert.equal(rows[0].rank_tier, 6);
   assert.equal(rows[1].rank_tier, 3);
@@ -122,9 +122,82 @@ test('retained ranks migration restores legacy titles from dated history without
     assert.equal(profile.revision, 0);
   }
   const notices = await pool.query("SELECT user_id FROM knowthykt.notification_messages WHERE payload->>'type'='knowthykt_recertification'");
-  assert.deepEqual(notices.rows.map(n => n.user_id), [ids[0]]);
+  assert.deepEqual([...new Set(notices.rows.map(n => n.user_id))], [ids[0]]);
   assert.equal((await pool.query('SELECT COUNT(*)::int AS count FROM training_sessions')).rows[0].count, 20);
   assert.deepEqual(await migrate(pool), []);
+});
+
+test('training scope withdraws excluded killzones while preserving earned progress and checked answers', async () => {
+  const bank = require('../../src/domain/training');
+  const catalogStore = require('../../src/db/repositories/training-catalog');
+  const training = require('../../src/db/repositories/training');
+  const scope = require('../../src/training-data/approved-ops-scope.json');
+  const excludedIds = scope.excluded.map(q => q.id);
+  await pool.query('CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
+  for (const migration of MIGRATIONS.filter(m => m.version < 66)) {
+    await migration.up(pool);
+    await pool.query('INSERT INTO schema_migrations(version,name) VALUES($1,$2)', [migration.version, migration.name]);
+  }
+  // A reported expansion question and an unrelated moderator edit both predate the release.
+  await pool.query("UPDATE knowthykt.training_questions SET status='review' WHERE id='kt-226'");
+  await pool.query("UPDATE knowthykt.training_questions SET content=jsonb_set(content,'{question}','\"Moderator wording\"'),version=2,revision=3 WHERE id='kt-001'");
+  const user = (await pool.query("INSERT INTO users(name,name_key,password_hash,rating) VALUES('Veteran','veteran','test:hash',1000) RETURNING id,name")).rows[0];
+  const stats = { 'kt-224': { attempts: 3, correct: 2, xp: 60 }, 'kt-001': { attempts: 2, correct: 2, xp: 20 } };
+  await pool.query('INSERT INTO training_profiles(user_id,stats,rank_tier,revision,completed_count) VALUES($1,$2,6,12,7)', [user.id, stats]);
+  const items = ['kt-224', 'kt-245', ...bank.questions.slice(0, 18).map(q => q.id)].map(id => bank.sessionItem(bank.byId.get(id)));
+  items[0] = { ...items[0], selected: items[0].question.answer, correct: true, answeredAt: '2026-10-26T12:00:00Z' };
+  for (const status of ['active', 'completed']) {
+    await pool.query(`INSERT INTO training_sessions(id,user_id,bank_version,mode,status,cursor,items,finished_at)
+      VALUES($1,$2,$3,'mixed',$4,0,$5,CASE WHEN $4='completed' THEN NOW() ELSE NULL END)`,
+    [randomUUID(), user.id, bank.BANK_VERSION, status, JSON.stringify(items)]);
+  }
+  const beforeQuestions = (await pool.query('SELECT * FROM knowthykt.training_questions ORDER BY id')).rows;
+  const beforeSessions = (await pool.query('SELECT * FROM training_sessions ORDER BY id')).rows;
+  const beforeRevision = (await catalogStore.load(pool)).revision;
+
+  assert.deepEqual(await migrate(pool), [66]);
+  const catalog = await catalogStore.load(pool);
+  assert.equal(catalog.revision, beforeRevision + 1);
+  assert.equal(catalog.questions.length, 300, 'archived IDs remain available for historical answers');
+  assert.equal(catalog.active.length, 284);
+  assert.deepEqual(catalog.questions.filter(q => q.status === 'deleted').map(q => q.id), excludedIds);
+  const afterQuestions = (await pool.query('SELECT * FROM knowthykt.training_questions ORDER BY id')).rows;
+  for (const question of beforeQuestions) {
+    const after = afterQuestions.find(q => q.id === question.id);
+    if (!excludedIds.includes(question.id)) assert.deepEqual(after, question, 'unrelated moderation remains intact');
+    assert.deepEqual(after.content, question.content);
+    assert.equal(after.version, question.version);
+  }
+  const events = (await pool.query("SELECT question_id,actor_id,comment FROM knowthykt.training_question_events WHERE action='delete' ORDER BY question_id")).rows;
+  assert.deepEqual(events.map(e => e.question_id), excludedIds);
+  assert.ok(events.every(e => e.actor_id === null && e.comment === scope.reason));
+  const profile = (await pool.query('SELECT stats,rank_tier,revision,completed_count FROM training_profiles WHERE user_id=$1', [user.id])).rows[0];
+  assert.deepEqual(profile, { stats, rank_tier: 6, revision: 12, completed_count: 7 });
+  assert.deepEqual((await pool.query('SELECT * FROM training_sessions ORDER BY id')).rows, beforeSessions);
+
+  // Replaying the data migration cannot duplicate editorial events or course revisions.
+  await pool.query('DELETE FROM schema_migrations WHERE version=66');
+  assert.deepEqual(await migrate(pool), [66]);
+  assert.equal((await catalogStore.load(pool)).revision, catalog.revision);
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM knowthykt.training_question_events WHERE action='delete'")).rows[0].n, 14);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const currentCatalog = await catalogStore.load(client);
+    const locked = await training.lockProfile(client, user.id);
+    const state = await training.state(client, user, locked, bank.BANK_VERSION, currentCatalog);
+    assert.deepEqual(state.active.items[0], items[0], 'checked expansion answer retains its snapshot and score');
+    assert.ok(state.active.items.slice(1).every(item => !excludedIds.includes(item.questionId)), 'unanswered expansion questions are replaced');
+    assert.equal(state.active.items.length, 20);
+    assert.equal(state.journey.xp, 80);
+    assert.equal(state.journey.courseXp, 20);
+    assert.equal(state.journey.rank.tier, 6);
+    assert.deepEqual(state.stats, stats);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
 });
 
 test("training service migration preserves existing preview progress and queued notifications", async () => {

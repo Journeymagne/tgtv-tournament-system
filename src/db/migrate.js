@@ -62,7 +62,8 @@ const MIGRATIONS = [
   require("./migrations/061_training_service_contracts"),
   require("./migrations/062_training_moderation"),
   require("./migrations/063_studio_approval"),
-  require("./migrations/064_training_retained_ranks")
+  require("./migrations/064_training_retained_ranks"),
+  require("./migrations/066_training_approved_ops_scope")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

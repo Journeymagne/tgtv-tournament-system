@@ -135,6 +135,19 @@ The bank is `src/training-data/questions.json`; provenance is recorded in
 packs and killzones are named in the questions. This is a selected training
 course rather than all faction rules.
 
+As of 2026-10-27 the course covers rules used in Approved Ops 2025, including
+core rules, equipment, team interactions and selected killzones. Compound Siege
+expansion questions are excluded. Bheta-Decima and Octarius are also excluded
+at the user's explicit request, although both are used in Approved Ops.
+Migration `066_training_approved_ops_scope` archives these 14 questions;
+the reviewed IDs, reason and official sources are recorded
+in `src/training-data/approved-ops-scope.json`. This is the course's editorial
+scope, not a restriction on organizers' custom terrain layouts. The migration
+preserves original content, earned XP, titles and checked session snapshots,
+records each withdrawal in the moderation history, and synchronizes journeys
+before and after the batch. Existing session reconciliation replaces unanswered
+withdrawn questions on the next read. The seed retains all 300 historical IDs.
+
 Keep question ids stable. Corrections to meaning, options or answer indexes
 must bump `BANK_VERSION` in `src/domain/training.js` and include a migration
 or compatibility policy for existing sessions. The API rejects new answers
