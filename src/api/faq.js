@@ -44,22 +44,55 @@ function content(body,{submission=false}={}){
 }
 function view(row){return {id:row.id,...row.content,answerHtml:markdown.render(row.content.answer||''),revision:row.revision,status:row.status,createdAt:row.created_at,updatedAt:row.updated_at,questionCount:Number(row.question_count||0)};}
 function submissionView(row){return {id:row.id,...row.content,entryId:row.entry_id,status:row.status,authorId:row.author_id,author:row.author||'Удалённый аккаунт',createdAt:row.created_at,resolution:row.resolution,resultEntryId:row.result_entry_id,decidedAt:row.decided_at};}
-async function list({client,user}){
- const {rows}=await client.query(`SELECT e.*, (SELECT COUNT(*) FROM faq_questions q WHERE q.entry_id=e.id AND NOT q.hidden) question_count
- FROM faq_entries e WHERE e.status='published' ORDER BY e.created_at,e.id`);
- return {entries:rows.map(view),canModerate:canModerate(user),canManageRoles:!!user?.isSuperAdmin,
-  teams:[...new Set(['Все команды',...KILL_TEAMS,...seed.entries.flatMap(e=>e.teams)])].sort((a,b)=>a.localeCompare(b)),logos,snapshot:seed.snapshot,communityVersion:seed.communityVersion,communitySource:seed.communitySource};
+const listContent = `jsonb_set(e.content,'{images}',COALESCE((SELECT jsonb_agg(
+  CASE WHEN image->>'src' LIKE 'data:%' THEN jsonb_set(image,'{src}',to_jsonb('/api/faq/entries/'||e.id||'/images/'||(n-1)||'?v='||e.revision)) ELSE image END)
+  FROM jsonb_array_elements(COALESCE(e.content->'images','[]'::jsonb)) WITH ORDINALITY AS images(image,n)),'[]'::jsonb))`;
+async function list({client,user,query=new URLSearchParams()}) {
+ const source=query.get('source')||'all',selected=query.getAll('team'),wantedTypes=query.getAll('type'),saved=query.getAll('saved');
+ if(!['all',...categories].includes(source)||selected.length>100||wantedTypes.length>20||saved.length>500)throw new ValidationError('Invalid FAQ filters');
+ const terms=String(query.get('q')||'').trim().toLowerCase().slice(0,200).split(/\s+/).filter(Boolean);
+ const values=[terms,wantedTypes,query.get('topic')||'',saved,query.get('savedOnly')==='1',selected,source];
+ const common=`e.status='published'
+   AND NOT EXISTS(SELECT 1 FROM unnest($1::text[]) word WHERE strpos(lower(concat_ws(' ',e.content->>'question',e.content->>'answer',e.content->>'teams',e.content->>'topic',e.content->>'rulingType')),word)=0)
+   AND (cardinality($2::text[])=0 OR e.content->>'rulingType'=ANY($2))
+   AND ($3='' OR e.content->>'topic'=$3) AND (NOT $5::boolean OR e.id=ANY($4::text[]))`;
+ const teamFilter=`(cardinality($6::text[])=0 OR (NOT (e.content->'teams' ? 'Все команды') AND e.content->'teams' ?| $6))`;
+ const sourceFilter=`(($7='all' AND e.content->>'category' IN ('community','official')) OR e.content->>'category'=$7)`;
+ const order={alpha:"e.content->>'question',e.id",team:"e.content->'teams'->>0,e.content->>'question',e.id",updated:'e.updated_at DESC,e.id'}[query.get('sort')]||'e.created_at,e.id';
+ const result=await require('../resources/pages').select(client,`SELECT e.id,${listContent} content,e.revision,e.status,e.created_at,e.updated_at,
+   (SELECT count(*) FROM faq_questions q WHERE q.entry_id=e.id AND NOT q.hidden) question_count FROM faq_entries e
+   WHERE ${common} AND ${teamFilter} AND ${sourceFilter} ORDER BY ${order}`,values,query);
+ const counts=await client.query(`SELECT e.content->>'category' category,count(*)::int n FROM faq_entries e WHERE ${common} AND ${teamFilter} GROUP BY 1`,values.slice(0,6));
+ const teamCounts=await client.query(`SELECT team,count(*)::int n FROM faq_entries e CROSS JOIN LATERAL jsonb_array_elements_text(e.content->'teams') team
+   WHERE ${common} AND ${sourceFilter} AND NOT (e.content->'teams' ? 'Все команды') AND cardinality($6::text[])>=0 GROUP BY team`,values);
+ return {entries:result.rows.map(view),pagination:result.pagination,counts:Object.fromEntries(counts.rows.map(r=>[r.category,r.n])),teamCounts:Object.fromEntries(teamCounts.rows.map(r=>[r.team,r.n])),
+   canModerate:canModerate(user),canManageRoles:!!user?.isSuperAdmin,
+   teams:[...new Set(['Все команды',...KILL_TEAMS,...seed.entries.flatMap(e=>e.teams)])].sort((a,b)=>a.localeCompare(b)),logos,snapshot:seed.snapshot,communityVersion:seed.communityVersion,communitySource:seed.communitySource};
 }
+async function getEntry({client,user,params,query}) {
+ const row=await publishedEntry(client,params.id);
+ if(query.get('edit')==='1'){if(!user)throw new HttpError(401,'You need to sign in');}
+ else row.content={...row.content,images:(row.content.images||[]).map((image,index)=>({...image,src:image.src.startsWith('data:')?`/api/faq/entries/${encodeURIComponent(row.id)}/images/${index}?v=${row.revision}`:image.src}))};
+ return {entry:view(row)};
+}
+async function entryImage({client,params}) {
+ const index=Number(params.index);if(!Number.isSafeInteger(index)||index<0||index>5)throw new HttpError(404,'Image not found');
+ const row=await publishedEntry(client,params.id),file=require('../domain/data-url').decodeDataUrl(row.content.images?.[index]?.src);
+ if(!file)throw new HttpError(404,'Image not found');
+ return {buffer:file.bytes,contentType:file.contentType,headers:{'Cache-Control':'public, max-age=60'}};
+}
+
 async function entry(client,id,lock=false){const {rows:[row]}=await client.query('SELECT * FROM faq_entries WHERE id=$1'+(lock==='share'?' FOR SHARE':lock?' FOR UPDATE':''),[id]);if(!row)throw new HttpError(404,'FAQ entry not found');return row;}
 async function publishedEntry(client,id,lock=false){const row=await entry(client,id,lock);if(row.status!=='published')throw new HttpError(404,'FAQ entry not found');return row;}
-async function history(client,user,id,action,snapshot){await client.query('INSERT INTO faq_history(entry_id,actor_id,action,snapshot) VALUES($1,$2,$3,$4)',[id,user.id,action,JSON.stringify(snapshot)]);}
+async function history(client,user,id,action,snapshot){await client.query('INSERT INTO faq_history(entry_id,actor_id,action,snapshot) VALUES($1,$2,$3,$4)',[id,user.id,action,require('../resources/audit').auditJson(snapshot)]);}
 async function save({client,user,params,body}){
  moderator(user);let payload=content(body),id=params.id||crypto.randomUUID(),before=null;
  if(params.id){before=await publishedEntry(client,id,true);if(before.revision!==body.revision)throw new HttpError(409,'Эта карточка уже изменена. Откройте её заново.');
   // Retain source provenance when editing imported records.
   payload={...before.content,...payload};
+  if(require('../resources/audit').unchanged(before.content,payload))return {entry:view(before)};
   await client.query('UPDATE faq_entries SET content=$2,revision=revision+1,updated_by=$3,updated_at=NOW() WHERE id=$1',[id,JSON.stringify(payload),user.id]);
- }else await client.query('INSERT INTO faq_entries(id,content,created_by,updated_by) VALUES($1,$2,$3,$3)',[id,JSON.stringify(payload),user.id]);
+ }else { await require('../resources/quotas').spend(client,user.id,'faqCreateDay',86400); await client.query('INSERT INTO faq_entries(id,content,created_by,updated_by) VALUES($1,$2,$3,$3)',[id,JSON.stringify(payload),user.id]); }
  await history(client,user,id,before?'edited':'created',{before:before?.content,after:payload});return {entry:view(await entry(client,id))};
 }
 async function removeEntry({client,user,params,body}){
@@ -73,13 +106,27 @@ async function removeEntry({client,user,params,body}){
   WHERE q.entry_id=$1 AND n.notification_id='faq_reply:'||q.id::text`,[before.id]);
  return {ok:true};
 }
-async function submissions({client,user}){
- const all=canModerate(user);const {rows}=await client.query(`SELECT s.*,u.name author FROM faq_submissions s LEFT JOIN users u ON u.id=s.author_id
- WHERE ($1::boolean OR s.author_id=$2) ORDER BY CASE WHEN s.status='pending' THEN 0 WHEN s.status='needs_changes' THEN 1 ELSE 2 END,s.created_at DESC LIMIT 200`,[all,user.id]);return {submissions:rows.map(submissionView)};
+async function submissions({client,user,query=new URLSearchParams()}) {
+ const all=canModerate(user)&&query.get('mine')!=='1',status=query.get('status')||'';
+ const result=await require('../resources/pages').select(client,`SELECT s.id,s.entry_id,s.status,s.author_id,s.created_at,s.resolution,s.result_entry_id,s.decided_at,
+   s.content-'images' AS content,u.name author FROM faq_submissions s LEFT JOIN users u ON u.id=s.author_id
+   WHERE ($1::boolean OR s.author_id=$2) AND ($3='' OR s.status=$3)
+   ORDER BY CASE WHEN s.status='pending' THEN 0 WHEN s.status='needs_changes' THEN 1 ELSE 2 END,s.created_at DESC,s.id`,[all,user.id,status],query);
+ const {rows:[counts]}=await client.query(`SELECT count(*) FILTER (WHERE author_id=$1)::int mine,
+   count(*) FILTER (WHERE status='pending' AND $2::boolean)::int pending FROM faq_submissions
+   WHERE $2::boolean OR author_id=$1`,[user.id,canModerate(user)]);
+ return {submissions:result.rows.map(submissionView),pagination:result.pagination,counts};
 }
+async function submissionDetail({client,user,params}) {
+ const {rows:[row]}=await client.query('SELECT s.*,u.name author FROM faq_submissions s LEFT JOIN users u ON u.id=s.author_id WHERE s.id=$1',[params.id]);
+ if(!row||(!canModerate(user)&&row.author_id!==user.id))throw new HttpError(404,'Submission not found');
+ return {submission:submissionView(row)};
+}
+
 async function submit({client,user,body}){
  const data=content(body,{submission:true}),id=crypto.randomUUID();let entryId=null;
  if(body.entryId){const row=await publishedEntry(client,String(body.entryId),'share');entryId=row.id;}
+ await require('../resources/quotas').lock(client,user.id);
  const {rows:[limit]}=await client.query("SELECT count(*) n FROM faq_submissions WHERE author_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",[user.id]);
  if(Number(limit.n)>=10)throw new HttpError(429,'Можно отправить до 10 заявок в час.');
  await client.query('INSERT INTO faq_submissions(id,author_id,entry_id,content) VALUES($1,$2,$3,$4)',[id,user.id,entryId,JSON.stringify(data)]);return {status:201,body:{id}};
@@ -93,10 +140,10 @@ async function decide({client,user,params,body}){
   const payload=content(body.entry);if(payload.category==='official')throw new ValidationError('Community submissions cannot publish as official GW answers');
   const original=s.entry_id?await entry(client,s.entry_id,true):null;
   if(original&&original.status!=='published')throw new HttpError(409,'Исходная карточка удалена. Отклоните заявку или верните её автору.');
-  if(original&&original.content.category!=='official'){const before=original;if(body.entry.revision!==before.revision)throw new HttpError(409,'Карточка изменилась. Откройте заявку заново.');
+  if(original&&original.content.category!=='official'){await require('../resources/quotas').spend(client,user.id,'contentEditHour',3600);const before=original;if(body.entry.revision!==before.revision)throw new HttpError(409,'Карточка изменилась. Откройте заявку заново.');
    resultId=s.entry_id;await client.query('UPDATE faq_entries SET content=$2,revision=revision+1,updated_by=$3,updated_at=NOW() WHERE id=$1',[resultId,JSON.stringify({...before.content,...payload}),user.id]);
    await history(client,user,resultId,'submission_accepted',{before:before.content,after:payload,submissionId:s.id});
-  }else{resultId=crypto.randomUUID();await client.query('INSERT INTO faq_entries(id,content,created_by,updated_by) VALUES($1,$2,$3,$3)',[resultId,JSON.stringify(payload),user.id]);await history(client,user,resultId,'submission_accepted',{after:payload,submissionId:s.id});}
+  }else{await require('../resources/quotas').spend(client,user.id,'faqCreateDay',86400);resultId=crypto.randomUUID();await client.query('INSERT INTO faq_entries(id,content,created_by,updated_by) VALUES($1,$2,$3,$3)',[resultId,JSON.stringify(payload),user.id]);await history(client,user,resultId,'submission_accepted',{after:payload,submissionId:s.id});}
  }
  await client.query('UPDATE faq_submissions SET status=$2,resolution=$3,result_entry_id=$4,decided_by=$5,decided_at=NOW() WHERE id=$1',[s.id,body.status,note,resultId,user.id]);
  await require('../notifications/publish').publish(client,'faq',s.author_id,{id:'faq_submission:'+s.id,type:'faq_submission',createdAt:new Date().toISOString(),title:'Решение по вашей заявке FAQ',status:body.status,excerpt:note,href:'/faq#view=mine'});
@@ -122,6 +169,7 @@ async function questions({client,user,params}){
 async function ask({client,user,params,body}){
  const e=await publishedEntry(client,params.id,'share');
  const id=crypto.randomUUID(),s=text(body.body,'Question',3,2000);
+ await require('../resources/quotas').lock(client,user.id);
  const {rows:[limit]}=await client.query("SELECT count(*) n FROM faq_questions WHERE author_id=$1 AND created_at>NOW()-INTERVAL '1 hour'",[user.id]);if(Number(limit.n)>=20)throw new HttpError(429,'Можно оставить до 20 вопросов в час.');
  await client.query('INSERT INTO faq_questions(id,entry_id,author_id,body) VALUES($1,$2,$3,$4)',[id,params.id,user.id,s]);return {status:201,body:{id}};
 }
@@ -175,12 +223,16 @@ async function setModerator({client,user,params,body}){
 async function recordHistory({client,user,params}){moderator(user);await entry(client,params.id);const {rows}=await client.query('SELECT h.action,h.snapshot,h.created_at,u.name actor FROM faq_history h LEFT JOIN users u ON u.id=h.actor_id WHERE entry_id=$1 ORDER BY h.id DESC LIMIT 50',[params.id]);return {history:rows};}
 const routes=[
  {method:'GET',path:'/api/faq',handler:list,loadUser:true},
+ {method:'POST',path:'/api/faq/search',handler:ctx=>list({...ctx,query:new URLSearchParams(text(ctx.body.query||'','Query',0,60000))}),loadUser:true,tx:true,maxBodyBytes:65536},
+ {method:'GET',path:'/api/faq/entries/:id',handler:getEntry,loadUser:true},
+ {method:'GET',path:'/api/faq/entries/:id/images/:index',handler:entryImage},
  {method:'POST',path:'/api/faq/render',handler:({body})=>({html:markdown.render(text(body.markdown||'','Text',0,30000))}),tx:true,maxBodyBytes:100000},
  {method:'POST',path:'/api/faq/entries',handler:save,auth:'user',tx:true,maxBodyBytes:4000000},
  {method:'PATCH',path:'/api/faq/entries/:id',handler:save,auth:'user',tx:true,maxBodyBytes:4000000},
  {method:'DELETE',path:'/api/faq/entries/:id',handler:removeEntry,auth:'user',tx:true,maxBodyBytes:1000},
  {method:'GET',path:'/api/faq/entries/:id/history',handler:recordHistory,auth:'user'},
  {method:'GET',path:'/api/faq/submissions',handler:submissions,auth:'user'},
+ {method:'GET',path:'/api/faq/submissions/:id',handler:submissionDetail,auth:'user'},
  {method:'POST',path:'/api/faq/submissions',handler:submit,auth:'user',tx:true,maxBodyBytes:4000000},
  {method:'PATCH',path:'/api/faq/submissions/:id',handler:reviseSubmission,auth:'user',tx:true,maxBodyBytes:4000000},
  {method:'POST',path:'/api/faq/submissions/:id/decision',handler:decide,auth:'user',tx:true,maxBodyBytes:4000000},

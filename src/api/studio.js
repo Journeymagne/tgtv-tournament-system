@@ -28,15 +28,16 @@ function checkWrite(ctx) {
   if (req.headers.origin && req.headers.origin !== expectedOrigin) throw new HttpError(403, "Недопустимый источник запроса.");
 }
 
-function validate(body, id, publishing) {
+async function validate(body, id, publishing, bytes = Infinity) {
   if (!Number.isSafeInteger(body.revision) || body.revision < 0) throw new HttpError(400, "Некорректная версия черновика.");
   try {
-    const project = model.validate(model.migrate(body.project));
+    const project = bytes <= 256 * 1024 ? model.validate(model.migrate(body.project))
+      : await require('../resources/workers').run('studio', body.project);
     if (!PROJECT_ID.test(id) || project.team.id !== id) throw Error("Некорректный идентификатор команды.");
     if (project.team.name.length > 200 || typeof project.team.subtitle !== "string" || project.team.subtitle.length > 2000 || typeof project.team.version !== "string" || project.team.version.length > 100) throw Error("Проверьте название, подзаголовок и версию команды.");
     if (publishing && !project.team.name.trim()) throw Error("Укажите название команды перед публикацией.");
     return project;
-  } catch (error) { throw new HttpError(400, error.message || "Некорректный проект."); }
+  } catch (error) { if (error instanceof HttpError) throw error; throw new HttpError(400, error.message || "Некорректный проект."); }
 }
 
 async function session(ctx) {
@@ -56,7 +57,7 @@ async function draft(ctx) {
 }
 async function save(ctx, publishing = false) {
   checkWrite(ctx);
-  const project = validate(ctx.body, ctx.params.id, publishing);
+  const project = await validate(ctx.body, ctx.params.id, publishing, ctx.req.bodyBytes);
   const recoveryId = ctx.body.recoveryId;
   if (recoveryId !== undefined && (typeof recoveryId !== "string" || !PROJECT_ID.test(recoveryId) || recoveryId === ctx.params.id)) {
     throw new HttpError(400, "Некорректный идентификатор копии правок.");

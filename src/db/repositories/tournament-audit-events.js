@@ -16,22 +16,22 @@ async function insert(client, event) {
       event.eventType,
       event.entityType || null,
       event.entityId || null,
-      event.before ? JSON.stringify(event.before) : null,
-      event.after ? JSON.stringify(event.after) : null,
-      event.metadata ? JSON.stringify(event.metadata) : null
+      require('../../resources/audit').auditJson(event.before),
+      require('../../resources/audit').auditJson(event.after),
+      require('../../resources/audit').auditJson(event.metadata)
     ]
   );
   return mapTournamentAuditEvent(rows[0]);
 }
 
-async function listByTournament(client, tournamentId) {
-  const { rows } = await client.query(
+async function listByTournament(client, tournamentId, query) {
+  const result = await require('../../resources/pages').select(client,
     `SELECT ${COLUMNS} FROM tournament_audit_events
      WHERE tournament_id = $1
      ORDER BY created_at DESC, id DESC`,
-    [tournamentId]
+    [tournamentId], query
   );
-  return rows.map(mapTournamentAuditEvent);
+  return Object.assign(result.rows.map(mapTournamentAuditEvent), { pagination:result.pagination });
 }
 
 module.exports = { insert, listByTournament };

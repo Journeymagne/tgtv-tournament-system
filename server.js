@@ -17,6 +17,7 @@ const routes = service === 'monolith' ? require('./src/api/routes') : databaseSe
 const gateway = service === 'gateway' ? require('./src/services/gateway').createGateway() : null;
 const { startWorker } = require("./src/email/worker");
 let stopEmailWorker = async () => {};
+let stopResourceCleanup = async () => {};
 let stopTelegramWorker = async () => {};
 let stopNotificationWorker = async () => {};
 let stopTournamentNotifications = async () => {};
@@ -32,7 +33,9 @@ const server = http.createServer((req, res) => {
   // Deployment checks must verify the new process, not another listener or an old release.
   if (process.env.TGTV_RELEASE_ID) res.setHeader("X-KT-Release", process.env.TGTV_RELEASE_ID);
   res.setHeader('X-KT-Service', service);
-  const pathname = new URL(req.url, 'http://localhost').pathname;
+  let pathname;
+  try { pathname = new URL(req.url, 'http://localhost').pathname; }
+  catch { sendJson(res, 400, { error: 'Invalid URL' }); return; }
   if (['/health/live','/health/ready'].includes(pathname) && ['GET','HEAD'].includes(req.method)) {
     const ready = pathname === '/health/ready' && databaseService ? withClient(client => client.query('SELECT 1')) : Promise.resolve();
     ready.then(() => sendJson(res, 200, { status: 'ok', service }))
@@ -66,10 +69,11 @@ async function start() {
     if (service === 'monolith') await migrate(getPool());
     else {
       const { rows } = await getPool().query('SELECT max(version) AS version FROM public.schema_migrations');
-      if (rows[0].version < 60) throw Error('Run npm run db:migrate before starting the services');
+      if (rows[0].version < 67) throw Error('Run npm run db:migrate before starting the services');
     }
   }
   if (['monolith','accounts'].includes(service)) {
+    stopResourceCleanup = require('./src/resources/cleanup').start();
     require('./src/email/config').configuration(); stopEmailWorker = startWorker();
   }
   if (['monolith','tournaments'].includes(service)) {
@@ -90,6 +94,7 @@ async function start() {
 }
 
 async function stop() {
+  await stopResourceCleanup();
   await stopTournamentNotifications();
   await stopNotificationWorker();
   await stopTelegramWorker();

@@ -4,7 +4,7 @@
  const state={entries:[],teams:[],user:null,view:'library',source:'community',selected:new Set(),types:new Set(),topic:'',search:'',sort:'default',limit:16,saved:new Set(),savedOnly:false,submissions:[],canModerate:false,canManageRoles:false,conductEditing:false};
  const conductUrl='/faq/conduct',infoUrl='/faq/info';
  const isFaqEntry=e=>e.category==='community'||e.category==='official';
- const savedFaqCount=()=>state.entries.filter(e=>isFaqEntry(e)&&state.saved.has(e.id)).length;
+ const savedFaqCount=()=>state.saved.size;
  // Preserve the source's introduction, two bullet lists and subsequent headings.
  // Records remain editable, while readers see one continuous document.
  const conductGroups=[{id:'conduct-rules',title:'Основные правила',entries:['community-002','community-003','community-004']},{id:'conduct-principles',title:'Принципы',entries:Array.from({length:8},(_,i)=>'community-'+String(i+5).padStart(3,'0'))}];
@@ -39,14 +39,14 @@
   const number=e.id?.startsWith('official')?'GW / '+String(e.sourcePage||'—').padStart(2,'0'):'FAQ / '+String(state.entries.filter(x=>x.category===e.category).findIndex(x=>x.id===e.id)+1).padStart(3,'0');
   return `<article class="faq-card ${esc(e.category)}" data-entry="${esc(e.id||'preview')}"><header class="card-meta"><span class="record-number">${preview?'ПРЕДПРОСМОТР':esc(number)}</span><span class="ruling-badge ruling-${esc(e.rulingType)}">${esc(e.rulingType)}</span>${!preview?`<button class="bookmark ${state.saved.has(e.id)?'saved':''}" data-bookmark="${esc(e.id)}" title="${state.saved.has(e.id)?'Убрать из сохранённых':'Сохранить карточку'}" aria-label="${state.saved.has(e.id)?'Убрать из сохранённых':'Сохранить карточку'}" aria-pressed="${state.saved.has(e.id)}">${state.saved.has(e.id)?'★':'☆'}</button>`:''}</header><div class="card-tags">${tagHtml(e)}</div><div class="qa-row"><span class="qa-letter">Q</span><h3 ${e.question?'data-ui-skip':''}>${esc(e.question||'Твой вопрос появится здесь')}</h3></div><div class="qa-row answer"><span class="qa-letter">A</span><div class="answer-body${(e.answer||'').length>300?' long':''}" ${e.answer?'data-ui-skip':''}>${e.answerHtml||'<p>Решение появится здесь.</p>'}${imagesHtml(e)}</div></div><footer class="card-footer">${e.sourceUrl?`<a class="source-link" data-ui-skip href="${esc(e.sourceUrl)}" target="_blank" rel="noopener noreferrer">${esc(e.sourceLabel||ui('Источник'))} ↗</a>`:`<span class="source-link" data-ui-skip>${esc(e.sourceLabel||'TTS Community FAQ')}</span>`}${!preview?`<button data-discuss="${esc(e.id)}" title="Вопросы по карточке">◌ ${e.questionCount||0}</button>${state.canModerate?`<button class="edit-card" data-edit="${esc(e.id)}" title="Редактировать карточку">✎</button>`:''}<button class="read-more" data-open="${esc(e.id)}">Читать →</button>`:''}</footer></article>`;
  }
- function teamCount(t){return filtered({selected:new Set([t]),sort:false}).length;}
+ function teamCount(t){return state.teamCounts?.[t] || 0;}
  function renderTeams(){const q=$('team-search').value.toLocaleLowerCase();const candidates=state.teams.filter(t=>t!=='Все команды'&&t.toLocaleLowerCase().includes(q)).sort((a,b)=>teamCount(b)-teamCount(a)||a.localeCompare(b));
   $('team-options').innerHTML=candidates.map(t=>`<button data-team="${esc(t)}" class="${state.selected.has(t)?'active':''}" aria-pressed="${state.selected.has(t)}">${state.logos?.includes(t)?`<img src="/kill-team-logos/${encodeURIComponent(t)}.webp" alt="" width="22" height="22">`:'<span class="team-icon" aria-hidden="true">◇</span>'}${esc(t)}<span>${teamCount(t)}</span></button>`).join('')||'<p class="filter-hint">Команда не найдена</p>';
   $('selected-teams').innerHTML=[...state.selected].map(t=>`<button data-team="${esc(t)}">${esc(t)} ×</button>`).join('');
  }
  function setTeam(t){if(t==='Все команды'){state.selected.clear();}else{state.selected.has(t)?state.selected.delete(t):state.selected.add(t);}state.limit=16;renderTeams();render();}
  function filtered({source=state.source,selected=state.selected,sort=true}={}){
-  let rows=state.entries.filter(e=>isFaqEntry(e)&&(source==='all'||e.category===source));
+  let rows=state.entries.filter(e=>(!state.listedIds||state.listedIds.has(e.id))&&isFaqEntry(e)&&(source==='all'||e.category===source));
   if(selected.size)rows=rows.filter(e=>!e.teams.includes('Все команды')&&e.teams.some(t=>selected.has(t)));
   if(state.types.size)rows=rows.filter(e=>state.types.has(e.rulingType));
   if(state.topic)rows=rows.filter(e=>e.topic===state.topic);
@@ -59,22 +59,23 @@
  }
  function reset(){state.selected.clear();state.types.clear();state.topic='';state.search='';state.savedOnly=false;state.limit=16;$('faq-search').value='';$('team-search').value='';$('topic-filter').value='';$('saved-filter').setAttribute('aria-pressed','false');renderTeams();render();}
  function render(){
+  schedulePage();
   const conduct=state.view==='conduct',info=state.view==='info';$('conduct-document').hidden=!conduct;$('info-document').hidden=!info;$('faq-workspace').hidden=conduct||info;
   updateLocale();
   const queue=state.view==='moderation'||state.view==='mine';$('filters').hidden=queue;$('cards').hidden=queue;$('queue-list').hidden=!queue;$('search-row');document.querySelector('.search-row').hidden=queue;
   $('new-entry').hidden=!state.canModerate||state.view==='mine';$('manage-roles').hidden=!state.canManageRoles||state.view!=='moderation';$('sort').parentElement.hidden=queue;
   document.querySelectorAll('[data-view]').forEach(b=>{const active=b.dataset.view===state.view;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
-  if(conduct){renderConduct();return;}
-  if(info){renderInfo();return;}
+  if(conduct){renderConduct();pageControls($('conduct-text'));return;}
+  if(info){renderInfo();pageControls($('info-text'));return;}
   renderTeams();
-  $('source-filters').querySelectorAll('button').forEach(b=>{b.classList.toggle('active',b.dataset.source===state.source);b.querySelector('span').textContent=filtered({source:b.dataset.source,sort:false}).length;});
+  $('source-filters').querySelectorAll('button').forEach(b=>{b.classList.toggle('active',b.dataset.source===state.source);b.querySelector('span').textContent=b.dataset.source==='all' ? (state.counts?.community||0)+(state.counts?.official||0) : state.counts?.[b.dataset.source]||0;});
   $('type-filters').innerHTML=typeNames.map(t=>`<button data-type="${esc(t)}" class="${state.types.has(t)?'active':''}" aria-pressed="${state.types.has(t)}">${esc(t)}</button>`).join('');
   $('saved-count').textContent=savedFaqCount();
   $('section-intro').hidden=true;$('load-more-wrap').hidden=true;
-  if(queue){renderQueue();return;}
-  const rows=filtered();$('result-count').textContent=countText(rows.length,['карточка','карточки','карточек']);$('results-heading').textContent=state.source==='all'?'Все разъяснения':state.source==='official'?'Official FAQ · Games Workshop':'Community FAQ';
+  if(queue){renderQueue();pageControls($('queue-list'),true);return;}
+  const rows=filtered();$('result-count').textContent=countText(state.pagination?.total || 0,['карточка','карточки','карточек']);$('results-heading').textContent=state.source==='all'?'Все разъяснения':state.source==='official'?'Official FAQ · Games Workshop':'Community FAQ';
   $('cards').innerHTML=rows.length?rows.slice(0,state.limit).map(e=>cardHtml(e)).join(''):'<div class="empty-state"><strong>Ничего не найдено</strong>Попробуй другую команду, формулировку или сбрось фильтры.<button class="secondary" data-action="reset">Сбросить фильтры</button></div>';
-  $('load-more-wrap').hidden=rows.length<=state.limit;
+  $('load-more-wrap').hidden=true;pageControls($('cards'));
  }
  function renderInfo(){
   const rows=state.entries.filter(e=>e.category==='info');
@@ -109,21 +110,51 @@
  }
  function renderQueue(){
   const mine=state.view==='mine';const rows=mine?state.submissions.filter(s=>s.authorId===state.user?.id):state.submissions;
-  $('results-heading').textContent=mine?'Мои заявки':'Очередь модерации';$('result-count').textContent=countText(rows.length,['заявка','заявки','заявок']);
+  $('results-heading').textContent=mine?'Мои заявки':'Очередь модерации';$('result-count').textContent=countText(state.queuePagination?.total||0,['заявка','заявки','заявок']);
   $('section-intro').hidden=false;$('section-intro').innerHTML=mine?'После рассмотрения здесь появятся решение модератора и ссылка на карточку. Заявку, возвращённую на доработку, можно исправить и отправить снова.':`<div class="queue-filter"><label for="queue-status">Статус</label> <select id="queue-status"><option value="pending">На рассмотрении</option><option value="all">Все заявки</option><option value="accepted">Опубликованные</option><option value="needs_changes">На доработке</option><option value="rejected">Отклонённые</option></select></div>`;
   if(!mine){const select=$('queue-status');select.value=state.queueStatus||'pending';select.onchange=()=>{state.queueStatus=select.value;render();};}
   const shown=mine?rows:rows.filter(s=>(state.queueStatus||'pending')==='all'||s.status===(state.queueStatus||'pending'));
-  $('queue-list').innerHTML=shown.length?shown.map(s=>`<article class="queue-card"><header><span><span ${s.author==='Удалённый аккаунт'?'':'data-ui-skip'}>${esc(s.author)}</span> · ${stamp(s.createdAt)}</span><span class="status-badge status-${esc(s.status)}">${statusNames[s.status]}</span></header><h3 data-ui-skip>${esc(s.question)}</h3><div class="card-tags" style="padding:0">${s.teams.map(t=>`<span class="tag team-tag">${esc(t)}</span>`).join('')}<span class="tag">${esc(s.rulingType)}</span></div>${s.answer?`<p data-ui-skip>${esc(s.answer.length>350?s.answer.slice(0,350)+'…':s.answer)}</p>`:''}${s.resolution?`<p class="moderator-reply"><strong>Комментарий модератора</strong><span data-ui-skip>${esc(s.resolution)}</span></p>`:''}<footer><span>${s.entryId?'Уточнение к существующей карточке':'Новое разъяснение'}</span>${!mine&&s.status==='pending'?`<button class="primary" data-review="${esc(s.id)}">Рассмотреть →</button>`:s.status==='needs_changes'&&s.authorId===state.user?.id?`<button class="primary" data-revise="${esc(s.id)}">Доработать →</button>`:s.resultEntryId?(state.entries.some(e=>e.id===s.resultEntryId)?`<button class="secondary" data-open="${esc(s.resultEntryId)}">Открыть карточку →</button>`:'<span>Карточка удалена</span>'):''}</footer></article>`).join(''):`<div class="empty-state"><strong>${mine?'Заявок пока нет':'Очередь разобрана'}</strong>${mine?'Есть вопрос без ответа? Предложи его для FAQ.':'Здесь появятся новые вопросы и предложения игроков.'}${mine?'<button class="primary" data-action="submit">＋ Предложить FAQ</button>':''}</div>`;
+  $('queue-list').innerHTML=shown.length?shown.map(s=>`<article class="queue-card"><header><span><span ${s.author==='Удалённый аккаунт'?'':'data-ui-skip'}>${esc(s.author)}</span> · ${stamp(s.createdAt)}</span><span class="status-badge status-${esc(s.status)}">${statusNames[s.status]}</span></header><h3 data-ui-skip>${esc(s.question)}</h3><div class="card-tags" style="padding:0">${s.teams.map(t=>`<span class="tag team-tag">${esc(t)}</span>`).join('')}<span class="tag">${esc(s.rulingType)}</span></div>${s.answer?`<p data-ui-skip>${esc(s.answer.length>350?s.answer.slice(0,350)+'…':s.answer)}</p>`:''}${s.resolution?`<p class="moderator-reply"><strong>Комментарий модератора</strong><span data-ui-skip>${esc(s.resolution)}</span></p>`:''}<footer><span>${s.entryId?'Уточнение к существующей карточке':'Новое разъяснение'}</span>${!mine&&s.status==='pending'?`<button class="primary" data-review="${esc(s.id)}">Рассмотреть →</button>`:s.status==='needs_changes'&&s.authorId===state.user?.id?`<button class="primary" data-revise="${esc(s.id)}">Доработать →</button>`:s.resultEntryId?`<button class="secondary" data-open="${esc(s.resultEntryId)}">Открыть карточку →</button>`:''}</footer></article>`).join(''):`<div class="empty-state"><strong>${mine?'Заявок пока нет':'Очередь разобрана'}</strong>${mine?'Есть вопрос без ответа? Предложи его для FAQ.':'Здесь появятся новые вопросы и предложения игроков.'}${mine?'<button class="primary" data-action="submit">＋ Предложить FAQ</button>':''}</div>`;
  }
- async function refresh(){
-  const data=await api('/api/faq');Object.assign(state,{entries:data.entries,teams:data.teams,logos:data.logos,canModerate:data.canModerate,canManageRoles:data.canManageRoles,communitySource:data.communitySource,communityVersion:data.communityVersion,snapshot:data.snapshot});
-  const counts={community:0,official:0};state.entries.filter(isFaqEntry).forEach(e=>counts[e.category]++);
-  $('library-count').textContent=counts.community+counts.official;$('version').textContent='COMMUNITY v'+data.communityVersion;$('source-link').href=data.communitySource;updateLocale();
-  $('moderation-tab').hidden=!state.canModerate;$('mine-tab').hidden=!state.user;
-  if(state.user){const r=await api('/api/faq/submissions');state.submissions=r.submissions;$('queue-count').textContent=state.submissions.filter(s=>s.status==='pending').length;$('mine-count').textContent=state.submissions.filter(s=>s.authorId===state.user.id).length;}
-  renderTeams();render();
+ let pageSignature='',pageTimer,pageSequence=0;
+ function pageQuery(){
+  const query=new URLSearchParams({limit:state.view==='conduct'||state.view==='info'?'100':'16',source:state.view==='conduct'||state.view==='info'?state.view:state.source,q:state.search,sort:state.sort,topic:state.topic});
+  if(state.view==='library'){
+   for(const team of state.selected)query.append('team',team);
+   for(const type of state.types)query.append('type',type);
+   if(state.savedOnly){query.set('savedOnly','1');for(const id of [...state.saved].slice(0,500))query.append('saved',id);}
+  }else{query.set('q','');query.set('topic','');}
+  return query;
  }
- async function openDetail(id,discussion=false){const e=state.entries.find(e=>e.id===id);if(!e){toast('Эта карточка не найдена. Обнови страницу.');return;}
+ function signature(){return state.view==='moderation'||state.view==='mine'?state.view+':'+(state.queueStatus||'pending'):pageQuery().toString();}
+ function schedulePage(){const next=signature();if(next===pageSignature)return;pageSignature=next;state.serverPage=1;clearTimeout(pageTimer);pageSequence++;pageTimer=setTimeout(()=>loadPage().catch(error=>toast(error.message)),180);}
+ async function loadPage(){
+  const sequence=++pageSequence,queue=state.view==='moderation'||state.view==='mine';
+  if(queue){
+   const query=new URLSearchParams({page:state.serverPage||1});if(state.view==='moderation'&&(state.queueStatus||'pending')!=='all')query.set('status',state.queueStatus||'pending');
+   if(state.view==='mine')query.set('mine','1');
+   const data=await api('/api/faq/submissions?'+query);if(sequence!==pageSequence)return;state.submissions=data.submissions;state.queuePagination=data.pagination;submissionCounts(data.counts);
+  }else{
+   const query=pageQuery();query.set('page',state.serverPage||1);const data=query.toString().length>4000
+    ?await api('/api/faq/search',{method:'POST',body:JSON.stringify({query:query.toString()})})
+    :await api('/api/faq?'+query);if(sequence!==pageSequence)return;
+   Object.assign(state,data);state.listedIds=new Set(data.entries.map(e=>e.id));
+   $('library-count').textContent=(data.counts.community||0)+(data.counts.official||0);$('version').textContent='COMMUNITY v'+data.communityVersion;$('source-link').href=data.communitySource;
+  }
+  pageSignature=signature();$('moderation-tab').hidden=!state.canModerate;$('mine-tab').hidden=!state.user;render();
+ }
+ function pageControls(element,queue=false){
+  const old=element.parentElement.querySelector('[data-faq-pages]');old?.remove();const p=queue?state.queuePagination:state.pagination;if(!p||p.totalPages<=1)return;
+  const controls=document.createElement('div');controls.dataset.faqPages='true';controls.className='row-actions';
+  controls.innerHTML=`<button class="secondary" data-page="${p.currentPage-1}" ${p.currentPage===1?'disabled':''}>← ${ui('Назад')}</button><span>${p.currentPage} / ${p.totalPages}</span><button class="secondary" data-page="${p.currentPage+1}" ${p.currentPage===p.totalPages?'disabled':''}>${ui('Далее')} →</button>`;
+  controls.querySelectorAll('button').forEach(button=>button.onclick=async()=>{button.disabled=true;state.serverPage=Number(button.dataset.page);try{await loadPage();element.scrollIntoView({block:'start'});}catch(error){button.disabled=false;toast(error.message);}});element.after(controls);
+ }
+ function submissionCounts(counts){$('mine-count').textContent=counts?.mine||0;$('queue-count').textContent=counts?.pending||0;}
+ async function refresh(){clearTimeout(pageTimer);pageSignature=signature();await loadPage();if(state.user&&!['mine','moderation'].includes(state.view)){const data=await api('/api/faq/submissions?limit=1');submissionCounts(data.counts);}}
+ async function fullEntry(id,editing=false){const data=await api('/api/faq/entries/'+encodeURIComponent(id)+(editing?'?edit=1':''));const at=state.entries.findIndex(e=>e.id===id);if(at<0)state.entries.push(data.entry);else state.entries[at]=data.entry;return data.entry;}
+
+
+ async function openDetail(id,discussion=false){let e;try{e=await fullEntry(id);}catch(error){toast(error.message);return;}
   if(e.category==='conduct'){if($('detail-dialog').open)$('detail-dialog').close();setView('conduct',{navigate:new URLSearchParams(location.hash.slice(1)).get('entry')!==id});history.replaceState(null,'',conductUrl+'#conduct-'+encodeURIComponent(id));document.getElementById('conduct-'+id)?.scrollIntoView({block:'start'});return;}
   if(e.category==='info'){if($('detail-dialog').open)$('detail-dialog').close();setView('info',{navigate:new URLSearchParams(location.hash.slice(1)).get('entry')!==id});history.replaceState(null,'',infoUrl+'#info-'+encodeURIComponent(id));document.getElementById('info-'+id)?.scrollIntoView({block:'start'});return;}
   detailId=id;questionRows=[];editingQuestionId=null;editingReplyId=null;renderDetail();if(!$('detail-dialog').open)$('detail-dialog').showModal();
@@ -169,7 +200,11 @@
   document.querySelector('.preview-note').textContent=textSection?'Форматирование, ссылки, таблицы и изображения сохраняются в тексте раздела.':'Форматирование, ссылки, таблицы и изображения сохраняются в карточке.';
  }
  function setEditorCategory(){const c=$('edit-category').value;if(c==='official')$('edit-type').value='GW';else if(c==='conduct'){$('edit-type').value='Этикет';$('edit-topic').value='Этика и организация';}else if(['GW','Этикет'].includes($('edit-type').value))$('edit-type').value='RAW';configureEditor();updatePreview();}
- function openEditor(mode,e=null,s=null){if(!requireUser())return;if(['create','edit','review'].includes(mode)&&!state.canModerate)return;
+ async function openEditor(mode,e=null,s=null){
+  try{if(s?.id)s=(await api('/api/faq/submissions/'+encodeURIComponent(s.id))).submission;
+   const id=e?.id||s?.entryId;if(id)e=await fullEntry(id,true);
+  }catch(error){toast(error.message);return;}
+if(!requireUser())return;if(['create','edit','review'].includes(mode)&&!state.canModerate)return;
   edit={mode,id:e?.id,submissionId:s?.id,entryId:s?.entryId||e?.id||null,revision:e?.revision,teams:[...(s?.teams||e?.teams||['Все команды'])],images:structuredClone(s?.images||e?.images||[]),sourceVersion:e?.sourceVersion||'',sourceDate:e?.sourceDate||null};
   const data=s||e||(mode==='create'&&state.view==='conduct'?{category:'conduct',rulingType:'Этикет',topic:'Этика и организация',sourceLabel:'Code of Conduct · TTS',sourceUrl:state.communitySource+'#heading=h.hq5aa29whyd'}:{});const submission=['submit','correction','revise'].includes(mode),review=mode==='review';
   $('editor-title').textContent=review?'Рассмотреть заявку':mode==='edit'?(data.category==='conduct'?'Редактировать раздел кодекса':data.category==='info'?'Редактировать раздел «Инфо»':'Редактировать карточку'):mode==='correction'?'Предложить уточнение':mode==='revise'?'Доработать заявку':submission?'Предложить новый FAQ':data.category==='conduct'?'Новый раздел кодекса':'Новая карточка';

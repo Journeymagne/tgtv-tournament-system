@@ -7,6 +7,9 @@ const accessManagement = require("./access-management");
 const feedback = require('./feedback');
 
 module.exports = [
+  { method:'GET', path:'/api/account/quotas', handler:require('./resource-quotas').get, auth:'user' },
+  { method:'GET', path:'/api/admin/users/:id/quotas', handler:require('./resource-quotas').get, auth:'user', permission:'super' },
+  { method:'PATCH', path:'/api/admin/users/:id/quotas', handler:require('./resource-quotas').update, auth:'user', permission:'super', tx:true, maxBodyBytes:16384 },
   { method:'GET', path:'/api/admin/audit', handler:accessManagement.auditLog, auth:'admin' },
   { method:'POST', path:'/api/feedback', handler:feedback.create, auth:'user', tx:true },
   { method:'GET', path:'/api/admin/feedback', handler:feedback.list, auth:'admin' },

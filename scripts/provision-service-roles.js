@@ -17,7 +17,8 @@ async function provision() {
         GRANT SELECT ON public.schema_migrations TO ${role};
         GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA ${schema} TO ${role};
         GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA ${schema} TO ${role};
-        GRANT SELECT ON accounts.platform_ownership TO ${role};
+        GRANT SELECT ON accounts.platform_ownership,accounts.resource_quotas TO ${role};
+        GRANT EXECUTE ON FUNCTION accounts.spend_resource_budget(TEXT,BIGINT,INTEGER,BIGINT) TO ${role};
         GRANT EXECUTE ON FUNCTION accounts.session_identity(TEXT),accounts.renew_session(TEXT,TIMESTAMPTZ) TO ${role};
         GRANT INSERT ON accounts.administrative_audit_events TO ${role};
         GRANT USAGE ON ALL SEQUENCES IN SCHEMA accounts TO ${role}`);
@@ -25,6 +26,7 @@ async function provision() {
         REVOKE UPDATE(expires_at) ON accounts.sessions FROM ${role};
         GRANT SELECT(${publicColumns}) ON accounts.users TO ${role}`);
     }
+    await client.query('GRANT EXECUTE ON FUNCTION accounts.resource_usage(INTEGER) TO kt_accounts');
     for (const source of ['tournaments','studio','faq','knowthykt']) await client.query(`
       GRANT USAGE ON SCHEMA ${source} TO kt_notifications;
       GRANT SELECT,DELETE ON ${source}.notification_outbox TO kt_notifications;

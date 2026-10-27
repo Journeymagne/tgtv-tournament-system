@@ -2,6 +2,13 @@ const { randomUUID } = require("node:crypto");
 const { HttpError } = require("../../http/io");
 
 async function create(client, owner, pack) {
+  const quotas = require('../../resources/quotas');
+  await quotas.lock(client, owner);
+  const limits = await quotas.limits(client, owner);
+  const total = await quotas.studioUsage(client, owner);
+  const { rows: [manifestSize] } = await client.query('SELECT octet_length($1::jsonb::text) AS bytes', [pack.manifest]);
+  quotas.check('studioStorageBytes', limits.studioStorageBytes, total.bytes, total.bytes + pack.byteSize + manifestSize.bytes);
+  await quotas.spend(client, owner, 'ttsExportHour', 3600, '', limits);
   // Match draft deletion's lock so a deleted project cannot acquire new public exports.
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["studio:" + owner + ":" + pack.manifest.team.id]);
   const {rows:[project]} = await client.query("SELECT deleted_at FROM studio_projects WHERE owner_id=$1 AND project_id=$2", [owner,pack.manifest.team.id]);
@@ -10,7 +17,8 @@ async function create(client, owner, pack) {
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["studio-tts:" + owner]);
   const {rows:[usage]} = await client.query(`SELECT COALESCE(sum(byte_size),0)::bigint AS bytes,
     count(*) FILTER (WHERE project_id=$2)::int AS versions FROM studio_tts_exports WHERE owner_id=$1`, [owner,pack.manifest.team.id]);
-  if (Number(usage.bytes) + pack.byteSize > 512 * 1024 * 1024 || usage.versions >= 20) throw new HttpError(409, "Удалите ненужные ссылки TTS перед созданием нового набора (до 20 версий команды и 512 МБ на аккаунт).");
+  quotas.check('ttsStorageBytes', limits.ttsStorageBytes, Number(usage.bytes), Number(usage.bytes) + pack.byteSize);
+  quotas.check('ttsVersions', limits.ttsVersions, usage.versions, usage.versions + 1);
   const id = randomUUID();
   const {rows:[row]} = await client.query(`INSERT INTO studio_tts_exports (id,owner_id,project_id,name,manifest,byte_size)
     VALUES ($1,$2,$3,$4,$5,$6) RETURNING id,name,created_at,byte_size`, [id,owner,pack.manifest.team.id,pack.manifest.team.name,pack.manifest,pack.byteSize]);

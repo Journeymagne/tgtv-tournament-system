@@ -20,7 +20,7 @@ function entry(row, base) { return {id:row.id,name:row.name,createdAt:row.create
 
 async function create(ctx) {
   checkWrite(ctx);
-  const pack = validatePack(ctx.body);
+  const pack = await require('../resources/workers').run('tts', ctx.body);
   const row = await store.create(ctx.client,ctx.user.id,pack);
   return {body:entry({...row,cards:pack.manifest.cards.length,tokens:pack.manifest.tokens.length,dice:(pack.manifest.dice||[]).reduce((sum,die)=>sum+die.quantity,0)},origin(ctx.req)),headers:noStore};
 }

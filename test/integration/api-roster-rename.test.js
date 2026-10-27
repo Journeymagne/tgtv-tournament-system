@@ -18,6 +18,9 @@ async function expect(request, status = 200) {
   return response.body;
 }
 async function register(name) {
+  // Roster fixtures represent many independent players. Registration quotas
+  // themselves are exercised in resource-quotas.test.js.
+  await getPool().query('DELETE FROM resource_budgets WHERE user_id IS NULL');
   const http = createClient(server.baseUrl);
   const { user } = await expect(http.post("/api/register", { name, password: "password123", confirmPassword: "password123", telegramContact: `@${name}` }), 201);
   return { ...user, http };

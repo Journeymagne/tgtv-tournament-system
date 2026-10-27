@@ -72,12 +72,13 @@ async function list({ client, query }) {
   return { teams: teams.map(teamView) };
 }
 
-async function administration({ client }) {
-  return { teams: (await teamsRepo.listAdministration(client)).map(teamView) };
+async function administration({ client, query }) {
+  const result=await teamsRepo.listPage(client,query,'admin');
+  return {...result,teams:result.teams.map(teamView)};
 }
-
 async function leaderboard({ client, query }) {
-  return { teams: (await teamsRepo.listLeaderboard(client, query?.get("venue"))).map(teamView) };
+  const result=await teamsRepo.listPage(client,query,'leaderboard');
+  return {...result,teams:result.teams.map(teamView)};
 }
 
 async function profileData(client, team, user) {
@@ -205,6 +206,7 @@ async function update({ client, user, params, body }) {
   if (Object.prototype.hasOwnProperty.call(body, "description")) patch.description = normalizeTeamDescription(body.description);
   if (Object.prototype.hasOwnProperty.call(body, "logoData")) patch.logoData = normalizeTeamLogo(body.logoData);
   try {
+    if (require('../resources/audit').unchanged(team, patch)) return { team: teamView(team) };
     const updated = await teamsRepo.update(client, team.id, patch);
     await teamsRepo.audit(client, { teamId: team.id, actorUserId: user.id, eventType: "team_update", entityType: "team", entityId: team.id, before: team, after: updated });
     return { team: teamView(updated) };
@@ -287,6 +289,7 @@ async function leaveMembership(client, team, membership, actor, reason) {
   }
   const wasLeader = membership.role === "leader";
   const successor = wasLeader ? await chooseSuccessor(client, team, membership) : null;
+  if (successor && !team.archivedAt) await require('../resources/enforce').activeTeams(client, successor.userId);
   const ended = await teamsRepo.endMembership(client, membership.id, reason, actor.id);
   await client.query(
     `UPDATE tournament_team_roster_members rm
@@ -350,6 +353,7 @@ async function transferLeadership({ client, user, params, body }) {
   const target = await teamsRepo.activeMembership(client, team.id, targetUserId, true);
   if (!target) throw new ValidationError("Leadership can be transferred only to a current member");
   if (target.role === "leader") return { team: teamView(team) };
+  if (!team.archivedAt) await require('../resources/enforce').activeTeams(client, target.userId);
   const oldLeader = await teamsRepo.activeMembership(client, team.id, team.leaderUserId, true);
   if (oldLeader) await teamsRepo.setMembershipRole(client, oldLeader.id, "member");
   await teamsRepo.setMembershipRole(client, target.id, "leader");
@@ -372,6 +376,8 @@ async function archive({ client, user, params }) {
 
 async function restore({ client, user, params }) {
   const team = await requireTeam(client, params.id, true);
+  if (!team.archivedAt) return { team: teamView(team) };
+  await require('../resources/enforce').activeTeams(client, team.leaderUserId);
   const updated = await teamsRepo.update(client, team.id, { archivedAt: null });
   await teamsRepo.audit(client, { teamId: team.id, actorUserId: user.id, eventType: "team_restore", entityType: "team", entityId: team.id, before: team, after: updated });
   return { team: teamView(updated) };

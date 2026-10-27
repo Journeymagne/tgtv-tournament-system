@@ -73,9 +73,12 @@ test('guests read the catalogue; shared sessions expose the scoped moderator rol
   const guest = client();
   const catalogue = await expect(guest.request('GET', '/api/faq'));
   assert.equal(catalogue.canModerate, false);
-  assert.equal(catalogue.entries.filter(e => ['community', 'official'].includes(e.category)).length, 131);
-  assert.equal(catalogue.entries.filter(e => e.category === 'conduct').length, 17);
-  assert.equal(catalogue.entries.filter(e => e.category === 'info').length, 1);
+  assert.equal(catalogue.entries.length, 20);
+  assert.equal(catalogue.pagination.total, 131);
+  assert.equal((await expect(guest.request('GET','/api/faq?source=conduct'))).pagination.total,17);
+  assert.equal((await expect(guest.request('GET','/api/faq?source=info'))).pagination.total,1);
+  const second=await expect(guest.request('GET','/api/faq?page=2'));
+  assert.ok(!second.entries.some(row=>catalogue.entries.some(first=>first.id===row.id)));
   await expect(guest.request('POST', '/api/faq/submissions', ruling()), 401);
   const session = await expect(moderator.http.request('GET', '/api/session'));
   assert.equal(session.user.id, moderator.id);

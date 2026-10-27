@@ -7,18 +7,19 @@ function view(row) {
     legacySource: legacy_source || null, legacyId: legacy_id || null,
     tournamentNumber: tournament_number ?? null,
     textEdited: Boolean(text_edited),
-    imageUrl: image_data ? `/api/achievements/${row.id}/image?v=${contentVersion(image_data)}` : null };
+    imageUrl: image_data?.startsWith("/api/") ? image_data : image_data ? `/api/achievements/${row.id}/image?v=${contentVersion(image_data)}` : null };
 }
 
-async function list(client, { kind = null, category = null, userId = null, teamId = null } = {}) {
-  const { rows } = await client.query(`SELECT a.* FROM achievements a
+async function list(client, { kind = null, category = null, userId = null, teamId = null } = {}, query) {
+  const result = await require('../../resources/pages').select(client,`SELECT a.id,a.name,a.description,a.kind,a.emoji,a.tournament_id,a.place,a.category,a.tournament_number,a.created_at,a.legacy_source,a.legacy_id,a.text_edited,
+    CASE WHEN a.image_data IS NOT NULL THEN '/api/achievements/'||a.id||'/image' END AS image_data FROM achievements a
     WHERE a.deleted_at IS NULL AND ($1::text IS NULL OR a.kind=$1)
       AND ($2::integer IS NULL OR EXISTS (SELECT 1 FROM achievement_awards w WHERE w.achievement_id=a.id AND w.user_id=$2))
       AND ($3::integer IS NULL OR EXISTS (SELECT 1 FROM achievement_awards w WHERE w.achievement_id=a.id AND w.team_id=$3))
       AND ($4::text IS NULL OR a.category=$4)
     ORDER BY CASE WHEN $4='title' THEN a.tournament_number END DESC NULLS LAST,
-      a.created_at DESC, a.id DESC`, [kind, userId, teamId, category]);
-  return rows.map(view);
+      a.created_at DESC, a.id DESC`, [kind, userId, teamId, category], query);
+  return Object.assign(result.rows.map(view),{pagination:result.pagination});
 }
 
 async function find(client, id) {

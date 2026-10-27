@@ -16,7 +16,7 @@ function extract(name) {
 
 function harness(state = {}) {
   const content = { innerHTML: "" };
-  const helpers = ["escapeHtml", "pageTabs", "paginate", "paginationMarkup", "teamsTable", "filterAdminTeams", "renderTop", "adminTeamsPanel"];
+  const helpers = ["escapeHtml", "pageTabs", "paginate", "remotePage", "paginationMarkup", "teamsTable", "filterAdminTeams", "renderTop", "adminTeamsPanel"];
   const factory = new Function("state", "document", "t", "plural", "avatarMarkup", `
     const LEADERBOARD_PAGE_SIZE = 20;
     const wirePageTabs = () => {}, wireVenueTabs = () => {}, wirePaginationControls = () => {}, wireTeamLinks = () => {}, wireLeaderboardProfiles = () => {}, wireLeaderboardSearch = () => {}, wireAdminUserControls = () => {};

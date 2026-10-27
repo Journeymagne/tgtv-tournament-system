@@ -66,6 +66,8 @@ async function start(ctx) {
   if (pool.length < 20) throw new HttpError(409, 'В этом режиме осталось меньше 20 вопросов. Выберите другую сложность или смешанную подготовку.');
   const current = await store.activeSession(ctx.client, ctx.user.id);
   if ((current?.id || null) !== (replaceSessionId || null)) throw new HttpError(409, "Активная сессия изменилась. Обновите страницу перед началом новой.");
+  await require('../resources/quotas').spend(ctx.client, ctx.user.id, 'trainingHour', 3600);
+  await require('../resources/quotas').spend(ctx.client, ctx.user.id, 'trainingDay', 86400);
   if (current) await ctx.client.query("UPDATE training_sessions SET status='abandoned',finished_at=NOW() WHERE id=$1 AND user_id=$2", [current.id, ctx.user.id]);
   const { rowCount } = await ctx.client.query(`INSERT INTO training_sessions(id,user_id,bank_version,mode,items)
     VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO NOTHING`, [sessionId, ctx.user.id, bank.BANK_VERSION, mode, JSON.stringify(bank.sessionItems(mode, pool))]);

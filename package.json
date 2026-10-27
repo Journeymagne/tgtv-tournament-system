@@ -1,6 +1,6 @@
 {
   "name": "tgtv-ranking-tournament-system",
-  "version": "1.4.12",
+  "version": "1.4.13",
   "private": true,
   "description": "TGTV ranking, matchmaking, Approved Ops, and Kill Team challenge tracker.",
   "engines": {
@@ -21,7 +21,7 @@
     "postinstall": "node scripts/prepare-combat-lab.js"
   },
   "dependencies": {
-    "markdown-it": "^15.0.1",
+    "markdown-it": "^15.0.3",
     "pg": "^8.22.0"
   }
 }

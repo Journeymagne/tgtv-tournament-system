@@ -230,7 +230,7 @@ function tournamentRoundView(round, matches, participantById) {
 function tournamentRulesType(tournament) {
   const link = String(tournament?.rulesLink || "");
   if (!link) return "";
-  return link.startsWith("data:") ? "pdf" : "url";
+  return link.startsWith("data:") || link.startsWith("/api/tournaments/") ? "pdf" : "url";
 }
 
 function tournamentRulesUrl(tournament) {

@@ -17,6 +17,7 @@ const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
 function withAction(handler, action) { return ctx => handler({ ...ctx, params: { ...ctx.params, action } }); }
 
 module.exports = [
+  {method:'GET',path:'/api/admin/tournaments/:id/audit',handler:tournaments.auditPage,auth:'user',permission:'tournament.manage'},
   ...require("./miniapp").routes,
   ...require("./telegram").routes,
   { method: "PATCH", path: "/api/admin/tournaments/:id/owner", handler: accessManagement.transferOwner, auth: "user", permission: "super", tx: true },

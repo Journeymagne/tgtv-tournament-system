@@ -967,6 +967,9 @@ database backups. Images are served separately from catalog JSON.
 
 ## Features
 
+Account quotas and resource safeguards, including superadministrator overrides:
+[resource limits](docs/resource-limits.md). Split services require database migration 065.
+
 - registration and sign-in with name and password;
 - the first registered user automatically becomes an administrator;
 - live player search and challenge sending;

@@ -32,7 +32,7 @@ test("legacy catalog preserves all 39 entries, Unicode and original IDs without 
   assert.equal(rows.find((row) => row.id === 32).emoji, "🧔‍♂️");
   assert.equal(rows.find((row) => row.id === 67).emoji, "🧑🏻‍🚀");
   assert.equal((await client.query("SELECT * FROM achievement_awards")).rowCount, 0);
-  const cards = await repo.list(client, { kind: "player" });
+  const cards = await repo.list(client, { kind: "player" },new URLSearchParams({limit:100}));
   assert.equal(cards.length, 39);
   assert.ok(cards.every((row) => row.imageUrl === null && row.place === null && row.tournamentId === null));
   assert.equal((await repo.list(client, { kind: "team" })).length, 0);
@@ -60,7 +60,7 @@ test("import keeps local IDs, existing awards and edits; repeats do not duplicat
 test("imported emoji achievements can be manually awarded and appear in player profiles", async () => {
   await migration.up(client);
   const user = (await client.query("INSERT INTO users (name,name_key,password_hash) VALUES ('AwardTest','legacy-award-test','unused') RETURNING id")).rows[0];
-  const card = (await repo.list(client)).find((row) => row.legacyId === 49);
+  const card = (await repo.list(client,{},new URLSearchParams({limit:100}))).find((row) => row.legacyId === 49);
   const context = { client, user, params: { id: card.id }, body: { targetId: user.id } };
   assert.equal((await api.award(context)).awarded, true);
   assert.equal((await api.award(context)).awarded, false);

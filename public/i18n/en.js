@@ -3,6 +3,10 @@
 // Keys are flat and dotted, grouped by screen with comment separators.
 
 const TGTV_I18N_EN = {
+  "achievements.pagination.items": {"one":"achievement","other":"achievements"},
+  "tournaments.pagination.items": {"one":"tournament","other":"tournaments"},
+  "feedback.pagination.items": {"one":"report","other":"reports"},
+
   "pairing.warning.title": "Pairing warnings",
   "pairing.warning.rematch": "{names}: have already played each other. Round(s): {rounds}.",
   "pairing.warning.team_rematch": "Teams {names} have already met. Round(s): {rounds}.",

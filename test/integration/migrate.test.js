@@ -155,7 +155,7 @@ test('training scope withdraws excluded killzones while preserving earned progre
   const beforeSessions = (await pool.query('SELECT * FROM training_sessions ORDER BY id')).rows;
   const beforeRevision = (await catalogStore.load(pool)).revision;
 
-  assert.deepEqual(await migrate(pool), [66]);
+  assert.deepEqual(await migrate(pool), MIGRATIONS.filter(m => m.version >= 66).map(m => m.version));
   const catalog = await catalogStore.load(pool);
   assert.equal(catalog.revision, beforeRevision + 1);
   assert.equal(catalog.questions.length, 300, 'archived IDs remain available for historical answers');

@@ -3030,8 +3030,8 @@ function matchSetupMeta(match) {
 
 async function loadTournaments() {
   try {
-    const data = await api("/api/tournaments");
-    state.tournaments = data.tournaments || [];
+    const data = await api(`/api/tournaments?page=${state.tournamentsPage || 1}`);
+    state.tournaments = data.tournaments || []; state.tournamentsPagination = data.pagination;
     state.tournamentsError = "";
   } catch (err) {
     state.tournaments = [];
@@ -3143,11 +3143,13 @@ function renderTournaments(live = false) {
       </div>
       ${state.tournamentsError ? `<div class="empty">${escapeHtml(state.tournamentsError)}</div>` : `
         ${tournamentListSections(tournaments)}
+        ${state.tournamentsPagination ? paginationMarkup("tournaments",state.tournamentsPagination,"tournaments.pagination.items") : ""}
       `}
       </section>
     `}
   `, live);
   wirePageTabs();
+  wirePaginationControls();
   if (activeTab === "admin") {
     adminUi().wireAdminTournamentControls();
     liveRefresh.schedule();
@@ -4082,8 +4084,8 @@ function resultSummary(game) {
 async function loadFeedback() {
   if (!state.me?.isAdmin) return;
   try {
-    const data = await api("/api/admin/feedback");
-    state.feedback = data.feedback || [];
+    const data = await api(`/api/admin/feedback?page=${state.feedbackPage || 1}`);
+    state.feedback = data.feedback || []; state.feedbackPagination = data.pagination;
     state.feedbackError = "";
   } catch (err) {
     state.feedback = [];
@@ -4104,6 +4106,7 @@ function renderFeedback() {
 
       </div>
       ${adminInbox ? feedbackInboxMarkup() : feedbackFormMarkup()}
+      ${adminInbox && state.feedbackPagination ? paginationMarkup("feedback",state.feedbackPagination,"feedback.pagination.items") : ""}
       <div class="message" data-message></div>
     </section>
   `;
@@ -4117,6 +4120,7 @@ function renderFeedback() {
   });
   document.querySelector("[data-feedback-form]")?.addEventListener("submit", submitFeedback);
   adminUi().wireFeedbackAdminActions();
+  wirePaginationControls();
 }
 
 function feedbackFormMarkup() {
@@ -4282,6 +4286,10 @@ async function mountProfileAchievements(container, field, id) {
     const data = await api(`/api/achievements?${field}=${encodeURIComponent(id)}`);
     if (panel.isConnected) {
       target.innerHTML = profileAchievementMarkup(data, compact);
+      inlinePages(target,data.pagination,async number=>{
+        const next=await api(`/api/achievements?${field}=${encodeURIComponent(id)}&page=${number}`);
+        target.innerHTML=profileAchievementMarkup(next,compact); return next.pagination;
+      });
       if (compact) {
         target.dataset.trainingUser = String(id);
         target.trainingSnapshot = data;
@@ -4331,7 +4339,7 @@ async function renderAchievements() {
   const page = content.querySelector("[data-achievement-page]");
   const isCurrent = () => page.isConnected && state.view === "achievements";
   try {
-    const data = await api(selectedId ? `/api/achievements/${selectedId}` : `/api/achievements?category=${category}`);
+    const data = await api(selectedId ? `/api/achievements/${selectedId}` : `/api/achievements?category=${category}&page=${state.achievementsPage || 1}`);
     if (!isCurrent()) return;
     if (selectedId) {
       const achievement = data.achievement;
@@ -4341,7 +4349,7 @@ async function renderAchievements() {
         ${(state.administrationContext && state.me?.isAdmin) ? `<div class="row-actions achievement-edit-actions"><button type="button" class="small-button" data-achievement-edit>${t("achievements.edit")}</button></div>` : ""}
         ${achievement.tournamentId ? `<p class="muted">${t("achievements.auto")}</p>` : (state.administrationContext && state.me?.isAdmin) ? `
         <form data-achievement-award class="settings-block"><label>${t("achievements.recipient")}
-          <select name="targetId" ${achievement.kind === "player" ? "data-user-search" : ""} required disabled><option value="">${t("achievements.loading")}</option></select></label>
+          <select name="targetId" ${achievement.kind === "player" ? "data-user-search data-user-search-remote" : ""} required disabled><option value="">${t("achievements.loading")}</option></select></label>
           ${achievement.kind === "team" ? `<fieldset data-achievement-roster hidden><legend>${t("achievements.roster")}</legend><p class="muted">${t("achievements.rosterHint")}</p><div data-achievement-members></div></fieldset>` : ""}
           <button class="primary-button" disabled>${t("achievements.award")}</button></form>` : ""}
         <p role="status" data-achievement-message></p><h3>${t("achievements.recipients")}</h3>
@@ -4416,6 +4424,7 @@ async function renderAchievements() {
         ], category, { publicTabs: true })}
         ${window.KTTrainingJourneyUI.achievement(data.trainingAchievement, { locale: i18n.getLocale() })}
         ${achievementCards(data.achievements)}
+        ${data.pagination ? paginationMarkup("achievements",data.pagination,"achievements.pagination.items") : ""}
         ${(state.administrationContext && state.me?.isAdmin) ? `<dialog class="tiebreaker-help-dialog achievement-create" aria-labelledby="achievement-create-title" data-achievement-dialog>
           <form data-achievement-create class="tiebreaker-help-content">
             <div class="tiebreaker-help-header"><h3 id="achievement-create-title">${t("achievements.create")}</h3>
@@ -4432,7 +4441,7 @@ async function renderAchievements() {
             <div class="row-actions"><button type="button" class="small-button" data-achievement-create-close>${t("common.cancel")}</button>
               <button type="submit" class="primary-button">${t("achievements.create")}</button></div>
           </form></dialog>` : ""}`;
-      wirePageTabs();
+      wirePageTabs(); wirePaginationControls();
       const form = page.querySelector("[data-achievement-create]");
       if (form) {
         const dialog = page.querySelector("[data-achievement-dialog]");
@@ -7411,6 +7420,21 @@ function enhanceUserSelects(root = document) {
     select.hidden = true;
     select.required = false;
     select.dataset.userSearchBound = "true";
+    if (select.dataset.userSearchRemote !== undefined) {
+      let timer, sequence=0;
+      input.addEventListener('input',()=>{
+        clearTimeout(timer);const current=++sequence,query=input.value;
+        timer=setTimeout(async()=>{try{
+          const data=await api('/api/users/search?q='+encodeURIComponent(query));
+          if(current!==sequence||!input.isConnected)return;
+          const value=select.value,selected=Array.from(select.options).find(option=>option.value===value);
+          const options=data.users.map(user=>new Option(user.name,user.id));
+          if(selected&&!options.some(option=>option.value===value))options.unshift(selected);
+          select.replaceChildren(new Option('',''),...options);select.value=value;
+          syncUserSelect(select);input.value=query;input.dispatchEvent(new Event('combo-options-change',{bubbles:true}));
+        }catch(error){setMessage(error.message,true);}},220);
+      });
+    }
     valueInput.addEventListener("change", () => {
       if (select.value === valueInput.value) return;
       select.value = valueInput.value;
@@ -7852,23 +7876,14 @@ function updateTotals() {
   });
 }
 
-async function loadTop() {
-  const data = await api(`/api/users?venue=${encodeURIComponent(state.leaderboardVenue)}`);
-  state.users = data.users || [];
-  await loadLeaderboardSearch();
-}
-
+async function loadTop() { await loadLeaderboardSearch(); }
 async function loadLeaderboardSearch() {
   const requestId = ++leaderboardSearchRequestId;
-  const query = state.leaderboardQuery;
-  const venue = state.leaderboardVenue;
-  if (!query.trim()) {
-    state.leaderboardUserIds = null;
-    return true;
-  }
-  const data = await api(`/api/users?venue=${encodeURIComponent(venue)}&q=${encodeURIComponent(query)}`);
+  const query = state.leaderboardQuery, venue = state.leaderboardVenue;
+  const data = await api(`/api/users?venue=${encodeURIComponent(venue)}&q=${encodeURIComponent(query)}&page=${state.leaderboardPage || 1}`);
   if (requestId !== leaderboardSearchRequestId || query !== state.leaderboardQuery || venue !== state.leaderboardVenue) return false;
-  state.leaderboardUserIds = (data.users || []).map((user) => user.id);
+  state.users = data.users || []; state.leaderboardPagination = data.pagination;
+  state.leaderboardUserIds = null;
   return true;
 }
 
@@ -7899,8 +7914,8 @@ function wireLeaderboardSearch() {
 }
 
 async function loadTeamLeaderboard() {
-  const data = await api(`/api/leaderboards/teams?venue=${encodeURIComponent(state.leaderboardVenue)}`);
-  state.teamLeaderboard = data.teams || [];
+  const data = await api(`/api/leaderboards/teams?venue=${encodeURIComponent(state.leaderboardVenue)}&page=${state.teamLeaderboardPage || 1}`);
+  state.teamLeaderboard = data.teams || []; state.teamLeaderboardPagination = data.pagination;
 }
 
 function paginate(items, page, pageSize = LEADERBOARD_PAGE_SIZE) {
@@ -7937,16 +7952,28 @@ function paginationMarkup(target, pageData, itemLabelKey = "leaderboard.paginati
 }
 
 function wirePaginationControls() {
-  document.querySelectorAll("[data-pagination-target]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const page = Number(button.dataset.paginationPage || 1);
-      if (button.dataset.paginationTarget === "leaderboard") state.leaderboardPage = page;
-      if (button.dataset.paginationTarget === "admin-users") state.adminUsersPage = page;
-      if (button.dataset.paginationTarget === "team-leaderboard") state.teamLeaderboardPage = page;
-      if (button.dataset.paginationTarget === "admin-teams") state.adminTeamsPage = page;
-      renderShell();
-    });
+  const loaders = {
+    'leaderboard': ['leaderboardPage', loadTop],
+    'team-leaderboard': ['teamLeaderboardPage', loadTeamLeaderboard],
+    'admin-users': ['adminUsersPage', () => adminUi().loadAdminUsers()],
+    'admin-teams': ['adminTeamsPage', () => adminUi().loadAdminTeams()],
+    'tournaments': ['tournamentsPage', loadTournaments],
+    'admin-tournaments': ['adminTournamentsPage', () => adminUi().loadAdminTournaments()],
+    'feedback': ['feedbackPage', loadFeedback],
+    'achievements': ['achievementsPage', async () => {}]
+  };
+  document.querySelectorAll('[data-pagination-target]').forEach(button => {
+    button.onclick = async () => {
+      const entry = loaders[button.dataset.paginationTarget]; if (!entry) return;
+      const old = state[entry[0]]; state[entry[0]] = Number(button.dataset.paginationPage || 1);
+      button.disabled = true;
+      try { await entry[1](); renderShell(); }
+      catch (error) { state[entry[0]] = old; setMessage(error.message, true); button.disabled = false; }
+    };
   });
+}
+function remotePage(items, metadata, fallbackPage) {
+  return metadata ? {...metadata,items} : paginate(items,fallbackPage);
 }
 
 function renderTop() {
@@ -7996,7 +8023,7 @@ function renderTop() {
 }
 
 function teamsTable(teams, { admin = false } = {}) {
-  const pageData = paginate(teams, admin ? state.adminTeamsPage : state.teamLeaderboardPage);
+  const pageData = remotePage(teams, admin ? state.adminTeamsPagination : state.teamLeaderboardPagination, admin ? state.adminTeamsPage : state.teamLeaderboardPage);
   if (admin) state.adminTeamsPage = pageData.currentPage;
   else state.teamLeaderboardPage = pageData.currentPage;
   if (!pageData.total) return `<div class="empty">${t("teams.list.empty")}</div>`;
@@ -8020,8 +8047,8 @@ function wireTeamLinks() {
 
 function usersTable(users) {
   const matches = state.leaderboardUserIds && new Set(state.leaderboardUserIds);
-  const rankedUsers = users.map((user, index) => ({ ...user, rank: index + 1 }));
-  const pageData = paginate(matches ? rankedUsers.filter((user) => matches.has(user.id)) : rankedUsers, state.leaderboardPage);
+  const rankedUsers = users.map((user, index) => ({ ...user, rank: user.rank || index + 1 }));
+  const pageData = remotePage(matches ? rankedUsers.filter((user) => matches.has(user.id)) : rankedUsers, state.leaderboardPagination, state.leaderboardPage);
   state.leaderboardPage = pageData.currentPage;
   if (!pageData.total) return `<div class="empty">${t(state.leaderboardQuery.trim() ? "leaderboard.users.searchEmpty" : "leaderboard.empty")}</div>`;
   return `
@@ -10809,7 +10836,7 @@ function teamManagementPanel(data) {
       <button class="small-button" type="submit">${t("common.save")}</button>
       <div class="message error" data-team-edit-message role="alert" hidden></div>
     </form>
-    ${!team.archivedAt ? `<form data-team-invite><div class="field"><label for="team-invite-user">${t("teams.invite.player")}</label><select id="team-invite-user" name="userId" data-user-search required><option value="">${t("teams.invite.choose")}</option>${inviteCandidates.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.invite.submit")}</button><div class="message" data-team-invite-message role="status" aria-live="polite" aria-atomic="true" hidden></div></form>` : ""}
+    ${!team.archivedAt ? `<form data-team-invite><div class="field"><label for="team-invite-user">${t("teams.invite.player")}</label><select id="team-invite-user" name="userId" data-user-search data-user-search-remote required><option value="">${t("teams.invite.choose")}</option>${inviteCandidates.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.invite.submit")}</button><div class="message" data-team-invite-message role="status" aria-live="polite" aria-atomic="true" hidden></div></form>` : ""}
     <form data-team-leadership><div class="field"><label for="team-leader-user">${t("teams.leadership.label")}</label><select id="team-leader-user" name="userId" data-user-search required><option value="">${t("teams.invite.choose")}</option>${current.filter((membership) => membership.role !== "leader" && membership.userId).map((membership) => `<option value="${membership.userId}">${escapeHtml(membership.user?.name || membership.displayNameSnapshot)}</option>`).join("")}</select></div><button class="small-button" type="submit">${t("teams.leadership.submit")}</button></form>
     <div class="row-actions">${team.archivedAt && state.administrationContext && team.viewer?.canAdmin ? `<button class="small-button" data-team-restore="${team.id}">${t("teams.action.restore")}</button>` : !team.archivedAt ? `<button class="danger-button" data-team-archive="${team.id}">${t("teams.action.archive")}</button>` : ""}</div>
   </section>`;

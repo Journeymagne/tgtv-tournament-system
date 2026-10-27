@@ -70,11 +70,17 @@ async function publication(client, id, owner = null, superAdmin = false) {
 }
 
 async function rename(client, owner, id, name, revision) {
+  await require("../../resources/quotas").lock(client, owner);
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["studio:" + owner + ":" + id]);
-  const { rows: [previous] } = await client.query("SELECT revision, deleted_at FROM studio_projects WHERE owner_id=$1 AND project_id=$2", [owner, id]);
+  const { rows: [previous] } = await client.query("SELECT * FROM studio_projects WHERE owner_id=$1 AND project_id=$2", [owner, id]);
   if (!previous) throw new HttpError(404, "Команда не найдена.");
   if (previous.deleted_at) throw new HttpError(410, "Команда удалена.");
   if (previous.revision !== revision) throw new HttpError(409, "Команда изменена в другой вкладке. Обновите список и повторите переименование.");
+  if (previous.project.team.name === name && (!previous.published || previous.published.team.name === name)) return summary(previous);
+  const quotas = require('../../resources/quotas'), limits = await quotas.limits(client, owner), usage = await quotas.studioUsage(client, owner);
+  const { rows: [size] } = await client.query(`SELECT octet_length(jsonb_set(project,'{team,name}',to_jsonb($3::text))::text)+
+    COALESCE(octet_length(jsonb_set(published,'{team,name}',to_jsonb($3::text))::text),0) AS bytes FROM studio_projects WHERE owner_id=$1 AND project_id=$2`, [owner,id,name]);
+  quotas.check('studioStorageBytes', limits.studioStorageBytes, usage.bytes, usage.bytes-Number(previous.storage_bytes)+size.bytes);
   // Change only the title in each snapshot; private rules must stay private.
   const { rows: [updated] } = await client.query(`UPDATE studio_projects SET
     project=jsonb_set(project,'{team,name}',to_jsonb($3::text)),
@@ -87,6 +93,8 @@ async function rename(client, owner, id, name, revision) {
 // The router supplies a transaction. The lock covers first saves as well as
 // existing rows, so two tabs cannot both create revision 1 for the same draft.
 async function save(client, owner, project, revision, publish, recoveryId) {
+  const quotas = require('../../resources/quotas');
+  await quotas.lock(client, owner);
   // Approval is server-owned metadata, never an author-controlled JSON field.
   project = { ...project, team: { ...project.team } };
   delete project.team.sealOfApproval;
@@ -104,6 +112,16 @@ async function save(client, owner, project, revision, publish, recoveryId) {
     const recovered = await save(client, owner, copy, 0, false);
     return { ...recovered, recoveredFrom: project.team.id, original: previous ? summary(previous) : null };
   }
+  const limits = await quotas.limits(client, owner);
+  const usage = await quotas.studioUsage(client, owner);
+  const nextPublished = publish ? project : previous?.published || null;
+  const { rows: [size] } = await client.query('SELECT octet_length($1::jsonb::text)+COALESCE(octet_length($2::jsonb::text),0) AS bytes', [project, nextPublished]);
+  quotas.check('studioProjects', limits.studioProjects, usage.projects, usage.projects + (previous ? 0 : 1));
+  quotas.check('studioStorageBytes', limits.studioStorageBytes, usage.bytes, usage.bytes - Number(previous?.storage_bytes || 0) + size.bytes);
+  if (!previous) await quotas.spend(client, owner, 'studioCreateDay', 86400, '', limits);
+  if (publish) await quotas.spend(client, owner, 'studioPublishHour', 3600, '', limits);
+  await quotas.spend(client, owner, 'studioSaveMinute', 60, '', limits);
+  await quotas.spend(client, owner, 'studioSaveHour', 3600, '', limits);
   const now = new Date().toISOString();
   const { rows: saved } = await client.query(`INSERT INTO studio_projects
     (owner_id, project_id, project, revision, updated_at, publication_id, published, published_at, published_revision)
@@ -123,12 +141,22 @@ async function deletedIds(client, owner) {
 }
 
 async function remove(client, owner, id, revision) {
+  await require("../../resources/quotas").lock(client, owner);
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", ["studio:" + owner + ":" + id]);
   const { rows } = await client.query("SELECT revision, deleted_at, publication_id FROM studio_projects WHERE owner_id=$1 AND project_id=$2 FOR UPDATE", [owner, id]);
   const previous = rows[0];
   if (previous?.deleted_at) return { id, deleted: true };
   if (!previous && revision > 0) throw new HttpError(404, "Команда не найдена.");
   if ((previous?.revision || 0) !== revision) throw new HttpError(409, "Команда изменена в другой вкладке. Обновите список черновиков и проверьте её перед удалением.");
+  if (!previous) {
+    // A local draft needs a tombstone to prevent an in-flight upload reviving it.
+    // Creating arbitrary tombstones is still creation and consumes a daily slot.
+    const quotas = require('../../resources/quotas');
+    const limits = await quotas.limits(client, owner);
+    const usage = await quotas.studioUsage(client, owner);
+    quotas.check('studioStorageBytes', limits.studioStorageBytes, usage.bytes, usage.bytes + 2);
+    await quotas.spend(client, owner, 'studioCreateDay', 86400, '', limits);
+  }
   await client.query("DELETE FROM studio_tts_exports WHERE owner_id=$1 AND project_id=$2", [owner, id]);
   if (previous?.publication_id) {
     await client.query("DELETE FROM studio.notification_messages WHERE payload->>'type' IN ('studio_review','studio_comment') AND payload->>'href' LIKE $1",["/studio#/library/"+previous.publication_id+"/%"]);

@@ -3,6 +3,10 @@
 // public/i18n/glossary.js and test/unit/i18n.test.js.
 
 const TGTV_I18N_RU = {
+  "achievements.pagination.items": {"one":"достижение","few":"достижения","many":"достижений","other":"достижения"},
+  "tournaments.pagination.items": {"one":"турнир","few":"турнира","many":"турниров","other":"турнира"},
+  "feedback.pagination.items": {"one":"обращение","few":"обращения","many":"обращений","other":"обращения"},
+
   "pairing.warning.title": "Предупреждения о паринге",
   "pairing.warning.rematch": "{names}: уже играли друг с другом. Раунд(ы): {rounds}.",
   "pairing.warning.team_rematch": "Команды {names} уже встречались. Раунд(ы): {rounds}.",

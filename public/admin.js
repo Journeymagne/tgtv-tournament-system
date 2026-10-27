@@ -259,8 +259,10 @@ async function adminForceConfirmGame(gameId, profileUserId = null) {
 }
 
 async function loadAdminTeams() {
-  const data = await api("/api/admin/teams");
-  state.adminTeams = data.teams || [];
+  const sequence=loadAdminTeams.sequence=(loadAdminTeams.sequence||0)+1;
+  const data = await api(`/api/admin/teams?page=${state.adminTeamsPage || 1}&q=${encodeURIComponent(state.adminTeamsQuery || "")}`);
+  if(sequence!==loadAdminTeams.sequence)return;
+  state.adminTeams = data.teams || []; state.adminTeamsPagination = data.pagination;
 }
 
 function filterAdminTeams(teams, query) {
@@ -272,26 +274,35 @@ function adminTeamsPanel() {
   return `<section class="card panel">
     <div class="panel-header"><div><h2>${t("teams.admin.title")}</h2><p class="muted">${t("teams.admin.hint")}</p></div></div>
     <div class="filter-row"><div class="field compact-field"><label for="admin-teams-search">${t("teams.search.label")}</label><input id="admin-teams-search" type="search" value="${escapeHtml(state.adminTeamsQuery)}" placeholder="${t("teams.search.placeholder")}" data-admin-teams-search></div></div>
-    <div data-admin-teams-results>${teamsTable(filterAdminTeams(state.adminTeams, state.adminTeamsQuery), { admin: true })}</div>
+    <div data-admin-teams-results>${teamsTable(state.adminTeams, { admin: true })}</div>
     <div class="message" data-message></div>
   </section>`;
 }
 
 function wireAdminTeams() {
-  wireTeamLinks();
-  wirePaginationControls();
-  document.querySelector("[data-admin-teams-search]")?.addEventListener("input", (event) => {
-    state.adminTeamsQuery = event.target.value;
-    state.adminTeamsPage = 1;
-    document.querySelector("[data-admin-teams-results]").innerHTML = teamsTable(filterAdminTeams(state.adminTeams, state.adminTeamsQuery), { admin: true });
-    wireTeamLinks();
-    wirePaginationControls();
+  wireTeamLinks(); wirePaginationControls();
+  wireRemoteAdminSearch('[data-admin-teams-search]','adminTeamsQuery','adminTeamsPage',loadAdminTeams,() => {
+    document.querySelector('[data-admin-teams-results]').innerHTML=teamsTable(state.adminTeams,{admin:true});
+    wireTeamLinks(); wirePaginationControls();
   });
+}
+function wireRemoteAdminSearch(selector,key,pageKey,load,render) {
+  const input=document.querySelector(selector); if(!input)return;
+  let timer,sequence=0;
+  input.oninput=()=>{
+    clearTimeout(timer); const current=++sequence;
+    state[key]=input.value; state[pageKey]=1;
+    timer=setTimeout(async()=>{try{
+      await load(); if(current!==sequence || !input.isConnected)return; render();
+    }catch(error){if(current===sequence)setMessage(error.message,true);}},220);
+  };
 }
 
 async function loadAdminUsers() {
-  const data = await api(state.me?.isAdmin ? "/api/admin/users" : "/api/users");
-  state.adminUsers = data.users || [];
+  const sequence=loadAdminUsers.sequence=(loadAdminUsers.sequence||0)+1;
+  const data = await api(`${state.me?.isAdmin ? "/api/admin/users" : "/api/users"}?page=${state.adminUsersPage || 1}&q=${encodeURIComponent(state.adminUsersQuery || "")}`);
+  if(sequence!==loadAdminUsers.sequence)return;
+  state.adminUsers = data.users || []; state.adminUsersPagination = data.pagination;
 }
 
 async function loadAdminGames() {
@@ -300,8 +311,8 @@ async function loadAdminGames() {
 }
 
 async function loadAdminTournaments() {
-  const data = await api("/api/admin/tournaments");
-  state.adminTournaments = data.tournaments || [];
+  const data = await api(`/api/admin/tournaments?page=${state.adminTournamentsPage || 1}`);
+  state.adminTournaments = data.tournaments || []; state.adminTournamentsPagination = data.pagination;
 }
 
 async function openAdminTournamentList() {
@@ -345,6 +356,7 @@ function adminTournamentsPanel() {
         ${state.me?.capabilities?.canCreateTournaments ? `<button class="primary-button" data-admin-tournament-new>${t("admin.tournament.list.create")}</button>` : ""}
       </div>
       ${tournamentListSections(tournaments, { admin: true, renderCard: adminTournamentRow })}
+      ${state.adminTournamentsPagination ? paginationMarkup("admin-tournaments",state.adminTournamentsPagination,"tournaments.pagination.items") : ""}
       <div class="message" data-message></div>
     </section>
   `;
@@ -897,7 +909,7 @@ function adminTournamentParticipantAdminRow(participant, data, options = {}) {
   const replaceLabel = participant.userId || participant.isProxy ? t("admin.tournament.participants.replace") : t("admin.tournament.participants.linkUser");
   const replacePlaceholder = participant.userId || participant.isProxy ? t("admin.tournament.participants.replacePlaceholder") : t("admin.tournament.participants.linkPlaceholder");
   const replacementLocked = locked || ["eliminated", "finished"].includes(participant.status);
-  const replaceDisabled = replacementLocked || !replacementUsers.length;
+  const replaceDisabled = replacementLocked;
   return `
     <div class="row-card compact-row-card participant-admin-row">
       <div class="row-main">
@@ -1093,6 +1105,7 @@ function openReservedRosterCreator(data) {
       await refreshTeamTournamentUi(data, { admin: true });
     } catch (error) { dialog.querySelector("[data-reserve-error]").textContent = error.message; submit.disabled = false; }
   });
+  wireRemoteUserPickers(dialog);
   dialog.showModal();
   dialog.querySelector("input").focus();
 }
@@ -1181,6 +1194,7 @@ async function openAdminTeamRosterCreator(data, reserve = null) {
       submit.disabled = false;
     }
   });
+  wireRemoteUserPickers(dialog);
   dialog.showModal();
   await loadSelectedTeam();
 }
@@ -1221,11 +1235,12 @@ async function openAdminTeamRosterEditor(data, roster) {
       await refreshTeamTournamentUi(data, { admin: true });
     } catch (err) { setMessage(err.message, true); }
   });
+  wireRemoteUserPickers(dialog);
   dialog.showModal();
 }
 
 function adminUsersPanel() {
-  const filteredUsers = filterAdminUsers(state.adminUsers, state.adminUsersQuery);
+  const filteredUsers = state.adminUsers;
   return `
     <section class="card panel">
       <div class="panel-header">
@@ -1262,7 +1277,7 @@ function adminTeamPairingOverrideForm(match) {
 }
 
 function adminUsersResultsMarkup(users) {
-  const pageData = paginate(users, state.adminUsersPage);
+  const pageData = remotePage(users,state.adminUsersPagination,state.adminUsersPage);
   state.adminUsersPage = pageData.currentPage;
   return '<div class="list">' + pageData.items.map(user => `<div class="row-card"><div class="row-main"><a href="/tournament#/administration/players/${user.id}" data-app-link class="text-link-button" data-profile-user="${user.id}">${escapeHtml(user.name)}</a><div class="row-meta">${user.isSuperAdmin ? adminLabel("Супер-администратор", "Super administrator") : user.isAdmin ? adminLabel("Администратор · судья всех турниров", "Administrator · judge of all tournaments") : user.canCreateTournaments ? adminLabel("Игрок · может создавать турниры", "Player · can create tournaments") : adminLabel("Игрок", "Player")}${user.suspendedUntil && new Date(user.suspendedUntil) > new Date() ? ' · ' + adminLabel("Заблокирован", "Suspended") : ''}</div></div><button class="small-button" data-role-user="${user.id}">${adminLabel("Управление", "Manage")}</button></div>`).join('') + '</div>' + paginationMarkup("admin-users", pageData, "leaderboard.users.pagination.users");
 }
@@ -1275,14 +1290,9 @@ function renderAdmin() {
 }
 
 function wireAdminUserControls() {
-  document.querySelector("[data-admin-users-search]")?.addEventListener("input", (event) => {
-    state.adminUsersQuery = event.currentTarget.value;
-    state.adminUsersPage = 1;
-    const results = document.querySelector("[data-admin-users-results]");
-    if (!results) return;
-    results.innerHTML = adminUsersResultsMarkup(filterAdminUsers(state.adminUsers, state.adminUsersQuery));
-    wirePaginationControls();
-    wireAdminUserRowControls();
+  wireRemoteAdminSearch('[data-admin-users-search]','adminUsersQuery','adminUsersPage',loadAdminUsers,()=>{
+    document.querySelector('[data-admin-users-results]').innerHTML=adminUsersResultsMarkup(state.adminUsers);
+    wirePaginationControls(); wireAdminUserRowControls();
   });
   wireAdminUserRowControls();
 }
@@ -1507,6 +1517,8 @@ function wireTournamentTableAdminControls() {
 }
 
 function wireTournamentParticipantAdminControls() {
+  wireRemoteAccountCombos(document.querySelector("[data-admin-tournament-add-participant]"));
+  document.querySelectorAll('.participant-replace-control').forEach(wireRemoteAccountCombos);
   wireRegistrationPayments(state.adminTournamentDetail);
   document.querySelector("[data-admin-tournament-add-participant]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1560,8 +1572,9 @@ function wireAdminTournamentControls() {
   wireAdminTournamentStaff();
   document.querySelector('[data-tournament-history]')?.addEventListener('click', async () => {
     try {
-      const data = await api(`/api/admin/tournaments/${state.selectedTournamentId}?audit=1`);
-      showAuditEvents(data.auditEvents || []);
+      const endpoint=`/api/admin/tournaments/${state.selectedTournamentId}/audit`;
+      const data = await api(endpoint);
+      showAuditEvents(data.events || [],data.pagination,endpoint);
     } catch (err) { setMessage(err.message, true); }
   });
   wireAdminTournamentFormBehavior();
@@ -2207,6 +2220,7 @@ window.TGTV_ADMIN = {
   loadAdminGames,
   loadAdminTeams,
   loadAdminTournamentDetail,
+  loadAdminTournaments,
   loadAdminUsers,
   loadTournamentAdmin,
   refreshAdminTournamentDetailView,
@@ -2246,7 +2260,7 @@ function renderAdministration() {
   else if (tab === 'content' && state.me.isAdmin) body = `<div class="administration-tiles">${tile('administration/documentation', adminLabel('Документация', 'Documentation'), adminLabel('Редактирование инструкций и страниц помощи', 'Edit instructions and help pages'))}${tile('administration/achievements', t('achievements.title'), adminLabel('Достижения, награды и зал славы', 'Achievements, awards and hall of fame'))}${tile('administration/people', adminLabel('Kill Team Challenge', 'Kill Team Challenge'), adminLabel('Выберите игрока и откройте его прогресс Challenge', 'Choose a player and open their Challenge progress'))}</div>`;
   else {
     const events = state.adminTournaments || [];
-    body = `<div class="administration-tiles">${tile('administration/tournaments', `${events.length} · ${t('nav.tournaments')}`, adminLabel('Доступные турниры, участники, раунды и судьи', 'Available tournaments, participants, rounds and judges'))}${state.me.isAdmin ? tile('administration/people', adminLabel('Игроки и команды', 'Players and teams'), adminLabel('Аккаунты, доступы, блокировки и команды', 'Accounts, permissions, suspensions and teams')) + tile('administration/feedback', adminLabel('Обращения', 'Feedback'), adminLabel('Сообщения игроков и статусы обработки', 'Player messages and resolution status')) + tile('administration/games/sessions', adminLabel('Игровые сессии', 'Game sessions'), adminLabel('Подтверждение результатов и разбор спорных игр', 'Review results and disputed games')) : ''}</div><section class="card panel"><h3>${adminLabel('Ваш доступ', 'Your access')}</h3><p>${state.me.isSuperAdmin ? adminLabel('Супер-администратор платформы. Управление глобальными ролями и всеми турнирами.', 'Platform super administrator. Manage global roles and every tournament.') : state.me.isAdmin ? adminLabel('Администратор платформы. Вы автоматически судья каждого турнира. Назначение судей доступно только в ваших турнирах.', 'Platform administrator. You automatically judge every tournament. You can appoint judges only in tournaments you own.') : adminLabel('Доступ ограничен вашими турнирами и турнирами, где вы назначены судьёй.', 'Access is limited to tournaments you own or judge.')}</p></section>`;
+    body = `<div class="administration-tiles">${tile('administration/tournaments', `${state.adminTournamentsPagination?.total ?? events.length} · ${t('nav.tournaments')}`, adminLabel('Доступные турниры, участники, раунды и судьи', 'Available tournaments, participants, rounds and judges'))}${state.me.isAdmin ? tile('administration/people', adminLabel('Игроки и команды', 'Players and teams'), adminLabel('Аккаунты, доступы, блокировки и команды', 'Accounts, permissions, suspensions and teams')) + tile('administration/feedback', adminLabel('Обращения', 'Feedback'), adminLabel('Сообщения игроков и статусы обработки', 'Player messages and resolution status')) + tile('administration/games/sessions', adminLabel('Игровые сессии', 'Game sessions'), adminLabel('Подтверждение результатов и разбор спорных игр', 'Review results and disputed games')) : ''}</div><section class="card panel"><h3>${adminLabel('Ваш доступ', 'Your access')}</h3><p>${state.me.isSuperAdmin ? adminLabel('Супер-администратор платформы. Управление глобальными ролями и всеми турнирами.', 'Platform super administrator. Manage global roles and every tournament.') : state.me.isAdmin ? adminLabel('Администратор платформы. Вы автоматически судья каждого турнира. Назначение судей доступно только в ваших турнирах.', 'Platform administrator. You automatically judge every tournament. You can appoint judges only in tournaments you own.') : adminLabel('Доступ ограничен вашими турнирами и турнирами, где вы назначены судьёй.', 'Access is limited to tournaments you own or judge.')}</p></section>`;
   }
   content.innerHTML = `<section class="card panel administration-navigation"><div class="panel-header administration-heading"><div><h2>${adminLabel('Администрирование', 'Administration')}</h2><p class="muted">${adminLabel('Управление турнирной платформой', 'Tournament platform management')}</p></div>${state.me.isAdmin ? `<button type="button" class="small-button" data-admin-audit>${adminLabel('История действий', 'Activity log')}</button>` : ''}</div><nav class="tabs administration-tabs" aria-label="${adminLabel('Разделы администрирования', 'Administration sections')}">${tabs.map(([id,label]) => `<button type="button" class="tab ${id===tab?'active':''}" aria-pressed="${id===tab}" data-admin-hub="${id}">${label}</button>`).join('')}</nav></section>${body}<div class="message" data-message></div>`;
   document.querySelectorAll('[data-admin-hub]').forEach(button => button.onclick = async () => {
@@ -2254,7 +2268,7 @@ function renderAdministration() {
   });
   document.querySelectorAll('[data-admin-people]').forEach(button => button.onclick = () => {state.adminPeopleTab=button.dataset.adminPeople; renderAdministration();});
   document.querySelector('[data-admin-audit]')?.addEventListener('click', showAdministrativeAudit);
-  if(tab==='tournaments') wireAdminTournamentControls();
+  if(tab==='tournaments') { wireAdminTournamentControls(); wirePaginationControls(); }
   if(tab==='people') {wireAdminUserControls(); wireAdminTeams(); wirePaginationControls();}
 }
 
@@ -2267,6 +2281,7 @@ function administrationDialog(title, body) {
   document.body.appendChild(dialog);
   dialog.querySelector('[data-dialog-close]').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>dialog.remove());
+  wireRemoteUserPickers(dialog);
   dialog.showModal();
   return dialog;
 }
@@ -2283,13 +2298,13 @@ function wireAdminTournamentStaff() {
     try { await loadAdminUsers(); } catch (err) { setMessage(err.message,true); return; }
     const assigned=new Set(data.staff.staff.filter(person=>person.active).map(person=>person.userId));
     const candidates=state.adminUsers.filter(user=>!assigned.has(user.id));
-    const dialog=administrationDialog(adminLabel('Назначить судью', 'Assign judge'), `<form data-judge-form><label>${adminLabel("Поиск игрока", "Find player")}<input type="search" data-judge-search></label><p class="muted">${adminLabel("Судья получит все права проведения турнира, кроме назначения судей.", "The judge receives full tournament management rights except appointing judges.")}</p><label>${adminLabel('Игрок', 'Player')}<select name="userId" required><option value="">${adminLabel('Выберите игрока', 'Choose a player')}</option>${candidates.map(user=>`<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}</select></label><label>${adminLabel('Доступ до (необязательно)', 'Access until (optional)')}<input type="datetime-local" name="expiresAt"></label><button class="primary-button">${adminLabel('Назначить', 'Assign')}</button></form>`);
-    dialog.querySelector('[data-judge-search]').oninput=event=>{ const q=event.target.value.trim().toLowerCase(); dialog.querySelectorAll('select option').forEach(option=>{option.hidden=Boolean(option.value&&!option.textContent.toLowerCase().includes(q));}); };
+    const dialog=administrationDialog(adminLabel('Назначить судью', 'Assign judge'), `<form data-judge-form><label>${adminLabel("Поиск игрока", "Find player")}<input type="search" data-judge-search></label><p class="muted">${adminLabel("Судья получит все права проведения турнира, кроме назначения судей.", "The judge receives full tournament management rights except appointing judges.")}</p><label>${adminLabel('Игрок', 'Player')}<select name="userId" data-remote-users required><option value="">${adminLabel('Выберите игрока', 'Choose a player')}</option>${candidates.map(user=>`<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}</select></label><label>${adminLabel('Доступ до (необязательно)', 'Access until (optional)')}<input type="datetime-local" name="expiresAt"></label><button class="primary-button">${adminLabel('Назначить', 'Assign')}</button></form>`);
+
     dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();try{const form=new FormData(event.currentTarget);await api(`/api/admin/tournaments/${data.tournament.id}/judges`,{method:'POST',body:{userId:Number(form.get('userId')),expiresAt:form.get('expiresAt')?new Date(form.get('expiresAt')).toISOString():null}});await loadAdminTournamentDetail(data.tournament.id);dialog.close();renderTournaments();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
   });
   document.querySelectorAll('[data-judge-revoke]').forEach(button=>button.onclick=async()=>{if(!await confirmAction({message:adminLabel('Снять судью? Доступ к управлению турниром будет отозван.', 'Remove this judge? Tournament management access will be revoked.'),confirmLabel:adminLabel('Снять', 'Remove')}))return;try{await api(`/api/admin/tournaments/${data.tournament.id}/judges/${button.dataset.judgeRevoke}`,{method:'DELETE'});await loadAdminTournamentDetail(data.tournament.id);renderTournaments();}catch(err){setMessage(err.message,true);}});
   document.querySelector('[data-transfer-owner]')?.addEventListener('click',()=> {
-    const dialog=administrationDialog(adminLabel('Передать турнир', 'Transfer tournament'),`<form><p>${adminLabel('Новый организатор получит право назначать судей. Предыдущий потеряет права организатора.', 'The new organizer can appoint judges. The previous owner loses organizer access.')}</p><label>${adminLabel('Новый организатор', 'New organizer')}<select name="userId">${state.adminUsers.filter(user=>user.id!==data.tournament.ownerUserId).map(user=>`<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}</select></label><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><button class="danger-button">${adminLabel('Подтвердить передачу', 'Confirm transfer')}</button></form>`);
+    const dialog=administrationDialog(adminLabel('Передать турнир', 'Transfer tournament'),`<form><p>${adminLabel('Новый организатор получит право назначать судей. Предыдущий потеряет права организатора.', 'The new organizer can appoint judges. The previous owner loses organizer access.')}</p><label>${adminLabel('Новый организатор', 'New organizer')}<select name="userId" data-remote-users>${state.adminUsers.filter(user=>user.id!==data.tournament.ownerUserId).map(user=>`<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}</select></label><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><button class="danger-button">${adminLabel('Подтвердить передачу', 'Confirm transfer')}</button></form>`);
     dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();try{const form=new FormData(event.currentTarget);await api(`/api/admin/tournaments/${data.tournament.id}/owner`,{method:'PATCH',body:{userId:Number(form.get('userId')),reason:form.get('reason')}});await loadAdminTournamentDetail(data.tournament.id);dialog.close();renderTournaments();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
   });
 }
@@ -2317,6 +2332,13 @@ function showRoleUser(id) {
     </section>` : ''}
     ${state.me.isSuperAdmin ? `<section class="card panel admin-user-section" aria-labelledby="admin-user-rating-title"><header class="admin-user-section-heading"><h4 id="admin-user-rating-title">${adminLabel('Коррекция рейтинга', 'Rating correction')}</h4><p class="muted">${adminLabel('Общий рейтинг и рейтинги по формату игры', 'Combined rating and ratings by game format')}</p></header><form class="admin-dialog-form" data-user-rating><div class="admin-rating-fields">${['Combined', 'Tts', 'Irl'].map(mode => `<label>${mode === 'Combined' ? t('venue.combined') : mode.toUpperCase()}<input type="number" min="0" max="5000" name="rating${mode}" value="${playerRating(user, mode.toLowerCase())}" required></label>`).join('')}</div><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><div class="row-actions"><button type="submit" class="danger-button">${adminLabel('Подтвердить коррекцию', 'Confirm correction')}</button></div></form></section>` : ''}</div>`);
   dialog.classList.add('admin-user-dialog');
+  if (state.me.isSuperAdmin) {
+    const quotas = document.createElement('button');
+    quotas.type = 'button'; quotas.className = 'small-button';
+    quotas.textContent = adminLabel('Квоты', 'Quotas');
+    quotas.onclick = () => { dialog.close(); showResourceQuotas(id); };
+    dialog.querySelector('[data-dialog-actions]').prepend(quotas);
+  }
   const run=async action=>{try{await action();await loadAdminUsers();renderShell();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
   if (state.me.isSuperAdmin && !user.isSuperAdmin && id !== state.me.id) {
     const remove = document.createElement('button');
@@ -2342,8 +2364,8 @@ async function showAdministrativeAudit() {
   } catch(err){setMessage(err.message,true);}
 }
 
-function showAuditEvents(events) {
-  const normalized = events.map(event => ({
+function showAuditEvents(events,pagination=null,endpoint=null) {
+  const normalize = events => events.map(event => ({
     actor: event.actor_name || event.metadata?.actorName || `#${event.actorUserId || '—'}`,
     type: event.event_type || event.eventType,
     entity: event.entity_id || event.entityId,
@@ -2351,6 +2373,7 @@ function showAuditEvents(events) {
     before: event.before, after: event.after,
     reason: event.reason || event.metadata?.reason || ''
   }));
+  let normalized=normalize(events);
   const dialog = administrationDialog(adminLabel('История действий', 'Activity log'), `
     <label>${adminLabel('Поиск по сотруднику, действию или объекту', 'Search actor, action or entity')}
       <input type="search" data-audit-search>
@@ -2368,6 +2391,9 @@ function showAuditEvents(events) {
   };
   dialog.querySelector('[data-audit-search]').addEventListener('input', render);
   render();
+  if(endpoint)inlinePages(dialog.querySelector('.administration-dialog-body'),pagination,async page=>{
+    const data=await api(endpoint+'?page='+page);normalized=normalize(data.events);render();return data.pagination;
+  });
 }
 
 Object.assign(window.TGTV_ADMIN, {loadAdministration,renderAdministration});

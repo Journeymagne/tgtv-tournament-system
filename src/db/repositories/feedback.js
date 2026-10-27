@@ -5,11 +5,9 @@ async function findById(client, id) {
   return mapFeedback(rows[0]);
 }
 
-async function listAll(client) {
-  const { rows } = await client.query(
-    `SELECT ${COLUMNS} FROM feedback ORDER BY created_at DESC, id DESC`
-  );
-  return rows.map(mapFeedback);
+async function listAll(client, query) {
+  const result = await require('../../resources/pages').select(client, `SELECT ${COLUMNS} FROM feedback ORDER BY created_at DESC,id DESC`, [], query);
+  return Object.assign(result.rows.map(mapFeedback), {pagination:result.pagination});
 }
 
 async function insert(client, { userId, screen, description }) {

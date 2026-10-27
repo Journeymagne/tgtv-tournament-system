@@ -113,6 +113,8 @@ async function transferOwner({ client, user, params, body }) {
   const reason = String(body.reason || "").trim().slice(0,1000);
   if (!reason) throw new ValidationError("Provide a reason for transferring ownership");
   if (!await users.findById(client,id)) throw new HttpError(404,"User not found");
+  if (id === tournament.ownerUserId) return { ok: true };
+  if (!['completed','cancelled'].includes(tournament.status)) await require('../resources/enforce').activeTournaments(client,id);
   await tournaments.update(client,tournament.id,{ownerUserId:id});
   await tournamentAudit.insert(client,{tournamentId:tournament.id,actorUserId:user.id,
     eventType:"organizer_changed",entityType:"tournament",entityId:tournament.id,

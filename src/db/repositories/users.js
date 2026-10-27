@@ -76,41 +76,28 @@ async function isNameTaken(client, name, excludeId = null) {
   return rows.length > 0;
 }
 
-async function listLeaderboard(client, venueMode = "combined", query = "") {
-  const mode = normalizeRatingMode(venueMode);
-  const column = ratingColumn(mode);
-  const term = String(query || "").trim().toLocaleLowerCase();
-  const telegramUsername = (value) => String(value || "").trim().toLocaleLowerCase()
-    .replace(/^(?:https?:\/\/)?(?:t\.me\/)?@?/, "").replace(/\/$/, "");
-  const telegramTerm = telegramUsername(term);
-  const { rows } = await client.query(
-    `SELECT id, name, avatar_version, rating_tts, rating_irl, rating_combined,
-            ${column} AS selected_rating, is_admin, register_nickname, telegram_contact
-     FROM users ORDER BY ${column} DESC, name ASC`
-  );
-  return rows.filter((row) => !term ||
-    String(row.name || "").toLocaleLowerCase().includes(term) ||
-    String(row.register_nickname || "").toLocaleLowerCase().includes(term) ||
-    (telegramTerm && telegramUsername(row.telegram_contact).includes(telegramTerm))
-  ).map((row) => ({
-    id: row.id,
-    name: row.name,
-    avatarUrl: avatarUrl(row.id, row.avatar_version),
-    rating: row.selected_rating,
-    ratings: { tts: row.rating_tts, irl: row.rating_irl, combined: row.rating_combined },
-    venueMode: mode,
-    isAdmin: row.is_admin
-  }));
+async function listLeaderboard(client, venueMode = "combined", query = "", paging) {
+  const mode = normalizeRatingMode(venueMode), column = ratingColumn(mode);
+  const term = String(query || '').trim().toLowerCase().slice(0,200);
+  const telegramTerm = term.replace(/^(?:https?:\/\/)?(?:t\.me\/)?@?/, '').replace(/\/$/, '');
+  const result = await require('../../resources/pages').select(client, `SELECT * FROM (
+    SELECT id,name,avatar_version,rating_tts,rating_irl,rating_combined,${column} AS selected_rating,
+      is_admin,register_nickname,telegram_contact,row_number() OVER(ORDER BY ${column} DESC,name,id) AS rank
+    FROM users) ranked WHERE $1='' OR strpos(lower(name),$1)>0 OR strpos(lower(COALESCE(register_nickname,'')),$1)>0
+      OR ($2<>'' AND strpos(lower(COALESCE(telegram_contact,'')),$2)>0)
+    ORDER BY rank`, [term,telegramTerm], paging);
+  return Object.assign(result.rows.map(row => ({ id:row.id,name:row.name,rank:Number(row.rank),
+    avatarUrl:avatarUrl(row.id,row.avatar_version), rating:row.selected_rating,
+    ratings:{tts:row.rating_tts,irl:row.rating_irl,combined:row.rating_combined},venueMode:mode,isAdmin:row.is_admin })), { pagination:result.pagination });
 }
 
-async function listWithGameCounts(client) {
-  const { rows } = await client.query(
-    `SELECT ${COLUMNS},
-            (SELECT COUNT(*)::int FROM games
-              WHERE games.status = 'completed' AND users.id = ANY(games.player_ids)) AS games_played
-     FROM users ORDER BY rating_tts DESC, name ASC`
-  );
-  return rows.map((row) => ({ ...mapUser(row), gamesPlayed: row.games_played }));
+async function listWithGameCounts(client, query = new URLSearchParams()) {
+  const term = String(query.get('q') || '').trim().toLowerCase().slice(0,200);
+  const result = await require('../../resources/pages').select(client, `SELECT ${COLUMNS},
+    (SELECT count(*)::int FROM games WHERE status='completed' AND users.id=ANY(player_ids)) AS games_played
+    FROM users WHERE $1='' OR strpos(lower(name),$1)>0 OR strpos(lower(COALESCE(register_nickname,'')),$1)>0
+    OR strpos(lower(COALESCE(telegram_contact,'')),$1)>0 ORDER BY rating_tts DESC,name,id`, [term], query);
+  return Object.assign(result.rows.map(row => ({...mapUser(row),gamesPlayed:row.games_played})), {pagination:result.pagination});
 }
 
 async function listForRatingReplay(client, { includeCombined = true } = {}) {

@@ -27,6 +27,9 @@ test.beforeEach(async () => {
 });
 
 async function register(name) {
+  // Roster fixtures represent many independent players. Registration quotas
+  // themselves are exercised in resource-quotas.test.js.
+  await getPool().query('DELETE FROM resource_budgets WHERE user_id IS NULL');
   const http = createClient(server.baseUrl);
   const result = await http.post("/api/register", { name, password: "password123", confirmPassword: "password123", telegramContact: `@${name}` });
   assert.equal(result.status, 201, JSON.stringify(result.body));

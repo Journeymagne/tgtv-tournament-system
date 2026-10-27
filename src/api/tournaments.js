@@ -370,9 +370,9 @@ async function fullView(client, tournament, user, { includeAudit = false } = {})
   });
 }
 
-async function listPublic({ client }) {
-  const tournaments = await tournamentsRepo.listPublished(client);
-  return { tournaments: tournaments.map(tournamentSummaryView) };
+async function listPublic({ client, query }) {
+  const result=await tournamentsRepo.listPage(client,query);
+  return {pagination:result.pagination,tournaments:result.tournaments.map(tournamentSummaryView)};
 }
 
 async function getPublic({ client, user, params, query }) {
@@ -401,10 +401,9 @@ async function getRules({ client, user, params, req }) {
   return { buffer: file.bytes, contentType: file.contentType, headers };
 }
 
-async function listAdmin({ client, user }) {
-  const tournaments = await tournamentsRepo.listAdmin(client);
-  return { tournaments: tournaments.filter(tournament => canManageTournament(user, tournament))
-    .map(tournament => ({ ...tournamentSummaryView(tournament), viewer: tournamentPermissions(user, tournament) })) };
+async function listAdmin({ client, user, query }) {
+  const result=await tournamentsRepo.listPage(client,query,user);
+  return {pagination:result.pagination,tournaments:result.tournaments.map(tournament=>({...tournamentSummaryView(tournament),viewer:tournamentPermissions(user,tournament)}))};
 }
 
 async function getAdmin({ client, user, params, query }) {
@@ -413,6 +412,11 @@ async function getAdmin({ client, user, params, query }) {
   const result = require("./tournament-payload").tournamentPayload(await fullView(client, tournament, user, { includeAudit: query?.get("audit") === "1" }), query);
   result.staff = await require("./access-management").staff({client,user,params});
   return result;
+}
+
+async function auditPage({client,params,query}) {
+  const events = await auditRepo.listByTournament(client, Number(params.id), query);
+  return {events, pagination:events.pagination};
 }
 
 async function createAdmin({ client, user, body }) {
@@ -453,6 +457,9 @@ async function updateAdmin({ client, user, params, body }) {
     }
   }
   const patch = normalizeTournamentPatch(body, tournament);
+  const resourceLimits = await require('../resources/quotas').limits(client, tournament.ownerUserId);
+  require('../resources/quotas').check('tournamentRounds', resourceLimits.tournamentRounds, tournament.swissRoundCount || 0, patch.swissRoundCount || 0);
+  if (require('../resources/audit').unchanged(tournament, patch)) return { tournament: tournamentSummaryView(tournament) };
   if (tournament.participantMode === "team" && patch.teamSize && patch.teamSize !== tournament.teamSize) {
     const rosters = await require("../db/repositories/team-rosters").listByTournament(client, tournament.id);
     if (rosters.some(roster => !roster.isReserve && roster.status !== "withdrawn")) throw new HttpError(409, "Remove registered rosters before changing the roster size");
@@ -598,6 +605,12 @@ async function assertParticipantAddAllowed(client, tournament, source) {
 async function assertParticipantCapacityAllowed(client, tournament, additionalCount = 1) {
   const participants = await participantsRepo.listByTournament(client, tournament.id);
   const registeredCount = participants.filter((participant) => !["withdrawn", "removed"].includes(participant.status)).length;
+  if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
+    const quotas = require('../resources/quotas'), limits = await quotas.limits(client, tournament.ownerUserId);
+    // Withdrawn/removed entries retain history and still consume storage.
+    // Repeated removal must not make unlimited fresh participant rows possible.
+    quotas.check('tournamentParticipants', limits.tournamentParticipants, participants.length, participants.length + additionalCount);
+  }
   if (tournament.registrationLimit && registeredCount + additionalCount > tournament.registrationLimit) {
     throw new HttpError(409, "Registration limit reached");
   }
@@ -615,9 +628,9 @@ async function assertParticipantCapacityAllowed(client, tournament, additionalCo
   }
 }
 
-async function createParticipant(client, tournament, user, body, source) {
+async function createParticipant(client, tournament, user, body, source, capacityChecked = false) {
   await assertParticipantAddAllowed(client, tournament, source);
-  await assertParticipantCapacityAllowed(client, tournament);
+  if (!capacityChecked) await assertParticipantCapacityAllowed(client, tournament);
   const linkedUser = await participantLinkedUser(client, user, body, source);
   const factions = normalizeFactions(body, tournament, { allowEmpty: source !== "self_join" });
   const displayName = normalizeParticipantName(body.displayName || body.name || linkedUser?.name);
@@ -726,6 +739,8 @@ async function bulkParticipants({ client, user, params, body }) {
     .map((line) => line.trim())
     .filter(Boolean);
   if (!names.length) throw new ValidationError("Paste at least one participant name");
+  const quotaLimits = await require('../resources/quotas').limits(client, tournament.ownerUserId);
+  require('../resources/quotas').check('tournamentBulk', quotaLimits.tournamentBulk, 0, names.length);
   await assertParticipantCapacityAllowed(client, tournament, names.length);
 
   const participants = [];
@@ -736,7 +751,7 @@ async function bulkParticipants({ client, user, params, body }) {
     if (seen.has(key)) throw new HttpError(409, "Duplicate participant name in bulk list");
     seen.add(key);
     participants.push(
-      await createParticipant(client, tournament, null, { displayName }, "admin_bulk")
+      await createParticipant(client, tournament, null, { displayName }, "admin_bulk", true)
     );
   }
   await audit(client, tournament, user, "participant_bulk_add", { after: participants });
@@ -1155,7 +1170,10 @@ async function addTableAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   assertEditableSetup(tournament);
   assertTablesAvailable(tournament);
-  if (usesSharedTeamTables(tournament) && (await tablesRepo.listByTournament(client, tournament.id)).length >= 3) {
+  const tableCount = Number((await client.query('SELECT count(*) AS count FROM tournament_tables WHERE tournament_id=$1', [tournament.id])).rows[0].count);
+  const quotaLimits = await require('../resources/quotas').limits(client, tournament.ownerUserId);
+  require('../resources/quotas').check('tournamentTables', quotaLimits.tournamentTables, tableCount, tableCount + 1);
+  if (usesSharedTeamTables(tournament) && tableCount >= 3) {
     throw new ValidationError("TTS WTC tournaments use exactly three shared tables");
   }
   const payload = normalizeTablePayload(body);
@@ -1282,7 +1300,7 @@ async function prepareRolledBackRoundSetup(
       roundBlueprint = preview.rounds[0];
     } else {
       const nextRoundNumber = assertNextSwissRoundAllowed(tournament, rounds, matches);
-      roundBlueprint = buildSwissNextRound(tournament, participants, matches, nextRoundNumber, Math.random, body.byeParticipantId);
+      roundBlueprint = await require('../resources/workers').run('swiss', { tournament, participants, matches, round: nextRoundNumber, bye: body.byeParticipantId });
       roundBlueprint.generatedBy = `admin:${user.id}`;
     }
   } else {
@@ -1399,7 +1417,7 @@ async function prepareNextRoundSetup(client, tournament, user, rounds, matches, 
   let roundBlueprint = null;
   if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
     const nextRoundNumber = assertNextSwissRoundAllowed(tournament, rounds, matches);
-    roundBlueprint = buildSwissNextRound(tournament, participants, matches, nextRoundNumber, Math.random, body.byeParticipantId);
+    roundBlueprint = await require('../resources/workers').run('swiss', { tournament, participants, matches, round: nextRoundNumber, bye: body.byeParticipantId });
     roundBlueprint.generatedBy = `admin:${user.id}`;
   } else {
     const { nextRound, nextMatches } = assertNextSingleEliminationRoundAllowed(rounds, matches);
@@ -2370,6 +2388,7 @@ async function saveMatchResultAdmin({ client, user, params, body }) {
 }
 
 module.exports = {
+  auditPage,
   listPublic,
   getPublic,
   getRules,

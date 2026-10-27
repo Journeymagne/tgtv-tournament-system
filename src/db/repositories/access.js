@@ -38,7 +38,7 @@ async function audit(client, user, eventType, entityType, entityId, before, afte
     (actor_user_id,actor_name,event_type,entity_type,entity_id,before,after,reason)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
   [user?.id || null, user?.name || "Local setup", eventType, entityType, entityId || null,
-    before ? JSON.stringify(before) : null, after ? JSON.stringify(after) : null, String(reason).slice(0, 1000)]);
+    require('../../resources/audit').auditJson(before), require('../../resources/audit').auditJson(after), String(reason).slice(0, 1000)]);
 }
 
 async function assertTarget(client, actor, target, { ownerOnly = false } = {}) {

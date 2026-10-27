@@ -11,14 +11,14 @@ function apiService(path, method = 'GET') {
       /^\/api\/(?:auth|email)(?:\/|$)/.test(path) || path === '/api/admin/email' ||
       /^\/api\/(?:admin\/)?feedback(?:\/|$)/.test(path) || path === '/api/admin/audit' ||
       /^\/api\/users\/[^/]+\/avatar$/.test(path) ||
-      /^\/api\/admin\/users\/[^/]+(?:\/(?:permissions|suspension|reset-password))?$/.test(path) ||
+      /^\/api\/admin\/users\/[^/]+(?:\/(?:permissions|suspension|reset-password|quotas))?$/.test(path) ||
       (path === '/api/me' && method === 'PATCH')) return 'accounts';
   return 'tournaments';
 }
 
 function pageService(path) {
   if (['/companion/css/common.css','/training/journey-shared.css'].includes(path)) return null;
-  if (/^\/(?:app\.js|admin\.js|styles\.css|i18n\/|pairing-warnings\.js|tournament-tables\.js|telegram-account\.js|robots\.txt|sitemap\.xml)/.test(path)) return 'tournaments';
+  if (/^\/(?:app\.js|admin\.js|resource-quotas\.js|styles\.css|i18n\/|pairing-warnings\.js|tournament-tables\.js|telegram-account\.js|robots\.txt|sitemap\.xml)/.test(path)) return 'tournaments';
   if (/^\/(?:studio|dice)(?:\/|$)/.test(path)) return 'studio';
   if (/^\/(?:faq|community-faq)(?:\/|$)/.test(path)) return 'faq';
   if (/^\/(?:training|knowthykt|know-thy-kill-team)(?:\/|$)/.test(path)) return 'knowthykt';

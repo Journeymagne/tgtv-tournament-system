@@ -17,7 +17,7 @@ const integer = (value, min, max) => Number.isInteger(value) && value >= min && 
 
 // Only raster images and a small declarative manifest cross the trust boundary.
 // Clients cannot supply Lua, TTS object data, external URLs, or arbitrary files.
-function png(value) {
+function png(value, budget) {
   if (typeof value !== "string" || value.length > 24 * 1024 * 1024 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value)) fail("Ожидалось изображение PNG.");
   const bytes = Buffer.from(value.slice(22), "base64");
   if (bytes.length < 57 || !bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) fail("Повреждённое изображение PNG.");
@@ -42,6 +42,8 @@ function png(value) {
   }
   if (!ended || !data.length) fail("Изображение PNG не завершено.");
   const expected = height * (1 + width * (bytes[25] === 6 ? 4 : 3));
+  budget.remaining -= expected;
+  if (budget.remaining < 0) throw new HttpError(413, 'Слишком много пикселей в наборе TTS. Уменьшите размеры изображений.');
   try { if (inflateSync(Buffer.concat(data), { maxOutputLength: expected }).length !== expected) fail("Повреждённые пиксели PNG."); }
   catch { fail("Повреждённые пиксели PNG."); }
   return { bytes, width, height, hash: createHash("sha256").update(bytes).digest("hex") };
@@ -54,9 +56,10 @@ function validatePack(body) {
   if (!Array.isArray(body.cards) || body.cards.length > 690 || !Array.isArray(body.sheets) || body.sheets.length > 10 || !Array.isArray(body.tokens) || body.tokens.length > 300 || !body.cards.length && !body.tokens.length && !diceInput.length) fail("Добавьте карты, жетоны или кубик D6.");
   if (!Array.isArray(body.assets) || body.assets.length > 320) fail("Слишком много изображений.");
   const assets = new Map(); let byteSize = 0;
+  const budget = { remaining: 512 * 1024 * 1024 };
   for (const item of body.assets) {
     if (!item || !/^[a-z0-9-]{1,80}\.png$/.test(item.name) || assets.has(item.name)) fail("Некорректное имя изображения.");
-    const image = png(item.data); byteSize += image.bytes.length;
+    const image = png(item.data, budget); byteSize += image.bytes.length;
     if (byteSize > MAX_BYTES) throw new HttpError(413, "Набор TTS больше 64 МБ. Уменьшите изображения.");
     assets.set(item.name, { name: item.name, ...image });
   }

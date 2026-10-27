@@ -63,7 +63,8 @@ const MIGRATIONS = [
   require("./migrations/062_training_moderation"),
   require("./migrations/063_studio_approval"),
   require("./migrations/064_training_retained_ranks"),
-  require("./migrations/066_training_approved_ops_scope")
+  require("./migrations/066_training_approved_ops_scope"),
+  require("./migrations/067_resource_quotas")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
@@ -87,6 +88,7 @@ async function appliedVersions(client) {
 async function migrate(pool) {
   const guard = await pool.connect();
   try {
+    await guard.query("SET statement_timeout=0; SET lock_timeout=0; SET idle_in_transaction_session_timeout=0");
     await guard.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_ID]);
     await guard.query(JOURNAL);
     const done = await appliedVersions(guard);
@@ -122,6 +124,7 @@ async function migrate(pool) {
     try {
       await guard.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_ID]);
     } finally {
+      await guard.query("RESET statement_timeout; RESET lock_timeout; RESET idle_in_transaction_session_timeout").catch(() => {});
       guard.release();
     }
   }

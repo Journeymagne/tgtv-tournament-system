@@ -330,12 +330,10 @@ test("MEDIUM 1: гонка при записи имени (23505) отображ
     // uncommitted unique-index entry until clientA resolves.
     const promiseB = auth.applyProfilePatch(clientB, bob.id, { name: "Charlie" });
 
+    const rejected = assert.rejects(promiseB,
+      (err) => err.status === 409 && err.message === "This name is already taken");
     await clientA.query("COMMIT");
-
-    await assert.rejects(
-      promiseB,
-      (err) => err.status === 409 && err.message === "This name is already taken"
-    );
+    await rejected;
   } finally {
     await clientA.query("ROLLBACK").catch(() => {});
     await clientB.query("ROLLBACK").catch(() => {});

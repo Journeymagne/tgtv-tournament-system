@@ -73,8 +73,9 @@ test("leaderboards sort every team by venue with stable ties and include archive
   await getPool().query("UPDATE player_teams SET rating_tts = 1100, rating_irl = 1200, archived_at = NOW() WHERE slug = 'extra-1'");
   const guest = createClient(server.baseUrl);
   for (const venue of ["tts", "irl", "combined", "invalid"]) {
-    const response = await guest.get(`/api/leaderboards/teams?venue=${venue}`);
-    assert.equal(response.status, 200);
+    const response = await guest.get(`/api/leaderboards/teams?venue=${venue}&limit=100`);
+    assert.equal(response.status, 200); assert.equal(response.body.teams.length,100);
+    for(let page=2;page<=response.body.pagination.totalPages;page++)response.body.teams.push(...(await guest.get(`/api/leaderboards/teams?venue=${venue}&limit=100&page=${page}`)).body.teams);
     assert.equal(response.body.teams.length, 206);
     assert.equal(response.body.teams[0].slug, venue === "tts" ? team.slug : "extra-1");
     const amber = response.body.teams.find((row) => row.id === team.id);
@@ -82,7 +83,8 @@ test("leaderboards sort every team by venue with stable ties and include archive
     const tied = response.body.teams.filter((row) => row.rating === 1000);
     assert.equal(tied[0].slug, "extra-10");
   }
-  const administration = await admin.http.get("/api/admin/teams");
+  const administration = await admin.http.get("/api/admin/teams?limit=100");
+  for(let page=2;page<=administration.body.pagination.totalPages;page++)administration.body.teams.push(...(await admin.http.get(`/api/admin/teams?limit=100&page=${page}`)).body.teams);
   assert.equal(administration.body.teams.length, 206);
   assert.equal(administration.body.teams.at(-1).slug, "extra-1");
 });

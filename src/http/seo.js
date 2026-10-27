@@ -7,7 +7,7 @@ const { siteOrigin } = require("./sites");
 const SITE_NAME = "TGTV Ranking Tournament System";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.4.10";
+const ASSET_VERSION = "1.4.13";
 
 function requestOrigin(req) {
   const serviceOrigin = siteOrigin(req);
@@ -198,7 +198,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
 // No locale dictionaries here: theme-boot.js in baseHead() writes a tag for the
 // one the visitor is in, and app.js fetches the other only if they switch.
 function appScript() {
-  return ["game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "training/journey-ui.js", "app.js"]
+  return ["game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "training/journey-ui.js", "resource-quotas.js", "app.js"]
     .map((file) => `<script src="/${file}?v=${ASSET_VERSION}" defer></script>`).join("\n");
 }
 

@@ -341,8 +341,8 @@ async function audit(client, event) {
        (team_id, tournament_id, actor_user_id, event_type, entity_type, entity_id, before, after, metadata)
      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb)`,
     [event.teamId || null, event.tournamentId || null, event.actorUserId || null, event.eventType,
-      event.entityType || null, event.entityId || null, JSON.stringify(event.before || null),
-      JSON.stringify(event.after || null), JSON.stringify(event.metadata || null)]
+      event.entityType || null, event.entityId || null, require('../../resources/audit').auditJson(event.before),
+      require('../../resources/audit').auditJson(event.after), require('../../resources/audit').auditJson(event.metadata)]
   );
 }
 
@@ -377,3 +377,18 @@ module.exports = {
   setRating,
   audit
 };
+
+async function listPage(client,query=new URLSearchParams(),mode='public') {
+  const venue=['tts','irl'].includes(query.get('venue'))?query.get('venue'):'combined';
+  const rating=venue==='combined'?'pt.rating_tts+pt.rating_irl-1000':`pt.rating_${venue}`;
+  const term=String(query.get('q')||'').trim().toLowerCase().slice(0,200);
+  const result=await require('../../resources/pages').select(client,`SELECT pt.id,pt.slug,pt.name,pt.name_key,pt.description,pt.leader_user_id,
+    pt.rating_tts,pt.rating_irl,pt.archived_at,pt.created_at,pt.updated_at,${rating} AS selected_rating,
+    CASE WHEN pt.logo_data IS NOT NULL THEN '/api/team-logos/'||pt.id||'?v='||left(encode(sha256(convert_to(pt.logo_data,'UTF8')),'hex'),16) END AS logo_data, leader.name AS leader_name,
+    (SELECT count(*)::int FROM player_team_memberships WHERE team_id=pt.id AND ended_at IS NULL) AS member_count
+    FROM player_teams pt LEFT JOIN users leader ON leader.id=pt.leader_user_id
+    WHERE $1='' OR strpos(lower(pt.name),$1)>0
+    ORDER BY ${mode==='leaderboard'?'selected_rating DESC,':'(pt.archived_at IS NOT NULL),'} pt.name_key,pt.id`,[term],query);
+  return {teams:result.rows.map(row=>({...mapTeam(row),leaderName:row.leader_name||null,rating:Number(row.selected_rating),venueMode:venue})),pagination:result.pagination};
+}
+module.exports.listPage=listPage;

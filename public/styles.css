@@ -4901,3 +4901,5 @@ tr:last-child td {
   .tournament-compact-page .tournament-info-tabs .tab { flex: 0 0 auto; padding: 0 13px; }
   .tournament-preview-heading h2 { font-size: 25px; }
 }
+
+.resource-quota-dialog{max-width:900px}.resource-quota-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.resource-quota-grid label{display:grid;gap:.3rem}.resource-quota-grid small{opacity:.75}@media(max-width:600px){.resource-quota-grid{grid-template-columns:1fr}}

@@ -115,12 +115,13 @@ async function saveGameResult({ client, user, params, body }) {
   return { game: gameView(replayed, people) };
 }
 
-async function listUsers({ client }) {
-  const rows = await usersRepo.listWithGameCounts(client);
+async function listUsers({ client, query }) {
+  const rows = await usersRepo.listWithGameCounts(client, query);
   const owner = await access.ownerId(client);
-  const { rows: roles } = await client.query("SELECT id,can_create_tournaments,suspended_until,suspension_reason FROM users");
+  const { rows: roles } = await client.query("SELECT id,can_create_tournaments,suspended_until,suspension_reason FROM users WHERE id=ANY($1::int[])", [rows.map(row => row.id)]);
   const byId = new Map(roles.map(row => [row.id,row]));
   return {
+    pagination: rows.pagination,
     users: rows.map((row) => ({ ...publicUserSummary(row), gamesPlayed: row.gamesPlayed,
       isSuperAdmin: row.id === owner, canCreateTournaments: byId.get(row.id)?.can_create_tournaments || false,
       suspendedUntil: byId.get(row.id)?.suspended_until || null,

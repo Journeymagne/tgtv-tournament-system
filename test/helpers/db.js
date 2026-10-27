@@ -26,6 +26,7 @@ function testPool() {
 }
 
 const TABLES = [
+  "resource_budgets",
   "notification_inbox_state",
   "tournament_audit_events",
   "tournament_matches",

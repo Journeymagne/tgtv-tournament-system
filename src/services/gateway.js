@@ -28,6 +28,19 @@ function createGateway() {
     if (pathname.includes('\\') || pathname.includes('\0')) { sendJson(res, 400, { error: 'Invalid URL' }); return true; }
     let service = pathname.startsWith('/api/') ? apiService(pathname.replace(/\/$/, ''), req.method) : pageService(pathname);
     if (!service) return false;
+    let release = () => {};
+    try {
+      const { admission } = require('../resources/admission');
+      admission.rate('gateway:' + clientKey(req, TRUST_PROXY), 1200, 60);
+      const bytes = Number(req.headers['content-length'] || 0);
+      if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > 100 * 1024 * 1024) {
+        sendJson(res, 413, { error: 'Request exceeds 100 MiB' }, { Connection: 'close' }); req.resume(); return true;
+      }
+      release = admission.enter();
+    } catch (error) {
+      sendJson(res, error.status || 429, { error: error.message }, { ...error.headers, Connection: 'close' }); req.resume(); return true;
+    }
+    res.once('close', release); res.once('finish', release);
     const target = targets[service];
     const headers = cleanHeaders(req.headers);
     // Preserve the public Host for cookies, origin/CSRF checks and hosted TTS URLs.
@@ -56,6 +69,14 @@ function createGateway() {
     });
     req.on('aborted', () => upstream.destroy());
     res.on('close', () => { if (!res.writableFinished) upstream.destroy(); });
+    let received = 0;
+    req.on('data', chunk => {
+      received += chunk.length;
+      if (received > 100 * 1024 * 1024) {
+        if (!res.headersSent) sendJson(res, 413, { error: 'Request exceeds 100 MiB' }, { Connection: 'close' });
+        upstream.destroy(); req.unpipe(upstream); req.resume();
+      }
+    });
     req.pipe(upstream);
     return true;
   };

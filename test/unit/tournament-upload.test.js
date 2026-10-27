@@ -20,6 +20,7 @@ async function upload(method, url, body, user = { id: 1, isAdmin: true }) {
   })), {
     withClient: (fn) => fn(null),
     withTransaction: (fn) => fn(null),
+    enforceResources: async () => {}, // Business quotas are covered against PostgreSQL.
     loadUser: async () => user
   });
   const server = await startApiServer(router);

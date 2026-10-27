@@ -232,3 +232,19 @@ module.exports = {
   update,
   remove
 };
+
+async function listPage(client, query, user = null) {
+  const {TOURNAMENT_COLUMNS} = require('../rows');
+  const columns=TOURNAMENT_COLUMNS.split(',').map(s=>s.trim()).filter(s=>s&&!['logo_data','rules_link','round_draft','final_results'].includes(s)).map(s=>'t.'+s).join(',');
+  const result=await require('../../resources/pages').select(client, `SELECT ${columns},
+    CASE WHEN t.logo_data IS NOT NULL THEN '/api/tournament-logos/'||t.id||'?v='||left(encode(sha256(convert_to(t.logo_data,'UTF8')),'hex'),16) END AS logo_data,
+    CASE WHEN t.rules_link LIKE 'data:%' THEN '/api/tournaments/'||t.slug||'/rules?v='||left(encode(sha256(convert_to(t.rules_link,'UTF8')),'hex'),16) ELSE t.rules_link END AS rules_link,
+    CASE WHEN t.participant_mode='team' THEN (SELECT count(*) FROM tournament_team_rosters WHERE tournament_id=t.id AND status<>'withdrawn')
+    ELSE (SELECT count(*) FROM tournament_participants WHERE tournament_id=t.id AND status NOT IN ('withdrawn','removed')) END::int AS participant_count,
+    (SELECT count(*)::int FROM tournament_rounds WHERE tournament_id=t.id) AS round_count
+    FROM tournaments t WHERE ($1::boolean AND (t.owner_user_id=$2 OR $3 OR t.id=ANY($4::int[])))
+      OR (NOT $1 AND t.status=ANY($5::text[])) ORDER BY t.created_at DESC,t.id DESC`,
+    [!!user,user?.id||null,!!(user?.isAdmin||user?.isSuperAdmin),user?.managedTournamentIds||[],PUBLISHED_STATUSES],query);
+  return {tournaments:result.rows.map(mapTournament),pagination:result.pagination};
+}
+module.exports.listPage=listPage;

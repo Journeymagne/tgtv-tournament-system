@@ -33,35 +33,58 @@ const SECURITY_HEADERS = {
 
 function readBody(req, maxBytes = MAX_REQUEST_BYTES, raw = false) {
   return new Promise((resolve, reject) => {
+    const announced = req.headers?.['content-length'];
+    if (announced !== undefined && (!/^\d+$/.test(announced) || Number(announced) > maxBytes)) {
+      reject(new HttpError(413, 'Request body is too large')); return;
+    }
     const chunks = [];
     let totalBytes = 0;
     let tooLarge = false;
-    req.on("data", (chunk) => {
+    let settled = false;
+    const finish = (error, body) => {
+      if (settled) return; settled = true; clearTimeout(timer);
+      req.removeListener('data', onData); req.removeListener('end', onEnd);
+      req.removeListener('error', onError); req.removeListener('aborted', onAborted);
+      chunks.length = 0;
+      error ? reject(error) : resolve(body);
+    };
+    const onError = error => finish(error);
+    const onAborted = () => finish(new HttpError(400, 'Request aborted'));
+    const timer = setTimeout(() => finish(new HttpError(408, 'Request body timed out')), maxBytes > MAX_REQUEST_BYTES ? 90000 : 30000);
+    timer.unref?.();
+    const onData = (chunk) => {
       if (tooLarge) return;
       totalBytes += chunk.length;
       if (totalBytes > maxBytes) {
         tooLarge = true;
         chunks.length = 0;
-        reject(new HttpError(413, "Request body is too large"));
+        finish(new HttpError(413, "Request body is too large"));
         // Discard remaining bytes without destroying the response socket:
         // the router must still be able to deliver the JSON 413 error.
         return;
       }
       chunks.push(chunk);
-    });
-    req.on("end", () => {
+    };
+    const onEnd = async () => {
       if (tooLarge) return;
       const bytes = Buffer.concat(chunks);
-      if (raw) return resolve(bytes);
-      const body = bytes.toString("utf8");
-      if (!body) return resolve({});
-      try {
-        resolve(JSON.parse(body));
-      } catch {
-        reject(new ValidationError("Could not parse JSON"));
+      if (raw) return finish(null, bytes);
+      req.bodyBytes = bytes.length;
+      if (bytes.length > 256 * 1024) {
+        try { finish(null, await require('../resources/workers').run('parse', bytes)); }
+        catch (error) { finish(error); }
+        return;
       }
-    });
-    req.on("error", reject);
+      const body = bytes.toString("utf8");
+      if (!body) return finish(null, {});
+      try {
+        finish(null, JSON.parse(body));
+      } catch {
+        finish(new ValidationError("Could not parse JSON"));
+      }
+    };
+    req.on('data', onData); req.on('end', onEnd);
+    req.on('error', onError); req.on('aborted', onAborted);
   });
 }
 

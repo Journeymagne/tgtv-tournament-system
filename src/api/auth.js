@@ -49,7 +49,11 @@ async function loadUserFromRequest(client, req) {
 async function startSession(client, userId) {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-  await sessions.deleteExpired(client);
+  await require('../resources/quotas').lock(client, userId);
+  const limits = await require('../resources/quotas').limits(client, userId);
+  await client.query('DELETE FROM sessions WHERE user_id=$1 AND expires_at<=NOW()', [userId]);
+  await client.query(`DELETE FROM sessions WHERE token IN (SELECT token FROM sessions WHERE user_id=$1
+    ORDER BY created_at DESC,token DESC OFFSET $2)`, [userId, limits.sessions - 1]);
   await sessions.create(client, { token, userId, expiresAt });
   return token;
 }
@@ -199,7 +203,13 @@ async function applyProfilePatch(client, id, patch) {
 
 // Serializes the first-admin check-and-insert via a transaction-scoped lock.
 // Must not open its own transaction: callers below are tx: true routes already inside one.
-async function register({ client, body }) {
+async function register({ client, body, req }) {
+  if (req) {
+    const key = require('node:crypto').createHash('sha256').update(require('../http/io').clientKey(req, require('../config').TRUST_PROXY) || 'unknown').digest('hex');
+    const budgets = require('../resources/quotas');
+    await budgets.spendKey(client, 'register-hour:' + key, 10, 3600, 'Регистрации с одного IP за час');
+    await budgets.spendKey(client, 'register-day:' + key, 50, 86400, 'Регистрации с одного IP за сутки');
+  }
   const credentials = readCredentials(body, 6, "Password must be at least 6 characters");
   return createAccount(client, credentials, false);
 }
@@ -230,6 +240,8 @@ async function login({ client, body }) {
 
   access.assertActive(await access.hydrate(client, user));
 
+  await require('../resources/quotas').spend(client, user.id, 'loginMinute', 60);
+  await require('../resources/quotas').spend(client, user.id, 'loginHour', 3600);
   const token = await startSession(client, user.id);
   return {
     status: 200,

@@ -15,15 +15,15 @@ async function create({ client, user, body }) {
   return { status: 201, body: { feedback: feedbackView(item, people) } };
 }
 
-async function list({ client }) {
-  const items = await feedbackRepo.listAll(client);
+async function list({ client, query }) {
+  const items = await feedbackRepo.listAll(client, query);
   const ids = new Set();
   for (const item of items) {
     if (item.userId) ids.add(item.userId);
     if (item.resolvedBy) ids.add(item.resolvedBy);
   }
   const people = await usersRepo.findByIds(client, [...ids]);
-  return { feedback: items.map((item) => feedbackView(item, people)) };
+  return { pagination:items.pagination, feedback: items.map((item) => feedbackView(item, people)) };
 }
 
 async function requireItem(client, id) {
@@ -40,6 +40,14 @@ async function requireItem(client, id) {
 async function updateStatus({ client, user, params, body }) {
   const existing = await requireItem(client, params.id);
   const status = body.status === "resolved" ? "resolved" : "open";
+  if (existing.status === status) return { feedback: feedbackView(existing, await usersRepo.findByIds(client, [existing.userId, existing.resolvedBy].filter(Boolean))) };
+  if (status === 'open' && existing.userId) {
+    const quotas = require('../resources/quotas');
+    await quotas.lock(client, existing.userId);
+    const limits = await quotas.limits(client, existing.userId);
+    const used = Number((await client.query("SELECT count(*) AS count FROM feedback WHERE user_id=$1 AND status='open'", [existing.userId])).rows[0].count);
+    quotas.check('feedbackOpen', limits.feedbackOpen, used, used + 1);
+  }
   const updated = await feedbackRepo.setStatus(client, existing.id, status, user.id);
   const people = await usersRepo.findByIds(
     client,

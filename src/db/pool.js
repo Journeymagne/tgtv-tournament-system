@@ -18,6 +18,9 @@ function getPool(connectionString = DATABASE_URL) {
     connectionString: requireDatabaseUrl(connectionString),
     ssl: PGSSL ? { rejectUnauthorized: false } : undefined,
     connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+    statement_timeout: 15000,
+    lock_timeout: 3000,
+    idle_in_transaction_session_timeout: 30000,
     options: `-c search_path=${SEARCH_PATH}`,
     application_name: 'kt-' + (process.env.SERVICE_NAME || 'monolith'),
     max: Number(process.env.DB_POOL_SIZE || 5)

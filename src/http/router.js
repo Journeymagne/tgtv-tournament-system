@@ -99,11 +99,45 @@ function createRouter(routes, deps) {
     withClient,
     withTransaction,
     loadUser,
+    enforceResources = require('../resources/enforce').before,
     authLimiter = defaultAuthLimiter,
     trustProxy = TRUST_PROXY
   } = deps;
 
   async function runRoute(route, params, req, url) {
+    const { admission } = require('../resources/admission');
+    const { MAX_REQUEST_BYTES } = require('../config');
+    const hasBody = METHODS_WITH_BODY.has(route.method);
+    admission.rate('ip:' + clientKey(req, trustProxy), 1200, 60);
+    const maximum = route.maxBodyBytes || MAX_REQUEST_BYTES;
+    const declared = req.headers['content-length'];
+    // HTTP framing enforces Content-Length. Unknown/chunked uploads reserve the
+    // full route allowance; small autosaves can run concurrently within the pool.
+    const weight = declared !== undefined && /^\d+$/.test(declared) && Number(declared) <= maximum
+      ? Number(declared) : maximum;
+    const release = admission.enter(hasBody ? weight : 0);
+    try {
+      if (hasBody && route.auth && route.auth !== 'none') {
+        const identity = await withClient(client => loadUser(client, req));
+        if (!identity) throw new HttpError(401, 'You need to sign in');
+        if (route.auth === 'admin' && !identity.isAdmin || route.permission === 'super' && !identity.isSuperAdmin) throw new HttpError(403, 'Administrator rights required');
+        admission.rate('writes:' + identity.id, 120, 60);
+      }
+      return await executeRoute(route, params, req, url);
+    } finally {
+      if (req.readableEnded || req.complete || req.destroyed) release();
+      else {
+        // A rejected upload still occupies a slot while its remaining bytes drain.
+        // Keep the socket long enough for the client to receive the JSON error.
+        const timer = setTimeout(() => { req.destroy(); release(); }, 30000);
+        timer.unref();
+        const drained = () => { clearTimeout(timer); release(); };
+        req.once('end', drained); req.once('close', drained);
+      }
+    }
+  }
+
+  async function executeRoute(route, params, req, url) {
     // Checked before any connection is acquired, and check() alone never
     // spends budget - only recordFailure does, in the catch below - so a
     // burst of successful sign-ins behind one shared address can't exhaust
@@ -144,7 +178,9 @@ function createRouter(routes, deps) {
         }
 
         if (route.permission) user = await require("../api/authorization").authorize({ client, user, params, route });
-        return route.handler({ params, query: url.searchParams, body, user, client, req });
+        const context = { params, query: url.searchParams, body, user, client, req };
+        await enforceResources(route, context);
+        return route.handler(context);
       });
 
     if (!limiterKey) return execute();
@@ -162,7 +198,8 @@ function createRouter(routes, deps) {
 
   return async function router(req, res) {
     const startedAt = Date.now();
-    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    let url;
+    try { url = new URL(req.url, "http://localhost"); } catch { sendJson(res, 400, { error: "Invalid URL" }); return; }
     const pathname = normalizeApiPath(url.pathname);
     const method = req.method || "GET";
     let status = 500;
@@ -205,9 +242,14 @@ function createRouter(routes, deps) {
       status = 200;
       sendJson(res, 200, result, withRenewedSession({}, renewal));
     } catch (err) {
+      if (['57014','55P03','40P01'].includes(err.code)) {
+        err = new HttpError(503, 'Операция заняла слишком много времени. Повторите попытку.');
+        err.headers = { 'Retry-After': '5' };
+      }
+      if (!req.readableEnded && METHODS_WITH_BODY.has(method)) req.resume();
       if (err instanceof HttpError) {
         status = err.status;
-        sendJson(res, err.status, { error: err.message,
+        sendJson(res, err.status, { error: err.message, ...(err.quota ? { quota: err.quota } : {}),
           ...(err.pairingWarningReview ? { pairingWarningReview: err.pairingWarningReview } : {})
         }, err.headers || {});
       } else {

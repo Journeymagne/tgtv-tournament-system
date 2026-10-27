@@ -21,7 +21,8 @@ async function list({ client, query, user }) {
   const showTraining = !teamId && kind !== 'team' && category !== 'title';
   const trainingAchievement = showTraining
     ? await training.publicJourney(client, userId || user?.id) : null;
-  return { achievements: await repo.list(client, { kind, category, userId, teamId }), trainingAchievement };
+  const achievements = await repo.list(client, { kind, category, userId, teamId }, query);
+  return { achievements, pagination:achievements.pagination, trainingAchievement };
 }
 async function get({ client, params }) {
   const achievement = await requireAchievement(client, params.id);
