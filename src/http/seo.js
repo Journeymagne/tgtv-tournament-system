@@ -188,6 +188,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
     <link rel="stylesheet" href="/companion-tokens.css?v=20261022-kit">
     <link rel="stylesheet" href="/styles.css?v=${ASSET_VERSION}">
+    <link rel="stylesheet" href="/map-catalog-ui.css?v=${ASSET_VERSION}">
     <link rel="stylesheet" href="/training/journey-shared.css?v=${ASSET_VERSION}">
     <link rel="stylesheet" href="/companion-shell.css?v=20261025-notifications">
     <script src="/companion-sites.js?v=${ASSET_VERSION}" defer></script>
@@ -198,7 +199,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
 // No locale dictionaries here: theme-boot.js in baseHead() writes a tag for the
 // one the visitor is in, and app.js fetches the other only if they switch.
 function appScript() {
-  return ["game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "training/journey-ui.js", "resource-quotas.js", "app.js"]
+  return ["maps/catalog-data.js", "map-catalog.js", "map-catalog-ui.js", "game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "training/journey-ui.js", "resource-quotas.js", "app.js"]
     .map((file) => `<script src="/${file}?v=${ASSET_VERSION}" defer></script>`).join("\n");
 }
 
