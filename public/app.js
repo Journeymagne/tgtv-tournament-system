@@ -9396,7 +9396,6 @@ function wireTournamentLogo(form) {
     preview.hidden = !value;
     if (value) preview.src = value;
     else preview.removeAttribute("src");
-      card.dispatchEvent(new Event("map-image-change"));
     remove.hidden = !value;
     form.dataset.logoLoading = "";
     form.dispatchEvent(new CustomEvent("tournament-autosave-request", { bubbles: true }));
