@@ -18,7 +18,8 @@
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
     if (saved && typeof saved === 'object') {
-      for (const key of ['body','ink']) if (typeof saved[key] === 'string' && color(saved[key])) state[key] = saved[key];
+      for (const key of ['body','ink','logoColor']) if (typeof saved[key] === 'string' && color(saved[key])) state[key] = saved[key];
+      if(saved.logoColor===undefined)state.logoColor=state.ink;
       if (typeof saved.name === 'string') state.name = saved.name.slice(0,120);
       if (['pips','numbers'].includes(saved.style)) state.style = saved.style;
       for (const [key,min,max] of [['logoFace',0,6],['valueScale',30,200],['logoScale',30,200],['sizeMm',12,30]]) if (Number.isInteger(saved[key]) && bounded(saved[key],min,max)) state[key] = saved[key];
@@ -78,7 +79,15 @@
     const field=event.target,key=field.dataset.setting;if(!key)return;
     if(!field.checkValidity())return;
     state[key]=field.type==='checkbox'?field.checked:['logoFace','valueScale','logoScale','sizeMm'].includes(key)?Number(field.value):field.value;
+    if(key==='logoColor'){state.tintLogo=true;$('[data-setting="tintLogo"]').checked=true;}
     changed();
+  });
+  $('#reset-design').addEventListener('click',()=>{
+    state=window.KTDice.resetDesign(state);
+    for(const field of document.querySelectorAll('[data-setting]')){
+      if(field.type==='checkbox')field.checked=state[field.dataset.setting];else field.value=state[field.dataset.setting];
+    }
+    viewX=-24;viewY=145;rotate();changed();
   });
   async function request(path,options={}) {
     const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});

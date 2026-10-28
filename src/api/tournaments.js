@@ -123,8 +123,8 @@ function participantHasGeneratedMatch(participantId, matches) {
 function normalizeOptionalDeployment(value) {
   if (value === undefined || value === null || value === "") return null;
   const deployment = Number(value);
-  if (!Number.isSafeInteger(deployment) || deployment < 1 || deployment > 6) {
-    throw new ValidationError("Deployment must be between 1 and 6");
+  if (!Number.isSafeInteger(deployment) || deployment < 1 || deployment > 13) {
+    throw new ValidationError("Deployment must be between 1 and 13");
   }
   return deployment;
 }
@@ -370,9 +370,14 @@ async function fullView(client, tournament, user, { includeAudit = false } = {})
   });
 }
 
-async function listPublic({ client, query }) {
-  const result=await tournamentsRepo.listPage(client,query);
-  return {pagination:result.pagination,tournaments:result.tournaments.map(tournamentSummaryView)};
+async function listPublic({ client, user, query }) {
+  const mine = query?.get("scope") === "mine";
+  if (mine && !user) throw new HttpError(401, "You need to sign in");
+  const result = await tournamentsRepo.listPage(client, query, mine ? user : null, { mine });
+  return { pagination: result.pagination, tournaments: result.tournaments.map(tournament => ({
+    ...tournamentSummaryView(tournament),
+    ...(mine ? { viewer: tournamentPermissions(user, tournament) } : {})
+  })) };
 }
 
 async function getPublic({ client, user, params, query }) {

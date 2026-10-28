@@ -485,6 +485,7 @@ const TGTV_I18N_EN = {
   "tournaments.page.hint": "Published TGTV tournaments and public standings.",
   "tournaments.list.empty": "No published tournaments yet.",
   "tournaments.list.untitled": "Untitled tournament",
+  "tournaments.section.mine": "My tournaments",
   "tournaments.section.ongoing": "Ongoing",
   "tournaments.section.future": "Future",
   "tournaments.section.ended": "Ended",

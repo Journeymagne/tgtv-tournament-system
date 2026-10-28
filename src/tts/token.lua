@@ -2,13 +2,14 @@
 -- the token and draws marker ranges, measured in inches from the token edge.
 local millimetres = __SIZE_MM__
 local isMarker = __IS_MARKER__
+local rangeEnabled = __RANGE_ENABLED__
 local defaultRange = __RANGE_INCHES__
 local calibrated = false
 local measureRange = defaultRange
 local measureColor = {0.5, 0.5, 0.5}
 
 local function drawRange()
-    if not isMarker then return end
+    if not isMarker or not rangeEnabled then self.setVectorLines({}); return end
     if measureRange <= 0 then self.setVectorLines({}); return end
     local scale = self.getScale()
     local bounds = self.getBoundsNormalized().size
@@ -32,7 +33,7 @@ local function setRange(playerColor, distance)
 end
 
 function onNumberTyped(playerColor, number)
-    if not isMarker then return false end
+    if not isMarker or not rangeEnabled then return false end
     setRange(playerColor, number)
     return true
 end
@@ -49,10 +50,12 @@ function onLoad(saved)
                 and type(state.color[2]) == "number" and type(state.color[3]) == "number" then measureColor = state.color end
         end
     end
-    if isMarker then
+    if isMarker and rangeEnabled then
         self.max_typed_number = 12
         self.addContextMenuItem("Hide range (0)", function(playerColor) setRange(playerColor, 0) end)
-        self.addContextMenuItem("Default range (" .. defaultRange .. " in)", function(playerColor) setRange(playerColor, defaultRange) end)
+        if defaultRange > 0 then
+            self.addContextMenuItem("Default range (" .. defaultRange .. " in)", function(playerColor) setRange(playerColor, defaultRange) end)
+        end
         for _, distance in ipairs({1, 2, 3, 4, 6, 9, 12}) do
             self.addContextMenuItem("Range: " .. distance .. " in", function(playerColor) setRange(playerColor, distance) end)
         end

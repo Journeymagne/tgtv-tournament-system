@@ -1,7 +1,20 @@
 import { getStateFromUrl } from './useUrlState';
+import Ability from 'src/Ability';
 
 afterEach(() => {
   window.history.replaceState({}, '', '/');
+});
+
+describe.each(['d1', 'd2'])('shared Transhuman Physiology on %s', key => {
+  it.each(['', 'transhuman', 'indtranshuman'])('restores abilities %j independently', abilities => {
+    window.history.replaceState({}, '', `/?${new URLSearchParams({
+      [key]: `3:12:0:0:0:0:0:0:X:${abilities}:0`,
+    })}`);
+    const state = getStateFromUrl();
+    const model = (key === 'd1' ? state.s1 : state.s2)!.defender;
+    expect(model.has(Ability.TranshumanPhysiology)).toBe(abilities.includes('transhuman'));
+    expect(model.has(Ability.Indomitus)).toBe(abilities.includes('ind'));
+  });
 });
 
 describe.each(['a1', 'a2'])('shared shooting profile %s', (key) => {

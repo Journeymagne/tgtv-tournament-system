@@ -780,6 +780,7 @@ function adminTournamentTablesContent(data) {
   if (tournament.venueMode !== "irl" && tournament.participantMode !== "team") return `<div class="empty">${t("admin.tournament.tables.irlOnly", { venue: t("venue.irl") })}</div>`;
   return `
     <div class="tournament-table-admin">
+      <p><a href="/maps/index.html" target="_blank" rel="noopener">Каталог расстановок · 67 карт</a></p>
       <form class="admin-table-form" data-admin-tournament-table-add>
         <div class="grid-3">
           <div class="field">
@@ -797,7 +798,7 @@ function adminTournamentTablesContent(data) {
             <label>${t("admin.tournament.tables.field.deployment")}</label>
             <select name="deployment" ${readOnly ? "disabled" : ""}>
               <option value="">${t("games.result.notSelected")}</option>
-              ${[1, 2, 3, 4, 5, 6].map((item) => `<option value="${item}">${item}</option>`).join("")}
+              ${mapLayoutNumbers("").map((item) => `<option value="${item}">${item}</option>`).join("")}
             </select>
           </div>
         </div>
@@ -812,10 +813,10 @@ function adminTournamentTablesContent(data) {
 
 function adminTournamentTableRow(table, readOnly) {
   return `
-    <div class="row-card compact-row-card tournament-table-row">
+    <div class="row-card compact-row-card tournament-table-row" data-map-image-id="${Number(table.imageId) || 0}">
       <div class="row-main">
         <div class="row-title">${t("tournaments.match.table", { number: table.tableNumber })}</div>
-        <div class="row-meta">${escapeHtml(table.killzone || t("admin.tournament.tables.noKillzone"))} / ${t("tournaments.mission.deployment", { layout: table.deployment || "-" })}</div>
+        <div class="row-meta">${escapeHtml(table.killzone || t("admin.tournament.tables.noKillzone"))} / ${t("tournaments.mission.deployment", { layout: mapLayoutLabel(table) || "-" })}</div>
         <div class="table-admin-controls">
           <div class="field">
             <label>${t("games.result.killzoneLabel")}</label>
@@ -828,7 +829,7 @@ function adminTournamentTableRow(table, readOnly) {
             <label>${t("admin.tournament.tables.field.deployment")}</label>
             <select name="table-deployment-${table.id}" ${readOnly ? "disabled" : ""}>
               <option value="">${t("games.result.notSelected")}</option>
-              ${[1, 2, 3, 4, 5, 6].map((item) => `<option value="${item}" ${Number(table.deployment) === item ? "selected" : ""}>${item}</option>`).join("")}
+              ${mapLayoutNumbers(table.killzone).map((item) => `<option value="${item}" ${Number(table.deployment) === item ? "selected" : ""}>${item}</option>`).join("")}
             </select>
           </div>
         </div>
@@ -996,6 +997,7 @@ function adminTournamentMatchMarkup(match, data = {}) {
       </summary>
       <div class="tournament-match-content">
         <div class="row-meta">${escapeHtml(meta)}</div>
+        ${match.isBye ? "" : teamTableImageMarkup(match.table?.imageId ? match.table : match.mission || match.table)}
         ${pairingWarningsMarkup(individualPairingWarnings(match, data))}
         <div class="row-actions">
         ${canResult ? `<button class="small-button" data-admin-tournament-match-result="${match.id}">${actionLabel}</button>` : ""}

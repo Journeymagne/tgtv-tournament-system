@@ -840,6 +840,8 @@ function resolveAfterPunishing(
     if (fails >= 2) {
       norms++;
       fails -= 2;
+      // Indomitus retains a failed die; Transhuman Physiology cannot retain it again.
+      if (abilities.has(Ability.Indomitus)) retainedNorms++;
     }
   }
 

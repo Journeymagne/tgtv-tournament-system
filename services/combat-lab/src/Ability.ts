@@ -15,6 +15,7 @@ export enum Ability {
 
     // fail/norm/crit manipulation
     Severe = "Severe", // if no crits, promote one normal hit to crit
+    TranshumanPhysiology = "TranshumanPhysiology", // shooting defence: retain one eligible normal success as a critical success
     Rending = "Rending", // if have crit, promote one normal hit to crit
     Punishing = "Punishing", // crit triggers promotion of fail to norm; 2024 Punishing; 2021: Starfire, DakkaDakkaDakka, Toxin Sacs
     JustAScratch = "JustAScratch", // cancel one attack die just before damage; both shoot and fight; shoot picks the die that minimizes damage

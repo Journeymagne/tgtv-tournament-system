@@ -104,6 +104,63 @@ async function addUnregisteredParticipant(tournament, displayName) {
   return result.body.participant;
 }
 
+test("my tournaments includes ownership, assigned management and participation with independent pagination", async () => {
+  const player = await createUser("My Cup Player");
+  const played = await createPublishedTournament({ name: "Played Cup" });
+  const participant = await addUserParticipant(played, player);
+  const owned = (await tournamentsApi.createAdmin({ client, user: root,
+    body: tournamentBody({ name: "Owned Draft" }) })).body.tournament;
+  await client.query("UPDATE tournaments SET owner_user_id=$1 WHERE id=$2", [player.id, owned.id]);
+  const assigned = (await tournamentsApi.createAdmin({ client, user: root,
+    body: tournamentBody({ name: "Assigned Draft" }) })).body.tournament;
+  const unrelated = await createPublishedTournament({ name: "Unrelated Cup" });
+  const user = { ...player, managedTournamentIds: [assigned.id] };
+  const mine = (page = 1) => tournamentsApi.listPublic({ client, user,
+    query: new URLSearchParams({ scope: "mine", page: String(page), limit: "1" }) });
+
+  const first = await mine();
+  assert.equal(first.pagination.total, 3);
+  assert.equal(first.pagination.totalPages, 3);
+  const ids = [];
+  for (let page = 1; page <= 3; page++) ids.push((await mine(page)).tournaments[0].id);
+  assert.deepEqual(ids, [assigned.id, owned.id, played.id]);
+  assert.ok(!ids.includes(unrelated.id));
+  assert.equal((await mine(2)).tournaments[0].viewer.canAdmin, true);
+
+  for (const status of ["withdrawn", "removed"]) {
+    await client.query("UPDATE tournament_participants SET status=$1 WHERE id=$2", [status, participant.id]);
+    assert.equal((await mine()).pagination.total, 2);
+  }
+  const adminOnly = await tournamentsApi.listPublic({ client, user: { ...player, isAdmin: true },
+    query: new URLSearchParams({ scope: "mine" }) });
+  assert.deepEqual(adminOnly.tournaments.map(t => t.id), [owned.id]);
+  const publicList = await tournamentsApi.listPublic({ client, user });
+  assert.deepEqual(publicList.tournaments.map(t => t.id), [unrelated.id, played.id]);
+  await assert.rejects(tournamentsApi.listPublic({ client, query: new URLSearchParams({ scope: "mine" }) }),
+    /You need to sign in/);
+});
+
+test("my tournaments includes team captains and current roster members, excluding withdrawn rosters and private drafts", async () => {
+  const players = await Promise.all(["My Captain", "My Member", "My Third"].map(name => createUser(name)));
+  const team = await createThreePlayerTeam("My Tournament Team", players);
+  const tournament = await createPublishedTournament({ name: "My Team Cup", format: "swiss", participantMode: "team",
+    teamSize: 3, pairingType: "shield_sword", swissRoundCount: 1, singleEliminationSize: null });
+  const registered = await teamTournamentsApi.registerRoster({ client, user: root,
+    params: { id: String(tournament.id) }, body: { teamId: team.id, name: "My Roster", captainUserId: players[0].id,
+      members: players.map((player, index) => ({ userId: player.id, faction: ["Kasrkin", "Legionaries", "Novitiates"][index] })) } });
+  const rosterId = registered.body.roster.id;
+  const mine = user => tournamentsApi.listPublic({ client, user, query: new URLSearchParams({ scope: "mine" }) });
+  for (const player of players) assert.deepEqual((await mine(player)).tournaments.map(t => t.id), [tournament.id]);
+  await client.query("UPDATE tournament_team_roster_members SET ended_at=NOW() WHERE roster_id=$1 AND user_id=$2", [rosterId, players[1].id]);
+  assert.equal((await mine(players[1])).pagination.total, 0);
+  await client.query("UPDATE tournaments SET status='draft' WHERE id=$1", [tournament.id]);
+  assert.equal((await mine(players[0])).pagination.total, 0);
+  await client.query("UPDATE tournaments SET status='registration_open' WHERE id=$1", [tournament.id]);
+  await client.query("UPDATE tournament_team_rosters SET status='withdrawn' WHERE id=$1", [rosterId]);
+  assert.equal((await mine(players[0])).pagination.total, 0);
+  assert.equal((await mine(players[2])).pagination.total, 0);
+});
+
 async function fillSingleEliminationTournament(tournament, currentCount = 0) {
   const fillers = [];
   for (let index = currentCount + 1; index <= 8; index += 1) {

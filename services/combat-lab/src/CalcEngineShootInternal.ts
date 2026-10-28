@@ -41,6 +41,9 @@ export function calcDefenderFinalDiceStuff(
   // applyPostRollModifications would discard save successes.
   const defenderAbilitiesForSaves = new Set(defender.abilities);
   defenderAbilitiesForSaves.delete(Ability.ObscuredTarget);
+  // Use the retain-style conversion so cover and other already-retained saves
+  // cannot be promoted again. Apply only to shooting defence, including Piercing Crits.
+  const normsToCrits = defender.normsToCrits + (defender.has(Ability.TranshumanPhysiology) ? 1 : 0);
 
   const defenderFinalDiceProbs = Common.calcFinalDiceProbs(
     defenderSingleDieProbs,
@@ -49,7 +52,7 @@ export function calcDefenderFinalDiceStuff(
     defender.autoCrits,
     defender.autoNorms,
     defender.failsToNorms,
-    defender.normsToCrits,
+    normsToCrits,
     defenderAbilitiesForSaves,
     0,
     0,
@@ -74,7 +77,7 @@ export function calcDefenderFinalDiceStuff(
       defender.autoCrits,
       defender.autoNorms,
       defender.failsToNorms,
-      defender.normsToCrits,
+      normsToCrits,
       defenderAbilitiesForSaves,
       0,
       0,

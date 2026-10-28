@@ -494,6 +494,7 @@ const TGTV_I18N_RU = {
   "tournaments.page.hint": "Опубликованные турниры TGTV и открытые таблицы.",
   "tournaments.list.empty": "Опубликованных турниров пока нет.",
   "tournaments.list.untitled": "Турнир без названия",
+  "tournaments.section.mine": "Мои турниры",
   "tournaments.section.ongoing": "Идут сейчас",
   "tournaments.section.future": "Предстоящие",
   "tournaments.section.ended": "Завершённые",

@@ -123,7 +123,7 @@ module.exports = [
     auth: "user",
     tx: true
   },
-  { method: "GET", path: "/api/tournaments", handler: tournaments.listPublic, auth: "none" },
+  { method: "GET", path: "/api/tournaments", handler: tournaments.listPublic, auth: "none", loadUser: true },
   {
     method: "GET",
     path: "/api/tournaments/:slug",

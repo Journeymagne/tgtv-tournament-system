@@ -53,6 +53,7 @@ function encodeAttacker(atk: Model): string {
 function encodeDefender(def: Model): string {
   const abilities: string[] = [];
   if (def.has(Ability.Indomitus)) abilities.push('ind');
+  if (def.has(Ability.TranshumanPhysiology)) abilities.push('transhuman');
   if (def.has(Ability.ObscuredTarget)) abilities.push('obs');
   if (def.has(Ability.JustAScratch)) abilities.push('jasc');
   if (def.has(Ability.JustAScratchNorms)) abilities.push('jasn');
@@ -151,6 +152,7 @@ function decodeDefender(param: string): Model {
 
     const abilities = parts[9] || '';
     if (abilities.includes('ind')) def.abilities.add(Ability.Indomitus);
+    if (abilities.includes('transhuman')) def.abilities.add(Ability.TranshumanPhysiology);
     if (abilities.includes('obs')) def.abilities.add(Ability.ObscuredTarget);
     if (abilities.includes('jasc')) def.abilities.add(Ability.JustAScratch);
     if (abilities.includes('jasn')) def.abilities.add(Ability.JustAScratchNorms);

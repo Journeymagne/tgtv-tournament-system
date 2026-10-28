@@ -28,7 +28,7 @@ root.KTUI?.register('studio',{pairs:[
 ]});
 function bind(value){adapter=value;}
 function form(project){
- const d=project.dice||root.KTDice.projectDefaults();
+ const settings=project.dice||root.KTDice.projectDefaults(),d={...settings,logoColor:settings.logoColor||settings.ink};
  const input=(label,key,type,attributes='')=>'<label>'+label+'<input data-dice-setting="'+key+'" type="'+type+'" value="'+esc(d[key])+'" '+attributes+'></label>';
  const select=(label,key,options)=>'<label>'+label+'<select data-dice-setting="'+key+'">'+options.map(([value,text])=>'<option value="'+value+'" '+(String(d[key])===String(value)?'selected':'')+'>'+text+'</option>').join('')+'</select></label>';
  return '<section class="panel studio-dice-settings"><div class="panel-title">КУБИКИ КОМАНДЫ</div>'+
@@ -40,7 +40,8 @@ function form(project){
   select('Обозначения граней','style',[['pips','Точки'],['numbers','Цифры']])+select('Грань с логотипом','logoFace',[[0,'Без логотипа'],...[1,2,3,4,5,6].map(n=>[n,'Грань '+n])])+'</div>'+
   '<label class="studio-dice-range">Размер точек и цифр <output data-dice-value="valueScale">'+d.valueScale+'%</output><input data-dice-setting="valueScale" type="range" min="30" max="200" value="'+d.valueScale+'"></label>'+
   '<label class="studio-dice-range">Размер логотипа <output data-dice-value="logoScale">'+d.logoScale+'%</output><input data-dice-setting="logoScale" type="range" min="30" max="200" value="'+d.logoScale+'"></label>'+
-  '<label class="studio-dice-check"><input type="checkbox" data-dice-setting="tintLogo" '+(d.tintLogo?'checked':'')+'>Перекрасить логотип в цвет обозначений</label>'+
+  '<label class="studio-dice-check"><input type="checkbox" data-dice-setting="tintLogo" '+(d.tintLogo?'checked':'')+'>Изменить цвет логотипа</label>'+input('Цвет логотипа','logoColor','color')+
+  '<button type="button" data-dice-reset-design>Сбросить оформление</button><p class="hint">Вернёт стандартные цвета, размеры и обозначения. Название и выбранный логотип сохранятся.</p>'+
   '<p class="hint">'+(project.team.logo?'Используется логотип текущей команды. Его изменение обновляет предпросмотр и новые экспорты.':'Добавьте логотип команды выше. Пока все грани показывают точки или цифры.')+'</p>'+
   '<div class="studio-dice-actions"><button type="button" class="primary" data-dice-export>Экспорт команды в TTS</button><button type="button" data-dice-download>Скачать PNG кубика</button></div>'+
   '<p class="hint">Уже созданные TTS-ссылки сохраняют прежнее оформление. После правок создайте новую ссылку.</p>'+
@@ -71,6 +72,7 @@ document.addEventListener('input',event=>{
  const project=adapter.context();if(!project)return;
  const settings={...(project.dice||root.KTDice.projectDefaults())};
  settings[key]=field.type==='checkbox'?field.checked:['quantity','sizeMm','logoFace','logoScale','valueScale'].includes(key)?Number(field.value):field.value;
+ if(key==='logoColor'){settings.tintLogo=true;document.querySelector('[data-dice-setting="tintLogo"]').checked=true;}
  try{root.KTDice.validate(settings);}catch{return;}
  project.dice=settings;
  const output=document.querySelector('[data-dice-value="'+key+'"]');if(output)output.textContent=settings[key]+'%';
@@ -78,8 +80,9 @@ document.addEventListener('input',event=>{
 });
 document.addEventListener('change',event=>{if(event.target.dataset.diceSetting&&!event.target.checkValidity())event.target.reportValidity();});
 document.addEventListener('click',async event=>{
- const button=event.target.closest('[data-dice-export],[data-dice-download]');if(!button||!adapter)return;
+ const button=event.target.closest('[data-dice-export],[data-dice-download],[data-dice-reset-design]');if(!button||!adapter)return;
  const project=adapter.context();if(!project)return;
+ if(button.hasAttribute('data-dice-reset-design')){project.dice=root.KTDice.resetDesign(project.dice||root.KTDice.projectDefaults());rotationX=-24;rotationY=145;adapter.changed(true);return;}
  for(const field of document.querySelectorAll('[data-dice-setting]'))if(!field.checkValidity()){field.reportValidity();return;}
  if(button.hasAttribute('data-dice-export')){adapter.export();return;}
  button.disabled=true;

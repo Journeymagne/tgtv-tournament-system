@@ -7,7 +7,7 @@ const source = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf
 const sourceOf = (name) => {
   const result = source.match(new RegExp(`function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];
   assert.ok(result, name);
-  return result;
+  return require("../helpers/client-map-source") + "\n" + result;
 };
 
 test("team round setup always renders three editable terrain/deployment pairs with preview defaults", () => {

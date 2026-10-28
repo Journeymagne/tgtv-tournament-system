@@ -105,12 +105,19 @@ export const MysticScryBuff = new Note(
   `than always favoring one. On a shoot, the score is expected damage after the defender's saves, cover, and ` +
   `Piercing. Attack only. In-game: the "Mystic Scry" ability.`,
 );
+export const TranshumanPhysiology = new Note(
+  `Transhuman Physiology`,
+  `Angels of Death firefight ploy. Use in the Roll Defence Dice step when this operative is being shot. ` +
+  `Retain one normal success as a critical success instead, even if you already have critical successes. ` +
+  `Does nothing if no eligible normal success is available. A cover save or a success already retained by ` +
+  `another rule cannot be retained again. Adds one promotion to NormsToCrits; do not enter the same ploy there too. ` +
+  `When calculating multiple rounds, assumes the ploy is available for each shooting sequence; CP are not tracked.`,
+);
 export const Indomitus = new Note(
   `Indomitus`,
-  `If at least 2 dice fail, discard one fail and change another fail to a normal success; defense only. ` +
-  `Angels of Death Firefight ploy. ` +
-  `Note: KT2024 rule strictly requires two unmodified 1s; this calculator triggers on any 2 failed dice, ` +
-  `so the benefit is slightly overstated on rolls where fails include non-1 values (e.g. 2s on a 3+ save).`,
+  `Angels of Death strategy ploy; shooting defence only. If at least 2 dice fail, discard one fail and retain ` +
+  `another as a normal success instead. That success is already retained, so Transhuman Physiology and ` +
+  `NormsToCrits cannot promote it to a critical success.`,
 );
 export const CurseOfRot = new Note(
   `Curse of Rot`,

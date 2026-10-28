@@ -25,7 +25,7 @@ KTTokensEditor.bind({context:()=>({project:data,card:section==='tokenCards'?curr
   if(token){const pages=KTCards.renderCard(current(),data,assets,selected),target=pages.findIndex(p=>p.boxes.some(box=>box.id===token.id));if(target>=0)side=target}
   renderPreview();
  }});
-KTDiceEditor.bind({context:()=>section==='dice'?data:null,toast,export:()=>openTTS(),changed:()=>{persist();renderPreview();}});
+KTDiceEditor.bind({context:()=>section==='dice'?data:null,toast,export:()=>openTTS(),changed:(rebuild=false)=>{persist();if(rebuild)renderEditor();renderPreview();}});
 function rememberProject(team,active=false){
  projectList.set(team.id,team.name);
  try{KTAccount.storage.setItem(PROJECTS,JSON.stringify([...projectList]));if(active)KTAccount.storage.setItem(ACTIVE,team.id)}catch{}

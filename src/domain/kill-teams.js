@@ -64,11 +64,19 @@ const WILDCARDS = ["Navy Breachers", "XV26 Stealth Battlesuits"];
 const KILL_TEAMS = [...ALL_KILL_TEAM_TRACK, ...WILDCARDS];
 
 const KILLZONES = [
-  "Volkus",
+  "Volkus 2024",
+  "Volkus 2025",
   "Gallowdark",
+  "Tomb World",
+  "Bheta-Decima 2025",
+  "Non-Specific Killzone",
+  "Octarius 2025",
+  "WTC Open 2025",
+  "WTC ITD 2026",
+  "Squad-Games Gallowdark+",
+  "Volkus",
   "Bheta-Decima",
   "Octarius",
-  "Tomb World",
   "WTC ITD",
   "WTC Open",
   "Non-specific"

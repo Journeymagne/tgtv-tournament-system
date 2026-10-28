@@ -49,6 +49,9 @@ const state = {
   selectedGameId: null,
   gameDetailMode: "",
   tournaments: [],
+  myTournaments: [],
+  myTournamentsPage: 1,
+  myTournamentsPagination: null,
   tournamentsError: "",
   teamsDashboard: null,
   teamProfile: null,
@@ -2653,7 +2656,7 @@ function tournamentPreviewMarkup(data) {
           ${tables.map(table => `<article class="tournament-preview-map">
             ${isTeam ? `<h4>${t("tournaments.match.table", { number: table.tableNumber })}</h4>` : ""}
             <strong>${escapeHtml(table.killzone || t("tournaments.preview.mapNotSet"))}</strong>
-            ${table.deployment || table.layout ? `<p class="muted">${escapeHtml(t("tournaments.mission.layout", { layout: table.deployment || table.layout }))}</p>` : ""}
+            ${table.deployment || table.layout ? `<p class="muted">${escapeHtml(t("tournaments.mission.layout", { layout: mapLayoutLabel(table) }))}</p>` : ""}
             ${!isTeam ? `<p class="muted">${t("op.crit")}: ${escapeHtml(table.critOp || t("tournaments.preview.missionNotSet"))}</p>` : ""}
             ${teamTableImageMarkup(table)}
           </article>`).join("")}
@@ -2974,6 +2977,7 @@ function publicMatchMarkup(match, tournament = {}) {
       </summary>
       <div class="tournament-match-content">
         <div class="row-meta">${escapeHtml(meta)}</div>
+        ${match.isBye ? "" : teamTableImageMarkup(match.table?.imageId ? match.table : match.mission || match.table)}
         ${pairingWarningsMarkup(match.pairingWarnings)}
         <div class="row-actions">
           ${match.gameId && !match.isBye ? `<a class="small-button" data-app-link href="/tournament#/games/tournament-match/${match.id}">${t("play.action.details")}</a>` : ""}
@@ -3024,17 +3028,24 @@ function matchSetupMeta(match) {
   if (match.table?.tableNumber) parts.push(t("tournaments.match.table", { number: match.table.tableNumber }));
   if (mission.killzone) parts.push(t("tournaments.mission.killzone", { name: mission.killzone }));
   if (mission.critOp) parts.push(t("tournaments.mission.critOp", { name: mission.critOp }));
-  if (mission.layout) parts.push(t("tournaments.mission.deployment", { layout: mission.layout }));
+  if (mission.layout) parts.push(t("tournaments.mission.deployment", { layout: mapLayoutLabel(mission) }));
   return parts.join(" / ");
 }
 
 async function loadTournaments() {
   try {
-    const data = await api(`/api/tournaments?page=${state.tournamentsPage || 1}`);
+    const [data, mine] = await Promise.all([
+      api(`/api/tournaments?page=${state.tournamentsPage || 1}`),
+      state.me ? api(`/api/tournaments?scope=mine&page=${state.myTournamentsPage || 1}`) : null
+    ]);
     state.tournaments = data.tournaments || []; state.tournamentsPagination = data.pagination;
+    state.myTournaments = mine?.tournaments || [];
+    state.myTournamentsPagination = mine?.pagination || null;
     state.tournamentsError = "";
   } catch (err) {
     state.tournaments = [];
+    state.myTournaments = [];
+    state.myTournamentsPagination = null;
     state.tournamentsError = err.message;
   }
 }
@@ -3142,7 +3153,7 @@ function renderTournaments(live = false) {
         </div>
       </div>
       ${state.tournamentsError ? `<div class="empty">${escapeHtml(state.tournamentsError)}</div>` : `
-        ${tournamentListSections(tournaments)}
+        ${tournamentListSections(tournaments, { mine: state.me ? state.myTournaments : null, minePagination: state.myTournamentsPagination })}
         ${state.tournamentsPagination ? paginationMarkup("tournaments",state.tournamentsPagination,"tournaments.pagination.items") : ""}
       `}
       </section>
@@ -3164,9 +3175,10 @@ function renderTournaments(live = false) {
   liveRefresh.schedule();
 }
 
-function tournamentListSections(tournaments, { admin = false, renderCard = publicTournamentCard } = {}) {
-  if (!tournaments.length) return `<div class="empty">${t(admin ? "admin.tournament.list.empty" : "tournaments.list.empty")}</div>`;
+function tournamentListSections(tournaments, { admin = false, renderCard = publicTournamentCard, mine = null, minePagination = null } = {}) {
+  if (!tournaments.length && (admin || mine === null)) return `<div class="empty">${t(admin ? "admin.tournament.list.empty" : "tournaments.list.empty")}</div>`;
   const sections = [
+    ...(!admin && mine !== null ? [{ title: t("tournaments.section.mine"), items: mine, pagination: minePagination }] : []),
     { title: t("tournaments.section.ongoing"), items: tournaments.filter((tournament) => tournament.status === "in_progress") },
     {
       title: t("tournaments.section.future"),
@@ -3185,11 +3197,12 @@ function tournamentListSections(tournaments, { admin = false, renderCard = publi
         <section class="tournament-list-section">
           <div class="tournament-list-heading">
             <h3>${escapeHtml(section.title)}</h3>
-            <span>${section.items.length}</span>
+            <span>${section.pagination?.total ?? section.items.length}</span>
           </div>
           <div class="list ${admin ? "admin-tournament-list" : "tournament-card-list"}">
             ${section.items.length ? section.items.map(renderCard).join("") : `<div class="empty compact-empty">${t("tournaments.section.empty")}</div>`}
           </div>
+          ${section.pagination ? paginationMarkup("my-tournaments", section.pagination, "tournaments.pagination.items") : ""}
         </section>
       `).join("")}
     </div>
@@ -3618,11 +3631,9 @@ let adminUiPromise = null;
 function loadAdminUi() {
   if (window.TGTV_ADMIN) return Promise.resolve(window.TGTV_ADMIN);
   if (adminUiPromise) return adminUiPromise;
-  const boot = document.querySelector('script[src*="theme-boot.js"]');
-  const query = boot && boot.src.includes("?") ? boot.src.slice(boot.src.indexOf("?")) : "";
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js${query}`;
+    script.src = `/admin.js?v=20261028-map-catalog`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -4013,6 +4024,7 @@ function gameCard(game) {
       <div class="row-main">
         <div class="row-title">${title}</div>
         <div class="row-meta">${escapeHtml(meta)}</div>
+        ${teamTableImageMarkup(game.teamTournamentGame?.mission || game.mission)}
       </div>
       <div class="row-actions">
         <span class="status ${status}">${game.status === "completed" ? t("play.game.status.completed") : isPending ? t("play.game.status.pending") : t("play.game.status.active")}</span>
@@ -6339,7 +6351,7 @@ function renderGameDetail(live = false) {
         </dl>
       ` : ""}
       ${!result && game.teamTournamentGame?.mission ? killzoneReview({ killzone: game.teamTournamentGame.mission }) : ""}
-      ${game.teamTournamentGame?.mission?.imageId ? teamTableImageMarkup(game.teamTournamentGame.mission) : ""}
+      ${teamTableImageMarkup(game.teamTournamentGame?.mission)}
       ${result ? `
         <div class="result-headline">${escapeHtml(resultHeadline(game, result))}</div>
         ${submitter ? `<p class="muted">${t("games.detail.submittedBy", { name: escapeHtml(submitter.name) })}${game.submittedAt ? ` &middot; ${fmtDate(game.submittedAt)}` : ""}</p>` : ""}
@@ -6661,7 +6673,7 @@ function renderResultForm(gameId, options = {}) {
               <label>${t("games.result.layoutLabel")}</label>
               <select name="killzoneLayout" ${missionLocked ? "disabled" : ""}>
                 <option value="">${t("games.result.notSelected")}</option>
-                ${[1, 2, 3, 4, 5, 6].map((layout) => `
+                ${mapLayoutNumbers(missionDefaults.killzone).map((layout) => `
                   <option value="${layout}" ${Number(missionDefaults.layout) === layout ? "selected" : ""}>${layout}</option>
                 `).join("")}
               </select>
@@ -6900,7 +6912,7 @@ function renderTournamentResultForm(data, match, options = {}) {
               <label>${t("games.result.layoutLabel")}</label>
               <select name="killzoneLayout">
                 <option value="">${t("games.result.notSelected")}</option>
-                ${[1, 2, 3, 4, 5, 6].map((layout) => `
+                ${mapLayoutNumbers(missionDefaults.killzone).map((layout) => `
                   <option value="${layout}" ${Number(missionDefaults.layout) === layout ? "selected" : ""}>${layout}</option>
                 `).join("")}
               </select>
@@ -7958,6 +7970,7 @@ function wirePaginationControls() {
     'admin-users': ['adminUsersPage', () => adminUi().loadAdminUsers()],
     'admin-teams': ['adminTeamsPage', () => adminUi().loadAdminTeams()],
     'tournaments': ['tournamentsPage', loadTournaments],
+    'my-tournaments': ['myTournamentsPage', loadTournaments],
     'admin-tournaments': ['adminTournamentsPage', () => adminUi().loadAdminTournaments()],
     'feedback': ['feedbackPage', loadFeedback],
     'achievements': ['achievementsPage', async () => {}]
@@ -8956,7 +8969,7 @@ function teamMatchGamesMarkup(match, options = {}) {
     const mission = link?.mission || assignment?.mission || {};
     const tableId = link?.tableId ?? assignment?.tableId;
     const table = link?.table || (tableId ? (match.tables || teamTournamentTables(match.tournamentId)).find((item) => item.id === Number(tableId)) : null);
-    const tableImage = table?.imageId ? teamTableImageMarkup(table) : "";
+    const tableImage = teamTableImageMarkup(table);
     const details = [pairing?.shieldOwner && !options.preview && !["in_progress", "completed"].includes(match.phase) ? t("teams.pairing.shieldOwner", { side: pairing.shieldOwner.toUpperCase() }) : "", teamMissionLabel(mission)];
     if (table) details.push(mission.killzone ? t("tournaments.match.table", { number: table.tableNumber }) : tableLabel(table));
     const environment = details.filter(Boolean).join(" · ");
@@ -8984,7 +8997,7 @@ function teamMissionLabel(mission = {}) {
   return [
     mission.critOp || "",
     mission.killzone || "",
-    mission.layout ? t("tournaments.mission.layout", { layout: mission.layout }) : ""
+    mission.layout ? t("tournaments.mission.layout", { layout: mapLayoutLabel(mission) }) : ""
   ].filter(Boolean).join(" · ");
 }
 
@@ -9074,14 +9087,27 @@ function teamEnvironmentChoiceForm(match, name, choices, slot, side) {
   const label = t(name === "mission" ? "teams.pairing.chooseMission" : "teams.pairing.chooseTable", {
     matchup: teamPairingMatchupLabel(match, slot)
   });
-  const images = choices.filter((choice) => choice.table?.imageId).map((choice) => `<figure>${teamTableImageMarkup(choice.table)}<figcaption>${escapeHtml(choice.label)}</figcaption></figure>`).join("");
+  const images = choices.filter((choice) => choice.table).map((choice) => `<figure>${teamTableImageMarkup(choice.table)}<figcaption>${escapeHtml(choice.label)}</figcaption></figure>`).join("");
   return `<form class="team-pairing-control" data-team-pairing-form="environment" data-kind="${name === "mission" ? "mission" : "table"}" data-team-match-id="${match.id}" data-side="${side}" data-step="${match.environment?.step || 0}"><label><span>${escapeHtml(label)}</span><select name="${name}" required>${choices.map((choice) => `<option value="${escapeHtml(choice.value)}">${escapeHtml(choice.label)}</option>`).join("")}</select></label><button class="primary-button" type="submit">${t("common.confirm")}</button></form>${images ? `<div class="team-table-choice-images">${images}</div>` : ""}`;
+}
+
+function mapLayoutLabel(table) {
+  return TGTVMapCatalog.find(table)?.number || table?.deployment || table?.layout || "";
+}
+
+function mapLayoutNumbers(killzone) {
+  const maps = TGTVMapCatalog.mapsFor(killzone);
+  return maps.length ? maps.map(map => map.slot) : [1, 2, 3, 4, 5, 6];
 }
 
 function teamTableImageMarkup(table) {
   const id = Number(table?.imageId);
-  if (!Number.isSafeInteger(id) || id < 1) return "";
-  const label = [t("teams.tableImage.label"), table.killzone, table.deployment || table.layout ? t("tournaments.mission.layout", { layout: table.deployment || table.layout }) : ""].filter(Boolean).join(" · ");
+  if (!Number.isSafeInteger(id) || id < 1) {
+    const map = TGTVMapCatalog.find(table);
+    if (!map) return "";
+    return `<a href="${map.imageUrl}" target="_blank" rel="noopener"><img class="team-table-image" src="${map.imageUrl}" alt="${escapeHtml(map.set + ' · ' + map.number)}" loading="lazy"></a>`;
+  }
+  const label = [t("teams.tableImage.label"), table.killzone, table.deployment || table.layout ? t("tournaments.mission.layout", { layout: mapLayoutLabel(table) }) : ""].filter(Boolean).join(" · ");
   return `<img class="team-table-image" src="/api/tournament-table-images/${id}" alt="${escapeHtml(label)}" loading="lazy">`;
 }
 
@@ -9266,7 +9292,8 @@ function teamTournamentMatchPreviewMarkup(match, tournament) {
         <div class="row-title">${teamRosterLabel(match.rosterA)}${match.rosterB ? ` vs ${teamRosterLabel(match.rosterB)}` : ""}</div>
         ${pairingWarningsMarkup(teamPairingWarnings(match))}
         ${teamMatchProgressMarkup(match)}
-        ${meta ? `<div class="row-meta">${escapeHtml(meta)}</div>` : ""}
+        ${meta ? `<div class="row-meta">${escapeHtml(meta)}</div>
+        ${match.isBye ? "" : teamTableImageMarkup(match.table?.imageId ? match.table : match.mission || match.table)}` : ""}
       </div>
       ${match.resolution === "bye" ? "" : `<a href="/tournament#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</a>`}
     </summary>
@@ -9369,6 +9396,7 @@ function wireTournamentLogo(form) {
     preview.hidden = !value;
     if (value) preview.src = value;
     else preview.removeAttribute("src");
+      card.dispatchEvent(new Event("map-image-change"));
     remove.hidden = !value;
     form.dataset.logoLoading = "";
     form.dispatchEvent(new CustomEvent("tournament-autosave-request", { bubbles: true }));
@@ -9746,7 +9774,7 @@ function teamTableSetupFields(tables = [], venueMode = "tts", sharedTables = fal
         </div>
         <div class="field">
           <label for="team-layout-${index}">${t("admin.tournament.tables.field.deployment")}</label>
-          <select id="team-layout-${index}" name="teamLayout-${index}" required><option value="">${t("games.result.notSelected")}</option>${[1, 2, 3, 4, 5, 6].map((number) => `<option value="${number}" ${Number(tables[index]?.deployment) === number ? "selected" : ""}>${number}</option>`).join("")}</select>
+          <select id="team-layout-${index}" name="teamLayout-${index}" required><option value="">${t("games.result.notSelected")}</option>${mapLayoutNumbers(tables[index]?.killzone).map((number) => `<option value="${number}" ${Number(tables[index]?.deployment) === number ? "selected" : ""}>${number}</option>`).join("")}</select>
         </div>
       </div>
       ${venueMode === "irl" ? "" : teamTableImageField(tables[index], index)}
@@ -9821,6 +9849,7 @@ function wireTeamTableImages(form) {
       preview.hidden = remove.hidden = !value;
       if (value) preview.src = value;
       else preview.removeAttribute("src");
+      card.dispatchEvent(new Event("map-image-change"));
     };
     const clear = () => {
       revision += 1;
@@ -9880,7 +9909,7 @@ function roundMissionFields(tournament, round) {
       <label>${t("admin.tournament.tables.field.deployment")}</label>
       <select name="roundLayout">
         <option value="">${t("games.result.notSelected")}</option>
-        ${[1, 2, 3, 4, 5, 6].map(layout => `<option value="${layout}" ${Number(mission.layout) === layout ? "selected" : ""}>${layout}</option>`).join("")}
+        ${mapLayoutNumbers(mission.killzone).map(layout => `<option value="${layout}" ${Number(mission.layout) === layout ? "selected" : ""}>${layout}</option>`).join("")}
       </select>
     </div>
   ` : "";
@@ -9944,12 +9973,12 @@ function roundSetupTableSelect(selectedId, tables = []) {
       <select name="tableId">
         <option value="">${t("admin.roundSetup.auto")}</option>
         ${tables.map((table) => `
-          <option value="${table.id}" data-deployment="${escapeHtml(table.deployment || "")}" ${Number(selectedId) === table.id ? "selected" : ""}>
+          <option value="${table.id}" data-deployment="${escapeHtml(table.deployment || "")}" data-killzone="${escapeHtml(table.killzone || "")}" data-image-id="${Number(table.imageId) || 0}" ${Number(selectedId) === table.id ? "selected" : ""}>
             ${escapeHtml(tableLabel(table))}
           </option>
         `).join("")}
       </select>
-      <span class="field-help" data-round-table-deployment>${selectedTable?.deployment ? t("tournaments.mission.deployment", { layout: selectedTable.deployment }) : t("admin.roundSetup.deploymentAuto")}</span>
+      <div data-round-table-map></div><span class="field-help" data-round-table-deployment>${selectedTable?.deployment ? t("tournaments.mission.deployment", { layout: mapLayoutLabel(selectedTable) }) : t("admin.roundSetup.deploymentAuto")}</span>
     </div>
   `;
 }
@@ -9958,7 +9987,7 @@ function tableLabel(table = {}) {
   return [
     t("tournaments.match.table", { number: table.tableNumber }),
     table.killzone || "",
-    table.deployment ? t("tournaments.mission.deployment", { layout: table.deployment }) : ""
+    table.deployment ? t("tournaments.mission.deployment", { layout: mapLayoutLabel(table) }) : ""
   ].filter(Boolean).join(" / ");
 }
 
@@ -10010,6 +10039,7 @@ function wireRoundSetupModal(tournament, tables, preview = {}) {
   });
   updatePlayers();
   document.querySelectorAll('[name="tableId"]').forEach(updateRoundSetupTableDeployment);
+  if (!preview.tableOnly) updateRoundSetupWarnings(tournament, tables, preview);
   document.querySelector("[data-round-setup-form]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const message = document.querySelector("[data-round-setup-message]");
@@ -10072,6 +10102,8 @@ function updateRoundSetupWarnings(tournament, tables, preview) {
   }
   rows.forEach((row, index) => {
     row.dataset.resolvedTableId = proposed[index].tableId || "";
+    const mapBox = row.querySelector('[data-round-table-map]');
+    if (mapBox) TGTVMapPreview(mapBox, tables.find(table => Number(table.id) === Number(proposed[index].tableId)));
     const container = row.querySelector("[data-pairing-warnings]");
     if (container) container.innerHTML = pairingWarningsMarkup(TGTVPairingWarnings.warnings(proposed[index],
       preview.teamRound ? history.teams : history.players, tournament.venueMode));
@@ -10096,7 +10128,11 @@ function updateRoundSetupTableDeployment(select) {
   const help = select.closest(".field")?.querySelector("[data-round-table-deployment]");
   if (!help) return;
   const deployment = select.selectedOptions[0]?.dataset.deployment || "";
-  help.textContent = deployment ? t("tournaments.mission.deployment", { layout: deployment }) : t("admin.roundSetup.deploymentAuto");
+  const box = select.closest('.field')?.querySelector('[data-round-table-map]');
+  const option = select.selectedOptions[0];
+  const table = { killzone: option?.dataset.killzone, deployment, imageId: Number(option?.dataset.imageId) || null };
+  if (box) TGTVMapPreview(box, table);
+  help.textContent = deployment ? t("tournaments.mission.deployment", { layout: mapLayoutLabel(table) }) : t("admin.roundSetup.deploymentAuto");
 }
 
 function roundSetupPayload(form, tournament) {

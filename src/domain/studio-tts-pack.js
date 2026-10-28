@@ -82,11 +82,14 @@ function validatePack(body) {
     if (!token || !text(token.key, 330) || keys.has(token.key) || !text(token.name, 200) || !Number.isFinite(token.sizeMm) || token.sizeMm < 5 || token.sizeMm > 60 || !["marker", "effect", "both"].includes(token.mode) || typeof token.stackable !== "boolean") fail("Некорректный жетон.");
     const mode = token.mode === "both" ? "effect" : token.mode;
     const shape = token.shape ?? "circle", rangeInches = token.rangeInches ?? (mode === "effect" ? 0 : 1);
+    if (token.rangeEnabled !== undefined && typeof token.rangeEnabled !== "boolean") fail("Проверьте показ дистанции жетона.");
     if (!["circle", "trapezoid", "diamond", "octagon"].includes(shape) || !Number.isFinite(rangeInches) || rangeInches < 0 || rangeInches > 12) fail("Проверьте форму и дистанцию жетона.");
     keys.add(token.key);
     const image = use(token.image);
     if (image.width !== image.height || image.width > 1024) fail("Изображение жетона должно быть квадратным, до 1024 пикселей.");
-    return { key: token.key, name: token.name, sizeMm: token.sizeMm, mode, stackable: mode === "effect" && token.stackable, image: token.image, shape, rangeInches: mode === "effect" ? 0 : rangeInches };
+    return { key: token.key, name: token.name, sizeMm: token.sizeMm, mode, stackable: mode === "effect" && token.stackable, image: token.image, shape,
+      ...(token.rangeEnabled === undefined ? {} : { rangeEnabled: mode !== "effect" && token.rangeEnabled }),
+      rangeInches: mode === "effect" || token.rangeEnabled === false ? 0 : rangeInches };
   });
   const dice = diceInput.map(die => {
     if (!die || !text(die.name, 200) || !Number.isFinite(die.sizeMm) || die.sizeMm < 12 || die.sizeMm > 30 || !integer(die.quantity, 1, 24)) fail("Проверьте название, размер и количество кубиков D6.");

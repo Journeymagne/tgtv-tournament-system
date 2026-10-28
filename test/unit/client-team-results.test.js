@@ -7,7 +7,7 @@ const appSource = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "
 function sourceOf(name) {
   const source = appSource.match(new RegExp(`(?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`, "m"))?.[0];
   assert.ok(source, `could not find ${name} in public/app.js`);
-  return require("../helpers/client-access-source") + "\n" + source;
+  return require("../helpers/client-map-source") + "\n" + require("../helpers/client-access-source") + "\n" + source;
 }
 
 function captainControls(user, overrides = {}, administrationContext = true) {

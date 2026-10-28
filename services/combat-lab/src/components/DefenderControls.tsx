@@ -72,9 +72,14 @@ export const defenderBasicCheckboxes: readonly AbilityCheckbox[] = [
   { note: N.CurseOfRot, ability: Ability.CurseOfRot },
 ];
 
+export const defenderAdvancedCheckboxes: readonly AbilityCheckbox[] = [
+  { note: N.TranshumanPhysiology, ability: Ability.TranshumanPhysiology },
+];
+
 export const defenderNotedControls: readonly NotedControl[] = [
   ...notedControlsFromParams(defenderParamSpecs),
   ...notedControlsFromCheckboxes(defenderBasicCheckboxes, false),
+  ...notedControlsFromCheckboxes(defenderAdvancedCheckboxes, true),
 ];
 
 const DefenderControls: React.FC<Props> = (props: Props) => {
@@ -134,6 +139,9 @@ const DefenderControls: React.FC<Props> = (props: Props) => {
   const advancedParamsToShow = wantShowAdvanced ? advancedParams : usedAdvancedParams;
   const paramsToShow = basicParams.concat(advancedParamsToShow);
   const fields = propsToFields(paramsToShow, props.idPrefix);
+  const checkboxesToShow = defenderBasicCheckboxes.concat(
+    defenderAdvancedCheckboxes.filter(box => wantShowAdvanced || def.has(box.ability)),
+  );
 
   return (
     <div style={{ width: '152px', maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -146,7 +154,7 @@ const DefenderControls: React.FC<Props> = (props: Props) => {
         {fields}
       </div>
       <div className='CheckCol'>
-        {defenderBasicCheckboxes.map(box => (
+        {checkboxesToShow.map(box => (
           <CheckItem
             key={box.note.name}
             id={`${props.idPrefix}-${box.ability}`}

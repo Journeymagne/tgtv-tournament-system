@@ -7,7 +7,7 @@
          so a light-theme visitor does not see a dark page flip once the
          deferred app.js has parsed. Kept as a file, not inline, because the CSP
          is script-src 'self'. -->
-    <script src="/theme-boot.js?v=1.4.13"></script>
+    <script src="/theme-boot.js?v=20261028-my-tournaments"></script>
     <title>TGTV Ranking Tournament System</title>
     <meta name="description" content="Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.">
     <meta name="robots" content="index, follow">
@@ -33,7 +33,8 @@
     <script src="/companion-sites.js?v=1.4.13" defer></script>
 <script src="/companion-i18n.js?v=1.4.13" defer></script>
 <script src="/companion-shell.js?v=20261022-kit" defer></script>
-  </head>
+    <link rel="stylesheet" href="/map-catalog-ui.css?v=20261028">
+</head>
   <body data-companion-section="tournament">
     <div data-companion-nav></div>
     <div id="app" class="app-shell">
@@ -51,7 +52,10 @@
         <section class="notification-panel" data-notification-panel hidden></section>
       </div>
     </div>
-    <script src="/game-data.js?v=1.4.13" defer></script>
+    <script src="/maps/catalog-data.js?v=20261028" defer></script>
+    <script src="/map-catalog.js?v=20261028" defer></script>
+    <script src="/map-catalog-ui.js?v=20261028" defer></script>
+    <script src="/game-data.js?v=20261028" defer></script>
     <!-- The locale dictionaries are not listed here: theme-boot.js writes a tag
          for the one the visitor is in, and app.js fetches the other only if
          somebody uses the language toggle. Listing both cost every visit
@@ -63,7 +67,7 @@
     <script src="/training/journey-ui.js?v=20261026-recertification" defer></script>
     <script src="/telegram-account.js?v=1.4.13" defer></script>
     <script src="/resource-quotas.js?v=1.4.13" defer></script>
-  <script src="/app.js?v=1.4.13" defer></script>
+  <script src="/app.js?v=20261028-my-tournaments" defer></script>
     <script src="/exodite-runner.js?v=1.4.2" defer></script>
   </body>
 </html>

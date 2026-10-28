@@ -45,11 +45,12 @@ function buildObject(manifest, assetBase) {
         CustomToken:{Thickness:0.06,MergeDistancePixels:2,StandUp:false,Stackable:stackable}},
       LuaScript:tokenScript.replace("__SIZE_MM__", String(token.sizeMm))
         .replace("__IS_MARKER__", String(token.mode !== "effect"))
+        .replace("__RANGE_ENABLED__", String(token.mode !== "effect" && token.rangeEnabled !== false))
         .replace("__RANGE_INCHES__", String(token.rangeInches ?? 1)) });
     const meshURL = assetBase + token.image.replace(/\.png$/, ".obj");
     return make("Custom_Model_Infinite_Bag", token.name + " · " + token.sizeMm + " mm", { ContainedObjects:[piece],
       Tags:["KTStudioDispenser"], Description:token.mode === "marker"
-        ? "Drag out a token. Aura only: does not attach to models. Hover and type a number; 0 hides the ring."
+        ? "Drag out a token. Does not attach to models." + (token.rangeEnabled !== false ? " Hover and type a number for inches; 0 hides the ring." : " Range display disabled.")
         : "Drag out a token and drop it on a KTUI model." + (stackable ? " Each copy increases its counter." : " Applies an effect without a counter."),
       CustomMesh:{MeshURL:meshURL,DiffuseURL:assetBase+token.image,NormalURL:"",ColliderURL:meshURL,
         Convex:true,MaterialIndex:0,TypeIndex:7,CastShadows:true},
