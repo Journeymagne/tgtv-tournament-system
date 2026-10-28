@@ -37,14 +37,14 @@ function matchFixture() {
     })) };
 }
 
-test("tournament previews show every game and confirmed scores, without pairing or result controls for any viewer", () => {
+test("tournament previews show confirmed and submitted scores, without pairing or result controls for any viewer", () => {
   for (const me of [null, { id: 1 }, { id: 1, isAdmin: true }]) {
     const render = previewRenderer(me);
     const html = render(matchFixture(), { status: "in_progress" });
     assert.match(html, /Alpha vs Beta/);
     assert.match(html, /Completed 1\/3 games · Current GP: 14:6/);
     assert.match(html, /18:14 VP · 14:6 GP/);
-    assert.match(html, /Awaiting confirmation/);
+    assert.match(html, /Awaiting confirmation · 21:0 VP · Not included in GP yet/);
     assert.match(html, /Not played yet/);
     for (const resultState of ["completed", "pending", "unplayed"]) {
       assert.match(html, new RegExp(`class="match-result-state" data-result-state="${resultState}"`));
@@ -53,7 +53,7 @@ test("tournament previews show every game and confirmed scores, without pairing 
     assert.match(html, /Orb · Volkus · Layout 6/);
     assert.equal((html.match(/class="team-match-game"/g) || []).length, 3);
     assert.match(html, /data-team-pairing-open="7"/);
-    assert.doesNotMatch(html, /<form|data-team-pair-action|data-team-match-undo|data-team-match-reset|data-team-game-result|data-team-game-review|shield A|21:0 VP|Three games in progress/);
+    assert.doesNotMatch(html, /<form|data-team-pair-action|data-team-match-undo|data-team-match-reset|data-team-game-result|data-team-game-review|shield A|Three games in progress/);
     const completed = render({ ...matchFixture(), phase: "completed", teamTournamentPointsA: 2, teamTournamentPointsB: 0, teamGamePointsA: 40, teamGamePointsB: 20 }, { status: "in_progress" });
     assert.match(completed, /2:0 TTP · 40:20 GP/);
   }
@@ -93,7 +93,7 @@ test("Classic previews never show GP for completed, pending or unplayed games", 
   const html = render(match, { status: "in_progress" });
   assert.doesNotMatch(html, /\bGP\b/);
   assert.match(html, /18:14 VP/);
-  assert.match(html, /Awaiting confirmation/);
+  assert.match(html, /Awaiting confirmation · 21:0 VP/);
   assert.match(html, /Not played yet/);
   const finished = render({ ...match, phase: "completed", teamTournamentPointsA: 6, teamTournamentPointsB: 3 }, { status: "in_progress" });
   assert.match(finished, /6:3 TP/);

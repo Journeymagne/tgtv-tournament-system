@@ -3647,7 +3647,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.4.16`;
+    script.src = `/admin.js?v=1.4.17`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -8993,9 +8993,13 @@ function teamMatchGamesMarkup(match, options = {}) {
       const resultState = completed ? "completed" : game.status === "pending_confirmation" ? "pending" : "unplayed";
       const status = t(`teams.results.${resultState}`);
       const [playerAId, playerBId] = game.resultPlayerIds || game.playerIds || [];
-      const vpA = completed ? game.result.scores?.[playerAId]?.total ?? 0 : null;
-      const vpB = completed ? game.result.scores?.[playerBId]?.total ?? 0 : null;
-      const score = completed ? `${vpA}:${vpB} VP${usesIndividualTeamPoints(match) ? "" : ` · ${link.gamePointsA}:${link.gamePointsB} GP`}` : usesIndividualTeamPoints(match) ? "" : t("teams.results.notCounted");
+      const visibleResult = completed ? game.result : resultState === "pending" ? game.pendingResult?.result : null;
+      const vpA = visibleResult?.scores?.[playerAId]?.total ?? 0;
+      const vpB = visibleResult?.scores?.[playerBId]?.total ?? 0;
+      const score = [
+        visibleResult ? `${vpA}:${vpB} VP` : "",
+        usesIndividualTeamPoints(match) ? "" : completed ? `${link.gamePointsA}:${link.gamePointsB} GP` : t("teams.results.notCounted")
+      ].filter(Boolean).join(" · ");
       result = `<span class="match-result-state" data-result-state="${resultState}">${[status, score].filter(Boolean).map(escapeHtml).join(" · ")}</span>`;
     }
     const resultAction = options.readOnly ? "" : link?.permissions?.canSubmit

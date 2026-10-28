@@ -93,7 +93,7 @@ test("admin polling preserves independent Shield drafts for both sides", () => {
   assert.deepEqual(forms.map(form => form.select.value), ["12", "22"]);
 });
 
-test("anonymous pairing shows finished VP/GP and distinguishes pending and unplayed games", () => {
+test("anonymous pairing shows submitted VP while only confirmed results count toward GP", () => {
   const render = new Function("state", "t", "escapeHtml", "teamMissionLabel", "teamRosterMemberLabel",
     ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
   )({ me: null }, (key, values) => key === "teams.results.progress"
@@ -108,7 +108,14 @@ test("anonymous pairing shows finished VP/GP and distinguishes pending and unpla
   assert.match(html, /18:14 VP · 14:6 GP/);
   for (const status of ["completed", "pending_confirmation", "open"]) assert.match(html, new RegExp(`data-team-game-status="${status}"`));
   assert.equal((html.match(/teams.results.notCounted/g) || []).length, 2);
-  assert.doesNotMatch(html, /21:0 VP|data-team-tournament-game/);
+  assert.match(html, /teams.results.pending · 21:0 VP · teams.results.notCounted/);
+  assert.doesNotMatch(html, /data-team-tournament-game/);
+  const pendingGame = match.games[1].game;
+  pendingGame.resultPlayerIds = [-12, -22];
+  pendingGame.pendingResult.result.scores = { "-12": { total: 0 }, "-22": { total: 21 } };
+  assert.match(render(match), /teams.results.pending · 0:21 VP · teams.results.notCounted/);
+  pendingGame.pendingResult = null;
+  assert.doesNotMatch(render(match), /0:0 VP|0:21 VP|21:0 VP/);
   assert.equal(render({ games: [] }), "");
 });
 
