@@ -3647,7 +3647,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=20261028-tournament-sections`;
+    script.src = `/admin.js?v=1.4.16`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
