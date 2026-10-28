@@ -128,8 +128,22 @@ API responses are not cached. Mutation request bodies are limited to 4 KiB.
 
 `public/training/index.html` loads the shared Companion shell, theme tokens,
 base components and language controls. Local CSS supplies quiz-specific layout
-and states using those same colors and typography. The authored question bank
-remains Russian when switching shared interface language.
+and states using those same colors and typography. All 300 authored questions
+have English wording, answer options, explanations, topics and source sections
+in `public/training/questions-en.json`. These static, machine-assisted translations
+include editorial corrections to game terminology and ambiguous phrasing.
+The trainer never calls an external translation service during play.
+`question-language.js` selects English when the Companion locale is English,
+including session reviews, saved history, the searchable bank and report previews.
+Switching language retains the selected answer, answer order and account progress.
+Canonical Russian content and answer indices remain unchanged in the database.
+
+Each translation records a signature of its original wording. After editing a
+question, update its English entry and signature too; until then, that new version
+falls back to Russian rather than showing a translation of different rules.
+Saved historical wording still uses its matching translation. The moderation
+editor continues editing canonical content so a language switch cannot overwrite
+Russian questions with English or discard an unsaved moderation form.
 
 The bank is `src/training-data/questions.json`; provenance is recorded in
 `foundation-sources.md` and `advanced-sources.md` beside it. It is the verified

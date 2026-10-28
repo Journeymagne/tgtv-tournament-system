@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  // The authored Russian question bank is deliberately excluded from UI translation.
+  // Question content uses the version-matched question-language catalogue.
   window.KTUI.register('training', { pairs: [
     ['Пора пройти переаттестацию', 'Time to recertify'], ['Пройти переаттестацию →', 'Recertify →'], ['Прогресс переаттестации', 'Recertification progress'],
     ['База обновилась. Ваше звание и заработанный опыт сохранены. Подтвердите знания по актуальным вопросам в обычных тренировках.', 'The course has changed. Your title and earned XP are retained. Confirm your knowledge of the current questions in regular training sessions.'],
