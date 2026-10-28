@@ -62,6 +62,47 @@ test("повторный migrate ничего не применяет", async ()
   assert.deepEqual(applied, []);
 });
 
+test("round cascade upgrade repairs restored FK order without changing saved rounds or weakening scope", async () => {
+  await migrate(pool);
+  // Recreate the pre-070 schema in dump/restore order: scope FK before the
+  // legacy round_id cascade. Fresh databases normally hide the conflict.
+  await pool.query(`
+    ALTER TABLE tournaments.tournament_matches
+      DROP CONSTRAINT tournament_match_round_scope,
+      DROP CONSTRAINT tournament_matches_round_id_fkey;
+    ALTER TABLE tournaments.tournament_matches ADD CONSTRAINT tournament_match_round_scope
+      FOREIGN KEY (round_id, tournament_id) REFERENCES tournaments.tournament_rounds(id, tournament_id) NOT VALID;
+    ALTER TABLE tournaments.tournament_matches ADD CONSTRAINT tournament_matches_round_id_fkey
+      FOREIGN KEY (round_id) REFERENCES tournaments.tournament_rounds(id) ON DELETE CASCADE;
+    DELETE FROM schema_migrations WHERE version = 70;
+  `);
+  const cups = (await pool.query(`INSERT INTO tournaments(slug, status, format)
+    VALUES ('cascade-cup', 'registration_closed', 'swiss'), ('other-cup', 'registration_closed', 'swiss')
+    RETURNING id`)).rows;
+  const round = (await pool.query(`INSERT INTO tournament_rounds(tournament_id, round_number, status)
+    VALUES ($1, 1, 'not_ready') RETURNING *`, [cups[0].id])).rows[0];
+  const match = (await pool.query(`INSERT INTO tournament_matches(tournament_id, round_id, round_number, status)
+    VALUES ($1, $2, 1, 'not_ready') RETURNING *`, [cups[0].id, round.id])).rows[0];
+  await assert.rejects(pool.query("DELETE FROM tournament_rounds WHERE id=$1", [round.id]),
+    err => err.code === "23503" && err.constraint === "tournament_match_round_scope");
+
+  assert.deepEqual(await migrate(pool), [70]);
+  assert.deepEqual((await pool.query("SELECT * FROM tournament_rounds WHERE id=$1", [round.id])).rows, [round]);
+  assert.deepEqual((await pool.query("SELECT * FROM tournament_matches WHERE id=$1", [match.id])).rows, [match]);
+  await assert.rejects(pool.query(`INSERT INTO tournament_matches(tournament_id, round_id, round_number, status)
+    VALUES ($1, $2, 1, 'not_ready')`, [cups[1].id, round.id]),
+    err => err.code === "23503" && err.constraint === "tournament_match_round_scope");
+
+  // Reorder the legacy cascade again, so success cannot depend on it firing first.
+  await pool.query(`ALTER TABLE tournaments.tournament_matches DROP CONSTRAINT tournament_matches_round_id_fkey;
+    ALTER TABLE tournaments.tournament_matches ADD CONSTRAINT tournament_matches_round_id_fkey
+      FOREIGN KEY (round_id) REFERENCES tournaments.tournament_rounds(id) ON DELETE CASCADE`);
+  await pool.query("DELETE FROM tournament_rounds WHERE id=$1", [round.id]);
+  assert.equal((await pool.query("SELECT id FROM tournament_matches WHERE id=$1", [match.id])).rowCount, 0);
+  assert.equal((await pool.query("SELECT id FROM tournaments WHERE id=ANY($1::int[])", [cups.map(cup => cup.id)])).rowCount, 2);
+  assert.deepEqual(await migrate(pool), []);
+});
+
 test("training upgrades a released 1.4.x database without replaying service migrations", async () => {
   const client = await pool.connect();
   let user;
