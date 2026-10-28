@@ -50,3 +50,8 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Run Combat Lab tests
+        run: npm run testq --prefix services/combat-lab -- --runInBand
+        env:
+          CI: true

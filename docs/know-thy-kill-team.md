@@ -40,8 +40,10 @@ Migration `064_training_retained_ranks` persists the highest earned `rank_tier`.
 Titles never decrease. If the retained title exceeds the currently qualified
 rank, the journey and profile achievement show **Переаттестация** until ordinary
 training satisfies the current requirements. Companion delivers one inbox
-notification per account/title/course fingerprint, including to offline users.
-Repeated reads, retries and withdrawing/restoring the same course do not duplicate it.
+notification per account, including to offline users. Migration 068 keeps the
+first existing notice and removes later duplicates without changing its read state.
+The persistent profile marker prevents new notices after course or rank changes,
+later recertification, retries or inbox cleanup. Current requirements remain on the journey.
 Reports and moderation preserve account titles before changing the course and
 synchronize them afterwards, under the bank lock. Future catalogue-import migrations
 must likewise call `syncAllJourneys` before and after altering the course.

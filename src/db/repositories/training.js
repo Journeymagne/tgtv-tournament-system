@@ -48,8 +48,10 @@ async function repairActive(client, userId, profile, catalog) {
 }
 async function syncJourney(client, profile, catalog) {
   const journey = progression(profile.stats, catalog.questions, profile.rank_tier);
-  const key = journey.recertification ? `${journey.rank.tier}:${catalog.fingerprint}` : null;
-  const notify = key && key !== profile.recertification_key;
+  // This durable marker survives course changes, qualification and inbox cleanup.
+  // A player receives this notice only once for the lifetime of their account.
+  const key = 'once';
+  const notify = journey.recertification && !profile.recertification_key;
   if (journey.rank.tier !== profile.rank_tier || notify) {
     await client.query(`UPDATE knowthykt.training_profiles SET rank_tier=$2,recertification_key=$3 WHERE user_id=$1`,
       [profile.user_id, journey.rank.tier, notify ? key : profile.recertification_key]);
@@ -57,8 +59,7 @@ async function syncJourney(client, profile, catalog) {
     if (notify) profile.recertification_key = key;
   }
   if (notify) {
-    // A fixed ID and DO NOTHING preserve read state even if this course is
-    // withdrawn/restored again or the same profile is opened on another device.
+    // Profile locking serializes devices; the fixed ID also protects retries.
     const payload = { id: 'knowthykt_recertification:' + key, type: 'knowthykt_recertification',
       title: 'Know Thy Kill Team · Переаттестация',
       excerpt: `База вопросов обновилась. Звание «${journey.rank.name}» и ${journey.xp} XP сохранены. Подтвердите звание по актуальным вопросам: осталось ${journey.recertificationRemaining} XP курса.`,

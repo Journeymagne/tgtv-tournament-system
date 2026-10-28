@@ -65,6 +65,7 @@ const MIGRATIONS = [
   require("./migrations/064_training_retained_ranks"),
   require("./migrations/066_training_approved_ops_scope"),
   require("./migrations/067_resource_quotas"),
+  require("./migrations/068_training_notification_once"),
   require("./migrations/069_map_catalog")
 ].sort((a, b) => a.version - b.version);
 

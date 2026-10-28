@@ -120,11 +120,18 @@ test('earned XP and titles survive Slop; restoration requests recertification on
   assert.equal(achievement.rank.id, 'judge');
   assert.equal(achievement.xp, before.journey.xp);
   assert.equal(achievement.recertification, true);
+  assert.deepEqual((await notifications()).rows, notices, 'a different course keeps the original notice unchanged');
   stats[missing.id] = { attempts: 2, correct: 2, xp: missing.difficulty * 20 };
   await pool.query('UPDATE knowthykt.training_profiles SET stats=$2 WHERE user_id=$1', [user.id, JSON.stringify(stats)]);
   const completed = (await request('progress', user)).state;
   assert.equal(completed.journey.rank.id, 'judge');
   assert.equal(completed.journey.recertification, false);
+  // Even a later recertification after qualifying and clearing the inbox is silent.
+  await pool.query("DELETE FROM knowthykt.notification_messages WHERE user_id=$1 AND payload->>'type'='knowthykt_recertification'", [user.id]);
+  delete stats[missing.id];
+  await pool.query('UPDATE knowthykt.training_profiles SET stats=$2 WHERE user_id=$1', [user.id, JSON.stringify(stats)]);
+  assert.equal((await request('progress', user)).state.journey.recertification, true);
+  assert.equal((await notifications()).rows.length, 0);
 });
 
 test('editing/restoring is revision guarded, preserves checked snapshots and does not revive a report retry', async () => {
