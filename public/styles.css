@@ -1469,8 +1469,13 @@ button:disabled {
    Tournament list and cards
    ====================================================================== */
 .tournament-list-section {
+  display: block;
+}
+
+.tournament-list-body {
   display: grid;
   gap: 10px;
+  margin-top: 10px;
 }
 
 .tournament-list-heading {
@@ -1481,9 +1486,35 @@ button:disabled {
   min-height: 30px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  list-style: none;
+}
+
+.tournament-list-heading::-webkit-details-marker {
+  display: none;
+}
+
+.tournament-list-heading::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-right: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  transform: rotate(-45deg);
+}
+
+.tournament-list-section[open] > .tournament-list-heading::before {
+  transform: rotate(45deg);
+}
+
+.tournament-list-heading:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
 }
 
 .tournament-list-heading h3 {
+  flex: 1;
   margin: 0;
   color: var(--accent);
   font-size: 15px;

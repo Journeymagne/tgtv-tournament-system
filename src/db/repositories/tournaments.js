@@ -243,8 +243,8 @@ async function listPage(client, query, user = null, { mine = false } = {}) {
     ELSE (SELECT count(*) FROM tournament_participants WHERE tournament_id=t.id AND status NOT IN ('withdrawn','removed')) END::int AS participant_count,
     (SELECT count(*)::int FROM tournament_rounds WHERE tournament_id=t.id) AS round_count
     FROM tournaments t WHERE ${mine ? `
-      t.owner_user_id=$1 OR t.id=ANY($2::int[]) OR (
-        t.status=ANY($3::text[]) AND (
+      t.status=ANY($3::text[]) AND (
+        t.owner_user_id=$1 OR t.id=ANY($2::int[]) OR (
           (t.participant_mode='individual' AND EXISTS (
             SELECT 1 FROM tournament_participants p
             WHERE p.tournament_id=t.id AND p.user_id=$1 AND p.status NOT IN ('withdrawn','removed')
@@ -261,7 +261,7 @@ async function listPage(client, query, user = null, { mine = false } = {}) {
       )
     ` : `($1::boolean AND (t.owner_user_id=$2 OR $3 OR t.id=ANY($4::int[])))
       OR (NOT $1 AND t.status=ANY($5::text[]))`} ORDER BY t.created_at DESC,t.id DESC`,
-    mine ? [user?.id || null, user?.managedTournamentIds || [], PUBLISHED_STATUSES]
+    mine ? [user?.id || null, user?.managedTournamentIds || [], ["registration_open", "registration_closed", "in_progress"]]
       : [!!user,user?.id||null,!!(user?.isAdmin||user?.isSuperAdmin),user?.managedTournamentIds||[],PUBLISHED_STATUSES],query);
   return {tournaments:result.rows.map(mapTournament),pagination:result.pagination};
 }

@@ -109,10 +109,11 @@ test("my tournaments includes ownership, assigned management and participation w
   const played = await createPublishedTournament({ name: "Played Cup" });
   const participant = await addUserParticipant(played, player);
   const owned = (await tournamentsApi.createAdmin({ client, user: root,
-    body: tournamentBody({ name: "Owned Draft" }) })).body.tournament;
-  await client.query("UPDATE tournaments SET owner_user_id=$1 WHERE id=$2", [player.id, owned.id]);
+    body: tournamentBody({ name: "Owned Cup" }) })).body.tournament;
+  await client.query("UPDATE tournaments SET owner_user_id=$1, status='registration_closed' WHERE id=$2", [player.id, owned.id]);
   const assigned = (await tournamentsApi.createAdmin({ client, user: root,
-    body: tournamentBody({ name: "Assigned Draft" }) })).body.tournament;
+    body: tournamentBody({ name: "Assigned Cup" }) })).body.tournament;
+  await client.query("UPDATE tournaments SET status='in_progress' WHERE id=$1", [assigned.id]);
   const unrelated = await createPublishedTournament({ name: "Unrelated Cup" });
   const user = { ...player, managedTournamentIds: [assigned.id] };
   const mine = (page = 1) => tournamentsApi.listPublic({ client, user,
@@ -135,9 +136,29 @@ test("my tournaments includes ownership, assigned management and participation w
     query: new URLSearchParams({ scope: "mine" }) });
   assert.deepEqual(adminOnly.tournaments.map(t => t.id), [owned.id]);
   const publicList = await tournamentsApi.listPublic({ client, user });
-  assert.deepEqual(publicList.tournaments.map(t => t.id), [unrelated.id, played.id]);
+  assert.deepEqual(publicList.tournaments.map(t => t.id), [unrelated.id, assigned.id, owned.id, played.id]);
   await assert.rejects(tournamentsApi.listPublic({ client, query: new URLSearchParams({ scope: "mine" }) }),
     /You need to sign in/);
+});
+
+test("my tournaments filters finished, cancelled and draft events before pagination for every relationship", async () => {
+  const player = await createUser("Status Player");
+  const tournament = await createPublishedTournament({ name: "Status Cup" });
+  await addUserParticipant(tournament, player);
+  const viewers = [root, player, { id: 999999, managedTournamentIds: [tournament.id] }];
+  for (const status of ["registration_open", "registration_closed", "in_progress", "completed", "cancelled", "draft"]) {
+    await client.query("UPDATE tournaments SET status=$1 WHERE id=$2", [status, tournament.id]);
+    const expected = ["registration_open", "registration_closed", "in_progress"].includes(status) ? 1 : 0;
+    for (const user of viewers) {
+      const result = await tournamentsApi.listPublic({ client, user, query: new URLSearchParams({ scope: "mine", limit: "1" }) });
+      assert.equal(result.pagination.total, expected, `${status}: ${user.id}`);
+      assert.equal(result.tournaments.length, expected);
+    }
+    if (["completed", "cancelled"].includes(status)) {
+      const publicList = await tournamentsApi.listPublic({ client });
+      assert.deepEqual(publicList.tournaments.map(t => t.id), [tournament.id]);
+    }
+  }
 });
 
 test("my tournaments includes team captains and current roster members, excluding withdrawn rosters and private drafts", async () => {
@@ -151,6 +172,11 @@ test("my tournaments includes team captains and current roster members, excludin
   const rosterId = registered.body.roster.id;
   const mine = user => tournamentsApi.listPublic({ client, user, query: new URLSearchParams({ scope: "mine" }) });
   for (const player of players) assert.deepEqual((await mine(player)).tournaments.map(t => t.id), [tournament.id]);
+  for (const status of ["completed", "cancelled"]) {
+    await client.query("UPDATE tournaments SET status=$1 WHERE id=$2", [status, tournament.id]);
+    for (const player of players) assert.equal((await mine(player)).pagination.total, 0);
+  }
+  await client.query("UPDATE tournaments SET status='registration_open' WHERE id=$1", [tournament.id]);
   await client.query("UPDATE tournament_team_roster_members SET ended_at=NOW() WHERE roster_id=$1 AND user_id=$2", [rosterId, players[1].id]);
   assert.equal((await mine(players[1])).pagination.total, 0);
   await client.query("UPDATE tournaments SET status='draft' WHERE id=$1", [tournament.id]);

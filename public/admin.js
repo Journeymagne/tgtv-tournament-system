@@ -1571,6 +1571,7 @@ function wireTournamentParticipantAdminControls() {
 }
 
 function wireAdminTournamentControls() {
+  wireTournamentListSections();
   wireAdminTournamentStaff();
   document.querySelector('[data-tournament-history]')?.addEventListener('click', async () => {
     try {

@@ -52,6 +52,7 @@ const state = {
   myTournaments: [],
   myTournamentsPage: 1,
   myTournamentsPagination: null,
+  tournamentListExpanded: {},
   tournamentsError: "",
   teamsDashboard: null,
   teamProfile: null,
@@ -3166,6 +3167,7 @@ function renderTournaments(live = false) {
     liveRefresh.schedule();
     return;
   }
+  wireTournamentListSections();
   document.querySelectorAll("[data-tournament-open]").forEach((button) => {
     button.addEventListener("click", () => {
       navigateToPublicTournament(button.dataset.tournamentOpen);
@@ -3175,18 +3177,28 @@ function renderTournaments(live = false) {
   liveRefresh.schedule();
 }
 
-function tournamentListSections(tournaments, { admin = false, renderCard = publicTournamentCard, mine = null, minePagination = null } = {}) {
+function wireTournamentListSections() {
+  document.querySelectorAll("[data-tournament-list-section]").forEach(details => {
+    onLive(details, "toggle", () => {
+      state.tournamentListExpanded[details.dataset.tournamentListSection] = details.open;
+    });
+  });
+}
+
+function tournamentListSections(tournaments, { admin = false, renderCard = publicTournamentCard, mine = null, minePagination = null, expanded = state.tournamentListExpanded } = {}) {
   if (!tournaments.length && (admin || mine === null)) return `<div class="empty">${t(admin ? "admin.tournament.list.empty" : "tournaments.list.empty")}</div>`;
   const sections = [
-    ...(!admin && mine !== null ? [{ title: t("tournaments.section.mine"), items: mine, pagination: minePagination }] : []),
-    { title: t("tournaments.section.ongoing"), items: tournaments.filter((tournament) => tournament.status === "in_progress") },
+    ...(!admin && mine !== null ? [{ id: "mine", title: t("tournaments.section.mine"), items: mine, pagination: minePagination }] : []),
+    { id: "ongoing", title: t("tournaments.section.ongoing"), items: tournaments.filter((tournament) => tournament.status === "in_progress") },
     {
+      id: "future",
       title: t("tournaments.section.future"),
       items: tournaments.filter((tournament) =>
         ["registration_open", "registration_closed"].includes(tournament.status) || (admin && tournament.status === "draft")
       )
     },
     {
+      id: "ended",
       title: t("tournaments.section.ended"),
       items: tournaments.filter((tournament) => ["completed", "cancelled"].includes(tournament.status))
     }
@@ -3194,16 +3206,18 @@ function tournamentListSections(tournaments, { admin = false, renderCard = publi
   return `
     <div class="tournament-sections">
       ${sections.map((section) => `
-        <section class="tournament-list-section">
-          <div class="tournament-list-heading">
+        <details class="tournament-list-section" data-tournament-list-section="${admin ? "admin" : "public"}-${section.id}" ${(expanded[`${admin ? "admin" : "public"}-${section.id}`] ?? section.id !== "ended") ? "open" : ""}>
+          <summary class="tournament-list-heading">
             <h3>${escapeHtml(section.title)}</h3>
             <span>${section.pagination?.total ?? section.items.length}</span>
-          </div>
+          </summary>
+          <div class="tournament-list-body">
           <div class="list ${admin ? "admin-tournament-list" : "tournament-card-list"}">
             ${section.items.length ? section.items.map(renderCard).join("") : `<div class="empty compact-empty">${t("tournaments.section.empty")}</div>`}
           </div>
           ${section.pagination ? paginationMarkup("my-tournaments", section.pagination, "tournaments.pagination.items") : ""}
-        </section>
+          </div>
+        </details>
       `).join("")}
     </div>
   `;
@@ -3633,7 +3647,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.4.15`;
+    script.src = `/admin.js?v=20261028-tournament-sections`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
