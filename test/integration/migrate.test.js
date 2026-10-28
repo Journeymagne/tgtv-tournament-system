@@ -200,6 +200,28 @@ test('training scope withdraws excluded killzones while preserving earned progre
   } finally { client.release(); }
 });
 
+test('one-time recertification migration keeps the first notice and read state, removing only repeats', async () => {
+  await migrate(pool);
+  const user = (await pool.query("INSERT INTO users(name,name_key,password_hash,rating) VALUES('Notified','notified','test:hash',1000) RETURNING id")).rows[0];
+  await pool.query('INSERT INTO training_profiles(user_id,stats,rank_tier) VALUES($1,$2,3)', [user.id, { 'kt-001': { correct: 2, xp: 20 } }]);
+  for (const [id, type, date] of [
+    ['first', 'knowthykt_recertification', '2026-10-26T01:00:00Z'],
+    ['repeat', 'knowthykt_recertification', '2026-10-27T01:00:00Z'],
+    ['session', 'knowthykt_session', '2026-10-27T02:00:00Z']
+  ]) await pool.query('INSERT INTO knowthykt.notification_messages(user_id,notification_id,payload,created_at,read_at) VALUES($1,$2,$3,$4,$4)', [user.id, id, { id, type }, date]);
+  const before = (await pool.query('SELECT * FROM knowthykt.notification_messages ORDER BY notification_id')).rows;
+  const migration = MIGRATIONS.find(m => m.version === 68);
+  await migration.up(pool);
+  const remaining = (await pool.query('SELECT * FROM knowthykt.notification_messages ORDER BY notification_id')).rows;
+  assert.deepEqual(remaining, before.filter(n => n.notification_id !== 'repeat'));
+  assert.equal((await pool.query('SELECT recertification_key FROM training_profiles WHERE user_id=$1', [user.id])).rows[0].recertification_key, 'once');
+  const deleted = (await pool.query("SELECT notification_id FROM knowthykt.notification_outbox WHERE operation='delete'")).rows;
+  assert.deepEqual(deleted, [{ notification_id: 'repeat' }]);
+  await migration.up(pool);
+  assert.deepEqual((await pool.query('SELECT * FROM knowthykt.notification_messages ORDER BY notification_id')).rows, remaining);
+  assert.deepEqual((await pool.query("SELECT notification_id FROM knowthykt.notification_outbox WHERE operation='delete'")).rows, deleted);
+});
+
 test("training service migration preserves existing preview progress and queued notifications", async () => {
   await migrate(pool);
   const user = (await pool.query("INSERT INTO users(name,name_key,password_hash,rating) VALUES('Preview','preview','salt:hash',1000) RETURNING id")).rows[0];
