@@ -1116,6 +1116,36 @@ button:disabled {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.round-setup-match-grid {
+  align-items: start;
+}
+
+.round-setup-match-grid > .field {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.round-setup-match-grid select {
+  min-width: 0;
+}
+
+.row-card.round-setup-match-row {
+  align-items: flex-start;
+}
+
+.round-setup-match-row > .row-main {
+  flex: 1 1 0;
+}
+
+.round-setup-match-row > .row-actions {
+  flex: 0 0 auto;
+  padding-top: 22px;
+}
+
+.round-setup-match-row [data-round-setup-clear] {
+  white-space: nowrap;
+}
+
 .pairing-warnings {
   margin-top: 10px;
   padding: 10px 12px;
@@ -3966,6 +3996,19 @@ tr:last-child td {
   .round-setup-match-grid,
   .round-setup-match-grid.has-table {
     grid-template-columns: 1fr;
+  }
+
+  .row-card.round-setup-match-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .round-setup-match-row > .row-main {
+    flex-basis: auto;
+  }
+
+  .round-setup-match-row > .row-actions {
+    padding-top: 0;
   }
 
   .modal-backdrop {

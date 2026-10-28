@@ -17,11 +17,8 @@
     link.append(img); container.append(link);
     if (map && !table?.imageId) {
       const caption = document.createElement('p'); caption.className = 'muted';
-      caption.textContent = `${map.set} · ${map.number} `;
-      const source = document.createElement('a');
-      source.href = map.source_page_url || map.source_url || '/maps/index.html';
-      source.textContent = 'Источник'; source.target = '_blank'; source.rel = 'noopener';
-      caption.append(source); container.append(caption);
+      caption.textContent = `${map.set} · ${map.number}`;
+      container.append(caption);
     }
   }
   function attach(killzone, layout) {
