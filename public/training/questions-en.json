@@ -93,7 +93,7 @@
   "kt-008": {
     "original": "[\"Действия\",\"Сколько AP стоит обычное действие Shoot без модификаторов стоимости?\",\"0 AP\",\"2 AP\",\"3 AP\",\"1 AP\",\"Базовая стоимость Shoot составляет 1 AP. Дополнительные эффекты могут изменять стоимость, но в условии их нет.\",\"Стр. 1: Shoot 1AP\"]",
     "topic": "Actions",
-    "question": "What is the AP cost of a normal Shoot action without cost modifiers?",
+    "question": "What is the AP cost of a normal Shoot action, with no cost modifiers?",
     "options": [
       "0 AP",
       "2 AP",
@@ -123,8 +123,8 @@
     "options": [
       "2 inches",
       "3 inches",
-      "Characteristics of Move",
-      "Characteristics of Move plus 2 inches"
+      "Its Move characteristic",
+      "Its Move characteristic plus 2 inches"
     ],
     "explanation": "The Dash uses its own 3″ limit rather than the Move feature.",
     "section": "Page 1: Dash 1AP"
@@ -189,7 +189,7 @@
       "One",
       "Three",
       "Four",
-      "Number equal to APL shooter"
+      "A number equal to the shooter’s APL"
     ],
     "explanation": "Atk shows the number of attack dice. The Hit value determines the desired result, but not the number of dice.",
     "section": "Page 2: Shoot, step 3; Fight step 3"
@@ -316,10 +316,10 @@
     "topic": "Weapons",
     "question": "What does the weapon rule Silent allow?",
     "options": [
-      "Perform Shoot with this weapon when ordered by Conceal",
-      "Ignore any target cover",
-      "Automatically deal critical damage",
-      "Execute two Shoot in one activation"
+      "Perform Shoot with this weapon while having a Conceal order",
+      "Ignore all of the target’s cover",
+      "Automatically inflict critical damage",
+      "Perform Shoot twice in one activation"
     ],
     "explanation": "Silent lifts the ban on Shoot due to Conceal when using this weapon. Other terms and conditions remain the same.",
     "section": "Page 3: Weapon Rules - Silent"
@@ -717,7 +717,7 @@
   "kt-056": {
     "original": "[\"Взаимодействия\",\"Кубик выпал на 4, а разрешённое правило сохранило его как критический успех. Каков его числовой результат для другого правила, проверяющего именно выпавшее число?\",\"4\",\"6\",\"Числа больше нет\",\"Владелец выбирает 4 или 6\",\"Изменение категории успеха не меняет числовой результат кубика. Критический успех не обязательно означает, что выпала шестёрка.\",\"PDF с. 5: retaining dice and numerical results\"]",
     "topic": "Interactions",
-    "question": "The die rolled on a 4, and the allowed rule saved it as a critical success. What is its numerical result for another rule that checks exactly the number rolled?",
+    "question": "A die rolled a 4, and a rule allowed it to be retained as a critical success. What is its numerical result for another rule that checks the number rolled?",
     "options": [
       "4",
       "6",
@@ -925,7 +925,7 @@
   "kt-072": {
     "original": "[\"Снаряжение\",\"Оперативник контролирует ваш Comms Device. Его SUPPORT выбирает союзника в пределах 6″. Какой предел расстояния действует при отсутствии других правил?\",\"9″\",\"6″\",\"12″\",\"Неограниченное расстояние\",\"Comms Device увеличивает на 3″ дистанционные условия SUPPORT контролирующего оперативника, относящиеся к союзникам. Чужой Comms Device такой бонус не даёт.\",\"PDF с. 1: Comms Device\"]",
     "topic": "Equipment",
-    "question": "The operative controls your Comms Device. His SUPPORT targets an ally within 6″. What distance limit applies in the absence of other rules?",
+    "question": "An operative controls your Comms Device. Its SUPPORT rule normally targets a friendly operative within 6″. With no other rules, what range applies?",
     "options": [
       "9″",
       "6″",
@@ -977,7 +977,7 @@
   "kt-076": {
     "original": "[\"Оружие\",\"Оружие имеет Accurate 1 и Severe. Один кубик заранее сохранён через Accurate как обычный успех; все брошенные кубики провалены. Можно ли Severe превратить именно автоматический успех в критический?\",\"Да: Severe меняет уже сохранённый успех\",\"Нет: Accurate запрещает любые последующие изменения\",\"Нет: Severe требует числовой результат 6\",\"Да, но только после переброса автоматического кубика\",\"Повторно сохранить тот же кубик нельзя, но Severe именно меняет уже сохранённый успех. Поэтому автоматический обычный успех подходит, если других критических успехов нет.\",\"PDF с. 5: retaining once versus changing retained dice\"]",
     "topic": "Weapons",
-    "question": "The weapon has Accurate 1 and Severe. One die is retained in advance via Accurate as a normal success; all dice rolled fail. Is it possible to turn Severe from an automatic success into a critical one?",
+    "question": "A weapon has Accurate 1 and Severe. One die is retained as a normal success through Accurate before rolling; all rolled dice fail. Can Severe change that automatic success into a critical success?",
     "options": [
       "Yes: Severe changes already retained success",
       "No: Accurate prohibits any subsequent changes",
@@ -1096,10 +1096,10 @@
     "topic": "Actions",
     "question": "The operative with APL 3 has already spent 2 AP in his activation. Then −1 APL is applied \"until the end of its next activation.\" There are no other changes. What's true?",
     "options": [
-      "The current activation saves the third AP, the next one takes place with APL 2",
-      "You need to undo one action that has already been completed",
-      "Effect ends at the end of current activation",
-      "In the current activation of AP there is no time left for a new paid action; the next one also takes place with APL 2"
+      "The current activation keeps its third AP; the next activation has APL 2",
+      "Undo an action that has already been completed",
+      "The effect ends at the end of the current activation",
+      "No AP remains for another paid action in this activation; the next activation also has APL 2"
     ],
     "explanation": "During the current activation, a new limit of APL is applied, and spent AP are not refunded. The wording until the end of the next activation in this case covers both the current and the next one.",
     "section": "PDF p. 6: APL reduced during activation"
@@ -1341,12 +1341,12 @@
   "kt-104": {
     "original": "[\"Основы\",\"К какой категории для порядка применения относится любой strategy ploy?\",\"К действию Shoot\",\"К контрдействию Counteract\",\"К проверке инициативы\",\"К STRATEGIC GAMBIT\",\"Любой strategy ploy одновременно является STRATEGIC GAMBIT. Поэтому его используют в соответствующем обмене на шаге Gambit.\",\"PDF с. 1: Strategy Phase\"]",
     "topic": "Basics",
-    "question": "Which category for order of application does any strategy ploy fall into?",
+    "question": "For timing purposes, which category does every strategy ploy belong to?",
     "options": [
-      "To action Shoot",
-      "To counter-action Counteract",
-      "To check the initiative",
-      "TO STRATEGIC GAMBIT"
+      "A Shoot action",
+      "A Counteract",
+      "An initiative check",
+      "A STRATEGIC GAMBIT"
     ],
     "explanation": "Any strategy ploy is also a STRATEGIC GAMBIT. Therefore, it is used in the corresponding exchange at step Gambit.",
     "section": "PDF p. 1: Strategy Phase"
@@ -1692,7 +1692,7 @@
   "kt-131": {
     "original": "[\"Оружие\",\"Стрелок применяет оружие с Piercing Crits 1, но не сохранил ни одного критического успеха. Других правил Piercing нет. Уменьшает ли это количество кубиков защиты?\",\"Да, на один\",\"Да, на два\",\"Нет\",\"Только если цель имеет Engage\",\"Вариант Piercing Crits действует только при наличии сохранённого критического успеха. Без него уменьшение защиты не включается.\",\"PDF с. 3: Weapon Rules — Piercing x\"]",
     "topic": "Weapons",
-    "question": "The shooter uses a weapon with Piercing Crits 1, but did not save a single critical success. There are no other rules for Piercing. Does this reduce the number of defense dice?",
+    "question": "The shooter uses a weapon with Piercing Crits 1, but retains no critical successes. There are no other Piercing rules. Does this reduce the number of defence dice?",
     "options": [
       "Yes, for one",
       "Yes, for two",
@@ -2175,10 +2175,10 @@
     "topic": "Equipment",
     "question": "The fighter legally performed Ammo Resupply, then moved away from Ammo Cache and fired a weapon from the datacard at the same Turning Point. Is the resulting re-roll saved?",
     "options": [
-      "No: Ammo Cache must be monitored at all times",
-      "Yes: the effect lasts until the start of the next Turning Point",
-      "Only if the fighter is no further than 1″ from the cache",
-      "Only if he returns to the hiding place before the roll"
+      "No: the Ammo Cache must remain controlled at all times",
+      "Yes: the effect lasts until the start of the next turning point",
+      "Only if the operative remains within 1″ of the cache",
+      "Only if it returns to the cache before rolling"
     ],
     "explanation": "Cache control is needed when executing Ammo Resupply. The effect already obtained has the specified duration and does not require you to stay nearby.",
     "section": "PDF p. 1: Ammo Cache - Ammo Resupply duration"
@@ -2487,10 +2487,10 @@
     "topic": "Missions",
     "question": "Approved Ops 2025, Retrieval: the enemy has already searched objective marker. Your fighters haven't searched him yet. From the second Turning Point, your fighter controls it and fulfills all the conditions of Retrieve. Is it possible to do Retrieve?",
     "options": [
-      "No: each marker is searched only once on both sides",
-      "Yes: it checks whether your operatives searched the marker",
-      "Only after incapacitation searched the enemy",
-      "Only in the fourth Turning Point"
+      "No: each marker can only be searched once between both players",
+      "Yes: the restriction checks whether your own operatives have searched it",
+      "Only after the enemy operative that searched it is incapacitated",
+      "Only in the fourth turning point"
     ],
     "explanation": "The status of searched in Retrieval is tracked relative to each side's friendly operatives. Finding an enemy does not consume your first search.",
     "section": "PDF p. 3: Retrieval - Retrieve action"
@@ -2628,12 +2628,12 @@
   "kt-203": {
     "original": "[\"Маркеры\",\"Способность оперативника создала на поле маркер. Позже создавший его оперативник был incapacitated и удалён. В правилах маркера нет срока действия или требования убрать его при удалении владельца. Что происходит с маркером?\",\"Его автоматически убирают вместе с владельцем\",\"Его убирают в конце текущего действия\",\"Он остаётся, пока собственные правила не потребуют его убрать\",\"Он переходит под контроль соперника\",\"Официальное уточнение не связывает автоматическое удаление такого маркера с удалением создавшего его оперативника. Для исчезновения маркера требуется отдельное указание правила.\",\"Физическая стр. 4: вопрос о маркере способности после удаления создавшего его оперативника\"]",
     "topic": "Markers",
-    "question": "The operative's ability created a marker on the field. The operative who created it was later incapacitated and deleted. There is no expiration date or requirement for the token to be removed when the owner is deleted. What happens to the marker?",
+    "question": "An operative’s ability creates a marker in the killzone. That operative is later incapacitated and removed. The marker has no expiry time and no rule requiring removal when its creator is removed. What happens to it?",
     "options": [
-      "It is automatically removed along with the owner",
+      "It is automatically removed with its creator",
       "It is removed at the end of the current action",
-      "He stays until his own rules require him to be removed.",
-      "He comes under the control of his opponent"
+      "It remains until its own rules require its removal",
+      "Control of it passes to the opponent"
     ],
     "explanation": "The official clarification does not link the automatic deletion of such a marker with the deletion of the operative who created it. To make a marker disappear, a separate rule must be specified.",
     "section": "Physics page 4: question about an ability marker after removing the operative who created it"
@@ -2734,10 +2734,10 @@
     "topic": "Weapons",
     "question": "The operative uses weapons with Limited 1 and Blast 2″ for the first time. After the primary target, there are two legitimate secondary targets. When is a weapon considered spent?",
     "options": [
-      "Immediately after the main target; secondary attacks are not performed",
-      "After the first secondary target; the second one is not fired upon",
-      "An entire action with both secondary attacks counts as one use; then there are no more weapons",
-      "Three targets require three charges of Limited"
+      "Immediately after the primary target; no secondary attacks are made",
+      "After the first secondary target; the second is not attacked",
+      "The whole action, including both secondary attacks, counts as one use; the weapon is then expended",
+      "Three targets require three uses of Limited"
     ],
     "explanation": "Multiple uses of a weapon within a single action, such as through Blast, count as one use for Limited.",
     "section": "Weapon Rules → Limited x; Blast x"
@@ -2812,10 +2812,10 @@
     "topic": "Weapons",
     "question": "The main target of Blast 2″ is rightfully chosen. Your ally is 1.5″ away from her and is visible to her, but further than 1″, so he doesn’t interfere with selection of the primary target. There are no special exceptions. What to do with an ally?",
     "options": [
-      "It is imperative to allow a separate secondary attack on it Blast",
-      "You can optionally exclude it from Blast",
-      "It only receives Devastating if it exists",
-      "He cannot be a secondary target because he is an ally"
+      "Resolve a separate Blast secondary attack against the friendly operative",
+      "You may choose to exclude it from Blast",
+      "It only takes Devastating damage, if applicable",
+      "It cannot be a secondary target because it is friendly"
     ],
     "explanation": "Blast covers other operatives within range and visibility from the primary target, including allies.",
     "section": "Weapon Rules → Blast x; Core Rules → Shoot, attacker and defender may be the same player"
@@ -2999,7 +2999,7 @@
       "No, Barred prohibits drawing this line of sight",
       "Yes, if the target has Engage"
     ],
-    "explanation": "Seek does not grant visibility. It cannot be passed through the Barred window unless either side is horizontally within 1″ of the window.",
+    "explanation": "Seek does not grant visibility. Visibility cannot be drawn through a Barred window unless at least one of the two operatives is horizontally within 1″ of it.",
     "section": "Killzone: Volkus → Large Ruin → Barred terrain; Appendix → Seek"
   },
   "kt-232": {
@@ -3215,10 +3215,10 @@
     "topic": "Compound Siege",
     "question": "Compound Siege: An operative is standing outside stockade with a door. Through the window he sees the inside of the breach point and it is in his control range. The door is closed, there are no enemies nearby. Is Open Stockade Door allowed?",
     "options": [
-      "Yes, because control range is done",
-      "Yes, if you spend 2 AP instead of 1",
-      "Yes, if its APL 3",
-      "No, this action cannot be performed outside stockade"
+      "Yes, because the control-range requirement is met",
+      "Yes, if it spends 2 AP instead of 1",
+      "Yes, if it has APL 3",
+      "No: this action cannot be performed from outside the stockade"
     ],
     "explanation": "Open Stockade Door has a separate ban for the operative outside. Visibility and control range do not replace the desired side of the reinforcement.",
     "section": "Physical page 4: Open Stockade Door 1AP, restrictions"
@@ -3460,7 +3460,7 @@
   "kt-267": {
     "original": "[\"Взаимодействия\",\"В одной последовательности Fight оба игрока могут перебрасывать свои кубики. У защитника инициатива, атакующий является активным оперативником. Никто ещё не сделал переброс. Кто первым решает, перебросить один кубик или спасовать, и когда этот обмен заканчивается?\",\"Защитник; после двух последовательных пасов\",\"Атакующий; сразу после его первого паса\",\"Защитник; сразу после его первого паса\",\"Оба одновременно перебрасывают все выбранные кубики\",\"Правило одновременных перебросов прямо задаёт чередование начиная с игрока с инициативой. Оно отдельно имеет приоритет над общим разрешением одновременных правил. Один пас не завершает обмен.\",\"Dice: alternating re-rolls and passes\"]",
     "topic": "Interactions",
-    "question": "In the same Fight sequence, both players can re-roll their dice. The defender has the initiative, the attacker is the active operative. No one has made the transfer yet. Who decides first whether to reroll one die or pass, and when does this exchange end?",
+    "question": "During the same Fight sequence, both players can re-roll dice. The defender has initiative; the attacker is the active operative. Neither player has made a re-roll yet. Who first decides whether to re-roll one die or pass, and when does the exchange end?",
     "options": [
       "Defender; after two consecutive passes",
       "Attacker; right after his first pass",
@@ -3590,7 +3590,7 @@
   "kt-277": {
     "original": "[\"Снаряжение\",\"Для дыма в Ready следующего turning point выпало 3 на D3. Первым активировался ваш оперативник и законно встал на Guard. Вторым активировался враг; внутри его активации Guard прервал одно из действий стрельбой. Удаляется ли дым сразу после завершения этой вражеской активации?\",\"Да: три действия уже превысили результат D3\",\"Да: прерывание Guard считается третьей завершённой активацией\",\"Нет: дым теперь остаётся до конца боя\",\"Нет: завершились две активации, а Guard interrupt третьей активацией не является\",\"Срок дыма измеряется завершёнными активациями, а не действиями. Прерывание Guard происходит внутри чужой активации. После двух активаций из необходимых трёх дым ещё действует, если turning point не закончился.\",\"Smoke Grenade: duration; Killzones: On Guard\"]",
     "topic": "Equipment",
-    "question": "For smoke in Ready the next turning point rolled a 3 on D3. Your operative was the first to activate and legally stand on Guard. The second enemy to activate was; inside his activation, Guard interrupted one of the actions with shooting. Is the smoke cleared immediately after this enemy activation is completed?",
+    "question": "For an existing smoke marker, a 3 is rolled on D3 during the Ready step of the next turning point. Your operative activates first and legally goes On Guard. An enemy activates second; during that activation, your On Guard operative interrupts with a shot. Is the smoke removed immediately after that enemy’s activation ends?",
     "options": [
       "Yes: three actions have already exceeded the result of D3",
       "Yes: Guard interrupt counts as the third completed activation",
@@ -3610,7 +3610,7 @@
       "Yes: it is enough to challenge your Comms Device",
       "No: Comms Device only adds 1″"
     ],
-    "explanation": "Comms Device requires control. After applying Stun, the equality APL occurs, which means control is lost. The range returns to 6″, and the ally at 8″ is no longer suitable.",
+    "explanation": "Comms Device requires control. After Stun is applied, both operatives have APL 2, so neither controls the device. The range returns to 6″, making the friendly operative at 8″ ineligible.",
     "section": "Comms Device; Core Rules: Markers / Datacards; Appendix: Stun"
   },
   "kt-279": {
@@ -3631,10 +3631,10 @@
     "topic": "Preparing for the game",
     "question": "Approved Ops 2025: A player with initiative has 10 operatives and four pieces of installable equipment (two ladders and two light barricades). The opponent has 7 operatives and three items. How to alternate placement according to the rules of preparation?",
     "options": [
-      "Equipping with entire selected options; then one operative at a time",
-      "First all the player's operatives with initiative, then all equipment",
-      "Equipment for one item; then groups of operatives 4 and 3 respectively",
-      "Equipment for one item; then groups of operatives 3 and 2 respectively"
+      "Set up complete equipment options, then one operative at a time",
+      "Set up all of the initiative player’s operatives first, then all equipment",
+      "Alternate individual equipment items, then groups of 4 and 3 operatives respectively",
+      "Alternate individual equipment items, then groups of 3 and 2 operatives respectively"
     ],
     "explanation": "Equipment is placed item by item rather than option by option. During the course of fielding operatives, a third of the team is taken, rounded up: 10→4, 7→3; the last group contains the remaining ones.",
     "section": "Set Up Operatives: equipment item by item; thirds rounded up"
@@ -3642,14 +3642,14 @@
   "kt-281": {
     "original": "[\"Миссии\",\"Approved Ops 2025 против Hierotek Circle: успешная реанимация уменьшила ваш kill grade по таблице с 4 до 3, и до конца боя он больше не менялся. Итоговый kill grade соперника тоже 3. Ранее вы получили 2 Tac VP за выведение этого врага из строя; других Tac VP нет, а Primary выбран Kill. Чему равна сумма ваших Kill VP, бонуса Primary и этих Tac VP, без учёта Crit?\",\"8 VP: 4 за Kill, 2 бонусных и 2 за Tac\",\"7 VP: 3 за Kill, 2 бонусных и 2 за Tac\",\"5 VP: 3 за Kill, 2 бонусных, а Tac VP потеряны\",\"9 VP: 4 за Kill, 3 бонусных и 2 за Tac\",\"Реанимация снимает соответствующий Kill VP, но не отменяет уже заработанные Tac VP. Равный kill grade не даёт очка за превосходство в конце. Итог Kill равен 3, бонус выбранного Primary — округлённая вверх половина, то есть 2. С прежними Tac VP получается 7.\",\"Kill Op; Reanimation Protocols clarification; End the Battle: Primary Op\"]",
     "topic": "Missions",
-    "question": "Approved Ops 2025 vs. Hierotek Circle: a successful resuscitation reduced your kill grade on the table from 4 to 3, and it did not change again until the end of the battle. The opponent's final kill grade is also 3. Previously, you received 2 Tac VP for incapacitating this enemy; There are no other Tac VP, and Primary is selected as Kill. What is the sum of your Kill VP, bonus Primary and these Tac VP, excluding Crit?",
+    "question": "Approved Ops 2025 vs. Hierotek Circle: a successful reanimation reduced your kill grade on the table from 4 to 3, and it did not change again until the end of the battle. The opponent's final kill grade is also 3. Previously, you received 2 Tac VP for incapacitating this enemy; There are no other Tac VP, and Primary is selected as Kill. What is the sum of your Kill VP, bonus Primary and these Tac VP, excluding Crit?",
     "options": [
       "8 VP: 4 for Kill, 2 bonus and 2 for Tac",
       "7 VP: 3 for Kill, 2 bonus and 2 for Tac",
       "5 VP: 3 for Kill, 2 bonus, and Tac VP lost",
       "9 VP: 4 for Kill, 3 bonus and 2 for Tac"
     ],
-    "explanation": "Resuscitation removes the corresponding Kill VP, but does not cancel already earned Tac VP. Equal kill grade does not give a point for superiority at the end. The total of Kill is 3, the bonus of the selected Primary is half rounded up, that is, 2. With the previous Tac VP it turns out 7.",
+    "explanation": "reanimation removes the corresponding Kill VP, but does not cancel already earned Tac VP. Equal kill grade does not give a point for superiority at the end. The total of Kill is 3, the bonus of the selected Primary is half rounded up, that is, 2. With the previous Tac VP it turns out 7.",
     "section": "Kill Op; Reanimation Protocols clarification; End the Battle: Primary Op"
   },
   "kt-282": {
@@ -3889,7 +3889,7 @@
   "kt-300": {
     "original": "[\"Взаимодействия\",\"Во время действия вашего активного оперативника два специальных правила равного уровня дают взаимоисключающие указания. Ни одно не говорит о приоритете или «cannot»; FAQ выбора не определяет. Инициатива принадлежит сопернику. По общему последнему порядку приоритетов кто выбирает, какое указание применить?\",\"Вы, как контролирующий активного оперативника игрок\",\"Соперник, потому что у него инициатива\",\"Тот, кто последним потратил CP\",\"Победитель нового roll-off\",\"В актуальном порядке Precedence выбор игрока активного оперативника находится раньше выбора игрока с инициативой. До этого шага нужно убедиться, что более высокие критерии действительно не разрешили конфликт.\",\"PDF с. 2: Precedence, active operative’s controlling player before initiative\"]",
     "topic": "Interactions",
-    "question": "During your active operative's action, two special rules of equal level give mutually exclusive instructions. Neither says priority or \"cannot\"; FAQ does not define a choice. The initiative belongs to the opponent. In the overall last order of priority, who chooses which instruction to apply?",
+    "question": "During your active operative’s action, two special rules of equal priority give mutually exclusive instructions. Neither specifies precedence or says “cannot”, and the FAQ provides no ruling. Your opponent has initiative. Under the general order of precedence, who chooses which instruction to apply?",
     "options": [
       "You, as the player controlling the active operative",
       "Rival because he has the initiative",
