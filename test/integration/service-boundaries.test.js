@@ -60,12 +60,17 @@ test.before(async () => {
 test.after(async () => { for (const service of [...children.keys()].reverse()) await stop(service); await closePool(); });
 const ok = async (promise, status = 200) => { const result = await promise; assert.equal(result.status, status, JSON.stringify(result.body)); return result.body; };
 test('scoped services share sessions, save prepared rounds and survive a tournament outage', async () => {
-  const admin = createClient(origin), player = createClient(origin);
+  const headers = {};
+  const admin = createClient(origin, headers), player = createClient(origin);
   const registration = name => ({ name, password: 'password123', confirmPassword: 'password123', telegramContact: '@test' });
   const user = (await ok(admin.post('/api/register', registration('ServiceAdmin')), 201)).user;
+  headers['X-Studio-Account'] = String(user.id);
   await require('../helpers/access').grantOwner(getPool(), user);
   await ok(player.post('/api/register', registration('ServicePlayer')), 201);
   for (const route of ['/api/session', '/api/me', '/api/notifications', '/api/studio/drafts', '/api/faq', '/api/knowthykt/progress']) await ok(admin.get(route));
+  headers['X-CSRF-Token'] = (await ok(admin.get('/api/studio/session'))).csrfToken;
+  const project = require('../../public/studio/model').newProject('service-project', 'Service project');
+  await ok(admin.put(`/api/studio/drafts/${project.team.id}`, { project, revision: 0 }));
   const cup = (await ok(admin.post('/api/admin/tournaments', { name: 'Service Cup', startsAt: '2027-01-01T12:00:00Z', format: 'swiss', swissRoundCount: 3 }), 201)).tournament;
   const url = `/api/admin/tournaments/${cup.id}`;
   await ok(admin.post(url + '/publish'));
