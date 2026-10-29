@@ -83,7 +83,8 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
   const prepared = await ok(admin.post(url + '/rounds/next'));
   const edited = await ok(admin.post(url + '/rounds/next', { mission: { critOp: 'Loot' } }));
   assert.notEqual(edited.rounds[0].id, prepared.rounds[0].id);
-  assert.equal(edited.rounds[0].mission.critOp, 'Loot');
+  const preview = await ok(admin.get(url + '/rounds/next/preview'));
+  assert.equal(preview.round.mission.critOp, 'Loot');
   await ok(admin.post(url + '/start'));
   let delivered = false;
   for (let attempt = 0; attempt < 50; attempt++) {
