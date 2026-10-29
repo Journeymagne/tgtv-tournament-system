@@ -6,6 +6,8 @@
   const emptyState = () => ({ user: null, revision: 0, active: null, history: [], stats: {}, completedCount: 0 });
   let questions, state = emptyState();
   let bankSnapshot, questionMap = new Map();
+  let questionTranslations = {};
+  const displayQuestion = q => window.KTTrainingQuestionLanguage.localize(q, window.KTUI.locale(), questionTranslations);
   let guestJourney, inspectedRank = null;
   const journeyUI = window.KTTrainingJourneyUI;
   const journey = () => state.journey || guestJourney;
@@ -32,7 +34,9 @@
       seen: available.length, mastered: available.filter(item => item.lastCorrect).length, completed: value.completedCount };
   } };
   try {
-    const [bank, identity] = await Promise.all([api.questions(), window.KTCompanion.ready.catch(() => ({ user: null }))]);
+    const [bank, identity, translations] = await Promise.all([api.questions(), window.KTCompanion.ready.catch(() => ({ user: null })),
+      fetch('/training/questions-en.json?v=20261029').then(response => { if (!response.ok) throw Error('Could not load question translations.'); return response.json(); })]);
+    questionTranslations = translations;
     if (!Array.isArray(bank.questions)) throw Error('Не удалось загрузить банк вопросов.');
     setBank(bank);
     if (identity.user) await accept(await api.connect(identity.user));
@@ -62,7 +66,7 @@
   ];
   const esc = text => String(text ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const byId = id => questionMap.get(id);
-  const itemQuestion = item => item.question || byId(item.questionId)?.original || byId(item.questionId);
+  const itemQuestion = item => displayQuestion(item.question || byId(item.questionId)?.original || byId(item.questionId));
   const formatDate = iso => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
   const modeName = mode => mode === 'mixed' ? 'Все сложности' : levelNames[mode];
   const score = session => session.items.filter(item => item.correct).length;
@@ -290,8 +294,8 @@
     const weak = topicStats().filter(s => s.attempts).sort((a, b) => a.accuracy - b.accuracy)[0];
     main.innerHTML = `${pageTitle('ЛИЧНАЯ СТАТИСТИКА', 'Ваш прогресс', 'Каждый проверенный ответ учитывается сразу, даже в незавершённой сессии.', '<button class="button secondary" id="progress-refresh">Обновить ↻</button>')}
       <section class="metrics">${metric('ОБЩАЯ ТОЧНОСТЬ', stats.accuracy === null ? '—' : `${stats.accuracy}<small>%</small>`, `${stats.correct} верных / ${stats.attempts} попыток`, true)}${metric('ОХВАТ БАЗЫ', `${stats.seen}<small> / ${questions.length}</small>`, 'Вопросы, на которые вы ответили')}${metric('ВЕРНО В ПОСЛЕДНИЙ РАЗ', stats.mastered, 'Число вопросов с последним верным ответом')}${metric('ПОЛНЫХ СЕССИЙ', stats.completed, 'По 20 проверенных ответов')}</section>
-      <div class="progress-grid"><section class="panel"><div class="section-heading"><h2>Подготовка по темам</h2><span class="eyebrow">ТОЧНОСТЬ</span></div>${topicStats().map(t => `<div class="topic-stat"><div><span>${esc(t.topic)}</span><strong>${t.accuracy === null ? '—' : `${t.accuracy}%`}</strong></div><div class="bar"><span style="width:${t.accuracy || 0}%"></span></div><span class="small muted">${t.attempts ? `${t.correct} верных из ${t.attempts} ответов` : `${t.count} вопросов · ещё не изучали`}</span></div>`).join('')}</section>
-      <div><section class="panel recommendation"><span class="eyebrow">СЛЕДУЮЩИЙ ШАГ</span><span class="recommendation-icon">⌖</span><h2>${weak ? esc(weak.topic) : 'Время первой сессии'}</h2><p class="muted">${weak ? `Точность по теме — ${weak.accuracy}%. Повторите вопросы этой темы и закрепите знания.` : 'Выберите сложность и пройдите 20 вопросов. Здесь появится ваша статистика.'}</p><button class="button secondary full" id="recommendation-action">${weak ? 'Повторить тему' : 'К тренировкам'} <span>→</span></button></section><section class="panel recent-panel"><div class="section-heading"><h2>Последние сессии</h2></div>${completed.length ? `<div class="chart" aria-label="Точность последних ${Math.min(8, completed.length)} завершённых сессий">${completed.slice(0, 8).reverse().map((s, i) => `<div class="chart-column"><span>${score(s) * 5}%</span><div class="chart-track"><div style="height:${score(s) * 5}%"></div></div><small>${i + 1}</small></div>`).join('')}</div><p class="small muted">От более ранней к последней, до 8 сессий.</p>` : '<p class="muted">График появится после завершения первой сессии.</p>'}</section></div></div>
+      <div class="progress-grid"><section class="panel"><div class="section-heading"><h2>Подготовка по темам</h2><span class="eyebrow">ТОЧНОСТЬ</span></div>${topicStats().map(t => `<div class="topic-stat"><div><span>${esc(displayQuestion(questions.find(q => q.topic === t.topic)).topic)}</span><strong>${t.accuracy === null ? '—' : `${t.accuracy}%`}</strong></div><div class="bar"><span style="width:${t.accuracy || 0}%"></span></div><span class="small muted">${t.attempts ? `${t.correct} верных из ${t.attempts} ответов` : `${t.count} вопросов · ещё не изучали`}</span></div>`).join('')}</section>
+      <div><section class="panel recommendation"><span class="eyebrow">СЛЕДУЮЩИЙ ШАГ</span><span class="recommendation-icon">⌖</span><h2>${weak ? esc(displayQuestion(questions.find(q => q.topic === weak.topic)).topic) : 'Время первой сессии'}</h2><p class="muted">${weak ? `Точность по теме — ${weak.accuracy}%. Повторите вопросы этой темы и закрепите знания.` : 'Выберите сложность и пройдите 20 вопросов. Здесь появится ваша статистика.'}</p><button class="button secondary full" id="recommendation-action">${weak ? 'Повторить тему' : 'К тренировкам'} <span>→</span></button></section><section class="panel recent-panel"><div class="section-heading"><h2>Последние сессии</h2></div>${completed.length ? `<div class="chart" aria-label="Точность последних ${Math.min(8, completed.length)} завершённых сессий">${completed.slice(0, 8).reverse().map((s, i) => `<div class="chart-column"><span>${score(s) * 5}%</span><div class="chart-track"><div style="height:${score(s) * 5}%"></div></div><small>${i + 1}</small></div>`).join('')}</div><p class="small muted">От более ранней к последней, до 8 сессий.</p>` : '<p class="muted">График появится после завершения первой сессии.</p>'}</section></div></div>
       <div class="section-heading"><h2>Журнал тренировок</h2><span class="small muted">${state.history.length} записей · последние 100</span></div>${state.history.length ? `<div class="history-list">${state.history.map(s => `<button class="history-row" data-result="${esc(s.id)}"><span class="history-icon">${s.status === 'completed' ? '✓' : '↩'}</span><span><strong>${esc(modeName(s.mode))}</strong><small>${formatDate(s.finishedAt)}${s.status !== 'completed' ? ' · Досрочно' : ''}</small></span><span class="history-score">${score(s)}<small> / ${answered(s)}</small></span><span class="history-link">Разбор →</span></button>`).join('')}</div>` : '<div class="empty-state"><span>▥</span><h3>Журнал пока пуст</h3><p>Завершите первую тренировку — результат появится здесь.</p><a class="text-link" href="#training">Начать подготовку →</a></div>'}`;
     $('#progress-refresh').addEventListener('click', () => pull(true));
     $('#recommendation-action').addEventListener('click', () => { if (weak) { bankTopic = weak.topic; bankLevel = 'all'; bankSearch = ''; bankMistakes = false; changePage('bank'); } else changePage('training'); });
@@ -299,7 +303,7 @@
   }
   function bankPage() {
     main.innerHTML = `${pageTitle('АРХИВ ПОДГОТОВКИ', 'База вопросов', `${questions.length} учебных ситуаций. Просмотр ответов здесь не влияет на статистику тренировок.`)}
-      <div class="bank-filters"><label class="search-field"><span class="sr-only">Поиск по вопросам</span><span aria-hidden="true">⌕</span><input type="search" id="bank-search" placeholder="Найти правило, термин или ситуацию…" value="${esc(bankSearch)}"></label><label><span class="sr-only">Сложность</span><select id="bank-level"><option value="all">Все сложности</option>${levels.map(l => `<option value="${l.id}" ${String(l.id) === bankLevel ? 'selected' : ''}>${l.label}</option>`).join('')}</select></label><label><span class="sr-only">Тема</span><select id="bank-topic"><option value="all">Все темы</option>${topicStats().map(t => `<option ${t.topic === bankTopic ? 'selected' : ''}>${esc(t.topic)}</option>`).join('')}</select></label></div>
+      <div class="bank-filters"><label class="search-field"><span class="sr-only">Поиск по вопросам</span><span aria-hidden="true">⌕</span><input type="search" id="bank-search" placeholder="Найти правило, термин или ситуацию…" value="${esc(bankSearch)}"></label><label><span class="sr-only">Сложность</span><select id="bank-level"><option value="all">Все сложности</option>${levels.map(l => `<option value="${l.id}" ${String(l.id) === bankLevel ? 'selected' : ''}>${l.label}</option>`).join('')}</select></label><label><span class="sr-only">Тема</span><select id="bank-topic"><option value="all">Все темы</option>${topicStats().map(t => `<option value="${esc(t.topic)}" ${t.topic === bankTopic ? 'selected' : ''}>${esc(displayQuestion(questions.find(q => q.topic === t.topic)).topic)}</option>`).join('')}</select></label></div>
       <div class="bank-summary"><span class="small muted" id="bank-count"></span><label class="checkbox-label"><input type="checkbox" id="bank-mistakes" ${bankMistakes ? 'checked' : ''}> Мои ошибки</label></div><div id="bank-list"></div>`;
     $('#bank-search').addEventListener('input', e => { bankSearch = e.target.value; renderBankList(); });
     $('#bank-level').addEventListener('change', e => { bankLevel = e.target.value; renderBankList(); });
@@ -309,7 +313,7 @@
   }
   function renderBankList() {
     const search = bankSearch.trim().toLocaleLowerCase('ru');
-    const list = questions.filter(q => (bankLevel === 'all' || q.difficulty === Number(bankLevel)) && (bankTopic === 'all' || q.topic === bankTopic) && (!bankMistakes || state.stats[q.id] && !state.stats[q.id].lastCorrect) && `${q.id} ${q.question} ${q.topic} ${q.options.join(' ')} ${q.explanation}`.toLocaleLowerCase('ru').includes(search));
+    const list = questions.filter(q => (bankLevel === 'all' || q.difficulty === Number(bankLevel)) && (bankTopic === 'all' || q.topic === bankTopic) && (!bankMistakes || state.stats[q.id] && !state.stats[q.id].lastCorrect) && [q, displayQuestion(q)].some(text => `${text.id} ${text.question} ${text.topic} ${text.options.join(' ')} ${text.explanation}`.toLocaleLowerCase().includes(search))).map(displayQuestion);
     $('#bank-count').textContent = `${list.length} из ${questions.length} вопросов`;
     $('#bank-list').innerHTML = list.map(q => `<details class="bank-item"><summary><span class="bank-item-id">${q.id.slice(-3)}</span><span class="bank-item-main"><span class="bank-item-meta">${badge(q.difficulty)}<span class="small muted">${esc(q.topic)}</span>${state.stats[q.id] ? `<span class="small ${state.stats[q.id].lastCorrect ? 'correct-text' : 'error-text'}">${state.stats[q.id].lastCorrect ? '✓' : '×'}</span>` : ''}</span><strong data-ui-skip>${esc(q.question)}</strong></span><span class="details-arrow" aria-hidden="true">+</span></summary><div class="bank-item-body"><ol class="bank-options" data-ui-skip type="A">${q.options.map((o, i) => `<li class="${i === q.answer ? 'correct-text' : ''}">${esc(o)}${i === q.answer ? ' ✓' : ''}</li>`).join('')}</ol><div class="bank-explanation"><strong>Почему так</strong><p data-ui-skip>${esc(q.explanation)}</p>${sourceLink(q)}</div><div class="question-report">${reportControl(q)}</div></div></details>`).join('') || `<div class="empty-state"><span>⌕</span><h3>${bankMistakes ? 'Подходящих ошибок нет' : 'Ничего не найдено'}</h3><p>Попробуйте изменить поиск или фильтры.</p><button class="button secondary" id="clear-filters">Сбросить фильтры</button></div>`;
     $('#clear-filters')?.addEventListener('click', () => { bankSearch = ''; bankLevel = 'all'; bankTopic = 'all'; bankMistakes = false; bankPage(); });
@@ -322,15 +326,16 @@
       <section class="panel"><div class="section-heading"><h2>Документы, использованные в вопросах</h2></div><div class="document-list">${official.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer"><span>PDF</span><strong>${esc(s.title)}</strong><span>↗</span></a>`).join('')}<a href="https://wahapedia.ru/kill-team3/the-rules/appendix/" target="_blank" rel="noopener noreferrer"><span>WEB</span><strong>Wahapedia · Appendix / Weapon rules</strong><span>↗</span></a><a href="https://wahapedia.ru/kill-team3/the-rules/killzones/" target="_blank" rel="noopener noreferrer"><span>WEB</span><strong>Wahapedia · Killzones</strong><span>↗</span></a><a href="https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/" target="_blank" rel="noopener noreferrer"><span>WEB</span><strong>Wahapedia · Approved Ops 2025</strong><span>↗</span></a></div></section>
       <section class="source-notes"><h2>Как проверяли банк</h2><p>Использованы локальные материалы проекта: справочники Combat Lab и архив Warhammer Community от 25.09.2026. Упрощённые Lite Rules сверены с общими правилами; допущения калькулятора не приняты за официальные правила. Core Rules Update Log проверен в редакции June ’26. Миссионные уточнения сверены по Approved Ops 2025.</p><p class="muted">Это датированный снимок: банк не обновляется автоматически при выходе новых правил. Ссылка у каждого ответа помогает проверить первоисточник. Названия Kill Team и Warhammer принадлежат Games Workshop; проект не связан с Games Workshop.</p></section>`;
   }
-  function render() {
+  function render(preserveSelection = false) {
     updateProfile();
-    selectedAnswer = null;
+    if (preserveSelection !== true) selectedAnswer = null;
     const route = location.hash.slice(1) || 'journey';
     const activeNav = ['session', 'results'].includes(route) ? 'training' : route;
     document.querySelectorAll('[data-nav]').forEach(a => { const active = a.dataset.nav === activeNav; a.classList.toggle('active', active); if (active) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     $('#breadcrumb').textContent = { journey: 'МОЙ ПУТЬ', training: 'ТРЕНИРОВКА', session: 'АКТИВНАЯ СЕССИЯ', results: 'РЕЗУЛЬТАТЫ', progress: 'МОЙ ПРОГРЕСС', bank: 'БАЗА ВОПРОСОВ', sources: 'ИСТОЧНИКИ', moderation: 'МОДЕРАЦИЯ' }[route] || 'МОЙ ПУТЬ';
     ({ journey: journeyPage, training, session: sessionPage, results: resultsPage, progress: progressPage, bank: bankPage, sources: sourcesPage, moderation: moderationPage }[route] || journeyPage)();
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    if (busy) busyControls(true);
+    if (preserveSelection !== true) window.scrollTo({ top: 0, behavior: 'instant' });
   }
   function reportControl(q, label) {
     const current = byId(q.id);
@@ -346,7 +351,7 @@
     const question = byId(button.dataset.report);
     if (!question || !state.user) return;
     pendingReport = { id: question.id, questionVersion: question.version, questionRevision: question.revision, requestId: crypto.randomUUID() };
-    $('#report-question').textContent = `${question.id.toUpperCase()} · ${question.question}`;
+    $('#report-question').textContent = `${question.id.toUpperCase()} · ${displayQuestion(question).question}`;
     $('#report-comment').value = ''; $('#report-error').textContent = '';
     $('#report-dialog').showModal(); $('#report-comment').focus();
   });
@@ -377,7 +382,14 @@
   });
   $('.skip-link').addEventListener('click', event => { event.preventDefault(); main.focus(); main.scrollIntoView({ block: 'start' }); });
   window.addEventListener('hashchange', render);
-  window.addEventListener('kt:locale', () => { if (!location.hash || location.hash === '#journey') journeyPage(); });
+  window.addEventListener('kt:locale', () => {
+    // Do not discard an administrator's unsaved editorial form.
+    if (location.hash !== '#moderation') render(true);
+    if (pendingReport && $('#report-dialog').open) {
+      const q = displayQuestion(byId(pendingReport.id));
+      $('#report-question').textContent = `${q.id.toUpperCase()} · ${q.question}`;
+    }
+  });
   window.addEventListener('focus', () => pull(true));
   window.addEventListener('online', () => pull(true));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pull(true); });
