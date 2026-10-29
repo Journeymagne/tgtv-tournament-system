@@ -6,15 +6,20 @@ set -Eeuo pipefail
 #   bash update_tgtv-ts.sh production --ref <sha-or-tag> [--prepare-only]
 # Deployment details and recovery: docs/deployment.md
 usage() {
-  echo "Usage: $0 [production|staging] [--ref <sha-or-tag>] [--prepare-only]" >&2
+  echo "Usage: $0 [production|staging] [--ref <sha-or-tag>] [--prepare-only] [--services|--monolith]" >&2
 }
 
 TARGET="${1:-production}"
 shift || true
 REF=""
 MODE=""
+RUNTIME=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --services|--monolith)
+      RUNTIME="${1#--}"
+      shift
+      ;;
     --prepare-only)
       MODE="--prepare-only"
       shift
@@ -98,4 +103,4 @@ fi
 
 ARGS=("$REPO_DIR" "$APP_DIR" "$APP_NAME" "$ENV_FILE")
 [[ -z "$MODE" ]] || ARGS+=("$MODE")
-TGTV_DEPLOY_LOCKED="$APP_DIR" node scripts/deploy-release.js "${ARGS[@]}"
+TGTV_RUNTIME_MODE="$RUNTIME" TGTV_DEPLOY_LOCKED="$APP_DIR" node scripts/deploy-release.js "${ARGS[@]}"
