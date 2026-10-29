@@ -3647,7 +3647,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.4.19`;
+    script.src = `/admin.js?v=1.4.20`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -9725,6 +9725,7 @@ function renderRoundSetupModal(preview) {
           <button class="ghost-button" type="button" data-round-setup-close>${t("common.cancel")}</button>
         </div>
         <form class="round-setup-form" data-round-setup-form>
+          ${!preview.tableOnly ? `<div class="row-actions"><button class="small-button" type="button" data-round-setup-shuffle>${t("admin.roundSetup.shuffle")}</button></div>` : ""}
           ${tournament.venueMode === "tts" && !preview.activePairings && !preview.tableOnly ? `<div class="field round-deadline-field">
             <label for="round-ends-at">${t("admin.roundSetup.deadline")}</label>
             <input id="round-ends-at" name="roundEndsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(round.endsAt || round.metadata?.endsAt))}" aria-describedby="round-deadline-hint">
@@ -9738,7 +9739,6 @@ function renderRoundSetupModal(preview) {
             ).join("")}
           </div>
           <div class="row-actions">
-            ${!preview.tableOnly ? `<button class="small-button" type="button" data-round-setup-shuffle>${t("admin.roundSetup.shuffle")}</button>` : ""}
             ${tournament.format === "swiss" && !preview.teamRound && !preview.tableOnly ? `<button class="small-button" type="button" data-round-setup-add-empty>${t("admin.roundSetup.addEmpty")}</button>` : ""}
             <button class="primary-button" type="submit">${t(preview.activePairings || preview.tableOnly ? "common.save" : preview.prepared ? "admin.roundSetup.prepareSubmit" : preview.restoredDraft ? "admin.roundSetup.regenerateSubmit" : "admin.roundSetup.submit")}</button>
           </div>
