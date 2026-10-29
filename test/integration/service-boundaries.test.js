@@ -65,6 +65,7 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
   const registration = name => ({ name, password: 'password123', confirmPassword: 'password123', telegramContact: '@test' });
   const user = (await ok(admin.post('/api/register', registration('ServiceAdmin')), 201)).user;
   headers['X-Studio-Account'] = String(user.id);
+  headers['X-Training-Account'] = String(user.id);
   await require('../helpers/access').grantOwner(getPool(), user);
   await ok(player.post('/api/register', registration('ServicePlayer')), 201);
   for (const route of ['/api/session', '/api/me', '/api/notifications', '/api/studio/drafts', '/api/faq', '/api/knowthykt/progress']) await ok(admin.get(route));
@@ -76,8 +77,10 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
   await ok(admin.post(url + '/publish'));
   for (const client of [admin, player]) await ok(client.post(`/api/tournaments/${cup.id}/join`, { faction: 'Kommandos' }));
   await ok(admin.post(url + '/registration/close'));
-  await ok(admin.post(url + '/rounds/next'));
-  await ok(admin.post(url + '/rounds/next', { mission: { critOp: 'Loot' } }));
+  const prepared = await ok(admin.post(url + '/rounds/next'));
+  const edited = await ok(admin.post(url + '/rounds/next', { mission: { critOp: 'Loot' } }));
+  assert.notEqual(edited.rounds[0].id, prepared.rounds[0].id);
+  assert.equal(edited.rounds[0].mission.critOp, 'Loot');
   await ok(admin.post(url + '/start'));
   let delivered = false;
   for (let attempt = 0; attempt < 50; attempt++) {
