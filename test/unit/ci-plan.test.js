@@ -19,5 +19,6 @@ test('calculator changes are isolated; workflow/runtime changes and unknown root
   assert.equal(affected(['package.json'], { runtimeChanged: true }).combat, true);
   assert.equal(affected(['src/new-module.js']).groups.length, 6);
   assert.deepEqual(affected(['docs/deployment.md']), { groups: [], combat: false });
+  assert.deepEqual(affected(['docs/documentation/ru/rules.md']), { groups: ['tournaments'], combat: false });
   assert.equal(affected([], { full: true }).groups.length, 6);
 });

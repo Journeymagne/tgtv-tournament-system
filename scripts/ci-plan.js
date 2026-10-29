@@ -20,6 +20,8 @@ function affected(files, { full = false, runtimeChanged = false } = {}) {
   if (full) all();
   for (const file of files) {
     if (/^services\/combat-lab\//.test(file)) { combat = true; continue; }
+    // These documents are served by the application, unlike developer guides.
+    if (/^docs\/documentation\//.test(file)) { groups.add('tournaments'); continue; }
     if (/^(docs\/|review\/|design\/)|^(README|CHANGELOG|AGENTS)\.md$/.test(file)) continue;
     if (/^(\.github\/workflows\/|scripts\/(?:ci-plan|.*combat.*|dependency-state)\.js$)|^Dockerfile/.test(file)) {
       all(); combat = true; continue;
