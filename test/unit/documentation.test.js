@@ -10,12 +10,12 @@ const { CRIT_OPS } = require("../../src/domain/kill-teams");
 const pages = defaultPages().map((page) => ({ ...page, ...renderMarkdown(page.markdown), version: 1, updatedAt: "2026-09-07T00:00:00.000Z" }));
 const book = (locale, id) => ({ pages: pages.filter((page) => page.locale === locale), page: pages.find((page) => page.locale === locale && page.id === id) });
 
-test("documentation has the same five complete, independently linkable pages in both languages", () => {
+test("documentation has the same six complete, independently linkable pages in both languages", () => {
   for (const locale of ["ru", "en"]) {
     const data = book(locale);
     assert.deepEqual(data.pages.map((page) => page.id), docs.pageIds);
     const index = docs.render(locale, "", false, data);
-    assert.equal((index.match(/class="card panel documentation-card"/g) || []).length, 5);
+    assert.equal((index.match(/class="card panel documentation-card"/g) || []).length, 6);
     for (const page of data.pages) {
       assert.ok(page.title && page.summary && page.markdown && page.headings.length > 0);
       assert.match(index, new RegExp(`href="/tournament#/documentation/${page.id}"`));

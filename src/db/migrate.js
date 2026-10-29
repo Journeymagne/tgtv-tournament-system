@@ -67,7 +67,8 @@ const MIGRATIONS = [
   require("./migrations/067_resource_quotas"),
   require("./migrations/068_training_notification_once"),
   require("./migrations/069_map_catalog"),
-  require("./migrations/070_tournament_round_cascade")
+  require("./migrations/070_tournament_round_cascade"),
+  require("./migrations/071_documentation_handouts")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

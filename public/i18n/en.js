@@ -897,6 +897,8 @@ const TGTV_I18N_EN = {
   "admin.roundSetup.hint": "Review pairings before saving the round.",
   "admin.roundSetup.restoredHint": "The previous pairings and tables were restored. Review them before saving.",
   "admin.roundSetup.addEmpty": "Create empty pairing",
+  "admin.roundSetup.shuffle": "Shuffle pairings",
+  "admin.roundSetup.shuffled": "Pairings shuffled. Save to apply the changes.",
   "admin.roundSetup.submit": "Generate round",
   "admin.roundSetup.regenerateSubmit": "Regenerate round",
   "admin.roundSetup.clear": "Clear",

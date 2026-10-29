@@ -40,7 +40,7 @@ const read = async (client, locale = "ru") => (await client.get(`/api/documentat
 test("guests read every seeded page; only admins may preview or publish", async () => {
   for (const locale of ["ru", "en"]) {
     const response = await guest.get(`/api/documentation/${locale}`);
-    assert.equal(response.status, 200); assert.equal(response.body.pages.length, 5);
+    assert.equal(response.status, 200); assert.equal(response.body.pages.length, 6);
     for (const page of response.body.pages) assert.equal((await guest.get(`/api/documentation/${locale}/${page.id}`)).status, 200);
   }
   const page = await read(guest);
