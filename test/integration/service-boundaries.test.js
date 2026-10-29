@@ -61,13 +61,16 @@ test.after(async () => { for (const service of [...children.keys()].reverse()) a
 const ok = async (promise, status = 200) => { const result = await promise; assert.equal(result.status, status, JSON.stringify(result.body)); return result.body; };
 test('scoped services share sessions, save prepared rounds and survive a tournament outage', async () => {
   const headers = {};
-  const admin = createClient(origin, headers), player = createClient(origin);
+  const admin = createClient(origin, headers);
+  const players = Array.from({ length: 3 }, () => createClient(origin));
   const registration = name => ({ name, password: 'password123', confirmPassword: 'password123', telegramContact: '@test' });
   const user = (await ok(admin.post('/api/register', registration('ServiceAdmin')), 201)).user;
   headers['X-Studio-Account'] = String(user.id);
   headers['X-Training-Account'] = String(user.id);
   await require('../helpers/access').grantOwner(getPool(), user);
-  await ok(player.post('/api/register', registration('ServicePlayer')), 201);
+  for (const [index, player] of players.entries()) {
+    await ok(player.post('/api/register', registration('ServicePlayer' + index)), 201);
+  }
   for (const route of ['/api/session', '/api/me', '/api/notifications', '/api/studio/drafts', '/api/faq', '/api/knowthykt/progress']) await ok(admin.get(route));
   headers['X-CSRF-Token'] = (await ok(admin.get('/api/studio/session'))).csrfToken;
   const project = require('../../public/studio/model').newProject('service-project', 'Service project');
@@ -75,7 +78,7 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
   const cup = (await ok(admin.post('/api/admin/tournaments', { name: 'Service Cup', startsAt: '2027-01-01T12:00:00Z', format: 'swiss', swissRoundCount: 3 }), 201)).tournament;
   const url = `/api/admin/tournaments/${cup.id}`;
   await ok(admin.post(url + '/publish'));
-  for (const client of [admin, player]) await ok(client.post(`/api/tournaments/${cup.id}/join`, { faction: 'Kommandos' }));
+  for (const client of [admin, ...players]) await ok(client.post(`/api/tournaments/${cup.id}/join`, { faction: 'Kommandos' }));
   await ok(admin.post(url + '/registration/close'));
   const prepared = await ok(admin.post(url + '/rounds/next'));
   const edited = await ok(admin.post(url + '/rounds/next', { mission: { critOp: 'Loot' } }));
