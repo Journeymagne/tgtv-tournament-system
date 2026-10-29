@@ -906,6 +906,8 @@ const TGTV_I18N_RU = {
   "admin.roundSetup.hint": "Проверьте пары перед сохранением раунда.",
   "admin.roundSetup.restoredHint": "Предыдущие пары и столы восстановлены. Проверьте их перед сохранением.",
   "admin.roundSetup.addEmpty": "Создать пустую пару",
+  "admin.roundSetup.shuffle": "Перемешать пары",
+  "admin.roundSetup.shuffled": "Пары перемешаны. Сохраните, чтобы применить изменения.",
   "admin.roundSetup.submit": "Сгенерировать раунд",
   "admin.roundSetup.regenerateSubmit": "Перегенерировать раунд",
   "admin.roundSetup.clear": "Очистить",

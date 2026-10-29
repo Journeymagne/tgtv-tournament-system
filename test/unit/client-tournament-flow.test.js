@@ -225,7 +225,7 @@ test("table-only dialog contains no pairing or mission controls and saves throug
   assert.equal(previewWired, preview);
   assert.match(html, /admin.round.tablesTitle/);
   assert.match(html, /teamTableNumber-0/);
-  assert.doesNotMatch(html, /rosterAId|rosterBId|roundCritOp|round-setup-add-empty/);
+  assert.doesNotMatch(html, /rosterAId|rosterBId|roundCritOp|round-setup-add-empty|round-setup-shuffle/);
 
   const calls = [], notices = [], button = { disabled: false }, message = { classList: { add() {} } };
   const form = { elements: {}, querySelector: selector => selector === '[type="submit"]' ? button : null,
@@ -250,4 +250,50 @@ test("table-only dialog contains no pairing or mission controls and saves throug
   assert.deepEqual(calls[0][1].body.tables.map(table => [table.id, table.tableNumber]), [[10, 50], [11, 51], [12, 52]]);
   assert.equal(button.disabled, false);
   assert.deepEqual(notices, ["admin.round.tablesSaved"]);
+});
+
+const shuffleUi = new Function(
+  ["roundSetupShuffleFields", "shuffleRoundSetupPairings"].map(functionSource).join("\n") + "; return shuffleRoundSetupPairings;"
+)();
+
+test("shuffle redistributes individuals and team rosters across pairs without changing empty slots or table assignments", () => {
+  for (const prefix of ["participant", "roster"]) {
+    const fields = ["1", "2", "3", "4", ""].map((value, index) => ({ name: `${prefix}${index % 2 ? "B" : "A"}Id`, value }));
+    const table = { name: "tableId", value: "8" }, line = { name: "lineNumber", value: "2" };
+    const locked = { name: `${prefix}AId`, value: "9", disabled: true };
+    const form = { querySelectorAll: selector => {
+      assert.equal(selector, ".round-setup-match-row select");
+      return [...fields, table, line, locked];
+    } };
+    assert.equal(shuffleUi(form, () => 0), true);
+    assert.deepEqual(fields.map(field => field.value), ["2", "3", "4", "1", ""]);
+    assert.deepEqual([table.value, line.value, locked.value], ["8", "2", "9"]);
+  }
+  assert.equal(shuffleUi({ querySelectorAll: () => [{ name: "participantAId", value: "1" }] }), false);
+  assert.equal(shuffleUi({ querySelectorAll: () => [] }), false);
+});
+
+test("shuffle in preparation and active pairing editors refreshes controls and warnings without saving", () => {
+  for (const preview of [{ prepared: true }, { activePairings: true }]) {
+    const fields = ["1", "2", "3", "4"].map((value, index) => ({ name: `participant${index % 2 ? "B" : "A"}Id`, value }));
+    let shuffleHandler, refreshes = 0, warnings = 0;
+    const button = { disabled: false, addEventListener: (event, handler) => { if (event === "click") shuffleHandler = handler; } };
+    const message = { textContent: "", classList: { remove() {} } };
+    const form = { querySelectorAll: () => fields, addEventListener() {},
+      querySelector: selector => selector === "[data-round-setup-shuffle]" ? button : selector === "[data-round-setup-message]" ? message : null };
+    const document = { querySelector: selector => selector === "[data-round-setup-form]" ? form : null, querySelectorAll: () => [] };
+    const wire = new Function("document", "wireTeamTableImages", "closeRoundSetupModal", "updateRoundSetupPlayerSelects",
+      "updateRoundSetupWarnings", "updateRoundSetupTableDeployment", "shuffleRoundSetupPairings", "t",
+      functionSource("roundSetupShuffleFields") + "\n" + functionSource("wireRoundSetupModal") + "; return wireRoundSetupModal;"
+    )(document, () => {}, () => {}, () => { refreshes++; }, () => { warnings++; }, () => {},
+      form => shuffleUi(form, () => 0), key => key);
+    wire({ venueMode: "irl" }, [], preview);
+    assert.equal(button.disabled, false);
+    const previousRefreshes = refreshes, previousWarnings = warnings;
+    shuffleHandler();
+    assert.deepEqual(fields.map(field => field.value), ["2", "3", "4", "1"]);
+    assert.equal(refreshes, previousRefreshes + 1);
+    assert.equal(warnings, previousWarnings + 1);
+    assert.equal(message.textContent, "admin.roundSetup.shuffled");
+  }
 });

@@ -29,6 +29,12 @@
       "category": "Рейтинг",
       "title": "Формула MMR",
       "summary": "Elo с K = 32, примеры, TTS / IRL / общий рейтинг и исключения."
+    },
+    {
+      "id": "handouts",
+      "category": "Материалы",
+      "title": "Раскладки",
+      "summary": "Печатные памятки по террейну: WTC Open, Volkus, Tomb World и WTC Into the Dark."
     }
   ],
   "en": [
@@ -61,6 +67,12 @@
       "category": "Rating",
       "title": "MMR formula",
       "summary": "Elo with K = 32, examples, TTS / IRL / combined ratings and exceptions."
+    },
+    {
+      "id": "handouts",
+      "category": "Resources",
+      "title": "Handouts",
+      "summary": "Printable terrain references: WTC Open, Volkus, Tomb World and WTC Into the Dark."
     }
   ]
 }

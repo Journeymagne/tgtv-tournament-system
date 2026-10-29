@@ -3647,7 +3647,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.4.18`;
+    script.src = `/admin.js?v=1.4.19`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -9738,6 +9738,7 @@ function renderRoundSetupModal(preview) {
             ).join("")}
           </div>
           <div class="row-actions">
+            ${!preview.tableOnly ? `<button class="small-button" type="button" data-round-setup-shuffle>${t("admin.roundSetup.shuffle")}</button>` : ""}
             ${tournament.format === "swiss" && !preview.teamRound && !preview.tableOnly ? `<button class="small-button" type="button" data-round-setup-add-empty>${t("admin.roundSetup.addEmpty")}</button>` : ""}
             <button class="primary-button" type="submit">${t(preview.activePairings || preview.tableOnly ? "common.save" : preview.prepared ? "admin.roundSetup.prepareSubmit" : preview.restoredDraft ? "admin.roundSetup.regenerateSubmit" : "admin.roundSetup.submit")}</button>
           </div>
@@ -10008,10 +10009,32 @@ function tableLabel(table = {}) {
   ].filter(Boolean).join(" / ");
 }
 
+function roundSetupShuffleFields(form) {
+  return [...form.querySelectorAll(".round-setup-match-row select")].filter(select =>
+    ["participantAId", "participantBId", "rosterAId", "rosterBId"].includes(select.name) &&
+    !select.disabled && select.value
+  );
+}
+
+function shuffleRoundSetupPairings(form, random = Math.random) {
+  const fields = roundSetupShuffleFields(form);
+  if (fields.length < 2) return false;
+  const values = fields.map(select => select.value);
+  for (let index = values.length - 1; index > 0; index--) {
+    const other = Math.floor(random() * (index + 1));
+    [values[index], values[other]] = [values[other], values[index]];
+  }
+  fields.forEach((select, index) => { select.value = values[index]; });
+  return true;
+}
+
 function wireRoundSetupModal(tournament, tables, preview = {}) {
+  const form = document.querySelector("[data-round-setup-form]");
   const updatePlayers = () => {
     updateRoundSetupPlayerSelects();
     if (!preview.tableOnly) updateRoundSetupWarnings(tournament, tables, preview);
+    const shuffle = form.querySelector("[data-round-setup-shuffle]");
+    if (shuffle) shuffle.disabled = roundSetupShuffleFields(form).length < 2;
     const help = document.querySelector("[data-round-setup-unassigned]");
     if (!help) return;
     const assigned = new Set([...document.querySelectorAll('.round-setup-match-row select[name="participantAId"], .round-setup-match-row select[name="participantBId"]')].map(select => Number(select.value)));
@@ -10028,6 +10051,13 @@ function wireRoundSetupModal(tournament, tables, preview = {}) {
     wireTeamTableImages(editor.closest("form"));
   });
   document.querySelector("[data-round-setup-close]")?.addEventListener("click", closeRoundSetupModal);
+  form.querySelector("[data-round-setup-shuffle]")?.addEventListener("click", () => {
+    if (!shuffleRoundSetupPairings(form)) return;
+    updatePlayers();
+    const message = form.querySelector("[data-round-setup-message]");
+    message.classList.remove("error");
+    message.textContent = t("admin.roundSetup.shuffled");
+  });
   document.querySelector("[data-round-setup-add-empty]")?.addEventListener("click", () => {
     document.querySelector("[data-round-setup-list]")?.insertAdjacentHTML(
       "beforeend",
