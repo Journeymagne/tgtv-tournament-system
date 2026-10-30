@@ -8,7 +8,7 @@ const { SERVICE_PATHS } = require("../domain/sites");
 const SITE_NAME = "KT Companion";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.4.21";
+const ASSET_VERSION = "1.4.22";
 
 function requestOrigin(req) {
   const serviceOrigin = siteOrigin(req);
@@ -201,7 +201,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
 // one the visitor is in, and app.js fetches the other only if they switch.
 function appScript() {
   return ["maps/catalog-data.js", "map-catalog.js", "map-catalog-ui.js", "game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "training/journey-ui.js", "resource-quotas.js", "app.js"]
-    .map((file) => `<script src="/${file}?v=${file === 'app.js' || file === 'training/journey-ui.js' ? '20261030-teams' : ASSET_VERSION}" defer></script>`).join("\n");
+    .map((file) => `<script src="/${file}?v=${ASSET_VERSION}" defer></script>`).join("\n");
 }
 
 function tournamentHtml(origin, tournament) {

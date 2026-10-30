@@ -39,7 +39,7 @@
   } };
   try {
     const [bank, identity, translations] = await Promise.all([api.questions(), window.KTCompanion.ready.catch(() => ({ user: null })),
-      fetch('/training/questions-en.json?v=20261029').then(response => { if (!response.ok) throw Error('Could not load question translations.'); return response.json(); })]);
+      fetch('/training/questions-en.json?v=20261030-archon').then(response => { if (!response.ok) throw Error('Could not load question translations.'); return response.json(); })]);
     questionTranslations = translations;
     if (!Array.isArray(bank.questions)) throw Error('Не удалось загрузить банк вопросов.');
     setBank(bank);

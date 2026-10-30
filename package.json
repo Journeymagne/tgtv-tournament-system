@@ -1,6 +1,6 @@
 {
   "name": "tgtv-ranking-tournament-system",
-  "version": "1.4.21",
+  "version": "1.4.22",
   "private": true,
   "description": "TGTV ranking, matchmaking, Approved Ops, and Kill Team challenge tracker.",
   "engines": {
