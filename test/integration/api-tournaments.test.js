@@ -20,16 +20,20 @@ function transactionalApi(api) {
   return Object.fromEntries(Object.entries(api).map(([key, fn]) => [key, typeof fn !== 'function' ? fn : async (...args) => {
     const client = args[0]?.client;
     if (!client) return fn(...args);
-    await client.query('BEGIN');
-    try {
-      const result = await fn(...args);
-      await client.query('COMMIT');
-      return result;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    }
+    return inTransaction(client, () => fn(...args));
   }]));
+}
+
+async function inTransaction(client, action) {
+  await client.query('BEGIN');
+  try {
+    const result = await action();
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  }
 }
 
 let pool;
@@ -2475,8 +2479,10 @@ test("pending submissions preserve the original player when a replacement occupi
   const originalId = match.participantA.userId;
   const result = require("../../src/domain/scoring").calculateSubmittedResult({ scores: scores(originalId, match.participantB.userId) }, originalId, match.participantB.userId);
   const pending = { result, submittedBy: originalId };
-  await gamesRepo.savePendingResult(client, match.gameId, { submittedBy: originalId, pendingResult: pending });
-  await require("../../src/db/repositories/tournament-matches").update(client, match.id, { status: "pending_confirmation", pendingResult: pending, submittedByUserId: originalId });
+  await inTransaction(client, async () => {
+    await gamesRepo.savePendingResult(client, match.gameId, { submittedBy: originalId, pendingResult: pending });
+    await require("../../src/db/repositories/tournament-matches").update(client, match.id, { status: "pending_confirmation", pendingResult: pending, submittedByUserId: originalId });
+  });
   await tournamentsApi.updateParticipant({ client, user: root,
     params: { ...params, participantId: String(match.participantAId) }, body: { userId: replacement.id } });
   const view = await tournamentsApi.confirmResult({ client, user: { id: match.participantB.userId }, params: { ...params, matchId: String(match.id) } });
@@ -2559,8 +2565,10 @@ test("active Swiss editor protects submitted results, player coverage, scope and
     body: { scores: scores(completed.participantA.userId, completed.participantB.userId) } });
   const result = require("../../src/domain/scoring").calculateSubmittedResult({ scores: scores(pending.participantA.userId, pending.participantB.userId) }, pending.participantA.userId, pending.participantB.userId);
   const pendingResult = { result, submittedBy: pending.participantA.userId };
-  await gamesRepo.savePendingResult(client, pending.gameId, { submittedBy: pending.participantA.userId, pendingResult });
-  await require("../../src/db/repositories/tournament-matches").update(client, pending.id, { status: "pending_confirmation", pendingResult });
+  await inTransaction(client, async () => {
+    await gamesRepo.savePendingResult(client, pending.gameId, { submittedBy: pending.participantA.userId, pendingResult });
+    await require("../../src/db/repositories/tournament-matches").update(client, pending.id, { status: "pending_confirmation", pendingResult });
+  });
   const preview = await tournamentsApi.getActivePairingsAdmin({ client, user: root, params });
   assert.equal(preview.lockedMatches.length, 2);
   assert.equal(preview.round.matches.length, 2);

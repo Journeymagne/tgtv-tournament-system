@@ -520,6 +520,9 @@ async function deleteAdmin({ client, params }) {
     return { ok: true, tournament: tournamentSummaryView(removed), deletedGames: deletedGames.length };
   }
   const matches = await matchesRepo.listByTournament(client, tournament.id);
+  // Remove metadata before its canonical games. Otherwise ON DELETE SET NULL
+  // temporarily leaves a completed match without a result and violates its guard.
+  await client.query('DELETE FROM tournament_matches WHERE tournament_id=$1', [tournament.id]);
   const deletedGames = await gamesRepo.removeBySourceIds(
     client,
     "tournament_match",
