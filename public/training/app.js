@@ -63,6 +63,7 @@
   let bankTopic = 'all';
   let bankSearch = '';
   let bankMistakes = false;
+  let bankUnsolved = false;
   let toastTimer;
   const levelNames = { 1: 'Рекрут', 2: 'Боец', 3: 'Ветеран', 4: 'Эксперт' };
   const levels = [
@@ -234,7 +235,7 @@
       : t(`${sessionSize} вопросов · Новые вопросы команды и ошибки до первого верного ответа`, `${sessionSize} questions · New team questions and mistakes until your first correct answer`))
       : t('В этом курсе и уровне не осталось нерешённых вопросов. Повторить вопросы можно в банке.', 'No unsolved questions remain for this course and level. Use the question bank to practise.');
     hint.insertAdjacentHTML('afterend', `<a class="text-link" data-course-bank data-ui-skip href="#bank">${t('Выбрать вопрос в банке →', 'Choose a question in the bank →')}</a>`);
-    main.querySelector('[data-course-bank]').addEventListener('click', () => { bankTeam = selectedTeam; bankLevel = 'all'; bankTopic = 'all'; bankSearch = ''; bankMistakes = false; });
+    main.querySelector('[data-course-bank]').addEventListener('click', () => { bankTeam = selectedTeam; bankLevel = 'all'; bankTopic = 'all'; bankSearch = ''; bankMistakes = false; bankUnsolved = false; });
     main.querySelector('.mixed-toggle small').textContent = t('Все доступные сложности выбранного курса', 'All available difficulties in the selected course');
     main.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => {
       const mode = button.dataset.mode;
@@ -353,32 +354,33 @@
       <div><section class="panel recommendation"><span class="eyebrow">СЛЕДУЮЩИЙ ШАГ</span><span class="recommendation-icon">⌖</span><h2>${weak ? esc(displayQuestion(questions.find(q => q.topic === weak.topic)).topic) : 'Время первой сессии'}</h2><p class="muted">${weak ? `Точность по теме — ${weak.accuracy}%. Повторите вопросы этой темы и закрепите знания.` : 'Выберите сложность и пройдите 20 вопросов. Здесь появится ваша статистика.'}</p><button class="button secondary full" id="recommendation-action">${weak ? 'Повторить тему' : 'К тренировкам'} <span>→</span></button></section><section class="panel recent-panel"><div class="section-heading"><h2>Последние сессии</h2></div>${completed.length ? `<div class="chart" aria-label="Точность последних ${Math.min(8, completed.length)} завершённых сессий">${completed.slice(0, 8).reverse().map((s, i) => `<div class="chart-column"><span>${sessionAccuracy(s)}%</span><div class="chart-track"><div style="height:${sessionAccuracy(s)}%"></div></div><small>${i + 1}</small></div>`).join('')}</div><p class="small muted">От более ранней к последней, до 8 сессий.</p>` : '<p class="muted">График появится после завершения первой сессии.</p>'}</section></div></div>
       <div class="section-heading"><h2>Журнал тренировок</h2><span class="small muted">${state.history.length} записей · последние 100</span></div>${state.history.length ? `<div class="history-list">${state.history.map(s => `<button class="history-row" data-result="${esc(s.id)}"><span class="history-icon">${s.status === 'completed' ? '✓' : '↩'}</span><span><strong>${esc(sessionName(s))}</strong><small>${formatDate(s.finishedAt)}${s.status !== 'completed' ? ' · Досрочно' : ''}</small></span><span class="history-score">${score(s)}<small> / ${answered(s)}</small></span><span class="history-link">Разбор →</span></button>`).join('')}</div>` : '<div class="empty-state"><span>▥</span><h3>Журнал пока пуст</h3><p>Завершите первую тренировку — результат появится здесь.</p><a class="text-link" href="#training">Начать подготовку →</a></div>'}`;
     $('#progress-refresh').addEventListener('click', () => pull(true));
-    $('#recommendation-action').addEventListener('click', () => { if (weak) { bankTopic = weak.topic; bankLevel = 'all'; bankSearch = ''; bankMistakes = false; changePage('bank'); } else changePage('training'); });
+    $('#recommendation-action').addEventListener('click', () => { if (weak) { bankTopic = weak.topic; bankLevel = 'all'; bankSearch = ''; bankMistakes = false; bankUnsolved = false; changePage('bank'); } else changePage('training'); });
     main.querySelectorAll('[data-result]').forEach(button => button.addEventListener('click', () => { lastResultId = button.dataset.result; changePage('results'); }));
   }
   function bankPage() {
     main.innerHTML = `${pageTitle('АРХИВ ПОДГОТОВКИ', 'База вопросов', `${questions.length} учебных ситуаций. Просмотр ответов здесь не влияет на статистику тренировок.`)}
       <div class="bank-filters"><label class="search-field"><span class="sr-only">Поиск по вопросам</span><span aria-hidden="true">⌕</span><input type="search" id="bank-search" placeholder="Найти правило, термин или ситуацию…" value="${esc(bankSearch)}"></label><label><span class="sr-only">Сложность</span><select id="bank-level"><option value="all">Все сложности</option>${levels.map(l => `<option value="${l.id}" ${String(l.id) === bankLevel ? 'selected' : ''}>${l.label}</option>`).join('')}</select></label><label><span class="sr-only">Тема</span><select id="bank-topic"><option value="all">Все темы</option>${topicStats().map(t => `<option value="${esc(t.topic)}" ${t.topic === bankTopic ? 'selected' : ''}>${esc(displayQuestion(questions.find(q => q.topic === t.topic)).topic)}</option>`).join('')}</select></label></div>
-      <div class="bank-summary"><span class="small muted" id="bank-count"></span><label class="checkbox-label"><input type="checkbox" id="bank-mistakes" ${bankMistakes ? 'checked' : ''}> Мои ошибки</label></div><div id="bank-list"></div>`;
+      <div class="bank-summary"><span class="small muted" id="bank-count"></span><label class="checkbox-label"><input type="checkbox" id="bank-unsolved" ${bankUnsolved ? 'checked' : ''}> Не решено</label><label class="checkbox-label"><input type="checkbox" id="bank-mistakes" ${bankMistakes ? 'checked' : ''}> Мои ошибки</label></div><div id="bank-list"></div>`;
     $('#bank-search').addEventListener('input', e => { bankSearch = e.target.value; renderBankList(); });
     main.querySelector('.bank-filters').insertAdjacentHTML('beforebegin', `<div class="course-selector" data-ui-skip><label>${t('Курс', 'Course')} <select id="bank-team"><option value="all">${t('Все курсы', 'All courses')}</option>${['core', ...teams.teams.map(team => team.id)].map(id => `<option value="${id}" ${bankTeam === id ? 'selected' : ''}>${esc(courseName(id))}</option>`).join('')}</select></label></div>`);
     $('#bank-team').value = bankTeam;
     $('#bank-team').addEventListener('change', e => { bankTeam = e.target.value; renderBankList(); });
     $('#bank-level').addEventListener('change', e => { bankLevel = e.target.value; renderBankList(); });
     $('#bank-topic').addEventListener('change', e => { bankTopic = e.target.value; renderBankList(); });
+    $('#bank-unsolved').addEventListener('change', e => { bankUnsolved = e.target.checked; renderBankList(); });
     $('#bank-mistakes').addEventListener('change', e => { bankMistakes = e.target.checked; renderBankList(); });
     renderBankList();
   }
   function renderBankList() {
     const search = bankSearch.trim().toLocaleLowerCase('ru');
-    const list = questions.filter(q => (bankTeam === 'all' || teams.matches(q, bankTeam)) && (bankLevel === 'all' || q.difficulty === Number(bankLevel)) && (bankTopic === 'all' || q.topic === bankTopic) && (!bankMistakes || state.stats[q.id] && !state.stats[q.id].lastCorrect) && [q, displayQuestion(q)].some(text => `${text.id} ${text.question} ${text.topic} ${text.options.join(' ')} ${text.explanation}`.toLocaleLowerCase().includes(search))).map(displayQuestion);
+    const list = questions.filter(q => (bankTeam === 'all' || teams.matches(q, bankTeam)) && (bankLevel === 'all' || q.difficulty === Number(bankLevel)) && (bankTopic === 'all' || q.topic === bankTopic) && (!bankUnsolved || teams.unsolved(q, state.stats)) && (!bankMistakes || state.stats[q.id] && !state.stats[q.id].lastCorrect) && [q, displayQuestion(q)].some(text => `${text.id} ${text.question} ${text.topic} ${text.options.join(' ')} ${text.explanation}`.toLocaleLowerCase().includes(search))).map(displayQuestion);
     $('#bank-count').textContent = `${list.length} из ${questions.length} вопросов`;
     $('#bank-list').innerHTML = list.map(q => `<details class="bank-item"><summary><span class="bank-item-id">${q.id.slice(-3)}</span><span class="bank-item-main"><span class="bank-item-meta">${badge(q.difficulty)}<span class="small muted">${esc(q.topic)}</span>${state.stats[q.id] ? `<span class="small ${state.stats[q.id].lastCorrect ? 'correct-text' : 'error-text'}">${state.stats[q.id].lastCorrect ? '✓' : '×'}</span>` : ''}</span><strong data-ui-skip>${esc(q.question)}</strong></span><span class="details-arrow" aria-hidden="true">+</span></summary><div class="bank-item-body"><button class="button primary" data-answer-question="${esc(q.id)}" data-ui-skip>${t('Ответить на этот вопрос', 'Answer this question')} →</button><details class="bank-solution"><summary data-ui-skip>${t('Показать ответ и разбор', 'Show answer and explanation')}</summary><ol class="bank-options" data-ui-skip type="A">${q.options.map((o, i) => `<li class="${i === q.answer ? 'correct-text' : ''}">${esc(o)}${i === q.answer ? ' ✓' : ''}</li>`).join('')}</ol><div class="bank-explanation"><strong>Почему так</strong><p data-ui-skip>${esc(q.explanation)}</p>${sourceLink(q)}</div></details><div class="question-report">${reportControl(q)}</div></div></details>`).join('') || `<div class="empty-state"><span>⌕</span><h3>${bankMistakes ? 'Подходящих ошибок нет' : 'Ничего не найдено'}</h3><p>Попробуйте изменить поиск или фильтры.</p><button class="button secondary" id="clear-filters">Сбросить фильтры</button></div>`;
     main.querySelectorAll('[data-answer-question]').forEach(button => button.addEventListener('click', () => {
       const question = byId(button.dataset.answerQuestion);
       startSession('mixed', false, question.team || 'core', question.id);
     }));
-    $('#clear-filters')?.addEventListener('click', () => { bankSearch = ''; bankLevel = 'all'; bankTeam = 'all'; bankTopic = 'all'; bankMistakes = false; bankPage(); });
+    $('#clear-filters')?.addEventListener('click', () => { bankSearch = ''; bankLevel = 'all'; bankTeam = 'all'; bankTopic = 'all'; bankMistakes = false; bankUnsolved = false; bankPage(); });
   }
   function sourcesPage() {
     const official = [...new Map(questions.filter(q => q.source.url.includes('warhammer-community')).map(q => [q.source.url, q.source])).values()];

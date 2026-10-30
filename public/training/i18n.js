@@ -90,7 +90,7 @@
     ['ОПЕРАЦИЯ ЗАВЕРШЕНА', 'OPERATION COMPLETE'], ['СЕССИЯ ЗАВЕРШЕНА ДОСРОЧНО', 'SESSION ENDED EARLY'], ['Разбор полётов', 'Session review'],
     ['Ещё одна сессия', 'Another session'], ['Ошибок нет', 'No mistakes'], ['АРХИВ ПОДГОТОВКИ', 'TRAINING ARCHIVE'],
     ['СЛЕДУЮЩИЙ ШАГ', 'NEXT STEP'], ['Время первой сессии', 'Time for your first session'], ['Повторить тему', 'Review topic'], ['К тренировкам', 'Back to training'],
-    ['Все темы', 'All topics'], ['Мои ошибки', 'My mistakes'], ['Поиск по вопросам', 'Search questions'],
+    ['Все темы', 'All topics'], ['Мои ошибки', 'My mistakes'], ['Не решено', 'Unsolved'], ['Поиск по вопросам', 'Search questions'],
     ['Найти правило, термин или ситуацию…', 'Find a rule, term or situation…'], ['Сложность', 'Difficulty'], ['Тема', 'Topic'],
     ['Почему так', 'Why this answer'], ['Ничего не найдено', 'No results'], ['Подходящих ошибок нет', 'No matching mistakes'], ['Сбросить фильтры', 'Reset filters'],
     ['Откуда берутся правила', 'Rules sources'], ['О базе правил ↗', 'About the rules bank ↗']

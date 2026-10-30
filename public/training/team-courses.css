@@ -10,3 +10,6 @@
 
 .bank-solution { margin-top: 1rem; }
 .bank-solution > summary { cursor: pointer; color: var(--muted); padding: .75rem 0; }
+
+.bank-summary { flex-wrap: wrap; gap: 12px 20px; }
+.bank-summary > #bank-count { margin-right: auto; }
