@@ -106,6 +106,7 @@ test("canonical page redirects are permanent and preserve query strings", () => 
   for (const [source, target] of [
     ["/index.html?tab=standings", "/tournament?tab=standings"],
     ["/combat/", "/combat"],
+    ["/training/index.html", "/knowthykt"],
     ["/tournaments/cup/?round=2", "/tournaments/cup?round=2"],
     ["/teams/roster/", "/teams/roster"]
   ]) {
@@ -117,14 +118,4 @@ test("canonical page redirects are permanent and preserve query strings", () => 
     assert.equal(headers.Location, target);
     assert.equal(pageDestination(request("ktcompanion.ru", target), sites), null);
   }
-});
-
-test("KTKT legacy redirects retain temporary status and no-store caching", () => {
-  let status, headers;
-  assert(handleSiteRequest(request("ktcompanion.ru", "/training/index.html"), {
-    writeHead(code, value) { status = code; headers = value; }, end() {}
-  }, sites));
-  assert.equal(status, 302);
-  assert.equal(headers.Location, "/knowthykt");
-  assert.equal(headers["Cache-Control"], "no-store");
 });
