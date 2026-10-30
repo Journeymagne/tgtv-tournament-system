@@ -22,6 +22,9 @@ test("direct public tournament pages load data and translations before the app",
   );
   assert.equal(handled, true);
   assert.equal(status, 200);
+  assert.match(html, /https:\/\/schema\.org\/BreadcrumbList/);
+  assert.ok(html.indexOf('aria-label="Breadcrumb"') < html.indexOf('id="app"'));
+  assert.match(html, /"@type":"SportsEvent"/);
   const scripts = [...html.matchAll(/<script src="\/([^?]+)\?[^\"]+" defer><\/script>/g)].map((match) => match[1]);
   assert.deepEqual(scripts, ["companion-sites.js", "companion-i18n.js", "companion-shell.js", "maps/catalog-data.js", "map-catalog.js", "map-catalog-ui.js", "game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "training/journey-ui.js", "resource-quotas.js", "app.js"]);
   assert.match(html, /<link rel="stylesheet" href="\/training\/journey-shared\.css\?v=[^"]+">/);

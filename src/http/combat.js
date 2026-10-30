@@ -24,7 +24,29 @@ function buildReady() {
     return ["index.html", "asset-manifest.json"].every(file => fs.statSync(path.join(BUILD_ROOT, file)).isFile());
   } catch { return false; }
 }
-function companionHtml(source) {
+function combatSearchHead(source) {
+  const title = "Kill Team 2024 Shooting Calculator — Ranged Odds | Companion Combat Lab";
+  const description = "Calculate Kill Team 2024 shooting odds. Enter BS, attacks, and weapon rules to get the chance of hits, crits, damage, and kills against any defensive profile.";
+  const url = "https://ktcompanion.ru/combat";
+  // Keep the initial response useful to crawlers before the React SEO effect runs.
+  return source.replace(/https:\/\/ktcalc\.com\//g, "https://ktcompanion.ru/combat/").replace(/"alternateName":\s*"ktcalc"/g, '"alternateName": "Companion Combat Lab"')
+    .replace(/<title>[^<]*<\/title>/i, `<title>${title}</title>`)
+    .replace(/<meta\b[^>]*(?:name=["'](?:description|twitter:title|twitter:description|twitter:image)["']|property=["']og:(?:title|description|url|site_name|image(?::(?:width|height|alt))?)["'])[^>]*>/gi, "")
+    .replace(/<link\b(?=[^>]*rel=["']canonical["'])[^>]*>/gi, "")
+    .replace("</head>", `<meta name="description" content="${description}">
+<link rel="canonical" href="${url}">
+<meta property="og:site_name" content="KT Companion">
+<meta property="og:image" content="https://ktcompanion.ru/brand/kt-companion/social.png">
+<meta name="twitter:image" content="https://ktcompanion.ru/brand/kt-companion/social.png">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${description}">
+<meta property="og:url" content="${url}">
+<meta name="twitter:title" content="${title}">
+<meta name="twitter:description" content="${description}"></head>`);
+}
+
+function companionHtml(source, pathname = "/combat") {
+  if (pathname === "/combat" || pathname === "/combat/") source = combatSearchHead(source);
   // Resolve shared chrome on the Companion server so header/account updates
   // apply even when an unchanged calculator build is reused across releases.
   const head = `<script src="/theme-boot.js?v=${ASSET_VERSION}" data-companion-only></script>
@@ -46,7 +68,7 @@ function sendFile(req, res, filename, missingStatus = 404) {
     if (path.extname(filename) === ".html") {
       fs.readFile(filename, "utf8", (readError, source) => {
         if (readError) { sendText(res, 500, "Server error"); return; }
-        const html = companionHtml(source);
+        const html = companionHtml(source, new URL(req.url, "http://localhost").pathname);
         res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": MIME[".html"], "Content-Length": Buffer.byteLength(html), "Cache-Control": "no-store" });
         res.end(req.method === "HEAD" ? undefined : html);
       });
@@ -98,4 +120,4 @@ function handleCombatRequest(req, res) {
   });
   return true;
 }
-module.exports = { handleCombatRequest };
+module.exports = { handleCombatRequest, companionHtml };

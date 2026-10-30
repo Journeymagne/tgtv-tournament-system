@@ -91,14 +91,13 @@ function tournamentFormatSummary(tournament) {
 
 function eventStatusUrl(status) {
   if (status === "cancelled") return "https://schema.org/EventCancelled";
-  if (status === "completed") return "https://schema.org/EventCompleted";
   return "https://schema.org/EventScheduled";
 }
 
 function jsonLdForTournament(origin, tournament) {
   const event = {
     "@context": "https://schema.org",
-    "@type": "Event",
+    "@type": "SportsEvent",
     name: tournament.name || "Kill Team tournament",
     description: metaDescription(tournament.description || tournament.rulesSummary),
     url: tournamentPublicUrl(origin, tournament),
@@ -226,8 +225,16 @@ function tournamentHtml(origin, tournament) {
   </head>
   <body data-companion-section="tournament">
     <div data-companion-nav></div>
+        <nav class="app-shell" aria-label="Breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+          <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><a itemprop="item" href="${escapeHtml(origin)}/"><span itemprop="name">KT Companion</span></a><meta itemprop="position" content="1"></span>
+          <span aria-hidden="true"> › </span>
+          <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><a itemprop="item" href="${escapeHtml(origin)}/tournament"><span itemprop="name">Kill Team tournaments</span></a><meta itemprop="position" content="2"></span>
+          <span aria-hidden="true"> › </span>
+          <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><span itemprop="name">${escapeHtml(tournament.name || "Kill Team tournament")}</span><meta itemprop="position" content="3"></span>
+        </nav>
     <div id="app" class="app-shell">
       <main class="public-tournament-layout">
+
         <section class="card panel public-tournament-shell">
           <div class="panel-header public-tournament-header">
             <div>
