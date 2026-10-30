@@ -225,7 +225,7 @@ function tournamentHtml(origin, tournament) {
   </head>
   <body data-companion-section="tournament">
     <div data-companion-nav></div>
-        <nav class="app-shell" aria-label="Breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        <nav style="width:min(1180px, calc(100% - 36px)); margin:18px auto" aria-label="Breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
           <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><a itemprop="item" href="${escapeHtml(origin)}/"><span itemprop="name">KT Companion</span></a><meta itemprop="position" content="1"></span>
           <span aria-hidden="true"> › </span>
           <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><a itemprop="item" href="${escapeHtml(origin)}/tournament"><span itemprop="name">Kill Team tournaments</span></a><meta itemprop="position" content="2"></span>
