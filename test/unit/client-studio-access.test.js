@@ -5,6 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { randomUUID } = require("node:crypto");
 const model = require("../../public/studio/model");
+const { version: sharedAssetVersion } = require("../../src/http/shared-assets.json");
 const source = fs.readFileSync(path.join(__dirname, "../../public/studio/account.js"), "utf8");
 const storage = (values = new Map()) => ({
   values, getItem: key => values.get(key) ?? null,
@@ -20,7 +21,10 @@ async function boot({ user = null, currentUser = user, loginSuccess = true, loca
     URL, URLSearchParams, crypto: { randomUUID }, location,
     history: { replaceState: (_state, _title, target) => { location.href = new URL(target, location.origin).href; } },
     sessionStorage: session, localStorage: local,
-    document: { getElementById: id => nodes[id], addEventListener() {} },
+    document: {
+      currentScript: { src: new URL(`/studio/account.js?v=${sharedAssetVersion}`, location).href },
+      getElementById: id => nodes[id], addEventListener() {}
+    },
     KTCompanion: { ready: Promise.resolve({ user }), session: async () => ({ user: currentUser }), changed() {} },
     KTStudioLogin: { open: async action => { loginActions.push(action); return loginSuccess; } },
     KTModel: model, ktStudio: { getData: () => structuredClone(project) },
@@ -40,6 +44,7 @@ test("guests can open the editor and use public requests without an account head
   assert.equal(guest.account.id, null);
   assert.equal(guest.nodes["studio-workspace"].hidden, false);
   assert.equal(guest.nodes["studio-gate"].hidden, true);
+  assert.equal(guest.requests[0].url, `/studio/scripts.json?v=${sharedAssetVersion}`);
   await guest.account.request("/api/library");
   assert.equal(guest.requests.at(-1).url, "/api/studio/library");
   assert.equal(guest.requests.at(-1).options.headers["X-Studio-Account"], undefined);
