@@ -130,6 +130,11 @@ test('team slots are independent sources and all scalar links stay inside their 
   ];
   for (const sql of invalid) await assert.rejects(pool.query(sql), error => error.code === '23503');
   await pool.query('UPDATE tournament_team_matches SET shield_a_member_id=51,sword_a_member_id=52 WHERE id=71');
+  await pool.query(`INSERT INTO tournament_team_matches(id,tournament_id,round_id,round_number,bracket_position,
+    roster_a_id,roster_b_id,resolution,phase) VALUES(72,1,1,1,2,41,NULL,'bye','completed')`);
+  for (const field of ['shield_b_member_id', 'sword_a_member_id']) {
+    await assert.rejects(pool.query(`UPDATE tournament_team_matches SET ${field}=52 WHERE id=72`), error => error.code === '23514');
+  }
   await assert.rejects(pool.query(`INSERT INTO games(player_ids,status,source_type,source_id,source_slot)
     VALUES('{}','open','team_match_game',71,1)`), error => error.code === '23505');
   await assert.rejects(pool.query('UPDATE games SET source_slot=3 WHERE id=81'), error => error.code === '23503');

@@ -70,7 +70,9 @@ module.exports = {
         const rosterSide = choice === 'shield' ? side : side === 'a' ? 'b' : 'a';
         await client.query(`ALTER TABLE tournaments.tournament_team_matches ADD CONSTRAINT team_match_${choice}_${side}_scope
           FOREIGN KEY(${column},roster_${rosterSide}_id) REFERENCES tournaments.tournament_team_roster_members(id,roster_id)
-          ON DELETE SET NULL (${column})`);
+          ON DELETE SET NULL (${column}),
+          ADD CONSTRAINT team_match_${choice}_${side}_requires_roster
+            CHECK(${column} IS NULL OR roster_${rosterSide}_id IS NOT NULL)`);
       }
     }
     await client.query(`
