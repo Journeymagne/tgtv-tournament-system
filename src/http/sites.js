@@ -7,12 +7,13 @@ const ROOT_DOCUMENTS = {
   tracker: "killteam-activation-tracker.html", tournament: "index.html", studio: "studio/index.html", dice: "dice/index.html", faq: "faq/index.html", training: "training/index.html"
 };
 const ALIASES = {
+  "/studio": "studio", "/dice": "dice", "/faq": "faq",
   "/training": "training", "/knowthykt/": "training",
   "/training/": "training", "/training/index.html": "training", "/know-thy-kill-team": "training", "/know-thy-kill-team/": "training",
   "/dice/": "dice", "/dice/index.html": "dice",
   "/home.html": "home", "/index.html": "tournament", "/tournament/": "tournament",
   "/studio/": "studio", "/studio/index.html": "studio", "/initiative/": "initiative", "/tracker/": "tracker",
-  "/faq/": "faq", "/faq/index.html": "faq", "/community-faq": "faq", "/community-faq/": "faq",
+  "/combat/": "combat", "/faq/": "faq", "/faq/index.html": "faq", "/community-faq": "faq", "/community-faq/": "faq",
   "/killteam-initiative-calculator.html": "initiative", "/killteam-activation-tracker.html": "tracker"
 };
 
@@ -47,6 +48,7 @@ function pageDestination(req, sites = COMPANION_SITES) {
       if (host === prefix + "." + canonical.host) pathname = SERVICE_PATHS[service];
     }
   }
+  if (/^\/(tournaments|teams)\/[^/]+\/$/.test(pathname)) pathname = pathname.slice(0, -1);
   const target = pathname + url.search;
   if (sites && new URL(sites.origin).host !== String(req.headers.host || "").toLowerCase()) return new URL(target, sites.origin).href;
   return pathname === url.pathname ? null : target;
@@ -64,7 +66,10 @@ function handleSiteRequest(req, res, sites = COMPANION_SITES) {
   const destination = pageDestination(req, sites);
   if (!destination) return false;
   // Browsers carry any legacy fragment to the destination automatically.
-  res.writeHead(302, { ...SECURITY_HEADERS, Location: destination, "Cache-Control": "no-store" });
+  // KTKT is excluded from this release; retain its existing redirect behavior.
+  const permanent = siteName(req) !== "training";
+  res.writeHead(permanent ? 301 : 302, { ...SECURITY_HEADERS, Location: destination,
+    "Cache-Control": permanent ? "public, max-age=3600" : "no-store" });
   res.end();
   return true;
 }

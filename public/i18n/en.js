@@ -208,8 +208,8 @@ const TGTV_I18N_EN = {
   "nav.openNavigation": "Open navigation",
   "nav.closeNavigation": "Close navigation",
   "nav.openProfile": "Open profile",
-  "nav.brand.name": "TGTV Ranking",
-  "nav.brand.subtitle": "Tournament System",
+  "nav.brand.name": "KT Companion",
+  "nav.brand.subtitle": "Kill Team Tournaments",
 
   // -- tiebreakers ----------------------------------------------------------
   "tiebreaker.strengthOfSchedule.label": "Strength of Schedule",
@@ -241,7 +241,7 @@ const TGTV_I18N_EN = {
 
   // -- auth -----------------------------------------------------------------
   "auth.brand.logoAlt": "TGTV logo",
-  "auth.brand.title": "TGTV Ranking Tournament System",
+  "auth.brand.title": "KT Companion",
   "auth.brand.tagline": "Kill Team challenges, Approved Ops results, and player ratings in one place.",
   "auth.tab.signIn": "Sign in",
   "auth.tab.register": "Register",
