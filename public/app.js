@@ -3647,7 +3647,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.4.24`;
+    script.src = `/admin.js?v=1.4.27`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -4277,9 +4277,21 @@ function achievementPicture(achievement) {
     : `<span class="achievement-emoji" aria-hidden="true">${escapeHtml(achievement.emoji)}</span>`;
 }
 
-function achievementCards(achievements, { compact = false } = {}) {
-  return achievements.length ? `<div class="${compact ? "profile-achievement-list" : "achievement-grid"}">${achievements.map((item) => `
-    <a class="${compact ? "profile-achievement-item" : "achievement-card"}" href="/tournament#/${state.administrationContext ? "administration/" : ""}achievements/${item.id}">
+function achievementCards(achievements, { compact = false, trainingTeams = [] } = {}) {
+  const en = i18n.getLocale() === 'en';
+  const cards = [
+    ...trainingTeams.filter(course => course.total || course.earned).map(course => ({
+      name: `${en ? 'Team expert' : 'Знаток команды'}: ${course.name}`,
+      imageUrl: killTeamLogoSrc(course.name), kind: 'player',
+      description: course.earned ? (en ? 'Achievement earned and retained' : 'Ачивка получена и сохранена')
+        : `${course.solved} / ${course.total} · ${en ? 'Answer every team question correctly at least once.' : 'Ответьте верно хотя бы один раз на каждый вопрос команды.'}`,
+      href: '/training?team=' + encodeURIComponent(course.id) + '#training'
+    })),
+    ...achievements.map(item => ({ ...item,
+      href: `/tournament#/${state.administrationContext ? 'administration/' : ''}achievements/${item.id}` }))
+  ];
+  return cards.length ? `<div class="${compact ? "profile-achievement-list" : "achievement-grid"}">${cards.map((item) => `
+    <a class="${compact ? "profile-achievement-item" : "achievement-card"}" href="${escapeHtml(item.href)}" title="${escapeHtml(achievementDescription(item))}">
       ${achievementPicture(item)}<strong>${escapeHtml(achievementTitle(item))}</strong>
       ${compact ? "" : `<span class="muted">${t(item.kind === "team" ? "achievements.team" : "achievements.personal")}</span>
       <span class="muted">${escapeHtml(achievementDescription(item))}</span>`}
@@ -4288,8 +4300,8 @@ function achievementCards(achievements, { compact = false } = {}) {
 
 function profileAchievementMarkup(data, compact) {
   return window.KTTrainingJourneyUI.achievement(data.trainingAchievement, { compact, locale: i18n.getLocale() })
-    + (data.trainingTeamAchievements || []).map(course => window.KTTrainingJourneyUI.teamAchievement(course, { compact, locale: i18n.getLocale() })).join('')
-    + (data.achievements.length || !data.trainingAchievement ? achievementCards(data.achievements, { compact }) : '');
+    + (data.achievements.length || data.trainingTeamAchievements?.length || !data.trainingAchievement
+      ? achievementCards(data.achievements, { compact, trainingTeams: data.trainingTeamAchievements || [] }) : '');
 }
 
 async function mountProfileAchievements(container, field, id) {
@@ -4450,8 +4462,7 @@ async function renderAchievements() {
           { id: "title", label: t("achievements.hallOfFame") }
         ], category, { publicTabs: true })}
         ${window.KTTrainingJourneyUI.achievement(data.trainingAchievement, { locale: i18n.getLocale() })}
-        ${(data.trainingTeamAchievements || []).map(course => window.KTTrainingJourneyUI.teamAchievement(course, { locale: i18n.getLocale() })).join('')}
-        ${achievementCards(data.achievements)}
+        ${achievementCards(data.achievements, { trainingTeams: data.trainingTeamAchievements || [] })}
         ${data.pagination ? paginationMarkup("achievements",data.pagination,"achievements.pagination.items") : ""}
         ${(state.administrationContext && state.me?.isAdmin) ? `<dialog class="tiebreaker-help-dialog achievement-create" aria-labelledby="achievement-create-title" data-achievement-dialog>
           <form data-achievement-create class="tiebreaker-help-content">

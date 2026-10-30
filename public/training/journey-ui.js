@@ -30,7 +30,7 @@
       ? (en ? 'Achievement earned and retained' : 'Ачивка получена и сохранена')
       : (en ? 'Answer every active team question correctly at least once, across any sessions.' : 'Ответьте верно хотя бы один раз на каждый действующий вопрос команды за любые сессии.');
     return `<a class="kt-training-achievement ${compact ? 'is-compact' : ''}" href="${esc(href || '/training?team=' + encodeURIComponent(course.id) + '#training')}" data-ui-skip>
-      <div class="kt-achievement-seal" data-tier="${course.earned ? 6 : 1}">${emblem(course.earned ? 6 : 1)}<span>${course.earned ? '✓' : '◇'}</span></div>
+      <div class="kt-achievement-seal"><img class="kt-team-emblem" src="/kill-team-logos/${esc(encodeURIComponent(course.name))}.webp" alt="" width="92" height="102" loading="lazy" decoding="async"></div>
       <div class="kt-achievement-copy"><span class="kt-achievement-label">${en ? 'TEAM ACHIEVEMENT' : 'АЧИВКА КОМАНДЫ'}</span><strong>${esc(course.name)}</strong><span class="kt-achievement-rank">${title}</span>
       <div class="kt-achievement-progress"><span>${course.solved} / ${course.total}</span><span>${course.earned ? (en ? 'EARNED' : 'ПОЛУЧЕНА') : course.percent + '%'}</span></div>
       <div class="kt-xp-track" role="progressbar" aria-label="${title}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${course.percent}"><span style="width:${course.percent}%"></span></div><small>${note}</small></div><span class="kt-achievement-arrow" aria-hidden="true">↗</span></a>`;
