@@ -7,5 +7,7 @@
 .kt-achievement-progress{display:flex;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:var(--muted);margin-top:7px}.kt-xp-track{height:6px;background:var(--panel-3);border-radius:10px;overflow:hidden}.kt-xp-track>span{display:block;height:100%;background:var(--accent);border-radius:inherit;transition:width .3s ease}.kt-achievement-copy>small{font-size:11px;line-height:1.5;color:var(--muted)}.kt-achievement-arrow{position:absolute;top:16px;right:16px;color:var(--quiet);font-size:16px}
 .kt-training-achievement.is-compact{padding:16px;gap:16px;margin-bottom:14px}.is-compact .kt-rank-emblem{width:62px;height:70px}.is-compact .kt-achievement-rank{font-size:20px}.is-compact .kt-achievement-copy>strong{font-size:13px}
 .kt-achievement-progress{flex-wrap:wrap;overflow-wrap:anywhere}
+.kt-team-emblem{display:block;width:92px;height:102px;object-fit:contain}.is-compact .kt-team-emblem{width:62px;height:70px}
+@media(max-width:450px){.kt-team-emblem{width:65px;height:76px}}
 @media(max-width:450px){.kt-training-achievement{gap:15px;padding:18px}.kt-rank-emblem{width:65px;height:76px}.kt-achievement-rank{font-size:22px}}
 @media(prefers-reduced-motion:reduce){.kt-xp-track>span{transition:none}}
