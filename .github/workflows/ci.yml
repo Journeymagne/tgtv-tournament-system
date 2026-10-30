@@ -5,17 +5,39 @@ on:
     branches: [main, "release/**"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Select affected checks
+    runs-on: ubuntu-latest
+    outputs:
+      root: ${{ steps.plan.outputs.root }}
+      combat: ${{ steps.plan.outputs.combat }}
+      tests: ${{ steps.plan.outputs.tests }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - id: plan
+        run: node scripts/ci-plan.js
+
   test:
-    name: Test
+    name: Affected application tests
+    needs: changes
+    if: needs.changes.outputs.root == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     services:
       postgres:
         image: postgres:16
@@ -30,28 +52,54 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-
     env:
       TEST_DATABASE_URL: postgres://tgtv:tgtv@127.0.0.1:5432/tgtv_test
       DATABASE_URL: postgres://tgtv:tgtv@127.0.0.1:5432/tgtv_test
-
+      RESOURCE_QUOTA_TEST_ROLES: "1"
+      CI_TEST_FILES: ${{ needs.changes.outputs.tests }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
+      - name: Install application dependencies without calculator build
+        run: npm ci --ignore-scripts
+      - name: Run selected tests
+        run: node scripts/ci-plan.js --run
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm test
-
-      - name: Run Combat Lab tests
-        run: npm run testq --prefix services/combat-lab -- --runInBand
+  combat:
+    name: Combat Lab
+    needs: changes
+    if: needs.changes.outputs.combat == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/combat-lab/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm ci --prefix services/combat-lab --ignore-scripts
+      - run: npm run testq --prefix services/combat-lab -- --runInBand
         env:
           CI: true
+
+  result:
+    name: CI result
+    if: always()
+    needs: [changes, test, combat]
+    runs-on: ubuntu-latest
+    env:
+      PLAN: ${{ needs.changes.result }}
+      ROOT_REQUIRED: ${{ needs.changes.outputs.root }}
+      ROOT_RESULT: ${{ needs.test.result }}
+      COMBAT_REQUIRED: ${{ needs.changes.outputs.combat }}
+      COMBAT_RESULT: ${{ needs.combat.result }}
+    steps:
+      - run: |
+          test "$PLAN" = success
+          if [ "$ROOT_REQUIRED" = true ]; then test "$ROOT_RESULT" = success; fi
+          if [ "$COMBAT_REQUIRED" = true ]; then test "$COMBAT_RESULT" = success; fi

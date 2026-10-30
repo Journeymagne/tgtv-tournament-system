@@ -20,9 +20,12 @@ instruction; do not ask again whether to create a local test administrator or si
 
 # Automated tests
 
-The full automated test suite runs in GitHub Actions CI (`.github/workflows/ci.yml`)
-on pushes and pull requests to `main`. CI runs `npm test` with a dedicated
-PostgreSQL test database.
+GitHub Actions CI (`.github/workflows/ci.yml`) selects affected service tests on
+pushes and pull requests to `main`. Shared guards always accompany selected root
+tests; shared backend changes select all root tests. Combat Lab runs separately
+when its sources, build tooling, CI workflow or Node.js runtime requirements change.
+The manual workflow dispatch runs the full suite. Integration checks use a dedicated
+PostgreSQL test database, including real isolated service roles and processes.
 
 Do not run automated tests locally, including before merging into `main`, unless
 the user explicitly requests a local run. Check the CI result for the relevant

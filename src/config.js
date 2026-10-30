@@ -6,7 +6,7 @@ const ROOT = path.join(__dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 
 const ENV_PATH = path.join(ROOT, ".env");
-if (fs.existsSync(ENV_PATH)) {
+if (process.env.TGTV_ENV_LOADED !== "1" && fs.existsSync(ENV_PATH)) {
   process.loadEnvFile(ENV_PATH);
 }
 

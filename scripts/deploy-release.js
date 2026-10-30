@@ -234,6 +234,17 @@ async function deploy([repo, app, name, envFile, mode]) {
     return;
   }
   if (interrupted) throw new Error("Deployment interrupted");
+  const serviceRuntime = require('./service-runtime');
+  const currentMode = serviceRuntime.readState(app)?.mode || 'monolith';
+  const runtimeMode = process.env.TGTV_RUNTIME_MODE || currentMode;
+  if (!['services', 'monolith'].includes(runtimeMode)) throw new Error('Invalid runtime mode');
+  if (runtimeMode === 'services' || currentMode === 'services') {
+    saveState('switching');
+    await serviceRuntime.switchRelease({ app, name, candidate, id, mode: runtimeMode,
+      migrationRollbackSafe: manifest.migrationRollbackSafe });
+    saveState('healthy');
+    return;
+  }
   console.log(manifest.migrationRollbackSafe ? "Migrations unchanged: automatic code rollback enabled." :
     "Migration compatibility is unverified: no automatic code rollback after the new server starts.");
   let touchedProcess = false;

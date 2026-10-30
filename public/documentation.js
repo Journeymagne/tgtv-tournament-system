@@ -1,9 +1,9 @@
 (function (root) {
   "use strict";
-  const pageIds = ["wtc-pairings", "swiss-tiebreakers", "elimination-tiebreakers", "team-tiebreakers", "mmr"];
+  const pageIds = ["wtc-pairings", "swiss-tiebreakers", "elimination-tiebreakers", "team-tiebreakers", "mmr", "handouts"];
   const labels = {
     ru: {
-      title: "Документация", intro: "Правила, по которым работает система: паринги, турнирные места и рейтинг.",
+      title: "Документация", intro: "Паринги, турнирные места, рейтинг и памятки для печати.",
       all: "Все разделы", contents: "На этой странице", read: "Открыть раздел", notFound: "Страница не найдена", signIn: "Войти", updated: "Обновлено",
       edit: "Редактировать", editor: "Редактор документации", language: "Язык документа", titleField: "Название страницы", summary: "Краткое описание",
       source: "Текст в Markdown", preview: "Предпросмотр", save: "Сохранить", saving: "Сохранение…", saved: "Изменения сохранены и видны всем.", close: "Закрыть редактор",
@@ -21,7 +21,7 @@
       "documentation.conflict": "Страница уже изменена в другой вкладке или другим администратором. Ваш черновик сохранён. Скачайте его перед отменой изменений и загрузкой актуальной версии."
     },
     en: {
-      title: "Documentation", intro: "How the system works: pairings, tournament standings and ratings.",
+      title: "Documentation", intro: "Pairings, tournament standings, ratings and printable handouts.",
       all: "All sections", contents: "On this page", read: "Read section", notFound: "Page not found", signIn: "Sign in", updated: "Updated",
       edit: "Edit", editor: "Documentation editor", language: "Document language", titleField: "Page title", summary: "Short description",
       source: "Markdown text", preview: "Preview", save: "Save", saving: "Saving…", saved: "Changes saved and visible to everyone.", close: "Close editor",

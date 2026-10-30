@@ -3,11 +3,12 @@ const crypto = require("node:crypto");
 const tournamentsRepo = require("../db/repositories/tournaments");
 const { SECURITY_HEADERS } = require("./io");
 const { siteOrigin } = require("./sites");
+const { SERVICE_PATHS } = require("../domain/sites");
 
-const SITE_NAME = "TGTV Ranking Tournament System";
+const SITE_NAME = "KT Companion";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.4.18";
+const ASSET_VERSION = "1.4.21";
 
 function requestOrigin(req) {
   const serviceOrigin = siteOrigin(req);
@@ -104,7 +105,7 @@ function jsonLdForTournament(origin, tournament) {
     eventStatus: eventStatusUrl(tournament.status),
     organizer: {
       "@type": "Organization",
-      name: "TGTV Ranking"
+      name: "KT Companion"
     },
     sport: "Warhammer 40k Kill Team"
   };
@@ -294,7 +295,7 @@ function robotsTxt(origin) {
 
 function sitemapXml(origin, tournaments) {
   const urls = [
-    { loc: `${origin}/`, lastmod: null },
+    ...Object.values(SERVICE_PATHS).map((pathname) => ({ loc: `${origin}${pathname}`, lastmod: null })),
     ...tournaments.map((tournament) => ({
       loc: tournamentPublicUrl(origin, tournament),
       lastmod: tournament.completedAt || tournament.publishedAt || tournament.createdAt || null

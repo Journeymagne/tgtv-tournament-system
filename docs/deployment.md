@@ -1,5 +1,14 @@
 # Linux release deployment
 
+## Website analytics
+
+Umami runs independently in `/app/ktcompanion-analytics`, with its own PostgreSQL
+volume and a digest-pinned container image. Nginx injects the tracker into all
+services' HTML. Preserve its two includes in the public HTTPS site and its map
+in `/etc/nginx/conf.d/ktcompanion-analytics.conf` when updating Nginx; normal
+application releases require no analytics configuration changes.
+See [installation, dashboard and backups](../deploy/umami/README.md).
+
 ## Upgrading to 1.4.0
 
 Release 1.4.0 includes migrations 057–060; 056 is intentionally reserved.
