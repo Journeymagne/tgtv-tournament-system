@@ -355,7 +355,7 @@ test("rosters receive per-team tournament defaults or custom names and hide fact
   const game = await withTransaction(async (client) => {
     const gamesRepo = require("../../src/db/repositories/games");
     const matchesRepo = require("../../src/db/repositories/team-matches");
-    const saved = await gamesRepo.insert(client, { sourceType: "team_match_game", sourceId: match.id, playerIds: [memberA.userId, memberB.userId] });
+    const saved = await gamesRepo.insert(client, { sourceType: "team_match_game", sourceId: match.id, sourceSlot: 1, playerIds: [memberA.userId, memberB.userId] });
     await matchesRepo.insertGameLink(client, { teamMatchId: match.id, gameId: saved.id, slot: 1, rosterAMemberId: memberA.id, rosterBMemberId: memberB.id, mission: { critOp: "Loot" } });
     await client.query("UPDATE games SET status = 'completed', result = $2::jsonb WHERE id = $1", [saved.id, JSON.stringify({ scores: { [memberA.userId]: { total: 18, tac: 6 }, [memberB.userId]: { total: 10, tac: 3 } } })]);
     await matchesRepo.update(client, match.id, { phase: "completed", teamTournamentPointsA: 2, teamTournamentPointsB: 0, teamGamePointsA: 18, teamGamePointsB: 2 });

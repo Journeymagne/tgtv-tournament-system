@@ -38,32 +38,30 @@ const CHECKS = [
     sql: `SELECT COUNT(*)::int AS count
           FROM tournament_matches tm
           JOIN games g ON g.id = tm.game_id
-          WHERE tm.status IN ('active', 'pending_confirmation', 'completed')
+          WHERE tm.is_bye = FALSE AND tm.status IN ('active', 'pending_confirmation', 'completed')
             AND g.status <> CASE tm.status
             WHEN 'active' THEN 'open'
             ELSE tm.status
           END`
   },
   {
-    name: "compatibility result mismatches",
-    sql: `SELECT COUNT(*)::int AS count
-          FROM tournament_matches tm
-          JOIN games g ON g.id = tm.game_id
-          WHERE g.result IS DISTINCT FROM tm.result
-             OR g.pending_result IS DISTINCT FROM tm.pending_result
-             OR g.elo IS DISTINCT FROM tm.elo`
+    name: "duplicate game sources",
+    sql: `SELECT COUNT(*)::int AS count FROM (
+            SELECT source_type,source_id,source_slot FROM games WHERE source_id IS NOT NULL
+            GROUP BY source_type,source_id,source_slot HAVING COUNT(*)>1
+          ) duplicates`
   }
 ];
 
 async function main() {
   const pool = getPool();
   const migration = await pool.query(
-    "SELECT version, name, applied_at FROM schema_migrations WHERE version = 10"
+    "SELECT version, name, applied_at FROM schema_migrations WHERE version = 80"
   );
-  if (!migration.rowCount) throw new Error("Migration 010 is not applied");
+  if (!migration.rowCount) throw new Error("Migration 080 is not applied");
 
   let failed = false;
-  console.log(`Migration 010 applied at ${migration.rows[0].applied_at.toISOString()}`);
+  console.log(`Migration 080 applied at ${migration.rows[0].applied_at.toISOString()}`);
   for (const check of CHECKS) {
     const { rows } = await pool.query(check.sql);
     const count = rows.reduce((sum, row) => sum + Number(row.count || 0), 0);

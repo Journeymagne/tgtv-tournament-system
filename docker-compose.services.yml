@@ -37,10 +37,13 @@ services:
     image: kt-companion-services:${SERVICE_IMAGE_TAG:-local}
     command: ["node", "scripts/prepare-services-db.js"]
     restart: "no"
+    volumes:
+      - database_backups:/app/work/backups
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      DB_BACKUP_DIR: /app/work/backups
       DATABASE_URL: postgres://tgtv:${DB_PASSWORD}@postgres:5432/tgtv_tournament
       ACCOUNTS_DB_PASSWORD: ${ACCOUNTS_DB_PASSWORD:?Set a random hexadecimal password}
       NOTIFICATIONS_DB_PASSWORD: ${NOTIFICATIONS_DB_PASSWORD:?Set a random hexadecimal password}
@@ -117,3 +120,6 @@ services:
       <<: *env
       SERVICE_NAME: calculators
       DATABASE_URL: ""
+
+volumes:
+  database_backups:

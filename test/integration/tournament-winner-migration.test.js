@@ -11,7 +11,7 @@ let client;
 test.before(async () => {
   pool = new Pool(require("../helpers/schema").poolOptions);
   await require("../helpers/schema").resetSchemas(pool);
-  await migrate(pool);
+  await require("../helpers/migrate-through").migrateThrough(pool, 78);
 });
 test.after(async () => { await pool.end(); });
 test.beforeEach(async () => {

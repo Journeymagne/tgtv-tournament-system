@@ -116,7 +116,7 @@ test("a completed proxy game keeps its identity and empty faction after replacem
     [key(paired[0])]: { total: 15 }, [key(paired[1])]: { total: 5 }
   } };
   const game = await withTransaction(async client => {
-    const saved = await gamesRepo.insert(client, { sourceType: "team_match_game", sourceId: match.id, playerIds: [],
+    const saved = await gamesRepo.insert(client, { sourceType: "team_match_game", sourceId: match.id, sourceSlot: 1, playerIds: [],
       participants: paired.map(member => ({ userId: null, resultKey: key(member),
         displayNameSnapshot: member.displayNameSnapshot, factionSnapshot: "", isProxy: true })) });
     await matchesRepo.insertGameLink(client, { teamMatchId: match.id, gameId: saved.id, slot: 1,

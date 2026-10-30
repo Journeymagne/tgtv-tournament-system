@@ -1273,6 +1273,7 @@ async function createPersonalGames(client, context, assignments, user, body = {}
       playerIds: [memberA.userId, memberB.userId].filter(Number.isInteger),
       sourceType: "team_match_game",
       sourceId: context.match.id,
+      sourceSlot: assignment.slot,
       venueMode: context.tournament.venueMode,
       participants: [
         { userId: memberA.userId, resultKey: participantResultKey(memberA), displayNameSnapshot: memberA.displayNameSnapshot, factionSnapshot: memberA.factionSnapshot, isProxy: memberA.isProxy },

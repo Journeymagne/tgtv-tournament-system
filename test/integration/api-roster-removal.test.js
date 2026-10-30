@@ -76,7 +76,7 @@ async function personalGames(match, completedCount = 3) {
     for (let slot = 0; slot < 3; slot++) {
       const a = match.rosterA.members[slot];
       const b = match.rosterB.members[slot];
-      const game = await gamesRepo.insert(client, { sourceType: "team_match_game", sourceId: match.id, playerIds: [a.userId, b.userId] });
+      const game = await gamesRepo.insert(client, { sourceType: "team_match_game", sourceId: match.id, sourceSlot: slot + 1, playerIds: [a.userId, b.userId] });
       await matchesRepo.insertGameLink(client, { teamMatchId: match.id, gameId: game.id, slot: slot + 1, rosterAMemberId: a.id, rosterBMemberId: b.id, mission: {} });
       if (slot < completedCount) {
         await gamesRepo.saveFinalResult(client, game.id, {

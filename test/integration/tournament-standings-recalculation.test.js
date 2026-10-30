@@ -58,9 +58,9 @@ test.beforeEach(async () => {
     await client.query(`INSERT INTO games (id,player_ids,status,source_type,source_id,result,elo)
       VALUES ($1,$2,'completed','tournament_match',$3,$4,'{"preserve":"elo"}')`, [gameId,[userA,userB],id,result]);
     await client.query(`INSERT INTO tournament_matches (id,tournament_id,round_id,round_number,status,
-      participant_a_id,participant_b_id,winner_participant_id,result,match_points,game_id)
-      VALUES ($1,10,$2,$3,'completed',$4,$5,$6,$7,$8,$9)`,
-    [id,round,round === 80 ? 1 : 2,a,b,recordedWinner,result,{ [a]: recordedWinner === a ? 3 : 0, [b]: recordedWinner === b ? 3 : 0 },gameId]);
+      participant_a_id,participant_b_id,winner_participant_id,match_points,game_id)
+      VALUES ($1,10,$2,$3,'completed',$4,$5,$6,$7,$8)`,
+    [id,round,round === 80 ? 1 : 2,a,b,recordedWinner,{ [a]: recordedWinner === a ? 3 : 0, [b]: recordedWinner === b ? 3 : 0 },gameId]);
     await client.query(`INSERT INTO game_participants (game_id,slot,user_id,tournament_participant_id,result_key,display_name_snapshot)
       VALUES ($1,1,$2,$3,$2,'A'),($1,2,$4,$5,$4,'B')`, [gameId,userA,a,userB,b]);
   }

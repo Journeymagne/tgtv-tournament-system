@@ -13,6 +13,7 @@
     "start:service": "node scripts/start-service.js",
     "start:services": "node scripts/start-services.js",
     "db:migrate": "node scripts/migrate.js",
+    "db:backup": "node scripts/backup-db.js",
     "db:provision-services": "node scripts/provision-service-roles.js",
     "telegram:setup": "node scripts/setup-telegram.js",
     "verify:migration:canonical-games": "node scripts/verify-canonical-games-migration.js",

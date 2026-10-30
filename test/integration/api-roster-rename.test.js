@@ -130,7 +130,7 @@ test("renaming preserves prepared and live rounds, members, captain and scores; 
     const match = (await matches.listByTournament(client, cup.id)).find(row => row.rosterAId === roster.id || row.rosterBId === roster.id);
     const a = (await rosters.findById(client, match.rosterAId)).members[0];
     const b = (await rosters.findById(client, match.rosterBId)).members[0];
-    const game = await games.insert(client, { sourceType: "team_match_game", sourceId: match.id, playerIds: [a.userId, b.userId] });
+    const game = await games.insert(client, { sourceType: "team_match_game", sourceId: match.id, sourceSlot: 1, playerIds: [a.userId, b.userId] });
     await matches.insertGameLink(client, { teamMatchId: match.id, gameId: game.id, slot: 1, rosterAMemberId: a.id, rosterBMemberId: b.id, mission: {} });
     await games.saveFinalResult(client, game.id, {
       result: { winnerId: a.userId, scores: { [a.userId]: { total: 15, tac: 5 }, [b.userId]: { total: 5, tac: 1 } } },

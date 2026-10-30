@@ -240,7 +240,7 @@ for (const phase of ["awaiting_roll", "in_progress", "completed"]) {
     // A completed personal game must protect an unfinished team match too.
     if (phase === "in_progress") {
       const { rows: [game] } = await getPool().query(
-        "INSERT INTO games (player_ids, status, source_type, source_id) VALUES ($1, 'completed', 'team_match_game', $2) RETURNING id",
+        "INSERT INTO games (player_ids, status, source_type, source_id, source_slot) VALUES ($1, 'completed', 'team_match_game', $2, 1) RETURNING id",
         [[leader.id, member.id], match.id]
       );
       await getPool().query(

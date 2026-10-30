@@ -62,6 +62,50 @@ test("повторный migrate ничего не применяет", async ()
   assert.deepEqual(applied, []);
 });
 
+test("index cleanup upgrades existing tournaments while retaining uniqueness", async () => {
+  await migrate(pool);
+  // Restore the released indexes and replay only the cleanup, with saved data.
+  await pool.query(`
+    CREATE INDEX idx_tournament_rounds_tournament_id ON tournaments.tournament_rounds(tournament_id);
+    CREATE INDEX idx_tournament_tables_tournament_id ON tournaments.tournament_tables(tournament_id);
+    CREATE INDEX idx_tournament_team_matches_round ON tournaments.tournament_team_matches(round_id);
+    CREATE INDEX idx_tournament_team_match_games_match ON tournaments.tournament_team_match_games(team_match_id, slot);
+    DELETE FROM schema_migrations WHERE version = 78;
+  `);
+  const cup = (await pool.query(`INSERT INTO tournaments(slug,status,format)
+    VALUES ('index-cleanup','draft','swiss') RETURNING id`)).rows[0];
+  const round = (await pool.query(`INSERT INTO tournament_rounds(tournament_id,round_number,status)
+    VALUES ($1,1,'not_ready') RETURNING *`, [cup.id])).rows[0];
+  const table = (await pool.query(`INSERT INTO tournament_tables(tournament_id,table_number)
+    VALUES ($1,1) RETURNING *`, [cup.id])).rows[0];
+
+  assert.deepEqual(await migrate(pool), [78]);
+  assert.deepEqual((await pool.query("SELECT * FROM tournament_rounds WHERE id=$1", [round.id])).rows, [round]);
+  assert.deepEqual((await pool.query("SELECT * FROM tournament_tables WHERE id=$1", [table.id])).rows, [table]);
+  const { rows } = await pool.query(`SELECT indexname FROM pg_indexes WHERE schemaname='tournaments'
+    AND indexname = ANY($1::text[])`, [[
+    'idx_tournament_rounds_tournament_id', 'idx_tournament_tables_tournament_id',
+    'idx_tournament_team_matches_round', 'idx_tournament_team_match_games_match'
+  ]]);
+  assert.deepEqual(rows, []);
+  // All four retained indexes must still belong to valid UNIQUE constraints.
+  const unique = await pool.query(`SELECT c.conrelid::regclass::text AS table_name
+    FROM pg_constraint c JOIN pg_index i ON i.indexrelid=c.conindid
+    WHERE c.contype='u' AND i.indisunique AND i.indisvalid
+      AND pg_get_constraintdef(c.oid) = ANY($1::text[])
+      AND c.conrelid = ANY($2::regclass[])`, [[
+    'UNIQUE (tournament_id, round_number)', 'UNIQUE (tournament_id, table_number)',
+    'UNIQUE (round_id, bracket_position)', 'UNIQUE (team_match_id, slot)'
+  ], ['tournaments.tournament_rounds', 'tournaments.tournament_tables',
+    'tournaments.tournament_team_matches', 'tournaments.tournament_team_match_games']]);
+  assert.equal(unique.rowCount, 4);
+  await assert.rejects(pool.query(`INSERT INTO tournament_rounds(tournament_id,round_number,status)
+    VALUES ($1,1,'not_ready')`, [cup.id]), err => err.code === '23505');
+  await assert.rejects(pool.query(`INSERT INTO tournament_tables(tournament_id,table_number)
+    VALUES ($1,1)`, [cup.id]), err => err.code === '23505');
+  assert.deepEqual(await migrate(pool), []);
+});
+
 test("round cascade upgrade repairs restored FK order without changing saved rounds or weakening scope", async () => {
   await migrate(pool);
   // Recreate the pre-070 schema in dump/restore order: scope FK before the
@@ -407,7 +451,7 @@ test("Studio review migrations preserve publications and backfill the latest rat
 });
 
 test("migration 010 creates a canonical Game for a tournament match with a guest", async () => {
-  await migrate(pool);
+  await require("../helpers/migrate-through").migrateThrough(pool, 7);
   const user = await pool.query(
     `INSERT INTO users (name, name_key, password_hash, rating, is_admin)
      VALUES ('Alpha', 'alpha', 'salt:hash', 1000, true)
@@ -450,9 +494,7 @@ test("migration 010 creates a canonical Game for a tournament match with a guest
     ]
   );
 
-  await pool.query("DELETE FROM schema_migrations WHERE version = 10");
-  const applied = await migrate(pool);
-  assert.ok(applied.includes(10));
+  await require('../../src/db/migrations/010_canonical_tournament_games').up(pool);
 
   const games = await pool.query(
     `SELECT g.id, g.player_ids, g.source_id, tm.game_id

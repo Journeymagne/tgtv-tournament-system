@@ -74,7 +74,10 @@ const MIGRATIONS = [
   require("./migrations/074_documentation_handouts_refresh"),
   require("./migrations/075_documentation_combined_octarius"),
   require("./migrations/076_documentation_octarius_a4"),
-  require("./migrations/077_documentation_handouts_layout")
+  require("./migrations/077_documentation_handouts_layout"),
+  require("./migrations/078_tournament_index_cleanup"),
+  require("./migrations/079_tournament_relations"),
+  require("./migrations/080_canonical_match_results")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
@@ -102,6 +105,17 @@ async function migrate(pool) {
     await guard.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_ID]);
     await guard.query(JOURNAL);
     const done = await appliedVersions(guard);
+    const needsNormalization = MIGRATIONS.some(m => (m.version === 79 || m.version === 80) && !done.has(m.version));
+    // Tests already reset a dedicated disposable database before migration.
+    const disposableTest = process.env.NODE_TEST_CONTEXT && process.env.TEST_DATABASE_URL &&
+      pool.options.connectionString === process.env.TEST_DATABASE_URL;
+    if (needsNormalization && !disposableTest) {
+      const { rows } = await guard.query("SELECT COALESCE(to_regclass('accounts.users'),to_regclass('public.users')) IS NOT NULL AS existing");
+      if (rows[0].existing) {
+        const backup = await require('./backup').backupDatabase(pool.options.connectionString, { ssl: pool.options.ssl });
+        console.log(JSON.stringify({ level: 'info', msg: 'verified database backup', ...backup }));
+      }
+    }
     const applied = [];
     for (const migration of MIGRATIONS) {
       if (done.has(migration.version)) continue;

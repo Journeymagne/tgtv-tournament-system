@@ -16,9 +16,7 @@ test.before(async () => {
   await migrate(pool);
 });
 test.after(async () => { await pool.end(); });
-test.beforeEach(async () => {
-  client = await pool.connect();
-  await client.query('BEGIN');
+async function fixtures() {
   await client.query(`INSERT INTO users (id, name, name_key, password_hash) VALUES
     (178, 'Tony', 'tony', 's:h'), (124, 'Corias', 'corias', 's:h');
     INSERT INTO tournaments (id, slug, name, status, format) VALUES
@@ -31,6 +29,12 @@ test.beforeEach(async () => {
       (80, 10, 1, 'active'), (90, 20, 1, 'active');
     INSERT INTO tournament_matches (id, tournament_id, round_id, round_number, status, participant_a_id, participant_b_id)
       VALUES (199, 10, 80, 1, 'active', 124, 108);`);
+}
+
+test.beforeEach(async () => {
+  client = await pool.connect();
+  await client.query('BEGIN');
+  await fixtures();
 });
 test.afterEach(async () => { await client.query('ROLLBACK'); client.release(); });
 
@@ -41,7 +45,9 @@ async function rejected(sql, values, code = '23514') {
 }
 
 test('SQL and repository writes cannot store a colliding user ID as the losing participant', async () => {
-  await rejected(`UPDATE tournament_matches SET status='completed', winner_participant_id=124, result=$1 WHERE id=199`, [result]);
+  await client.query('SAVEPOINT invalid_result');
+  await assert.rejects(matches.update(client, 199, { status: 'completed', winnerParticipantId: 124, result }), error => error.code === '23514');
+  await client.query('ROLLBACK TO SAVEPOINT invalid_result');
   const match = await matches.update(client, 199, { status: 'completed', result,
     winnerParticipantId: 108, matchPoints: { 124: 0, 108: 3 } });
   assert.equal(match.winnerParticipantId, 108);
@@ -72,6 +78,8 @@ test('draws and byes remain valid; guest keys never use the positive participant
   await matches.update(client, 199, { status: 'completed', result: { ...result, winnerId: null }, winnerParticipantId: null });
   await rejected('UPDATE tournament_matches SET winner_participant_id=108 WHERE id=199');
   await client.query('UPDATE tournament_participants SET user_id=NULL WHERE id=124');
+  // Explicitly replace the seat's canonical identity; account deletion alone must preserve its old key.
+  await client.query("UPDATE game_participants SET user_id=NULL,result_key=-124 WHERE tournament_participant_id=124");
   const guestResult = { winnerId: -124, scores: { '-124': { total: 16 }, 124: { total: 15 } } };
   const match = await matches.update(client, 199, { result: guestResult, winnerParticipantId: 124 });
   assert.equal(match.result.scoresByParticipantId[124].total, 16);
@@ -92,6 +100,9 @@ test('account deletion preserves the original game key and participant score sna
 });
 
 test('upgrade snapshots resolvable scores without guessing or rejecting unrelated legacy winners', async () => {
+  await require('../helpers/schema').resetSchemas(client);
+  await require('../helpers/migrate-through').migrateThrough(client, 78);
+  await fixtures();
   await client.query(`DROP TRIGGER tournament_match_identity_guard ON tournament_matches;
     DROP FUNCTION guard_tournament_match_identity();
     ALTER TABLE tournament_matches DROP CONSTRAINT tournament_match_winner_side,

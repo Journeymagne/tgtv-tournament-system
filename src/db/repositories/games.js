@@ -192,13 +192,13 @@ async function findActiveBetween(client, userId, otherUserId) {
 
 async function insert(
   client,
-  { challengeId, playerIds, sourceType = "challenge", sourceId = null, venueMode = "tts", participants = null }
+  { challengeId, playerIds, sourceType = "challenge", sourceId = null, sourceSlot = 0, venueMode = "tts", participants = null }
 ) {
   const venue = venueMode === "irl" ? "irl" : "tts";
   const { rows } = await client.query(
-    `INSERT INTO games (challenge_id, player_ids, status, source_type, source_id, venue_mode)
-     VALUES ($1, $2, 'open', $3, $4, $5) RETURNING ${COLUMNS}`,
-    [challengeId || null, playerIds, sourceType, sourceId, venue]
+    `INSERT INTO games (challenge_id, player_ids, status, source_type, source_id, venue_mode, source_slot)
+     VALUES ($1, $2, 'open', $3, $4, $5, $6) RETURNING ${COLUMNS}`,
+    [challengeId || null, playerIds, sourceType, sourceId ?? (sourceType === "challenge" ? challengeId || null : null), venue, sourceSlot]
   );
   const game = mapGame(rows[0]);
   if (Array.isArray(participants) && participants.length) {

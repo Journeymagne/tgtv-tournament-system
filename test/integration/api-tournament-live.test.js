@@ -84,7 +84,7 @@ test("non-owner admin restores first-round pairs and images; all roster members 
   assert.equal(restored.tables[0].imageId, generated.tables[0].imageId);
   assert.equal(restored.tournament.roundDraft, null);
   const match = restored.teamMatches[0];
-  const game = await games.insert(client, { sourceType: "team_match_game", sourceId: match.id, playerIds: [match.rosterA.members[0].userId, match.rosterB.members[0].userId] });
+  const game = await games.insert(client, { sourceType: "team_match_game", sourceSlot: 1, sourceId: match.id, playerIds: [match.rosterA.members[0].userId, match.rosterB.members[0].userId] });
   await matches.insertGameLink(client, { teamMatchId: match.id, gameId: game.id, slot: 1, rosterAMemberId: match.rosterA.members[0].id, rosterBMemberId: match.rosterB.members[0].id, mission: {} });
   await client.query("UPDATE games SET status='pending_confirmation', pending_result='{}' WHERE id=$1", [game.id]);
   await assert.rejects(() => cups.rollbackLatestRoundAdmin(context(tournament)), /submitted team-match results/);
@@ -208,7 +208,7 @@ test("statistics expose each confirmed personal game before its team match finis
   for (let index = 0; index < 3; index++) {
     const a = match.rosterA.members[index];
     const b = match.rosterB.members[index];
-    const game = await games.insert(client, { sourceType: "team_match_game", sourceId: match.id, playerIds: [a.userId, b.userId] });
+    const game = await games.insert(client, { sourceType: "team_match_game", sourceSlot: index + 1, sourceId: match.id, playerIds: [a.userId, b.userId] });
     await matches.insertGameLink(client, { teamMatchId: match.id, gameId: game.id, slot: index + 1,
       rosterAMemberId: a.id, rosterBMemberId: b.id, mission: {} });
     personal.push(game);
@@ -290,7 +290,7 @@ test("editing active tables preserves pending/completed results, captain choices
     pairingHistory: [{ action: "environment", before: { phase: "environment_selection", environment: { step: 4, assignments } } }]
   });
   for (const [index, status] of ["pending_confirmation", "completed"].entries()) {
-    const game = await games.insert(client, { sourceType: "team_match_game", sourceId: first.id, playerIds: [first.rosterA.members[index].userId, first.rosterB.members[index].userId] });
+    const game = await games.insert(client, { sourceType: "team_match_game", sourceSlot: index + 1, sourceId: first.id, playerIds: [first.rosterA.members[index].userId, first.rosterB.members[index].userId] });
     await matches.insertGameLink(client, { teamMatchId: first.id, gameId: game.id, slot: index + 1,
       rosterAMemberId: first.rosterA.members[index].id, rosterBMemberId: first.rosterB.members[index].id, tableId: table.id, mission });
     await client.query("UPDATE games SET status=$2, pending_result=$3::jsonb, result=$4::jsonb, elo=$5::jsonb WHERE id=$1",

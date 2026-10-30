@@ -63,7 +63,7 @@ async function match(cup, roundNumber, aIndex, bIndex, totals, oldPoints = [3, 0
   for (let index = 0; index < totals.length; index += 1) {
     const memberA = a.members[index], memberB = b.members[index];
     const game = await games.insert(client, {
-      playerIds: [memberA.userId, memberB.userId], sourceType: "team_match_game", sourceId: created.id
+      playerIds: [memberA.userId, memberB.userId], sourceType: "team_match_game", sourceId: created.id, sourceSlot: index + 1
     });
     await games.saveFinalResult(client, game.id, {
       result: { scores: {

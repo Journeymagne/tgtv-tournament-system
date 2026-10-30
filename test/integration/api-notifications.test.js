@@ -162,6 +162,7 @@ async function createTeamPairing() {
     challengeId: null,
     playerIds: [alpha.id, bravo.id],
     sourceType: "team_match_game",
+    sourceSlot: 1,
     sourceId: matchRows[0].id,
     participants: [
       { userId: alpha.id, resultKey: alpha.id, displayNameSnapshot: alpha.name, factionSnapshot: "Kasrkin" },
