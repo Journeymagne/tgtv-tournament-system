@@ -7,7 +7,9 @@
 | Format | Download | Pages |
 | --- | --- | --- |
 | A4 landscape — two A5 handouts per sheet | [Download A4 PDF](/handouts/killzone-handouts-a4-2up.pdf?v=20261030-4) | 2 sheets |
-| A5 — individual handouts | [Download A5 PDF](/handouts/killzone-handouts-a5.pdf?v=20261030-4) | 4 pages |
+| A5 — individual handouts | [Download A5 PDF](/handouts/killzone-handouts-a5.pdf?v=20261030-5) | 5 pages |
+
+The combined A5 PDF includes the Octarius reference based on the supplied PDF, styled for KT Companion, as page 5. The combined A4 PDF contains the original four handouts; Octarius A4 is available separately below.
 
 ## Octarius
 

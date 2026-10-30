@@ -71,7 +71,8 @@ const MIGRATIONS = [
   require("./migrations/071_documentation_handouts"),
   require("./migrations/072_training_team_courses"),
   require("./migrations/073_training_archon_questions"),
-  require("./migrations/074_documentation_handouts_refresh")
+  require("./migrations/074_documentation_handouts_refresh"),
+  require("./migrations/075_documentation_combined_octarius")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
