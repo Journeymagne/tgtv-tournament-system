@@ -2,6 +2,8 @@
   'use strict';
   // Question content uses the version-matched question-language catalogue.
   window.KTUI.register('training', { pairs: [
+    ['Вопрос недоступен в выбранном курсе. Обновите банк.', 'This question is unavailable in the selected course. Refresh the bank.'],
+    ['В этом курсе и сложности не осталось новых вопросов. Выберите вопрос в банке для повторения.', 'No new questions remain for this course and difficulty. Choose a question in the bank to practise.'],
     ['До 20 вопросов без повторов', 'Up to 20 questions without repeats'],
     ['Пора пройти переаттестацию', 'Time to recertify'], ['Пройти переаттестацию →', 'Recertify →'], ['Прогресс переаттестации', 'Recertification progress'],
     ['База обновилась. Ваше звание и заработанный опыт сохранены. Подтвердите знания по актуальным вопросам в обычных тренировках.', 'The course has changed. Your title and earned XP are retained. Confirm your knowledge of the current questions in regular training sessions.'],

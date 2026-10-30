@@ -77,7 +77,7 @@
   const formatDate = iso => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
   const modeName = mode => mode === 'mixed' ? t('Все сложности', 'All difficulties') : t(levelNames[mode], { 1: 'Recruit', 2: 'Fighter', 3: 'Veteran', 4: 'Expert' }[mode]);
   const courseName = team => teams.teams.find(value => value.id === team)?.name || t('Общие правила', 'Core rules');
-  const sessionName = session => courseName(session.team) + ' · ' + modeName(session.mode);
+  const sessionName = session => courseName(session.team) + ' · ' + (session.items[0]?.targetQuestionId ? t('Выбранный вопрос', 'Selected question') : modeName(session.mode));
   const sessionAccuracy = session => Math.round(score(session) / Math.max(1, answered(session)) * 100);
   const sessionAchievement = session => session.team && session.team !== 'core'
     ? journeyUI.teamAchievement(teamAchievements().find(course => course.id === session.team), { locale: window.KTUI.locale() }) : achievement();
