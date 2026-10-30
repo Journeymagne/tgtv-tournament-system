@@ -11,12 +11,27 @@ function run(binary, args, env, output) {
     child.stderr.on('data', data => { stderr = (stderr + data).slice(-4000); });
     child.on('error', error => reject(new Error(`Cannot run ${path.basename(binary)}: ${error.code}. Install PostgreSQL client tools or configure PG_DUMP_BIN / PG_RESTORE_BIN.`)));
     child.on('close', code => {
-      const safeError = stderr.split(env.PGDATABASE || '\0').join('[database]')
+      const safeError = stderr.split(env.PGPASSWORD || '\0').join('[redacted]')
         .replace(/(password\s*[=:]\s*)\S+/gi, '$1[redacted]');
       if (code === 0) resolve();
       else reject(new Error(`${path.basename(binary)} failed (${code}). Backup not verified; migration aborted. ${safeError}`));
     });
   });
+}
+
+function connectionEnvironment(target, ssl) {
+  // libpq does not expand a URI taken from PGDATABASE into connection options.
+  // Pass the standard variables individually; credentials stay out of argv.
+  const env = { ...process.env, PGHOST: target.hostname.replace(/^\[|\]$/g, ''),
+    PGPORT: target.port || '5432', PGDATABASE: decodeURIComponent(target.pathname.slice(1)),
+    PGUSER: decodeURIComponent(target.username), PGPASSWORD: decodeURIComponent(target.password) };
+  for (const [parameter, variable] of Object.entries({ sslmode: 'PGSSLMODE', sslrootcert: 'PGSSLROOTCERT',
+    sslcert: 'PGSSLCERT', sslkey: 'PGSSLKEY', sslcrl: 'PGSSLCRL', options: 'PGOPTIONS',
+    connect_timeout: 'PGCONNECT_TIMEOUT', application_name: 'PGAPPNAME' })) {
+    if (target.searchParams.has(parameter)) env[variable] = target.searchParams.get(parameter);
+  }
+  if (ssl && !target.searchParams.has('sslmode')) env.PGSSLMODE = ssl.rejectUnauthorized === false ? 'require' : 'verify-full';
+  return env;
 }
 
 async function backupDatabase(connectionString, { ssl, directory } = {}) {
@@ -26,10 +41,7 @@ async function backupDatabase(connectionString, { ssl, directory } = {}) {
   await fs.promises.mkdir(root, { recursive: true, mode: 0o700 });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const file = path.join(root, `before-tournament-normalization-${stamp}-${randomUUID()}.dump`);
-  // libpq accepts a connection URI in PGDATABASE. Credentials never enter argv
-  // or the manifest, including when a process listing is captured.
-  const env = { ...process.env, PGDATABASE: connectionString };
-  if (ssl && !target.searchParams.has('sslmode')) env.PGSSLMODE = ssl.rejectUnauthorized === false ? 'require' : 'verify-full';
+  const env = connectionEnvironment(target, ssl);
   const output = fs.openSync(file, 'wx', 0o600);
   try {
     // pg_dump uses one consistent PostgreSQL snapshot of the entire database.
@@ -54,4 +66,4 @@ async function backupDatabase(connectionString, { ssl, directory } = {}) {
   return manifest;
 }
 
-module.exports = { backupDatabase };
+module.exports = { backupDatabase, connectionEnvironment };
