@@ -2250,6 +2250,16 @@ async function loadAdministration() {
   }
 }
 
+function adminAnalyticsPanel() {
+  if (!state.me?.isAdmin) return '';
+  const dashboards = [
+    ['f8143cad-241f-414c-9ddb-0d9835add073', adminLabel('Куда заходят посетители', 'Where visitors go'), adminLabel('Популярность разделов и динамика посещаемости', 'Section popularity and traffic trends')],
+    ['c3e8344e-46b4-4ada-a66b-23315355538a', adminLabel('Разделы подробно', 'Section details'), adminLabel('Популярные страницы каждого сервиса', 'Popular pages within each service')],
+    ['7d3e2b05-7e8b-4ab8-94af-50a8e20a4465', adminLabel('Источники и устройства', 'Sources and devices'), adminLabel('Откуда приходят посетители и какие устройства используют', 'Where visitors come from and which devices they use')]
+  ];
+  return `<section class="card panel" data-admin-analytics><h3>${adminLabel('Посещаемость сайта', 'Website analytics')}</h3><p class="muted">${adminLabel('Панели Umami открываются в новой вкладке. Для просмотра войдите в Umami.', 'Umami dashboards open in a new tab. Sign in to Umami to view reports.')}</p><div class="administration-tiles">${dashboards.map(([id, title, hint]) => `<a href="https://stats.ktcompanion.ru/boards/${id}" target="_blank" rel="noopener noreferrer" class="card panel administration-tile"><h3>${title}</h3><p class="muted">${hint}</p></a>`).join('')}</div></section>`;
+}
+
 function renderAdministration() {
   const content = document.querySelector('[data-content]');
   if (!content || !canOpenAdministration()) return;
@@ -2265,7 +2275,7 @@ function renderAdministration() {
     const events = state.adminTournaments || [];
     body = `<div class="administration-tiles">${tile('administration/tournaments', `${state.adminTournamentsPagination?.total ?? events.length} · ${t('nav.tournaments')}`, adminLabel('Доступные турниры, участники, раунды и судьи', 'Available tournaments, participants, rounds and judges'))}${state.me.isAdmin ? tile('administration/people', adminLabel('Игроки и команды', 'Players and teams'), adminLabel('Аккаунты, доступы, блокировки и команды', 'Accounts, permissions, suspensions and teams')) + tile('administration/feedback', adminLabel('Обращения', 'Feedback'), adminLabel('Сообщения игроков и статусы обработки', 'Player messages and resolution status')) + tile('administration/games/sessions', adminLabel('Игровые сессии', 'Game sessions'), adminLabel('Подтверждение результатов и разбор спорных игр', 'Review results and disputed games')) : ''}</div><section class="card panel"><h3>${adminLabel('Ваш доступ', 'Your access')}</h3><p>${state.me.isSuperAdmin ? adminLabel('Супер-администратор платформы. Управление глобальными ролями и всеми турнирами.', 'Platform super administrator. Manage global roles and every tournament.') : state.me.isAdmin ? adminLabel('Администратор платформы. Вы автоматически судья каждого турнира. Назначение судей доступно только в ваших турнирах.', 'Platform administrator. You automatically judge every tournament. You can appoint judges only in tournaments you own.') : adminLabel('Доступ ограничен вашими турнирами и турнирами, где вы назначены судьёй.', 'Access is limited to tournaments you own or judge.')}</p></section>`;
   }
-  content.innerHTML = `<section class="card panel administration-navigation"><div class="panel-header administration-heading"><div><h2>${adminLabel('Администрирование', 'Administration')}</h2><p class="muted">${adminLabel('Управление турнирной платформой', 'Tournament platform management')}</p></div>${state.me.isAdmin ? `<button type="button" class="small-button" data-admin-audit>${adminLabel('История действий', 'Activity log')}</button>` : ''}</div><nav class="tabs administration-tabs" aria-label="${adminLabel('Разделы администрирования', 'Administration sections')}">${tabs.map(([id,label]) => `<button type="button" class="tab ${id===tab?'active':''}" aria-pressed="${id===tab}" data-admin-hub="${id}">${label}</button>`).join('')}</nav></section>${body}<div class="message" data-message></div>`;
+  content.innerHTML = `<section class="card panel administration-navigation"><div class="panel-header administration-heading"><div><h2>${adminLabel('Администрирование', 'Administration')}</h2><p class="muted">${adminLabel('Управление турнирной платформой', 'Tournament platform management')}</p></div>${state.me.isAdmin ? `<button type="button" class="small-button" data-admin-audit>${adminLabel('История действий', 'Activity log')}</button>` : ''}</div><nav class="tabs administration-tabs" aria-label="${adminLabel('Разделы администрирования', 'Administration sections')}">${tabs.map(([id,label]) => `<button type="button" class="tab ${id===tab?'active':''}" aria-pressed="${id===tab}" data-admin-hub="${id}">${label}</button>`).join('')}</nav></section>${body}${tab === 'overview' ? adminAnalyticsPanel() : ''}<div class="message" data-message></div>`;
   document.querySelectorAll('[data-admin-hub]').forEach(button => button.onclick = async () => {
     try { state.adminHubTab=button.dataset.adminHub; await loadAdministration(); syncAppHash(); renderAdministration(); } catch(err) {setMessage(err.message,true);}
   });
