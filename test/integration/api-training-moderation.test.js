@@ -53,6 +53,73 @@ async function actor(admin = false) {
   return value;
 }
 const report = q => ({ requestId: randomUUID(), questionVersion: q.version, questionRevision: q.revision, comment: 'Rule needs review' });
+
+test('team sessions persist short courses and award separate achievements across sessions and devices', async () => {
+  const team = 'hand-of-the-archon';
+  const fixtures = [1, 2, 3].map(n => ({ ...bank.questions[0], id: 'hoa-test-' + n, team, difficulty: 3,
+    references: [{ title: 'Power From Pain', url: 'https://wahapedia.ru/kill-team3/kill-teams/hand-of-the-archon/#Power-From-Pain' }] }));
+  const ids = fixtures.map(q => q.id);
+  const { rows: existingTeamQuestions } = await pool.query("SELECT id,status FROM knowthykt.training_questions WHERE content->>'team'=$1", [team]);
+  try {
+    await pool.query("UPDATE knowthykt.training_questions SET status='review' WHERE content->>'team'=$1", [team]);
+    for (const q of fixtures) await pool.query('INSERT INTO knowthykt.training_questions(id,content) VALUES($1,$2)', [q.id, JSON.stringify(q)]);
+    await pool.query('UPDATE knowthykt.training_bank_state SET revision=revision+1');
+    const user = await actor(), admin = await actor(true);
+    const initial = (await request('progress', user)).state;
+    const body = { sessionId: randomUUID(), mode: 'mixed', team, revision: initial.revision, replaceSessionId: null };
+    let result = await request('sessions', user, body);
+    assert.equal(result.status, 200);
+    assert.equal(result.state.active.team, team);
+    assert.equal(result.state.active.items.length, 3);
+    assert.ok(result.state.active.items.every(item => ids.includes(item.questionId)));
+    assert.equal((await request('sessions', user, { ...body, team: 'core' })).status, 409, 'idempotency includes course identity');
+    const sessionId = result.state.active.id;
+    const first = result.state.active.items[0];
+    result = await request(`sessions/${sessionId}/answers`, user, { revision: result.state.revision,
+      questionId: first.questionId, questionVersion: 1, selected: fixtures[0].answer });
+    assert.equal(result.state.teamAchievements[0].solved, 1);
+    assert.equal(result.state.teamAchievements[0].earned, false);
+    assert.equal(result.state.journey.xp, initial.journey.xp);
+    assert.equal(result.state.journey.total, initial.journey.total);
+    // A second session, as on another device, retains the first correct answer.
+    result = await request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', team,
+      revision: result.state.revision, replaceSessionId: sessionId });
+    const secondId = result.state.active.id;
+    for (const item of [...result.state.active.items]) {
+      result = await request(`sessions/${secondId}/answers`, user, { revision: result.state.revision,
+        questionId: item.questionId, questionVersion: 1,
+        selected: item.questionId === first.questionId ? (fixtures[0].answer + 1) % 4 : fixtures[0].answer });
+      assert.equal(result.status, 200);
+      result = await request(`sessions/${secondId}/advance`, user, { revision: result.state.revision, questionId: item.questionId });
+      assert.equal(result.status, 200);
+    }
+    assert.equal(result.state.active, null);
+    assert.equal(result.state.completedCount, 1);
+    assert.equal(result.state.teamAchievements[0].earned, true, 'a later mistake does not revoke an earlier correct answer');
+    const awardedAt = result.state.teamAchievements[0].earnedAt;
+    assert.ok(awardedAt);
+    const fresh = (await request('progress', { ...user })).state;
+    assert.equal(fresh.teamAchievements[0].earnedAt, awardedAt);
+    const repo = require('../../src/db/repositories/training');
+    const visible = await repo.publicTeamAchievements(pool, user.id);
+    assert.equal(visible[0].earnedAt, awardedAt);
+    assert.equal(visible[0].solved, 3);
+    const target = await current(ids[0]);
+    const edited = await request(`moderation/${target.id}`, admin, decision(target, 'save', { question: target.question + ' Clarified.' }));
+    assert.equal(edited.question.team, team);
+    assert.deepEqual(edited.question.references, fixtures[0].references);
+    const afterReview = (await request('progress', user)).state;
+    assert.equal(afterReview.teamAchievements[0].total, 2);
+    assert.equal(afterReview.teamAchievements[0].earnedAt, awardedAt);
+    assert.ok(afterReview.stats[target.id]);
+    const coreSession = await start(user);
+    assert.ok(coreSession.state.active.items.every(item => !ids.includes(item.questionId)));
+  } finally {
+    await pool.query('DELETE FROM knowthykt.training_question_events WHERE question_id=ANY($1::text[])', [ids]);
+    await pool.query('DELETE FROM knowthykt.training_questions WHERE id=ANY($1::text[])', [ids]);
+    for (const q of existingTeamQuestions) await pool.query('UPDATE knowthykt.training_questions SET status=$2 WHERE id=$1', [q.id, q.status]);
+  }
+});
 const decision = (q, action, changes = {}) => ({ requestId: randomUUID(), action, revision: q.revision, question: { ...q, ...changes }, comment: 'Editorial decision' });
 async function current(id) { return (await request('questions')).questions.find(q => q.id === id); }
 async function start(user) {

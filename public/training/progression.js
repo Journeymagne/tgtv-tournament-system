@@ -3,6 +3,8 @@
   else root.KTTrainingProgression = factory();
 })(typeof globalThis === 'object' ? globalThis : this, function () {
 function progression(questions, ranks, stats = {}, retainedTier = 1) {
+  const teamIds = new Set(questions.filter(q => q.team).map(q => q.id));
+  questions = questions.filter(q => !q.team);
   const active = questions.filter(q => !q.status || q.status === 'active');
   const maximum = active.reduce((n, q) => n + q.difficulty * 20, 0);
   const thresholds = [0, .04, .16, .36, .64, 1];
@@ -11,6 +13,7 @@ function progression(questions, ranks, stats = {}, retainedTier = 1) {
   const byId = new Map(questions.map(q => [q.id, q]));
   let attempts = 0, correct = 0, xp = 0, lifetimeSolved = 0, lifetimeMastered = 0;
   for (const [id, saved] of Object.entries(stats || {})) {
+    if (teamIds.has(id)) continue;
     const count = Math.max(0, Math.floor(Number(saved?.attempts) || 0));
     const wins = Math.min(count, Math.max(0, Math.floor(Number(saved?.correct) || 0)));
     const q = byId.get(id);

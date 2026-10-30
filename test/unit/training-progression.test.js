@@ -62,7 +62,7 @@ test('guest reload retains title and XP when the active course changes', async (
     stats: Object.fromEntries(questions.slice(0, 100).map(q => [q.id, { attempts: 2, correct: 2, lastAt: '2026-10-21T00:00:00Z' }])) });
   const sandbox = { structuredClone, navigator: {}, localStorage: { getItem: () => saved, setItem: (_, value) => { saved = value; } },
     window: { KTTrainingProgression: require('../../public/training/progression'), KTTrainingProgressHistory: { bootstrap },
-      KTTrainingSessionBank: require('../../public/training/session-bank'), KTTrainingAPI: { questions: async () => bank } } };
+      KTTrainingSessionBank: require('../../public/training/session-bank'), KTTrainingTeams: require('../../public/training/team-courses'), KTTrainingAPI: { questions: async () => bank } } };
   vm.runInNewContext(fs.readFileSync(require.resolve('../../public/training/guest-progress'), 'utf8'), sandbox);
   const guest = sandbox.window.KTTrainingGuest(bank);
   const first = (await guest.refresh()).state;

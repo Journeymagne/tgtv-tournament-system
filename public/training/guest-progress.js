@@ -5,6 +5,7 @@
     const key = 'kt-knowthykt-guest-v1';
     let questions = new Map(bank.questions.map(question => [question.id, question]));
     const snapshots = window.KTTrainingSessionBank;
+    const teams = window.KTTrainingTeams;
     async function refreshBank() {
       const next = await window.KTTrainingAPI.questions(bank.revision);
       if (!next.unchanged) {
@@ -29,13 +30,21 @@
       }
       const next = window.KTTrainingProgression(bank.questions, bank.journey.ranks, value.stats, value.rankTier);
       if (value.rankTier !== next.rank.tier) { value.rankTier = next.rank.tier; changed = true; }
+      value.teamAwards ||= {};
+      for (const course of teams.progress(bank.questions, value.stats, value.teamAwards)) {
+        if (course.qualified && !value.teamAwards[course.id]) {
+          value.teamAwards[course.id] = { earnedAt: new Date().toISOString(), questionCount: course.total };
+          changed = true;
+        }
+      }
       return changed;
     }
     function read() {
       if (!persistent) return structuredClone(memory);
       try {
         const saved = JSON.parse(localStorage.getItem(key) || 'null');
-        const validSession = session => session && Array.isArray(session.items) && session.items.length === 20 &&
+        const validSession = session => session && teams.valid(session.team || 'core') && Array.isArray(session.items) &&
+          session.items.length >= 1 && session.items.length <= 20 &&
           session.items.every(item => questions.has(item.questionId) && Array.isArray(item.optionOrder));
         if (compatibleVersions.has(saved?.bankVersion) && Number.isInteger(saved.revision) && saved.stats &&
             Array.isArray(saved.history) && saved.history.every(validSession) && (!saved.active || validSession(saved.active))) {
@@ -47,6 +56,7 @@
     function response(value) {
       const state = structuredClone(value);
       state.journey = window.KTTrainingProgression(bank.questions, bank.journey.ranks, state.stats, state.rankTier);
+      state.teamAchievements = teams.progress(bank.questions, state.stats, state.teamAwards);
       state.bankRevision = bank.revision;
       state.localPersistence = persistent;
       return { state, bank };
@@ -107,11 +117,13 @@
       },
       start: body => change(body, value => {
         if (!['mixed', '1', '2', '3', '4'].includes(body.mode)) throw Error('Выберите сложность сессии.');
+        const team = body.team || 'core';
+        if (!teams.valid(team)) throw Error('Выберите курс тренировки.');
         if ((value.active?.id || null) !== (body.replaceSessionId || null)) conflict();
-        const pool = bank.questions.filter(q => q.status === 'active' && (body.mode === 'mixed' || q.difficulty === Number(body.mode)));
-        if (pool.length < 20) throw Error('В этом режиме осталось меньше 20 вопросов. Выберите другую сложность.');
+        const pool = bank.questions.filter(q => q.status === 'active' && teams.matches(q, team, body.mode));
+        if (team === 'core' && pool.length < 20 || !pool.length) throw Error('Недостаточно вопросов для этого курса и сложности. Выберите другой режим.');
         if (value.active) value.history.unshift({ ...value.active, status: 'abandoned', finishedAt: new Date().toISOString() });
-        value.active = { id: body.sessionId, bankVersion: bank.version, mode: body.mode, status: 'active', cursor: 0,
+        value.active = { id: body.sessionId, bankVersion: bank.version, mode: body.mode, team, status: 'active', cursor: 0,
           startedAt: new Date().toISOString(), finishedAt: null,
           items: shuffle(pool).slice(0, 20).map(makeItem) };
       }),
@@ -132,7 +144,7 @@
       advance: (id, body) => change(body, value => {
         const session = current(value, id, body);
         if (session.items[session.cursor].selected === null && !session.items[session.cursor].skipped) throw Error('Сначала проверьте ответ.');
-        if (session.cursor === 19) {
+        if (session.cursor === session.items.length - 1) {
           value.history.unshift({ ...session, status: 'completed', finishedAt: new Date().toISOString() });
           value.completedCount += 1;
           value.active = null;

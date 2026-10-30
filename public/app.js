@@ -4288,6 +4288,7 @@ function achievementCards(achievements, { compact = false } = {}) {
 
 function profileAchievementMarkup(data, compact) {
   return window.KTTrainingJourneyUI.achievement(data.trainingAchievement, { compact, locale: i18n.getLocale() })
+    + (data.trainingTeamAchievements || []).map(course => window.KTTrainingJourneyUI.teamAchievement(course, { compact, locale: i18n.getLocale() })).join('')
     + (data.achievements.length || !data.trainingAchievement ? achievementCards(data.achievements, { compact }) : '');
 }
 
@@ -4449,6 +4450,7 @@ async function renderAchievements() {
           { id: "title", label: t("achievements.hallOfFame") }
         ], category, { publicTabs: true })}
         ${window.KTTrainingJourneyUI.achievement(data.trainingAchievement, { locale: i18n.getLocale() })}
+        ${(data.trainingTeamAchievements || []).map(course => window.KTTrainingJourneyUI.teamAchievement(course, { locale: i18n.getLocale() })).join('')}
         ${achievementCards(data.achievements)}
         ${data.pagination ? paginationMarkup("achievements",data.pagination,"achievements.pagination.items") : ""}
         ${(state.administrationContext && state.me?.isAdmin) ? `<dialog class="tiebreaker-help-dialog achievement-create" aria-labelledby="achievement-create-title" data-achievement-dialog>

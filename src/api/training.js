@@ -8,6 +8,7 @@ const catalogStore = require('../db/repositories/training-catalog');
 const validation = require('../domain/training-moderation');
 const { isDeepStrictEqual } = require('node:util');
 const { progression } = require("../domain/training-progression");
+const teams = require('../../public/training/team-courses');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function csrfToken(req) {
@@ -52,25 +53,26 @@ async function progress(ctx) {
 async function start(ctx) {
   authorize(ctx, true);
   ctx.catalog = await catalogStore.load(ctx.client);
-  const { sessionId, mode, replaceSessionId } = ctx.body;
+  const { sessionId, mode, replaceSessionId, team = 'core' } = ctx.body;
+  if (!teams.valid(team)) throw new HttpError(400, 'Выберите курс тренировки.');
   if (!UUID.test(sessionId || "") || !["mixed", "1", "2", "3", "4"].includes(mode)) throw new HttpError(400, "Выберите сложность сессии.");
   const profile = await store.lockProfile(ctx.client, ctx.user.id);
   const previousRequest = await store.findSession(ctx.client, ctx.user.id, sessionId);
   // Retrying an acknowledged request never creates or abandons another session.
   if (previousRequest) {
-    if (previousRequest.mode !== mode) throw new HttpError(409, "Этот запрос уже использован для другой сессии.");
+    if (previousRequest.mode !== mode || previousRequest.team !== team) throw new HttpError(409, "Этот запрос уже использован для другой сессии.");
     return response(ctx, profile);
   }
   checkRevision(profile, ctx.body);
-  const pool = ctx.catalog.active.filter(q => mode === 'mixed' || q.difficulty === Number(mode));
-  if (pool.length < 20) throw new HttpError(409, 'В этом режиме осталось меньше 20 вопросов. Выберите другую сложность или смешанную подготовку.');
+  const pool = ctx.catalog.active.filter(q => teams.matches(q, team, mode));
+  if (team === 'core' && pool.length < 20 || !pool.length) throw new HttpError(409, 'Недостаточно вопросов для этого курса и сложности. Выберите другой режим.');
   const current = await store.activeSession(ctx.client, ctx.user.id);
   if ((current?.id || null) !== (replaceSessionId || null)) throw new HttpError(409, "Активная сессия изменилась. Обновите страницу перед началом новой.");
   await require('../resources/quotas').spend(ctx.client, ctx.user.id, 'trainingHour', 3600);
   await require('../resources/quotas').spend(ctx.client, ctx.user.id, 'trainingDay', 86400);
   if (current) await ctx.client.query("UPDATE training_sessions SET status='abandoned',finished_at=NOW() WHERE id=$1 AND user_id=$2", [current.id, ctx.user.id]);
-  const { rowCount } = await ctx.client.query(`INSERT INTO training_sessions(id,user_id,bank_version,mode,items)
-    VALUES($1,$2,$3,$4,$5) ON CONFLICT(id) DO NOTHING`, [sessionId, ctx.user.id, bank.BANK_VERSION, mode, JSON.stringify(bank.sessionItems(mode, pool))]);
+  const { rowCount } = await ctx.client.query(`INSERT INTO training_sessions(id,user_id,bank_version,mode,items,team)
+    VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING`, [sessionId, ctx.user.id, bank.BANK_VERSION, mode, JSON.stringify(bank.sessionItems(mode, pool)), team]);
   if (!rowCount) throw new HttpError(409, "Идентификатор запроса занят. Повторите начало сессии.");
   await store.saveProfile(ctx.client, profile);
   return response(ctx, profile);
@@ -126,7 +128,7 @@ async function advance(ctx) {
   if (session.status === "completed" || session.status === "active" && session.cursor > index) return response(ctx, profile);
   checkRevision(profile, ctx.body);
   if (session.status !== "active" || index !== session.cursor || session.items[index].selected === null && !session.items[index].skipped) throw new HttpError(409, "Сначала проверьте ответ на текущий вопрос.");
-  const completed = index === 19;
+  const completed = index === session.items.length - 1;
   if (completed) {
     if (session.items.some(item => item.selected === null && !item.skipped)) throw new HttpError(409, "В сессии остались вопросы без ответа.");
     await ctx.client.query("UPDATE training_sessions SET status='completed',finished_at=NOW() WHERE id=$1 AND user_id=$2", [session.id, ctx.user.id]);
@@ -200,7 +202,8 @@ async function moderate(ctx) {
   if (ctx.body.revision !== question.revision) throw new HttpError(409, 'Другой модератор изменил вопрос. Обновите его перед сохранением; ваши правки пока остаются в форме.');
   const comment = validation.comment(ctx.body.comment);
   if (action === 'comment' && !comment) throw new HttpError(400, 'Введите комментарий.');
-  const edited = ['save', 'restore'].includes(action) ? validation.content(ctx.body.question, question.id) : validation.content(question, question.id);
+  const submitted = { ...ctx.body.question, team: question.team, references: question.references, sourceNote: question.sourceNote };
+  const edited = ['save', 'restore'].includes(action) ? validation.content(submitted, question.id) : validation.content(question, question.id);
   const changed = !isDeepStrictEqual(edited, validation.content(question, question.id));
   const status = action === 'delete' ? 'deleted' : action === 'restore' ? 'active' : action === 'save' && question.status !== 'deleted' ? 'review' : question.status;
   const courseChanged = (question.status === 'active') !== (status === 'active') || status === 'active' && question.difficulty !== edited.difficulty;

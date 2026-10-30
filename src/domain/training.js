@@ -1,9 +1,10 @@
 const { randomInt } = require("node:crypto");
 const questions = require("../training-data/questions.json");
+const teamQuestions = require('../training-data/hand-of-the-archon.json');
 const BANK_VERSION = "2026-10-22.1";
 // This release only appends questions; all original IDs, options and answers are unchanged.
 const COMPATIBLE_VERSIONS = ["2026-10-15.1", BANK_VERSION];
-const byId = new Map(questions.map(question => [question.id, question]));
+const byId = new Map([...questions, ...teamQuestions].map(question => [question.id, question]));
 
 function shuffled(values) {
   const result = [...values];
@@ -24,9 +25,9 @@ function sessionItem(question) {
     answeredAt: null
   };
 }
-function sessionItems(mode, questionsInPool = questions) {
+function sessionItems(mode, questionsInPool = questions.filter(question => !question.team)) {
   const pool = questionsInPool.filter(question => mode === 'mixed' || question.difficulty === Number(mode));
   return shuffled(pool).slice(0, 20).map(sessionItem);
 }
 
-module.exports = { questions, byId, BANK_VERSION, COMPATIBLE_VERSIONS, sessionItems, sessionItem, shuffled };
+module.exports = { questions, teamQuestions, byId, BANK_VERSION, COMPATIBLE_VERSIONS, sessionItems, sessionItem, shuffled };

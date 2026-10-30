@@ -16,6 +16,9 @@ function content(body, id) {
   try { url = new URL(sourceUrl); } catch { throw new HttpError(400, 'Некорректная ссылка на правило.'); }
   if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) throw new HttpError(400, 'Нужна HTTP(S)-ссылка на правило без данных входа.');
   return { id, difficulty: body.difficulty, topic: text(body.topic, 'Тема', 1, 100),
+    ...(body.team ? { team: body.team } : {}),
+    ...(body.references ? { references: body.references } : {}),
+    ...(body.sourceNote ? { sourceNote: body.sourceNote } : {}),
     question: text(body.question, 'Вопрос', 5, 4000), options, answer: body.answer,
     explanation: text(body.explanation, 'Объяснение', 1, 6000),
     source: { title: text(body.source?.title, 'Название источника', 1, 200), url: sourceUrl,

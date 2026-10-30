@@ -2,11 +2,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const bank = require('../../src/training-data/questions.json');
+const bank = [...require('../../src/training-data/questions.json'), ...require('../../src/training-data/hand-of-the-archon.json')];
 const translations = require('../../public/training/questions-en.json');
 const { localize, signature } = require('../../public/training/question-language');
 
-test('all 300 question versions have complete English wording and unchanged answer indices', () => {
+test('all core and team question versions have complete English wording and unchanged answer indices', () => {
   assert.equal(Object.keys(translations).length, bank.length);
   for (const question of bank) {
     const original = structuredClone(question);

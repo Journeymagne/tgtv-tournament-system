@@ -2,6 +2,7 @@
   'use strict';
   // Question content uses the version-matched question-language catalogue.
   window.KTUI.register('training', { pairs: [
+    ['До 20 вопросов без повторов', 'Up to 20 questions without repeats'],
     ['Пора пройти переаттестацию', 'Time to recertify'], ['Пройти переаттестацию →', 'Recertify →'], ['Прогресс переаттестации', 'Recertification progress'],
     ['База обновилась. Ваше звание и заработанный опыт сохранены. Подтвердите знания по актуальным вопросам в обычных тренировках.', 'The course has changed. Your title and earned XP are retained. Confirm your knowledge of the current questions in regular training sessions.'],
     ['Звание сохранено. Пройдите переаттестацию по актуальной базе.', 'Title retained. Recertify against the current course.'],
@@ -99,7 +100,7 @@
     [/^«Судья» открывается после двух верных ответов на каждый вопрос базы: (\d+) закреплённых вопросов и (\d+) XP\.$/, 'Judge unlocks after two correct answers to every question in the bank: $1 reinforced questions and $2 XP.'],
     [/^Ещё (\d+) XP до следующего ранга$/, '$1 XP to the next rank'],
     [/^До следующего ранга: (\d+) XP$/, 'Next rank in $1 XP'],
-    [/^(\d+) из 20 ответов сохранено · (.+)$/, '$1 of 20 answers saved · $2'],
+    [/^(\d+) из (\d+) ответов сохранено · (.+)$/, '$1 of $2 answers saved · $3'],
     [/^Первый шаг в киллзону\./, 'First step into the killzone.'],
     [/^Правила начинают складываться\./, 'The rules are coming together.'],
     [/^Уже есть на что опереться\./, 'A solid foundation.'],

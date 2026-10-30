@@ -1,5 +1,5 @@
 const { questions } = require('./training');
-const maxXp = questions.reduce((total, question) => total + question.difficulty * 20, 0);
+const maxXp = questions.filter(question => !question.team).reduce((total, question) => total + question.difficulty * 20, 0);
 
 // Award credit at most twice per question. Repeated easy answers cannot farm ranks.
 // Derive it from existing saved answers so earlier training counts immediately.

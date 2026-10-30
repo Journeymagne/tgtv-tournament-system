@@ -2,10 +2,11 @@ const { progression } = require('../../domain/training-progression');
 const bank = require('../../domain/training');
 const catalogStore = require('./training-catalog');
 const { reconcile } = require('../../../public/training/session-bank');
+const teams = require('../../../public/training/team-courses');
 
 function sessionView(row) {
   return row ? {
-    id: row.id, bankVersion: row.bank_version, mode: row.mode, status: row.status,
+    id: row.id, bankVersion: row.bank_version, mode: row.mode, team: row.team || 'core', status: row.status,
     cursor: row.cursor, items: row.items, startedAt: row.started_at,
     finishedAt: row.finished_at
   } : null;
@@ -70,20 +71,39 @@ async function syncJourney(client, profile, catalog) {
   }
   return journey;
 }
+async function syncTeams(client, profile, catalog) {
+  const awards = { ...profile.team_awards };
+  let changed = false;
+  for (const course of teams.progress(catalog.questions, profile.stats, awards)) {
+    if (course.qualified && !awards[course.id]) {
+      awards[course.id] = { earnedAt: new Date().toISOString(), questionCount: course.total };
+      changed = true;
+    }
+  }
+  if (changed) {
+    await client.query('UPDATE knowthykt.training_profiles SET team_awards=$2 WHERE user_id=$1', [profile.user_id, JSON.stringify(awards)]);
+    profile.team_awards = awards;
+  }
+  return teams.progress(catalog.questions, profile.stats, awards);
+}
 async function syncAllJourneys(client, catalog) {
   // Caller holds the exclusive bank lock. Preserve titles before changing the
   // curriculum, then notify affected accounts after it changes, including offline users.
   const { rows } = await client.query('SELECT * FROM knowthykt.training_profiles ORDER BY user_id FOR UPDATE');
-  for (const profile of rows) await syncJourney(client, profile, catalog);
+  for (const profile of rows) {
+    await syncJourney(client, profile, catalog);
+    await syncTeams(client, profile, catalog);
+  }
 }
 async function state(client, user, profile, bankVersion, catalog) {
   const active = await repairActive(client, user.id, profile, catalog);
   const journey = await syncJourney(client, profile, catalog);
+  const teamAchievements = await syncTeams(client, profile, catalog);
   const { rows: history } = await client.query(`SELECT * FROM training_sessions WHERE user_id=$1
     AND status<>'active' ORDER BY started_at DESC,id DESC LIMIT 100`, [user.id]);
   return {
     bankVersion, bankRevision: catalog.revision, user: { id: user.id, name: user.name, isAdmin: Boolean(user.isAdmin) }, revision: profile.revision,
-    stats: profile.stats, completedCount: profile.completed_count, journey,
+    stats: profile.stats, completedCount: profile.completed_count, journey, teamAchievements,
     active: sessionView(active), history: history.map(sessionView), historyLimit: 100
   };
 }
@@ -104,4 +124,18 @@ async function publicJourney(client, userId) {
   return { xp, courseXp, rank, next, remaining, percent, total, solved, mastered, recertification, recertificationRemaining };
 }
 
-module.exports = { sessionView, lockProfile, findSession, activeSession, repairActive, saveProfile, state, publicJourney, syncJourney, syncAllJourneys };
+async function publicTeamAchievements(client, userId) {
+  let stats = {}, awards = {};
+  if (userId) {
+    const { rows: [row] } = await client.query(`SELECT p.stats,a.team_awards FROM users u
+      LEFT JOIN knowthykt.public_progress p ON p.user_id=u.id
+      LEFT JOIN knowthykt.public_team_awards a ON a.user_id=u.id WHERE u.id=$1`, [userId]);
+    if (!row) return [];
+    stats = row.stats;
+    awards = row.team_awards;
+  }
+  const { rows } = await client.query('SELECT * FROM knowthykt.public_questions ORDER BY id');
+  return teams.progress(rows.map(catalogStore.view), stats, awards);
+}
+
+module.exports = { sessionView, lockProfile, findSession, activeSession, repairActive, saveProfile, state, publicJourney, publicTeamAchievements, syncJourney, syncAllJourneys };
