@@ -201,7 +201,8 @@
   function training() {
     const stats = engine.summary(state);
     const coursePool = questions.filter(q => teams.matches(q, selectedTeam));
-    const chosenPool = coursePool.filter(q => selectedMode === 'mixed' || q.difficulty === Number(selectedMode));
+    const availablePool = teams.available(questions, state.stats, selectedTeam);
+    const chosenPool = availablePool.filter(q => selectedMode === 'mixed' || q.difficulty === Number(selectedMode));
     const sessionSize = Math.min(20, chosenPool.length);
     main.innerHTML = `<section class="hero"><div class="hero-copy"><span class="eyebrow">KILL TEAM 2024 · ПОДГОТОВКА К ИГРЕ</span><h1>KNOW THY <span>KILL TEAM</span></h1><p>Проверьте знание правил, разберите сложные ситуации и подготовьтесь к следующей игре. Ваш прогресс — в аккаунте Компаньона.</p><div class="hero-meta"><span><strong>${questions.length}</strong> вопросов</span><span><strong>4</strong> сложности</span><span><strong>20</strong> в сессии</span></div></div><span class="hero-emblem" aria-hidden="true">D6</span></section>
       ${!state.user ? signinPanel() : ''}
@@ -222,13 +223,18 @@
       main.querySelector(`[data-team="${selectedTeam}"]`).focus({ preventScroll: true });
     }));
     main.querySelectorAll('[data-mode]').forEach(button => {
-      const pool = coursePool.filter(q => button.dataset.mode === 'mixed' || q.difficulty === Number(button.dataset.mode));
-      button.disabled = selectedTeam === 'core' ? pool.length < 20 : !pool.length;
+      const pool = availablePool.filter(q => button.dataset.mode === 'mixed' || q.difficulty === Number(button.dataset.mode));
+      button.disabled = !pool.length;
     });
-    main.querySelector('[data-action="start"]').disabled = selectedTeam === 'core' ? sessionSize < 20 : !sessionSize;
+    main.querySelector('[data-action="start"]').disabled = !sessionSize;
     const hint = main.querySelector('.session-hint');
     hint.setAttribute('data-ui-skip', '');
-    hint.textContent = sessionSize ? t(`${sessionSize} случайных вопросов без повторов · Без таймера · Разбор после каждого ответа`, `${sessionSize} random questions without repeats · No timer · Explanation after each answer`) : t('В этом курсе и уровне пока нет доступных вопросов.', 'No questions are available for this course and level yet.');
+    hint.textContent = sessionSize ? (selectedTeam === 'core'
+      ? t(`${sessionSize} вопросов · Сначала новые и последние ошибки, затем повторение`, `${sessionSize} questions · New questions and recent mistakes first, then revision`)
+      : t(`${sessionSize} вопросов · Только вопросы команды без предыдущих попыток`, `${sessionSize} questions · Only team questions you have never answered`))
+      : t('Новых вопросов не осталось. Повторить вопросы и исправить ошибки можно в банке.', 'No new questions remain. Use the question bank to practise and correct mistakes.');
+    hint.insertAdjacentHTML('afterend', `<a class="text-link" data-course-bank data-ui-skip href="#bank">${t('Выбрать вопрос в банке →', 'Choose a question in the bank →')}</a>`);
+    main.querySelector('[data-course-bank]').addEventListener('click', () => { bankTeam = selectedTeam; bankLevel = 'all'; bankTopic = 'all'; bankSearch = ''; bankMistakes = false; });
     main.querySelector('.mixed-toggle small').textContent = t('Все доступные сложности выбранного курса', 'All available difficulties in the selected course');
     main.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => {
       const mode = button.dataset.mode;
@@ -240,13 +246,13 @@
     main.querySelector('[data-action="start"]').addEventListener('click', () => startSession(selectedMode));
     main.querySelector('[data-action="resume"]')?.addEventListener('click', () => changePage('session'));
   }
-  async function startSession(mode, replaceActive = false, team = selectedTeam) {
+  async function startSession(mode, replaceActive = false, team = selectedTeam, questionId = null) {
     if (busy) return;
-    const pool = questions.filter(q => teams.matches(q, team, mode));
-    if (!pool.length || team === 'core' && pool.length < 20) { notify(t('Недостаточно вопросов для этого курса и сложности. Выберите другой режим.', 'Not enough questions for this course and difficulty. Choose another mode.')); return; }
-    if (state.active && !replaceActive) { pendingMode = { mode, team }; $('#confirm-dialog').showModal(); return; }
-    if (!pendingStart || pendingStart.mode !== String(mode) || pendingStart.team !== team || pendingStart.revision !== state.revision) {
-      pendingStart = { sessionId: crypto.randomUUID(), mode: String(mode), team, replaceSessionId: state.active?.id || null, revision: state.revision };
+    const pool = questionId ? questions.filter(q => q.id === questionId && teams.matches(q, team, mode)) : teams.available(questions, state.stats, team, mode);
+    if (!pool.length) { notify(t('Нет новых вопросов. Выберите вопрос для повторения в банке.', 'No new questions. Choose a question to practise in the bank.')); return; }
+    if (state.active && !replaceActive) { pendingMode = { mode, team, questionId }; $('#confirm-dialog').showModal(); return; }
+    if (!pendingStart || pendingStart.mode !== String(mode) || pendingStart.team !== team || pendingStart.questionId !== questionId || pendingStart.revision !== state.revision) {
+      pendingStart = { sessionId: crypto.randomUUID(), mode: String(mode), team, questionId, replaceSessionId: state.active?.id || null, revision: state.revision };
     }
     if (await mutate(() => api.start(pendingStart))) {
       pendingStart = null; selectedAnswer = null; changePage('session');
@@ -318,7 +324,15 @@
       <section class="result-panel"><div class="result-ring" style="--percent:${percentage}%"><div><strong>${percentage}<small>%</small></strong><span>ТОЧНОСТЬ</span></div></div><div class="result-copy"><span class="eyebrow">${correct === result.items.length ? 'БЕЗУПРЕЧНАЯ ПОДГОТОВКА' : percentage >= 75 ? 'УВЕРЕННАЯ РАБОТА' : 'КАЖДЫЙ РАЗБОР ДЕЛАЕТ ВАС СИЛЬНЕЕ'}</span><h2>${correct} из ${total} ответов верны</h2><p class="muted">${mistakes.length ? `Разберите ${mistakes.length} ошибок ниже. Вопросы доступны и в разделе «База вопросов».` : 'Отличный результат. Попробуйте другой уровень или новую случайную сессию.'}${result.status === 'abandoned' ? ' Эта сессия не учитывается как завершённая.' : ''}</p><div class="result-actions"><button class="button primary" id="again">Ещё одна сессия <span>↗</span></button><a class="button secondary" href="#progress">Мой прогресс</a></div></div></section>
       <div class="result-journey">${sessionAchievement(result)}<a class="button secondary" href="#journey">Посмотреть мой путь →</a></div>
       <div class="section-heading"><h2>Разбор ответов</h2><label class="checkbox-label"><input type="checkbox" id="only-errors" ${mistakes.length ? 'checked' : ''}> Только ошибки</label></div><div id="review-list">${(mistakes.length ? mistakes : result.items.filter(i => i.selected !== null)).map(reviewCard).join('')}</div>`;
-    $('#again').addEventListener('click', () => startSession(result.mode, false, result.team || 'core'));
+    const targeted = result.items[0]?.targetQuestionId;
+    if (targeted) {
+      $('#again').setAttribute('data-ui-skip', '');
+      $('#again').textContent = t('Выбрать другой вопрос →', 'Choose another question →');
+    }
+    $('#again').addEventListener('click', () => {
+      if (targeted) { bankTeam = result.team || 'core'; changePage('bank'); }
+      else startSession(result.mode, false, result.team || 'core');
+    });
     $('#only-errors').addEventListener('change', event => { $('#review-list').innerHTML = (event.target.checked ? mistakes : result.items.filter(i => i.selected !== null)).map(reviewCard).join('') || '<div class="empty-state"><span>✓</span><h3>Ошибок нет</h3><p>В этой сессии все проверенные ответы верны.</p></div>'; });
   }
   function topicStats() {
@@ -359,7 +373,11 @@
     const search = bankSearch.trim().toLocaleLowerCase('ru');
     const list = questions.filter(q => (bankTeam === 'all' || teams.matches(q, bankTeam)) && (bankLevel === 'all' || q.difficulty === Number(bankLevel)) && (bankTopic === 'all' || q.topic === bankTopic) && (!bankMistakes || state.stats[q.id] && !state.stats[q.id].lastCorrect) && [q, displayQuestion(q)].some(text => `${text.id} ${text.question} ${text.topic} ${text.options.join(' ')} ${text.explanation}`.toLocaleLowerCase().includes(search))).map(displayQuestion);
     $('#bank-count').textContent = `${list.length} из ${questions.length} вопросов`;
-    $('#bank-list').innerHTML = list.map(q => `<details class="bank-item"><summary><span class="bank-item-id">${q.id.slice(-3)}</span><span class="bank-item-main"><span class="bank-item-meta">${badge(q.difficulty)}<span class="small muted">${esc(q.topic)}</span>${state.stats[q.id] ? `<span class="small ${state.stats[q.id].lastCorrect ? 'correct-text' : 'error-text'}">${state.stats[q.id].lastCorrect ? '✓' : '×'}</span>` : ''}</span><strong data-ui-skip>${esc(q.question)}</strong></span><span class="details-arrow" aria-hidden="true">+</span></summary><div class="bank-item-body"><ol class="bank-options" data-ui-skip type="A">${q.options.map((o, i) => `<li class="${i === q.answer ? 'correct-text' : ''}">${esc(o)}${i === q.answer ? ' ✓' : ''}</li>`).join('')}</ol><div class="bank-explanation"><strong>Почему так</strong><p data-ui-skip>${esc(q.explanation)}</p>${sourceLink(q)}</div><div class="question-report">${reportControl(q)}</div></div></details>`).join('') || `<div class="empty-state"><span>⌕</span><h3>${bankMistakes ? 'Подходящих ошибок нет' : 'Ничего не найдено'}</h3><p>Попробуйте изменить поиск или фильтры.</p><button class="button secondary" id="clear-filters">Сбросить фильтры</button></div>`;
+    $('#bank-list').innerHTML = list.map(q => `<details class="bank-item"><summary><span class="bank-item-id">${q.id.slice(-3)}</span><span class="bank-item-main"><span class="bank-item-meta">${badge(q.difficulty)}<span class="small muted">${esc(q.topic)}</span>${state.stats[q.id] ? `<span class="small ${state.stats[q.id].lastCorrect ? 'correct-text' : 'error-text'}">${state.stats[q.id].lastCorrect ? '✓' : '×'}</span>` : ''}</span><strong data-ui-skip>${esc(q.question)}</strong></span><span class="details-arrow" aria-hidden="true">+</span></summary><div class="bank-item-body"><button class="button primary" data-answer-question="${esc(q.id)}" data-ui-skip>${t('Ответить на этот вопрос', 'Answer this question')} →</button><details class="bank-solution"><summary data-ui-skip>${t('Показать ответ и разбор', 'Show answer and explanation')}</summary><ol class="bank-options" data-ui-skip type="A">${q.options.map((o, i) => `<li class="${i === q.answer ? 'correct-text' : ''}">${esc(o)}${i === q.answer ? ' ✓' : ''}</li>`).join('')}</ol><div class="bank-explanation"><strong>Почему так</strong><p data-ui-skip>${esc(q.explanation)}</p>${sourceLink(q)}</div></details><div class="question-report">${reportControl(q)}</div></div></details>`).join('') || `<div class="empty-state"><span>⌕</span><h3>${bankMistakes ? 'Подходящих ошибок нет' : 'Ничего не найдено'}</h3><p>Попробуйте изменить поиск или фильтры.</p><button class="button secondary" id="clear-filters">Сбросить фильтры</button></div>`;
+    main.querySelectorAll('[data-answer-question]').forEach(button => button.addEventListener('click', () => {
+      const question = byId(button.dataset.answerQuestion);
+      startSession('mixed', false, question.team || 'core', question.id);
+    }));
     $('#clear-filters')?.addEventListener('click', () => { bankSearch = ''; bankLevel = 'all'; bankTeam = 'all'; bankTopic = 'all'; bankMistakes = false; bankPage(); });
   }
   function sourcesPage() {
@@ -420,9 +438,9 @@
   }
   $('#confirm-cancel').addEventListener('click', () => { $('#confirm-dialog').close(); pendingMode = null; changePage('session'); });
   $('#confirm-accept').addEventListener('click', async () => {
-    const { mode, team } = pendingMode || { mode: 'mixed', team: selectedTeam };
+    const { mode, team, questionId } = pendingMode || { mode: 'mixed', team: selectedTeam };
     $('#confirm-dialog').close(); pendingMode = null;
-    await startSession(mode, true, team);
+    await startSession(mode, true, team, questionId);
   });
   $('.skip-link').addEventListener('click', event => { event.preventDefault(); main.focus(); main.scrollIntoView({ block: 'start' }); });
   window.addEventListener('hashchange', render);

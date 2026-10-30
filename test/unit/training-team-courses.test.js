@@ -8,6 +8,43 @@ const q = (id, extra = {}) => ({ id, difficulty: 3, topic: 'Example', question: 
   options: ['A', 'B', 'C', 'D'], answer: 1, explanation: 'Example explanation', source: { url: 'https://wahapedia.ru/' },
   status: 'active', version: 1, revision: 1, ...extra });
 
+test('sessions put unanswered questions and latest mistakes before successfully answered questions', () => {
+  const questions = Array.from({ length: 30 }, (_, i) => q(String(i)));
+  const stats = Object.fromEntries(questions.slice(0, 25).map(q => [q.id, { attempts: 1, correct: 1, lastCorrect: true }]));
+  stats['0'].lastCorrect = false;
+  const selected = teams.select(questions, stats, 'core', 'mixed', list => [...list].reverse());
+  assert.equal(selected.length, 20);
+  assert.deepEqual(new Set(selected.slice(0, 6).map(q => q.id)), new Set(['0', '25', '26', '27', '28', '29']));
+  assert.equal(new Set(selected.map(q => q.id)).size, 20);
+  assert.ok(selected.slice(6).every(q => stats[q.id].lastCorrect));
+  assert.ok(teams.select(questions, { '0': stats['1'] }, 'core', 'mixed', list => list).every(q => q.id !== '0'));
+});
+
+test('team sessions contain only unattempted active questions of the selected course and difficulty', () => {
+  const questions = [q('new', { team }), q('wrong', { team }), q('right', { team }), q('core'),
+    q('review', { team, status: 'review' }), q('other-level', { team, difficulty: 4 })];
+  const stats = { wrong: { attempts: 1, correct: 0, lastCorrect: false }, right: { attempts: 1, correct: 1, lastCorrect: true } };
+  assert.deepEqual(teams.select(questions, stats, team, '3', list => list).map(q => q.id), ['new']);
+  assert.deepEqual(teams.select(questions, { ...stats, new: { attempts: 1 } }, team, '3', list => list), []);
+});
+
+test('moderation skips targeted questions and excludes attempted team questions from replacement', () => {
+  const removed = q('removed', { team, status: 'review' }), seen = q('seen', { team }), fresh = q('fresh', { team });
+  const make = q => ({ questionId: q.id, question: snapshot(q), selected: null });
+  const targeted = { team, mode: 'mixed', items: [{ ...make(removed), targetQuestionId: removed.id }] };
+  reconcile(targeted, [removed, seen, fresh], make, pool => pool[0]);
+  assert.equal(targeted.items[0].questionId, removed.id);
+  assert.equal(targeted.items[0].skipped, true);
+  const normal = { team, mode: 'mixed', items: [make(removed)] };
+  reconcile(normal, [removed, seen, fresh], make, pool => pool[0], { seen: { attempts: 1, lastCorrect: false } });
+  assert.equal(normal.items[0].questionId, fresh.id);
+  const revised = { ...fresh, version: 2 };
+  const selected = { team, mode: 'mixed', items: [{ ...make(fresh), targetQuestionId: fresh.id }] };
+  reconcile(selected, [revised], make, pool => pool[0]);
+  assert.equal(selected.items[0].targetQuestionId, fresh.id);
+  assert.equal(selected.items[0].question.version, 2);
+});
+
 test('team answers and bank expansion do not change the core rank or course', () => {
   const core = q('core'), archon = q('archon', { team });
   const coreStats = { core: { attempts: 2, correct: 2, xp: 60 } };
@@ -79,4 +116,12 @@ test('guest team session can finish below 20 questions and retain its achievemen
   const again = (await sandbox.window.KTTrainingGuest(bank).refresh()).state;
   assert.equal(again.history[0].items.length, 2);
   assert.equal(again.teamAchievements[0].earnedAt, state.teamAchievements[0].earnedAt);
+  await assert.rejects(guest.start({ sessionId: 'exhausted', mode: 'mixed', team, revision: state.revision }));
+  ({ state } = await guest.start({ sessionId: 'targeted', mode: 'mixed', team, questionId: 'a', revision: state.revision }));
+  assert.equal(state.active.items.length, 1);
+  assert.equal(state.active.items[0].questionId, 'a');
+  ({ state } = await guest.answer('targeted', { questionId: 'a', questionVersion: 1, selected: 1, revision: state.revision }));
+  ({ state } = await guest.advance('targeted', { questionId: 'a', revision: state.revision }));
+  assert.equal(state.stats.a.attempts, 2);
+  assert.equal(state.completedCount, 2);
 });

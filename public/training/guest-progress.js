@@ -81,7 +81,7 @@
       const run = async () => {
         await refreshBank();
         const value = read();
-        if (snapshots.reconcile(value.active, bank.questions, makeItem, pool => shuffle(pool)[0])) save(value);
+        if (snapshots.reconcile(value.active, bank.questions, makeItem, pool => shuffle(pool)[0], value.stats)) save(value);
         if (body.revision !== value.revision) conflict();
         prepare(value);
         action(value);
@@ -110,7 +110,7 @@
         await refreshBank();
         const readCurrent = () => {
           const value = read();
-          const repaired = snapshots.reconcile(value.active, bank.questions, makeItem, pool => shuffle(pool)[0]);
+          const repaired = snapshots.reconcile(value.active, bank.questions, makeItem, pool => shuffle(pool)[0], value.stats);
           return prepare(value) || repaired ? save(value) : response(value);
         };
         return navigator.locks ? navigator.locks.request(key, readCurrent) : readCurrent();
@@ -120,12 +120,14 @@
         const team = body.team || 'core';
         if (!teams.valid(team)) throw Error('Выберите курс тренировки.');
         if ((value.active?.id || null) !== (body.replaceSessionId || null)) conflict();
-        const pool = bank.questions.filter(q => q.status === 'active' && teams.matches(q, team, body.mode));
-        if (team === 'core' && pool.length < 20 || !pool.length) throw Error('Недостаточно вопросов для этого курса и сложности. Выберите другой режим.');
+        const target = body.questionId && bank.questions.find(q => q.id === body.questionId && q.status === 'active' && teams.matches(q, team, body.mode));
+        if (body.questionId && !target) throw Error('Вопрос недоступен в выбранном курсе. Обновите банк.');
+        const pool = target ? [target] : teams.select(bank.questions, value.stats, team, body.mode, shuffle);
+        if (!pool.length) throw Error('В этом курсе и сложности не осталось новых вопросов. Выберите вопрос в банке для повторения.');
         if (value.active) value.history.unshift({ ...value.active, status: 'abandoned', finishedAt: new Date().toISOString() });
         value.active = { id: body.sessionId, bankVersion: bank.version, mode: body.mode, team, status: 'active', cursor: 0,
           startedAt: new Date().toISOString(), finishedAt: null,
-          items: shuffle(pool).slice(0, 20).map(makeItem) };
+          items: pool.map(q => ({ ...makeItem(q), ...(target ? { targetQuestionId: body.questionId } : {}) })) };
       }),
       answer: (id, body) => change(body, value => {
         const session = current(value, id, body), item = session.items[session.cursor];

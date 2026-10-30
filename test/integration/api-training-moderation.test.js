@@ -84,6 +84,8 @@ test('team sessions persist short courses and award separate achievements across
     // A second session, as on another device, retains the first correct answer.
     result = await request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', team,
       revision: result.state.revision, replaceSessionId: sessionId });
+    assert.equal(result.state.active.items.length, 2);
+    assert.ok(result.state.active.items.every(item => item.questionId !== first.questionId));
     const secondId = result.state.active.id;
     for (const item of [...result.state.active.items]) {
       result = await request(`sessions/${secondId}/answers`, user, { revision: result.state.revision,
@@ -98,6 +100,16 @@ test('team sessions persist short courses and award separate achievements across
     assert.equal(result.state.teamAchievements[0].earned, true, 'a later mistake does not revoke an earlier correct answer');
     const awardedAt = result.state.teamAchievements[0].earnedAt;
     assert.ok(awardedAt);
+    assert.equal((await request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', team,
+      revision: result.state.revision })).status, 409, 'exhausted team course must not repeat answered questions');
+    // Deliberate bank practice can repeat a question without revoking an earned award.
+    result = await request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', team,
+      questionId: first.questionId, revision: result.state.revision });
+    assert.equal(result.state.active.items.length, 1);
+    result = await request(`sessions/${result.state.active.id}/answers`, user, { revision: result.state.revision,
+      questionId: first.questionId, questionVersion: 1, selected: (fixtures[0].answer + 1) % 4 });
+    assert.equal(result.state.stats[first.questionId].lastCorrect, false);
+    assert.equal(result.state.teamAchievements[0].earnedAt, awardedAt);
     const fresh = (await request('progress', { ...user })).state;
     assert.equal(fresh.teamAchievements[0].earnedAt, awardedAt);
     const repo = require('../../src/db/repositories/training');
@@ -126,6 +138,49 @@ async function start(user) {
   const { state } = await request('progress', user);
   return request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', revision: state.revision, replaceSessionId: state.active?.id || null });
 }
+
+test('core selection prioritizes new questions and mistakes using saved account progress', async () => {
+  const user = await actor();
+  const stats = Object.fromEntries(bank.questions.map(q => [q.id, { attempts: 1, correct: 1, lastCorrect: true }]));
+  const fresh = bank.questions[0].id, wrong = bank.questions[1].id;
+  delete stats[fresh];
+  stats[wrong].lastCorrect = false;
+  await pool.query('UPDATE knowthykt.training_profiles SET stats=$2 WHERE user_id=$1', [user.id, JSON.stringify(stats)]);
+  const result = await start(user);
+  assert.equal(result.status, 200);
+  assert.equal(result.state.active.items.length, 20);
+  assert.deepEqual(new Set(result.state.active.items.slice(0, 2).map(i => i.questionId)), new Set([fresh, wrong]));
+  assert.ok(result.state.active.items.slice(2).every(i => stats[i.questionId].lastCorrect));
+});
+
+test('targeted bank answers save progress, guard retries and never substitute a reported question', async () => {
+  const user = await actor();
+  const first = await current(bank.questions[0].id), second = await current(bank.questions[1].id);
+  let state = (await request('progress', user)).state;
+  const body = { sessionId: randomUUID(), mode: 'mixed', questionId: first.id, revision: state.revision };
+  let result = await request('sessions', user, body);
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.state.active.items.map(i => i.questionId), [first.id]);
+  assert.equal((await request('sessions', user, body)).status, 200);
+  assert.equal((await request('sessions', user, { ...body, questionId: second.id })).status, 409);
+  assert.equal((await request('sessions', user, { ...body, questionId: null })).status, 409);
+  state = result.state;
+  result = await request(`sessions/${state.active.id}/answers`, user, { questionId: first.id,
+    questionVersion: first.version, selected: first.answer, revision: state.revision });
+  assert.equal(result.state.stats[first.id].correct, 1);
+  assert.ok(result.state.journey.xp > state.journey.xp);
+  result = await request(`sessions/${state.active.id}/advance`, user, { questionId: first.id, revision: result.state.revision });
+  assert.equal(result.state.active, null);
+  assert.equal((await request('progress', { ...user })).state.stats[first.id].correct, 1);
+  result = await request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', questionId: second.id, revision: result.state.revision });
+  result = await request(`questions/${second.id}/report`, user, report(second));
+  assert.equal(result.state.active.items[0].questionId, second.id);
+  assert.equal(result.state.active.items[0].skipped, true);
+  assert.equal((await request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', questionId: second.id,
+    revision: result.state.revision, replaceSessionId: result.state.active.id })).status, 409);
+  assert.equal((await request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', team: 'hand-of-the-archon', questionId: first.id,
+    revision: result.state.revision, replaceSessionId: result.state.active.id })).status, 409);
+});
 
 test('report requires account/CSRF, withdraws globally and replaces unanswered session items without scoring', async () => {
   const user = await actor(), admin = await actor(true);

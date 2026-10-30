@@ -53,26 +53,31 @@ async function progress(ctx) {
 async function start(ctx) {
   authorize(ctx, true);
   ctx.catalog = await catalogStore.load(ctx.client);
-  const { sessionId, mode, replaceSessionId, team = 'core' } = ctx.body;
+  const { sessionId, mode, replaceSessionId, team = 'core', questionId = null } = ctx.body;
+  if (questionId !== null && (typeof questionId !== 'string' || !questionId)) throw new HttpError(400, 'Выберите вопрос из банка.');
   if (!teams.valid(team)) throw new HttpError(400, 'Выберите курс тренировки.');
   if (!UUID.test(sessionId || "") || !["mixed", "1", "2", "3", "4"].includes(mode)) throw new HttpError(400, "Выберите сложность сессии.");
   const profile = await store.lockProfile(ctx.client, ctx.user.id);
   const previousRequest = await store.findSession(ctx.client, ctx.user.id, sessionId);
   // Retrying an acknowledged request never creates or abandons another session.
   if (previousRequest) {
-    if (previousRequest.mode !== mode || previousRequest.team !== team) throw new HttpError(409, "Этот запрос уже использован для другой сессии.");
+    if (previousRequest.mode !== mode || previousRequest.team !== team ||
+        (previousRequest.items[0]?.targetQuestionId || null) !== questionId) throw new HttpError(409, "Этот запрос уже использован для другой сессии.");
     return response(ctx, profile);
   }
   checkRevision(profile, ctx.body);
-  const pool = ctx.catalog.active.filter(q => teams.matches(q, team, mode));
-  if (team === 'core' && pool.length < 20 || !pool.length) throw new HttpError(409, 'Недостаточно вопросов для этого курса и сложности. Выберите другой режим.');
+  const target = questionId && ctx.catalog.active.find(q => q.id === questionId && teams.matches(q, team, mode));
+  if (questionId && !target) throw new HttpError(409, 'Вопрос недоступен в выбранном курсе. Обновите банк.');
+  const pool = target ? [target] : teams.select(ctx.catalog.active, profile.stats, team, mode, bank.shuffled);
+  if (!pool.length) throw new HttpError(409, 'В этом курсе и сложности не осталось новых вопросов. Выберите вопрос в банке для повторения.');
+  const items = pool.map(q => ({ ...bank.sessionItem(q), ...(target ? { targetQuestionId: questionId } : {}) }));
   const current = await store.activeSession(ctx.client, ctx.user.id);
   if ((current?.id || null) !== (replaceSessionId || null)) throw new HttpError(409, "Активная сессия изменилась. Обновите страницу перед началом новой.");
   await require('../resources/quotas').spend(ctx.client, ctx.user.id, 'trainingHour', 3600);
   await require('../resources/quotas').spend(ctx.client, ctx.user.id, 'trainingDay', 86400);
   if (current) await ctx.client.query("UPDATE training_sessions SET status='abandoned',finished_at=NOW() WHERE id=$1 AND user_id=$2", [current.id, ctx.user.id]);
   const { rowCount } = await ctx.client.query(`INSERT INTO training_sessions(id,user_id,bank_version,mode,items,team)
-    VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING`, [sessionId, ctx.user.id, bank.BANK_VERSION, mode, JSON.stringify(bank.sessionItems(mode, pool)), team]);
+    VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO NOTHING`, [sessionId, ctx.user.id, bank.BANK_VERSION, mode, JSON.stringify(items), team]);
   if (!rowCount) throw new HttpError(409, "Идентификатор запроса занят. Повторите начало сессии.");
   await store.saveProfile(ctx.client, profile);
   return response(ctx, profile);

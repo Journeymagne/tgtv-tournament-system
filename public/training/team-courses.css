@@ -7,3 +7,6 @@
 .additional-source { display: block; margin-top: 8px; }
 .training-page .level-card:disabled { opacity: .5; cursor: not-allowed; }
 @media(max-width:650px) { .course-buttons .button { flex: 1 1 100%; } }
+
+.bank-solution { margin-top: 1rem; }
+.bank-solution > summary { cursor: pointer; color: var(--muted); padding: .75rem 0; }

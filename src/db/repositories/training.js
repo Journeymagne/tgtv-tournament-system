@@ -41,7 +41,7 @@ async function saveProfile(client, profile, completed = false) {
 
 async function repairActive(client, userId, profile, catalog) {
   const active = await activeSession(client, userId);
-  if (active && reconcile(active, catalog.questions, bank.sessionItem, pool => bank.shuffled(pool)[0])) {
+  if (active && reconcile(active, catalog.questions, bank.sessionItem, pool => bank.shuffled(pool)[0], profile.stats)) {
     await client.query('UPDATE training_sessions SET items=$2 WHERE id=$1', [active.id, JSON.stringify(active.items)]);
     await saveProfile(client, profile);
   }
