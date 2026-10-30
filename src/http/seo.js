@@ -9,6 +9,7 @@ const SITE_NAME = "KT Companion";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
 const ASSET_VERSION = "1.4.27";
+const { version: SHARED_ASSET_VERSION } = require("./shared-assets.json");
 
 function requestOrigin(req) {
   const serviceOrigin = siteOrigin(req);
@@ -168,7 +169,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
   return `
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="/theme-boot.js?v=${ASSET_VERSION}"></script>
+    <script src="/theme-boot.js?v=${SHARED_ASSET_VERSION}"></script>
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}">
     <meta name="robots" content="${escapeHtml(robots)}">
@@ -186,14 +187,14 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <meta name="twitter:title" content="${escapeHtml(title)}">
     <meta name="twitter:description" content="${escapeHtml(description)}">
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
-    <link rel="stylesheet" href="/companion-tokens.css?v=20261022-kit">
-    <link rel="stylesheet" href="/styles.css?v=${ASSET_VERSION}">
+    <link rel="stylesheet" href="/companion-tokens.css?v=${SHARED_ASSET_VERSION}">
+    <link rel="stylesheet" href="/styles.css?v=${SHARED_ASSET_VERSION}">
     <link rel="stylesheet" href="/map-catalog-ui.css?v=${ASSET_VERSION}">
-    <link rel="stylesheet" href="/training/journey-shared.css?v=${ASSET_VERSION}">
-    <link rel="stylesheet" href="/companion-shell.css?v=20261025-notifications">
-    <script src="/companion-sites.js?v=${ASSET_VERSION}" defer></script>
-    <script src="/companion-i18n.js?v=${ASSET_VERSION}" defer></script>
-    <script src="/companion-shell.js?v=20261022-kit" defer></script>`;
+    <link rel="stylesheet" href="/training/journey-shared.css?v=${SHARED_ASSET_VERSION}">
+    <link rel="stylesheet" href="/companion-shell.css?v=${SHARED_ASSET_VERSION}">
+    <script src="/companion-sites.js?v=${SHARED_ASSET_VERSION}" defer></script>
+    <script src="/companion-i18n.js?v=${SHARED_ASSET_VERSION}" defer></script>
+    <script src="/companion-shell.js?v=${SHARED_ASSET_VERSION}" defer></script>`;
 }
 
 // No locale dictionaries here: theme-boot.js in baseHead() writes a tag for the

@@ -2,15 +2,14 @@
 'use strict';
 const dialog=document.getElementById('studio-login-dialog'),form=document.getElementById('studio-login-form');
 const error=document.getElementById('studio-login-error'),submit=document.getElementById('studio-login-submit');
-const registration=document.getElementById('studio-register-fields'),password=form.elements.password;
+const registration=document.getElementById('studio-register-fields');
 let mode='login',busy=false,pending=null,finish,emailEnabled=false;
 fetch('/api/auth/email-config').then(r=>r.json()).then(config=>{emailEnabled=Boolean(config.enabled);form.elements.email.required=emailEnabled;dialog.querySelector('[data-studio-email]').hidden=!emailEnabled;selectMode(mode)}).catch(()=>{});
 function selectMode(next){
  mode=next;error.textContent='';registration.hidden=mode!=='register';
  document.getElementById('studio-login-name-label').textContent=mode==='login'?'Никнейм или почта':'Никнейм';
- form.elements.name.minLength=mode==='login'?1:2;form.elements.name.maxLength=mode==='login'?254:24;
+ KTAuthForm.setMode(form,mode);
  for(const field of registration.querySelectorAll('input'))field.disabled=busy||mode!=='register'||(field.name==='email'&&!emailEnabled);
- password.minLength=mode==='register'?6:1;password.autocomplete=mode==='register'?'new-password':'current-password';
  for(const button of dialog.querySelectorAll('[data-studio-auth-mode]')){
   const active=button.dataset.studioAuthMode===mode;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
  }

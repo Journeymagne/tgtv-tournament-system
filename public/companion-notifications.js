@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   const host=document.querySelector('.companion-tools');if(!host)return;
-  const styles=document.createElement('link');styles.rel='stylesheet';styles.href='/companion-notifications.css?v=20261022-kit';document.head.append(styles);
+  const styles=document.createElement('link');styles.rel='stylesheet';styles.href='/companion-notifications.css?v=shared-8b51f3d2bb3c';document.head.append(styles);
   const panel=document.createElement('details');panel.className='shared-notifications';panel.hidden=true;
   const toggle=document.createElement('summary');toggle.setAttribute('aria-label','Уведомления');
   toggle.innerHTML='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></svg>';

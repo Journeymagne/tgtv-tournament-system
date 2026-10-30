@@ -20,7 +20,8 @@
     mode=button.dataset.authMode;for(const choice of document.querySelectorAll('[data-auth-mode]'))choice.setAttribute('aria-pressed',String(choice===button));
     $('#account-registration').hidden=$('#account-registration').disabled=mode!=='register';
     $('#account-submit').textContent=mode==='register'?'Создать аккаунт':'Войти';
-    $('#account-auth-form').elements.password.autocomplete=mode==='register'?'new-password':'current-password';
+    KTAuthForm.setMode($('#account-auth-form'),mode);
+    for(const field of $('#account-registration').querySelectorAll('input'))field.disabled=mode!=='register';
   });
   $('#account-auth-form').addEventListener('submit',async event=>{
     event.preventDefault();const button=$('#account-submit');button.disabled=true;$('#account-status').textContent='';
