@@ -5,14 +5,32 @@ const { Pool } = require("pg");
 const { TEST_DATABASE_URL } = require("../helpers/db");
 const { migrate } = require("../../src/db/migrate");
 const authApi = require("../../src/api/auth");
-const tournamentsApi = require("../../src/api/tournaments");
-const gamesApi = require("../../src/api/games");
+const tournamentsApi = transactionalApi(require("../../src/api/tournaments"));
+const gamesApi = transactionalApi(require("../../src/api/games"));
 const usersApi = require("../../src/api/users");
 const playerTeamsApi = require("../../src/api/player-teams");
 const teamTournamentsApi = require("../../src/api/team-tournaments");
 const usersRepo = require("../../src/db/repositories/users");
 const gamesRepo = require("../../src/db/repositories/games");
 const { CRIT_OPS } = require("../../src/domain/kill-teams");
+
+// Direct handler calls must have the same atomic boundary as production routes.
+// In particular, deferred result guards run after both game and match writes.
+function transactionalApi(api) {
+  return Object.fromEntries(Object.entries(api).map(([key, fn]) => [key, typeof fn !== 'function' ? fn : async (...args) => {
+    const client = args[0]?.client;
+    if (!client) return fn(...args);
+    await client.query('BEGIN');
+    try {
+      const result = await fn(...args);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  }]));
+}
 
 let pool;
 let client;

@@ -20,6 +20,8 @@ const FIELDS = {
   submittedByUserId: 'submitted_by_user_id', tableId: 'table_id', mission: 'mission', completedAt: 'completed_at'
 };
 const JSON_FIELDS = new Set(['participantSnapshots', 'pendingResult', 'result', 'matchPoints', 'elo', 'mission']);
+const OPTIONAL_IDS = new Set(['bracketPosition', 'participantAId', 'participantBId', 'sourceMatchAId',
+  'sourceMatchBId', 'winnerParticipantId', 'gameId', 'submittedByUserId', 'tableId']);
 
 // Historical migrations 034/047 call this repository before normalization.
 // Inspect the schema instead of caching a flag that becomes stale mid-migration.
@@ -43,7 +45,8 @@ async function insert(client, match) {
   const { rows } = await client.query(
     `INSERT INTO tournament_matches (${entries.map(([, column]) => column).join(', ')})
      VALUES (${entries.map(([field], i) => `$${i + 1}${JSON_FIELDS.has(field) ? '::jsonb' : ''}`).join(', ')}) RETURNING id`,
-    entries.map(([field]) => JSON_FIELDS.has(field) ? JSON.stringify(initial[field] ?? null) : initial[field])
+    entries.map(([field]) => JSON_FIELDS.has(field) ? JSON.stringify(initial[field] ?? null)
+      : OPTIONAL_IDS.has(field) ? initial[field] || null : initial[field])
   );
   if (normalized && Object.keys(RESULT_FIELDS).some(field => Object.hasOwn(match, field) && match[field] != null)) {
     return update(client, rows[0].id, match);

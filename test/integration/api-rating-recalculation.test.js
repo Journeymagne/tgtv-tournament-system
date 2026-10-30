@@ -109,7 +109,7 @@ for (const venueMode of ["tts", "irl"]) {
     assert.equal(state.later.elo[alpha.id].before, 984);
     assert.deepEqual(state.later.result, seeded.later.result);
     assert.equal(state.later.submittedAt, seeded.later.submittedAt);
-    const link = (await pool.query("SELECT elo FROM tournament_matches WHERE game_id = $1", [seeded.game.id])).rows[0];
+    const link = (await pool.query("SELECT elo FROM tournament_match_results WHERE game_id = $1", [seeded.game.id])).rows[0];
     assert.deepEqual(link.elo, state.game.elo);
     assert.equal((await admin.post(path)).status, 200);
     assert.deepEqual(await snapshot(), state, "second recalculation must be idempotent");

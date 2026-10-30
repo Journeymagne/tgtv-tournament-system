@@ -45,6 +45,7 @@ test("upgrade from 2.3.2 imports the achievement catalog without demo data or aw
     assert.deepEqual(await migrate(pool), MIGRATIONS.filter((item) => item.version > 21).map((item) => item.version));
     Object.assign(tournament, { registration_limit: null, captain_pairing_enabled: true, team_tiebreaker_order: null, faction_count: 1, venue_address: "" });
     Object.assign(user, {can_create_tournaments:false, suspended_until:null, suspension_reason:"", is_faq_moderator:false, bcp_email:null});
+    Object.assign(game, { source_slot: 0 });
     for (const [table, expected] of Object.entries(before)) {
       assert.deepEqual((await pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows, expected, `${table} must be preserved without demo rows`);
     }
