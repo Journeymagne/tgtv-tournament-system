@@ -110,7 +110,7 @@ module.exports = {
             RAISE EXCEPTION 'Game does not belong to this tournament match' USING ERRCODE='23514';
           END IF;
           IF NOT m.is_bye AND m.status IN ('active','pending_confirmation','completed')
-            AND g.status<>CASE WHEN m.status='active' THEN 'open' ELSE m.status END THEN
+            AND g.status<>(CASE WHEN m.status='active' THEN 'open' ELSE m.status END) THEN
             RAISE EXCEPTION 'Canonical game status conflicts with tournament match' USING ERRCODE='23514';
           END IF;
         END IF;
