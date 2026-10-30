@@ -69,7 +69,7 @@ async function start(ctx) {
   const target = questionId && ctx.catalog.active.find(q => q.id === questionId && teams.matches(q, team, mode));
   if (questionId && !target) throw new HttpError(409, 'Вопрос недоступен в выбранном курсе. Обновите банк.');
   const pool = target ? [target] : teams.select(ctx.catalog.active, profile.stats, team, mode, bank.shuffled);
-  if (!pool.length) throw new HttpError(409, 'В этом курсе и сложности не осталось новых вопросов. Выберите вопрос в банке для повторения.');
+  if (!pool.length) throw new HttpError(409, 'В этом курсе и сложности не осталось нерешённых вопросов. Выберите вопрос в банке для повторения.');
   const items = pool.map(q => ({ ...bank.sessionItem(q), ...(target ? { targetQuestionId: questionId } : {}) }));
   const current = await store.activeSession(ctx.client, ctx.user.id);
   if ((current?.id || null) !== (replaceSessionId || null)) throw new HttpError(409, "Активная сессия изменилась. Обновите страницу перед началом новой.");

@@ -231,8 +231,8 @@
     hint.setAttribute('data-ui-skip', '');
     hint.textContent = sessionSize ? (selectedTeam === 'core'
       ? t(`${sessionSize} вопросов · Сначала новые и последние ошибки, затем повторение`, `${sessionSize} questions · New questions and recent mistakes first, then revision`)
-      : t(`${sessionSize} вопросов · Только вопросы команды без предыдущих попыток`, `${sessionSize} questions · Only team questions you have never answered`))
-      : t('Новых вопросов не осталось. Повторить вопросы и исправить ошибки можно в банке.', 'No new questions remain. Use the question bank to practise and correct mistakes.');
+      : t(`${sessionSize} вопросов · Новые вопросы команды и ошибки до первого верного ответа`, `${sessionSize} questions · New team questions and mistakes until your first correct answer`))
+      : t('В этом курсе и уровне не осталось нерешённых вопросов. Повторить вопросы можно в банке.', 'No unsolved questions remain for this course and level. Use the question bank to practise.');
     hint.insertAdjacentHTML('afterend', `<a class="text-link" data-course-bank data-ui-skip href="#bank">${t('Выбрать вопрос в банке →', 'Choose a question in the bank →')}</a>`);
     main.querySelector('[data-course-bank]').addEventListener('click', () => { bankTeam = selectedTeam; bankLevel = 'all'; bankTopic = 'all'; bankSearch = ''; bankMistakes = false; });
     main.querySelector('.mixed-toggle small').textContent = t('Все доступные сложности выбранного курса', 'All available difficulties in the selected course');
@@ -249,7 +249,7 @@
   async function startSession(mode, replaceActive = false, team = selectedTeam, questionId = null) {
     if (busy) return;
     const pool = questionId ? questions.filter(q => q.id === questionId && teams.matches(q, team, mode)) : teams.available(questions, state.stats, team, mode);
-    if (!pool.length) { notify(t('Нет новых вопросов. Выберите вопрос для повторения в банке.', 'No new questions. Choose a question to practise in the bank.')); return; }
+    if (!pool.length) { notify(t('Нет нерешённых вопросов. Выберите вопрос для повторения в банке.', 'No unsolved questions. Choose a question to practise in the bank.')); return; }
     if (state.active && !replaceActive) { pendingMode = { mode, team, questionId }; $('#confirm-dialog').showModal(); return; }
     if (!pendingStart || pendingStart.mode !== String(mode) || pendingStart.team !== team || pendingStart.questionId !== questionId || pendingStart.revision !== state.revision) {
       pendingStart = { sessionId: crypto.randomUUID(), mode: String(mode), team, questionId, replaceSessionId: state.active?.id || null, revision: state.revision };

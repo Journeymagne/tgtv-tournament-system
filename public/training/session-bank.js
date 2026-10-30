@@ -29,7 +29,7 @@
       }
       // A deliberate bank selection must never silently become another question.
       const eligible = item.targetQuestionId ? [] : pool.filter(q => !used.has(q.id) &&
-        ((session.team || 'core') === 'core' || teams.unanswered(q, stats)));
+        ((session.team || 'core') === 'core' || teams.unsolved(q, stats)));
       const priority = eligible.filter(q => !stats[q.id]?.lastCorrect);
       const candidates = priority.length ? priority : eligible;
       if (candidates.length) {

@@ -5,10 +5,10 @@
   const teams = [{ id: 'hand-of-the-archon', name: 'Hand of the Archon' }];
   const valid = team => team === 'core' || teams.some(value => value.id === team);
   const matches = (q, team = 'core', mode = 'mixed') => (q.team || 'core') === team && (mode === 'mixed' || q.difficulty === Number(mode));
-  const unanswered = (q, stats = {}) => !(stats[q.id]?.attempts > 0);
+  const unsolved = (q, stats = {}) => !(stats[q.id]?.correct > 0);
   function available(questions, stats = {}, team = 'core', mode = 'mixed') {
     return questions.filter(q => (!q.status || q.status === 'active') && matches(q, team, mode) &&
-      (team === 'core' || unanswered(q, stats)));
+      (team === 'core' || unsolved(q, stats)));
   }
   function select(questions, stats, team, mode, shuffle) {
     const pool = available(questions, stats, team, mode);
@@ -25,5 +25,5 @@
         earnedAt: awards?.[team.id]?.earnedAt || null, percent: pool.length ? Math.floor(solved / pool.length * 100) : 0 };
     });
   }
-  return { teams, valid, matches, unanswered, available, select, progress };
+  return { teams, valid, matches, unsolved, available, select, progress };
 });

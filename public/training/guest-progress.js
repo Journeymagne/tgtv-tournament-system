@@ -123,7 +123,7 @@
         const target = body.questionId && bank.questions.find(q => q.id === body.questionId && q.status === 'active' && teams.matches(q, team, body.mode));
         if (body.questionId && !target) throw Error('Вопрос недоступен в выбранном курсе. Обновите банк.');
         const pool = target ? [target] : teams.select(bank.questions, value.stats, team, body.mode, shuffle);
-        if (!pool.length) throw Error('В этом курсе и сложности не осталось новых вопросов. Выберите вопрос в банке для повторения.');
+        if (!pool.length) throw Error('В этом курсе и сложности не осталось нерешённых вопросов. Выберите вопрос в банке для повторения.');
         if (value.active) value.history.unshift({ ...value.active, status: 'abandoned', finishedAt: new Date().toISOString() });
         value.active = { id: body.sessionId, bankVersion: bank.version, mode: body.mode, team, status: 'active', cursor: 0,
           startedAt: new Date().toISOString(), finishedAt: null,

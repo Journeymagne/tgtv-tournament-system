@@ -153,6 +153,48 @@ test('core selection prioritizes new questions and mistakes using saved account 
   assert.ok(result.state.active.items.slice(2).every(i => stats[i.questionId].lastCorrect));
 });
 
+test('team mistakes return across sessions until answered correctly once', async () => {
+  const user = await actor(), team = 'hand-of-the-archon';
+  const questions = (await request('questions')).questions.filter(q => q.team === team && q.status === 'active');
+  const [fresh, wrong] = questions;
+  // A later error in manual practice must not undo an earlier correct answer.
+  const stats = Object.fromEntries(questions.map(q => [q.id, { attempts: 2, correct: 1, lastCorrect: false }]));
+  delete stats[fresh.id];
+  stats[wrong.id] = { attempts: 3, correct: 0, lastCorrect: false };
+  await pool.query('UPDATE knowthykt.training_profiles SET stats=$2 WHERE user_id=$1', [user.id, JSON.stringify(stats)]);
+  let state = (await request('progress', user)).state;
+  const begin = async () => {
+    const result = await request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', team, revision: state.revision });
+    assert.equal(result.status, 200);
+    state = result.state;
+  };
+  await begin();
+  assert.deepEqual(new Set(state.active.items.map(i => i.questionId)), new Set([fresh.id, wrong.id]));
+  for (const item of [...state.active.items]) {
+    const q = questions.find(q => q.id === item.questionId);
+    const sessionId = state.active.id;
+    let result = await request(`sessions/${sessionId}/answers`, user, { questionId: q.id, questionVersion: q.version,
+      selected: q.id === wrong.id ? (q.answer + 1) % 4 : q.answer, revision: state.revision });
+    assert.equal(result.status, 200);
+    result = await request(`sessions/${sessionId}/advance`, user, { questionId: q.id, revision: result.state.revision });
+    assert.equal(result.status, 200);
+    state = result.state;
+  }
+  state = (await request('progress', { ...user })).state;
+  await begin();
+  assert.deepEqual(state.active.items.map(i => i.questionId), [wrong.id]);
+  const sessionId = state.active.id;
+  let result = await request(`sessions/${sessionId}/answers`, user, { questionId: wrong.id, questionVersion: wrong.version,
+    selected: wrong.answer, revision: state.revision });
+  assert.equal(result.status, 200);
+  result = await request(`sessions/${sessionId}/advance`, user, { questionId: wrong.id, revision: result.state.revision });
+  assert.equal(result.status, 200);
+  state = result.state;
+  assert.equal(state.stats[wrong.id].correct, 1);
+  assert.equal(state.teamAchievements.find(t => t.id === team).earned, true);
+  assert.equal((await request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', team, revision: state.revision })).status, 409);
+});
+
 test('targeted bank answers save progress, guard retries and never substitute a reported question', async () => {
   const user = await actor();
   const first = await current(bank.questions[0].id), second = await current(bank.questions[1].id);

@@ -20,15 +20,15 @@ test('sessions put unanswered questions and latest mistakes before successfully 
   assert.ok(teams.select(questions, { '0': stats['1'] }, 'core', 'mixed', list => list).every(q => q.id !== '0'));
 });
 
-test('team sessions contain only unattempted active questions of the selected course and difficulty', () => {
+test('team sessions repeat mistakes until the first correct answer, within the selected course and difficulty', () => {
   const questions = [q('new', { team }), q('wrong', { team }), q('right', { team }), q('core'),
     q('review', { team, status: 'review' }), q('other-level', { team, difficulty: 4 })];
-  const stats = { wrong: { attempts: 1, correct: 0, lastCorrect: false }, right: { attempts: 1, correct: 1, lastCorrect: true } };
-  assert.deepEqual(teams.select(questions, stats, team, '3', list => list).map(q => q.id), ['new']);
-  assert.deepEqual(teams.select(questions, { ...stats, new: { attempts: 1 } }, team, '3', list => list), []);
+  const stats = { wrong: { attempts: 3, correct: 0, lastCorrect: false }, right: { attempts: 2, correct: 1, lastCorrect: false } };
+  assert.deepEqual(teams.select(questions, stats, team, '3', list => list).map(q => q.id), ['new', 'wrong']);
+  assert.deepEqual(teams.select(questions, { ...stats, new: { attempts: 1, correct: 1 }, wrong: { attempts: 4, correct: 1 } }, team, '3', list => list), []);
 });
 
-test('moderation skips targeted questions and excludes attempted team questions from replacement', () => {
+test('moderation skips targeted questions and excludes solved team questions from replacement', () => {
   const removed = q('removed', { team, status: 'review' }), seen = q('seen', { team }), fresh = q('fresh', { team });
   const make = q => ({ questionId: q.id, question: snapshot(q), selected: null });
   const targeted = { team, mode: 'mixed', items: [{ ...make(removed), targetQuestionId: removed.id }] };
@@ -36,8 +36,11 @@ test('moderation skips targeted questions and excludes attempted team questions 
   assert.equal(targeted.items[0].questionId, removed.id);
   assert.equal(targeted.items[0].skipped, true);
   const normal = { team, mode: 'mixed', items: [make(removed)] };
-  reconcile(normal, [removed, seen, fresh], make, pool => pool[0], { seen: { attempts: 1, lastCorrect: false } });
+  reconcile(normal, [removed, seen, fresh], make, pool => pool[0], { seen: { attempts: 2, correct: 1, lastCorrect: false } });
   assert.equal(normal.items[0].questionId, fresh.id);
+  const retry = { team, mode: 'mixed', items: [make(removed)] };
+  reconcile(retry, [removed, seen], make, pool => pool[0], { seen: { attempts: 2, correct: 0, lastCorrect: false } });
+  assert.equal(retry.items[0].questionId, seen.id);
   const revised = { ...fresh, version: 2 };
   const selected = { team, mode: 'mixed', items: [{ ...make(fresh), targetQuestionId: fresh.id }] };
   reconcile(selected, [revised], make, pool => pool[0]);
