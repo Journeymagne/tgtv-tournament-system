@@ -6,8 +6,17 @@
 
 | Format | Download | Pages |
 | --- | --- | --- |
-| A4 landscape — two A5 handouts per sheet | [Download A4 PDF](/handouts/killzone-handouts-a4-2up.pdf?v=20261029-3) | 2 sheets |
-| A5 — individual handouts | [Download A5 PDF](/handouts/killzone-handouts-a5.pdf?v=20261029-3) | 4 pages |
+| A4 landscape — two A5 handouts per sheet | [Download A4 PDF](/handouts/killzone-handouts-a4-2up.pdf?v=20261030-4) | 2 sheets |
+| A5 — individual handouts | [Download A5 PDF](/handouts/killzone-handouts-a5.pdf?v=20261030-4) | 4 pages |
+
+## Octarius
+
+Updated 30 October 2026 from the supplied latest PDF, styled for KT Companion. English-language terrain reference.
+
+- [Download Octarius A4 — two identical A5 copies](/handouts/octarius-a4-2up.pdf?v=20261030-1)
+- [Download Octarius A5 — one handout](/handouts/octarius-a5.pdf?v=20261030-1)
+
+The A4 file already contains two copies. Print at 100% in landscape, one PDF page per sheet.
 
 ## Print settings
 
@@ -22,4 +31,4 @@ Use the A5 file for individual printing or your own page arrangement.
 - **Tomb World:** terrain rules and August / October 2026 FAQ.
 - **WTC Into the Dark:** v1.4, 26 July 2026.
 
-Updated **29 October 2026**, revision 3. [KT Companion FAQ](/faq) additions use the 28 October 2026 snapshot. Local rulings are labelled separately from GW rules. These are unofficial quick references; sources are listed in the PDFs.
+Updated **30 October 2026**, revision 4. [KT Companion FAQ](/faq) additions use the 28 October 2026 snapshot. Local rulings are labelled separately from GW rules. These are unofficial quick references; sources are listed in the PDFs.
