@@ -72,3 +72,35 @@ The analytics database uses the `ktcompanion-analytics_umami-data` volume.
 An unavailable Umami does not block the website. To disable collection, remove
 the two includes and reload Nginx after validation. Keep the volume for history.
 Upgrade deliberately by changing the pinned image digest after a database backup.
+
+## Direct ACME renewal on this host
+
+The host's default OpenSSL 3.5 ClientHello stalls on the direct route to Let's
+Encrypt. A smaller ClientHello using X25519 succeeds, including with TLS 1.3.
+`configure-certbot-tls.py` generates `/etc/letsencrypt/openssl-certbot.cnf` from
+the system configuration, sets `Groups = X25519:prime256v1:secp384r1`, and adds
+`/etc/systemd/system/certbot.service.d/tls-compatibility.conf`. Only Certbot's
+systemd service receives `OPENSSL_CONF`; the site's TLS policy is unchanged.
+The enabled `certbot.timer` invokes this service. No proxy or tunnel is used.
+
+For a manual renewal check, use the same environment:
+
+```sh
+OPENSSL_CONF=/etc/letsencrypt/openssl-certbot.cnf certbot renew \
+  --cert-name stats.ktcompanion.ru --dry-run --run-deploy-hooks
+```
+
+This direct renewal simulation and the normal Certbot service both succeeded
+on 30 October 2026. Regenerate the dedicated config after reviewing future
+changes to the system OpenSSL configuration. To revert, remove only the
+`tls-compatibility.conf` override and run `systemctl daemon-reload`.
+
+## Private traffic boards
+
+`setup-boards.py` creates three admin-only boards and fills an empty personal
+dashboard: section popularity, pages within sections, and sources/devices.
+The tracker tags each pageview with its section. Setup backs up the analytics
+database and prior board configurations, then labels previously untagged
+pageviews without changing their URLs, timestamps or session IDs. The ranking
+counts distinct Umami visitors per section; one visitor may use several sections.
+No public sharing links are created. Existing personal dashboards are preserved.
