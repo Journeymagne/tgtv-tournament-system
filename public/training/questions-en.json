@@ -4456,7 +4456,7 @@
       "3, 5, 5"
     ],
     "explanation": "Wicked Blades only adds an attack to array of blades, increasing 3 to 4. Razorflail and pain sculptors already have Atk 4 but do not benefit from this equipment.",
-    "section": "PDF, p. 7: Wicked Blades; p. 1 и 3 — melee weapon profiles"
+    "section": "PDF, p. 7: Wicked Blades; p. 1 and 3 — melee weapon profiles"
   },
   "hoa-047": {
     "original": "[\"Cruel Deception\",\"Agent с APL 2 начинает активацию в control range врага. Игрок применяет Cruel Deception, выполняет Fall Back за 1AP и затем Shoot из splinter rifle за 1AP. Получит ли этот Shoot Accurate 1 от Rifles?\",\"Да: Rifles отключается только после Reposition\",\"Shoot вообще недоступен: Cruel Deception расходует второе AP\",\"Нет: снижение стоимости Fall Back не отменяет условие Rifles\",\"Да: Fall Back за 1AP считается Dash для Rifles\",\"Cruel Deception уменьшает AP-стоимость Fall Back, сохраняя само действие Fall Back. Оно выполнено до Shoot в этой активации, поэтому Rifles не даёт Accurate 1.\",\"PDF, с. 6: Cruel Deception; с. 5 — Rifles\"]",
