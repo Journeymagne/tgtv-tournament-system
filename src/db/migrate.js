@@ -73,7 +73,8 @@ const MIGRATIONS = [
   require("./migrations/073_training_archon_questions"),
   require("./migrations/074_documentation_handouts_refresh"),
   require("./migrations/075_documentation_combined_octarius"),
-  require("./migrations/076_documentation_octarius_a4")
+  require("./migrations/076_documentation_octarius_a4"),
+  require("./migrations/077_documentation_handouts_layout")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
