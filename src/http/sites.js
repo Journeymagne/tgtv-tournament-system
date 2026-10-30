@@ -7,7 +7,7 @@ const ROOT_DOCUMENTS = {
   tracker: "killteam-activation-tracker.html", tournament: "index.html", studio: "studio/index.html", dice: "dice/index.html", faq: "faq/index.html", training: "training/index.html"
 };
 const ALIASES = {
-  "/studio": "studio", "/dice": "dice", "/faq": "faq",
+  "/studio": "studio", "/dice": "dice", "/faq": "faq", "/knowthykt": "training",
   "/training": "training", "/knowthykt/": "training",
   "/training/": "training", "/training/index.html": "training", "/know-thy-kill-team": "training", "/know-thy-kill-team/": "training",
   "/dice/": "dice", "/dice/index.html": "dice",
@@ -66,10 +66,7 @@ function handleSiteRequest(req, res, sites = COMPANION_SITES) {
   const destination = pageDestination(req, sites);
   if (!destination) return false;
   // Browsers carry any legacy fragment to the destination automatically.
-  // KTKT is excluded from this release; retain its existing redirect behavior.
-  const permanent = siteName(req) !== "training";
-  res.writeHead(permanent ? 301 : 302, { ...SECURITY_HEADERS, Location: destination,
-    "Cache-Control": permanent ? "public, max-age=3600" : "no-store" });
+  res.writeHead(301, { ...SECURITY_HEADERS, Location: destination, "Cache-Control": "public, max-age=3600" });
   res.end();
   return true;
 }
