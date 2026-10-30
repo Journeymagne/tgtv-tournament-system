@@ -6,7 +6,7 @@ const { SECURITY_HEADERS, sendJson, sendText } = require("./io");
 const SERVICE_ROOT = path.join(ROOT, "services", "combat-lab");
 const BUILD_ROOT = path.join(SERVICE_ROOT, "build-companion");
 const BUILD_PREFIX = BUILD_ROOT + path.sep;
-const ASSET_VERSION = require("../../package.json").version;
+const { version: ASSET_VERSION } = require("./shared-assets.json");
 const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
@@ -28,11 +28,11 @@ function companionHtml(source) {
   // Resolve shared chrome on the Companion server so header/account updates
   // apply even when an unchanged calculator build is reused across releases.
   const head = `<script src="/theme-boot.js?v=${ASSET_VERSION}" data-companion-only></script>
-<link rel="stylesheet" href="/companion-shell.css?v=20261022-kit">
+<link rel="stylesheet" href="/companion-shell.css?v=${ASSET_VERSION}">
 <script src="/companion-sites.js?v=${ASSET_VERSION}" defer></script>
 <script src="/companion-i18n.js?v=${ASSET_VERSION}" defer></script>
 <script src="/combat/companion-ui.js" defer></script>
-<script src="/companion-shell.js?v=20261022-kit" defer></script>`;
+<script src="/companion-shell.js?v=${ASSET_VERSION}" defer></script>`;
   return source.replace("<head>", "<head>" + head)
     .replace("<body>", '<body data-companion-section="combat">')
     .replace('<div id="root">', '<div data-companion-nav></div><div id="root">');

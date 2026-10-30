@@ -149,10 +149,6 @@
   color: #43553f;
 }
 
-* {
-  box-sizing: border-box;
-}
-
 body {
   margin: 0;
   background: #f4f5f2;

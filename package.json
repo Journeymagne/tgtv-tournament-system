@@ -7,6 +7,8 @@
     "node": ">=22"
   },
   "scripts": {
+    "assets:sync": "node scripts/sync-shared-assets.js",
+    "assets:check": "node scripts/sync-shared-assets.js --check",
     "start": "node server.js",
     "start:service": "node scripts/start-service.js",
     "start:services": "node scripts/start-services.js",

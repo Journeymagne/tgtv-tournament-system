@@ -67,6 +67,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Run selected tests
         run: node scripts/ci-plan.js --run
+      - name: Check generated shared assets and account fields
+        run: npm run assets:check
 
   combat:
     name: Combat Lab

@@ -90,6 +90,19 @@
   --counter: #77510a;
 }
 
+/* Native primitives shared by the Companion pages. Keep service-specific
+   disabled states and form typography in their own stylesheets. */
+* { box-sizing: border-box; }
+
+:where(body[data-companion-section="home"], body[data-companion-section="initiative"], body[data-companion-section="tracker"], body[data-companion-section="training"], body[data-companion-section="account"], body[data-companion-section="tournament"]) button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+:where(body[data-companion-section="dice"], body[data-companion-section="miniapp"]) :is(button, input, select) {
+  font: inherit;
+}
+
 /* Visibility is shared by every Companion service. */
 [hidden] {
   display: none !important;

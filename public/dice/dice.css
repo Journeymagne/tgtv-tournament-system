@@ -1,16 +1,6 @@
-* {
-  box-sizing: border-box;
-}
-
 body {
   margin: 0;
   font: 15px/1.5 var(--font-ui,system-ui,sans-serif);
-}
-
-button,
-input,
-select {
-  font: inherit;
 }
 
 button,
@@ -612,10 +602,6 @@ details[open]>summary {
 
   .export-panel {
     order: 1;
-  }
-
-  .dice-controls {
-    grid-row: 2;
   }
 
   .dice-layout>.dice-preview-column {

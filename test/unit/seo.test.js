@@ -81,7 +81,8 @@ test("metaDescription strips markdown and truncates long text", () => {
 });
 
 // seo.js builds its own HTML shell for crawlable routes, so it carries a second
-// copy of the asset version. When the two drift, a visitor who lands on a
+// copy of the application asset version. Shared CSS/chrome use their generated
+// content version instead. When application versions drift, a visitor who lands on a
 // tournament page gets a different app.js than one who lands on "/" -- and a
 // released fix silently fails to reach the first of them.
 test("the server-rendered shell serves the same asset version as index.html", () => {
@@ -89,10 +90,15 @@ test("the server-rendered shell serves the same asset version as index.html", ()
   const indexSource = fs.readFileSync(path.join(__dirname, "../../public/index.html"), "utf8");
   const seoVersion = seoSource.match(/ASSET_VERSION = "([^"]+)"/)?.[1];
   assert.ok(seoVersion, "seo.js no longer declares ASSET_VERSION");
-  const indexVersions = [...indexSource.matchAll(/\/(?:app\.js|styles\.css|theme-boot\.js)\?v=([^"]+)/g)]
+  const indexVersions = [...indexSource.matchAll(/\/(?:app\.js|map-catalog-ui\.css)\?v=([^"]+)/g)]
     .map((match) => match[1]);
-  assert.ok(indexVersions.length >= 3, "index.html no longer versions its own scripts and stylesheet");
+  assert.ok(indexVersions.length >= 2, "index.html no longer versions its own scripts and stylesheet");
   assert.deepEqual([...new Set(indexVersions)], [seoVersion]);
+  const { version } = require('../../src/http/shared-assets.json');
+  for (const file of ['theme-boot.js', 'styles.css', 'companion-shell.css', 'companion-shell.js']) {
+    assert.ok(indexSource.includes(`/${file}?v=${version}`), `${file} must use the shared asset version`);
+    assert.ok(seoSource.includes(`/${file}?v=\${SHARED_ASSET_VERSION}`), `${file} must share its version with static pages`);
+  }
 });
 
 // admin.js and documentation.css are deliberately absent from both shells: they

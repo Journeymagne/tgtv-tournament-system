@@ -1,0 +1,33 @@
+{
+  "version": "shared-8b51f3d2bb3c",
+  "assets": [
+    "theme-boot.js",
+    "companion-tokens.css",
+    "companion-shell.css",
+    "companion-shell.js",
+    "companion-i18n.js",
+    "companion-auth.js",
+    "companion-notifications.js",
+    "companion-notifications.css",
+    "companion/css/common.css",
+    "companion/css/base.css",
+    "companion/css/components.css",
+    "companion/css/nav.css",
+    "training/journey-shared.css",
+    "exodite-runner.css",
+    "styles.css",
+    "dice/dice.css",
+    "miniapp/app.css",
+    "account-email.css",
+    "faq/faq.css",
+    "studio/style.css",
+    "account/account.js",
+    "studio/login.js",
+    "studio/account.js",
+    "i18n/ru.js",
+    "i18n/en.js",
+    "documentation.js",
+    "documentation.css",
+    "companion-sites.js"
+  ]
+}
