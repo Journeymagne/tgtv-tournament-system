@@ -198,9 +198,10 @@ test('training scope withdraws excluded killzones while preserving earned progre
 
   assert.deepEqual(await migrate(pool), MIGRATIONS.filter(m => m.version >= 66).map(m => m.version));
   const catalog = await catalogStore.load(pool);
-  assert.equal(catalog.revision, beforeRevision + 1);
-  assert.equal(catalog.questions.length, 300, 'archived IDs remain available for historical answers');
-  assert.equal(catalog.active.length, 284);
+  assert.equal(catalog.revision, beforeRevision + 2, 'scope withdrawal and team-bank import each publish a revision');
+  assert.equal(catalog.questions.filter(q => !q.team).length, 300, 'archived core IDs remain available for historical answers');
+  assert.equal(catalog.active.filter(q => !q.team).length, 284);
+  assert.deepEqual(catalog.active.filter(q => q.team === 'hand-of-the-archon').map(q => q.id), bank.teamQuestions.map(q => q.id));
   assert.deepEqual(catalog.questions.filter(q => q.status === 'deleted').map(q => q.id), excludedIds);
   const afterQuestions = (await pool.query('SELECT * FROM knowthykt.training_questions ORDER BY id')).rows;
   for (const question of beforeQuestions) {
@@ -214,7 +215,7 @@ test('training scope withdraws excluded killzones while preserving earned progre
   assert.ok(events.every(e => e.actor_id === null && e.comment === scope.reason));
   const profile = (await pool.query('SELECT stats,rank_tier,revision,completed_count FROM training_profiles WHERE user_id=$1', [user.id])).rows[0];
   assert.deepEqual(profile, { stats, rank_tier: 6, revision: 12, completed_count: 7 });
-  assert.deepEqual((await pool.query('SELECT * FROM training_sessions ORDER BY id')).rows, beforeSessions);
+  assert.deepEqual((await pool.query('SELECT * FROM training_sessions ORDER BY id')).rows, beforeSessions.map(session => ({ ...session, team: 'core' })));
 
   // Replaying the data migration cannot duplicate editorial events or course revisions.
   await pool.query('DELETE FROM schema_migrations WHERE version=66');
