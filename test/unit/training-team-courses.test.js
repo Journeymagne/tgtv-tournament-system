@@ -8,16 +8,30 @@ const q = (id, extra = {}) => ({ id, difficulty: 3, topic: 'Example', question: 
   options: ['A', 'B', 'C', 'D'], answer: 1, explanation: 'Example explanation', source: { url: 'https://wahapedia.ru/' },
   status: 'active', version: 1, revision: 1, ...extra });
 
-test('sessions put unanswered questions and latest mistakes before successfully answered questions', () => {
+test('core sessions contain only new questions and latest mistakes without topping up solved questions', () => {
   const questions = Array.from({ length: 30 }, (_, i) => q(String(i)));
   const stats = Object.fromEntries(questions.slice(0, 25).map(q => [q.id, { attempts: 1, correct: 1, lastCorrect: true }]));
   stats['0'].lastCorrect = false;
   const selected = teams.select(questions, stats, 'core', 'mixed', list => [...list].reverse());
-  assert.equal(selected.length, 20);
-  assert.deepEqual(new Set(selected.slice(0, 6).map(q => q.id)), new Set(['0', '25', '26', '27', '28', '29']));
-  assert.equal(new Set(selected.map(q => q.id)).size, 20);
-  assert.ok(selected.slice(6).every(q => stats[q.id].lastCorrect));
+  assert.equal(selected.length, 6);
+  assert.deepEqual(new Set(selected.map(q => q.id)), new Set(['0', '25', '26', '27', '28', '29']));
+  assert.equal(teams.select(questions, {}, 'core', 'mixed', list => list).length, 20);
   assert.ok(teams.select(questions, { '0': stats['1'] }, 'core', 'mixed', list => list).every(q => q.id !== '0'));
+  const solved = Object.fromEntries(questions.map(q => [q.id, { attempts: 2, correct: 2, lastCorrect: true }]));
+  assert.deepEqual(teams.select(questions, solved, 'core', 'mixed', list => list), []);
+  assert.deepEqual(teams.available(questions, solved, 'core'), []);
+});
+
+test('core moderation replacements never fill a short pool with solved questions', () => {
+  const removed = q('removed', { status: 'review' }), solved = q('solved'), wrong = q('wrong'), fresh = q('fresh');
+  const make = q => ({ questionId: q.id, question: snapshot(q), selected: null });
+  const stats = { solved: { correct: 2, lastCorrect: true }, wrong: { correct: 1, lastCorrect: false } };
+  const session = { team: 'core', mode: 'mixed', items: [make(removed), make(fresh)] };
+  reconcile(session, [removed, solved, wrong, fresh], make, pool => pool[0], stats);
+  assert.deepEqual(session.items.map(i => i.questionId), ['wrong', 'fresh']);
+  const exhausted = { team: 'core', mode: 'mixed', items: [make(removed)] };
+  reconcile(exhausted, [removed, solved], make, pool => pool[0], stats);
+  assert.equal(exhausted.items[0].skipped, true);
 });
 
 test('team sessions repeat mistakes until the first correct answer, within the selected course and difficulty', () => {
@@ -92,9 +106,10 @@ test('moderation replacements never cross courses, and snapshots retain rule ref
   assert.equal(exhausted.items[0].questionId, 'removed');
 });
 
-test('guest team session can finish below 20 questions and retain its achievement after reload', async () => {
+for (const course of ['core', team]) test(`guest ${course} can finish a short session, reload progress and repeat only through the bank`, async () => {
   const vm = require('node:vm'), fs = require('node:fs');
-  const questions = [q('a', { team }), q('b', { team }), q('core')];
+  const courseFields = course === 'core' ? {} : { team: course };
+  const questions = [q('a', courseFields), q('b', courseFields), q('other-course', course === 'core' ? { team } : {})];
   const bank = { version: 'test-teams', revision: 1, questions, journey: progression({}, questions) };
   let saved = null;
   const sandbox = { structuredClone, navigator: {},
@@ -106,7 +121,7 @@ test('guest team session can finish below 20 questions and retain its achievemen
   vm.runInNewContext(fs.readFileSync(require.resolve('../../public/training/guest-progress'), 'utf8'), sandbox);
   const guest = sandbox.window.KTTrainingGuest(bank);
   let { state } = await guest.refresh();
-  ({ state } = await guest.start({ sessionId: 'guest-test', mode: 'mixed', team, revision: state.revision }));
+  ({ state } = await guest.start({ sessionId: 'guest-test', mode: 'mixed', team: course, revision: state.revision }));
   assert.equal(state.active.items.length, 2);
   for (const item of [...state.active.items]) {
     ({ state } = await guest.answer('guest-test', { questionId: item.questionId, questionVersion: 1, selected: 1, revision: state.revision }));
@@ -114,13 +129,13 @@ test('guest team session can finish below 20 questions and retain its achievemen
   }
   assert.equal(state.active, null);
   assert.equal(state.completedCount, 1);
-  assert.equal(state.teamAchievements[0].earned, true);
-  assert.equal(state.journey.xp, 0);
+  assert.equal(state.teamAchievements[0].earned, course !== 'core');
+  assert.equal(state.journey.xp, course === 'core' ? 60 : 0);
   const again = (await sandbox.window.KTTrainingGuest(bank).refresh()).state;
   assert.equal(again.history[0].items.length, 2);
   assert.equal(again.teamAchievements[0].earnedAt, state.teamAchievements[0].earnedAt);
-  await assert.rejects(guest.start({ sessionId: 'exhausted', mode: 'mixed', team, revision: state.revision }));
-  ({ state } = await guest.start({ sessionId: 'targeted', mode: 'mixed', team, questionId: 'a', revision: state.revision }));
+  await assert.rejects(guest.start({ sessionId: 'exhausted', mode: 'mixed', team: course, revision: state.revision }));
+  ({ state } = await guest.start({ sessionId: 'targeted', mode: 'mixed', team: course, questionId: 'a', revision: state.revision }));
   assert.equal(state.active.items.length, 1);
   assert.equal(state.active.items[0].questionId, 'a');
   ({ state } = await guest.answer('targeted', { questionId: 'a', questionVersion: 1, selected: 1, revision: state.revision }));

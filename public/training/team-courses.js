@@ -8,13 +8,11 @@
   const unsolved = (q, stats = {}) => !(stats[q.id]?.correct > 0);
   function available(questions, stats = {}, team = 'core', mode = 'mixed') {
     return questions.filter(q => (!q.status || q.status === 'active') && matches(q, team, mode) &&
-      (team === 'core' || unsolved(q, stats)));
+      (team === 'core' ? !stats[q.id]?.lastCorrect : unsolved(q, stats)));
   }
   function select(questions, stats, team, mode, shuffle) {
     const pool = available(questions, stats, team, mode);
-    const priority = pool.filter(q => !stats[q.id]?.lastCorrect);
-    const repeat = pool.filter(q => stats[q.id]?.lastCorrect);
-    return [...shuffle(priority), ...shuffle(repeat)].slice(0, 20);
+    return shuffle(pool).slice(0, 20);
   }
   function progress(questions, stats = {}, awards = {}) {
     return teams.map(team => {

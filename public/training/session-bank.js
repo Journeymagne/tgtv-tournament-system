@@ -15,7 +15,7 @@
     const before = JSON.stringify(session.items);
     const byId = new Map(questions.map(q => [q.id, q]));
     const used = new Set(session.items.map(item => item.questionId));
-    const pool = questions.filter(q => q.status === 'active' && teams.matches(q, session.team || 'core', session.mode));
+    const pool = teams.available(questions.filter(q => q.status === 'active'), stats, session.team || 'core', session.mode);
     session.items = session.items.map(item => {
       const q = byId.get(item.questionId);
       if (!item.question && q) item.question = snapshot(q.original || q);
@@ -28,10 +28,7 @@
         return item;
       }
       // A deliberate bank selection must never silently become another question.
-      const eligible = item.targetQuestionId ? [] : pool.filter(q => !used.has(q.id) &&
-        ((session.team || 'core') === 'core' || teams.unsolved(q, stats)));
-      const priority = eligible.filter(q => !stats[q.id]?.lastCorrect);
-      const candidates = priority.length ? priority : eligible;
+      const candidates = item.targetQuestionId ? [] : pool.filter(q => !used.has(q.id));
       if (candidates.length) {
         const replacement = pick(candidates);
         used.add(replacement.id);

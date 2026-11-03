@@ -139,7 +139,7 @@ async function start(user) {
   return request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', revision: state.revision, replaceSessionId: state.active?.id || null });
 }
 
-test('core selection prioritizes new questions and mistakes using saved account progress', async () => {
+test('core selection starts a short session containing only new questions and mistakes', async () => {
   const user = await actor();
   const stats = Object.fromEntries(bank.questions.map(q => [q.id, { attempts: 1, correct: 1, lastCorrect: true }]));
   const fresh = bank.questions[0].id, wrong = bank.questions[1].id;
@@ -148,17 +148,16 @@ test('core selection prioritizes new questions and mistakes using saved account 
   await pool.query('UPDATE knowthykt.training_profiles SET stats=$2 WHERE user_id=$1', [user.id, JSON.stringify(stats)]);
   const result = await start(user);
   assert.equal(result.status, 200);
-  assert.equal(result.state.active.items.length, 20);
-  assert.deepEqual(new Set(result.state.active.items.slice(0, 2).map(i => i.questionId)), new Set([fresh, wrong]));
-  assert.ok(result.state.active.items.slice(2).every(i => stats[i.questionId].lastCorrect));
+  assert.equal(result.state.active.items.length, 2);
+  assert.deepEqual(new Set(result.state.active.items.map(i => i.questionId)), new Set([fresh, wrong]));
 });
 
-test('team mistakes return across sessions until answered correctly once', async () => {
-  const user = await actor(), team = 'hand-of-the-archon';
-  const questions = (await request('questions')).questions.filter(q => q.team === team && q.status === 'active');
+for (const team of ['core', 'hand-of-the-archon']) test(`${team} mistakes return in short sessions until corrected, then the pool is exhausted`, async () => {
+  const user = await actor();
+  const questions = (await request('questions')).questions.filter(q => (q.team || 'core') === team && q.status === 'active');
   const [fresh, wrong] = questions;
-  // A later error in manual practice must not undo an earlier correct answer.
-  const stats = Object.fromEntries(questions.map(q => [q.id, { attempts: 2, correct: 1, lastCorrect: false }]));
+  // Team courses retain solved credit even after an error in manual practice.
+  const stats = Object.fromEntries(questions.map(q => [q.id, { attempts: 2, correct: 1, lastCorrect: team === 'core' }]));
   delete stats[fresh.id];
   stats[wrong.id] = { attempts: 3, correct: 0, lastCorrect: false };
   await pool.query('UPDATE knowthykt.training_profiles SET stats=$2 WHERE user_id=$1', [user.id, JSON.stringify(stats)]);
@@ -191,7 +190,7 @@ test('team mistakes return across sessions until answered correctly once', async
   assert.equal(result.status, 200);
   state = result.state;
   assert.equal(state.stats[wrong.id].correct, 1);
-  assert.equal(state.teamAchievements.find(t => t.id === team).earned, true);
+  if (team !== 'core') assert.equal(state.teamAchievements.find(t => t.id === team).earned, true);
   assert.equal((await request('sessions', user, { sessionId: randomUUID(), mode: 'mixed', team, revision: state.revision })).status, 409);
 });
 

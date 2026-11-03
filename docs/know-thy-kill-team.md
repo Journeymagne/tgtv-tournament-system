@@ -75,8 +75,16 @@ replacing profile forms. The trainer retains its existing account/revision
 checks and refresh behavior.
 
 The seed contains 300 Russian questions, 75 per difficulty, with explanations
-and links to rule sources. Sessions contain 20 distinct random questions from
-one difficulty or the whole bank; answer order is shuffled once and saved.
+and links to rule sources. New sessions contain up to 20 distinct random questions
+from the selected course and difficulty. Core sessions include only new questions
+and questions whose latest answer was incorrect. Team sessions include only
+questions without any correct answer. If fewer than 20 eligible questions remain,
+the session uses that smaller pool; solved questions never fill the remaining slots,
+including replacements after moderation. An empty pool cannot start a session.
+Deliberate question-bank practice can still repeat a solved question, including
+earning the second correct answer needed for core progression. Existing sessions
+keep their saved question list unless moderation requires a replacement.
+Answer order is shuffled once and saved.
 The bank, sources and training sessions are available without signing in.
 `guest-progress.js` saves guest sessions, answers and progress in localStorage,
 separately from account progress. Web Locks serialize writes across tabs; stale
