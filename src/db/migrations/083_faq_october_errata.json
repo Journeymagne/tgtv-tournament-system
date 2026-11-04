@@ -1,0 +1,156 @@
+[
+  {
+    "id": "community-020",
+    "question": "Можно ли за Devastating сделать модель Wounded и получить реролл",
+    "expectedRevision": 1,
+    "expectedAnswer": "**Решение:** Нет, потому что урон от правила Devastating вносится на этапе ретейна критов, который проходит после этапа рероллов.",
+    "content": {
+      "answer": "**Решение:** Нет, потому что урон от правила Devastating вносится на этапе ретейна критов, который проходит после этапа рероллов.\n\nThe Black Hunt, Merciless Sadists и Prey on the Wounded проверяют, была ли цель Wounded в начале действия.\n\n[Nemesis Claw, стр. 9](https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_nemesis_claw-ybccnd9qcw-2c6utdqxa5.pdf#page=9) · [Hand of the Archon, стр. 9](https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_hand_of_the_archon-1pzipa9jpj-tgfmqz67em.pdf#page=9)",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_nemesis_claw-ybccnd9qcw-2c6utdqxa5.pdf#page=9"
+    }
+  },
+  {
+    "id": "community-026",
+    "question": "Что считать убийством для friendly operative (морталки на чардже, Poison, etc.)?",
+    "expectedRevision": 1,
+    "expectedAnswer": "**Решение**: Мы считаем все смерти даже от косвенных причин (яды, морталке на выкапывании/чардже и т.д.) как смерть от friendly operative, то есть все такопы и абилки на это связанные РАБОТАЮТ.\n\nОтветственность за мониторингом на ком чей пойзон токен лежит на игроке, который этот пойзон токен кладет.",
+    "content": {
+      "answer": "Для Dominate засчитывай incapacitation, если можно определить дружественного оперативника, непосредственно его вызвавшего. Сюда входят урон от его действия, ответного удара или правила на датакарте и эффекты, для которых нужна его позиция. Косвенный урон от универсальной мины, взятой через Lugger Well Supplied, не засчитывается. Если подходят несколько оперативников, выбери одного. Для других Tac Ops и способностей проверяй их собственные условия.\n\n[Approved Ops: Update Log, стр. 4](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_approved_ops_update_log-yezxhbjlbm-xg2epdenil.pdf#page=4)",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_approved_ops_update_log-yezxhbjlbm-xg2epdenil.pdf#page=4"
+    }
+  },
+  {
+    "id": "community-031",
+    "question": "Можно ли ставить (и лочить) лестницу в вертикальном положении",
+    "expectedRevision": 1,
+    "expectedAnswer": "**Решение**: Да, в корбуке нет никаких ограничений на то, что лестница должна \"облакачиваться\" на террейн, поэтому для простоты использования можно лочить лестницы в вертикальном положении, чтобы они не падали.\n\n![Иллюстрация из community FAQ](/faq/source-images/3c341e5f6fb2975f.png)",
+    "content": {
+      "answer": "Лестницу можно зафиксировать вертикально у террейна высотой от 2″, соблюдая остальные требования к размещению. Сокращение вертикальной дистанции подъёма до 1″ действует, если лестница остаётся в control range оперативника весь этот подъём.\n\n[Universal Equipment, стр. 2](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_universal_equipment-oz2irjwu3t-dj0aczxjeo.pdf#page=2) · [Universal Equipment, стр. 5](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_universal_equipment-oz2irjwu3t-dj0aczxjeo.pdf#page=5)",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_universal_equipment-oz2irjwu3t-dj0aczxjeo.pdf#page=2"
+    }
+  },
+  {
+    "id": "community-035",
+    "question": "Как получить кавер от террейна",
+    "expectedRevision": 1,
+    "expectedAnswer": "**Решение**: По рулингу для официального WCW:\n\n- В ситуации 1 при стрельбе по оперативнику **В**, он будет в хэви кавре\n\n- В ситуации 2 - в лайт кавре\n\nНа Чалнате от Верняка считаем, что работает ситуация 1.\n\n![Иллюстрация из community FAQ](/faq/source-images/d5efd8cb65b1424a.png)",
+    "content": {
+      "answer": "**Решение**: По рулингу для официального WCW:\n\n- В ситуации 1 при стрельбе по оперативнику **В**, он будет в хэви кавре\n\n- В ситуации 2 - в лайт кавре\n\nНа Чалнате от Верняка считаем, что работает ситуация 1.\n\n![Иллюстрация из community FAQ](/faq/source-images/d5efd8cb65b1424a.png)\n\nПо Core Rules, при стрельбе снизу бортик Vantage выше линии наведения считается intervening, если он в control range цели. Чтобы бортик был в её control range, цель должна его видеть.\n\n[Core Rules: Update Log, стр. 1](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_core_rules_update_log-dfm8jfakdu-tof0hqcm78.pdf#page=1)",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_core_rules_update_log-dfm8jfakdu-tof0hqcm78.pdf#page=1"
+    }
+  },
+  {
+    "id": "community-045",
+    "question": "Получает ли ганнер егерей сизлесс если стреляет столворт дефенсом?",
+    "expectedRevision": 1,
+    "expectedAnswer": "**Решение**: Да, получает, ЕСЛИ он не двигался в активации этого хода. Это работает и на гарды, и на контеракты, и на стрельбу вне активации (за плойку).\n\n![Иллюстрация из community FAQ](/faq/source-images/21cae8b55bb159d7.png)",
+    "content": {
+      "answer": "**Решение**: Да, получает, ЕСЛИ он не двигался в активации этого хода. Это работает и на гарды, и на контеракты, и на стрельбу вне активации (за плойку).\n\n![Иллюстрация из community FAQ](/faq/source-images/21cae8b55bb159d7.png)\n\nВ одной активации нельзя совместить прерывание через Guard и Stalwart Defence, в любом порядке.\n\n[Hernkyn Yaegirs, стр. 8](https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_hernkyn_yaegirs-zro9mop6gm-5dh92aq2hh.pdf#page=8)",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_hernkyn_yaegirs-zro9mop6gm-5dh92aq2hh.pdf#page=8"
+    }
+  },
+  {
+    "id": "community-051",
+    "question": "Как работает сик на пятом маркерлайте",
+    "expectedRevision": 1,
+    "expectedAnswer": "![Иллюстрация из community FAQ](/faq/source-images/b68752c107073794.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/2cefd11081f133f0.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/251ce368ef545061.png)\n\nВопрос: Можно ли обычное действие Markerlight положить на модель 5 маркеров, несмотря на ограничение в самом правиле (максимум - 4)?\n\nРешение: Нельзя. Единственный способ получить полный сик за пятый маркерлайт - воспользоваться эквипом при стрельбе по цели, которая УЖЕ имеет 4 маркерлайта. Такова наша общая позиция с мировым коммьюнити",
+    "content": {
+      "answer": "Да. Обычное действие Markerlight может дать цели пятый токен. С пятью токенами применяется Seek без ограничения Light. Оборудование для пятого токена не обязательно.\n\n[Pathfinders, стр. 11](https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_pathfinders-crku85mt98-cz5ppchbrp.pdf#page=11)",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_pathfinders-crku85mt98-cz5ppchbrp.pdf#page=11"
+    }
+  },
+  {
+    "id": "official-celestian-insidiants-1",
+    "question": "Can an operative within 3\" of a CELESTIAN INSIDIANT operative be selected for a PSYCHIC rule or action by another operative outside that distance?",
+    "expectedRevision": 1,
+    "expectedAnswer": "No. An operative cannot benefit from, be selected for, or in any way use a PSYCHIC rule while within range of a CELESTIAN INSIDIANT operative. All PSYCHIC rules have absolutely no effect within the distance specified by the Weapons of the Witch Hunter faction rule.",
+    "content": {
+      "answer": "No. An operative cannot benefit from, be selected for, or in any way use a PSYCHIC rule while within range of a CELESTIAN INSIDIANT operative. All PSYCHIC rules have absolutely no effect on operatives within the distance specified by the Weapons of the Witch Hunter faction rule.",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_celestian_insidiants-2wtrtziyjq-qp4yglgiek.pdf#page=9",
+      "sourcePage": 9,
+      "sourceDate": "2026-10-28",
+      "sourceVersion": "2026-10-28",
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceSection": "RULES COMMENTARY OCTOBER ’26"
+    }
+  },
+  {
+    "id": "official-exodite-dragon-masters-10",
+    "question": "What happens if terrain or other operatives prevent my model from pivoting?",
+    "expectedRevision": 1,
+    "expectedAnswer": "Most things are ignored, allowing you to freely pivot. An operative’s base can pivot through other operatives and hazardous areas. Its base can also pivot through terrain parts no more than 2” tall (excluding Wall terrain). If parts of the model other than its base would prevent it from pivoting (e.g. tail, weapons, etc.), ignore them during the pivot. An operative must still end the action in a location it can be placed though, so pivoting through areas, operatives and terrain in this manner just allows it to manoeuvre, not be placed there as its final location.",
+    "content": {
+      "answer": "Most things are ignored, allowing you to freely pivot. An operative’s base can pivot through other operatives and hazardous areas. Its base can also pivot through terrain parts no more than 2” tall (excluding Wall terrain). Ignore parts such as the tail or weapons if terrain around the base stops them during the pivot. Terrain above the model still limits the pivot. An operative must still end the action in a location it can be placed though, so pivoting through areas, operatives and terrain in this manner just allows it to manoeuvre, not be placed there as its final location.",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_exodite_dragon_masters-nizemjb7i0-ik2qzzceww.pdf#page=14",
+      "sourcePage": 14,
+      "sourceDate": "2026-10-28",
+      "sourceVersion": "2026-10-28",
+      "sourceLabel": "Games Workshop · PDF p. 14",
+      "sourceSection": "RULES COMMENTARY OCTOBER ’26"
+    }
+  },
+  {
+    "id": "official-exodite-dragon-masters-11",
+    "question": "What happens if parts of my model (excluding the base) like the tail or weapons prevent my model from moving?",
+    "expectedRevision": 1,
+    "expectedAnswer": "As above, just ignore them during the move. An operative must still end the action in a location it can be placed though, so moving through areas, operatives and terrain in this manner just allows it to manoeuvre, not be placed there as its final location.",
+    "content": {
+      "answer": "Ignore those parts during the move if terrain around the base obstructs them. Terrain above the model still limits movement. An operative must still end the action in a location it can be placed though, so moving through areas, operatives and terrain in this manner just allows it to manoeuvre, not be placed there as its final location.",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_exodite_dragon_masters-nizemjb7i0-ik2qzzceww.pdf#page=16",
+      "sourcePage": 16,
+      "sourceDate": "2026-10-28",
+      "sourceVersion": "2026-10-28",
+      "sourceLabel": "Games Workshop · PDF p. 16",
+      "sourceSection": "PREVIOUS RULES COMMENTARIES"
+    }
+  },
+  {
+    "id": "official-exodite-dragon-masters-8",
+    "question": "How does moving directly forwards or backwards work during the Sprint action?",
+    "expectedRevision": 1,
+    "expectedAnswer": "The operative cannot move sideways or diagonally; its base must remain parallel to the direction of movement. Movement templates are provided as a guide and some examples are shown below. To use the 1-3\" sprint template, place it around the front of the operative’s base. Move the operative directly forwards until the front of its base reaches the appropriate distance. To move backwards, use the back of the operative’s base. To use the 4-6\" sprint template, place it around the front of the operative’s base. Move the operative directly forwards until the back of its base reaches the appropriate distance. 3\" MOVE To finish move, align front of base to appropriate inch marker. 6\" MOVE To finish move, align back of base to appropriate inch marker.",
+    "content": {
+      "answer": "The operative cannot move sideways or diagonally; its base must remain parallel to the direction of movement. Movement templates are provided as a guide and some examples are shown below. To use the 1-3\" sprint template, place it around the front of the operative’s base. Move the operative directly forwards until the front of its base reaches the appropriate distance. To move backwards, use the back of the operative’s base. To use the 4-6\" sprint template, place it around the front of the operative’s base. Move the operative directly forwards until the back of its base reaches the appropriate distance. 3\" MOVE To finish move, align front of base to appropriate inch marker. 6\" MOVE To finish move, align back of base to appropriate inch marker.\n\nA single Sprint must use one direction. You cannot use four or more tiny increments to claim a higher SPEED while moving less than 1″.",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_exodite_dragon_masters-nizemjb7i0-ik2qzzceww.pdf#page=15",
+      "sourcePage": 15,
+      "sourceDate": "2026-10-28",
+      "sourceVersion": "2026-10-28",
+      "sourceLabel": "Games Workshop · PDF p. 15",
+      "sourceSection": "PREVIOUS RULES COMMENTARIES"
+    }
+  },
+  {
+    "id": "official-novitiates-1",
+    "question": "Can an operative within 6\" of a CONDEMNOR operative be selected for a PSYCHIC rule or action by another operative outside that distance?",
+    "expectedRevision": 1,
+    "expectedAnswer": "No. An operative cannot benefit from, be selected for, or in any way use a PSYCHIC rule while within range of a CONDEMNOR operative. All PSYCHIC rules have absolutely no effect within the distance specified by the Null Rod rule.",
+    "content": {
+      "answer": "No. An operative cannot benefit from, be selected for, or in any way use a PSYCHIC rule while within range of a CONDEMNOR operative. All PSYCHIC rules have absolutely no effect on operatives within the distance specified by the Null Rod rule.",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_novitiates-fbgjxsr6jr-n9u67y9fqg.pdf#page=9",
+      "sourcePage": 9,
+      "sourceDate": "2026-10-28",
+      "sourceVersion": "2026-10-28",
+      "sourceLabel": "Games Workshop · PDF p. 9",
+      "sourceSection": "RULES COMMENTARY OCTOBER ’26"
+    }
+  },
+  {
+    "id": "7a01e352-d0bf-4416-bd36-f2a9444b71a9",
+    "question": "Когда срабатывает триггер нейтралайзера",
+    "expectedRevision": 1,
+    "expectedAnswer": "По солидарности с международным коммьюнити, и по примеру других подобных абилок, нейтралайзер срабатывает до выбора приказа",
+    "content": {
+      "answer": "Neutraliser срабатывает, когда противник собирается активировать оперативника. Приказ выбирают после разрешения прерывания.\n\n[XV26 Stealth Battlesuits, стр. 9](https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_xv26_stealth_battlesuits-mb2kbsidpq-tuh1yilji3.pdf#page=9) · [Core Rules: Update Log, стр. 2](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_core_rules_update_log-dfm8jfakdu-tof0hqcm78.pdf#page=2)",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_xv26_stealth_battlesuits-mb2kbsidpq-tuh1yilji3.pdf#page=9"
+    }
+  },
+  {
+    "id": "a4a3d705-b424-40c2-8166-212b9b91082a",
+    "question": "Выталкивание тормента через стенки во время мутации",
+    "expectedRevision": 2,
+    "content": {
+      "answer": "В TTS при замене модели Torment не может пересекать террейн. Если места не хватает, сдвинь дружественных оперативников на минимальное необходимое расстояние. Если Torment всё равно не помещается, выбери другого оперативника для мутации и верни сдвинутых на исходные места.\n\n[Chaos Cult, стр. 9](https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_chaos_cult-dvssv655ai-x7y0cwumij.pdf#page=9)",
+      "sourceUrl": "https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_chaos_cult-dvssv655ai-x7y0cwumij.pdf#page=9"
+    }
+  }
+]

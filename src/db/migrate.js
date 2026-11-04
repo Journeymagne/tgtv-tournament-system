@@ -79,7 +79,8 @@ const MIGRATIONS = [
   require("./migrations/079_tournament_relations"),
   require("./migrations/080_canonical_match_results"),
   require("./migrations/081_documentation_changelog"),
-  require("./migrations/082_training_first_correct_ranks")
+  require("./migrations/082_training_first_correct_ranks"),
+  require("./migrations/083_faq_october_errata")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
