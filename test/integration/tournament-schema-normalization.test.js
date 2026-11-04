@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { Pool } = require('pg');
 const { poolOptions, resetSchemas } = require('../helpers/schema');
 const { migrateThrough } = require('../helpers/migrate-through');
-const { migrate } = require('../../src/db/migrate');
+const { migrate, MIGRATIONS } = require('../../src/db/migrate');
 const matches = require('../../src/db/repositories/tournament-matches');
 const games = require('../../src/db/repositories/games');
 let pool;
@@ -34,7 +34,7 @@ test('upgrade preserves unlinked guest history, canonical results, conflict evid
   await pool.query(`INSERT INTO tournament_matches(id,tournament_id,round_id,round_number,status,participant_a_id,participant_b_id,
     winner_participant_id,game_id,result,elo) VALUES(22,1,1,1,'completed',11,12,11,31,$1,'{"legacy":8}')`, [result]);
   const old = (await pool.query('SELECT * FROM tournament_matches WHERE id=22')).rows[0];
-  assert.deepEqual(await migrate(pool), [79,80]);
+  assert.deepEqual(await migrate(pool), MIGRATIONS.filter(migration => migration.version > 78).map(migration => migration.version));
   const stored = await matches.findById(pool, 21);
   assert.equal(stored.result.winnerId, -11);
   assert.deepEqual(stored.result.scoresByParticipantId, { 11: { total: 15 }, 12: { total: 8 } });
