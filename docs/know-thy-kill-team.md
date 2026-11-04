@@ -14,16 +14,19 @@ retains difficulty selection, and `#progress` retains detailed statistics.
 | Rank | XP |
 | --- | ---: |
 | Нубик | 0 |
-| Фрешблад | 600 |
-| Середняк | 2400 |
-| Знаток киллтима | 5400 |
-| Потнич | 9600 |
-| Судья | 15000 |
+| Фрешблад | 300 |
+| Середняк | 1200 |
+| Знаток киллтима | 2700 |
+| Потнич | 4800 |
+| Судья | 7500 |
 
-The first **two** correct answers to each question each earn `difficulty × 10`
-XP. A question is reinforced after two correct answers. Later correct answers
-earn no more XP; mistakes never remove XP. With the full 300-question curriculum,
-reinforcing every question gives 15,000 XP. The 200 reviewed additions are included.
+The **first** correct answer to each active core question earns `difficulty × 10`
+course XP towards ranks. Solving every active core question once qualifies for Judge,
+even after earlier mistakes or a later wrong answer. With the full 300-question
+curriculum this is 7,500 course XP. Repeats cannot replace an unsolved question.
+Lifetime XP still rewards the first two correct answers and retains all past credit;
+a second correct answer marks reinforcement but is optional and does not advance ranks.
+The 200 reviewed additions are included.
 Only active questions belong to the curriculum. Both review (Slop) and deleted
 questions are excluded from session draws, totals and qualification requirements.
 Thresholds use 0 / 4 / 16 / 36 / 64 / 100% of the active course maximum; the table
@@ -33,10 +36,12 @@ above assumes all 300 questions are active. Existing checked answers are never r
 called by the server through `src/domain/training-progression.js`.
 Lifetime XP is frozen in each question's `training_profiles.stats[id].xp` and
 includes withdrawn questions. Current course XP uses only active questions and
-cannot be replaced by credit from archived questions. Both counts are displayed;
+cannot be replaced by credit from archived questions or repeat answers. Both counts are displayed;
 all-time solved/reinforced totals and answer history remain available.
 
-Migration `064_training_retained_ranks` persists the highest earned `rank_tier`.
+Migration `082_training_first_correct_ranks` grants newly qualified ranks to existing
+accounts, including offline players, without changing answers, lifetime XP, sessions
+or notification markers. Migration `064_training_retained_ranks` persists the highest earned `rank_tier`.
 Titles never decrease. If the retained title exceeds the currently qualified
 rank, the journey and profile achievement show **Переаттестация** until ordinary
 training satisfies the current requirements. Companion delivers one inbox
@@ -82,7 +87,7 @@ questions without any correct answer. If fewer than 20 eligible questions remain
 the session uses that smaller pool; solved questions never fill the remaining slots,
 including replacements after moderation. An empty pool cannot start a session.
 Deliberate question-bank practice can still repeat a solved question, including
-earning the second correct answer needed for core progression. Existing sessions
+earning optional reinforcement and bonus lifetime XP. Existing sessions
 keep their saved question list unless moderation requires a replacement.
 Answer order is shuffled once and saved.
 The bank, sources and training sessions are available without signing in.

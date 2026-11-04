@@ -1,7 +1,7 @@
 const { questions } = require('./training');
-const maxXp = questions.filter(question => !question.team).reduce((total, question) => total + question.difficulty * 20, 0);
+const maxXp = questions.filter(question => !question.team).reduce((total, question) => total + question.difficulty * 10, 0);
 
-// Award credit at most twice per question. Repeated easy answers cannot farm ranks.
+// Rank credit comes from the first correct answer to each active core question.
 // Derive it from existing saved answers so earlier training counts immediately.
 const ranks = [
   { id: 'noob', name: 'Нубик', en: 'Noob', xp: 0, tier: 1, note: 'Первый шаг в киллзону' },
@@ -9,7 +9,7 @@ const ranks = [
   { id: 'regular', name: 'Середняк', en: 'Regular', xp: Math.round(maxXp * 0.16), tier: 3, note: 'Уже есть на что опереться' },
   { id: 'expert', name: 'Знаток киллтима', en: 'Kill Team expert', xp: Math.round(maxXp * 0.36), tier: 4, note: 'Уверенно разбираете ситуации' },
   { id: 'tryhard', name: 'Потнич', en: 'Tryhard', xp: Math.round(maxXp * 0.64), tier: 5, note: 'Знаете, где решают детали' },
-  { id: 'judge', name: 'Судья', en: 'Judge', xp: maxXp, tier: 6, note: 'Весь текущий курс закреплён' }
+  { id: 'judge', name: 'Судья', en: 'Judge', xp: maxXp, tier: 6, note: 'Все вопросы текущего курса решены' }
 ];
 
 const calculateProgression = require('../../public/training/progression');

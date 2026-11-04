@@ -54,6 +54,41 @@ async function actor(admin = false) {
 }
 const report = q => ({ requestId: randomUUID(), questionVersion: q.version, questionRevision: q.revision, comment: 'Rule needs review' });
 
+test('existing accounts gain first-correct ranks and profile achievements without losing history or sending notices', async () => {
+  const user = await actor();
+  const stats = Object.fromEntries(bank.questions.filter(q => !q.team).map(q => [q.id,
+    { attempts: 3, correct: 1, lastCorrect: false, xp: q.difficulty * 10 }]));
+  await pool.query(`UPDATE knowthykt.training_profiles SET stats=$2,rank_tier=5,revision=7,
+    completed_count=12,recertification_key='once' WHERE user_id=$1`, [user.id, JSON.stringify(stats)]);
+  const migration = require('../../src/db/migrations/082_training_first_correct_ranks');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await migration.up(client);
+    await migration.up(client);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+  const { rows: [profile] } = await pool.query('SELECT * FROM knowthykt.training_profiles WHERE user_id=$1', [user.id]);
+  assert.equal(profile.rank_tier, 6);
+  assert.equal(profile.revision, 8, 'migration retries do not change revision again');
+  assert.equal(profile.completed_count, 12);
+  assert.equal(profile.recertification_key, 'once');
+  assert.deepEqual(profile.stats, stats);
+  const state = (await request('progress', user)).state;
+  assert.equal(state.journey.rank.id, 'judge');
+  assert.equal(state.journey.percent, 100);
+  assert.equal(state.journey.recertification, false);
+  assert.equal(state.journey.courseXp, state.journey.maxXp);
+  const achievement = await require('../../src/db/repositories/training').publicJourney(pool, user.id);
+  assert.equal(achievement.rank.id, 'judge');
+  assert.equal(achievement.remaining, 0);
+  assert.equal(achievement.xp, state.journey.xp);
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM knowthykt.notification_messages WHERE user_id=$1', [user.id])).rows[0].n, 0);
+});
+
 test('team sessions persist short courses and award separate achievements across sessions and devices', async () => {
   const team = 'hand-of-the-archon';
   const fixtures = [1, 2, 3].map(n => ({ ...bank.questions[0], id: 'hoa-test-' + n, team, difficulty: 3,

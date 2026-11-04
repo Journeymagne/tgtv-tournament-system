@@ -6,7 +6,7 @@ function progression(questions, ranks, stats = {}, retainedTier = 1) {
   const teamIds = new Set(questions.filter(q => q.team).map(q => q.id));
   questions = questions.filter(q => !q.team);
   const active = questions.filter(q => !q.status || q.status === 'active');
-  const maximum = active.reduce((n, q) => n + q.difficulty * 20, 0);
+  const maximum = active.reduce((n, q) => n + q.difficulty * 10, 0);
   const thresholds = [0, .04, .16, .36, .64, 1];
   ranks = ranks.map((rank, i) => ({ ...rank, xp: Math.round(maximum * thresholds[i]) }));
   const levels = [1, 2, 3, 4].map(difficulty => ({ difficulty, total: 0, seen: 0, solved: 0, mastered: 0, xp: 0, maxXp: 0 }));
@@ -30,11 +30,12 @@ function progression(questions, ranks, stats = {}, retainedTier = 1) {
     level.seen += Number(count > 0);
     level.solved += Number(wins > 0);
     level.mastered += Number(wins >= 2);
-    level.xp += Math.min(2, wins) * question.difficulty * 10;
-    level.maxXp += question.difficulty * 20;
+    level.xp += Number(wins > 0) * question.difficulty * 10;
+    level.maxXp += question.difficulty * 10;
   }
   // Lifetime XP is never removed. Qualification measures only the active course;
-  // credit for withdrawn questions cannot substitute for unlearned active ones.
+  // Each active question qualifies once; repetitions and withdrawn questions
+  // cannot substitute for unlearned active ones.
   const courseXp = levels.reduce((n, level) => n + level.xp, 0);
   const qualifiedRank = active.length ? ranks.filter(rank => courseXp >= rank.xp).at(-1) : ranks[0];
   const tier = Math.max(qualifiedRank.tier, Math.min(6, Math.max(1, Math.floor(Number(retainedTier) || 1))));
@@ -50,7 +51,7 @@ function progression(questions, ranks, stats = {}, retainedTier = 1) {
   const recommended = incomplete.filter(level => questions.filter(q => q.difficulty === level.difficulty && (!q.status || q.status === 'active')).length >= 20)
     .sort((a, b) => a.xp / a.maxXp - b.xp / b.maxXp || a.difficulty - b.difficulty)[0];
   return {
-    version: 2, xp, courseXp, rank, qualifiedRank, next, remaining, percent, ranks, levels,
+    version: 3, xp, courseXp, rank, qualifiedRank, next, remaining, percent, ranks, levels,
     recertification, recertificationRemaining, lifetimeSolved, lifetimeMastered,
     total: active.length, maxXp: maximum,
     solved: levels.reduce((n, level) => n + level.solved, 0),

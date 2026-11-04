@@ -41,10 +41,10 @@
     ['ШЕСТЬ РАНГОВ · ОДИН ПУТЬ', 'SIX RANKS · ONE JOURNEY'], ['От Нубика до Судьи', 'From Noob to Judge'],
     ['Нажмите на ранг, чтобы узнать больше', 'Select a rank to learn more'], ['Вы здесь', 'You are here'], ['Открыт', 'Unlocked'], ['Впереди', 'Ahead'],
     ['ЧТО ТРЕНИРОВАТЬ ДАЛЬШЕ', 'WHAT TO PRACTICE NEXT'], ['Закрепляйте знания', 'Reinforce your knowledge'],
-    ['Два верных ответа на вопрос', 'Two correct answers per question'], ['вопросов закреплено', 'questions reinforced'],
+    ['Один верный ответ на каждый вопрос', 'One correct answer to every question'], ['вопросов решено', 'questions solved'],
     ['КАК РАСТЁТ РАНГ', 'HOW RANKS WORK'], ['Практика даёт опыт', 'Practice earns experience'],
     ['Первый и второй верный ответ на вопрос дают по 10, 20, 30 или 40 XP — в зависимости от сложности.', 'The first and second correct answers to each question earn 10, 20, 30 or 40 XP each, depending on difficulty.'],
-    ['После двух верных ответов вопрос закреплён. Дальнейшие повторы помогают тренироваться, но не добавляют XP.', 'Two correct answers reinforce a question. Further repetitions help you practice but earn no additional XP.'],
+    ['Для ранга учитывается только первый верный ответ. Второй даёт бонус к общему XP и отметку закрепления, но не ускоряет рост ранга.', 'Only the first correct answer counts towards your rank. The second adds lifetime XP and marks the question as reinforced, without advancing your rank.'],
     ['Ошибки не отнимают опыт и ранг. Все прежние ответы уже учтены.', 'Mistakes never remove XP or ranks. All previous answers already count.'],
     ['Разобрать вопросы →', 'Review questions →'], ['СЕССИЙ ЗАВЕРШЕНО', 'SESSIONS COMPLETED'], ['ТОЧНОСТЬ ОТВЕТОВ', 'ANSWER ACCURACY'],
     ['За всё время', 'All time'], ['ЕСТЬ ЧТО ПОВТОРИТЬ', 'NEEDS REVIEW'], ['Посмотреть мой путь →', 'View my journey →'],
@@ -98,7 +98,7 @@
     [/^Ещё (\d+) XP курса до переаттестации$/, '$1 course XP to recertify'],
     [/^Ещё (\d+) XP курса до следующего ранга$/, '$1 course XP to the next rank'],
     [/^За всё время: решено (\d+), закреплено (\d+)\. Ответы на снятые вопросы сохранены\.$/, 'All time: $1 solved, $2 reinforced. Answers to withdrawn questions are retained.'],
-    [/^«Судья» открывается после двух верных ответов на каждый вопрос актуальной базы: (\d+) закреплённых вопросов и (\d+) XP курса\.$/, 'Judge unlocks after two correct answers to every active question: $1 reinforced questions and $2 course XP.'],
+    [/^«Судья» открывается после одного верного ответа на каждый вопрос актуальной базы общих правил: (\d+) решённых вопросов и (\d+) XP курса\.$/, 'Judge unlocks after one correct answer to every active core rules question: $1 solved questions and $2 course XP.'],
     [/^«Судья» открывается после двух верных ответов на каждый вопрос базы: (\d+) закреплённых вопросов и (\d+) XP\.$/, 'Judge unlocks after two correct answers to every question in the bank: $1 reinforced questions and $2 XP.'],
     [/^Ещё (\d+) XP до следующего ранга$/, '$1 XP to the next rank'],
     [/^До следующего ранга: (\d+) XP$/, 'Next rank in $1 XP'],
@@ -108,6 +108,6 @@
     [/^Уже есть на что опереться\./, 'A solid foundation.'],
     [/^Уверенно разбираете ситуации\./, 'Confidently working through situations.'],
     [/^Знаете, где решают детали\./, 'You know which details matter.'],
-    [/^Весь текущий курс закреплён\./, 'The entire current course reinforced.']
+    [/^Все вопросы текущего курса решены\./, 'Every question in the current course solved.']
   ] });
 })();

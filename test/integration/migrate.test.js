@@ -276,7 +276,7 @@ test('training scope withdraws excluded killzones while preserving earned progre
     assert.ok(state.active.items.slice(1).every(item => !excludedIds.includes(item.questionId)), 'unanswered expansion questions are replaced');
     assert.equal(state.active.items.length, 20);
     assert.equal(state.journey.xp, 80);
-    assert.equal(state.journey.courseXp, 20);
+    assert.equal(state.journey.courseXp, 10);
     assert.equal(state.journey.rank.tier, 6);
     assert.deepEqual(state.stats, stats);
     await client.query('COMMIT');

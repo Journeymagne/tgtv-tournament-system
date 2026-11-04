@@ -131,9 +131,11 @@ for (const course of ['core', team]) test(`guest ${course} can finish a short se
   assert.equal(state.completedCount, 1);
   assert.equal(state.teamAchievements[0].earned, course !== 'core');
   assert.equal(state.journey.xp, course === 'core' ? 60 : 0);
+  assert.equal(state.journey.rank.id, course === 'core' ? 'judge' : 'noob');
   const again = (await sandbox.window.KTTrainingGuest(bank).refresh()).state;
   assert.equal(again.history[0].items.length, 2);
   assert.equal(again.teamAchievements[0].earnedAt, state.teamAchievements[0].earnedAt);
+  assert.equal(again.journey.rank.id, state.journey.rank.id);
   await assert.rejects(guest.start({ sessionId: 'exhausted', mode: 'mixed', team: course, revision: state.revision }));
   ({ state } = await guest.start({ sessionId: 'targeted', mode: 'mixed', team: course, questionId: 'a', revision: state.revision }));
   assert.equal(state.active.items.length, 1);
