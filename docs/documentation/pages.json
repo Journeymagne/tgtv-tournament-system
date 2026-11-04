@@ -1,34 +1,45 @@
 {
   "ru": [
     {
+      "id": "changelog",
+      "category": "Обновления",
+      "title": "Changelog",
+      "summary": "Последние 10 обновлений KT Companion: новые возможности и исправления."
+    },
+    {
       "id": "wtc-pairings",
       "category": "Паринги",
       "title": "Паринги WTC · 3×3",
-      "summary": "От генерации раунда до трёх игр: столы, D6, баны, Shield и Sword."
+      "summary": "От генерации раунда до трёх игр: столы, D6, баны, Shield и Sword.",
+      "archived": true
     },
     {
       "id": "swiss-tiebreakers",
       "category": "Тайбрейки",
       "title": "Индивидуальная швейцарка",
-      "summary": "Пять критериев таблицы, их приоритет, ничьи и личные тайбрейки."
+      "summary": "Пять критериев таблицы, их приоритет, ничьи и личные тайбрейки.",
+      "archived": true
     },
     {
       "id": "elimination-tiebreakers",
       "category": "Тайбрейки",
       "title": "Single Elimination",
-      "summary": "Победитель при равных VP, продвижение по сетке и сводная таблица."
+      "summary": "Победитель при равных VP, продвижение по сетке и сводная таблица.",
+      "archived": true
     },
     {
       "id": "team-tiebreakers",
       "category": "Тайбрейки",
       "title": "Командный WTC · очки и тайбрейки",
-      "summary": "GP каждой игры, ничья 28–32 и фиксированный порядок команд."
+      "summary": "GP каждой игры, ничья 28–32 и фиксированный порядок команд.",
+      "archived": true
     },
     {
       "id": "mmr",
       "category": "Рейтинг",
       "title": "Формула MMR",
-      "summary": "Elo с K = 32, примеры, TTS / IRL / общий рейтинг и исключения."
+      "summary": "Elo с K = 32, примеры, TTS / IRL / общий рейтинг и исключения.",
+      "archived": true
     },
     {
       "id": "handouts",
@@ -39,34 +50,45 @@
   ],
   "en": [
     {
+      "id": "changelog",
+      "category": "Updates",
+      "title": "Changelog",
+      "summary": "The latest 10 KT Companion updates: new features and fixes."
+    },
+    {
       "id": "wtc-pairings",
       "category": "Pairings",
       "title": "WTC pairings · 3×3",
-      "summary": "From round generation to three games: tables, D6, bans, Shield and Sword."
+      "summary": "From round generation to three games: tables, D6, bans, Shield and Sword.",
+      "archived": true
     },
     {
       "id": "swiss-tiebreakers",
       "category": "Tiebreakers",
       "title": "Individual Swiss",
-      "summary": "Five standings criteria, priority, draws and game tiebreakers."
+      "summary": "Five standings criteria, priority, draws and game tiebreakers.",
+      "archived": true
     },
     {
       "id": "elimination-tiebreakers",
       "category": "Tiebreakers",
       "title": "Single Elimination",
-      "summary": "Equal-VP winners, bracket progression and the standings table."
+      "summary": "Equal-VP winners, bracket progression and the standings table.",
+      "archived": true
     },
     {
       "id": "team-tiebreakers",
       "category": "Tiebreakers",
       "title": "Team WTC · points and tiebreakers",
-      "summary": "Game GP, the 28–32 draw band and fixed team ranking order."
+      "summary": "Game GP, the 28–32 draw band and fixed team ranking order.",
+      "archived": true
     },
     {
       "id": "mmr",
       "category": "Rating",
       "title": "MMR formula",
-      "summary": "Elo with K = 32, examples, TTS / IRL / combined ratings and exceptions."
+      "summary": "Elo with K = 32, examples, TTS / IRL / combined ratings and exceptions.",
+      "archived": true
     },
     {
       "id": "handouts",

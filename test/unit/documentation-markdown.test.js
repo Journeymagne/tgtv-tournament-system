@@ -36,12 +36,12 @@ test("preview uses the public renderer, allows empty drafts, and bounds input", 
 });
 
 test("client loads published content and only exposes edit controls to administrators", async () => {
-  const page = { id: "mmr", title: '<img src=x onerror=alert(1)>', summary: "Summary", category: "Rating", updatedAt: "2026-09-07", ...renderMarkdown("## Hello") };
+  const page = { id: "changelog", title: '<img src=x onerror=alert(1)>', summary: "Summary", category: "Rating", updatedAt: "2026-09-07", ...renderMarkdown("## Hello") };
   const calls = [];
-  const data = await docs.load("en", "mmr", async (path) => { calls.push(path); return path.endsWith("/mmr") ? { page } : { pages: [page] }; });
-  assert.deepEqual(calls, ["/api/documentation/en", "/api/documentation/en/mmr"]);
-  assert.doesNotMatch(docs.render("en", "mmr", true, data), /data-doc-edit|<img/);
-  assert.match(docs.render("en", "mmr", false, data, true), /data-doc-edit/);
+  const data = await docs.load("en", "changelog", async (path) => { calls.push(path); return path.endsWith("/changelog") ? { page } : { pages: [page] }; });
+  assert.deepEqual(calls, ["/api/documentation/en", "/api/documentation/en/changelog"]);
+  assert.doesNotMatch(docs.render("en", "changelog", true, data), /data-doc-edit|<img/);
+  assert.match(docs.render("en", "changelog", false, data, true), /data-doc-edit/);
   calls.length = 0;
   assert.equal((await docs.load("en", "unknown", async (path) => { calls.push(path); return { pages: [page] }; })).page, null);
   assert.equal(calls.length, 1);

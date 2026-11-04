@@ -35,17 +35,17 @@ test.after(async () => { await server?.close(); await pool?.end(); });
 test.beforeEach(async () => {
   for (const page of defaultPages()) await pool.query("UPDATE documentation_pages SET title=$3, summary=$4, markdown=$5, version=1 WHERE page_id=$1 AND locale=$2", [page.id, page.locale, page.title, page.summary, page.markdown]);
 });
-const read = async (client, locale = "ru") => (await client.get(`/api/documentation/${locale}/team-tiebreakers`)).body.page;
+const read = async (client, locale = "ru") => (await client.get(`/api/documentation/${locale}/changelog`)).body.page;
 
 test("guests read every seeded page; only admins may preview or publish", async () => {
   for (const locale of ["ru", "en"]) {
     const response = await guest.get(`/api/documentation/${locale}`);
-    assert.equal(response.status, 200); assert.equal(response.body.pages.length, 6);
+    assert.equal(response.status, 200); assert.deepEqual(response.body.pages.map(page => page.id), ["changelog", "handouts"]);
     for (const page of response.body.pages) assert.equal((await guest.get(`/api/documentation/${locale}/${page.id}`)).status, 200);
   }
   const page = await read(guest);
   for (const [client, expected] of [[guest, 401], [player, 403]]) {
-    assert.equal((await client.patch("/api/admin/documentation/ru/team-tiebreakers", page)).status, expected);
+    assert.equal((await client.patch("/api/admin/documentation/ru/changelog", page)).status, expected);
     assert.equal((await client.post("/api/admin/documentation/preview", { markdown: "## Draft" })).status, expected);
   }
   const before = await read(guest);
@@ -56,7 +56,7 @@ test("guests read every seeded page; only admins may preview or publish", async 
 
 test("saving publishes Markdown and metadata, survives reseeding, and leaves the other language unchanged", async () => {
   const old = await read(admin); const english = await read(guest, "en");
-  const response = await admin.patch("/api/admin/documentation/ru/team-tiebreakers", { ...old, title: "Новые правила", summary: "Обновлённое описание", markdown: "## Итоги\n\n**Новый текст**\n\n| VP | GP |\n| --- | --- |\n| 1 | 11 |" });
+  const response = await admin.patch("/api/admin/documentation/ru/changelog", { ...old, title: "Новые правила", summary: "Обновлённое описание", markdown: "## Итоги\n\n**Новый текст**\n\n| VP | GP |\n| --- | --- |\n| 1 | 11 |" });
   assert.equal(response.status, 200); assert.equal(response.body.page.version, 2);
   assert.match(response.body.page.html, /<strong>Новый текст<\/strong>/);
   assert.equal((await read(guest)).title, "Новые правила");
@@ -75,9 +75,47 @@ test("saving publishes Markdown and metadata, survives reseeding, and leaves the
   assert.equal((await pool.query("SELECT updated_by FROM documentation_pages WHERE page_id=$1 AND locale='ru'", [old.id])).rows[0].updated_by, 1);
 });
 
+test("archived pages are absent from navigation and unavailable for reading or editing", async () => {
+  for (const locale of ["ru", "en"]) {
+    for (const id of ["wtc-pairings", "swiss-tiebreakers", "elimination-tiebreakers", "team-tiebreakers", "mmr"]) {
+      assert.equal((await guest.get(`/api/documentation/${locale}/${id}`)).status, 404);
+      assert.equal((await admin.patch(`/api/admin/documentation/${locale}/${id}`, {
+        title: "Archived", summary: "Archived", markdown: "Replacement", version: 1
+      })).status, 404);
+    }
+  }
+});
+
+test("Changelog upgrade preserves Handouts and archived edits and is safe to repeat", async () => {
+  const migration = require("../../src/db/migrations/081_documentation_changelog");
+  const repository = require("../../src/db/repositories/documentation");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Simulate an existing installation with customized pages, before Changelog.
+    await client.query("DELETE FROM tournaments.documentation_pages WHERE page_id='changelog'");
+    await client.query("UPDATE tournaments.documentation_pages SET markdown='Administrator content', version=9, updated_by=1 WHERE page_id IN ('handouts', 'mmr')");
+    const preserved = (await client.query("SELECT * FROM tournaments.documentation_pages WHERE page_id IN ('handouts', 'mmr') ORDER BY page_id, locale")).rows;
+    await migration.up(client);
+    for (const locale of ["ru", "en"]) {
+      assert.deepEqual((await repository.list(client, locale)).map(page => page.id), ["changelog", "handouts"]);
+      const page = await repository.get(client, locale, "changelog");
+      assert.equal((page.markdown.match(/^## \d+\.\d+\.\d+ —/gm) || []).length, 10);
+    }
+    await client.query("UPDATE tournaments.documentation_pages SET markdown='Reviewed release notes', version=2, updated_by=1 WHERE page_id='changelog' AND locale='ru'");
+    const once = (await client.query("SELECT * FROM tournaments.documentation_pages ORDER BY page_id, locale")).rows;
+    await migration.up(client);
+    assert.deepEqual((await client.query("SELECT * FROM tournaments.documentation_pages ORDER BY page_id, locale")).rows, once);
+    assert.deepEqual((await client.query("SELECT * FROM tournaments.documentation_pages WHERE page_id IN ('handouts', 'mmr') ORDER BY page_id, locale")).rows, preserved);
+  } finally {
+    await client.query("ROLLBACK");
+    client.release();
+  }
+});
+
 test("simultaneous saves allow one writer and reject the stale revision without losing content", async () => {
   const page = await read(admin);
-  const results = await Promise.all(["First edit", "Second edit"].map((markdown) => admin.patch("/api/admin/documentation/ru/team-tiebreakers", { ...page, markdown })));
+  const results = await Promise.all(["First edit", "Second edit"].map((markdown) => admin.patch("/api/admin/documentation/ru/changelog", { ...page, markdown })));
   assert.deepEqual(results.map((result) => result.status).sort(), [200, 409]);
   const winner = results.find((result) => result.status === 200).body.page;
   assert.equal((await read(guest)).markdown, winner.markdown);
@@ -87,7 +125,7 @@ test("simultaneous saves allow one writer and reject the stale revision without 
 test("invalid documents and unknown page/language cannot be saved", async () => {
   const page = await read(admin);
   for (const invalid of [{ title: " " }, { summary: "" }, { markdown: "" }, { markdown: "a".repeat(100001) }, { title: "x".repeat(161) }, { version: "1" }, { version: 0 }]) {
-    assert.equal((await admin.patch("/api/admin/documentation/ru/team-tiebreakers", { ...page, ...invalid })).status, 400);
+    assert.equal((await admin.patch("/api/admin/documentation/ru/changelog", { ...page, ...invalid })).status, 400);
   }
   for (const url of ["/api/documentation/fr/mmr", "/api/documentation/ru/unknown"]) assert.equal((await guest.get(url)).status, 404);
   assert.equal((await admin.patch("/api/admin/documentation/ru/unknown", page)).status, 404);

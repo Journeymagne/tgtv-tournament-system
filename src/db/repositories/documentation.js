@@ -1,3 +1,5 @@
+const { PAGE_IDS } = require("../../domain/documentation");
+
 function pageFromRow(row) {
   if (!row) return null;
   return {
@@ -9,7 +11,7 @@ function pageFromRow(row) {
 
 async function list(client, locale) {
   const { rows } = await client.query(
-    "SELECT page_id, locale, category, title, summary, version, updated_at FROM documentation_pages WHERE locale = $1 ORDER BY position, page_id", [locale]
+    "SELECT page_id, locale, category, title, summary, version, updated_at FROM documentation_pages WHERE locale = $1 AND page_id = ANY($2::text[]) ORDER BY array_position($2::text[], page_id)", [locale, PAGE_IDS]
   );
   return rows.map(pageFromRow);
 }

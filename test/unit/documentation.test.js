@@ -4,18 +4,19 @@ const fs = require("node:fs");
 const path = require("node:path");
 const docs = require("../../public/documentation");
 const { calculateElo, ELO_K } = require("../../src/domain/elo");
-const { defaultPages, renderMarkdown } = require("../../src/domain/documentation");
+const { defaultPages, renderMarkdown, PAGE_IDS } = require("../../src/domain/documentation");
 const { gamePointsForTotals, teamTournamentPoints } = require("../../src/domain/team-tournaments");
 const { CRIT_OPS } = require("../../src/domain/kill-teams");
 const pages = defaultPages().map((page) => ({ ...page, ...renderMarkdown(page.markdown), version: 1, updatedAt: "2026-09-07T00:00:00.000Z" }));
-const book = (locale, id) => ({ pages: pages.filter((page) => page.locale === locale), page: pages.find((page) => page.locale === locale && page.id === id) });
+const book = (locale, id) => ({ pages: pages.filter((page) => page.locale === locale && PAGE_IDS.includes(page.id)), page: pages.find((page) => page.locale === locale && page.id === id) });
 
-test("documentation has the same six complete, independently linkable pages in both languages", () => {
+test("documentation publishes only Changelog and Handouts in both languages", () => {
   for (const locale of ["ru", "en"]) {
     const data = book(locale);
-    assert.deepEqual(data.pages.map((page) => page.id), docs.pageIds);
+    assert.deepEqual(data.pages.map((page) => page.id), ["changelog", "handouts"]);
+    assert.deepEqual(docs.pageIds, PAGE_IDS);
     const index = docs.render(locale, "", false, data);
-    assert.equal((index.match(/class="card panel documentation-card"/g) || []).length, 6);
+    assert.equal((index.match(/class="card panel documentation-card"/g) || []).length, 2);
     for (const page of data.pages) {
       assert.ok(page.title && page.summary && page.markdown && page.headings.length > 0);
       assert.match(index, new RegExp(`href="/tournament#/documentation/${page.id}"`));
@@ -29,7 +30,15 @@ test("documentation has the same six complete, independently linkable pages in b
   }
 });
 
-test("both individual tournament pages explain every supported standings tiebreaker", () => {
+test("Changelog contains the same ten released versions in both languages", () => {
+  const expected = ["1.4.35", "1.4.33", "1.4.32", "1.4.31", "1.4.30", "1.4.29", "1.4.28", "1.4.27", "1.4.26", "1.4.25"];
+  for (const locale of ["ru", "en"]) {
+    const markdown = book(locale, "changelog").page.markdown;
+    assert.deepEqual([...markdown.matchAll(/^## (\d+\.\d+\.\d+) —/gm)].map(match => match[1]), expected);
+  }
+});
+
+test("archived individual tournament pages explain every supported standings tiebreaker", () => {
   for (const locale of ["ru", "en"]) for (const id of ["swiss-tiebreakers", "elimination-tiebreakers"]) {
     const page = book(locale, id).page;
     for (const name of ["Strength of Schedule", "Buchholz", "Head-to-head", "Total VP", "VP Diff"]) {
@@ -39,7 +48,7 @@ test("both individual tournament pages explain every supported standings tiebrea
   }
 });
 
-test("all published MMR examples match the production Elo function", () => {
+test("all archived MMR examples match the production Elo function", () => {
   assert.equal(ELO_K, 32);
   for (const locale of ["ru", "en"]) {
     const page = book(locale, "mmr").page;

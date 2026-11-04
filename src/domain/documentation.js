@@ -4,7 +4,7 @@ const MarkdownIt = require("markdown-it");
 const manifest = require("../../docs/documentation/pages.json");
 
 const LOCALES = ["ru", "en"];
-const PAGE_IDS = manifest.en.map((page) => page.id);
+const PAGE_IDS = manifest.en.filter((page) => !page.archived).map((page) => page.id);
 const MAX_MARKDOWN_LENGTH = 100_000;
 const markdown = new MarkdownIt({ html: false, linkify: false, breaks: false });
 // Keep tables and code usable within the existing responsive documentation layout.
@@ -41,6 +41,8 @@ function renderMarkdown(source) {
 }
 
 function defaultPages() {
+  // Historical migrations still need archived seed documents. Public routes
+  // and listings expose only PAGE_IDS; retained content is not published.
   return LOCALES.flatMap((locale) => manifest[locale].map((page) => ({
     ...page,
     locale,
