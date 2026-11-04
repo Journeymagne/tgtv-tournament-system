@@ -3014,6 +3014,19 @@ tr:last-child td {
   text-transform: uppercase;
 }
 
+/* Each faction needs its own rows; a three-row subgrid clips extra fields. */
+.participant-faction-control {
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  align-content: start;
+  row-gap: 8px;
+}
+
+.participant-faction-control .combo-field {
+  grid-template-rows: auto auto;
+  grid-row: auto;
+}
+
 .participant-admin-controls .combo-control {
   min-width: 0;
   height: 44px;
