@@ -4,10 +4,31 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { buildSites } = require("../../src/domain/sites");
-const { rootDocument, siteName, pageDestination, handleSiteRequest } = require("../../src/http/sites");
+const { rootDocument, siteName, siteOrigin, pageDestination, handleSiteRequest } = require("../../src/http/sites");
 const { sessionCookie, clearedSessionCookie, sessionToken } = require("../../src/http/io");
 const sites = buildSites("https://ktcompanion.ru");
 const request = (host, url = "/", method = "GET") => ({ headers: { host }, url, method });
+
+test("regional origins preserve navigation and reject deceptive hostnames", () => {
+  const regional = buildSites("https://ktcompanion.ru", "https://killteamcompanion.com");
+  for (const host of ["ktcompanion.ru", "killteamcompanion.com"]) {
+    assert.equal(siteOrigin(request(host), regional), "https://" + host);
+    assert.equal(pageDestination(request(host, "/studio"), regional), null);
+    assert.equal(pageDestination(request(host, "/tournaments/cup/?round=2"), regional), "/tournaments/cup?round=2");
+    let source;
+    handleSiteRequest(request(host, "/companion-sites.js"), { writeHead() {}, end(value) { source = value; } }, regional);
+    const root = { window: {} }; vm.runInNewContext(source, root);
+    assert.equal(root.window.KT_SITES.urls.tournament, "https://" + host + "/tournament");
+  }
+  for (const host of ["killteamcompanion.com.evil.test", "evil.test", "killteamcompanion.com:444", "ktcompanion.ru@evil.test"]) {
+    assert.equal(siteOrigin(request(host), regional), null);
+    assert.equal(pageDestination(request(host, "/studio"), regional), "https://ktcompanion.ru/studio");
+  }
+  assert.equal(siteOrigin(undefined, regional), null);
+  assert.throws(() => buildSites("", "https://killteamcompanion.com"));
+  assert.throws(() => buildSites("https://ktcompanion.ru", "https://killteamcompanion.com/path"));
+  assert.throws(() => buildSites("https://ktcompanion.ru", "http://ktcompanion.ru"));
+});
 
 test("service paths share a single origin and support ordinary localhost or IP previews", () => {
   assert.equal(sites.urls.tournament, "https://ktcompanion.ru/tournament");

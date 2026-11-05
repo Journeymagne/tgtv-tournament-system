@@ -26,7 +26,8 @@ function siteName(req) {
 }
 
 function siteOrigin(req, sites = COMPANION_SITES) {
-  return sites && new URL(sites.origin).host === String(req.headers.host || "").toLowerCase() ? sites.origin : null;
+  const host = String(req?.headers?.host || "").toLowerCase();
+  return sites ? (sites.origins || [sites.origin]).find(origin => new URL(origin).host === host) || null : null;
 }
 
 function rootDocument(req) {
@@ -50,14 +51,16 @@ function pageDestination(req, sites = COMPANION_SITES) {
   }
   if (/^\/(tournaments|teams)\/[^/]+\/$/.test(pathname)) pathname = pathname.slice(0, -1);
   const target = pathname + url.search;
-  if (sites && new URL(sites.origin).host !== String(req.headers.host || "").toLowerCase()) return new URL(target, sites.origin).href;
+  if (sites && !siteOrigin(req, sites)) return new URL(target, sites.origin).href;
   return pathname === url.pathname ? null : target;
 }
 
 function handleSiteRequest(req, res, sites = COMPANION_SITES) {
   const url = new URL(req.url, "http://localhost");
   if (url.pathname === "/companion-sites.js" && ["GET", "HEAD"].includes(req.method)) {
-    const config = { subdomains: false, urls: sites?.urls || SERVICE_PATHS };
+    const origin = siteOrigin(req, sites);
+    const urls = origin ? Object.fromEntries(Object.entries(SERVICE_PATHS).map(([name, pathname]) => [name, new URL(pathname, origin).href])) : sites?.urls || SERVICE_PATHS;
+    const config = { subdomains: false, urls };
     const source = "window.KT_SITES = " + JSON.stringify(config) + ";\n";
     res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store", "Content-Length": Buffer.byteLength(source) });
     res.end(req.method === "HEAD" ? undefined : source);

@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const { ValidationError, HttpError, clientKey } = require("../http/io");
 const { TRUST_PROXY } = require("../config");
 const { configuration } = require("./config");
+const { siteOrigin } = require("../http/sites");
 
 function hash(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function normalizeEmail(value) {
@@ -40,7 +41,7 @@ async function spend(client, key, max, seconds) {
 async function checkRequest(client, req) {
   const config = configuration();
   if (!config.enabled) throw new HttpError(503, "Email service is not enabled yet");
-  if (req.headers.origin && req.headers.origin !== config.site) throw new HttpError(403, "Invalid request origin");
+  if (req.headers.origin && req.headers.origin !== (siteOrigin(req) || config.site)) throw new HttpError(403, "Invalid request origin");
   if (!(await spend(client, "ip:" + clientKey(req, TRUST_PROXY), 90, 900))) {
     const err = new HttpError(429, "Too many requests. Please try again later");
     err.headers = { "Retry-After": "900" };

@@ -3,6 +3,7 @@ const { configuration } = require("./config");
 const { hash, encrypt, spend } = require("./security");
 const { message } = require("./templates");
 const access = require("../db/repositories/access");
+const { siteOrigin } = require("../http/sites");
 
 async function account(client, userId) {
   const { rows } = await client.query("SELECT * FROM user_email_accounts WHERE user_id=$1", [userId]);
@@ -34,7 +35,7 @@ async function invalidate(client, userId, purpose) {
     "UPDATE email_outbox SET state='cancelled',payload=NULL,locked_until=NULL WHERE token_hash=ANY($1::text[]) AND state IN ('pending','processing')",
     [rows.map(r => r.token_hash)]);
 }
-async function issue(client, user, email, purpose, locale) {
+async function issue(client, user, email, purpose, locale, req) {
   // Both successful and ignored requests spend recipient budgets. Unverified
   // signups cannot reserve an address, or send unlimited mail to someone else.
   const minute = await spend(client, "recipient-minute:" + email, 1, 60);
@@ -47,17 +48,17 @@ async function issue(client, user, email, purpose, locale) {
   await client.query(
     "INSERT INTO email_tokens(token_hash,user_id,purpose,email,expires_at) VALUES($1,$2,$3,$4,$5)",
     [tokenHash, user.id, purpose, email, expires]);
-  const link = configuration().site + "/account-email.html#" + purpose + "=" + token;
+  const link = (siteOrigin(req) || configuration().site) + "/account-email.html#" + purpose + "=" + token;
   await queue(client, user, email, purpose, { link, tokenHash, expires, locale });
   return true;
 }
-async function beginRegistration(client, user, email, locale) {
+async function beginRegistration(client, user, email, locale, req) {
   if (!configuration().enabled) return;
   await client.query("INSERT INTO user_email_accounts(user_id,pending_email,locale) VALUES($1,$2,$3)",
     [user.id, email, locale === "en" ? "en" : "ru"]);
   // Address conflicts are resolved at confirmation, so registration does not
   // disclose whether an email belongs to another account.
-  await issue(client, user, email, "verify", locale);
+  await issue(client, user, email, "verify", locale, req);
 }
 async function passwordChanged(client, user, keepSession) {
   await access.audit(client,user,"account_password_changed","user",user.id,null,{ otherSessionsRevoked:true });

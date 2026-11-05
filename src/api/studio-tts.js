@@ -10,7 +10,7 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const noStore = {"Cache-Control":"no-store", "X-Robots-Tag":"noindex, nofollow"};
 
 function origin(req) {
-  const value = process.env.COMPANION_ORIGIN || process.env.SITE_URL || siteOrigin(req) || `${COOKIE_SECURE || req.socket?.encrypted ? "https" : "http"}://${req.headers.host}`;
+  const value = siteOrigin(req) || process.env.COMPANION_ORIGIN || process.env.SITE_URL || `${COOKIE_SECURE || req.socket?.encrypted ? "https" : "http"}://${req.headers.host}`;
   const url = new URL(value);
   if (!["http:","https:"].includes(url.protocol) || url.username || url.password) throw new HttpError(400, "Некорректный адрес сайта.");
   return url.origin;

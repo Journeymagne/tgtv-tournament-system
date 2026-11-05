@@ -1,10 +1,12 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
+const http = require("node:http");
 const { TEST_DATABASE_URL } = require("../helpers/db");
 Object.assign(process.env, {
   DATABASE_URL: TEST_DATABASE_URL, NODE_ENV: "test", HOST: "127.0.0.1",
   EMAIL_PROVIDER: "local", SITE_URL: "http://127.0.0.1",
+  COMPANION_ORIGIN: "https://ktcompanion.ru", COMPANION_ALIASES: "https://killteamcompanion.com",
   EMAIL_OUTBOX_KEY: crypto.randomBytes(32).toString("hex"),
   RESEND_WEBHOOK_SECRET: "whsec_" + crypto.randomBytes(32).toString("base64")
 });
@@ -69,6 +71,40 @@ async function confirm(user) {
 async function expireBudgets() {
   await pool.query("UPDATE email_rate_limits SET expires_at=NOW()-INTERVAL '1 second'");
 }
+
+function regionalRequest(path, body, host = "killteamcompanion.com", requestOrigin = "https://killteamcompanion.com") {
+  return new Promise((resolve, reject) => {
+    const bytes = JSON.stringify(body);
+    const req = http.request(origin + path, { method: "POST", headers: {
+      Host: host, Origin: requestOrigin, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(bytes)
+    } }, res => {
+      let text = "";
+      res.setEncoding("utf8"); res.on("data", chunk => { text += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, body: JSON.parse(text) }));
+      res.on("error", reject);
+    });
+    req.on("error", reject); req.end(bytes);
+  });
+}
+
+test("regional registration and recovery retain their domain without allowing cross-origin requests", async () => {
+  const owner = await regionalRequest("/api/register", {
+    name: "RegionalOwner", email: "regional@example.com", password: "old-password-123", confirmPassword: "old-password-123",
+    telegramContact: "@regional_test", locale: "en"
+  });
+  assert.equal(owner.status, 201);
+  const verification = await tokenFor(owner.body.user.id);
+  assert.match(verification.payload.text, /https:\/\/killteamcompanion\.com\/account-email\.html#verify=/);
+  assert.equal((await regionalRequest("/api/auth/email/verify", { token: verification.token })).status, 200);
+  await expireBudgets();
+  assert.equal((await regionalRequest("/api/auth/password/forgot", { email: "regional@example.com" })).status, 202);
+  const recovery = await tokenFor(owner.body.user.id, "reset");
+  assert.match(recovery.payload.text, /https:\/\/killteamcompanion\.com\/account-email\.html#reset=/);
+  for (const badOrigin of ["https://evil.test", "https://ktcompanion.ru", "http://killteamcompanion.com"]) {
+    assert.equal((await regionalRequest("/api/auth/password/forgot", { email: "regional@example.com" }, "killteamcompanion.com", badOrigin)).status, 403);
+  }
+  assert.equal((await regionalRequest("/api/auth/password/forgot", { email: "regional@example.com" }, "evil.test", "https://evil.test")).status, 403);
+});
 test("registration stores only a token hash; email stays out of shared session and public profiles", async () => {
   const owner = await signup();
   const { token, job } = await tokenFor(owner.body.user.id);
