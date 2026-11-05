@@ -131,3 +131,16 @@ test("invalid documents and unknown page/language cannot be saved", async () => 
   assert.equal((await admin.patch("/api/admin/documentation/ru/unknown", page)).status, 404);
   assert.equal((await read(guest)).version, 1);
 });
+
+
+test("upgrading an existing database seeds pairing guides through the migration runner", async () => {
+  await pool.query("DELETE FROM tournaments.documentation_pages WHERE page_id = 'pairing-instructions'");
+  await pool.query("DELETE FROM schema_migrations WHERE version = 84");
+  const applied = await migrate(pool);
+  assert.ok(applied.includes(84));
+  for (const locale of ["ru", "en"]) {
+    const response = await guest.get(`/api/documentation/${locale}/pairing-instructions`);
+    assert.equal(response.status, 200);
+    assert.ok(response.body.page.markdown.includes("WTC"));
+  }
+});
