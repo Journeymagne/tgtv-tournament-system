@@ -7,6 +7,12 @@
       "summary": "Последние 10 обновлений KT Companion: новые возможности и исправления."
     },
     {
+      "id": "pairing-instructions",
+      "category": "Паринги",
+      "title": "Как проходит паринг",
+      "summary": "Пошаговые инструкции: WTC 3×3, Sword Shield Classic, Doubles и ручное назначение."
+    },
+    {
       "id": "wtc-pairings",
       "category": "Паринги",
       "title": "Паринги WTC · 3×3",
@@ -54,6 +60,12 @@
       "category": "Updates",
       "title": "Changelog",
       "summary": "The latest 10 KT Companion updates: new features and fixes."
+    },
+    {
+      "id": "pairing-instructions",
+      "category": "Pairings",
+      "title": "How pairing works",
+      "summary": "Step-by-step instructions for WTC 3×3, Sword Shield Classic, Doubles and manual assignments."
     },
     {
       "id": "wtc-pairings",

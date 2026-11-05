@@ -3,6 +3,7 @@
 // Keys are flat and dotted, grouped by screen with comment separators.
 
 const TGTV_I18N_EN = {
+  "teams.pairing.instructions": "How pairing works",
   "achievements.pagination.items": {"one":"achievement","other":"achievements"},
   "tournaments.pagination.items": {"one":"tournament","other":"tournaments"},
   "feedback.pagination.items": {"one":"report","other":"reports"},

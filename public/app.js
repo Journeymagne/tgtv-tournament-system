@@ -9270,6 +9270,22 @@ function teamPairingLogMarkup(events = []) {
   </section>`;
 }
 
+function openTeamPairingInstructions(match, tournament) {
+  const guide = window.TGTVPairingInstructions.get(match, tournament, i18n.getLocale());
+  const dialog = document.createElement("dialog");
+  dialog.className = "tiebreaker-help-dialog";
+  dialog.setAttribute("aria-labelledby", "pairing-instructions-title");
+  dialog.innerHTML = `<div class="tiebreaker-help-content">
+    <div class="tiebreaker-help-header"><h3 id="pairing-instructions-title">${escapeHtml(guide.title)}</h3><button type="button" class="dialog-close-button" aria-label="${t("common.close")}">&times;</button></div>
+    <ol>${guide.steps.map(step => `<li><p>${escapeHtml(step)}</p></li>`).join("")}</ol>
+  </div>`;
+  const opener = document.activeElement;
+  dialog.addEventListener("close", () => { dialog.remove(); opener?.focus(); });
+  dialog.querySelector("button").addEventListener("click", () => dialog.close());
+  document.body.appendChild(dialog);
+  dialog.showModal();
+}
+
 function renderTeamPairing(live = false) {
   const content = document.querySelector("[data-content]") || app;
   const data = state.teamPairingDetail;
@@ -9288,6 +9304,7 @@ function renderTeamPairing(live = false) {
           <p class="muted">${t(match.pairingType === "doubles" ? "doubles.manualHint" : match.captainPairingEnabled === false ? "classic.manualHint" : "teams.pairing.screenHint")}</p>
         </div>
         <div class="row-actions">
+          <button class="small-button" data-team-pairing-help>${t("teams.pairing.instructions")}</button>
           <button class="ghost-button" data-team-pairing-back>${t("common.back")}</button>
           ${tournament.slug ? `<a href="/tournaments/${escapeHtml(tournament.slug)}" data-app-link class="small-button" data-team-pairing-tournament="${escapeHtml(tournament.slug)}">${t("teams.pairing.openTournament")}</a>` : ""}
         </div>
@@ -9299,6 +9316,7 @@ function renderTeamPairing(live = false) {
     ${teamPairingLogMarkup(data.eventLog || [])}
     <div class="message" data-message></div>
   </div>`, live);
+  onLive(document.querySelector("[data-team-pairing-help]"), "click", () => openTeamPairingInstructions(match, tournament));
   onLive(document.querySelector("[data-team-pairing-back]"), "click", () => {
     navigateBack(state.administrationContext ? `/tournament#/administration/tournaments/admin/${tournament.id}` : tournament.slug ? tournamentPublicPath(tournament.slug) : "/tournament#/mygames", { tournamentTab: "matches" });
   });

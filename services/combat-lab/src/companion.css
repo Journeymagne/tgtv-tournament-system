@@ -16,3 +16,7 @@
 .calc-workspace .HelpDoc:hover{background:var(--panel-2);color:var(--ink)}
 .calc-workspace .HelpDoc:hover .HelpDoc-title{color:var(--accent-text)}
 .calc-workspace a{color:var(--accent-text)}
+
+.weapon-profiles { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; min-width:0; }
+.weapon-profiles select, .weapon-profiles input { width:100%; min-width:0; }
+.weapon-profiles .scenario-save { flex-wrap:wrap; }

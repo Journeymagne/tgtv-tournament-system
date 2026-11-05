@@ -3,6 +3,7 @@
 // public/i18n/glossary.js and test/unit/i18n.test.js.
 
 const TGTV_I18N_RU = {
+  "teams.pairing.instructions": "Как проходит паринг",
   "achievements.pagination.items": {"one":"достижение","few":"достижения","many":"достижений","other":"достижения"},
   "tournaments.pagination.items": {"one":"турнир","few":"турнира","many":"турниров","other":"турнира"},
   "feedback.pagination.items": {"one":"обращение","few":"обращения","many":"обращений","other":"обращения"},

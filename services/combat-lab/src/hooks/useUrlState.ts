@@ -1,4 +1,5 @@
 import { currentAbility } from 'src/Ability';
+import {appPath} from 'src/lab/appPath';
 import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Model from 'src/Model';
@@ -420,7 +421,7 @@ export function useFightUrlState(
   // shoot snapshot, so a fight link unfurls as the shooting calculator. The
   // path decides the view there, so `view` is dropped rather than written.
   const getShareUrl = useCallback(
-    () => toShareUrl(shareParams(), FIGHT_CALCULATOR_PATH), [shareParams]);
+    () => toShareUrl(shareParams(), appPath(FIGHT_CALCULATOR_PATH)), [shareParams]);
 
   const mergeIntoSearch = useMergeIntoSearch();
   const addParamsToUrl = useCallback(

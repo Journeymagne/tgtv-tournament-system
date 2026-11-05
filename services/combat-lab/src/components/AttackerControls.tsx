@@ -1,3 +1,4 @@
+import WeaponProfiles from 'src/lab/WeaponProfiles';
 import React from 'react';
 import {Props as IncProps, propsToFields} from 'src/components/IncDecSelect';
 import {
@@ -186,6 +187,7 @@ const AttackerControls: React.FC<Props> = (props: Props) => {
 
   return (
     <div style={{ width: '288px', maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <WeaponProfiles mode="shoot" model={props.attacker} onChange={props.changeHandler}/>
       <div className='CtlBlock-header'>
         <span className='CtlBlock-title'>Attacker</span>
         {advancedCheckbox}

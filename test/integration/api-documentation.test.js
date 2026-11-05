@@ -40,7 +40,7 @@ const read = async (client, locale = "ru") => (await client.get(`/api/documentat
 test("guests read every seeded page; only admins may preview or publish", async () => {
   for (const locale of ["ru", "en"]) {
     const response = await guest.get(`/api/documentation/${locale}`);
-    assert.equal(response.status, 200); assert.deepEqual(response.body.pages.map(page => page.id), ["changelog", "handouts"]);
+    assert.equal(response.status, 200); assert.deepEqual(response.body.pages.map(page => page.id), ["changelog", "pairing-instructions", "handouts"]);
     for (const page of response.body.pages) assert.equal((await guest.get(`/api/documentation/${locale}/${page.id}`)).status, 200);
   }
   const page = await read(guest);
@@ -98,7 +98,7 @@ test("Changelog upgrade preserves Handouts and archived edits and is safe to rep
     const preserved = (await client.query("SELECT * FROM tournaments.documentation_pages WHERE page_id IN ('handouts', 'mmr') ORDER BY page_id, locale")).rows;
     await migration.up(client);
     for (const locale of ["ru", "en"]) {
-      assert.deepEqual((await repository.list(client, locale)).map(page => page.id), ["changelog", "handouts"]);
+      assert.deepEqual((await repository.list(client, locale)).map(page => page.id), ["changelog", "pairing-instructions", "handouts"]);
       const page = await repository.get(client, locale, "changelog");
       assert.equal((page.markdown.match(/^## \d+\.\d+\.\d+ —/gm) || []).length, 10);
     }
