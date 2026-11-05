@@ -220,7 +220,7 @@ const FighterControls: React.FC<Props> = (props: Props) => {
 
   return (
     <Container style={{width: '310px'}}>
-      <WeaponProfiles mode="fight" model={props.attacker} onChange={props.changeHandler}/>
+      <WeaponProfiles idPrefix={props.idPrefix} mode="fight" model={props.attacker} onChange={props.changeHandler}/>
       <Row>
         <Col className='d-flex justify-content-end'>{advancedCheckbox}</Col>
       </Row>

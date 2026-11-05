@@ -93,6 +93,7 @@ test("the server-rendered shell serves the same asset version as index.html", ()
   const indexSource = fs.readFileSync(path.join(__dirname, "../../public/index.html"), "utf8");
   const seoVersion = seoSource.match(/ASSET_VERSION = "([^"]+)"/)?.[1];
   assert.ok(seoVersion, "seo.js no longer declares ASSET_VERSION");
+  assert.ok(seoSource.includes('"pairing-instructions.js", "app.js"'), "pairing instructions must load before the app on crawlable routes");
   const indexVersions = [...indexSource.matchAll(/\/(?:app\.js|map-catalog-ui\.css)\?v=([^"]+)/g)]
     .map((match) => match[1]);
   assert.ok(indexVersions.length >= 2, "index.html no longer versions its own scripts and stylesheet");

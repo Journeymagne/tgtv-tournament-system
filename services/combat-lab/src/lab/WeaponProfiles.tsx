@@ -16,7 +16,7 @@ function read(mode:string):Profile[] {
   } catch {return [];}
 }
 
-export default function WeaponProfiles({mode,model,onChange}: {mode:'shoot'|'fight';model:Model;onChange:(model:Model)=>void}) {
+export default function WeaponProfiles({mode,model,onChange,idPrefix}: {mode:'shoot'|'fight';model:Model;onChange:(model:Model)=>void;idPrefix:string}) {
   const [profiles,setProfiles]=React.useState(()=>read(mode));
   const [name,setName]=React.useState('');
   const [open,setOpen]=React.useState(false);
@@ -38,7 +38,7 @@ export default function WeaponProfiles({mode,model,onChange}: {mode:'shoot'|'fig
     } catch {setStatus('Не удалось сохранить профиль: проверьте доступ браузера к локальному хранилищу');}
   };
   return <div className="weapon-profiles">
-    <select aria-label="Сохранённые профили оружия" value="" onChange={e=>{
+    <select id={`${idPrefix}-weapon-profile`} aria-label="Сохранённые профили оружия" value="" onChange={e=>{
       const profile=profiles[Number(e.target.value)];
       if(e.target.value===''||!profile)return;
       const restored=hydrate(profile.model);
