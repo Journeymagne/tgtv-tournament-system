@@ -111,7 +111,7 @@ function readCredentials(body, minPasswordLength, tooShortMessage) {
   return { name, password, registerNickname, telegramContact, email, locale: body.locale === "en" ? "en" : "ru" };
 }
 
-async function createAccount(client, credentials, isAdmin) {
+async function createAccount(client, credentials, isAdmin, req) {
   if (await users.isNameTaken(client, credentials.name)) throw new HttpError(409, "This name is already taken");
 
   const user = await users.insert(client, {
@@ -125,7 +125,7 @@ async function createAccount(client, credentials, isAdmin) {
     isAdmin
   });
 
-  await mail.beginRegistration(client, user, credentials.email, credentials.locale);
+  await mail.beginRegistration(client, user, credentials.email, credentials.locale, req);
   const token = await startSession(client, user.id);
   return {
     status: 201,
@@ -211,7 +211,7 @@ async function register({ client, body, req }) {
     await budgets.spendKey(client, 'register-day:' + key, 50, 86400, 'Регистрации с одного IP за сутки');
   }
   const credentials = readCredentials(body, 6, "Password must be at least 6 characters");
-  return createAccount(client, credentials, false);
+  return createAccount(client, credentials, false, req);
 }
 
 async function setupAdmin() {

@@ -39,7 +39,7 @@ async function change({ client, user, body, req }) {
   await client.query(
     "INSERT INTO user_email_accounts(user_id,pending_email,locale) VALUES($1,$2,$3) " +
     "ON CONFLICT(user_id) DO UPDATE SET pending_email=$2,locale=$3,updated_at=NOW()", [user.id, email, locale]);
-  await mail.issue(client, user, email, "verify", locale);
+  await mail.issue(client, user, email, "verify", locale, req);
   if (data?.email) await mail.queue(client, user, data.email, "email_change_requested", { locale });
   return generic();
 }
@@ -52,10 +52,10 @@ async function cancel({ client, user, req }) {
 async function resend({ client, user, req }) {
   user = await lockedUser(client, user.id, req);
   const data = await mail.account(client, user.id);
-  if (data?.pending_email) await mail.issue(client, user, data.pending_email, "verify", data.locale);
+  if (data?.pending_email) await mail.issue(client, user, data.pending_email, "verify", data.locale, req);
   return generic();
 }
-async function forgot({ client, body }) {
+async function forgot({ client, body, req }) {
   const email = normalizeEmail(body.email);
   // Spend the same budget for missing and existing accounts, and return the
   // same status/body. Only verified email addresses enable recovery.
@@ -66,7 +66,7 @@ async function forgot({ client, body }) {
   try { user = await lockedUser(client, rows[0].user_id); }
   catch (err) { if ([401, 403].includes(err.status)) return generic(); throw err; }
   const data = await mail.account(client, user.id);
-  if (data?.email === email) await mail.issue(client, user, email, "reset", data.locale);
+  if (data?.email === email) await mail.issue(client, user, email, "reset", data.locale, req);
   return generic();
 }
 async function tokenContext(client, raw, purpose) {

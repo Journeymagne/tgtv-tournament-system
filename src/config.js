@@ -33,7 +33,7 @@ function requireDatabaseUrl(value = process.env.DATABASE_URL) {
   return value;
 }
 
-const COMPANION_SITES = buildSites(process.env.COMPANION_ORIGIN);
+const COMPANION_SITES = buildSites(process.env.COMPANION_ORIGIN, process.env.COMPANION_ALIASES);
 
 module.exports = {
   ROOT,
