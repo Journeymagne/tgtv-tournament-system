@@ -29,6 +29,8 @@ test.before(async () => {
 });
 test.beforeEach(async () => {
   process.env.EMAIL_PROVIDER = "local";
+  process.env.EMAIL_FROM = "KT Companion <account@auth.ktcompanion.ru>";
+  process.env.EMAIL_FROM_BY_ORIGIN = JSON.stringify({ "https://killteamcompanion.com": "KT Companion <account@auth.killteamcompanion.com>" });
   global.fetch = httpFetch;
   await pool.query("TRUNCATE users RESTART IDENTITY CASCADE");
   await pool.query("TRUNCATE email_rate_limits, email_suppressions, email_webhook_events");
@@ -72,20 +74,78 @@ async function expireBudgets() {
   await pool.query("UPDATE email_rate_limits SET expires_at=NOW()-INTERVAL '1 second'");
 }
 
-function regionalRequest(path, body, host = "killteamcompanion.com", requestOrigin = "https://killteamcompanion.com") {
+function regionalRequest(path, body, host = "killteamcompanion.com", requestOrigin = "https://killteamcompanion.com", cookie, method = "POST") {
   return new Promise((resolve, reject) => {
     const bytes = JSON.stringify(body);
-    const req = http.request(origin + path, { method: "POST", headers: {
-      Host: host, Origin: requestOrigin, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(bytes)
+    const req = http.request(origin + path, { method, headers: {
+      Host: host, Origin: requestOrigin, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(bytes), ...(cookie ? { Cookie: cookie } : {})
     } }, res => {
       let text = "";
       res.setEncoding("utf8"); res.on("data", chunk => { text += chunk; });
-      res.on("end", () => resolve({ status: res.statusCode, body: JSON.parse(text) }));
+      res.on("end", () => resolve({ status: res.statusCode, body: JSON.parse(text), cookie: res.headers["set-cookie"]?.[0]?.split(";")[0] }));
       res.on("error", reject);
     });
     req.on("error", reject); req.end(bytes);
   });
 }
+
+for (const host of ["killteamcompanion.com", "ktcompanion.ru"]) {
+  test(`all account email flows use the sender and links for ${host}`, async () => {
+    const site = "https://" + host;
+    const sender = `KT Companion <account@auth.${host}>`;
+    const post = (path, body, cookie, method) => regionalRequest(path, body, host, site, cookie, method);
+    const owner = await post("/api/register", { name: "RegionalOwner", email: "regional@example.com",
+      password: "old-password-123", confirmPassword: "old-password-123", telegramContact: "@regional_test", locale: "en" });
+    assert.equal(owner.status, 201);
+    const id = owner.body.user.id;
+    const assertPayload = payload => {
+      assert.equal(payload.from, sender);
+      assert.ok(payload.text.includes(site + "/account-email.html"));
+      assert.ok(payload.html.includes(`href="${site}/account-email.html`));
+    };
+    let verification = await tokenFor(id);
+    assertPayload(verification.payload);
+    await expireBudgets();
+    assert.equal((await post("/api/auth/email/resend", {}, owner.cookie)).status, 202);
+    verification = await tokenFor(id);
+    assertPayload(verification.payload);
+    assert.equal((await post("/api/auth/email/verify", { token: verification.token })).status, 200);
+    assert.equal((await post("/api/account", { currentPassword: "old-password-123", newPassword: "profile-password-456" }, owner.cookie, "PATCH")).status, 200);
+    const notices = async kind => (await pool.query("SELECT payload FROM email_outbox WHERE user_id=$1 AND kind=$2 AND payload IS NOT NULL", [id, kind])).rows.map(row => decrypt(row.payload));
+    assert.equal((await notices("password_changed")).length, 1);
+    (await notices("password_changed")).forEach(assertPayload);
+    assert.equal((await post("/api/auth/email", { email: "updated@example.com", currentPassword: "profile-password-456", locale: "en" }, owner.cookie)).status, 202);
+    assert.equal((await notices("email_change_requested")).length, 1);
+    (await notices("email_change_requested")).forEach(assertPayload);
+    verification = await tokenFor(id);
+    assertPayload(verification.payload);
+    assert.equal((await post("/api/auth/email/verify", { token: verification.token })).status, 200);
+    const changed = await notices("email_changed");
+    assert.equal(changed.length, 2);
+    assert.deepEqual(changed.flatMap(p => p.to).sort(), ["regional@example.com", "updated@example.com"]);
+    changed.forEach(assertPayload);
+    await expireBudgets();
+    assert.equal((await post("/api/auth/password/forgot", { email: "updated@example.com" })).status, 202);
+    const recovery = await tokenFor(id, "reset");
+    assertPayload(recovery.payload);
+    assert.equal((await post("/api/auth/password/reset", { token: recovery.token, password: "reset-password-789", confirmPassword: "reset-password-789" })).status, 200);
+    assert.equal((await notices("password_changed")).length, 2);
+    (await notices("password_changed")).forEach(assertPayload);
+  });
+}
+
+test("untrusted host and forwarded headers cannot select a regional sender", async () => {
+  const owner = await signup();
+  const mail = require("../../src/email/service");
+  await mail.queue(pool, { id: owner.body.user.id, name: "Owner" }, "owner@example.com", "password_changed", {
+    req: { headers: { host: "evil.test", origin: "https://killteamcompanion.com", "x-forwarded-host": "killteamcompanion.com" } }
+  });
+  const { rows: [job] } = await pool.query("SELECT payload FROM email_outbox WHERE kind='password_changed'");
+  const payload = decrypt(job.payload);
+  assert.equal(payload.from, "KT Companion <account@auth.ktcompanion.ru>");
+  assert.ok(payload.text.includes(origin + "/account-email.html"));
+  assert.ok(!payload.text.includes("evil.test"));
+});
 
 test("regional registration and recovery retain their domain without allowing cross-origin requests", async () => {
   const owner = await regionalRequest("/api/register", {
@@ -227,6 +287,7 @@ test("provider retries preserve idempotency and clear encrypted payload after ac
     assert.equal(calls.length, 2);
     assert.equal(calls[0].headers["Idempotency-Key"], calls[1].headers["Idempotency-Key"]);
     assert.equal(calls[0].body, calls[1].body);
+    assert.equal(JSON.parse(calls[0].body).from, "KT Companion <account@auth.ktcompanion.ru>");
     assert.deepEqual((await pool.query("SELECT state,payload,attempts FROM email_outbox WHERE id=$1", [job.id])).rows[0],
       { state: "sent", payload: null, attempts: 2 });
   } finally { global.fetch = httpFetch; process.env.EMAIL_PROVIDER = "local"; }

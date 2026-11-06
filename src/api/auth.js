@@ -185,7 +185,7 @@ async function updateMe({ client, user, body, req }) {
   let updated = Object.keys(patch).length ? await applyProfilePatch(client, user.id, patch) : user;
   if (newPasswordHash) {
     updated = await users.setPasswordHash(client, user.id, newPasswordHash);
-    await mail.passwordChanged(client, updated, req ? sessionToken(req) : null);
+    await mail.passwordChanged(client, updated, req ? sessionToken(req) : null, req);
   }
 
   return buildUserSummary(client, updated);

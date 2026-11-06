@@ -211,7 +211,7 @@ async function deleteUser({ client, user, params }) {
   return { ok: true };
 }
 
-async function resetPassword({ client, user, params }) {
+async function resetPassword({ client, user, params, req }) {
   const found = await requireTarget(client, params.id);
   const target = (await usersRepo.lockByIds(client, [found.id]))[0];
   if (!target) throw new HttpError(404, 'User not found');
@@ -223,13 +223,13 @@ async function resetPassword({ client, user, params }) {
   const mail = require("../email/service");
   const email = await mail.account(client, target.id);
   if (require("../email/config").configuration().enabled && email?.email) {
-    await mail.issue(client, target, email.email, "reset", email.locale);
+    await mail.issue(client, target, email.email, "reset", email.locale, req);
     await access.audit(client,user,"password_reset_requested","user",target.id,null,{ delivery:"email" });
     return { user: publicUser(target), delivery: "email" };
   }
   const password = generateTemporaryPassword();
   const updated = await usersRepo.setPasswordHash(client, target.id, await hashPassword(password));
-  await mail.passwordChanged(client, updated);
+  await mail.passwordChanged(client, updated, null, req);
   await access.audit(client,user,"password_reset","user",target.id,null,{ sessionsRevoked:true });
 
   return { user: publicUser(updated), password };

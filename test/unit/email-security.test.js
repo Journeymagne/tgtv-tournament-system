@@ -8,6 +8,19 @@ Object.assign(process.env, {
 });
 const { normalizeEmail, encrypt, decrypt, verifyWebhook } = require("../../src/email/security");
 const { message } = require("../../src/email/templates");
+const { senderOverrides } = require("../../src/email/config");
+
+test("regional senders require exact configured origins and reject malformed headers", () => {
+  const origin = "https://killteamcompanion.com";
+  const from = "KT Companion <account@auth.killteamcompanion.com>";
+  assert.equal(senderOverrides(JSON.stringify({ [origin]: from }), [origin])[origin], from);
+  assert.equal(Object.keys(senderOverrides("", [origin])).length, 0);
+  for (const raw of ["broken", "null", "[]", '"text"', JSON.stringify({ "https://evil.test": from }),
+    JSON.stringify({ [origin + "/"]: from }), JSON.stringify({ [origin]: 42 }), JSON.stringify({ [origin]: " " }),
+    JSON.stringify({ [origin]: from + "\r\nBcc: another@example.test" })]) {
+    assert.throws(() => senderOverrides(raw, [origin]));
+  }
+});
 
 test("email normalization preserves aliases and rejects header injection", () => {
   assert.equal(normalizeEmail(" Player.Tag+KT@Example.COM "), "player.tag+kt@example.com");

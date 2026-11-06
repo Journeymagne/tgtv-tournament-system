@@ -18,9 +18,10 @@ async function queue(client, user, to, kind, options = {}) {
   const config = configuration();
   if (!config.enabled || !to) return;
   const id = crypto.randomUUID();
+  const origin = siteOrigin(options.req) || config.site;
   const payload = {
-    from: config.from, to: [to], ...(config.replyTo ? { reply_to: config.replyTo } : {}),
-    ...message(kind, { name: user.name, locale: options.locale || "ru", link: options.link })
+    from: config.fromByOrigin[origin] || config.from, to: [to], ...(config.replyTo ? { reply_to: config.replyTo } : {}),
+    ...message(kind, { name: user.name, locale: options.locale || "ru", link: options.link || origin + "/account-email.html" })
   };
   await client.query(
     "INSERT INTO email_outbox(id,user_id,kind,recipient_hash,payload,token_hash,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7)",
@@ -49,7 +50,7 @@ async function issue(client, user, email, purpose, locale, req) {
     "INSERT INTO email_tokens(token_hash,user_id,purpose,email,expires_at) VALUES($1,$2,$3,$4,$5)",
     [tokenHash, user.id, purpose, email, expires]);
   const link = (siteOrigin(req) || configuration().site) + "/account-email.html#" + purpose + "=" + token;
-  await queue(client, user, email, purpose, { link, tokenHash, expires, locale });
+  await queue(client, user, email, purpose, { link, tokenHash, expires, locale, req });
   return true;
 }
 async function beginRegistration(client, user, email, locale, req) {
@@ -60,12 +61,12 @@ async function beginRegistration(client, user, email, locale, req) {
   // disclose whether an email belongs to another account.
   await issue(client, user, email, "verify", locale, req);
 }
-async function passwordChanged(client, user, keepSession) {
+async function passwordChanged(client, user, keepSession, req) {
   await access.audit(client,user,"account_password_changed","user",user.id,null,{ otherSessionsRevoked:true });
   await client.query("DELETE FROM sessions WHERE user_id=$1 AND ($2::text IS NULL OR token<>$2)", [user.id, keepSession || null]);
   await invalidate(client, user.id);
   await client.query("UPDATE user_email_accounts SET pending_email=NULL,updated_at=NOW() WHERE user_id=$1", [user.id]);
   const data = await account(client, user.id);
-  if (data?.email) await queue(client, user, data.email, "password_changed", { locale: data.locale });
+  if (data?.email) await queue(client, user, data.email, "password_changed", { locale: data.locale, req });
 }
 module.exports = { account, summary, queue, invalidate, issue, beginRegistration, passwordChanged };

@@ -40,7 +40,7 @@ async function change({ client, user, body, req }) {
     "INSERT INTO user_email_accounts(user_id,pending_email,locale) VALUES($1,$2,$3) " +
     "ON CONFLICT(user_id) DO UPDATE SET pending_email=$2,locale=$3,updated_at=NOW()", [user.id, email, locale]);
   await mail.issue(client, user, email, "verify", locale, req);
-  if (data?.email) await mail.queue(client, user, data.email, "email_change_requested", { locale });
+  if (data?.email) await mail.queue(client, user, data.email, "email_change_requested", { locale, req });
   return generic();
 }
 async function cancel({ client, user, req }) {
@@ -83,7 +83,7 @@ async function tokenContext(client, raw, purpose) {
   if (rows[0].email !== expected) throw invalid();
   return { user, data, tokenHash };
 }
-async function confirm({ client, body }) {
+async function confirm({ client, body, req }) {
   const { user, data } = await tokenContext(client, body.token, "verify");
   // Serialize competing confirmations, without reserving unverified addresses.
   await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", ["email:" + data.pending_email]);
@@ -93,20 +93,20 @@ async function confirm({ client, body }) {
   await mail.invalidate(client, user.id);
   await access.audit(client,user,"email_confirmed","user",user.id,null,{ changed:Boolean(data.email) });
   if (data.email) {
-    await mail.queue(client, user, data.email, "email_changed", { locale: data.locale });
-    await mail.queue(client, user, data.pending_email, "email_changed", { locale: data.locale });
+    await mail.queue(client, user, data.email, "email_changed", { locale: data.locale, req });
+    await mail.queue(client, user, data.pending_email, "email_changed", { locale: data.locale, req });
     // Changing the recovery address ends existing sessions.
     await client.query("DELETE FROM sessions WHERE user_id=$1", [user.id]);
   }
   // Do not let a stale renewed cookie overwrite a cleared session cookie.
   return data.email ? { body: { ok: true }, headers: { "Set-Cookie": clearedSessionCookie(COOKIE_SECURE) } } : { ok: true };
 }
-async function reset({ client, body }) {
+async function reset({ client, body, req }) {
   const next = password(body.password);
   if (next !== body.confirmPassword) throw new ValidationError("Passwords do not match");
   const { user } = await tokenContext(client, body.token, "reset");
   await users.setPasswordHash(client, user.id, await hashPassword(next));
-  await mail.passwordChanged(client, user);
+  await mail.passwordChanged(client, user, null, req);
   return { body: { ok: true }, headers: { "Set-Cookie": clearedSessionCookie(COOKIE_SECURE), "Cache-Control": "no-store" } };
 }
 async function webhook({ client, body, req }) {
