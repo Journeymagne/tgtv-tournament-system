@@ -233,6 +233,10 @@ function normalizeTournamentPatch(body = {}, current = {}) {
     patch.singleEliminationSize = null;
   }
 
+  if (Object.hasOwn(body, "pairingMode")) {
+    if (!["backet_random", "by_tp"].includes(body.pairingMode)) throw new ValidationError("Choose Backet Random or By TP");
+    patch.pairingMode = body.pairingMode;
+  }
   if (Object.prototype.hasOwnProperty.call(body, "tiebreakerOrder")) {
     patch.tiebreakerOrder = normalizeTiebreakerOrder(body.tiebreakerOrder);
   }
@@ -318,6 +322,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     teamTiebreakerOrder: patch.teamTiebreakerOrder ?? null,
     swissRoundCount: patch.swissRoundCount || null,
     singleEliminationSize: patch.singleEliminationSize || null,
+    pairingMode: patch.pairingMode || "backet_random",
     tiebreakerOrder: patch.tiebreakerOrder || [],
     ratingPolicy: patch.ratingPolicy || "ranked",
     challengeCreditPolicy: patch.challengeCreditPolicy || "count",

@@ -773,6 +773,7 @@ const TGTV_I18N_EN = {
   "admin.tournament.field.format": "Variant",
   "admin.tournament.field.bracketSize": "Bracket size",
   "admin.tournament.playerCount": { one: "{n} player", other: "{n} players" },
+  "admin.tournament.field.pairingMode": "Pairing generation",
   "admin.tournament.field.swissRounds": "Swiss rounds",
   "admin.tournament.field.startsAt": "Starts at",
   "admin.tournament.field.ratingPolicy": "Rating policy",

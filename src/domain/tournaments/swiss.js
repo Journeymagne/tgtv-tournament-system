@@ -12,7 +12,7 @@ function validateSwiss(participants, roundCount) {
   }
 }
 
-function buildSwissRoundOne(participants, roundCount) {
+function buildSwissRoundOne(participants, roundCount, pairingMode = "backet_random") {
   validateSwiss(participants, roundCount);
   const seeded = seedParticipants(participants);
   const pairable = [...seeded];
@@ -44,8 +44,8 @@ function buildSwissRoundOne(participants, roundCount) {
       bracketPosition: matches.length + 1,
       status: MATCH_STATUSES.ACTIVE,
       isBye: false,
-      participantAId: top[index].id,
-      participantBId: bottom[index].id,
+      participantAId: (pairingMode === "by_tp" ? pairable[index * 2] : top[index]).id,
+      participantBId: (pairingMode === "by_tp" ? pairable[index * 2 + 1] : bottom[index]).id,
       winnerParticipantId: null,
       sourceA: null,
       sourceB: null
@@ -273,6 +273,24 @@ function pairScoreBrackets(rows, pairHistory, random) {
   return pairs;
 }
 
+function pairByTP(rows, pairHistory) {
+  let steps = 0;
+  function search(remaining) {
+    if (!remaining.length) return [];
+    if (++steps > 100000) return null;
+    const [first, ...rest] = remaining;
+    for (let index = 0; index < rest.length; index += 1) {
+      if (pairHistory.has(playedPairKey(first.participant.id, rest[index].participant.id))) continue;
+      const tail = search(rest.filter((_, otherIndex) => otherIndex !== index));
+      if (tail) return [[first, rest[index]], ...tail];
+    }
+    return null;
+  }
+  const pairs = search(rows);
+  if (!pairs) throw new ValidationError("By TP could not create pairings without rematches; adjust pairings manually or choose Backet Random");
+  return pairs;
+}
+
 function buildSwissNextRound(tournament, participants, matches, roundNumber, random = Math.random, preferredByeId = null) {
   const eligible = eligibleForNextRound(participants);
   validateSwiss(eligible, tournament.swissRoundCount);
@@ -286,7 +304,7 @@ function buildSwissNextRound(tournament, participants, matches, roundNumber, ran
   const roundMatches = [];
 
   if (rows.length % 2 === 1) {
-    const byeRow = chooseByeRow(rows, random, preferredByeId);
+    const byeRow = chooseByeRow(rows, tournament.pairingMode === "by_tp" ? () => 1 - Number.EPSILON : random, preferredByeId);
     rows.splice(rows.indexOf(byeRow), 1);
     roundMatches.push({
       key: `r${roundNumber}m1`,
@@ -302,7 +320,7 @@ function buildSwissNextRound(tournament, participants, matches, roundNumber, ran
     });
   }
 
-  let pairs = pairScoreBrackets(rows, pairHistory, random);
+  let pairs = tournament.pairingMode === "by_tp" ? pairByTP(rows, pairHistory) : pairScoreBrackets(rows, pairHistory, random);
   const bracketRepeats = pairs.reduce((total, [rowA, rowB]) => total + repeatPenalty(rowA, rowB, pairHistory), 0);
   // A score bracket can contain only previous opponents, especially after draws.
   // Search the whole field before accepting a rematch; score proximity is secondary.
@@ -334,4 +352,4 @@ function buildSwissNextRound(tournament, participants, matches, roundNumber, ran
   return { roundNumber, status: ROUND_STATUSES.ACTIVE, matches: roundMatches };
 }
 
-module.exports = { buildSwissRoundOne, buildSwissNextRound, playedPairKey, pairScoreBrackets };
+module.exports = { buildSwissRoundOne, buildSwissNextRound, playedPairKey, pairScoreBrackets, pairByTP };

@@ -458,6 +458,10 @@ function adminTournamentCreatePanel() {
             <label>${t("admin.tournament.field.swissRounds")}</label>
             <input name="swissRoundCount" type="number" min="1" value="3">
           </div>
+          <div class="field" data-format-field="swiss">
+            <label>${t("admin.tournament.field.pairingMode")}</label>
+            <select name="pairingMode"><option value="backet_random">Backet Random</option><option value="by_tp">By TP</option></select>
+          </div>
           <div class="field" data-team-mode-field hidden>
             <label>${t("admin.tournament.field.teamSize")}</label>
             <input data-team-size-label value="${t("tournaments.teamVariant.teamsOfThree")}" readonly>
@@ -688,6 +692,10 @@ function adminTournamentEditForm(tournament) {
         <div class="field" data-format-field="swiss">
           <label>${t("admin.tournament.field.swissRounds")}</label>
           <input name="swissRoundCount" type="number" min="1" value="${tournament.swissRoundCount || 3}" ${lockAttrs}>
+        </div>
+        <div class="field" data-format-field="swiss">
+          <label>${t("admin.tournament.field.pairingMode")}</label>
+          <select name="pairingMode" ${textLockAttrs}><option value="backet_random">Backet Random</option><option value="by_tp" ${tournament.pairingMode === "by_tp" ? "selected" : ""}>By TP</option></select>
         </div>
         <div class="field" data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
           <label>${t("admin.tournament.field.teamSize")}</label>
@@ -1769,6 +1777,7 @@ function adminTournamentBodyFromForm(form, options = {}) {
   setFormValue(body, form, "ratingPolicy");
   setFormValue(body, form, "challengeCreditPolicy");
   setFormValue(body, form, "seasonId");
+  setFormValue(body, form, "pairingMode");
   setFormValue(body, form, "venueMode");
   setFormValue(body, form, "venueAddress");
   if (includeSlug) setFormValue(body, form, "slug");
