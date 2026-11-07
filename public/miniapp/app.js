@@ -70,7 +70,7 @@
   }
   function toast(text) { const element = document.getElementById("toast"); element.textContent = text; element.hidden = false; clearTimeout(toast.timer); toast.timer = setTimeout(() => { element.hidden = true; }, 4000); }
   function showError(err) {
-    connection.innerHTML = `<span>${esc(err.message)}</span><button type="button" data-retry>Обновить</button>`;
+    connection.innerHTML = `<span>${esc(err.message)}</span><button type="button" class="secondary" data-retry>Обновить</button>`;
     connection.hidden = false;
     if (err.status === 401) { state.ready = false; nav.hidden = true; content.innerHTML = empty("Нужно войти снова", err.message, websiteButton("/tournament#/profile", "Профиль на сайте"), "shield"); }
   }

@@ -55,27 +55,55 @@ function mission(value) {
   return short(value?.name || value?.title || value?.label || value?.critOp || value?.mission || value?.id || "");
 }
 function notification(item, locale) {
-  const lines = [];
   const t = (ru, en) => choose(locale,ru,en);
+  // Names, tournament titles and imported metadata are user-controlled text.
+  const escape = value => short(value).replace(/[&<>]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c]));
+  const lines = ['🔶 <b>KT COMPANION</b>'];
+  const field = (label, value) => { if (value !== undefined && value !== null && value !== '') lines.push(`<b>${label}</b>  ${escape(value)}`); };
+  const title = (ru, en) => lines.push(`<b>${t(ru,en)}</b>`, '');
+  let action;
   switch (item.type) {
-    case "game_challenge": lines.push(t("Вызов на игру","Game challenge"),short(item.actor?.name)); break;
-    case "team_invitation": lines.push(t("Приглашение в команду","Team invitation"),short(item.team?.name)); break;
-    case "tournament_started": lines.push(t("Турнир начался","Tournament started"),short(item.tournament?.name)); break;
-    case "result_pending": lines.push(t("Результат ожидает вашего подтверждения","A result awaits your confirmation"),short(item.title)); break;
-    case "team_pairing": lines.push(t("Опубликована командная пара","Team pairing published"),short(item.tournament?.name), short(item.title)); break;
+    case "game_challenge":
+      title('ВЫЗОВ НА ИГРУ','GAME CHALLENGE');
+      field(t('Соперник','Opponent'),item.actor?.name);
+      action=t('Посмотреть вызов','View challenge'); break;
+    case "team_invitation":
+      title('ПРИГЛАШЕНИЕ В КОМАНДУ','TEAM INVITATION');
+      field(t('Команда','Team'),item.team?.name);
+      field(t('Пригласил','Invited by'),item.actor?.name);
+      action=t('Посмотреть приглашение','View invitation'); break;
+    case "tournament_started":
+      title('ТУРНИР НАЧАЛСЯ','TOURNAMENT STARTED');
+      field(t('Турнир','Tournament'),item.tournament?.name);
+      action=t('Мой турнир','My tournament'); break;
+    case "result_pending":
+      title('ПРОВЕРЬТЕ РЕЗУЛЬТАТ','REVIEW THE RESULT');
+      field(t('Матч','Match'),item.title);
+      lines.push('',t('Другая сторона отправила результат на подтверждение.','The other side submitted a result for confirmation.'));
+      action=t('Проверить результат','Review result'); break;
+    case "team_pairing":
+      title('КОМАНДНАЯ ПАРА ГОТОВА','TEAM PAIRING IS READY');
+      if(item.title) lines.push(`<b>${escape(item.title)}</b>`, '');
+      field(t('Турнир','Tournament'),item.tournament?.name);
+      action=t('Открыть паровку','Open pairings'); break;
     default:
-      lines.push(t("Ваша турнирная пара","Your tournament pairing"),short(item.tournament?.name));
-      if (item.roundNumber) lines.push(t("Раунд: ","Round: ") + item.roundNumber);
-      if (item.opponent?.name) lines.push(t("Соперник: ","Opponent: ") + short(item.opponent.name));
-      if (item.table?.number) lines.push(t("Стол: ","Table: ") + item.table.number);
-      if (item.table?.killzone) lines.push("Killzone: " + short(item.table.killzone));
-      if (mission(item.mission)) lines.push(t("Миссия: ","Mission: ") + mission(item.mission));
+      title('ВАША ПАРА ГОТОВА','YOUR PAIRING IS READY');
+      field(t('Соперник','Opponent'),item.opponent?.name);
+      field(t('Фракция соперника','Opponent faction'),item.opponentFaction);
+      lines.push('');
+      field(t('Турнир','Tournament'),item.tournament?.name);
+      field(t('Ваша команда','Your team'),item.ownTeam?.name);
+      field(t('Команда соперника','Opposing team'),item.opponentTeam?.name);
+      field(t('Раунд','Round'),item.roundNumber);
+      field(t('Стол','Table'),item.table?.number);
+      field('Killzone',item.table?.killzone);
+      field(t('Миссия','Mission'),mission(item.mission));
+      action=t('Мои игры','My games');
   }
   // Solo notifications use a tournament-match ID on the website, while the
   // Mini App opens the canonical game. Both IDs are supplied by the inbox.
   const href = configuration().miniAppUrl && Number.isSafeInteger(item.gameId) && item.gameId > 0 ? `#/games/game/${item.gameId}` : item.href;
-  const destination = appButton(t("Открыть","Open"), href);
-  if (!destination.web_app) destination.text = t("Открыть на сайте", "Open on website");
-  return { text: lines.filter(Boolean).join("\n"), reply_markup: { inline_keyboard: [[destination]] }, link_preview_options: { is_disabled: true } };
+  const destination = appButton(action, href);
+  return { text: lines.join("\n").replace(/\n{3,}/g,'\n\n').trim(), parse_mode: 'HTML', reply_markup: { inline_keyboard: [[destination]] }, link_preview_options: { is_disabled: true } };
 }
 module.exports = { choose, short, CATEGORY, DEFAULTS, url, button, appButton, menu, welcome, settings, notification };
