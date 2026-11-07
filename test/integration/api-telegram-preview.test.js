@@ -94,6 +94,9 @@ test('Telegram initData and existing bearer lose access immediately after role r
   await link(admin); const playerLink = await link(player);
   const r = await request(null, '/api/miniapp/session', 'POST', { initData: initData(admin) });
   assert.equal(r.status, 200); assert.ok(r.body.accessToken);
+  const forged = new URLSearchParams(initData(admin));
+  forged.set('user', JSON.stringify({ id: owner.telegramId }));
+  assert.equal((await request(null, '/api/miniapp/session', 'POST', { initData: forged.toString() })).status, 401);
   assert.equal((await request(null, '/api/miniapp/session', 'POST', { initData: initData(player) })).status, 403);
   assert.equal((await request(null, '/api/miniapp/summary', 'GET', null, issueToken(playerLink, process.env.TELEGRAM_BOT_TOKEN))).status, 403);
   await pool.query('UPDATE users SET is_admin=FALSE WHERE id=$1', [admin.id]);

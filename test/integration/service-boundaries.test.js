@@ -33,7 +33,7 @@ test.before(async () => {
   await migrate(getPool());
   await getPool().query('TRUNCATE tournaments, users RESTART IDENTITY CASCADE');
   base = { ...process.env, DATABASE_URL: TEST_DATABASE_URL, PORT: String(await port()), COOKIE_SECURE: 'false',
-    COMPANION_ORIGIN: '', SITE_URL: '', EMAIL_PROVIDER: 'disabled', TELEGRAM_MODE: 'disabled' };
+    COMPANION_ORIGIN: '', SITE_URL: '', EMAIL_PROVIDER: 'disabled', TELEGRAM_MODE: 'disabled', TELEGRAM_ADMIN_ONLY: 'true' };
   for (const service of SERVICES) {
     base[service.toUpperCase() + '_PORT'] = String(await port());
     base[service.toUpperCase() + '_DB_PASSWORD'] = randomBytes(24).toString('hex');
@@ -72,6 +72,10 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
     await ok(player.post('/api/register', registration('ServicePlayer' + index)), 201);
   }
   for (const route of ['/api/session', '/api/me', '/api/notifications', '/api/studio/drafts', '/api/faq', '/api/knowthykt/progress']) await ok(admin.get(route));
+  assert.equal((await ok(admin.post('/api/miniapp/session'))).authenticated, true);
+  await ok(admin.get('/api/miniapp/summary'));
+  await ok(players[0].post('/api/miniapp/session'), 403);
+  await ok(players[0].get('/api/miniapp/summary'), 403);
   headers['X-CSRF-Token'] = (await ok(admin.get('/api/studio/session'))).csrfToken;
   const project = require('../../public/studio/model').newProject('service-project', 'Service project');
   await ok(admin.put(`/api/studio/drafts/${project.team.id}`, { project, revision: 0 }));
