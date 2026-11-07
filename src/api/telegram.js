@@ -5,6 +5,7 @@ const { HttpError } = require("../http/io");
 const { handleUpdate } = require("../telegram/bot");
 const { DEFAULTS, queueReply } = require("../telegram/data");
 const messages = require("../telegram/messages");
+const access = require('../telegram/access');
 
 function enabled() {
   const config = configuration();
@@ -13,12 +14,16 @@ function enabled() {
 }
 async function status(ctx) {
   const config = configuration();
+  if (!await access.allowed(ctx.client, ctx.user.id)) return { body: {
+    available: false, adminOnly: true, accountId: ctx.user.id, link: null, pending: null
+  }, headers: { 'Cache-Control': 'no-store' } };
   const { rows:[link] } = await ctx.client.query("SELECT username,display_name,telegram_id,enabled,blocked,preferences,locale FROM telegram_links WHERE user_id=$1",[ctx.user.id]);
   const { rows:[pending] } = await ctx.client.query("SELECT expires_at,telegram_id,username,display_name FROM telegram_link_tokens WHERE user_id=$1 AND expires_at>NOW()",[ctx.user.id]);
-  return { body:{ available:config.enabled, botUsername:config.username || null, accountId:ctx.user.id, csrfToken:csrfToken(ctx.req), link:link || null,
+  return { body:{ available:config.enabled, adminOnly:config.adminOnly, botUsername:config.username || null, accountId:ctx.user.id, csrfToken:csrfToken(ctx.req), link:link || null,
     pending:pending ? { expiresAt:pending.expires_at, claimed:Boolean(pending.telegram_id), telegramId:pending.telegram_id, username:pending.username, displayName:pending.display_name } : null },headers:{"Cache-Control":"no-store"} };
 }
 async function createLink(ctx) {
+  await access.assertAllowed(ctx.client, ctx.user.id);
   const config=enabled(); authorize(ctx);
   await ctx.client.query("SELECT id FROM users WHERE id=$1 FOR UPDATE",[ctx.user.id]);
   if ((await ctx.client.query("SELECT 1 FROM telegram_links WHERE user_id=$1",[ctx.user.id])).rowCount) throw new HttpError(409,"Сначала отвяжите текущий Telegram.");
@@ -32,6 +37,7 @@ async function createLink(ctx) {
   return {body:{url:`https://t.me/${config.username}?start=link_${token}`},headers:{"Cache-Control":"no-store"}};
 }
 async function confirmLink(ctx) {
+  await access.assertAllowed(ctx.client, ctx.user.id);
   enabled(); authorize(ctx);
   await ctx.client.query("SELECT id FROM users WHERE id=$1 FOR UPDATE",[ctx.user.id]);
   const {rows:[pending]}=await ctx.client.query("SELECT * FROM telegram_link_tokens WHERE user_id=$1 AND expires_at>NOW() FOR UPDATE",[ctx.user.id]);
@@ -48,6 +54,7 @@ async function confirmLink(ctx) {
   return status(ctx);
 }
 async function preferences(ctx) {
+  await access.assertAllowed(ctx.client, ctx.user.id);
   enabled(); authorize(ctx);
   const {rows:[link]}=await ctx.client.query("SELECT * FROM telegram_links WHERE user_id=$1 FOR UPDATE",[ctx.user.id]);
   if (!link) throw new HttpError(409,"Сначала подключите Telegram.");

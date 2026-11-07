@@ -5,6 +5,7 @@ const { equal, authorize } = require("./security");
 const users = require("../db/repositories/users");
 const access = require("../db/repositories/access");
 const { loadUserFromRequest } = require("../api/auth");
+const telegramAccess = require('./access');
 
 const SESSION_SECONDS = 8 * 60 * 60;
 const expired = () => new HttpError(401, "Сессия истекла. Закройте миниап и откройте его снова.");
@@ -48,6 +49,7 @@ async function linkedUser(client, telegramId, identity) {
   const user = await access.hydrate(client, await users.findById(client, link.user_id));
   if (!user) return null;
   access.assertActive(user);
+  await telegramAccess.assertAllowed(client, user.id);
   return { user, link };
 }
 
@@ -79,6 +81,7 @@ async function authenticate(ctx, write = false) {
     if (!user) throw new HttpError(401, "Войдите на сайт или откройте миниап через Telegram.");
     if (write) { checkOrigin(ctx.req); authorize({ ...ctx, user }); }
   }
+  await telegramAccess.assertAllowed(ctx.client, user.id);
   return { ...ctx, user };
 }
 

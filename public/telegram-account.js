@@ -22,7 +22,7 @@
     function render() {
       if(!alive()) return;
       const link=state.link,pending=state.pending;
-      if(!state.available && !link) {content.innerHTML=`<p class="muted">${tr("Бот пока недоступен.","The bot is not available yet.")}</p>`;return;}
+      if(!state.available && !link) {content.innerHTML=`<p class="muted">${state.adminOnly?tr("Telegram пока доступен только администраторам для тестирования.","Telegram is currently available only to administrators for testing."):tr("Бот пока недоступен.","The bot is not available yet.")}</p>`;return;}
       if(link) {
         const labels={pairings:tr("Турнирные пары","Tournament pairings"),results:tr("Подтверждение результатов","Result confirmation"),invitations:tr("Вызовы и приглашения","Challenges and invitations"),tournaments:tr("Начало турниров","Tournament starts")};
         content.innerHTML=`<p>${tr("Подключён:","Connected:")} <strong>${escape(link.display_name||link.username||link.telegram_id)}</strong>${link.username?" (@"+escape(link.username)+")":""}</p>
@@ -42,6 +42,7 @@
           <button type="button" class="small-button" data-telegram-action="create">${pending?tr("Новая ссылка","New link"):tr("Подключить Telegram","Connect Telegram")}</button>
           ${pending?`<button type="button" class="ghost-button" data-telegram-action="refresh">${tr("Проверить подключение","Check connection")}</button>`:""}</div>`;
       }
+      if(state.adminOnly) content.insertAdjacentHTML('afterbegin', `<p class="muted">${tr("Тестирование для администраторов. Используются реальные данные сайта.","Administrator testing. Uses live website data.")}</p>`);
     }
     async function refresh() {
       if(!alive()||busy) return;

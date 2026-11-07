@@ -5,6 +5,7 @@ const teamMatches = require("../db/repositories/team-matches");
 const { teamGamePermissions } = require("../domain/team-game-permissions");
 const { hash } = require("./security");
 const { CATEGORY, DEFAULTS } = require("./messages");
+const access = require('./access');
 
 async function linkFor(client, telegramId) {
   const { rows } = await client.query(`SELECT l.* FROM telegram_links l JOIN users u ON u.id=l.user_id
@@ -71,6 +72,7 @@ async function expandEvents(client) {
   const { rows: links } = await client.query(`SELECT l.* FROM telegram_links l JOIN users u ON u.id=l.user_id
     WHERE l.enabled AND NOT l.blocked AND (u.suspended_until IS NULL OR u.suspended_until<=NOW())`);
   for (const link of links) {
+    if (!await access.allowed(client, link.user_id)) continue;
     const eligible = events.filter(event=>event.created_at >= link.linked_at);
     if (!eligible.length) continue;
     for (const item of await activeItems(client,link.user_id)) {

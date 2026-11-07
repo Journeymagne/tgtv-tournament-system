@@ -6,6 +6,7 @@ const { handleUpdate } = require("./bot");
 const { withClient, withTransaction, getPool } = require("../db/pool");
 const data = require("./data");
 const messages = require("./messages");
+const access = require('./access');
 
 async function claim(client) {
   await client.query("SELECT pg_advisory_xact_lock(91827058)");
@@ -21,12 +22,14 @@ async function claim(client) {
   return job;
 }
 async function payloadFor(client,job) {
+  if (!await access.chatAllowed(client, job.chat_id)) return null;
   let link;
   if(job.link_id) {
     const {rows}=await client.query(`SELECT l.* FROM telegram_links l JOIN users u ON u.id=l.user_id WHERE l.id=$1
       AND NOT l.blocked AND (u.suspended_until IS NULL OR u.suspended_until<=NOW())`,[job.link_id]);
     link=rows[0];
     if(!link || String(link.chat_id)!==String(job.chat_id)) return null;
+    if (!await access.allowed(client, link.user_id)) return null;
   }
   if(!job.notification) return job.payload;
   if(!link?.enabled || !link.preferences[messages.CATEGORY[job.notification.type]]) return null;

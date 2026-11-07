@@ -297,6 +297,7 @@
         content.innerHTML = heading("Турниры в Telegram") + empty(session.reason === "not_linked" ? "Подключите свой аккаунт" : "Добро пожаловать", session.reason === "not_linked" ? "Войдите в профиль сайта, подключите этого Telegram-бота и подтвердите привязку. Ваш рейтинг и история сохранятся. Затем вернитесь сюда." : "Откройте миниап из бота или войдите в свой аккаунт на сайте.", websiteButton("/tournament#/profile", "Открыть профиль сайта") + '<button class="secondary" data-retry>Я подключил аккаунт</button>', "shield");
         return;
       }
+      document.getElementById('admin-preview').hidden = !session.adminOnly;
       state.token = session.accessToken || null; state.csrf = session.csrfToken; state.user = session.user; state.ready = true;
       await loadScreen({ refresh: true });
     } catch (err) { content.innerHTML = empty("Не удалось войти", err.message, '<button class="primary" data-retry>Повторить</button>', "shield"); showError(err); }

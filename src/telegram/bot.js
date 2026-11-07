@@ -1,6 +1,8 @@
 const { hash } = require("./security");
 const data = require("./data");
 const msg = require("./messages");
+const access = require('./access');
+const { adminOnly } = require('./config');
 
 async function command(client, update, person, chatId, link, action) {
   const locale = link?.locale || (person.language_code?.startsWith("en") ? "en" : "ru");
@@ -10,6 +12,7 @@ async function command(client, update, person, chatId, link, action) {
     const code = action.slice(5);
     if (!/^[a-zA-Z0-9_-]{43}$/.test(code)) return reply({ text:t("Ссылка недействительна. Создайте новую в профиле сайта.","Invalid link. Create a new one in your website profile.") });
     const { rows:[token] } = await client.query("SELECT * FROM telegram_link_tokens WHERE token_hash=$1 AND expires_at>NOW() FOR UPDATE",[hash(code)]);
+    if (adminOnly() && !await access.allowed(client, token?.user_id)) return;
     const { rows:conflict } = await client.query("SELECT user_id FROM telegram_links WHERE telegram_id=$1",[person.id]);
     if (!token || (token.telegram_id && String(token.telegram_id)!==String(person.id)) || conflict.some(row=>row.user_id!==token.user_id)) {
       return reply({ text:t("Ссылка истекла или аккаунт уже связан. Проверьте настройки на сайте.","The link expired or the account is already linked. Check website settings.") });
@@ -101,6 +104,8 @@ async function handleUpdate(client, update) {
     action = match ? match[1]==="start" && match[2] ? match[2] : match[1] : "help";
   }
   if (action.startsWith("m:")) action=action.slice(2);
+  // Unlinked administrators enter through their one-time website link only.
+  if (adminOnly() && !action.startsWith('link_') && !await access.allowed(client, link?.user_id)) return;
   await command(client,update,person,person.id,link,action);
 }
 module.exports = { handleUpdate };

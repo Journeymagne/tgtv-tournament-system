@@ -2,6 +2,7 @@ const { HttpError } = require("../http/io");
 const { configuration } = require("../telegram/config");
 const { hash, csrfToken } = require("../telegram/security");
 const miniAuth = require("../telegram/miniapp-auth");
+const telegramAccess = require('../telegram/access');
 const auth = require("./auth");
 const games = require("./games");
 const tournaments = require("./tournaments");
@@ -18,10 +19,11 @@ async function session(ctx) {
     const person = miniAuth.validateInitData(ctx.body.initData, config.token);
     const linked = await miniAuth.linkedUser(ctx.client, person.id);
     if (!linked) return noStore({ authenticated: false, reason: "not_linked" });
-    return noStore({ authenticated: true, user: publicUser(linked.user), accessToken: miniAuth.issueToken(linked.link, config.token), expiresIn: miniAuth.SESSION_SECONDS });
+    return noStore({ authenticated: true, adminOnly: config.adminOnly, user: publicUser(linked.user), accessToken: miniAuth.issueToken(linked.link, config.token), expiresIn: miniAuth.SESSION_SECONDS });
   }
   const user = await auth.loadUserFromRequest(ctx.client, ctx.req);
-  return noStore({ authenticated: Boolean(user), reason: user ? null : "sign_in", user: publicUser(user), csrfToken: user ? csrfToken(ctx.req) : null });
+  if (user) await telegramAccess.assertAllowed(ctx.client, user.id);
+  return noStore({ authenticated: Boolean(user), adminOnly: config.adminOnly, reason: user ? null : "sign_in", user: publicUser(user), csrfToken: user ? csrfToken(ctx.req) : null });
 }
 
 async function summary(ctx) {
