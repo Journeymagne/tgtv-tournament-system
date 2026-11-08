@@ -36,7 +36,6 @@ function welcome(locale, linked) {
   const config = configuration();
   const lines = [
     '🔶 <b>KT COMPANION</b>',
-    t('<b>ТВОИ ИГРЫ ПОД РУКОЙ</b>', '<b>YOUR GAMES AT YOUR FINGERTIPS</b>'),
     '',
     t('Привет! Я помогу следить за играми и турнирами и вовремя узнавать о важных событиях.',
       'Hi! I help you keep track of your games and tournaments and stay up to date with important events.'),
