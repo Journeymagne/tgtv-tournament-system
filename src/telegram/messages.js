@@ -32,10 +32,37 @@ function menu(locale) {
   ] };
 }
 function welcome(locale, linked) {
+  const t = (ru, en) => choose(locale, ru, en);
+  const config = configuration();
+  const lines = [
+    '🔶 <b>KT COMPANION</b>',
+    t('<b>ТВОИ ИГРЫ ПОД РУКОЙ</b>', '<b>YOUR GAMES AT YOUR FINGERTIPS</b>'),
+    '',
+    t('Привет! Я помогу следить за играми и турнирами и вовремя узнавать о важных событиях.',
+      'Hi! I help you keep track of your games and tournaments and stay up to date with important events.'),
+    '',
+    t('<b>Что я умею</b>', '<b>What I can do</b>'),
+    t('⚔️ Присылать вызовы на игру и приглашения в команду.', '⚔️ Send game challenges and team invitations.'),
+    t('🏆 Сообщать о старте турнира и новых парах.', '🏆 Notify you when a tournament starts or pairings are ready.'),
+    t('📍 Показывать соперника, стол, миссию и киллзону, когда они назначены.', '📍 Show your opponent, table, mission and killzone when assigned.'),
+    t('✅ Напоминать, что результат игры ждёт твоего подтверждения.', '✅ Let you know when a game result needs your confirmation.')
+  ];
+  if (config.miniAppUrl) lines.push('',
+    t('<b>Компаньон внутри Telegram</b>', '<b>Companion inside Telegram</b>'),
+    t('Открой мини-приложение: здесь можно посмотреть свои игры, турниры и таблицу, внести счёт и подтвердить результат.',
+      'Open the mini app to view your games, tournaments and standings, submit scores and confirm results.'));
+  lines.push('', linked
+    ? t('<b>Аккаунт подключён.</b> Выбери действие кнопками ниже. Язык бота и нужные уведомления — в /settings.',
+      '<b>Your account is connected.</b> Choose an action below. Set your bot language and notifications in /settings.')
+    : t('<b>Как подключиться</b>\nНажми «Подключить аккаунт», войди на сайт и в профиле выбери «Подключить Telegram». Перейди по персональной ссылке, нажми Start и вернись на сайт, чтобы подтвердить привязку.',
+      '<b>Get connected</b>\nTap “Connect account”, sign in on the website and choose “Connect Telegram” in your profile. Follow your personal link, tap Start, then return to the website to confirm the connection.'));
+  if (config.adminOnly) lines.push('', t(
+    '🛠 <b>Закрытый тест для администраторов.</b> Используются настоящие данные: внесённые результаты сохраняются на сайте.',
+    '🛠 <b>Administrators-only preview.</b> This uses live data: submitted results are saved on the website.'));
   return {
-    text: linked ? choose(locale, "Турнирная система подключена. Выберите действие.", "Tournament System is connected. Choose an action.") : choose(locale,
-      "Это бот Турнирной системы. Войдите на сайт и подключите Telegram в своём профиле. Аккаунт и рейтинг сохранятся.",
-      "This is the Tournament System bot. Sign in on the website and connect Telegram in your profile. Your account and rating stay with you."),
+    text: lines.join('\n'),
+    parse_mode: 'HTML',
+    link_preview_options: { is_disabled: true },
     reply_markup: linked ? menu(locale) : { inline_keyboard: [[button(choose(locale, "Подключить аккаунт", "Connect account"), "/tournament#/profile")], [{ text: choose(locale, "Турниры", "Tournaments"), callback_data: "m:tournaments" }]] }
   };
 }
