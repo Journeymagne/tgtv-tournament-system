@@ -112,7 +112,7 @@ function notification(item, locale) {
       title('КОМАНДНАЯ ПАРА ГОТОВА','TEAM PAIRING IS READY');
       if(item.title) lines.push(`<b>${escape(item.title)}</b>`, '');
       field(t('Турнир','Tournament'),item.tournament?.name);
-      action=t('Открыть паровку','Open pairings'); break;
+      action=t('Открыть пейринг','Open pairings'); break;
     default:
       title('ВАША ПАРА ГОТОВА','YOUR PAIRING IS READY');
       field(t('Соперник','Opponent'),item.opponent?.name);
