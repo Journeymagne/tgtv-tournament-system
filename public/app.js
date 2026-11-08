@@ -1571,6 +1571,7 @@ async function applyAppRoute(route) {
   } else if (route.view === "tournaments") {
     state.tournamentsTab = canOpenAdministration() ? route.tournamentsTab || "public" : "public";
     if (state.tournamentsTab === "admin") {
+      state.tournamentSetupTab = "tournament";
       state.adminTournamentMode = route.adminTournamentMode || "list";
       state.selectedTournamentId = Number.isInteger(route.selectedTournamentId) && route.selectedTournamentId > 0
         ? route.selectedTournamentId
@@ -1689,7 +1690,7 @@ function currentNavigationEntry() {
 }
 
 function navigationContextKeys() {
-  return ["tournamentInfoTab", "tournamentTableViews", "tournamentMatchViews", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
+  return ["tournamentInfoTab", "tournamentSetupTab", "tournamentTableViews", "tournamentMatchViews", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
     "selectedStatisticsTeam", "selectedSeasonId", "statisticsFilters", "statisticsSort",
     "gameFilters", "leaderboardPage", "teamLeaderboardPage", "adminUsersPage",
     "adminUsersQuery", "adminTeamsPage", "adminTeamsQuery", "teamsQuery", "challengeTab"];
@@ -2090,10 +2091,12 @@ async function openTournamentEditor(tournamentId) {
     administrationContext: true,
     selectedTournamentId: id,
     adminTournamentDetail: data,
-    tournamentInfoTab: "settings"
+    tournamentInfoTab: "settings",
+    tournamentSetupTab: "tournament"
   });
   syncAppHash();
   renderShell();
+  window.scrollTo(0, 0);
 }
 
 function wireTournamentEditButtons() {
@@ -2613,26 +2616,32 @@ function tournamentRoundDeadlineMarkup(round) {
 function tournamentCompactHeaderMarkup(data, options = {}) {
   const tournament = data.tournament || {};
   const isTeam = tournament.participantMode === "team";
+  const compact = options.admin && options.activeTab !== "preview";
+  const round = compact ? tournamentPreviewRound(data.rounds) : null;
   const count = isTeam ? (data.rosters || []).filter(roster => roster.status !== "withdrawn").length
     : listedTournamentParticipants(data.participants || []).length;
-  return `<header class="tournament-compact-header">
+  return `<header class="tournament-compact-header${options.admin ? " is-admin" : ""}">
     ${options.actions ? `<div class="row-actions tournament-corner-actions">${options.actions}</div>` : ""}
     <div class="tournament-preview-hero ${tournament.logoData ? "has-logo" : ""}">
       ${tournament.logoData ? `<div class="tournament-preview-logo">${tournamentLogoMarkup(tournament)}</div>` : ""}
       <div class="tournament-preview-heading">
         <p class="profile-label">${escapeHtml(tournamentFormatSummary(tournament))}</p>
         <h2>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</h2>
-        <p class="tournament-compact-status"><span class="status-dot ${tournamentStatusClass(tournament.status)}" aria-hidden="true"></span>${escapeHtml(tournamentStatusLabel(tournament.status))}</p>
+        <p class="tournament-compact-status">
+          <span class="status-dot ${tournamentStatusClass(tournament.status)}" aria-hidden="true"></span>
+          ${escapeHtml(tournamentStatusLabel(tournament.status))}
+          ${compact ? `<span>· ${escapeHtml(venueModeLabel(tournament.venueMode))}${round ? ` · ${t("tournaments.round.title", { number: round.roundNumber })}` : ""}</span>` : ""}
+        </p>
       </div>
     </div>
-    <section class="profile-grid tournament-metrics">
+    ${compact ? "" : `<section class="profile-grid tournament-metrics">
       ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
       ${metricCard(t(isTeam ? "teams.tournament.rosters" : "tournaments.field.participants"), tournamentParticipantCountLabel({ ...tournament, participantCount: count }))}
       ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
       ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
       ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
-    </section>
-    ${tournament.venueMode === "irl" && tournament.venueAddress ? `<p class="muted tournament-compact-address">${escapeHtml(tournament.venueAddress)}</p>` : ""}
+    </section>`}
+    ${!compact && tournament.venueMode === "irl" && tournament.venueAddress ? `<p class="muted tournament-compact-address">${escapeHtml(tournament.venueAddress)}</p>` : ""}
     ${options.extraActions ? `<div class="row-actions tournament-extra-actions">${options.extraActions}</div>` : ""}
   </header>`;
 }
@@ -2677,9 +2686,8 @@ function tournamentInfoPanel(data, options = {}) {
   const activeTab = tournamentInfoActiveTab(data, options);
   const wrapperTag = options.admin ? "section" : "div";
   const wrapperClass = options.admin ? "tournament-info-panel wide-panel tournament-compact-page" : "card panel wide-panel tournament-compact-page";
+  const tabActions = options.tabActions?.(activeTab);
   const titleByTab = {
-    preview: t("tournaments.tab.preview"),
-    settings: t("tournaments.tab.settings"),
     standings: t("tournaments.tab.standings"),
     matches: t("tournaments.tab.matches"),
     stats: t("tournaments.tab.stats"),
@@ -2687,8 +2695,6 @@ function tournamentInfoPanel(data, options = {}) {
     tables: t("tournaments.tab.tables")
   };
   const subtitleByTab = {
-    preview: t("tournaments.preview.subtitle"),
-    settings: t("tournaments.info.settingsSubtitle"),
     standings: isTeamTournament ? (tournament.pairingType === "doubles" ? doublesStandingsHint()
       : t(tournament.pairingType === "sword_shield_classic" ? "classic.standingsHint" : "teams.tournament.standingsHint")) : standingsSubtitle(tournament),
     matches: t("tournaments.info.matchesSubtitle"),
@@ -2700,14 +2706,15 @@ function tournamentInfoPanel(data, options = {}) {
   };
   return `
     <${wrapperTag} class="${wrapperClass}">
-      ${tournamentCompactHeaderMarkup(data, options)}
+      ${tournamentCompactHeaderMarkup(data, { ...options, activeTab })}
       ${tournamentInfoTabs(activeTab, data, options)}
-      ${activeTab !== "preview" ? `<div class="panel-header tournament-tab-heading">
+      ${!["preview", "settings"].includes(activeTab) ? `<div class="panel-header tournament-tab-heading">
         <div>
           <h3>${titleByTab[activeTab]}</h3>
           <p class="muted">${escapeHtml(subtitleByTab[activeTab])}</p>
         </div>
       </div>` : ""}
+      ${tabActions ? `<div class="row-actions tournament-admin-tab-actions">${tabActions}</div>` : ""}
       ${tournamentInfoTabContent(activeTab, data, options)}
       ${canManage ? `<div class="message" data-message></div>` : ""}
     </${wrapperTag}>
@@ -2716,11 +2723,11 @@ function tournamentInfoPanel(data, options = {}) {
 
 function tournamentInfoTabDefinitions(data, options = {}) {
   if (options.admin) return [
-    { id: "preview", label: t("tournaments.tab.preview") },
-    { id: "standings", label: adminLabel("Обзор", "Overview") },
-    { id: "participants", label: adminLabel("Участники и составы", "Participants and rosters") },
+    { id: "preview", label: adminLabel("Обзор", "Overview") },
+    { id: "standings", label: t("tournaments.tab.standings") },
+    { id: "participants", label: t(data?.tournament?.participantMode === "team" ? "teams.tournament.rosters" : "tournaments.field.participants") },
     { id: "matches", label: adminLabel("Раунды", "Rounds") },
-    { id: "settings", label: adminLabel("Настройки", "Settings") }
+    { id: "settings", label: t("tournaments.tab.settings") }
   ];
   const tabs = [
     { id: "preview", label: t("tournaments.tab.preview") },
@@ -8759,8 +8766,7 @@ function doublesStandingsHint() {
   );
 }
 
-function teamTournamentSettingsFields(tournament = {}, disabled = "", includeTiebreakers = true) {
-  const classicTiebreakerSettings = tournament.pairingType === "doubles" ? { id: tournament.id } : tournament;
+function teamTournamentSettingsFields(tournament = {}, disabled = "") {
   return `<section class="team-tournament-settings" data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
     <p class="field-help" data-doubles-settings ${tournament.pairingType === "doubles" ? "" : "hidden"}>${doublesStandingsHint()} ${t("doubles.manualHint")}</p>
     <div data-team-classic-settings ${tournament.pairingType === "doubles" ? "hidden" : ""}>
@@ -8768,7 +8774,6 @@ function teamTournamentSettingsFields(tournament = {}, disabled = "", includeTie
       <label class="checkbox-line"><input type="checkbox" name="captainPairingEnabled" ${tournament.captainPairingEnabled !== false ? "checked" : ""} ${disabled}> <span>${t("classic.captainPairing")}</span></label>
       <p class="field-help">${t("classic.manualHint")}</p>
     </div>
-    ${includeTiebreakers ? teamTournamentTiebreakerFields(classicTiebreakerSettings, disabled) : ""}
     </div>
   </section>`;
 }
@@ -10433,13 +10438,11 @@ function updateTournamentParticipantModeFields(form) {
   const doubles = isTeam && type?.value === "doubles";
   const sizeLabel = form.querySelector("[data-team-size-label]");
   if (sizeLabel) sizeLabel.value = t(doubles ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree");
-  const classicSettings = form.querySelector("[data-team-classic-settings]");
-  if (classicSettings) {
+  form.querySelectorAll("[data-team-classic-settings]").forEach((classicSettings) => {
     classicSettings.hidden = doubles;
     classicSettings.querySelectorAll("input,select").forEach(control => { control.disabled = doubles || !isTeam || control.dataset.modeBaseDisabled === "1"; });
-  }
-  const doublesSettings = form.querySelector("[data-doubles-settings]");
-  if (doublesSettings) doublesSettings.hidden = !doubles;
+  });
+  form.querySelectorAll("[data-doubles-settings]").forEach((settings) => { settings.hidden = !doubles; });
   const venue = form.elements.venueMode;
   if (venue) {
     const tts = [...venue.options].find(option => option.value === "tts");

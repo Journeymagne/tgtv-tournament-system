@@ -72,13 +72,13 @@ function editorHarness(options = {}) {
   };
   const calls = [];
   const data = { tournament: { id: 6, name: "Fresh tournament" }, rounds: [] };
-  const open = new Function("state", "api", "leavePublicTournamentRoute", "syncAppHash", "renderShell", "loadAdminUi",
+  const open = new Function("state", "api", "leavePublicTournamentRoute", "syncAppHash", "renderShell", "loadAdminUi", "window",
     `${sourceOf("openTournamentEditor")}; return openTournamentEditor;`
   )(state, async (...args) => {
     calls.push(["api", ...args]);
     if (options.error) throw options.error;
     return data;
-  }, () => calls.push(["leave"]), () => calls.push(["hash"]), () => calls.push(["render"]), async () => true);
+  }, () => calls.push(["leave"]), () => calls.push(["hash"]), () => calls.push(["render"]), async () => true, { scrollTo() {} });
   return { state, calls, data, open };
 }
 

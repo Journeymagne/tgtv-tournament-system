@@ -6,18 +6,19 @@ const source = fs.readFileSync(path.join(__dirname, "../../public/admin.js"), "u
 function sourceOf(name) {
   const code = source.match(new RegExp(`(?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];
   assert.ok(code);
-  return "function adminTournamentStaffContent(){return '';} function adminTournamentTablesContent(){return '';}\n" + code;
+  return code;
 }
 
-test("Excel export appears in individual settings even after completion, outside the save form", () => {
-  const render = new Function("t", "adminTournamentEditForm", `${sourceOf("adminTournamentSettingsContent")}; return adminTournamentSettingsContent;`)(
-    key => key, () => "<form></form>"
+test("Excel export appears in the individual tournament management menu even after completion", () => {
+  const render = new Function("t", "escapeHtml", "tournamentPublicUrl", "adminTournamentActionButtons",
+    `${sourceOf("adminTournamentMoreMenu")}; return adminTournamentMoreMenu;`)(
+    key => key, String, () => "/tournaments/test", () => ""
   );
   for (const status of ["draft", "registration_open", "in_progress", "completed", "cancelled"]) {
     const html = render({ tournament: { id: 6, participantMode: "individual", status } });
     assert.match(html, /type="button".*data-admin-tournament-action="export-excel"/);
     assert.doesNotMatch(html, /disabled/);
-    assert.ok(html.indexOf("export-excel") > html.indexOf("</form>"));
+    assert.match(html, /tournament-admin-maintenance[\s\S]+data-admin-tournament-action="export-excel"/);
     assert.doesNotMatch(render({ tournament: { id: 6, participantMode: "team", status } }), /export-excel/);
   }
 });
