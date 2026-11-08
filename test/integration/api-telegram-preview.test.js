@@ -104,6 +104,37 @@ test('Telegram initData and existing bearer lose access immediately after role r
   assert.equal((await request(admin, '/api/miniapp/session', 'POST')).status, 403);
 });
 
+test('Mini App follows bot language for cookie and Telegram sessions, including live changes', async () => {
+  await link(admin);
+  assert.equal((await request(owner, '/api/miniapp/session', 'POST')).body.locale, 'ru');
+  async function setBotLanguage(locale) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await handleUpdate(client, { update_id: updateId++, callback_query: {
+        id: 'locale-test-' + updateId, from: { id: admin.telegramId, language_code: 'ru' }, data: 'lang:' + locale,
+        message: { message_id: 1, chat: { id: admin.telegramId, type: 'private' } }
+      } });
+      await client.query('COMMIT');
+    } catch (err) { await client.query('ROLLBACK'); throw err; }
+    finally { client.release(); }
+  }
+  await setBotLanguage('en');
+  const telegram = await request(null, '/api/miniapp/session', 'POST', { initData: initData(admin) });
+  assert.equal(telegram.body.locale, 'en');
+  assert.equal((await request(admin, '/api/miniapp/session', 'POST')).body.locale, 'en');
+  const token = telegram.body.accessToken;
+  assert.ok(token);
+  assert.equal((await request(null, '/api/miniapp/summary', 'GET', null, token)).body.locale, 'en');
+  // Notification preferences must not overwrite the independent bot language.
+  assert.equal((await request(admin, '/api/miniapp/preferences', 'PATCH', { enabled: true, preferences: { pairings: false } })).status, 200);
+  assert.equal((await request(admin, '/api/miniapp/summary')).body.locale, 'en');
+  await setBotLanguage('ru');
+  assert.equal((await request(null, '/api/miniapp/summary', 'GET', null, token)).body.locale, 'ru');
+  assert.equal((await request(admin, '/api/miniapp/session', 'POST')).body.locale, 'ru');
+  assert.equal((await request(owner, '/api/miniapp/summary')).body.locale, 'ru');
+});
+
 test('only an administrator link can be claimed and confirmed; demotion cancels pending access', async () => {
   const r = await request(admin, '/api/telegram/link', 'POST');
   const code = new URL(r.body.url).searchParams.get('start');

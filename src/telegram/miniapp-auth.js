@@ -44,7 +44,7 @@ function issueToken(link, token) {
 }
 
 async function linkedUser(client, telegramId, identity) {
-  const { rows: [link] } = await client.query("SELECT id,user_id,telegram_id FROM telegram_links WHERE telegram_id=$1", [telegramId]);
+  const { rows: [link] } = await client.query("SELECT id,user_id,telegram_id,locale FROM telegram_links WHERE telegram_id=$1", [telegramId]);
   if (!link || (identity && (link.id !== identity.lid || link.user_id !== identity.uid))) return null;
   const user = await access.hydrate(client, await users.findById(client, link.user_id));
   if (!user) return null;

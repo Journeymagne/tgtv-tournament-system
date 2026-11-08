@@ -18,12 +18,13 @@ async function session(ctx) {
     if (!config.enabled || !config.token) throw new HttpError(503, "Вход через Telegram пока не настроен.");
     const person = miniAuth.validateInitData(ctx.body.initData, config.token);
     const linked = await miniAuth.linkedUser(ctx.client, person.id);
-    if (!linked) return noStore({ authenticated: false, reason: "not_linked" });
-    return noStore({ authenticated: true, adminOnly: config.adminOnly, user: publicUser(linked.user), accessToken: miniAuth.issueToken(linked.link, config.token), expiresIn: miniAuth.SESSION_SECONDS });
+    if (!linked) return noStore({ authenticated: false, reason: "not_linked", locale: person.language_code?.startsWith("en") ? "en" : "ru" });
+    return noStore({ authenticated: true, locale: linked.link.locale, adminOnly: config.adminOnly, user: publicUser(linked.user), accessToken: miniAuth.issueToken(linked.link, config.token), expiresIn: miniAuth.SESSION_SECONDS });
   }
   const user = await auth.loadUserFromRequest(ctx.client, ctx.req);
   if (user) await telegramAccess.assertAllowed(ctx.client, user.id);
-  return noStore({ authenticated: Boolean(user), adminOnly: config.adminOnly, reason: user ? null : "sign_in", user: publicUser(user), csrfToken: user ? csrfToken(ctx.req) : null });
+  const link = user ? (await ctx.client.query("SELECT locale FROM telegram_links WHERE user_id=$1", [user.id])).rows[0] : null;
+  return noStore({ authenticated: Boolean(user), locale: user ? link?.locale || "ru" : null, adminOnly: config.adminOnly, reason: user ? null : "sign_in", user: publicUser(user), csrfToken: user ? csrfToken(ctx.req) : null });
 }
 
 async function summary(ctx) {
@@ -36,8 +37,8 @@ async function summary(ctx) {
   const byId = new Map(me.games.map(game => [game.id, game]));
   for (const game of active) byId.set(game.id, game);
   const profile = await require("./users").profile({ ...ctx, params: { id: String(ctx.user.id) } });
-  const { rows: [link] } = await ctx.client.query("SELECT enabled,blocked,preferences FROM telegram_links WHERE user_id=$1", [ctx.user.id]);
-  return noStore({ user: me.user, games: [...byId.values()], teamPairings: me.teamPairings,
+  const { rows: [link] } = await ctx.client.query("SELECT enabled,blocked,preferences,locale FROM telegram_links WHERE user_id=$1", [ctx.user.id]);
+  return noStore({ user: me.user, locale: link?.locale || "ru", games: [...byId.values()], teamPairings: me.teamPairings,
     tournaments: available, myTournamentIds: rows.map(row => row.tournament_id),
     profile: { stats: profile.stats, recentGames: profile.recentGames, teams: profile.playerTeams },
     notifications: link || null, reference: require("../../public/game-data") });
