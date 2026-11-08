@@ -17,7 +17,9 @@ const {
   CHALLENGE_CREDIT_POLICIES,
   VENUE_MODES,
   SINGLE_ELIMINATION_SIZES,
-  STANDINGS_TIEBREAKERS
+  STANDINGS_TIEBREAKERS,
+  TEAM_STANDINGS_TIEBREAKERS,
+  DOUBLES_STANDINGS_TIEBREAKERS
 } = require("./constants");
 
 const NAME_MAX = 120;
@@ -96,6 +98,17 @@ function normalizeTiebreakerOrder(value) {
   return result;
 }
 
+function normalizeTeamTiebreakerOrder(order, pairingType) {
+  const doubles = pairingType === TEAM_PAIRING_TYPES.DOUBLES;
+  const allowed = doubles ? DOUBLES_STANDINGS_TIEBREAKERS : TEAM_STANDINGS_TIEBREAKERS;
+  if (order !== null && (!Array.isArray(order) || new Set(order).size !== order.length ||
+      order.some(key => !allowed.includes(key)))) {
+    throw new ValidationError(doubles ? "Choose unique Doubles tiebreakers: SOS, total VP"
+      : "Choose unique team tiebreakers: individual wins, VP difference, total VP");
+  }
+  return order;
+}
+
 function normalizeStartsAt(value) {
   if (!value) return null;
   const date = new Date(value);
@@ -153,14 +166,6 @@ function normalizeTournamentPatch(body = {}, current = {}) {
   if (Object.hasOwn(body, "captainPairingEnabled")) {
     if (typeof body.captainPairingEnabled !== "boolean") throw new ValidationError("Captain pairing must be enabled or disabled");
     patch.captainPairingEnabled = body.captainPairingEnabled;
-  }
-  if (Object.hasOwn(body, "teamTiebreakerOrder")) {
-    const order = body.teamTiebreakerOrder;
-    if (order !== null && (!Array.isArray(order) || order.length > 3 || new Set(order).size !== order.length ||
-        order.some(key => !["individual_wins", "vp_diff", "total_vp"].includes(key)))) {
-      throw new ValidationError("Choose unique team tiebreakers: individual wins, VP difference, total VP");
-    }
-    patch.teamTiebreakerOrder = order;
   }
   if (Object.prototype.hasOwnProperty.call(body, "participantMode")) {
     patch.participantMode = normalizeParticipantMode(body.participantMode);
@@ -266,12 +271,17 @@ function normalizeTournamentPatch(body = {}, current = {}) {
       (Object.hasOwn(patch, "venueMode") || Object.hasOwn(patch, "venueAddress"))) {
     patch.venueAddress = "";
   }
-  if ((Object.hasOwn(patch, "pairingType") ? patch.pairingType : current.pairingType) === "doubles") {
+  const pairingType = Object.hasOwn(patch, "pairingType") ? patch.pairingType : current.pairingType;
+  const doubles = pairingType === TEAM_PAIRING_TYPES.DOUBLES;
+  if (Object.hasOwn(body, "teamTiebreakerOrder")) {
+    patch.teamTiebreakerOrder = normalizeTeamTiebreakerOrder(body.teamTiebreakerOrder, pairingType);
+  } else if (doubles !== (current.pairingType === TEAM_PAIRING_TYPES.DOUBLES)) {
+    patch.teamTiebreakerOrder = null;
+  }
+  if (doubles) {
     if ((patch.venueMode || current.venueMode || "irl") !== "irl") throw new ValidationError("Doubles is available only for IRL");
     if (body.captainPairingEnabled === true) throw new ValidationError("Doubles uses manual captain pairings");
-    if (body.teamTiebreakerOrder != null) throw new ValidationError("Doubles standings use TP, SOS and VP");
     patch.captainPairingEnabled = false;
-    patch.teamTiebreakerOrder = null;
     if (!Object.hasOwn(body, "swissRoundCount") && !current.swissRoundCount) patch.swissRoundCount = 4;
   }
   const limit = Object.hasOwn(patch, "registrationLimit") ? patch.registrationLimit : current.registrationLimit;
@@ -377,6 +387,7 @@ module.exports = {
   normalizeFactionRules,
   normalizeFormat,
   normalizeTiebreakerOrder,
+  normalizeTeamTiebreakerOrder,
   normalizeSingleEliminationSize,
   normalizeRulesLink,
   normalizeSeasonId,

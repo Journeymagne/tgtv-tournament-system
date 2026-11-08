@@ -645,6 +645,7 @@ function updateTournamentVenueAddressField(form) {
 
 function adminTournamentEditForm(tournament) {
   const setupLocked = tournament.status === "in_progress";
+  const canApplyTiebreakers = setupLocked && !tournament.finalResults?.length;
   const readOnly = ["completed", "cancelled"].includes(tournament.status);
   const lockAttrs = setupLocked || readOnly ? "disabled" : "";
   const textLockAttrs = readOnly ? "disabled" : "";
@@ -749,16 +750,28 @@ function adminTournamentEditForm(tournament) {
         </div>
         ${tournament.rulesLink ? tournamentRulesLinkMarkup(tournament) : ""}
       </div>
-      ${teamTournamentSettingsFields(tournament, textLockAttrs)}
-      <div class="tournament-tiebreakers" data-individual-mode-field>
+      ${teamTournamentSettingsFields(tournament, textLockAttrs, !canApplyTiebreakers)}
+      ${canApplyTiebreakers ? "" : `<div class="tournament-tiebreakers" data-individual-mode-field>
         ${tournamentTiebreakerHeading()}
         ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], lockAttrs)}
-      </div>
+      </div>`}
       <div class="admin-save-row">
         <button class="primary-button admin-save-button" type="submit" data-admin-tournament-save-button ${readOnly && !canChangeSeason ? "disabled" : ""}>${t("admin.tournament.edit.save")}</button>
         <span class="autosave-status" data-admin-tournament-autosave-status aria-live="polite"></span>
       </div>
     </form>
+    ${canApplyTiebreakers ? `
+      <form class="admin-settings-section" data-admin-tournament-tiebreakers>
+        ${tournament.participantMode === "team" ? teamTournamentTiebreakerFields(tournament) : `
+          <div class="tournament-tiebreakers">
+            ${tournamentTiebreakerHeading()}
+            ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [])}
+          </div>`}
+        <div class="admin-save-row">
+          <button class="primary-button" type="submit">${adminLabel("Пересчитать", "Recalculate")}</button>
+          <span class="autosave-status" data-tiebreaker-save-status role="status"></span>
+        </div>
+      </form>` : ""}
   `;
 }
 
@@ -1401,19 +1414,85 @@ function wireAdminTournamentFormBehavior() {
     form.querySelectorAll("[data-tournament-tiebreaker-select]").forEach((select) => {
       select.addEventListener("change", () => updateTournamentTiebreakerSelects(form));
     });
-    const tiebreakerHelp = form.querySelector("[data-tournament-tiebreaker-help]");
-    form.querySelector("[data-tournament-tiebreaker-help-open]")?.addEventListener("click", () => {
-      if (typeof tiebreakerHelp?.showModal === "function") tiebreakerHelp.showModal();
-    });
-    form.querySelector("[data-tournament-tiebreaker-help-close]")?.addEventListener("click", () => {
-      tiebreakerHelp?.close();
-    });
-    tiebreakerHelp?.addEventListener("click", (event) => {
-      if (event.target === tiebreakerHelp) tiebreakerHelp.close();
-    });
+    wireTournamentTiebreakerHelp(form);
     updateTournamentTiebreakerSelects(form);
     wireMarkdownEditors(form);
     wireAdminTournamentAutosave(form);
+  });
+  wireAdminTournamentTiebreakers();
+}
+
+function wireTournamentTiebreakerHelp(form) {
+  const help = form.querySelector("[data-tournament-tiebreaker-help]");
+  onLive(form.querySelector("[data-tournament-tiebreaker-help-open]"), "click", () => help?.showModal?.());
+  onLive(form.querySelector("[data-tournament-tiebreaker-help-close]"), "click", () => help?.close());
+  onLive(help, "click", event => {
+    if (event.target === help) help.close();
+  });
+}
+
+function wireAdminTournamentTiebreakers() {
+  const form = document.querySelector("[data-admin-tournament-tiebreakers]");
+  if (!form) return;
+  wireTournamentTiebreakerHelp(form);
+  const selects = Array.from(form.querySelectorAll("select"));
+  const custom = form.elements.customTeamTiebreakers;
+  const button = form.querySelector("button[type='submit']");
+  const status = form.querySelector("[data-tiebreaker-save-status]");
+  let values = selects.map(select => select.value);
+  const setStatus = (text, kind) => {
+    status.textContent = text;
+    status.dataset.status = kind;
+  };
+  const syncControls = () => {
+    if (custom) {
+      custom.disabled = button.disabled;
+      form.querySelector(".team-tiebreaker-rank-list").hidden = !custom.checked;
+    }
+    selects.forEach(select => { select.disabled = button.disabled || custom?.checked === false; });
+  };
+  syncControls();
+
+  onLive(form, "change", event => {
+    const index = selects.indexOf(event.target);
+    if (index !== -1) {
+      const value = selects[index].value;
+      const other = value ? selects.findIndex((select, slot) => slot !== index && select.value === value) : -1;
+      if (other !== -1) selects[other].value = values[index];
+      values = selects.map(select => select.value);
+    }
+    syncControls();
+    setStatus(t("admin.tournament.autosave.unsaved"), "pending");
+  });
+  onLive(form, "submit", async event => {
+    event.preventDefault();
+    const tournament = state.adminTournamentDetail?.tournament;
+    if (!tournament || state.adminStandingsRecalculating) return;
+    const tiebreakerOrder = custom?.checked === false ? null : values.filter(Boolean);
+    state.adminStandingsRecalculating = button.disabled = true;
+    syncControls();
+    setStatus(t("admin.tournament.autosave.saving"), "saving");
+    try {
+      const data = await api(`/api/admin/tournaments/${tournament.id}/standings/recalculate`, {
+        method: "POST", body: { tiebreakerOrder, expectedUpdatedAt: tournament.updatedAt }
+      });
+      if (state.adminTournamentDetail?.tournament?.id === tournament.id) {
+        state.adminTournamentDetail = data;
+        state.adminTournamentPreview = null;
+        if (!form.isConnected && state.view === "tournaments" && state.tournamentsTab === "admin") renderTournaments();
+      }
+      if (tiebreakerOrder) {
+        selects.forEach((select, index) => { select.value = tiebreakerOrder[index] || ""; });
+        values = selects.map(select => select.value);
+      }
+      delete form.dataset.liveDirty;
+      setStatus(adminLabel("Таблица пересчитана", "Standings recalculated"), "saved");
+    } catch (err) {
+      setStatus(err.message, "error");
+    } finally {
+      state.adminStandingsRecalculating = button.disabled = false;
+      syncControls();
+    }
   });
 }
 
@@ -1887,11 +1966,12 @@ function adminTournamentBodyFromForm(form, options = {}) {
   }
   if (participantMode === "team" && form.elements.pairingType?.value === "doubles") {
     body.captainPairingEnabled = false;
-    body.teamTiebreakerOrder = null;
   } else if (participantMode === "team" && form.elements.captainPairingEnabled && !form.elements.captainPairingEnabled.disabled) {
     body.captainPairingEnabled = form.elements.captainPairingEnabled.checked;
-    body.teamTiebreakerOrder = form.elements.customTeamTiebreakers.checked
-      ? [0,1,2].map(index => form.elements[`teamTiebreaker-${index}`].value).filter(Boolean) : null;
+    if (form.elements.customTeamTiebreakers) {
+      body.teamTiebreakerOrder = form.elements.customTeamTiebreakers.checked
+        ? [0,1,2].map(index => form.elements[`teamTiebreaker-${index}`].value).filter(Boolean) : null;
+    }
   }
   return body;
 }

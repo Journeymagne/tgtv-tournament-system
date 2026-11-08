@@ -2689,7 +2689,8 @@ function tournamentInfoPanel(data, options = {}) {
   const subtitleByTab = {
     preview: t("tournaments.preview.subtitle"),
     settings: t("tournaments.info.settingsSubtitle"),
-    standings: isTeamTournament ? t(tournament.pairingType === "doubles" ? "doubles.standingsHint" : tournament.pairingType === "sword_shield_classic" ? "classic.standingsHint" : "teams.tournament.standingsHint") : standingsSubtitle(tournament),
+    standings: isTeamTournament ? (tournament.pairingType === "doubles" ? doublesStandingsHint()
+      : t(tournament.pairingType === "sword_shield_classic" ? "classic.standingsHint" : "teams.tournament.standingsHint")) : standingsSubtitle(tournament),
     matches: t("tournaments.info.matchesSubtitle"),
     stats: t("tournaments.info.statsSubtitle", { name: tournament.name || t("tournaments.fallbackName") }),
     participants: isTeamTournament
@@ -3647,7 +3648,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.5.6-table-layouts`;
+    script.src = `/admin.js?v=1.5.6-tiebreakers`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -8742,31 +8743,56 @@ function publicTeamRostersList(rosters, data) {
   `).join("")}</div>`;
 }
 
-function teamTournamentSettingsFields(tournament = {}, disabled = "") {
-  const custom = tournament.teamTiebreakerOrder != null || !tournament.id;
-  const order = tournament.teamTiebreakerOrder || ["individual_wins", "vp_diff", "total_vp"];
+const teamTiebreakerColumns = {
+  individual_wins: ["individualWins", "classic.individual_wins"],
+  vp_diff: ["vpDiff", "classic.vp_diff"],
+  total_vp: ["totalVp", "classic.total_vp"],
+  strength_of_schedule: ["strengthOfSchedule", "doubles.sos"]
+};
+const doublesTiebreakerDefaults = ["strength_of_schedule", "total_vp"];
+const teamTiebreakerDefaults = ["individual_wins", "vp_diff", "total_vp"];
+
+function doublesStandingsHint() {
+  return adminLabel(
+    "За победу игрок получает 2 ТП, за ничью 1, за поражение 0. Команда с большим суммарным VP получает ещё 1 ТП.",
+    "A player earns 2 TP for a win, 1 for a draw and 0 for a loss. The team with more total VP earns 1 extra TP."
+  );
+}
+
+function teamTournamentSettingsFields(tournament = {}, disabled = "", includeTiebreakers = true) {
+  const classicTiebreakerSettings = tournament.pairingType === "doubles" ? { id: tournament.id } : tournament;
   return `<section class="team-tournament-settings" data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
-    <p class="field-help" data-doubles-settings ${tournament.pairingType === "doubles" ? "" : "hidden"}>${t("doubles.standingsHint")} ${t("doubles.manualHint")}</p>
+    <p class="field-help" data-doubles-settings ${tournament.pairingType === "doubles" ? "" : "hidden"}>${doublesStandingsHint()} ${t("doubles.manualHint")}</p>
     <div data-team-classic-settings ${tournament.pairingType === "doubles" ? "hidden" : ""}>
     <div class="team-tournament-setting">
       <label class="checkbox-line"><input type="checkbox" name="captainPairingEnabled" ${tournament.captainPairingEnabled !== false ? "checked" : ""} ${disabled}> <span>${t("classic.captainPairing")}</span></label>
       <p class="field-help">${t("classic.manualHint")}</p>
     </div>
-    <div class="tournament-tiebreakers">
+    ${includeTiebreakers ? teamTournamentTiebreakerFields(classicTiebreakerSettings, disabled) : ""}
+    </div>
+  </section>`;
+}
+
+function teamTournamentTiebreakerFields(tournament, disabled = "") {
+  const doubles = tournament.pairingType === "doubles";
+  const choices = doubles ? doublesTiebreakerDefaults : teamTiebreakerDefaults;
+  const custom = tournament.teamTiebreakerOrder != null || !tournament.id;
+  const order = tournament.teamTiebreakerOrder ?? choices;
+  return `<div class="tournament-tiebreakers">
       <div class="tournament-tiebreaker-heading"><span class="muted">${t("classic.tiebreakers")}</span></div>
       <label class="checkbox-line"><input type="checkbox" name="customTeamTiebreakers" ${custom ? "checked" : ""} ${disabled}> <span>${t("classic.customOrder")}</span></label>
-      <div class="tiebreaker-rank-list team-tiebreaker-rank-list">${[0, 1, 2].map(index => `<label class="tiebreaker-rank-field">
+      <div class="tiebreaker-rank-list team-tiebreaker-rank-list">${choices.map((_, index) => `<label class="tiebreaker-rank-field">
         <span>${t("admin.tournament.tiebreaker.priority", { index: index + 1 })}</span>
         <select name="teamTiebreaker-${index}" ${disabled}>
           <option value="">${t("admin.tournament.tiebreaker.none")}</option>
-          ${["individual_wins", "vp_diff", "total_vp"].map(key => `<option value="${key}" ${order[index] === key ? "selected" : ""}>${t(`classic.${key}`)}</option>`).join("")}
+          ${choices.map(key => `<option value="${key}" ${order[index] === key ? "selected" : ""}>${t(teamTiebreakerColumns[key][1])}</option>`).join("")}
         </select>
       </label>`).join("")}</div>
-      <p class="field-help">${t("classic.legacyOrder")}</p>
-    </div>
-    </div>
-  </section>`;
-
+      <p class="field-help">${doubles
+        ? adminLabel("При стандартном порядке после ТП сравниваются SOS и суммарный VP.",
+          "The default order compares SOS and total VP after TP.")
+        : t("classic.legacyOrder")}</p>
+    </div>`;
 }
 
 function teamMatchScoreLabel(match) {
@@ -8797,11 +8823,11 @@ function teamStandingsTable(data) {
     ? data.tournament.finalResults
     : data.standings || [];
   const rosters = new Map((data.rosters || []).map((roster) => [roster.id, roster]));
-  const teamColumns = data.tournament?.pairingType === "doubles"
-    ? [["strengthOfSchedule", "doubles.sos"], ["totalVp", "classic.total_vp"]]
-    : data.tournament?.teamTiebreakerOrder == null
-    ? [["individualWins", "teams.tournament.individualWins"], ["totalVp", "teams.tournament.totalVp"], ["tacOpPoints", "teams.tournament.tac"]]
-    : data.tournament.teamTiebreakerOrder.map(key => [{ individual_wins: "individualWins", total_vp: "totalVp", vp_diff: "vpDiff" }[key], `classic.${key}`]);
+  const order = data.tournament?.teamTiebreakerOrder ??
+    (data.tournament?.pairingType === "doubles" ? doublesTiebreakerDefaults : null);
+  const teamColumns = order
+    ? order.map(key => teamTiebreakerColumns[key])
+    : [["individualWins", "teams.tournament.individualWins"], ["totalVp", "teams.tournament.totalVp"], ["tacOpPoints", "teams.tournament.tac"]];
   if (data.tournament?.pairingType === "sword_shield_classic") {
     for (const column of [["individualWins", "classic.individual_wins"], ["vpDiff", "classic.vp_diff"],
       ["totalVp", "classic.total_vp"], ["tacOpPoints", "teams.tournament.tac"]]) {
