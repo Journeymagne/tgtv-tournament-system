@@ -78,6 +78,45 @@ async function publicView() {
   return tournaments.getPublic({ client, user: null, params: { slug: 'recalculate-cup' } });
 }
 
+test('applying a new solo tiebreaker order saves it and changes tied places without rewriting matches', async () => {
+  const before = await publicView();
+  const lastPlaces = standings => standings.filter(row => [110, 120].includes(row.participantId)).map(row => row.participantId);
+  assert.deepEqual(lastPlaces(before.standings), [120, 110]);
+  const matches = (await client.query('SELECT * FROM tournament_matches ORDER BY id')).rows;
+  const games = (await client.query('SELECT * FROM games ORDER BY id')).rows;
+  const tiebreakerOrder = ['strength_of_schedule', 'vp_diff'];
+  assert.equal((await request({ tiebreakerOrder }, 'player')).status, 403);
+  assert.equal((await request({ tiebreakerOrder, expectedUpdatedAt: '2000-01-01T00:00:00.000Z' })).status, 409);
+  const applied = await request({ tiebreakerOrder, expectedUpdatedAt: before.tournament.updatedAt });
+  assert.equal(applied.status, 200, JSON.stringify(applied.body));
+  assert.deepEqual(applied.body.tournament.tiebreakerOrder, tiebreakerOrder);
+  assert.deepEqual(lastPlaces(applied.body.standings), [110, 120]);
+  assert.deepEqual((await publicView()).standings, applied.body.standings);
+  assert.deepEqual((await client.query('SELECT * FROM tournament_matches ORDER BY id')).rows, matches);
+  assert.deepEqual((await client.query('SELECT * FROM games ORDER BY id')).rows, games);
+  await client.query("UPDATE tournaments SET status='completed' WHERE id=10");
+  assert.equal((await request({ tiebreakerOrder: [], replacePublished: true })).status, 409);
+  assert.deepEqual((await tournamentsRepo.findById(client, 10)).tiebreakerOrder, tiebreakerOrder);
+});
+
+test('all team formats can apply their tiebreaker order before the first result', async () => {
+  for (const [id, pairingType, teamSize, order] of [
+    [11, 'shield_sword', 3, ['vp_diff', 'total_vp']],
+    [12, 'sword_shield_classic', 3, ['total_vp', 'individual_wins']],
+    [13, 'doubles', 2, ['total_vp', 'strength_of_schedule']]
+  ]) {
+    await client.query(`INSERT INTO tournaments
+      (id, slug, name, status, format, swiss_round_count, venue_mode, participant_mode, team_size, pairing_type, captain_pairing_enabled)
+      VALUES ($1, $2, $2, 'in_progress', 'swiss', 2, 'irl', 'team', $3, $2, $4)`,
+    [id, pairingType, teamSize, pairingType !== 'doubles']);
+    const applied = await request({ tiebreakerOrder: order }, 'admin', id);
+    assert.equal(applied.status, 200, JSON.stringify(applied.body));
+    assert.deepEqual(applied.body.tournament.teamTiebreakerOrder, order);
+    assert.deepEqual((await tournamentsRepo.findById(client, id)).teamTiebreakerOrder, order);
+  }
+  assert.equal((await request({ tiebreakerOrder: ['vp_diff'] }, 'admin', 13)).status, 400);
+});
+
 test('admin replay repairs collision, points, W/L, ranks and opponents SoS without changing games or ratings', async () => {
   const gamesBefore = (await client.query('SELECT * FROM games ORDER BY id')).rows;
   const usersBefore = (await client.query('SELECT * FROM users ORDER BY id')).rows;

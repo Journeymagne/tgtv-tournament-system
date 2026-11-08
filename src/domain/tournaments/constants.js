@@ -57,6 +57,8 @@ const STANDINGS_TIEBREAKERS = [
   "total_vp",
   "vp_diff"
 ];
+const TEAM_STANDINGS_TIEBREAKERS = ["individual_wins", "vp_diff", "total_vp"];
+const DOUBLES_STANDINGS_TIEBREAKERS = ["strength_of_schedule", "total_vp"];
 
 module.exports = {
   TOURNAMENT_STATUSES,
@@ -70,5 +72,7 @@ module.exports = {
   CHALLENGE_CREDIT_POLICIES,
   VENUE_MODES,
   SINGLE_ELIMINATION_SIZES,
-  STANDINGS_TIEBREAKERS
+  STANDINGS_TIEBREAKERS,
+  TEAM_STANDINGS_TIEBREAKERS,
+  DOUBLES_STANDINGS_TIEBREAKERS
 };

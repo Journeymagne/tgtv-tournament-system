@@ -645,6 +645,7 @@ function updateTournamentVenueAddressField(form) {
 
 function adminTournamentEditForm(tournament) {
   const setupLocked = tournament.status === "in_progress";
+  const canApplyTiebreakers = setupLocked && !tournament.finalResults?.length;
   const readOnly = ["completed", "cancelled"].includes(tournament.status);
   const lockAttrs = setupLocked || readOnly ? "disabled" : "";
   const textLockAttrs = readOnly ? "disabled" : "";
@@ -749,16 +750,28 @@ function adminTournamentEditForm(tournament) {
         </div>
         ${tournament.rulesLink ? tournamentRulesLinkMarkup(tournament) : ""}
       </div>
-      ${teamTournamentSettingsFields(tournament, textLockAttrs)}
-      <div class="tournament-tiebreakers" data-individual-mode-field>
+      ${teamTournamentSettingsFields(tournament, textLockAttrs, !canApplyTiebreakers)}
+      ${canApplyTiebreakers ? "" : `<div class="tournament-tiebreakers" data-individual-mode-field>
         ${tournamentTiebreakerHeading()}
         ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], lockAttrs)}
-      </div>
+      </div>`}
       <div class="admin-save-row">
         <button class="primary-button admin-save-button" type="submit" data-admin-tournament-save-button ${readOnly && !canChangeSeason ? "disabled" : ""}>${t("admin.tournament.edit.save")}</button>
         <span class="autosave-status" data-admin-tournament-autosave-status aria-live="polite"></span>
       </div>
     </form>
+    ${canApplyTiebreakers ? `
+      <form class="admin-settings-section" data-admin-tournament-tiebreakers>
+        ${tournament.participantMode === "team" ? teamTournamentTiebreakerFields(tournament) : `
+          <div class="tournament-tiebreakers">
+            ${tournamentTiebreakerHeading()}
+            ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [])}
+          </div>`}
+        <div class="admin-save-row">
+          <button class="primary-button" type="submit">${adminLabel("Пересчитать", "Recalculate")}</button>
+          <span class="autosave-status" data-tiebreaker-save-status role="status"></span>
+        </div>
+      </form>` : ""}
   `;
 }
 
@@ -770,16 +783,21 @@ function adminTournamentParticipantsPanel(data) {
   `;
 }
 
+const adminSoloTableDrafts = new Map();
+const adminSoloTableSaves = new Set();
+let adminSoloTableWrites = Promise.resolve();
+
 function adminTournamentTablesContent(data) {
   const tournament = data.tournament || {};
   const size = teamSizeFor(tournament);
   const tables = data.tables || [];
   const readOnly = ["completed", "cancelled"].includes(tournament.status) || tournament.teamTablesLocked;
   const sharedTables = tournament.participantMode === "team" && tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic";
+  const soloIrl = tournament.venueMode === "irl" && tournament.participantMode !== "team";
   const cannotAdd = readOnly || (sharedTables && tables.length >= 3);
   if (tournament.venueMode !== "irl" && tournament.participantMode !== "team") return `<div class="empty">${t("admin.tournament.tables.irlOnly", { venue: t("venue.irl") })}</div>`;
   return `
-    <div class="tournament-table-admin">
+    <div class="tournament-table-admin" ${soloIrl ? "data-admin-solo-tables" : ""}>
       <p><a href="/maps/index.html" target="_blank" rel="noopener">Каталог расстановок · 67 карт</a></p>
       <form class="admin-table-form" data-admin-tournament-table-add>
         <div class="grid-3">
@@ -805,39 +823,46 @@ function adminTournamentTablesContent(data) {
         <button class="small-button" type="submit" ${cannotAdd ? "disabled" : ""}>${t("admin.tournament.tables.add")}</button>
       </form>
       <div class="list">
-        ${tables.length ? tables.map((table, index) => `${tournament.participantMode === "team" && !sharedTables && index % size === 0 ? `<h4>${t("classic.line", { number: index / size + 1 })}</h4>` : ""}${adminTournamentTableRow(table, readOnly)}`).join("") : `<div class="empty">${t("admin.tournament.tables.empty")}</div>`}
+        ${tables.length ? tables.map((table, index) => `${tournament.participantMode === "team" && !sharedTables && index % size === 0 ? `<h4>${t("classic.line", { number: index / size + 1 })}</h4>` : ""}${adminTournamentTableRow(table, readOnly, soloIrl)}`).join("") : `<div class="empty">${t("admin.tournament.tables.empty")}</div>`}
       </div>
     </div>
   `;
 }
 
-function adminTournamentTableRow(table, readOnly) {
+function adminTournamentTableRow(table, readOnly, soloIrl) {
+  const selection = (soloIrl && !readOnly && adminSoloTableDrafts.get(table.id)) || table;
+  const disabled = readOnly || (soloIrl && adminSoloTableSaves.has(table.id)) ? "disabled" : "";
   return `
-    <div class="row-card compact-row-card tournament-table-row" data-map-image-id="${Number(table.imageId) || 0}">
+    <div class="row-card compact-row-card tournament-table-row" data-map-image-id="${Number(table.imageId) || 0}"
+      ${soloIrl ? `data-admin-solo-table="${table.id}" ${readOnly ? "data-table-read-only" : ""}` : ""}>
       <div class="row-main">
-        <div class="row-title">${t("tournaments.match.table", { number: table.tableNumber })}</div>
-        <div class="row-meta">${escapeHtml(table.killzone || t("admin.tournament.tables.noKillzone"))} / ${t("tournaments.mission.deployment", { layout: mapLayoutLabel(table) || "-" })}</div>
+        <div class="row-title">${t("tournaments.match.table", { number: table.tableNumber })}
+          ${soloIrl ? `<span class="autosave-status" data-admin-table-status role="status"></span>` : ""}
+        </div>
+        ${soloIrl ? "" : `<div class="row-meta">${escapeHtml(table.killzone || t("admin.tournament.tables.noKillzone"))} / ${t("tournaments.mission.deployment", { layout: mapLayoutLabel(table) || "-" })}</div>`}
         <div class="table-admin-controls">
           <div class="field">
-            <label>${t("games.result.killzoneLabel")}</label>
-            <select name="table-killzone-${table.id}" ${readOnly ? "disabled" : ""}>
+            <label for="table-killzone-${table.id}">${t("games.result.killzoneLabel")}</label>
+            <select id="table-killzone-${table.id}" name="table-killzone-${table.id}" ${disabled}>
               <option value="">${t("games.result.notSelected")}</option>
-              ${optionsHtml(killzoneOptions, table.killzone || "")}
+              ${optionsHtml(killzoneOptions, selection.killzone || "")}
             </select>
           </div>
           <div class="field">
-            <label>${t("admin.tournament.tables.field.deployment")}</label>
-            <select name="table-deployment-${table.id}" ${readOnly ? "disabled" : ""}>
+            <label for="table-deployment-${table.id}">${t("admin.tournament.tables.field.deployment")}</label>
+            <select id="table-deployment-${table.id}" name="table-deployment-${table.id}" ${disabled}>
               <option value="">${t("games.result.notSelected")}</option>
-              ${mapLayoutNumbers(table.killzone).map((item) => `<option value="${item}" ${Number(table.deployment) === item ? "selected" : ""}>${item}</option>`).join("")}
+              ${mapLayoutNumbers(selection.killzone).map((item) => `<option value="${item}" ${Number(selection.deployment) === item ? "selected" : ""}>${item}</option>`).join("")}
             </select>
           </div>
         </div>
       </div>
       <div class="row-actions">
-        <button class="small-button" data-admin-table-save="${table.id}" ${readOnly ? "disabled" : ""}>${t("common.save")}</button>
-        <button class="danger-button" data-admin-table-delete="${table.id}" ${readOnly ? "disabled" : ""}>${t("common.delete")}</button>
+        ${soloIrl ? `<button type="button" class="small-button" data-admin-table-generate aria-describedby="table-generate-hint-${table.id}" disabled>${adminLabel("Сгенерировать", "Generate")}</button>` : ""}
+        <button type="button" class="${soloIrl ? "primary-button" : "small-button"}" data-admin-table-save="${table.id}" ${disabled}>${t("common.save")}</button>
+        <button type="button" class="danger-button" data-admin-table-delete="${table.id}" ${disabled}>${t("common.delete")}</button>
       </div>
+      ${soloIrl ? `<p class="field-help" id="table-generate-hint-${table.id}" data-admin-table-generate-hint hidden></p>` : ""}
     </div>
   `;
 }
@@ -1389,19 +1414,85 @@ function wireAdminTournamentFormBehavior() {
     form.querySelectorAll("[data-tournament-tiebreaker-select]").forEach((select) => {
       select.addEventListener("change", () => updateTournamentTiebreakerSelects(form));
     });
-    const tiebreakerHelp = form.querySelector("[data-tournament-tiebreaker-help]");
-    form.querySelector("[data-tournament-tiebreaker-help-open]")?.addEventListener("click", () => {
-      if (typeof tiebreakerHelp?.showModal === "function") tiebreakerHelp.showModal();
-    });
-    form.querySelector("[data-tournament-tiebreaker-help-close]")?.addEventListener("click", () => {
-      tiebreakerHelp?.close();
-    });
-    tiebreakerHelp?.addEventListener("click", (event) => {
-      if (event.target === tiebreakerHelp) tiebreakerHelp.close();
-    });
+    wireTournamentTiebreakerHelp(form);
     updateTournamentTiebreakerSelects(form);
     wireMarkdownEditors(form);
     wireAdminTournamentAutosave(form);
+  });
+  wireAdminTournamentTiebreakers();
+}
+
+function wireTournamentTiebreakerHelp(form) {
+  const help = form.querySelector("[data-tournament-tiebreaker-help]");
+  onLive(form.querySelector("[data-tournament-tiebreaker-help-open]"), "click", () => help?.showModal?.());
+  onLive(form.querySelector("[data-tournament-tiebreaker-help-close]"), "click", () => help?.close());
+  onLive(help, "click", event => {
+    if (event.target === help) help.close();
+  });
+}
+
+function wireAdminTournamentTiebreakers() {
+  const form = document.querySelector("[data-admin-tournament-tiebreakers]");
+  if (!form) return;
+  wireTournamentTiebreakerHelp(form);
+  const selects = Array.from(form.querySelectorAll("select"));
+  const custom = form.elements.customTeamTiebreakers;
+  const button = form.querySelector("button[type='submit']");
+  const status = form.querySelector("[data-tiebreaker-save-status]");
+  let values = selects.map(select => select.value);
+  const setStatus = (text, kind) => {
+    status.textContent = text;
+    status.dataset.status = kind;
+  };
+  const syncControls = () => {
+    if (custom) {
+      custom.disabled = button.disabled;
+      form.querySelector(".team-tiebreaker-rank-list").hidden = !custom.checked;
+    }
+    selects.forEach(select => { select.disabled = button.disabled || custom?.checked === false; });
+  };
+  syncControls();
+
+  onLive(form, "change", event => {
+    const index = selects.indexOf(event.target);
+    if (index !== -1) {
+      const value = selects[index].value;
+      const other = value ? selects.findIndex((select, slot) => slot !== index && select.value === value) : -1;
+      if (other !== -1) selects[other].value = values[index];
+      values = selects.map(select => select.value);
+    }
+    syncControls();
+    setStatus(t("admin.tournament.autosave.unsaved"), "pending");
+  });
+  onLive(form, "submit", async event => {
+    event.preventDefault();
+    const tournament = state.adminTournamentDetail?.tournament;
+    if (!tournament || state.adminStandingsRecalculating) return;
+    const tiebreakerOrder = custom?.checked === false ? null : values.filter(Boolean);
+    state.adminStandingsRecalculating = button.disabled = true;
+    syncControls();
+    setStatus(t("admin.tournament.autosave.saving"), "saving");
+    try {
+      const data = await api(`/api/admin/tournaments/${tournament.id}/standings/recalculate`, {
+        method: "POST", body: { tiebreakerOrder, expectedUpdatedAt: tournament.updatedAt }
+      });
+      if (state.adminTournamentDetail?.tournament?.id === tournament.id) {
+        state.adminTournamentDetail = data;
+        state.adminTournamentPreview = null;
+        if (!form.isConnected && state.view === "tournaments" && state.tournamentsTab === "admin") renderTournaments();
+      }
+      if (tiebreakerOrder) {
+        selects.forEach((select, index) => { select.value = tiebreakerOrder[index] || ""; });
+        values = selects.map(select => select.value);
+      }
+      delete form.dataset.liveDirty;
+      setStatus(adminLabel("Таблица пересчитана", "Standings recalculated"), "saved");
+    } catch (err) {
+      setStatus(err.message, "error");
+    } finally {
+      state.adminStandingsRecalculating = button.disabled = false;
+      syncControls();
+    }
   });
 }
 
@@ -1500,22 +1591,81 @@ function adminTournamentAutosaveSnapshot(form) {
 }
 
 function wireTournamentTableAdminControls() {
-  document.querySelector("[data-admin-tournament-table-add]")?.addEventListener("submit", async (event) => {
+  onLive(document.querySelector("[data-admin-tournament-table-add]"), "submit", async (event) => {
     event.preventDefault();
     await submitAdminTournamentTable(event.currentTarget);
   });
 
   document.querySelectorAll("[data-admin-table-save]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       await saveAdminTournamentTable(Number(button.dataset.adminTableSave));
     });
   });
 
   document.querySelectorAll("[data-admin-table-delete]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    onLive(button, "click", async () => {
       await deleteAdminTournamentTable(Number(button.dataset.adminTableDelete));
     });
   });
+
+  document.querySelectorAll("[data-admin-solo-table]").forEach(wireAdminSoloTableRow);
+}
+
+function wireAdminSoloTableRow(row) {
+  const killzone = row.querySelector("select[name^='table-killzone-']");
+  const deployment = row.querySelector("select[name^='table-deployment-']");
+  TGTVBindMapLayoutControls(killzone, deployment);
+
+  onLive(killzone, "change", () => {
+    deployment.value = "";
+    deployment.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  onLive(deployment, "change", () => syncAdminSoloTableRow(row));
+  onLive(row.querySelector("[data-admin-table-generate]"), "click", () => {
+    const choices = TGTVMapCatalog.mapsFor(killzone.value).filter(map => String(map.slot) !== deployment.value);
+    if (!choices.length) return;
+    deployment.value = String(choices[Math.floor(Math.random() * choices.length)].slot);
+    deployment.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  syncAdminSoloTableRow(row);
+}
+
+function syncAdminSoloTableRow(row) {
+  if (!row) return;
+  const id = Number(row.dataset.adminSoloTable);
+  const table = state.adminTournamentDetail?.tables?.find(item => item.id === id);
+  if (!table) return;
+
+  const killzone = row.querySelector("select[name^='table-killzone-']");
+  const deployment = row.querySelector("select[name^='table-deployment-']");
+  const readOnly = row.hasAttribute("data-table-read-only");
+  const saving = adminSoloTableSaves.has(id);
+  const locked = readOnly || saving;
+  const dirty = !readOnly && (killzone.value !== (table.killzone || "") || deployment.value !== String(table.deployment ?? ""));
+  if (dirty) adminSoloTableDrafts.set(id, { killzone: killzone.value, deployment: deployment.value });
+  else adminSoloTableDrafts.delete(id);
+
+  const maps = TGTVMapCatalog.mapsFor(killzone.value);
+  const currentMap = maps.some(map => String(map.slot) === deployment.value);
+  const canGenerate = maps.some(map => String(map.slot) !== deployment.value);
+  const generate = row.querySelector("[data-admin-table-generate]");
+  generate.textContent = currentMap ? adminLabel("Перегенерировать", "Regenerate") : adminLabel("Сгенерировать", "Generate");
+  generate.disabled = locked || !canGenerate;
+  const hint = row.querySelector("[data-admin-table-generate-hint]");
+  hint.hidden = locked || canGenerate;
+  if (!hint.hidden) {
+    hint.textContent = !killzone.value ? adminLabel("Выберите Killzone для генерации.", "Choose a Killzone to generate a layout.")
+      : !maps.length ? adminLabel("Для этого Killzone в каталоге пока нет раскладок.", "This Killzone has no layouts in the catalog.")
+      : adminLabel("В наборе одна раскладка.", "This set has one layout.");
+  }
+
+  const status = row.querySelector("[data-admin-table-status]");
+  status.dataset.status = saving ? "saving" : dirty ? "pending" : table.deployment ? "saved" : "";
+  status.textContent = saving ? t("admin.tournament.autosave.saving") : dirty ? t("tournaments.status.draft")
+    : table.deployment ? t("admin.tournament.autosave.saved") : adminLabel("Без раскладки", "No layout");
+  killzone.disabled = deployment.disabled = locked;
+  row.querySelector("[data-admin-table-save]").disabled = locked || !dirty;
+  row.querySelector("[data-admin-table-delete]").disabled = locked;
 }
 
 function wireTournamentParticipantAdminControls() {
@@ -1816,11 +1966,12 @@ function adminTournamentBodyFromForm(form, options = {}) {
   }
   if (participantMode === "team" && form.elements.pairingType?.value === "doubles") {
     body.captainPairingEnabled = false;
-    body.teamTiebreakerOrder = null;
   } else if (participantMode === "team" && form.elements.captainPairingEnabled && !form.elements.captainPairingEnabled.disabled) {
     body.captainPairingEnabled = form.elements.captainPairingEnabled.checked;
-    body.teamTiebreakerOrder = form.elements.customTeamTiebreakers.checked
-      ? [0,1,2].map(index => form.elements[`teamTiebreaker-${index}`].value).filter(Boolean) : null;
+    if (form.elements.customTeamTiebreakers) {
+      body.teamTiebreakerOrder = form.elements.customTeamTiebreakers.checked
+        ? [0,1,2].map(index => form.elements[`teamTiebreaker-${index}`].value).filter(Boolean) : null;
+    }
   }
   return body;
 }
@@ -1941,16 +2092,42 @@ async function refreshAdminTournamentDetailView() {
   renderTournaments();
 }
 
+async function mutateAdminTournamentTable(tournament, mutate, { keepTablePanel = false } = {}) {
+  if (tournament.venueMode !== "irl" || tournament.participantMode === "team") {
+    await mutate();
+    return refreshAdminTournamentDetailView();
+  }
+
+  // Apply each mutation and its detail refresh in order.
+  const write = adminSoloTableWrites.then(async () => {
+    await mutate();
+    const isCurrent = () => state.view === "tournaments" && state.tournamentsTab === "admin" &&
+      state.adminTournamentDetail?.tournament?.id === tournament.id;
+    if (!isCurrent()) return;
+    const detail = await api(`/api/admin/tournaments/${tournament.id}`);
+    if (!isCurrent()) return;
+    const statusChanged = state.adminTournamentDetail.tournament.status !== detail.tournament.status;
+    state.adminTournamentDetail = detail;
+    const panel = document.querySelector("[data-admin-solo-tables]");
+    if (!panel) renderTournaments();
+    else if (!keepTablePanel || statusChanged) {
+      panel.outerHTML = adminTournamentTablesContent(detail);
+      wireTournamentTableAdminControls();
+    }
+  });
+  adminSoloTableWrites = write.catch(() => {});
+  await write;
+}
+
 async function submitAdminTournamentTable(form) {
   const tournament = state.adminTournamentDetail?.tournament;
   if (!tournament) return;
+  const body = tablePayloadFromForm(form);
   try {
-    await api(`/api/admin/tournaments/${tournament.id}/tables`, {
-      method: "POST",
-      body: tablePayloadFromForm(form)
+    await mutateAdminTournamentTable(tournament, async () => {
+      await api(`/api/admin/tournaments/${tournament.id}/tables`, { method: "POST", body });
+      form.reset();
     });
-    form.reset();
-    await refreshAdminTournamentDetailView();
   } catch (err) {
     setMessage(err.message, true);
   }
@@ -1961,14 +2138,33 @@ async function saveAdminTournamentTable(tableId) {
   if (!tournament) return;
   const killzone = document.querySelector(`[name="table-killzone-${tableId}"]`)?.value || "";
   const deployment = document.querySelector(`[name="table-deployment-${tableId}"]`)?.value || "";
+  const rowSelector = `[data-admin-solo-table="${tableId}"]`;
+  const row = document.querySelector(rowSelector);
+  if (row) {
+    if (!adminSoloTableDrafts.has(tableId) || adminSoloTableSaves.has(tableId)) return;
+    adminSoloTableSaves.add(tableId);
+    syncAdminSoloTableRow(row);
+  }
   try {
-    await api(`/api/admin/tournaments/${tournament.id}/tables/${tableId}`, {
-      method: "PATCH",
-      body: { killzone, deployment }
-    });
-    await refreshAdminTournamentDetailView();
+    await mutateAdminTournamentTable(tournament, async () => {
+      const { table } = await api(`/api/admin/tournaments/${tournament.id}/tables/${tableId}`, {
+        method: "PATCH",
+        body: { killzone, deployment }
+      });
+      if (!row) return;
+      adminSoloTableDrafts.delete(tableId);
+      const detail = state.adminTournamentDetail;
+      if (detail?.tournament?.id === tournament.id) {
+        detail.tables = detail.tables.map(item => item.id === tableId ? table : item);
+      }
+    }, { keepTablePanel: true });
   } catch (err) {
     setMessage(err.message, true);
+  } finally {
+    if (row) {
+      adminSoloTableSaves.delete(tableId);
+      syncAdminSoloTableRow(document.querySelector(rowSelector));
+    }
   }
 }
 
@@ -1978,8 +2174,10 @@ async function deleteAdminTournamentTable(tableId) {
   const table = (state.adminTournamentDetail?.tables || []).find((item) => item.id === tableId);
   if (!await confirmDelete(t("dialog.admin.deleteTable", { number: table?.tableNumber || "" }))) return;
   try {
-    await api(`/api/admin/tournaments/${tournament.id}/tables/${tableId}`, { method: "DELETE" });
-    await refreshAdminTournamentDetailView();
+    await mutateAdminTournamentTable(tournament, async () => {
+      await api(`/api/admin/tournaments/${tournament.id}/tables/${tableId}`, { method: "DELETE" });
+      adminSoloTableDrafts.delete(tableId);
+    });
   } catch (err) {
     setMessage(err.message, true);
   }

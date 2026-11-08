@@ -48,6 +48,18 @@ test("Doubles SOS retains withdrawn opponents and recalculates after correction"
   assert.equal(rows.find(row=>row.roster.id===2).strengthOfSchedule,9);
 });
 
+test("Doubles can prioritize total VP ahead of SOS when TP are equal", () => {
+  const rosters = [1, 2, 3, 4].map(id => ({ id }));
+  const matches = [
+    match(1, 3, [game(1, 9, 3), game(2, 9, 4)]),
+    match(2, 4, [game(1, 17, 11), game(2, 18, 12)]),
+    match(3, 4, [game(1, 9, 4), game(2, 10, 3)])
+  ];
+  const rows = order => teamStandings(rosters, matches, order, tournament).filter(row => row.roster.id <= 2);
+  assert.deepEqual(rows(null).map(row => row.roster.id), [1, 2]);
+  assert.deepEqual(rows(["total_vp", "strength_of_schedule"]).map(row => [row.roster.id, row.teamTournamentPoints]), [[2, 5], [1, 5]]);
+});
+
 test("Doubles constraints keep two slots, four missions, IRL and manual pairings", () => {
   const created = normalizeNewTournament({participantMode:"team",format:"swiss",pairingType:"doubles"},1,"doubles");
   assert.equal(created.teamSize,2);
@@ -57,6 +69,12 @@ test("Doubles constraints keep two slots, four missions, IRL and manual pairings
   assert.throws(()=>normalizeTournamentPatch({venueMode:"tts"},created));
   assert.throws(()=>normalizeTournamentPatch({captainPairingEnabled:true},created));
   assert.throws(()=>normalizeTournamentPatch({teamSize:3},created));
+  const order = ["total_vp", "strength_of_schedule"];
+  assert.deepEqual(normalizeTournamentPatch({ teamTiebreakerOrder: order }, created).teamTiebreakerOrder, order);
+  const configured = { ...created, teamTiebreakerOrder: order };
+  assert.ok(!Object.hasOwn(normalizeTournamentPatch({ description: "Updated rules" }, configured), "teamTiebreakerOrder"));
+  assert.equal(normalizeTournamentPatch({ pairingType: "shield_sword" }, configured).teamTiebreakerOrder, null);
+  assert.throws(() => normalizeTournamentPatch({ teamTiebreakerOrder: ["individual_wins"] }, created));
   assert.throws(()=>normalizeRoundMissions(CRIT_OPS.slice(0,3),"doubles"));
   assert.throws(()=>normalizeRoundMissions([...CRIT_OPS.slice(0,3),CRIT_OPS[2]],"doubles"));
   assert.equal(normalizeRoundMissions(CRIT_OPS.slice(0,4),"doubles").length,4);

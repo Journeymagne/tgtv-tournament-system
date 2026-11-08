@@ -3,6 +3,7 @@ const { ValidationError } = require("../http/io");
 const { CRIT_OPS, KILLZONES } = require("./kill-teams");
 const { pairScoreBrackets } = require("./tournaments/swiss");
 const { shuffledIds } = require("./tournaments/seeding");
+const { DOUBLES_STANDINGS_TIEBREAKERS } = require("./tournaments/constants");
 
 function teamSizeFor(value) {
   return value?.pairingType === "doubles" ? 2 : 3;
@@ -211,12 +212,12 @@ function teamStandings(rosters, matches, order = null, tournament = {}) {
   if (doubles) {
     for (const row of rows) row.strengthOfSchedule = row.opponents.reduce((sum, id) => sum + (byId.get(id)?.teamTournamentPoints || 0), 0);
   }
-  const fields = { individual_wins: "individualWins", vp_diff: "vpDiff", total_vp: "totalVp" };
+  const fields = { individual_wins: "individualWins", vp_diff: "vpDiff", total_vp: "totalVp", strength_of_schedule: "strengthOfSchedule" };
+  const tiebreakers = order ?? (doubles ? DOUBLES_STANDINGS_TIEBREAKERS : null);
   rows.sort((left, right) =>
     right.teamTournamentPoints - left.teamTournamentPoints ||
-    (doubles ? right.strengthOfSchedule - left.strengthOfSchedule || right.totalVp - left.totalVp
-      : order === null ? right.individualWins - left.individualWins || right.totalVp - left.totalVp || right.tacOpPoints - left.tacOpPoints
-      : order.reduce((difference, key) => difference || right[fields[key]] - left[fields[key]], 0)) ||
+    (tiebreakers === null ? right.individualWins - left.individualWins || right.totalVp - left.totalVp || right.tacOpPoints - left.tacOpPoints
+      : tiebreakers.reduce((difference, key) => difference || right[fields[key]] - left[fields[key]], 0)) ||
     Number(left.roster.seed || 0) - Number(right.roster.seed || 0) ||
     left.roster.id - right.roster.id
   );

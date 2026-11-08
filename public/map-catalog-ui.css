@@ -2,3 +2,43 @@
 .map-catalog-preview:empty { display: none; }
 .map-catalog-preview .team-table-image { width: auto; max-width: 100%; max-height: 380px; object-fit: contain; }
 .map-catalog-preview p { margin: 4px 0 12px; }
+
+.tournament-table-row[data-admin-solo-table] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+[data-admin-solo-table] .row-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-bottom: 10px;
+}
+[data-admin-solo-table] .field { margin-bottom: 0; }
+[data-admin-solo-table] select { min-width: 0; }
+[data-admin-solo-table] .row-actions { justify-content: flex-start; }
+[data-admin-table-status][data-status="saved"] { color: var(--good); }
+[data-admin-table-status][data-status="pending"],
+[data-admin-table-generate]:enabled {
+  color: var(--accent-text);
+}
+[data-admin-table-generate]:enabled {
+  border-color: var(--accent);
+}
+[data-admin-table-generate-hint] { margin: 0; }
+[data-admin-solo-table] .map-catalog-preview .team-table-image { max-height: 145px; }
+[data-admin-solo-table] .map-catalog-preview p { margin-bottom: 0; font-size: 13px; }
+
+@media (max-width: 480px) {
+  [data-admin-solo-table] .row-actions > button { min-height: 44px; padding-inline: 9px; }
+  [data-admin-solo-table] .map-catalog-preview .team-table-image { max-height: 110px; }
+}
+
+@media (min-width: 1000px) {
+  [data-admin-solo-table] .table-admin-controls:has(.map-catalog-preview:not(:empty)) {
+    grid-template-columns: minmax(0, 1fr) minmax(110px, .65fr) minmax(0, 160px);
+    align-items: start;
+  }
+  [data-admin-solo-table] .map-catalog-preview { grid-column: auto; }
+}

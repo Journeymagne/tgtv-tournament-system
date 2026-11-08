@@ -25,6 +25,7 @@
     if (!layout || killzone.dataset.mapBound) return;
     killzone.dataset.mapBound = 'true';
     const box = document.createElement('div'); box.className = 'map-catalog-preview';
+    if (killzone.closest('[data-admin-solo-table]')) box.setAttribute('aria-live', 'polite');
     layout.closest('.field')?.after(box);
     const update = () => {
       const maps = catalog.mapsFor(killzone.value), selected = layout.value;
@@ -59,4 +60,5 @@
     .observe(document.body, { childList: true, subtree: true });
   scan();
   globalThis.TGTVMapPreview = preview;
+  globalThis.TGTVBindMapLayoutControls = attach;
 })();

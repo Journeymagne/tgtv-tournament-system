@@ -1314,12 +1314,48 @@ test("IRL Swiss tournament stores season, manages tables, and uses round setup p
     body: { tableNumber: 2, killzone: "Gallowdark", deployment: 2 }
   });
 
-  let view = await closeAndStart(tournament);
+  const context = { client, user: root, params: { id: String(tournament.id) } };
+  await tournamentsApi.closeRegistration(context);
+  const prepared = await tournamentsApi.generateNextRoundAdmin({
+    ...context,
+    body: { mission: { critOp: "Loot" } }
+  });
+  const tableContext = {
+    ...context,
+    params: { ...context.params, tableId: String(firstTable.body.table.id) }
+  };
+  await tournamentsApi.updateTableAdmin({
+    ...tableContext,
+    body: { killzone: "Tomb World", deployment: 4 }
+  });
+  const savedRound = (await tournamentsApi.getAdmin(context)).rounds[0];
+  const pairings = (round) => round.matches.map(({ id, participantAId, participantBId, tableId }) =>
+    ({ id, participantAId, participantBId, tableId }));
+  assert.equal(savedRound.id, prepared.rounds[0].id);
+  assert.equal(savedRound.status, "not_ready");
+  assert.deepEqual(pairings(savedRound), pairings(prepared.rounds[0]));
+  for (const match of savedRound.matches) {
+    const previous = prepared.rounds[0].matches.find(item => item.id === match.id);
+    assert.deepEqual(match.mission, match.tableId === firstTable.body.table.id
+      ? { ...previous.mission, killzone: "Tomb World", layout: 4 }
+      : previous.mission);
+  }
+
+  let view = await tournamentsApi.startAdmin(context);
   assert.equal(view.tournament.seasonId, "2026-q2-dataslate");
   assert.equal(view.tournament.venueMode, "irl");
   assert.equal(view.tables.length, 2);
   assert.deepEqual(view.rounds[0].matches.map((match) => match.table?.tableNumber).sort(), [1, 2]);
-  assert.deepEqual(view.rounds[0].matches.map((match) => match.mission?.layout).sort(), [1, 2]);
+  assert.deepEqual(pairings(view.rounds[0]), pairings(savedRound));
+  assert.deepEqual(view.rounds[0].matches.map((match) => match.mission?.layout).sort(), [2, 4]);
+  assert.ok(view.rounds[0].matches.every(match => match.mission.critOp === "Loot" && match.gameId));
+
+  await tournamentsApi.updateTableAdmin({
+    ...tableContext,
+    body: { killzone: "Tomb World", deployment: 5 }
+  });
+  view = await tournamentsApi.getAdmin(context);
+  assert.equal(view.rounds[0].matches.find(match => match.tableId === firstTable.body.table.id).mission.layout, 4);
 
   for (const match of view.rounds[0].matches.filter((item) => item.status === "active")) {
     view = await tournamentsApi.saveMatchResultAdmin({

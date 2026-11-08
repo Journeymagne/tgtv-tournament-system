@@ -33,6 +33,8 @@ const { recalculateCompletedGameRatings } = require("./rating-replay");
 const {
   normalizeNewTournament,
   normalizeTournamentPatch,
+  normalizeTiebreakerOrder,
+  normalizeTeamTiebreakerOrder,
   validatePublishable,
   normalizeParticipantName,
   normalizeSeasonId,
@@ -1208,7 +1210,11 @@ async function updateTableAdmin({ client, user, params, body }) {
   assertTablesAvailable(tournament);
   const table = await requireTournamentTable(client, tournament, params.tableId);
   const updated = await tablesRepo.update(client, table.id, normalizeTablePayload(body));
-  await clearPreparedRounds(client, tournament);
+  if (tournament.participantMode === "team") {
+    await clearPreparedRounds(client, tournament);
+  } else {
+    await updatePreparedTableMissions(client, tournament.id, updated);
+  }
   await audit(client, tournament, user, "table_update", {
     entityType: "table",
     entityId: table.id,
@@ -1216,6 +1222,22 @@ async function updateTableAdmin({ client, user, params, body }) {
     after: updated
   });
   return { table: tournamentTableView(updated) };
+}
+
+async function updatePreparedTableMissions(client, tournamentId, table) {
+  const rounds = await roundsRepo.listByTournament(client, tournamentId);
+  for (const round of rounds) {
+    if (round.status !== ROUND_STATUSES.NOT_READY || round.startedAt) continue;
+    const matches = await matchesRepo.listByRound(client, round.id);
+    for (const match of matches) {
+      if (match.tableId !== table.id || match.status !== MATCH_STATUSES.NOT_READY || match.isBye || match.gameId) continue;
+      const critOp = match.mission?.critOp ?? round.metadata?.mission?.critOp ?? "";
+      const mission = table.killzone || table.deployment || critOp
+        ? { ...match.mission, killzone: table.killzone, layout: table.deployment, critOp }
+        : null;
+      await matchesRepo.update(client, match.id, { mission });
+    }
+  }
 }
 
 async function deleteTableAdmin({ client, user, params }) {
@@ -1693,6 +1715,9 @@ async function applyTournamentElo(client, tournament, participantA, participantB
 async function recalculateStandingsAdmin({ client, user, params, body = {} }) {
   if (!canManageTournament(user, params.id)) throw new HttpError(403, "Tournament access required");
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
+  if (Object.hasOwn(body, "tiebreakerOrder")) {
+    return applyStandingsTiebreakerOrder(client, tournament, user, body);
+  }
   if (tournament.participantMode === "team") throw new HttpError(409, "This action is for individual tournaments");
   if (!["in_progress", "completed"].includes(tournament.status)) {
     throw new HttpError(409, "Start the tournament before recalculating standings");
@@ -1743,6 +1768,29 @@ async function recalculateStandingsAdmin({ client, user, params, body = {} }) {
   });
   return { ...await fullView(client, updated, user, { includeAudit: true }),
     recalculation: { repairedMatches: repairs.length, publishedPlacesReplaced: published } };
+}
+
+async function applyStandingsTiebreakerOrder(client, tournament, user, body) {
+  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS || tournament.finalResults?.length) {
+    throw new HttpError(409, "Tiebreakers can be recalculated while the tournament is in progress");
+  }
+  if (body.expectedUpdatedAt && body.expectedUpdatedAt !== tournament.updatedAt) {
+    throw new HttpError(409, "Tournament was changed by another administrator. Reload its settings before saving.");
+  }
+  const team = tournament.participantMode === "team";
+  const field = team ? "teamTiebreakerOrder" : "tiebreakerOrder";
+  if (!team && !Array.isArray(body.tiebreakerOrder)) {
+    throw new ValidationError("Choose valid standings tiebreakers");
+  }
+  const order = team ? normalizeTeamTiebreakerOrder(body.tiebreakerOrder, tournament.pairingType)
+    : normalizeTiebreakerOrder(body.tiebreakerOrder);
+  const patch = { [field]: order };
+  if (require("../resources/audit").unchanged(tournament, patch)) {
+    return fullView(client, tournament, user, { includeAudit: true });
+  }
+  const updated = await tournamentsRepo.update(client, tournament.id, patch);
+  await audit(client, updated, user, "update", { before: { [field]: tournament[field] }, after: patch });
+  return fullView(client, updated, user, { includeAudit: true });
 }
 
 async function exportAdmin({ client, params }) {
