@@ -1208,7 +1208,11 @@ async function updateTableAdmin({ client, user, params, body }) {
   assertTablesAvailable(tournament);
   const table = await requireTournamentTable(client, tournament, params.tableId);
   const updated = await tablesRepo.update(client, table.id, normalizeTablePayload(body));
-  await clearPreparedRounds(client, tournament);
+  if (tournament.participantMode === "team") {
+    await clearPreparedRounds(client, tournament);
+  } else {
+    await updatePreparedTableMissions(client, tournament.id, updated);
+  }
   await audit(client, tournament, user, "table_update", {
     entityType: "table",
     entityId: table.id,
@@ -1216,6 +1220,22 @@ async function updateTableAdmin({ client, user, params, body }) {
     after: updated
   });
   return { table: tournamentTableView(updated) };
+}
+
+async function updatePreparedTableMissions(client, tournamentId, table) {
+  const rounds = await roundsRepo.listByTournament(client, tournamentId);
+  for (const round of rounds) {
+    if (round.status !== ROUND_STATUSES.NOT_READY || round.startedAt) continue;
+    const matches = await matchesRepo.listByRound(client, round.id);
+    for (const match of matches) {
+      if (match.tableId !== table.id || match.status !== MATCH_STATUSES.NOT_READY || match.isBye || match.gameId) continue;
+      const critOp = match.mission?.critOp ?? round.metadata?.mission?.critOp ?? "";
+      const mission = table.killzone || table.deployment || critOp
+        ? { ...match.mission, killzone: table.killzone, layout: table.deployment, critOp }
+        : null;
+      await matchesRepo.update(client, match.id, { mission });
+    }
+  }
 }
 
 async function deleteTableAdmin({ client, user, params }) {
