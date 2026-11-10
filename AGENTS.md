@@ -34,3 +34,16 @@ successful run as validation of newer changes.
 
 Visual inspection and local page/API availability checks remain part of the
 preview workflow.
+
+# Public changelog after production deploys
+
+- For each production release, write matching public release notes in
+  `docs/documentation/ru/changelog.md` and `docs/documentation/en/changelog.md`.
+  Record the version, release date and changes users can see.
+- After each successful production deploy, check the public Changelog in both
+  languages and publish any missing entry. The site serves these pages from
+  the database, so updating `CHANGELOG.md` or the seed files alone is insufficient.
+  Use the documentation editor or a scoped data migration, preserving earlier
+  entries and editorial changes.
+- Treat the release as complete only after the deployed version is visible in
+  both `/api/documentation/ru/changelog` and `/api/documentation/en/changelog`.

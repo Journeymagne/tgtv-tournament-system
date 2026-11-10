@@ -1,6 +1,88 @@
 # Changelog
 
-What's new in KT Companion: the latest 10 released updates, newest first.
+KT Companion release history, newest first.
+
+## 1.5.14 — 10 November 2026
+
+- Added the missing releases to the public changelog in Russian and English, including the FAQ v2.0 update.
+
+## 1.5.13 — 10 November 2026
+
+- Published [TTS Community FAQ v2.0](/faq), including an illustrated ruling on checking Visibility from the model's anatomical head.
+- Updated cover and obscured rulings for Gallowdark, ITD and Tomb World, along with guidance on incorrect dice rolls, indirect kills, ladders and Vantage cover. Archived outdated cards.
+
+## 1.5.12 — 8 November 2026
+
+- Tournament creation and editing now share a tabbed form. Open the editor from administration, a tournament card or the tournament page.
+- Round actions are grouped under Rounds. The public link, history, export and deletion are grouped under More.
+
+## 1.5.11 — 8 November 2026
+
+- Organisers can reorder tiebreakers after a tournament starts and recalculate the standings from completed matches.
+- In in-person solo tournaments, organisers can generate a layout for an individual table in the selected Killzone while keeping other table drafts and prepared pairings.
+
+## 1.5.10 — 8 November 2026
+
+- The Telegram Mini App gained an English interface. It follows the bot's language setting and preserves unsaved forms when the language changes.
+
+## 1.5.9 — 8 November 2026
+
+- Removed the “Your games at your fingertips” tagline from both versions of the Telegram welcome message.
+
+## 1.5.8 — 8 November 2026
+
+- Corrected the Russian label on the team pairing button in Telegram notifications.
+
+## 1.5.7 — 8 November 2026
+
+- The Russian and English Telegram welcome messages explain account linking, the bot, the Mini App and notification settings. The closed-testing notice appears in administrator mode.
+
+## 1.5.6 — 7 November 2026
+
+- Seven Telegram notification types now share a consistent design in Russian and English.
+- Updated Mini App buttons, tabs and focus indicators, with space for Telegram's bottom safe area.
+
+## 1.5.5 — 7 November 2026
+
+- My Games is now the first tab in the Telegram Mini App, followed by My Tournament. My Games replaces the former My Match label.
+
+## 1.5.4 — 7 November 2026
+
+- Added a closed testing mode for administrators in the Telegram bot and Mini App. Account linking, commands, API access and notifications use current permissions.
+
+## 1.5.3 — 6 November 2026
+
+- Email and password change messages are sent from the domain where the action took place. The Russian and European sites share the same accounts.
+
+## 1.5.2 — 6 November 2026
+
+- Redesigned five types of account emails in Russian and English, with mobile layouts, preview text and improved readability in Gmail on iOS.
+
+## 1.5.1 — 6 November 2026
+
+- Pairing instructions are now added when an existing database is upgraded. Previously edited instructions are preserved.
+
+## 1.5.0 — 6 November 2026
+
+- Save named weapon profiles in the shooting and melee calculators and load them on either side of a calculation. Fixed melee scenario links.
+- Added Russian and English instructions for WTC, Sword Shield Classic, Doubles and manual pairing. They are available in Documentation and on the match screen.
+
+## 1.4.39 — 5 November 2026
+
+- Added the European address [killteamcompanion.com](https://killteamcompanion.com), with shared accounts and data. Navigation, email links and TTS export links follow the selected domain. Each domain has its own sign-in session.
+
+## 1.4.38 — 5 November 2026
+
+- Updated [TTS Community FAQ](/faq) answers and rules links using the Games Workshop errata of 28 October.
+
+## 1.4.37 — 5 November 2026
+
+- The Judge rank now requires a first correct answer to every active core rules question. Intermediate ranks also count distinct solved questions.
+- Existing ranks and XP were preserved. Players who already met the new criteria received the corresponding rank.
+
+## 1.4.36 — 4 November 2026
+
+- Streamlined Documentation to Changelog and Handouts. Published matching Russian and English changelogs covering the ten most recent releases.
 
 ## 1.4.35 — 4 November 2026
 
