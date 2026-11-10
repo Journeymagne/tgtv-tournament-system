@@ -100,7 +100,7 @@ test("Changelog upgrade preserves Handouts and archived edits and is safe to rep
     for (const locale of ["ru", "en"]) {
       assert.deepEqual((await repository.list(client, locale)).map(page => page.id), ["changelog", "pairing-instructions", "handouts"]);
       const page = await repository.get(client, locale, "changelog");
-      assert.equal((page.markdown.match(/^## \d+\.\d+\.\d+ —/gm) || []).length, 10);
+      assert.equal(page.markdown, defaultPages().find(item => item.id === "changelog" && item.locale === locale).markdown);
     }
     await client.query("UPDATE tournaments.documentation_pages SET markdown='Reviewed release notes', version=2, updated_by=1 WHERE page_id='changelog' AND locale='ru'");
     const once = (await client.query("SELECT * FROM tournaments.documentation_pages ORDER BY page_id, locale")).rows;

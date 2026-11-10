@@ -30,12 +30,18 @@ test("documentation publishes Changelog, pairing instructions and Handouts in bo
   }
 });
 
-test("Changelog contains the same ten released versions in both languages", () => {
-  const expected = ["1.4.35", "1.4.33", "1.4.32", "1.4.31", "1.4.30", "1.4.29", "1.4.28", "1.4.27", "1.4.26", "1.4.25"];
-  for (const locale of ["ru", "en"]) {
-    const markdown = book(locale, "changelog").page.markdown;
-    assert.deepEqual([...markdown.matchAll(/^## (\d+\.\d+\.\d+) —/gm)].map(match => match[1]), expected);
-  }
+test("Changelog preserves release history and matches across languages", () => {
+  const versions = locale => [...book(locale, "changelog").page.markdown.matchAll(/^## (\d+\.\d+\.\d+) —/gm)]
+    .map(match => match[1]);
+  const ru = versions("ru");
+  const expectedHistory = [
+    ...Array.from({ length: 15 }, (_, index) => `1.5.${14 - index}`),
+    "1.4.39", "1.4.38", "1.4.37", "1.4.36",
+    "1.4.35", "1.4.33", "1.4.32", "1.4.31", "1.4.30", "1.4.29", "1.4.28", "1.4.27", "1.4.26", "1.4.25"
+  ];
+  assert.deepEqual(ru, versions("en"));
+  assert.equal(new Set(ru).size, ru.length);
+  assert.deepEqual(ru.slice(-expectedHistory.length), expectedHistory);
 });
 
 test("archived individual tournament pages explain every supported standings tiebreaker", () => {
