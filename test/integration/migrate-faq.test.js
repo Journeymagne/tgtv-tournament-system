@@ -29,7 +29,7 @@ test('5.4.0 upgrade adds FAQ without changing existing accounts, sessions or rat
   assert.deepEqual((await pool.query('SELECT * FROM sessions')).rows, sessions);
   const counts = (await pool.query(`SELECT content->>'category' category,COUNT(*)::int n
     FROM faq_entries GROUP BY content->>'category' ORDER BY category`)).rows;
-  assert.deepEqual(counts, [{ category: 'community', n: 34 }, { category: 'conduct', n: 17 },
+  assert.deepEqual(counts, [{ category: 'community', n: 35 }, { category: 'conduct', n: 17 },
     { category: 'info', n: 1 }, { category: 'official', n: 97 }]);
   await pool.query(`UPDATE faq_entries SET content=jsonb_set(content,'{answer}','"Edited text"') WHERE id='community-017'`);
   assert.deepEqual(await migrate(pool), []);

@@ -1,0 +1,187 @@
+{
+  "additions": [
+    {
+      "id": "community-visibility-head",
+      "category": "community",
+      "rulingType": "Произвол",
+      "teams": [
+        "Все команды"
+      ],
+      "topic": "Террейн и видимость",
+      "question": "Откуда считать Visibility модели?",
+      "answer": "**Турнирное правило TTS.** Проверяйте Visibility с анатомической головы наблюдающей модели. При выборе точки обзора не учитывайте выступающие части шлема, волосы, рога, наросты и кибернетические элементы.\n\nЕсли граница головы под шлемом неочевидна, согласуйте её с оппонентом заранее. Иллюстрации ниже показывают, откуда считать Visibility на моделях с необычной формой головы и шлема.\n\nСм. также [Visibility сквозь собственную модель](/faq#entry=community-027) и [отдельный рулинг для турели Aquilons в TTS](/faq#entry=community-049).",
+      "images": [
+        {
+          "src": "/faq/source-images/a8ecd1b804cbe16c.png",
+          "caption": "Пример определения анатомической головы на миниатюре"
+        },
+        {
+          "src": "/faq/source-images/8ad8deea28353637.png",
+          "caption": "Шлем с высоким гребнем"
+        },
+        {
+          "src": "/faq/source-images/4a86f3573315bce5.png",
+          "caption": "Примеры форм головы и головных уборов"
+        }
+      ],
+      "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.4bvhi31jex9",
+      "sourceLabel": "TTS Community FAQ · v2.0",
+      "sourceVersion": "2.0",
+      "sourceDate": null,
+      "sourceSection": "Community FAQ"
+    }
+  ],
+  "changes": [
+    {
+      "id": "community-013",
+      "category": "conduct",
+      "expected": [
+        {
+          "revision": 1,
+          "question": "Как правильно рероллить кубы?",
+          "answer": "Если вы кинули неверное количество кубов (не важно, больше или меньше) - ПОЛНОСТЬЮ перекиньте ролл с правильным количеством кубов.\n\nНе торопитесь, дайте оппоненту увидеть результат и подтвердить, что он не будет использовать какое-нибудь свое правило на модификацию ролла, прежде резолвить кубы или рероллить."
+        }
+      ],
+      "patch": {
+        "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.h1pz7wd852fg",
+        "sourceLabel": "TTS Community FAQ · v2.0",
+        "sourceVersion": "2.0",
+        "answer": "Если бросили неверное количество кубов:\n\n- **Меньше нужного:** докиньте недостающие кубы.\n- **Больше нужного:** перебросьте весь бросок правильным количеством кубов.\n\nПеред розыгрышем или перебросом дайте оппоненту увидеть результат и подтвердить, что он не применяет правило, меняющее бросок."
+      }
+    },
+    {
+      "id": "community-026",
+      "category": "community",
+      "expected": [
+        {
+          "revision": 2,
+          "question": "Что считать убийством для friendly operative (морталки на чардже, Poison, etc.)?",
+          "answer": "Для Dominate засчитывай incapacitation, если можно определить дружественного оперативника, непосредственно его вызвавшего. Сюда входят урон от его действия, ответного удара или правила на датакарте и эффекты, для которых нужна его позиция. Косвенный урон от универсальной мины, взятой через Lugger Well Supplied, не засчитывается. Если подходят несколько оперативников, выбери одного. Для других Tac Ops и способностей проверяй их собственные условия.\n\n[Approved Ops: Update Log, стр. 4](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_approved_ops_update_log-yezxhbjlbm-xg2epdenil.pdf#page=4)"
+        }
+      ],
+      "patch": {
+        "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.sixhvkysb9j",
+        "sourceLabel": "TTS Community FAQ · v2.0",
+        "sourceVersion": "2.0",
+        "rulingType": "Спор",
+        "answer": "**Решение для турниров TTS.** Если вражеский оперативник погиб от косвенного урона вашего оперативника (например, Poison или урон при Charge или выкапывании), зачтите убийство дружественному оперативнику для такопов и способностей с таким условием. Игрок, разместивший Poison, отслеживает, чей это токен.\n\n**Официальное правило для Dominate.** GW требует определить дружественного оперативника, непосредственно вызвавшего incapacitation. В частности, косвенный урон от универсальной мины, взятой через Lugger Well Supplied, не засчитывается. Если подходят несколько оперативников, выберите одного. Вне формата TTS проверяйте условия каждого Tac Op и способности отдельно.\n\n[Approved Ops: Update Log, стр. 4](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_approved_ops_update_log-yezxhbjlbm-xg2epdenil.pdf#page=4)"
+      }
+    },
+    {
+      "id": "community-027",
+      "category": "community",
+      "expected": [
+        {
+          "revision": 1,
+          "question": "Как считается Visibility модели сквозь себя",
+          "answer": "**Решение**: Ради избежания кучи кринжовых ситуаций (типа орков, которые не видят \"назад\"), при проверки на Visible из головы модели вся остальная её часть **игнорируется** (включая базу)"
+        }
+      ],
+      "patch": {
+        "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.e6vmktwzkfuh",
+        "sourceLabel": "TTS Community FAQ · v2.0",
+        "sourceVersion": "2.0",
+        "answer": "**Решение**: Ради избежания кучи кринжовых ситуаций (типа орков, которые не видят \"назад\"), при проверки на Visible из головы модели вся остальная её часть **игнорируется** (включая базу)\n\nТочку, откуда модель смотрит, определяйте по [рулингу TTS об анатомической голове](/faq#entry=community-visibility-head)."
+      }
+    },
+    {
+      "id": "community-031",
+      "category": "community",
+      "expected": [
+        {
+          "revision": 2,
+          "question": "Можно ли ставить (и лочить) лестницу в вертикальном положении",
+          "answer": "Лестницу можно зафиксировать вертикально у террейна высотой от 2″, соблюдая остальные требования к размещению. Сокращение вертикальной дистанции подъёма до 1″ действует, если лестница остаётся в control range оперативника весь этот подъём.\n\n[Universal Equipment, стр. 2](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_universal_equipment-oz2irjwu3t-dj0aczxjeo.pdf#page=2) · [Universal Equipment, стр. 5](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_universal_equipment-oz2irjwu3t-dj0aczxjeo.pdf#page=5)"
+        }
+      ],
+      "patch": {
+        "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.6wj9i14dakgw",
+        "sourceLabel": "TTS Community FAQ · v2.0",
+        "sourceVersion": "2.0",
+        "answer": "Лестницу можно зафиксировать вертикально у террейна высотой от 2″, соблюдая остальные требования к размещению. Сокращение вертикальной дистанции подъёма до 1″ действует, если лестница остаётся в control range оперативника весь этот подъём.\n\n[Universal Equipment, стр. 2](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_universal_equipment-oz2irjwu3t-dj0aczxjeo.pdf#page=2) · [Universal Equipment, стр. 5](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_universal_equipment-oz2irjwu3t-dj0aczxjeo.pdf#page=5)\n\n![Пример вертикальной фиксации лестницы в TTS](/faq/source-images/3c341e5f6fb2975f.png)"
+      }
+    },
+    {
+      "id": "community-033",
+      "category": "community",
+      "expected": [
+        {
+          "revision": 1,
+          "question": "ITD и что мы считаем terrain feature для абилок и каврообскура",
+          "answer": "**Решение**: Пока не будет прояснений от ГВ, считаем весь за одну terrain feature всё, что соединено (то есть на большинстве карт будет всего одна terrain feature на всю карту)"
+        }
+      ],
+      "patch": {
+        "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.7cg8t8gas7uq",
+        "sourceLabel": "TTS Community FAQ · v2.0",
+        "sourceVersion": "2.0",
+        "rulingType": "Спор",
+        "question": "Как определять cover и obscured на Gallowdark, ITD и Tomb World?",
+        "answer": "**Решение TTS.** На Gallowdark и Tomb World определяем cover и obscured по обычным правилам террейна. На турнирах TTS тот же подход применяется к старым картам Into the Dark.\n\nВ октябрьском обновлении GW отдельно подтвердила отмену особых условий cover и obscured у стен Tomb World. Применение общего подхода к старым картам ITD — турнирная договорённость.\n\n[Октябрьское обновление Warhammer Community](https://www.warhammer-community.com/en-gb/articles/k04goqrk/kill-team-october-update/)"
+      }
+    },
+    {
+      "id": "community-035",
+      "category": "community",
+      "expected": [
+        {
+          "revision": 2,
+          "question": "Как получить кавер от террейна",
+          "answer": "**Решение**: По рулингу для официального WCW:\n\n- В ситуации 1 при стрельбе по оперативнику **В**, он будет в хэви кавре\n\n- В ситуации 2 - в лайт кавре\n\nНа Чалнате от Верняка считаем, что работает ситуация 1.\n\n![Иллюстрация из community FAQ](/faq/source-images/d5efd8cb65b1424a.png)\n\nПо Core Rules, при стрельбе снизу бортик Vantage выше линии наведения считается intervening, если он в control range цели. Чтобы бортик был в её control range, цель должна его видеть.\n\n[Core Rules: Update Log, стр. 1](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_core_rules_update_log-dfm8jfakdu-tof0hqcm78.pdf#page=1)"
+        }
+      ],
+      "patch": {
+        "sourceUrl": "https://docs.google.com/document/d/12_kkWQiYa3cwUkZDG7UdnOf5i5P_WT5P3Db0SZItIwA/edit?tab=t.0#heading=h.q6gp8j5ttytm",
+        "sourceLabel": "TTS Community FAQ · v2.0",
+        "sourceVersion": "2.0",
+        "answer": "**Турнирное разъяснение WCW и TTS.** На первой схеме:\n\n- В ситуации 1 при стрельбе по оперативнику **В**, он будет в хэви кавре\n\n- В ситуации 2 - в лайт кавре\n\nНа Чалнате от Верняка считаем, что работает ситуация 1.\n\n![Иллюстрация из community FAQ](/faq/source-images/d5efd8cb65b1424a.png)\n\n**Для официального террейна GW.** По Core Rules, при стрельбе снизу бортик Vantage выше линии наведения считается intervening, если он в control range цели. Чтобы бортик был в её control range, цель должна его видеть.\n\n[Core Rules: Update Log, стр. 1](https://assets.warhammer-community.com/eng_28-10_kill_team_key_downloads_core_rules_update_log-dfm8jfakdu-tof0hqcm78.pdf#page=1)\n\n![Официальные примеры Light и Heavy cover при стрельбе снизу](/faq/source-images/c3b1307b2005f0ed.png)"
+      }
+    },
+    {
+      "id": "community-019",
+      "category": "community",
+      "expected": [
+        {
+          "revision": 1,
+          "question": "Действия и их преждевременная остановка",
+          "answer": "Как взаимодействуют эффекты, останавливающие действия до их полного выполнения, и уникальные действия, указывающие в себе несколько отдельных действий? (Stealth Attack и попадание в гномскую мину)\n\n**Решение:** Уникальные действия, включающие в себя несколько разных действий, считаются завершенными после выполнения всех отдельных под-действий. При этом, если эффект насильственно останавливает только отдельные под-действия, а не всё уникальное действие целиком.\n\nЯ считаю, остановить можно только уникальные действия, не состоящие из нескольких частей. В момент заявления Stealth Attack – оно “распадается” на два отдельных действия, и оказавшись в течении **Charge** в контрол рейндже мины, остановиться может только это отдельное действие."
+        }
+      ],
+      "archive": true
+    },
+    {
+      "id": "community-036",
+      "category": "community",
+      "expected": [
+        {
+          "revision": 1,
+          "question": "Как работает Slicing Attack",
+          "answer": "*Вопроса два: можно ли слайсить через стены на ИТД, и считаем ли мы расстояние в 2д или 3д*\n\n**Решение:** Во время слайсинг атаки мы используем Warp Jump, а поэтому получаем все преимущества этой абилку. Поэтому слайсить **МОЖНО** сквозь стены на ИТД, и измеряем мы расстояние в **2Д.**"
+        },
+        {
+          "revision": 2,
+          "question": "Как работает Slicing Attack",
+          "answer": "*Вопроса два: можно ли слайсить через стены на ИТД, и считаем ли мы расстояние в 2д или 3д*\n\n**Решение:** В последнем патче изменили вординг слайсинг атаки. Теперь там явно прописано, что \"you cannot inflict damage on an enemy operative that was not visible to this operative at the start of that action\"то есть для слайса нужно чтобы видимость была в начале Экшена. \nТак же в вординге blink pack теперь прямо указано, что на закрытых картах измеряется только горизонтальная дистанция и она может измеряться сквозь стены."
+        }
+      ],
+      "archive": true
+    },
+    {
+      "id": "community-051",
+      "category": "community",
+      "expected": [
+        {
+          "revision": 1,
+          "question": "Как работает сик на пятом маркерлайте",
+          "answer": "![Иллюстрация из community FAQ](/faq/source-images/b68752c107073794.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/2cefd11081f133f0.png)\n\n\n\n![Иллюстрация из community FAQ](/faq/source-images/251ce368ef545061.png)\n\nВопрос: Можно ли обычное действие Markerlight положить на модель 5 маркеров, несмотря на ограничение в самом правиле (максимум - 4)?\n\nРешение: Нельзя. Единственный способ получить полный сик за пятый маркерлайт - воспользоваться эквипом при стрельбе по цели, которая УЖЕ имеет 4 маркерлайта. Такова наша общая позиция с мировым коммьюнити"
+        },
+        {
+          "revision": 2,
+          "question": "Как работает сик на пятом маркерлайте",
+          "answer": "Да. Обычное действие Markerlight может дать цели пятый токен. С пятью токенами применяется Seek без ограничения Light. Оборудование для пятого токена не обязательно.\n\n[Pathfinders, стр. 11](https://assets.warhammer-community.com/eng_28-10_kill_team_team_rules_pathfinders-crku85mt98-cz5ppchbrp.pdf#page=11)"
+        }
+      ],
+      "archive": true
+    }
+  ]
+}
