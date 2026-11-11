@@ -111,8 +111,14 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
     }
     finally { await db.end(); }
   }
+  const publicStats = await ok(createClient(origin).get('/api/statistics/kill-team?team=Kommandos'));
+  assert.equal(publicStats.team, 'Kommandos');
+  assert.equal(typeof publicStats.games, 'number');
+  assert.ok(Array.isArray(publicStats.topPlayers));
   await stop('tournaments');
   await ok(admin.get('/api/me'), 503);
+  // Optional public statistics can fail while the independent editor remains usable.
+  await ok(admin.get('/api/statistics/kill-team?team=Kommandos'), 503);
   for (const route of ['/api/session', '/api/studio/drafts', '/api/faq', '/api/knowthykt/progress', '/api/tierlists']) await ok(admin.get(route));
   await stop('accounts');
   // Session validation uses the restricted DB contract, not the accounts HTTP process.

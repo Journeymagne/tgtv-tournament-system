@@ -9,11 +9,11 @@
   <link rel="icon" href="/brand/kt-companion/favicon.ico">
   <link rel="stylesheet" href="/companion-tokens.css?v=shared-339606f71ff5">
   <link rel="stylesheet" href="/companion-shell.css?v=shared-339606f71ff5">
-  <link rel="stylesheet" href="/tierlist/tierlist.css?v=1">
+  <link rel="stylesheet" href="/tierlist/tierlist.css?v=2">
   <script src="/companion-sites.js?v=shared-339606f71ff5" defer></script>
   <script src="/companion-i18n.js?v=shared-339606f71ff5" defer></script>
   <script src="/companion-shell.js?v=shared-339606f71ff5" defer></script>
-  <script src="/tierlist/tierlist.js?v=1" defer></script>
+  <script src="/tierlist/tierlist.js?v=2" defer></script>
 </head>
 <body data-companion-section="tierlist">
   <div data-companion-nav></div>
@@ -38,6 +38,25 @@
       <p class="tl-selection" id="selection-note" aria-live="polite"></p>
       <div class="tl-record-caption" id="record-caption" hidden></div>
       <section id="board" class="tl-board" aria-label="Тиры команд" data-aria-copy="tiers"></section>
+      <aside id="team-stats" class="tl-team-stats" role="region" aria-labelledby="team-stats-title" aria-describedby="team-stats-season" hidden>
+        <header class="tl-team-stats-header">
+          <img id="team-stats-logo" class="tl-team-stats-logo" alt="" hidden>
+          <div class="tl-team-stats-heading"><p class="tl-team-stats-eyebrow" data-copy="statsLatest">Последний сезон</p><h2 id="team-stats-title"></h2></div>
+          <button type="button" id="team-stats-close" class="tl-action tl-close" aria-label="Закрыть статистику команды" data-aria-copy="statsClose">×</button>
+        </header>
+        <p id="team-stats-season" class="tl-team-stats-season"></p>
+        <p id="team-stats-status" class="tl-team-stats-status" role="status" aria-live="polite"></p>
+        <button type="button" id="team-stats-retry" class="tl-action" data-copy="retry" hidden>Повторить</button>
+        <div id="team-stats-content" hidden>
+          <dl class="tl-team-stats-metrics"><div><dt data-copy="statsGames">Игры</dt><dd id="team-stats-games"></dd></div><div><dt data-copy="statsWinRate">Винрейт</dt><dd id="team-stats-winrate"></dd></div></dl>
+          <p id="team-stats-empty" class="tl-team-stats-empty" data-copy="statsEmpty" hidden>За этот сезон игр пока нет.</p>
+          <div id="team-stats-rankings">
+            <section class="tl-team-stats-group" aria-labelledby="team-stats-tacops-title"><h3 id="team-stats-tacops-title" data-copy="statsTacOps">Топ-3 вторички</h3><ol id="team-stats-tacops"></ol></section>
+            <section class="tl-team-stats-group" aria-labelledby="team-stats-players-title"><h3 id="team-stats-players-title" data-copy="statsPlayers">Топ-3 игрока</h3><ol id="team-stats-players"></ol></section>
+          </div>
+          <p id="team-stats-mirrors" class="tl-team-stats-footnote" data-copy="statsMirrors" hidden>Зеркальные матчи учитывают обе стороны.</p>
+        </div>
+      </aside>
       <section class="tl-pool-section" aria-labelledby="pool-title">
         <header class="tl-pool-heading"><div><h2 id="pool-title" data-copy="pool">Для распределения</h2><span id="pool-count" class="tl-count"></span></div><label class="tl-search"><span class="tl-sr-only" data-copy="searchLabel">Найти команду</span><input id="search" type="search" placeholder="Найти команду…" data-placeholder-copy="searchPlaceholder" autocomplete="off"></label></header>
         <div class="tl-lane tl-pool" id="pool" data-zone="pool" role="group" aria-label="Для распределения" data-aria-copy="pool" tabindex="0"></div>

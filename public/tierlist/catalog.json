@@ -4,242 +4,338 @@
     {
       "id": "angels-of-death",
       "name": "Angels Of Death",
-      "image": "/tierlist/images/angels-of-death.png"
+      "image": "/tierlist/images/angels-of-death.png",
+      "statsName": "Angels of Death",
+      "logo": "/kill-team-logos/Angels%20of%20Death.webp"
     },
     {
       "id": "battleclade",
       "name": "Battleclade",
-      "image": "/tierlist/images/battleclade.png"
+      "image": "/tierlist/images/battleclade.png",
+      "statsName": "Battleclade",
+      "logo": "/kill-team-logos/Battleclade.webp"
     },
     {
       "id": "blades-of-khaine",
       "name": "Blades Of Khaine",
-      "image": "/tierlist/images/blades-of-khaine.png"
+      "image": "/tierlist/images/blades-of-khaine.png",
+      "statsName": "Blades of Khaine",
+      "logo": "/kill-team-logos/Blades%20of%20Khaine.webp"
     },
     {
       "id": "blooded",
       "name": "Blooded",
-      "image": "/tierlist/images/blooded.png"
+      "image": "/tierlist/images/blooded.png",
+      "statsName": "Blooded",
+      "logo": "/kill-team-logos/Blooded.webp"
     },
     {
       "id": "brood-brothers",
       "name": "Brood Brothers",
-      "image": "/tierlist/images/brood-brothers.png"
+      "image": "/tierlist/images/brood-brothers.png",
+      "statsName": "Brood Brothers",
+      "logo": "/kill-team-logos/Brood%20Brothers.webp"
     },
     {
       "id": "canoptek",
       "name": "Canoptek Circle",
-      "image": "/tierlist/images/canoptek.png"
+      "image": "/tierlist/images/canoptek.png",
+      "statsName": "Canoptek Circle",
+      "logo": "/kill-team-logos/Canoptek%20Circle.webp"
     },
     {
       "id": "celestial-insidiants",
       "name": "Celestian Insidiants",
-      "image": "/tierlist/images/celestial-insidiants.png"
+      "image": "/tierlist/images/celestial-insidiants.png",
+      "statsName": "Celestian Insidiants",
+      "logo": "/kill-team-logos/Celestian%20Insidiants.webp"
     },
     {
       "id": "chaos-cultists",
       "name": "Chaos Cult",
-      "image": "/tierlist/images/chaos-cultists.png"
+      "image": "/tierlist/images/chaos-cultists.png",
+      "statsName": "Chaos Cult",
+      "logo": "/kill-team-logos/Chaos%20Cult.webp"
     },
     {
       "id": "corsair-voidscarred",
       "name": "Corsair Voidscarred",
-      "image": "/tierlist/images/corsair-voidscarred.png"
+      "image": "/tierlist/images/corsair-voidscarred.png",
+      "statsName": "Corsair Voidscarred",
+      "logo": "/kill-team-logos/Corsair%20Voidscarred.webp"
     },
     {
       "id": "death-korps",
       "name": "Death Korps",
-      "image": "/tierlist/images/death-korps.png"
+      "image": "/tierlist/images/death-korps.png",
+      "statsName": "Death Korps",
+      "logo": "/kill-team-logos/Death%20Korps.webp"
     },
     {
       "id": "deathwatch",
       "name": "Deathwatch",
-      "image": "/tierlist/images/deathwatch.png"
+      "image": "/tierlist/images/deathwatch.png",
+      "statsName": "Deathwatch",
+      "logo": "/kill-team-logos/Deathwatch.webp"
     },
     {
       "id": "elucidian-starstriders",
       "name": "Elucidian Starstriders",
-      "image": "/tierlist/images/elucidian-starstriders.png"
+      "image": "/tierlist/images/elucidian-starstriders.png",
+      "statsName": "Elucidian Starstriders",
+      "logo": "/kill-team-logos/Elucidian%20Starstriders.webp"
     },
     {
       "id": "exaction-squad",
       "name": "Exaction Squad",
-      "image": "/tierlist/images/exaction-squad.png"
+      "image": "/tierlist/images/exaction-squad.png",
+      "statsName": "Exaction Squad",
+      "logo": "/kill-team-logos/Exaction%20Squad.webp"
     },
     {
       "id": "farstalker-kinband",
       "name": "Farstalker Kinband",
-      "image": "/tierlist/images/farstalker-kinband.png"
+      "image": "/tierlist/images/farstalker-kinband.png",
+      "statsName": "Farstalker Kinband",
+      "logo": "/kill-team-logos/Farstalker%20Kinband.webp"
     },
     {
       "id": "fellgor-ravagers",
       "name": "Fellgor Ravagers",
-      "image": "/tierlist/images/fellgor-ravagers.png"
+      "image": "/tierlist/images/fellgor-ravagers.png",
+      "statsName": "Fellgor Ravagers",
+      "logo": "/kill-team-logos/Fellgor%20Ravagers.webp"
     },
     {
       "id": "gellerpox",
       "name": "Gellerpox Infected",
-      "image": "/tierlist/images/gellerpox.png"
+      "image": "/tierlist/images/gellerpox.png",
+      "statsName": "Gellerpox Infected",
+      "logo": "/kill-team-logos/Gellerpox%20Infected.webp"
     },
     {
       "id": "goremongers",
       "name": "Goremongers",
-      "image": "/tierlist/images/goremongers.png"
+      "image": "/tierlist/images/goremongers.png",
+      "statsName": "Goremongers",
+      "logo": "/kill-team-logos/Goremongers.webp"
     },
     {
       "id": "hand-of-the-archon",
       "name": "Hand Of The Archon",
-      "image": "/tierlist/images/hand-of-the-archon.png"
+      "image": "/tierlist/images/hand-of-the-archon.png",
+      "statsName": "Hand of the Archon",
+      "logo": "/kill-team-logos/Hand%20of%20the%20Archon.webp"
     },
     {
       "id": "hearthkyn-salvagers",
       "name": "Hearthkyn Salvagers",
-      "image": "/tierlist/images/hearthkyn-salvagers.png"
+      "image": "/tierlist/images/hearthkyn-salvagers.png",
+      "statsName": "Hearthkyn Salvagers",
+      "logo": "/kill-team-logos/Hearthkyn%20Salvagers.webp"
     },
     {
       "id": "hernkyn-yaegirs",
       "name": "Hernkyn Yaegirs",
-      "image": "/tierlist/images/hernkyn-yaegirs.png"
+      "image": "/tierlist/images/hernkyn-yaegirs.png",
+      "statsName": "Hernkyn Yaegirs",
+      "logo": "/kill-team-logos/Hernkyn%20Yaegirs.webp"
     },
     {
       "id": "hierotek-circle",
       "name": "Hierotek Circle",
-      "image": "/tierlist/images/hierotek-circle.png"
+      "image": "/tierlist/images/hierotek-circle.png",
+      "statsName": "Hierotek Circle",
+      "logo": "/kill-team-logos/Hierotek%20Circle.webp"
     },
     {
       "id": "hunterclade",
       "name": "Hunter Clade",
-      "image": "/tierlist/images/hunterclade.png"
+      "image": "/tierlist/images/hunterclade.png",
+      "statsName": "Hunter Clade",
+      "logo": "/kill-team-logos/Hunter%20Clade.webp"
     },
     {
       "id": "imperial-navy-breachers",
       "name": "Imperial Navy Breachers",
-      "image": "/tierlist/images/imperial-navy-breachers.png"
+      "image": "/tierlist/images/imperial-navy-breachers.png",
+      "statsName": "Navy Breachers",
+      "logo": "/kill-team-logos/Imperial%20Navy%20Breachers.webp"
     },
     {
       "id": "inquisitorial-agents",
       "name": "Inquisitorial Agents",
-      "image": "/tierlist/images/inquisitorial-agents.png"
+      "image": "/tierlist/images/inquisitorial-agents.png",
+      "statsName": "Inquisitorial Agents",
+      "logo": "/kill-team-logos/Inquisitorial%20Agents.webp"
     },
     {
       "id": "kasrkin",
       "name": "Kasrkin",
-      "image": "/tierlist/images/kasrkin.png"
+      "image": "/tierlist/images/kasrkin.png",
+      "statsName": "Kasrkin",
+      "logo": "/kill-team-logos/Kasrkin.webp"
     },
     {
       "id": "kommandos",
       "name": "Kommandos",
-      "image": "/tierlist/images/kommandos.png"
+      "image": "/tierlist/images/kommandos.png",
+      "statsName": "Kommandos",
+      "logo": "/kill-team-logos/Kommandos.webp"
     },
     {
       "id": "legionaries",
       "name": "Legionaries",
-      "image": "/tierlist/images/legionaries.png"
+      "image": "/tierlist/images/legionaries.png",
+      "statsName": "Legionaries",
+      "logo": "/kill-team-logos/Legionaries.webp"
     },
     {
       "id": "mandrakes",
       "name": "Mandrakes",
-      "image": "/tierlist/images/mandrakes.png"
+      "image": "/tierlist/images/mandrakes.png",
+      "statsName": "Mandrakes",
+      "logo": "/kill-team-logos/Mandrakes.webp"
     },
     {
       "id": "murderwing",
       "name": "Murderwing",
-      "image": "/tierlist/images/murderwing.png"
+      "image": "/tierlist/images/murderwing.png",
+      "statsName": "Murderwing",
+      "logo": "/kill-team-logos/Murderwing.webp"
     },
     {
       "id": "nemesis-claw",
       "name": "Nemesis Claw",
-      "image": "/tierlist/images/nemesis-claw.png"
+      "image": "/tierlist/images/nemesis-claw.png",
+      "statsName": "Nemesis Claw",
+      "logo": "/kill-team-logos/Nemesis%20Claw.webp"
     },
     {
       "id": "novitiates",
       "name": "Novitiates",
-      "image": "/tierlist/images/novitiates.png"
+      "image": "/tierlist/images/novitiates.png",
+      "statsName": "Novitiates",
+      "logo": "/kill-team-logos/Novitiates.webp"
     },
     {
       "id": "pathfinders",
       "name": "Pathfinders",
-      "image": "/tierlist/images/pathfinders.png"
+      "image": "/tierlist/images/pathfinders.png",
+      "statsName": "Pathfinders",
+      "logo": "/kill-team-logos/Pathfinders.webp"
     },
     {
       "id": "phobos-strike-team",
       "name": "Phobos Strike Team",
-      "image": "/tierlist/images/phobos-strike-team.png"
+      "image": "/tierlist/images/phobos-strike-team.png",
+      "statsName": "Phobos Strike Team",
+      "logo": "/kill-team-logos/Phobos%20Strike%20Team.webp"
     },
     {
       "id": "plague-marines",
       "name": "Plague Marines",
-      "image": "/tierlist/images/plague-marines.png"
+      "image": "/tierlist/images/plague-marines.png",
+      "statsName": "Plague Marines",
+      "logo": "/kill-team-logos/Plague%20Marines.webp"
     },
     {
       "id": "ratlings",
       "name": "Ratlings",
-      "image": "/tierlist/images/ratlings.png"
+      "image": "/tierlist/images/ratlings.png",
+      "statsName": "Ratlings",
+      "logo": "/kill-team-logos/Ratlings.webp"
     },
     {
       "id": "raveners",
       "name": "Raveners",
-      "image": "/tierlist/images/raveners.png"
+      "image": "/tierlist/images/raveners.png",
+      "statsName": "Raveners",
+      "logo": "/kill-team-logos/Raveners.webp"
     },
     {
       "id": "sanctifiers",
       "name": "Sanctifiers",
-      "image": "/tierlist/images/sanctifiers.png"
+      "image": "/tierlist/images/sanctifiers.png",
+      "statsName": "Sanctifiers",
+      "logo": "/kill-team-logos/Sanctifiers.webp"
     },
     {
       "id": "scout-squad",
       "name": "Scout Squad",
-      "image": "/tierlist/images/scout-squad.png"
+      "image": "/tierlist/images/scout-squad.png",
+      "statsName": "Scout Squad",
+      "logo": "/kill-team-logos/Scout%20Squad.webp"
     },
     {
       "id": "stealth-suits",
       "name": "XV26 Stealth Battlesuits",
-      "image": "/tierlist/images/stealth-suits.png"
+      "image": "/tierlist/images/stealth-suits.png",
+      "statsName": "XV26 Stealth Battlesuits",
+      "logo": "/kill-team-logos/XV26%20Stealth%20Battlesuits.webp"
     },
     {
       "id": "tempestus-aquilons",
       "name": "Tempestus Aquilons",
-      "image": "/tierlist/images/tempestus-aquilons.png"
+      "image": "/tierlist/images/tempestus-aquilons.png",
+      "statsName": "Tempestus Aquilons",
+      "logo": "/kill-team-logos/Tempestus%20Aquilons.webp"
     },
     {
       "id": "vespids",
       "name": "Vespid Stingwings",
-      "image": "/tierlist/images/vespids.png"
+      "image": "/tierlist/images/vespids.png",
+      "statsName": "Vespid Stingwings",
+      "logo": "/kill-team-logos/Vespid%20Stingwings.webp"
     },
     {
       "id": "void-dancer-troupe",
       "name": "Void Dancer Troupe",
-      "image": "/tierlist/images/void-dancer-troupe.png"
+      "image": "/tierlist/images/void-dancer-troupe.png",
+      "statsName": "Void-Dancer Troupe",
+      "logo": "/kill-team-logos/Void-Dancer%20Troupe.webp"
     },
     {
       "id": "warpcoven",
       "name": "Warpcoven",
-      "image": "/tierlist/images/warpcoven.png"
+      "image": "/tierlist/images/warpcoven.png",
+      "statsName": "Warpcoven",
+      "logo": "/kill-team-logos/Warpcoven.webp"
     },
     {
       "id": "wolf-scouts",
       "name": "Wolf Scouts",
-      "image": "/tierlist/images/wolf-scouts.png"
+      "image": "/tierlist/images/wolf-scouts.png",
+      "statsName": "Wolf Scouts",
+      "logo": "/kill-team-logos/Wolf%20Scouts.webp"
     },
     {
       "id": "wrecka-krew",
       "name": "Wrecka Krew",
-      "image": "/tierlist/images/wrecka-krew.png"
+      "image": "/tierlist/images/wrecka-krew.png",
+      "statsName": "Wrecka Krew",
+      "logo": "/kill-team-logos/Wrecka%20Krew.webp"
     },
     {
       "id": "wyrmblade",
       "name": "Wyrmblade",
-      "image": "/tierlist/images/wyrmblade.png"
+      "image": "/tierlist/images/wyrmblade.png",
+      "statsName": "Wyrmblade",
+      "logo": "/kill-team-logos/Wyrmblade.webp"
     },
     {
       "id": "dragon-master-clanblade",
       "name": "Exodite Dragon Masters",
-      "image": "/tierlist/images/dragon-master-clanblade.png"
+      "image": "/tierlist/images/dragon-master-clanblade.png",
+      "statsName": "Dragon Masters",
+      "logo": "/kill-team-logos/Dragon%20Masters.webp"
     },
     {
       "id": "spectre-veteran-sergeant",
       "name": "Spectre Squad",
-      "image": "/tierlist/images/spectre-veteran-sergeant.png"
+      "image": "/tierlist/images/spectre-veteran-sergeant.png",
+      "statsName": "Spectre Squad",
+      "logo": "/kill-team-logos/Spectre%20Squad.webp"
     }
   ]
 }

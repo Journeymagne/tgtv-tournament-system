@@ -41,7 +41,12 @@
     invalidJSON: ['Не удалось прочитать JSON тирлиста.', 'Could not read the tier list JSON.'], invalidRows: ['В файле некорректные тиры, повторяющиеся или неизвестные команды.', 'The file contains invalid tiers, duplicate teams, or unknown teams.'],
     restored: ['Восстановлен черновик из этого браузера.', 'Browser draft restored.'], accountChanged: ['Открыт черновик текущего аккаунта. Черновик прежнего аккаунта сохранён отдельно.', 'The current account draft is open. The previous account draft was stored separately.'],
     unknownSeason: ['Сезон {id}', 'Season {id}'], activeSeason: ['текущий', 'current'], login: ['Войти', 'Sign in'],
-    storageFull: ['Не удалось сохранить черновик в браузере. Скачайте JSON перед уходом со страницы.', 'Could not store the browser draft. Export JSON before leaving the page.']
+    storageFull: ['Не удалось сохранить черновик в браузере. Скачайте JSON перед уходом со страницы.', 'Could not store the browser draft. Export JSON before leaving the page.'],
+    statsLatest: ['Последний сезон', 'Latest season'], statsClose: ['Закрыть статистику команды', 'Close team statistics'],
+    statsLoading: ['Загрузка статистики…', 'Loading statistics…'], statsError: ['Не удалось загрузить статистику команды. Попробуйте ещё раз.', 'Could not load team statistics. Try again.'],
+    statsGames: ['Игры', 'Games'], statsWinRate: ['Винрейт', 'Win rate'], statsTacOps: ['Топ-3 вторички', 'Top 3 Tac Ops'], statsPlayers: ['Топ-3 игрока', 'Top 3 players'],
+    statsEmpty: ['За этот сезон игр пока нет.', 'No games recorded for this season yet.'], statsNoEntries: ['За этот сезон записей нет.', 'No entries for this season.'],
+    statsGameCount: ['Игр: {count}', 'Games: {count}'], statsMirrors: ['Зеркальные матчи учитывают обе стороны.', 'Mirror matches count both sides.']
   };
   const locale = () => (window.KTAppearance?.locale || document.documentElement.lang) === 'en' ? 'en' : 'ru';
   function t(key, vars = {}) {
@@ -54,6 +59,7 @@
     csrf: '', savedLists: [], accountGeneration: 0, requestSerial: 0, lastIdentityCheck: 0 };
   const draftKey = user => 'kt-tierlist-draft-v1:' + (user?.id ?? 'guest');
   const preferencesKey = 'kt-tierlist-view-v1';
+  const teamStats = { teamId: null, status: 'idle', data: null, controller: null, serial: 0, cache: new Map() };
   const snapshot = () => JSON.stringify({ title: state.record?.title || '', seasonId: state.record?.seasonId || '', rows: state.record?.rows || {} });
   const isDirty = () => Boolean(state.record && snapshot() !== state.baseline);
   function emptyRows() { return Object.fromEntries(zoneKeys.map(k => [k, k === 'pool' ? state.teams.map(team => team.id) : []])); }
@@ -220,18 +226,132 @@
         event.preventDefault(); lane.classList.remove('drag-over');
         if (!state.dragging) return;
         const target = event.target.closest('.tl-card');
-        move(state.dragging, lane.dataset.zone, target?.dataset.id || null); state.dragging = null;
+        move(state.dragging, lane.dataset.zone, target?.dataset.id || null); state.dragging = null; document.body.classList.remove('tl-card-dragging');
       });
     }
   }
   function select(id) {
     if (state.busy) return;
     state.selected = state.selected === id ? null : id;
+    updateSelection();
+  }
+  function updateSelection() {
     document.querySelectorAll('.tl-card').forEach(card => {
       const selected = card.dataset.id === state.selected;
-      card.classList.toggle('selected', selected); card.setAttribute('aria-pressed', String(selected));
+      card.classList.toggle('selected', selected); card.setAttribute('aria-pressed', String(selected)); card.setAttribute('aria-expanded', String(selected));
     });
     $('selection-note').textContent = state.selected ? t('selected', { name: state.teamsById.get(state.selected).name }) : '';
+    syncTeamStats();
+  }
+  function clearSelection(returnFocus = false) {
+    const previous = state.selected; state.selected = null; updateSelection();
+    if (returnFocus && previous) document.querySelector('.tl-card[data-id="' + previous + '"]')?.focus({ preventScroll: true });
+  }
+  function cancelTeamStats() {
+    teamStats.serial++; teamStats.controller?.abort(); teamStats.controller = null;
+    teamStats.teamId = null; teamStats.status = 'idle'; teamStats.data = null;
+    $('team-stats').hidden = true;
+  }
+  function positionTeamStats() {
+    const panel = $('team-stats');
+    if (panel.hidden || window.matchMedia('(max-width:700px)').matches) return;
+    const board = $('board').getBoundingClientRect(), nav = document.querySelector('[data-companion-nav]')?.getBoundingClientRect();
+    const top = Math.round(Math.max(12, (nav?.bottom || 0) + 12, board.top));
+    panel.style.setProperty('--tl-stats-top', top + 'px');
+    panel.style.setProperty('--tl-stats-right', Math.max(16, Math.round(window.innerWidth - board.right)) + 'px');
+    panel.classList.toggle('tl-stats-offscreen', top > window.innerHeight - 80);
+  }
+  function statsPercent(value, games) {
+    return games > 0 && Number.isFinite(value) ? new Intl.NumberFormat(locale(), { maximumFractionDigits: 1 }).format(value) + '%' : '—';
+  }
+  function renderStatsRows(target, entries, players = false) {
+    const list = $(target); list.replaceChildren();
+    for (const entry of (Array.isArray(entries) ? entries : []).slice(0, 3)) {
+      if (!entry || typeof entry !== 'object') continue;
+      const row = document.createElement('li'); row.className = 'tl-team-stats-row';
+      const canLink = players && Number.isSafeInteger(entry.userId) && entry.userId > 0;
+      const name = document.createElement(canLink ? 'a' : 'span'); name.className = 'tl-team-stats-name'; name.textContent = String(entry.name || '—');
+      if (canLink) {
+        const tournament = window.KT_SITES?.urls?.tournament || '/tournament';
+        name.href = new URL(tournament, location.origin).href.replace(/\/$/, '') + '#/players/' + entry.userId;
+      }
+      const games = Number.isFinite(entry.games) ? entry.games : 0;
+      const result = document.createElement('span'); result.className = 'tl-team-stats-result';
+      const rate = document.createElement('strong'); rate.textContent = statsPercent(entry.winRate, games);
+      const count = document.createElement('small'); count.textContent = t('statsGameCount', { count: new Intl.NumberFormat(locale()).format(games) });
+      result.append(rate, count); row.append(name, result); list.append(row);
+    }
+    if (!list.childElementCount) {
+      const empty = document.createElement('li'); empty.className = 'tl-team-stats-empty'; empty.textContent = t('statsNoEntries'); list.append(empty);
+    }
+  }
+  function renderTeamStats() {
+    const team = state.teamsById.get(teamStats.teamId);
+    if (!team || state.selected !== team.id || document.body.classList.contains('tl-recording')) { cancelTeamStats(); return; }
+    const panel = $('team-stats'); panel.hidden = false;
+    $('team-stats-title').textContent = team.name;
+    const image = $('team-stats-logo');
+    let logo = null;
+    try { const url = new URL(team.logo, location.origin); if (url.origin === location.origin && url.pathname.startsWith('/kill-team-logos/')) logo = url.href; } catch {}
+    if (image.getAttribute('src') !== logo) {
+      image.hidden = !logo;
+      if (logo) image.src = logo; else image.removeAttribute('src');
+    }
+    const data = teamStats.data, ready = teamStats.status === 'ready';
+    $('team-stats-season').textContent = ready ? String(data.season.name || '') : '';
+    $('team-stats-status').textContent = teamStats.status === 'loading' ? t('statsLoading') : teamStats.status === 'error' ? t('statsError') : '';
+    $('team-stats-status').dataset.kind = teamStats.status === 'error' ? 'error' : '';
+    $('team-stats-retry').hidden = teamStats.status !== 'error';
+    $('team-stats-content').hidden = !ready;
+    panel.setAttribute('aria-busy', String(teamStats.status === 'loading'));
+    if (ready) {
+      $('team-stats-games').textContent = new Intl.NumberFormat(locale()).format(data.games);
+      $('team-stats-winrate').textContent = statsPercent(data.winRate, data.games);
+      $('team-stats-empty').hidden = data.games !== 0;
+      $('team-stats-rankings').hidden = data.games === 0;
+      renderStatsRows('team-stats-tacops', data.topTacOps);
+      renderStatsRows('team-stats-players', data.topPlayers, true);
+      $('team-stats-mirrors').hidden = !(data.mirrorGames > 0);
+    }
+    positionTeamStats();
+  }
+  function syncTeamStats() {
+    if (!state.selected || document.body.classList.contains('tl-recording')) { cancelTeamStats(); return; }
+    if (teamStats.teamId === state.selected) { renderTeamStats(); return; }
+    void loadTeamStats(state.selected);
+  }
+  async function loadTeamStats(id, force = false) {
+    const team = state.teamsById.get(id);
+    if (!team || state.selected !== id || document.body.classList.contains('tl-recording')) return;
+    cancelTeamStats(); teamStats.teamId = id;
+    const cached = teamStats.cache.get(id);
+    if (!force && cached && Date.now() < cached.expiresAt) {
+      teamStats.status = 'ready'; teamStats.data = cached.data; renderTeamStats(); return;
+    }
+    const serial = teamStats.serial, controller = new AbortController(); teamStats.controller = controller; teamStats.status = 'loading'; renderTeamStats();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch('/api/statistics/kill-team?team=' + encodeURIComponent(team.statsName || team.name), {
+        credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }, signal: controller.signal
+      });
+      if (!response.ok) throw Error('statistics');
+      const data = await response.json();
+      if (!data || data.team !== (team.statsName || team.name) || !Number.isFinite(data.games) || data.games < 0 || !data.season || typeof data.season.name !== 'string') throw Error('statistics');
+      if (serial !== teamStats.serial || state.selected !== id || teamStats.teamId !== id) return;
+      const cacheControl = response.headers?.get('Cache-Control') || '';
+      const maxAge = cacheControl.match(/(?:^|,)\s*max-age\s*=\s*"?(\d+)"?(?:\s*,|\s*$)/i);
+      const lifetime = /(?:^|,)\s*(?:no-store|no-cache)\b/i.test(cacheControl) ? 0 : Math.min(60, maxAge ? Number(maxAge[1]) : 60);
+      const now = Date.now(), seasonEnd = data.season.endsAt == null ? NaN : Date.parse(data.season.endsAt);
+      const expiresAt = Math.min(now + lifetime * 1000, Number.isFinite(seasonEnd) ? seasonEnd : Infinity);
+      if (expiresAt > now) teamStats.cache.set(id, { expiresAt, data }); else teamStats.cache.delete(id);
+      teamStats.data = data; teamStats.status = 'ready';
+    } catch {
+      if (serial !== teamStats.serial || state.selected !== id || teamStats.teamId !== id) return;
+      teamStats.status = 'error'; teamStats.data = null;
+    } finally {
+      clearTimeout(timeout);
+      if (serial === teamStats.serial && state.selected === id && teamStats.teamId === id) { teamStats.controller = null; renderTeamStats(); }
+    }
   }
   function move(id, destination, before = null) {
     if (state.busy || !id || !state.teamsById.has(id) || !zoneKeys.includes(destination) || id === before) return;
@@ -259,24 +379,23 @@
         if (k === 'pool') visiblePool++;
         const button = document.createElement('button'); button.type = 'button'; button.className = 'tl-card'; button.dataset.id = id;
         button.classList.toggle('selected', id === state.selected); button.draggable = !state.busy;
-        button.setAttribute('aria-label', team.name); button.setAttribute('aria-pressed', String(id === state.selected)); button.title = team.name;
+        button.setAttribute('aria-label', team.name); button.setAttribute('aria-pressed', String(id === state.selected)); button.setAttribute('aria-controls', 'team-stats'); button.setAttribute('aria-expanded', String(id === state.selected)); button.title = team.name;
         const image = document.createElement('img'); image.src = team.image; image.alt = ''; image.draggable = false; image.decoding = 'async';
         const caption = document.createElement('span'); caption.className = 'tl-card-name'; caption.textContent = team.name;
         button.append(image, caption);
         button.addEventListener('click', () => select(id));
         button.addEventListener('dragstart', event => {
           if (state.busy) { event.preventDefault(); return; }
-          state.dragging = id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', id); button.classList.add('dragging');
+          state.dragging = id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', id); button.classList.add('dragging'); document.body.classList.add('tl-card-dragging');
         });
-        button.addEventListener('dragend', () => { state.dragging = null; document.querySelectorAll('.drag-over,.dragging').forEach(el => el.classList.remove('drag-over', 'dragging')); });
+        button.addEventListener('dragend', () => { state.dragging = null; document.body.classList.remove('tl-card-dragging'); document.querySelectorAll('.drag-over,.dragging').forEach(el => el.classList.remove('drag-over', 'dragging')); });
         lane.append(button);
       }
     }
     $('pool-count').textContent = state.record.rows.pool.length + ' / ' + state.teams.length;
     $('no-results').hidden = !query || visiblePool > 0;
     $('pool').dataset.hint = query && !visiblePool ? '' : t('allRanked');
-    $('selection-note').textContent = state.selected ? t('selected', { name: state.teamsById.get(state.selected).name }) : '';
-    updateControls();
+    updateSelection(); updateControls();
   }
   let confirmResolve = null;
   function ask(title, description, accept = 'continue') {
@@ -374,7 +493,7 @@
   }
   function recording(on) {
     document.body.classList.toggle('tl-recording', on); $('record-caption').hidden = !on; $('exit-recording').hidden = !on;
-    if (on) { $('search').value = ''; render(); window.scrollTo({ top: 0 }); }
+    if (on) { clearSelection(); $('search').value = ''; render(); window.scrollTo({ top: 0 }); }
   }
   function savePreferences() {
     $('workspace').style.setProperty('--tl-card-size', $('card-size').value + 'px');
@@ -382,6 +501,13 @@
     try { localStorage.setItem(preferencesKey, JSON.stringify({ size: $('card-size').value, names: $('show-names').checked })); } catch {}
   }
   $('confirm-cancel').addEventListener('click', () => finishConfirm(false));
+  $('team-stats-close').addEventListener('click', () => clearSelection(true));
+  $('team-stats-retry').addEventListener('click', () => { if (state.selected) void loadTeamStats(state.selected, true); });
+  $('team-stats-logo').addEventListener('error', event => { event.currentTarget.hidden = true; });
+  let statsPositionFrame = null;
+  const scheduleStatsPosition = () => { if (statsPositionFrame == null) statsPositionFrame = requestAnimationFrame(() => { statsPositionFrame = null; positionTeamStats(); }); };
+  window.addEventListener('scroll', scheduleStatsPosition, { passive: true });
+  window.addEventListener('resize', scheduleStatsPosition);
   $('confirm-accept').addEventListener('click', () => finishConfirm(true));
   $('confirm-dialog').addEventListener('cancel', event => { event.preventDefault(); finishConfirm(false); });
   document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEventListener('click', () => $(button.dataset.closeDialog).close()));
@@ -427,7 +553,7 @@
     applyRecord({ ...saved.record, id: null, revision: null }, { baseline: '' }); toast(t('restored'));
   });
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { recording(false); if (state.selected) { state.selected = null; render(); } return; }
+    if (event.key === 'Escape') { recording(false); clearSelection(true); return; }
     if (event.target.closest('input,textarea,select,dialog') || !state.booted) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); $('undo').click(); return; }
     const key = event.key.toUpperCase();

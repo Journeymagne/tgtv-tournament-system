@@ -3,6 +3,7 @@ const auth = require("./auth");
 const users = require("./users");
 const challenges = require("./challenges");
 const games = require("./games");
+const killTeamStatistics = require("./kill-team-statistics");
 const admin = require("./admin");
 const tournaments = require("./tournaments");
 const tournamentRegistration = require("./tournament-registration");
@@ -17,6 +18,7 @@ const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
 function withAction(handler, action) { return ctx => handler({ ...ctx, params: { ...ctx.params, action } }); }
 
 module.exports = [
+  { method: "GET", path: "/api/statistics/kill-team", handler: killTeamStatistics.get, auth: "none" },
   {method:'GET',path:'/api/admin/tournaments/:id/audit',handler:tournaments.auditPage,auth:'user',permission:'tournament.manage'},
   ...require("./miniapp").routes,
   ...require("./telegram").routes,
