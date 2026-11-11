@@ -80,7 +80,7 @@ async function cleanup() {
 }
 function startWorker() {
   const config=configuration();
-  if(!config.enabled) return async()=>{};
+  if(!config.enabled || !config.workerEnabled) return async()=>{};
   let stopped=false, timer, active=Promise.resolve(), lastCleanup=0, verified=config.mode==="local", nextVerification=0;
   const controller=new AbortController();
   const pause=ms=>new Promise(resolve=>{

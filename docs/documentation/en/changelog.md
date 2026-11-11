@@ -2,6 +2,12 @@
 
 KT Companion release history, newest first.
 
+## 1.5.16 — 11 November 2026
+
+- The [KT Companion Telegram bot](https://t.me/ktcompanionbot) and Mini App are now open to all users. Connect Telegram from your existing account profile.
+- The bot runs on the European server; the Mini App opens at [killteamcompanion.com](https://killteamcompanion.com/miniapp). Accounts, tournaments and results are shared with the Russian website.
+- Removed administrator testing notices and unnecessary technical explanations. Russian and English follow the language selected in the bot settings.
+
 ## 1.5.15 — 11 November 2026
 
 - Added a standalone [tier list service](/tierlist), with S / A / B / C / F tiers and an unranked pool of 48 team miniatures with transparent backgrounds.
