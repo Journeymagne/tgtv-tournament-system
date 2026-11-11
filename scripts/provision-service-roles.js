@@ -41,7 +41,7 @@ async function provision() {
       GRANT SELECT ON knowthykt.public_team_awards TO kt_tournaments;
     `);
     await client.query('COMMIT');
-    console.log('Provisioned six service roles; application processes do not own schemas.');
+    console.log('Provisioned seven service roles; application processes do not own schemas.');
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
 }

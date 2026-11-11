@@ -4591,6 +4591,11 @@ function renderProfile() {
         </div>
       </div>
       <div class="profile-dashboard-grid">
+        <section class="settings-block profile-dashboard-card">
+          <h3>${adminLabel("Мои тирлисты", "My tier lists")}</h3>
+          <p class="muted">${adminLabel("Ваши сохранённые раскладки команд по сезонам.", "Your saved team rankings by season.")}</p>
+          <a class="ghost-button" href="/tierlist">${adminLabel("Открыть тирлисты", "Open tier lists")}</a>
+        </section>
         <div class="settings-block profile-dashboard-card">
           <h3>${t("profile.settings.avatarTitle")}</h3>
           <div class="avatar-settings-row">

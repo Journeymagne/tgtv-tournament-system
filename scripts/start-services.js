@@ -2,11 +2,23 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const net = require('node:net');
-const config = require('../src/config');
 const { SERVICES, DEFAULT_PORTS } = require('../src/services/catalog');
+const { sanitizeServiceEnvironment } = require('./service-environment');
+
+function clusterServiceEnvironment(base, service, port) {
+  const env = { ...base, SERVICE_NAME:service,PORT:String(port),HOST:'127.0.0.1',DATABASE_URL:'',TRUST_PROXY:service==='gateway'?'false':'true' };
+  if (!['gateway','calculators'].includes(service)) {
+    const password=base[service.toUpperCase()+'_DB_PASSWORD'];
+    if (!password) throw Error('Missing '+service.toUpperCase()+'_DB_PASSWORD');
+    const database=new URL(base.DATABASE_URL);database.username='kt_'+service;database.password=password;env.DATABASE_URL=database.href;
+  }
+  for(const upstream of SERVICES)env[upstream.toUpperCase()+'_URL']='http://127.0.0.1:'+(base[upstream.toUpperCase()+'_PORT']||DEFAULT_PORTS[upstream]);
+  return sanitizeServiceEnvironment(env, service);
+}
 
 async function startCluster({ gatewayEntry = 'server.js' } = {}) {
-  const base = new URL(config.requireDatabaseUrl());
+  const config = require('../src/config');
+  config.requireDatabaseUrl();
   const work = path.join(config.ROOT,'work'); fs.mkdirSync(work,{recursive:true});
   const children = [], info = [];
   const ports = new Set();
@@ -19,13 +31,7 @@ async function startCluster({ gatewayEntry = 'server.js' } = {}) {
   }
   for (const service of ['gateway',...SERVICES]) {
     const port = service === 'gateway' ? config.PORT : Number(process.env[service.toUpperCase()+'_PORT'] || DEFAULT_PORTS[service]);
-    const env = { ...process.env, SERVICE_NAME:service,PORT:String(port),HOST:'127.0.0.1',DATABASE_URL:'',TRUST_PROXY:service==='gateway'?'false':'true' };
-    if (!['gateway','calculators'].includes(service)) {
-      const password=process.env[service.toUpperCase()+'_DB_PASSWORD'];
-      if (!password) throw Error('Missing '+service.toUpperCase()+'_DB_PASSWORD');
-      const database=new URL(base);database.username='kt_'+service;database.password=password;env.DATABASE_URL=database.href;
-    }
-    for(const upstream of SERVICES)env[upstream.toUpperCase()+'_URL']='http://127.0.0.1:'+(process.env[upstream.toUpperCase()+'_PORT']||DEFAULT_PORTS[upstream]);
+    const env = clusterServiceEnvironment(process.env, service, port);
     const out=fs.openSync(path.join(work,service+'-'+port+'.out.log'),'a');
     const err=fs.openSync(path.join(work,service+'-'+port+'.err.log'),'a');
     const child=spawn(process.execPath,[service==='gateway'?gatewayEntry:'server.js'],{cwd:config.ROOT,env,stdio:['ignore',out,err],windowsHide:true});
@@ -49,4 +55,4 @@ async function startCluster({ gatewayEntry = 'server.js' } = {}) {
   return { children,info,stop,ready };
 }
 if(require.main===module)startCluster().catch(error=>{console.error(error.message);process.exitCode=1;});
-module.exports={startCluster};
+module.exports={startCluster,clusterServiceEnvironment};

@@ -8,6 +8,8 @@ Independent service processes are available with one PostgreSQL database and
 separate schemas. Gateway preserves the menu, shared login and existing URLs;
 notifications from tournaments, Studio, FAQ and KnowThyKT use a durable inbox.
 See [service separation, migration and deployment](docs/service-separation.md).
+The separate [tierlist service](docs/tierlist-service.md) saves private, season-tagged
+rankings to the same Companion account.
 The first schema migration requires a backup and a coordinated cutover; `npm start`
 remains the compatible single-process mode.
 
@@ -31,17 +33,17 @@ for future tournament transfers. It is independent of the account sign-in email,
 is returned only in the player's own profile, and can be cleared. Startup migration
 **054_user_bcp_email** adds the nullable `users.bcp_email` column.
 
-The site opens on the Companion home page with eight sections: Combat Lab, initiative
+The site opens on the Companion home page with nine sections: Combat Lab, initiative
 calculator, activation tracker, tournament system, KT Studio, the D6 dice generator
 and [TTS Community FAQ](docs/community-faq.md), plus
-[Know Thy Kill Team](docs/know-thy-kill-team.md). The calculators,
+[Know Thy Kill Team](docs/know-thy-kill-team.md) and [Tierlists](docs/tierlist-service.md). The calculators,
 Studio editor, published team library and dice editor are public. Saving or publishing a team
 requires the same account and session as the tournament system. Existing
 public tournament pages, leaderboards, statistics, player profiles and match history
 are available without signing in. See [Companion integration](docs/companion-integration.md)
 for routes, imported sources, account-owned drafts and deployment settings.
 The home page is a service selector. Each service opens on its own page under
-the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio`, `/dice`, `/faq`, `/combat` and `/training`,
+the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio`, `/dice`, `/faq`, `/combat`, `/training` and `/tierlist`,
 with a shared account. The header logo opens the service selector; the service
 name opens its start page (Studio library or tournament My Games).
 Sun and moon buttons select a shared light or dark theme.

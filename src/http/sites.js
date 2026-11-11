@@ -4,9 +4,10 @@ const { SECURITY_HEADERS } = require("./io");
 
 const ROOT_DOCUMENTS = {
   home: "home.html", initiative: "killteam-initiative-calculator.html",
-  tracker: "killteam-activation-tracker.html", tournament: "index.html", studio: "studio/index.html", dice: "dice/index.html", faq: "faq/index.html", training: "training/index.html"
+  tracker: "killteam-activation-tracker.html", tournament: "index.html", studio: "studio/index.html", dice: "dice/index.html", faq: "faq/index.html", training: "training/index.html", tierlist: "tierlist/index.html"
 };
 const ALIASES = {
+  "/tierlist/": "tierlist", "/tierlist/index.html": "tierlist",
   "/studio": "studio", "/dice": "dice", "/faq": "faq", "/knowthykt": "training",
   "/training": "training", "/knowthykt/": "training",
   "/training/": "training", "/training/index.html": "training", "/know-thy-kill-team": "training", "/know-thy-kill-team/": "training",

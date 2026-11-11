@@ -1,0 +1,245 @@
+{
+  "version": 1,
+  "teams": [
+    {
+      "id": "angels-of-death",
+      "name": "Angels Of Death",
+      "image": "/tierlist/images/angels-of-death.png"
+    },
+    {
+      "id": "battleclade",
+      "name": "Battleclade",
+      "image": "/tierlist/images/battleclade.png"
+    },
+    {
+      "id": "blades-of-khaine",
+      "name": "Blades Of Khaine",
+      "image": "/tierlist/images/blades-of-khaine.png"
+    },
+    {
+      "id": "blooded",
+      "name": "Blooded",
+      "image": "/tierlist/images/blooded.png"
+    },
+    {
+      "id": "brood-brothers",
+      "name": "Brood Brothers",
+      "image": "/tierlist/images/brood-brothers.png"
+    },
+    {
+      "id": "canoptek",
+      "name": "Canoptek Circle",
+      "image": "/tierlist/images/canoptek.png"
+    },
+    {
+      "id": "celestial-insidiants",
+      "name": "Celestian Insidiants",
+      "image": "/tierlist/images/celestial-insidiants.png"
+    },
+    {
+      "id": "chaos-cultists",
+      "name": "Chaos Cult",
+      "image": "/tierlist/images/chaos-cultists.png"
+    },
+    {
+      "id": "corsair-voidscarred",
+      "name": "Corsair Voidscarred",
+      "image": "/tierlist/images/corsair-voidscarred.png"
+    },
+    {
+      "id": "death-korps",
+      "name": "Death Korps",
+      "image": "/tierlist/images/death-korps.png"
+    },
+    {
+      "id": "deathwatch",
+      "name": "Deathwatch",
+      "image": "/tierlist/images/deathwatch.png"
+    },
+    {
+      "id": "elucidian-starstriders",
+      "name": "Elucidian Starstriders",
+      "image": "/tierlist/images/elucidian-starstriders.png"
+    },
+    {
+      "id": "exaction-squad",
+      "name": "Exaction Squad",
+      "image": "/tierlist/images/exaction-squad.png"
+    },
+    {
+      "id": "farstalker-kinband",
+      "name": "Farstalker Kinband",
+      "image": "/tierlist/images/farstalker-kinband.png"
+    },
+    {
+      "id": "fellgor-ravagers",
+      "name": "Fellgor Ravagers",
+      "image": "/tierlist/images/fellgor-ravagers.png"
+    },
+    {
+      "id": "gellerpox",
+      "name": "Gellerpox Infected",
+      "image": "/tierlist/images/gellerpox.png"
+    },
+    {
+      "id": "goremongers",
+      "name": "Goremongers",
+      "image": "/tierlist/images/goremongers.png"
+    },
+    {
+      "id": "hand-of-the-archon",
+      "name": "Hand Of The Archon",
+      "image": "/tierlist/images/hand-of-the-archon.png"
+    },
+    {
+      "id": "hearthkyn-salvagers",
+      "name": "Hearthkyn Salvagers",
+      "image": "/tierlist/images/hearthkyn-salvagers.png"
+    },
+    {
+      "id": "hernkyn-yaegirs",
+      "name": "Hernkyn Yaegirs",
+      "image": "/tierlist/images/hernkyn-yaegirs.png"
+    },
+    {
+      "id": "hierotek-circle",
+      "name": "Hierotek Circle",
+      "image": "/tierlist/images/hierotek-circle.png"
+    },
+    {
+      "id": "hunterclade",
+      "name": "Hunter Clade",
+      "image": "/tierlist/images/hunterclade.png"
+    },
+    {
+      "id": "imperial-navy-breachers",
+      "name": "Imperial Navy Breachers",
+      "image": "/tierlist/images/imperial-navy-breachers.png"
+    },
+    {
+      "id": "inquisitorial-agents",
+      "name": "Inquisitorial Agents",
+      "image": "/tierlist/images/inquisitorial-agents.png"
+    },
+    {
+      "id": "kasrkin",
+      "name": "Kasrkin",
+      "image": "/tierlist/images/kasrkin.png"
+    },
+    {
+      "id": "kommandos",
+      "name": "Kommandos",
+      "image": "/tierlist/images/kommandos.png"
+    },
+    {
+      "id": "legionaries",
+      "name": "Legionaries",
+      "image": "/tierlist/images/legionaries.png"
+    },
+    {
+      "id": "mandrakes",
+      "name": "Mandrakes",
+      "image": "/tierlist/images/mandrakes.png"
+    },
+    {
+      "id": "murderwing",
+      "name": "Murderwing",
+      "image": "/tierlist/images/murderwing.png"
+    },
+    {
+      "id": "nemesis-claw",
+      "name": "Nemesis Claw",
+      "image": "/tierlist/images/nemesis-claw.png"
+    },
+    {
+      "id": "novitiates",
+      "name": "Novitiates",
+      "image": "/tierlist/images/novitiates.png"
+    },
+    {
+      "id": "pathfinders",
+      "name": "Pathfinders",
+      "image": "/tierlist/images/pathfinders.png"
+    },
+    {
+      "id": "phobos-strike-team",
+      "name": "Phobos Strike Team",
+      "image": "/tierlist/images/phobos-strike-team.png"
+    },
+    {
+      "id": "plague-marines",
+      "name": "Plague Marines",
+      "image": "/tierlist/images/plague-marines.png"
+    },
+    {
+      "id": "ratlings",
+      "name": "Ratlings",
+      "image": "/tierlist/images/ratlings.png"
+    },
+    {
+      "id": "raveners",
+      "name": "Raveners",
+      "image": "/tierlist/images/raveners.png"
+    },
+    {
+      "id": "sanctifiers",
+      "name": "Sanctifiers",
+      "image": "/tierlist/images/sanctifiers.png"
+    },
+    {
+      "id": "scout-squad",
+      "name": "Scout Squad",
+      "image": "/tierlist/images/scout-squad.png"
+    },
+    {
+      "id": "stealth-suits",
+      "name": "XV26 Stealth Battlesuits",
+      "image": "/tierlist/images/stealth-suits.png"
+    },
+    {
+      "id": "tempestus-aquilons",
+      "name": "Tempestus Aquilons",
+      "image": "/tierlist/images/tempestus-aquilons.png"
+    },
+    {
+      "id": "vespids",
+      "name": "Vespid Stingwings",
+      "image": "/tierlist/images/vespids.png"
+    },
+    {
+      "id": "void-dancer-troupe",
+      "name": "Void Dancer Troupe",
+      "image": "/tierlist/images/void-dancer-troupe.png"
+    },
+    {
+      "id": "warpcoven",
+      "name": "Warpcoven",
+      "image": "/tierlist/images/warpcoven.png"
+    },
+    {
+      "id": "wolf-scouts",
+      "name": "Wolf Scouts",
+      "image": "/tierlist/images/wolf-scouts.png"
+    },
+    {
+      "id": "wrecka-krew",
+      "name": "Wrecka Krew",
+      "image": "/tierlist/images/wrecka-krew.png"
+    },
+    {
+      "id": "wyrmblade",
+      "name": "Wyrmblade",
+      "image": "/tierlist/images/wyrmblade.png"
+    },
+    {
+      "id": "dragon-master-clanblade",
+      "name": "Exodite Dragon Masters",
+      "image": "/tierlist/images/dragon-master-clanblade.png"
+    },
+    {
+      "id": "spectre-veteran-sergeant",
+      "name": "Spectre Squad",
+      "image": "/tierlist/images/spectre-veteran-sergeant.png"
+    }
+  ]
+}

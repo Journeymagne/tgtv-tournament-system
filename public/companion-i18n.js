@@ -3,6 +3,8 @@
 (function () {
   "use strict";
   const pairs = [
+    ["Тирлист", "Tier List"],
+    ["Распределяйте команды по тирам и сохраняйте личные списки с выбором сезона.", "Rank teams and save personal tier lists by season."],
     ["КТ Калькулятор", "KT Calculator"],
     ["Вероятности стрельбы и ближнего боя, симуляции дуэлей оперативников с оружием и правилами команд.", "Shooting and melee probabilities, operative duels with weapons and team rules."],
     ["Инструменты для Warhammer Kill Team: боевые расчёты, инициатива, активации, турниры, создание собственных команд и FAQ. Проект сообщества", "Tools for Warhammer Kill Team: combat probabilities, initiative, activations, tournaments, custom teams and FAQ. A community project by"],

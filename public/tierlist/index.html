@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Тирлисты Kill Team — KT Companion</title>
+  <meta name="description" content="Составляйте тирлисты команд Kill Team и сохраняйте свои оценки по сезонам в профиле KT Companion.">
+  <script src="/theme-boot.js?v=shared-339606f71ff5" data-companion-only></script>
+  <link rel="icon" href="/brand/kt-companion/favicon.ico">
+  <link rel="stylesheet" href="/companion-tokens.css?v=shared-339606f71ff5">
+  <link rel="stylesheet" href="/companion-shell.css?v=shared-339606f71ff5">
+  <link rel="stylesheet" href="/tierlist/tierlist.css?v=1">
+  <script src="/companion-sites.js?v=shared-339606f71ff5" defer></script>
+  <script src="/companion-i18n.js?v=shared-339606f71ff5" defer></script>
+  <script src="/companion-shell.js?v=shared-339606f71ff5" defer></script>
+  <script src="/tierlist/tierlist.js?v=1" defer></script>
+</head>
+<body data-companion-section="tierlist">
+  <div data-companion-nav></div>
+  <main class="tl-page" data-ui-skip>
+    <header class="tl-hero">
+      <div><p class="tl-eyebrow">KILL TEAM · KT COMPANION</p><h1 data-copy="heading">Тирлисты</h1><p data-copy="intro">Ваша оценка команд — в контексте сезона.</p></div>
+      <div class="tl-actions"><button type="button" class="tl-action" id="my-lists" data-copy="myLists" disabled>Мои тирлисты</button><button type="button" class="tl-action" id="new-list" data-copy="newList" disabled>Новый тирлист</button></div>
+    </header>
+    <p class="tl-banner" id="account-note" role="status" hidden></p>
+    <p class="tl-status" id="page-status" role="status" aria-live="polite">Загрузка каталога…</p>
+    <button type="button" class="tl-action" id="retry" data-copy="retry" hidden>Повторить</button>
+    <div id="workspace" hidden>
+      <section class="tl-editor-meta" aria-label="Настройки тирлиста" data-aria-copy="settings">
+        <label class="tl-title-field"><span data-copy="titleLabel">Название</span><input id="list-title" type="text" maxlength="120" placeholder="Мой тирлист" data-placeholder-copy="titlePlaceholder" autocomplete="off"></label>
+        <label class="tl-season-field"><span data-copy="seasonLabel">Сезон оценки</span><select id="season"></select></label>
+        <div class="tl-save-controls"><span class="tl-save-state" id="save-state" aria-live="polite"></span><button type="button" class="tl-action tl-primary" id="save-list" data-copy="save">Сохранить</button><button type="button" class="tl-action" id="save-copy" data-copy="saveCopy" hidden>Сохранить копию</button></div>
+      </section>
+      <div class="tl-toolbar">
+        <div class="tl-actions"><button type="button" class="tl-action" id="undo" data-copy="undo" disabled>Отменить ход</button><button type="button" class="tl-action" id="reset" data-copy="reset">Вернуть вниз</button><button type="button" class="tl-action" id="export-json" data-copy="export">Экспорт JSON</button><button type="button" class="tl-action" id="import-json" data-copy="import">Импорт JSON</button><input type="file" id="import-file" accept=".json,application/json" hidden></div>
+        <div class="tl-display-controls"><label><span data-copy="pictureSize">Размер</span><input type="range" min="64" max="144" value="96" id="card-size" aria-label="Размер изображений" data-aria-copy="pictureSize"></label><label><input type="checkbox" id="show-names"><span data-copy="showNames">Названия</span></label><button type="button" class="tl-action" id="record-mode" data-copy="recordMode">Для записи</button></div>
+      </div>
+      <p class="tl-selection" id="selection-note" aria-live="polite"></p>
+      <div class="tl-record-caption" id="record-caption" hidden></div>
+      <section id="board" class="tl-board" aria-label="Тиры команд" data-aria-copy="tiers"></section>
+      <section class="tl-pool-section" aria-labelledby="pool-title">
+        <header class="tl-pool-heading"><div><h2 id="pool-title" data-copy="pool">Для распределения</h2><span id="pool-count" class="tl-count"></span></div><label class="tl-search"><span class="tl-sr-only" data-copy="searchLabel">Найти команду</span><input id="search" type="search" placeholder="Найти команду…" data-placeholder-copy="searchPlaceholder" autocomplete="off"></label></header>
+        <div class="tl-lane tl-pool" id="pool" data-zone="pool" role="group" aria-label="Для распределения" data-aria-copy="pool" tabindex="0"></div>
+        <p id="no-results" class="tl-empty" data-copy="noResults" hidden>По этому запросу команд нет.</p>
+      </section>
+      <p class="tl-help" data-copy="help">Перетащите фигурку или выберите её и нажмите букву тира. S / A / B / C / F — переместить, 0 — вернуть вниз, Esc — снять выбор. Ctrl+Z — отменить.</p>
+      <p class="tl-draft-note" id="draft-note"></p>
+      <button type="button" class="tl-action" id="restore-guest" data-copy="restoreGuest" hidden>Открыть гостевой черновик</button>
+    </div>
+  </main>
+  <button type="button" class="tl-action tl-record-exit" id="exit-recording" data-copy="exitRecording" hidden>Вернуть управление · Esc</button>
+  <dialog id="library-dialog" class="tl-dialog tl-library" aria-labelledby="library-title" data-ui-skip>
+    <header class="tl-dialog-header"><h2 id="library-title" data-copy="myLists">Мои тирлисты</h2><button type="button" class="tl-action tl-close" data-close-dialog="library-dialog" aria-label="Закрыть" data-aria-copy="close">×</button></header>
+    <label class="tl-library-filter"><span data-copy="filterSeason">Фильтр по сезону</span><select id="library-season"><option value="" data-copy="allSeasons">Все сезоны</option></select></label>
+    <p id="library-status" class="tl-status" role="status" aria-live="polite"></p><div id="saved-lists"></div>
+    <footer class="tl-dialog-footer"><button type="button" class="tl-action" id="refresh-library" data-copy="refresh">Обновить</button><button type="button" class="tl-action" data-close-dialog="library-dialog" data-copy="close">Закрыть</button></footer>
+  </dialog>
+  <dialog id="confirm-dialog" class="tl-dialog tl-confirm" aria-labelledby="confirm-title" data-ui-skip>
+    <h2 id="confirm-title"></h2><p id="confirm-description"></p><footer class="tl-dialog-footer"><button type="button" class="tl-action" id="confirm-cancel" data-copy="cancel">Отмена</button><button type="button" class="tl-action tl-primary" id="confirm-accept" data-copy="continue">Продолжить</button></footer>
+  </dialog>
+  <div id="toast" class="tl-toast" role="status" aria-live="polite" data-ui-skip hidden></div>
+</body>
+</html>
+
