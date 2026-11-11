@@ -465,4 +465,3 @@
   $('retry').addEventListener('click', init);
   void init();
 })();
-
