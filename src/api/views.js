@@ -69,8 +69,18 @@ function challengeView(challenge, people) {
   };
 }
 
+function gameResultRevision(game) {
+  // Only canonical persisted state belongs in this fingerprint, never viewer-dependent fields.
+  return require('node:crypto').createHash('sha256').update(JSON.stringify({
+    id: game.id, sourceType: game.sourceType, sourceId: game.sourceId,
+    status: game.status, playerIds: game.playerIds,
+    result: game.result, pendingResult: game.pendingResult,
+    submittedBy: game.submittedBy, submittedAt: game.submittedAt
+  })).digest('hex');
+}
+
 function gameView(game, people) {
-  game = { ...game, publicId: publicId('game', game.id) };
+  game = { ...game, publicId: publicId('game', game.id), resultRevision: gameResultRevision(game) };
   if (Array.isArray(game.players) && game.players.length) {
     return { ...game, players: game.players };
   }
@@ -367,6 +377,7 @@ module.exports = {
   leaderboardUser,
   challengeView,
   gameView,
+  gameResultRevision,
   feedbackView,
   challengeProgressView,
   userSummary,

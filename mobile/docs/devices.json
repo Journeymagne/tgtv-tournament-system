@@ -1,0 +1,12 @@
+[
+ {"name":"iPhone 16","width":393,"height":852,"rank2025":1,"kind":"phone"},
+ {"name":"iPhone 16 Pro Max","width":440,"height":956,"rank2025":2,"kind":"phone"},
+ {"name":"iPhone 16 Pro","width":402,"height":874,"rank2025":3,"kind":"phone"},
+ {"name":"iPhone 17 Pro Max","width":440,"height":956,"rank2025":4,"kind":"phone"},
+ {"name":"Galaxy A16 5G","width":360,"height":780,"rank2025":5,"kind":"phone","note":"Android logical viewport selected for compact-density coverage; configurable by OS display scaling"},
+ {"name":"iPad mini A17 Pro","width":744,"height":1133,"kind":"tablet"},
+ {"name":"iPad Pro 11 M4","width":834,"height":1210,"kind":"tablet"},
+ {"name":"Galaxy Tab S10 FE","width":960,"height":1536,"kind":"tablet","note":"Logical test viewport, density-dependent"},
+ {"name":"Compact / split screen","width":320,"height":640,"kind":"boundary"},
+ {"name":"Galaxy S26 Ultra class","width":412,"height":892,"kind":"boundary","note":"Additional current Android flagship class, not part of 2025 ranking"}
+]

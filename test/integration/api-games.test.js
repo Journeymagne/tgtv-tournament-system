@@ -60,6 +60,60 @@ test("игра загружается отдельно по id", async () => {
 
   assert.equal(result.game.id, game.id);
   assert.deepEqual(result.game.players.map((player) => player.id), [alpha.id, bravo.id]);
+  assert.match(result.game.resultRevision, /^[a-f0-9]{64}$/);
+});
+
+test('mobile result revision rejects a stale confirmation after waiting for the writer lock', { timeout: 15000 }, async () => {
+  const game = await openGame();
+  const first = await withOwnTransaction(own => api.submitResult({ client: own, user: alpha,
+    params: { id: String(game.id) }, body: { scores: scores(alpha.id, bravo.id) } }));
+  const writer = await pool.connect();
+  let confirmation;
+  try {
+    await writer.query('BEGIN');
+    const changed = await api.submitResult({ client: writer, user: alpha, params: { id: String(game.id) },
+      body: { scores: scores(bravo.id, alpha.id), expectedResultRevision: first.game.resultRevision } });
+    let announceLock;
+    const waitingForLock = new Promise(resolve => { announceLock = resolve; });
+    confirmation = withOwnTransaction(own => {
+      const observing = { query: (...args) => {
+        if (/FOR UPDATE/i.test(String(args[0]))) announceLock();
+        return own.query(...args);
+      } };
+      return api.respondToResult({ client: observing, user: bravo, params: { id: String(game.id), action: 'confirm-result' },
+        body: { expectedResultRevision: first.game.resultRevision } });
+    });
+    const rejected = assert.rejects(confirmation, error => error.status === 409 && /Game changed/.test(error.message));
+    await waitingForLock;
+    await writer.query('COMMIT');
+    await rejected;
+    const stored = await api.getOne({ client, user: bravo, params: { id: String(game.id) } });
+    assert.equal(stored.game.status, 'pending_confirmation');
+    assert.equal(stored.game.pendingResult.result.winnerId, bravo.id);
+    assert.equal((await usersRepo.findById(client, alpha.id)).rating, 1000);
+    const confirmed = await withOwnTransaction(own => api.respondToResult({ client: own, user: bravo,
+      params: { id: String(game.id), action: 'confirm-result' }, body: { expectedResultRevision: changed.game.resultRevision } }));
+    assert.equal(confirmed.game.status, 'completed');
+    assert.equal(confirmed.game.result.winnerId, bravo.id);
+  } finally {
+    await writer.query('ROLLBACK');
+    writer.release();
+    if (confirmation) await confirmation.catch(() => {});
+  }
+});
+
+test('mobile stale submit and reject do not overwrite a newer pending score', async () => {
+  const game = await openGame();
+  const opened = await api.getOne({ client, user: alpha, params: { id: String(game.id) } });
+  const submitted = await withOwnTransaction(own => api.submitResult({ client: own, user: alpha,
+    params: { id: String(game.id) }, body: { scores: scores(alpha.id, bravo.id), expectedResultRevision: opened.game.resultRevision } }));
+  await assert.rejects(withOwnTransaction(own => api.submitResult({ client: own, user: alpha, params: { id: String(game.id) },
+    body: { scores: scores(bravo.id, alpha.id), expectedResultRevision: opened.game.resultRevision } })), { status: 409 });
+  await assert.rejects(withOwnTransaction(own => api.respondToResult({ client: own, user: bravo,
+    params: { id: String(game.id), action: 'reject-result' }, body: { expectedResultRevision: opened.game.resultRevision } })), { status: 409 });
+  assert.equal((await api.getOne({ client, user: bravo, params: { id: String(game.id) } })).game.resultRevision, submitted.game.resultRevision);
+  await assert.rejects(withOwnTransaction(own => api.submitResult({ client: own, user: alpha, params: { id: String(game.id) },
+    body: { scores: scores(alpha.id, bravo.id), expectedResultRevision: 'not-a-revision' } })), { status: 400 });
 });
 
 test("посторонний не может открыть незавершённую игру по id", async () => {

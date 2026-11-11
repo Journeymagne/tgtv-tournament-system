@@ -348,11 +348,12 @@ test("single elimination: результат игрока сразу завер�
   assert.ok(match);
   const opponent = await usersRepo.findById(client, matchOpponentUserId(match, alpha.id));
 
+  const openedForMobile = await gamesApi.getOne({ client, user: alpha, params: { id: String(match.gameId) } });
   const submittedThroughGames = await gamesApi.submitResult({
     client,
     user: alpha,
     params: { id: String(match.gameId) },
-    body: { scores: scores(alpha.id, opponent.id) }
+    body: { scores: scores(alpha.id, opponent.id), expectedResultRevision: openedForMobile.game.resultRevision }
   });
   assert.equal(submittedThroughGames.game.status, "completed");
   const submitted = await tournamentsApi.getAdmin({

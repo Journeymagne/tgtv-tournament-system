@@ -1,0 +1,4 @@
+import React from 'react';
+import Svg,{Path,Circle} from 'react-native-svg';
+const paths:Record<string,string>={games:'m4 3 17 17M3 4l3-1-1 3M4 17l3 3m-2-1 14-14 1-3-3 1L3 17',tournaments:'M8 3h8v7a4 4 0 0 1-8 0V3Zm0 2H4v3a4 4 0 0 0 4 4m8-7h4v3a4 4 0 0 1-4 4m-4 2v5m-4 2h8',standings:'M4 21V11h4v10m2 0V4h4v17m2 0v-7h4v7',profile:'M4 21v-2a8 8 0 0 1 16 0v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8',bell:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4',back:'m14 5-7 7 7 7M7 12h14',refresh:'M20 7v5h-5M4 17v-5h5M5 7a8 8 0 0 1 14-2l1 2M4 17l1 2a8 8 0 0 0 14-2',settings:'M4 7h16M4 17h16M9 4v6M15 14v6'};
+export function Icon({name,color,size=22}:{name:string;color:string;size?:number}){return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><Path d={paths[name]||paths.tournaments}/></Svg>;}
