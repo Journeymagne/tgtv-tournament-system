@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { TEST_DATABASE_URL } = require('../helpers/db');
 Object.assign(process.env, { DATABASE_URL: TEST_DATABASE_URL, NODE_ENV: 'test', HOST: '127.0.0.1',
   EMAIL_PROVIDER: 'disabled', TELEGRAM_MODE: 'local', TELEGRAM_ADMIN_ONLY: 'true',
+  TELEGRAM_WORKER_ENABLED: 'true', TELEGRAM_SITE_URL: '',
   TELEGRAM_BOT_USERNAME: 'PreviewTestBot', TELEGRAM_BOT_TOKEN: '123456:' + 'a'.repeat(32),
   SITE_URL: 'http://127.0.0.1', TELEGRAM_MINI_APP_URL: '', TELEGRAM_TUNNEL_PORT: '' });
 const { getPool, closePool } = require('../../src/db/pool');
@@ -11,6 +12,7 @@ const { migrate } = require('../../src/db/migrate');
 const { server } = require('../../server');
 const users = require('../../src/db/repositories/users');
 const sessions = require('../../src/db/repositories/sessions');
+const games = require('../../src/db/repositories/games');
 const { hash, csrfToken } = require('../../src/telegram/security');
 const { handleUpdate } = require('../../src/telegram/bot');
 const { payloadFor } = require('../../src/telegram/worker');
@@ -33,8 +35,17 @@ async function person(name, isAdmin, telegramId) {
   await sessions.create(pool, { token: sid, userId: user.id, expiresAt: new Date(Date.now() + 86400000) });
   return { ...user, cookie: `sid=${sid}`, telegramId };
 }
+function resetTelegramConfiguration() {
+  Object.assign(process.env, { TELEGRAM_ADMIN_ONLY: 'true', TELEGRAM_WORKER_ENABLED: 'true',
+    TELEGRAM_MODE: 'local', TELEGRAM_SITE_URL: '', TELEGRAM_MINI_APP_URL: '', SITE_URL: origin });
+}
+function publicApiHost() {
+  Object.assign(process.env, { TELEGRAM_ADMIN_ONLY: 'false', TELEGRAM_WORKER_ENABLED: 'false',
+    TELEGRAM_MODE: 'polling', TELEGRAM_SITE_URL: 'https://killteamcompanion.com',
+    TELEGRAM_MINI_APP_URL: 'https://killteamcompanion.com/miniapp' });
+}
 test.beforeEach(async () => {
-  process.env.TELEGRAM_ADMIN_ONLY = 'true';
+  resetTelegramConfiguration();
   await pool.query('TRUNCATE users RESTART IDENTITY CASCADE');
   await pool.query('TRUNCATE telegram_updates, telegram_state, telegram_events, telegram_outbox');
   admin = await person('PreviewAdmin', true, 100001);
@@ -42,6 +53,7 @@ test.beforeEach(async () => {
   owner = await person('PreviewOwner', false, 100003);
   await pool.query('INSERT INTO platform_ownership(owner_user_id) VALUES($1)', [owner.id]);
 });
+test.afterEach(resetTelegramConfiguration);
 async function request(user, path, method = 'GET', body, token) {
   const headers = { 'Content-Type': 'application/json', Origin: origin };
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -183,4 +195,89 @@ test('turning off the preview restriction preserves ordinary linked-user access'
   assert.equal((await request(player, '/api/miniapp/summary')).status, 200);
   await update(player, '/profile');
   assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM telegram_outbox')).rows[0].n, 1);
+});
+
+test('API host without a worker allows ordinary players to link and use cookie and Telegram sessions', async () => {
+  publicApiHost();
+  const initial = await request(player, '/api/telegram/status');
+  assert.equal(initial.status, 200);
+  assert.equal(initial.body.available, true);
+  assert.equal(initial.body.adminOnly, false);
+  assert.equal(initial.body.link, null);
+  assert.equal((await request(null, '/api/miniapp/session', 'POST', { initData: initData(player) })).body.reason, 'not_linked');
+
+  const created = await request(player, '/api/telegram/link', 'POST');
+  assert.equal(created.status, 200);
+  // The remote poller shares this database; claiming still requires website confirmation.
+  await update(player, '/start ' + new URL(created.body.url).searchParams.get('start'));
+  const claimed = await request(player, '/api/telegram/status');
+  assert.equal(claimed.body.pending.claimed, true);
+  assert.equal(claimed.body.link, null);
+  assert.equal((await request(player, '/api/telegram/confirm', 'POST', { telegramId: owner.telegramId })).status, 409);
+  const confirmed = await request(player, '/api/telegram/confirm', 'POST', { telegramId: player.telegramId, locale: 'en' });
+  assert.equal(confirmed.status, 200);
+  assert.equal(String(confirmed.body.link.telegram_id), String(player.telegramId));
+  assert.equal(confirmed.body.pending, null);
+
+  const cookie = await request(player, '/api/miniapp/session', 'POST');
+  assert.equal(cookie.body.authenticated, true);
+  assert.equal(cookie.body.adminOnly, false);
+  assert.equal(cookie.body.user.isAdmin, false);
+  assert.equal((await request(player, '/api/miniapp/summary')).status, 200);
+  const telegram = await request(null, '/api/miniapp/session', 'POST', { initData: initData(player) });
+  assert.equal(telegram.status, 200);
+  assert.equal(telegram.body.locale, 'en');
+  assert.ok(telegram.body.accessToken);
+  assert.equal((await request(null, '/api/miniapp/summary', 'GET', null, telegram.body.accessToken)).status, 200);
+
+  assert.equal((await request(player, '/api/telegram/link', 'DELETE')).status, 200);
+  assert.equal((await request(null, '/api/miniapp/summary', 'GET', null, telegram.body.accessToken)).status, 401);
+});
+
+test('public API access without a worker still enforces signatures, CSRF and game permissions', async () => {
+  publicApiHost();
+  await link(player);
+  const forged = new URLSearchParams(initData(player));
+  forged.set('user', JSON.stringify({ id: owner.telegramId }));
+  assert.equal((await request(null, '/api/miniapp/session', 'POST', { initData: forged.toString() })).status, 401);
+  assert.equal((await request(null, '/api/miniapp/summary')).status, 401);
+  const session = await request(null, '/api/miniapp/session', 'POST', { initData: initData(player) });
+  assert.equal(session.status, 200);
+  const token = session.body.accessToken;
+  assert.ok(token);
+  assert.equal((await request(null, '/api/miniapp/summary', 'GET', null, token + 'invalid')).status, 401);
+
+  const csrf = await fetch(origin + '/api/telegram/preferences', { method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Origin: origin, Cookie: player.cookie, 'X-Telegram-Account': String(player.id) },
+    body: JSON.stringify({ enabled: false }) });
+  assert.equal(csrf.status, 403);
+  await csrf.arrayBuffer();
+  const foreign = await games.insert(pool, { challengeId: null, playerIds: [admin.id, owner.id] });
+  for (const [path, method] of [[`/api/miniapp/games/${foreign.id}`, 'GET'], [`/api/miniapp/games/${foreign.id}/result`, 'POST']]) {
+    assert.equal((await request(null, path, method, {}, token)).status, 403);
+  }
+  assert.equal((await games.findById(pool, foreign.id)).status, 'open');
+  await pool.query("UPDATE users SET suspended_until=NOW()+INTERVAL '1 hour' WHERE id=$1", [player.id]);
+  assert.equal((await request(null, '/api/miniapp/summary', 'GET', null, token)).status, 403);
+});
+
+test('public API host without a worker preserves ordinary-player notification eligibility and opt-outs', async () => {
+  publicApiHost();
+  await link(player);
+  await pool.query("INSERT INTO challenges(from_user_id,to_user_id,status) VALUES($1,$2,'pending')", [owner.id, player.id]);
+  // Simulate queue expansion and eligibility checks performed by the separate worker.
+  await expandEvents(pool);
+  const { rows } = await pool.query('SELECT * FROM telegram_outbox WHERE notification IS NOT NULL');
+  assert.equal(rows.length, 1);
+  assert.equal(String(rows[0].chat_id), String(player.telegramId));
+  const payload = await payloadFor(pool, rows[0]);
+  assert.ok(payload);
+  assert.equal(new URL(payload.reply_markup.inline_keyboard[0][0].url).origin, 'https://killteamcompanion.com');
+
+  assert.equal((await request(player, '/api/telegram/preferences', 'PATCH', { preferences: { invitations: false } })).status, 200);
+  assert.equal(await payloadFor(pool, rows[0]), null);
+  assert.equal((await request(player, '/api/telegram/preferences', 'PATCH', { preferences: { invitations: true }, enabled: false })).status, 200);
+  assert.equal(await payloadFor(pool, rows[0]), null);
+  assert.equal((await request(player, '/api/telegram/preferences', 'PATCH', { enabled: true })).status, 200);
+  assert.ok(await payloadFor(pool, rows[0]));
 });
