@@ -36,14 +36,18 @@ async function completedTournament(name, selectedSeason = season.id) {
   } }));
   const id = created.body.tournament.id, params = { id: String(id) };
   await tx(() => tournaments.publishAdmin({ client, user: admin, params, body: { status: "registration_open" } }));
-  for (const person of [alpha, beta]) {
+  // Swiss needs four active participants; only one match is completed.
+  const extras = [await user(name + " Extra A"), await user(name + " Extra B")];
+  for (const person of [alpha, beta, ...extras]) {
     await tx(() => tournaments.addParticipant({ client, user: admin, params, body: { userId: person.id } }));
   }
   await tx(() => tournaments.closeRegistration({ client, user: admin, params }));
   await tx(() => tournaments.generateNextRoundAdmin({ client, user: admin, params }));
   const view = await tx(() => tournaments.startAdmin({ client, user: admin, params }));
-  const match = view.rounds[0].matches.find(item => !item.isBye);
-  const a = match.participantA.userId, b = match.participantB.userId;
+  const match = view.rounds[0].matches.find(item => !item.isBye &&
+    [item.participantA.userId, item.participantB.userId].includes(alpha.id));
+  const a = alpha.id;
+  const b = match.participantA.userId === a ? match.participantB.userId : match.participantA.userId;
   await tx(() => tournaments.saveMatchResultAdmin({ client, user: admin,
     params: { ...params, matchId: String(match.id) }, body: { scores: scores(a, b) } }));
   return id;
