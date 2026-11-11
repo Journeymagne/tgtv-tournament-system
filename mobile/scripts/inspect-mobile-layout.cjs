@@ -6,7 +6,7 @@ const root = path.resolve(__dirname, '..');
 const { fixture } = require('../review/fixtures.cjs');
 const community = require('../review/community-fixtures.cjs');
 const devices = JSON.parse(fs.readFileSync(path.join(root, 'docs/devices.json'), 'utf8'));
-const bundle = path.join(root, 'artifacts/review-dist');
+const bundle = path.join(root, 'artifacts', process.env.REVIEW_BUNDLE || 'review-dist');
 const output = path.join(root, 'review');
 const screens = [
   ['games', {}], ['tournaments', {}], ['standings', { slug: 'companion-open' }], ['profile', {}],
@@ -71,11 +71,16 @@ const server = http.createServer((req, res) => {
             const elements = [...document.querySelectorAll('[role="button"],[role="tab"],input,[role="heading"],img')];
             const clipped = elements.map(node => { const rect = node.getBoundingClientRect(); return { text: (node.textContent || node.getAttribute('aria-label') || '').slice(0, 90), left: rect.left, right: rect.right, top: rect.top, width: rect.width, height: rect.height }; }).filter(item => item.width > 0 && item.height > 0 && item.top >= 0 && item.top < innerHeight && (item.left < -1 || item.right > innerWidth + 1));
             const buttons = [...document.querySelectorAll('[role="button"],[role="tab"]')].map(node => { const rect = node.getBoundingClientRect(); return { text: (node.textContent || node.getAttribute('aria-label') || '').slice(0, 90), width: rect.width, height: rect.height }; }).filter(item => item.width > 0 && item.height > 0 && (item.width < 47 || item.height < 47));
-            return { overflow: document.documentElement.scrollWidth > innerWidth, clipped, smallControls: buttons, title: document.querySelector('[role="heading"]')?.textContent || '', text: document.body.innerText.slice(0, 180) };
+            const lastTab = [...document.querySelectorAll('[role="tab"]')].at(-1);
+            if (lastTab && lastTab.getBoundingClientRect().bottom > innerHeight) lastTab.scrollIntoView({ block: 'nearest' });
+            const tabRect = lastTab?.getBoundingClientRect();
+            const navReachable = !tabRect || tabRect.top >= 0 && tabRect.bottom <= innerHeight + 1;
+            return { overflow: document.documentElement.scrollWidth > innerWidth, clipped, navReachable, smallControls: buttons, title: document.querySelector('[role="heading"]')?.textContent || '', text: document.body.innerText.slice(0, 180) };
           });
           views.push({ ...current, ...layout });
           if (device.name === 'iPhone 16' && orientation === 'portrait' && ['games', 'score', 'pairing', 'org-registrations', 'org-result', 'org-rounds'].includes(screen)) await page.screenshot({ path: path.join(output, `${screen}-${theme}-phone.png`) });
-          if (device.name === 'Galaxy Tab S10 FE' && orientation === 'landscape' && (['games', 'profile', 'score', 'pairing'].includes(screen) || ['organizer', 'org-staff'].includes(screen) && params.tournamentId)) await page.screenshot({ path: path.join(output, `${screen}-${theme}-tablet.png`) });
+          if (device.name === 'Galaxy Tab S10 FE' && orientation === 'landscape' && (['games', 'profile', 'score', 'pairing', 'roster', 'tournament-stats'].includes(screen) || ['organizer', 'org-staff'].includes(screen) && params.tournamentId)) await page.screenshot({ path: path.join(output, `${screen}-${theme}-tablet.png`) });
+          if (device.name === 'Compact / split screen' && orientation === 'landscape' && screen === 'games') await page.screenshot({ path: path.join(output, `games-${theme}-short-landscape.png`) });
         }
         console.log(JSON.stringify({ done: device.name, orientation, theme, views: views.length }));
       }
@@ -84,7 +89,7 @@ const server = http.createServer((req, res) => {
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
   const jsDir = path.join(bundle, '_expo/static/js/web');
   const bundleDigests = Object.fromEntries(fs.readdirSync(jsDir).filter(name => name.endsWith('.js')).map(name => [name, require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(jsDir, name))).digest('hex')]));
-  const report = { scope: 'React Native Web rendering with browser-intercepted fictional API fixtures; not a native or backend integration test', generatedAt: new Date().toISOString(), bundleDigests, views: views.length, errors, blocked, overflows: views.filter(v => v.overflow || v.clipped.length), smallControls: views.filter(v => v.smallControls.length), results: views };
+  const report = { scope: 'React Native Web rendering with browser-intercepted fictional API fixtures; not a native or backend integration test', generatedAt: new Date().toISOString(), bundleDigests, views: views.length, errors, blocked, overflows: views.filter(v => v.overflow || v.clipped.length || !v.navReachable), smallControls: views.filter(v => v.smallControls.length), results: views };
   fs.writeFileSync(path.join(output, 'visual-report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ views: report.views, errors, blocked, overflows: report.overflows.length, smallControls: report.smallControls.length }));
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

@@ -44,10 +44,9 @@ The separate `OrganizerScreens.tsx` implements the dashboard, event create/edit,
 
 ## Remaining parity and release work
 
-- Logo/avatar/PDF/map image upload, tournament PDF rules viewing inside the app, map catalog authoring/TTS export are not implemented natively in this change.
+- Tournament logo and PDF rules upload are implemented through native system pickers in the event editor. Team logo, account avatar and table-image upload, embedded PDF reading, Map Studio authoring/TTS export remain outside this implementation.
 - Website achievement editing/award management, documentation editing, feedback, platform-wide superadmin users/quotas, account email/security lifecycle and full analytics filters are not all reproduced.
 - Free-play challenges and non-tournament service menus (tracker, training, dice, Combat Lab, Studio) are outside this tournament client, with existing website links where an inbox event points there.
 - There is no verified native push registration/delivery, complete offline read cache, live store distribution, or macOS/iOS signing run in this workspace. Those must not be described as completed solely from HTML/web screenshots.
 - Actual device checks: keyboard/rotation/split-screen, safe areas, TalkBack/VoiceOver, dynamic type, native cookies, background/restore, and APNs/FCM require signed builds and device/emulator access.
 - No local automated product tests were run by the player-screen implementation task, per AGENTS.md. Type checking/building and browser visual inspection are separate verification steps. Backend concurrency changes require CI integration coverage before production deployment.
-

@@ -2,6 +2,7 @@ import { useFonts } from "expo-font";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
+  ScrollView,
   Text,
   Image,
   Pressable,
@@ -323,7 +324,7 @@ export function Shell({ initialRoute }: { initialRoute?: Route } = {}) {
         )}
       </View>
       <View style={{ flex: 1, flexDirection: "row", minHeight: 0 }}>
-        {sideNav && nav}
+        {sideNav && <ScrollView style={{width:188,flexGrow:0}} contentContainerStyle={{flexGrow:1}}>{nav}</ScrollView>}
         <View style={{ flex: 1, minWidth: 0 }}>
           {error && (
             <Notice error>

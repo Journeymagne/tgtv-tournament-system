@@ -2300,15 +2300,24 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
         }
         await gamesApi.respondToResult({ client, user: otherCaptain, params: { ...gameParams, action: "reject-result" } });
       }
+      // List and detail views must use the same canonical game revision, including
+      // submission metadata. Mobile clients can safely act on either representation.
+      const openList = await tournamentsApi.getPublic({ client, user: usersById.get(playerAId), params: { slug: tournament.slug } });
+      const openListedGame = openList.tournamentGames.find((game) => game.id === link.gameId);
+      const openDetail = await gamesApi.getOne({ client, user: usersById.get(playerAId), params: gameParams });
+      assert.equal(openListedGame.resultRevision, openDetail.game.resultRevision, "open list/detail revisions agree after any rejected submission");
       const submitted = await gamesApi.submitResult({
         client,
         user: usersById.get(playerAId),
         params: { id: String(link.gameId) },
-        body: { scores: scores(playerAId, playerBId), killzone: { killzone: "Octarius", layout: 4, critOp: CRIT_OPS[8] } }
+        body: { expectedResultRevision: openListedGame.resultRevision, scores: scores(playerAId, playerBId), killzone: { killzone: "Octarius", layout: 4, critOp: CRIT_OPS[8] } }
       });
       assert.equal(submitted.game.status, venueMode === "tts" ? "pending_confirmation" : "completed");
       if (venueMode === "tts") assert.equal(submitted.game.pendingResult.submittedAs, "player", "playing captains submit as players");
       if (submitted.game.status === "pending_confirmation") {
+        const pendingList = await tournamentsApi.getPublic({ client, user: usersById.get(playerBId), params: { slug: tournament.slug } });
+        const pendingListedGame = pendingList.tournamentGames.find((game) => game.id === link.gameId);
+        assert.equal(pendingListedGame.resultRevision, submitted.game.resultRevision, "pending list/detail revisions include the same submission metadata");
         const pending = (await teamTournamentsApi.getPairingMatch({ client, user: null, params })).teamMatch;
         assert.equal(pending.progress.completed, link.slot - 1);
         assert.equal(pending.progress.gpA, (link.slot - 1) * 20);
@@ -2324,10 +2333,13 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
             body: { scores: scores(playerAId, playerBId) } });
         }
       }
+      const reviewList = await tournamentsApi.getPublic({ client, user: usersById.get(playerBId), params: { slug: tournament.slug } });
+      const reviewListedGame = reviewList.tournamentGames.find((game) => game.id === link.gameId);
       const confirmed = submitted.game.status === "completed" ? submitted : await gamesApi.respondToResult({
         client,
         user: submitted.game.pendingResult?.submittedAs === "captain" ? captainB : usersById.get(playerBId),
-        params: { id: String(link.gameId), action: "confirm-result" }
+        params: { id: String(link.gameId), action: "confirm-result" },
+        body: { expectedResultRevision: reviewListedGame.resultRevision }
       });
       assert.equal(confirmed.game.status, "completed");
       assert.equal(confirmed.game.result.killzone.killzone, link.mission.killzone);
@@ -2342,6 +2354,8 @@ for (const venueMode of ["tts", "irl"]) test(`team Swiss completes revised Shiel
       assert.equal(live.games[link.slot - 1].gamePointsB, 0);
       assert.equal(live.teamTournamentPointsA, link.slot === 3 ? 2 : null);
       const liveTournament = await tournamentsApi.getPublic({ client, user: null, params: { slug: tournament.slug } });
+      assert.equal(liveTournament.tournamentGames.find((game) => game.id === link.gameId).resultRevision, confirmed.game.resultRevision,
+        "completed list/detail revisions remain identical after confirmation or IRL submission");
       const teamRow = liveTournament.standings.find((row) => row.rosterId === originalMatch.rosterAId);
       assert.equal(teamRow.individualWins, link.slot);
       assert.equal(teamRow.totalVp, link.slot * 21);
