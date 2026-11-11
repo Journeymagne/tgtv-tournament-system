@@ -2,6 +2,11 @@
 
 KT Companion release history, newest first.
 
+## 1.5.16 — 11 November 2026
+
+- Selected-team statistics are available in the tier list recording view. The selected team and open panel are preserved when entering this view.
+- Escape first closes the panel while staying in recording view; pressing it again restores the controls.
+
 ## 1.5.15 — 11 November 2026
 
 - Added a standalone [tier list service](/tierlist), with S / A / B / C / F tiers and an unranked pool of 48 team miniatures with transparent backgrounds.

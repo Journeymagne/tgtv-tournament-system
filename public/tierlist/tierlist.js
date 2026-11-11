@@ -9,7 +9,7 @@
     retry: ['Повторить', 'Retry'], settings: ['Настройки тирлиста', 'Tier list settings'], titleLabel: ['Название', 'Title'], titlePlaceholder: ['Мой тирлист', 'My tier list'],
     seasonLabel: ['Сезон оценки', 'Ranking season'], save: ['Сохранить', 'Save'], saveCopy: ['Сохранить копию', 'Save a copy'], undo: ['Отменить ход', 'Undo move'],
     reset: ['Вернуть вниз', 'Return all to pool'], export: ['Экспорт JSON', 'Export JSON'], import: ['Импорт JSON', 'Import JSON'], pictureSize: ['Размер', 'Size'],
-    showNames: ['Названия', 'Names'], recordMode: ['Для записи', 'Recording view'], exitRecording: ['Вернуть управление · Esc', 'Show controls · Esc'],
+    showNames: ['Названия', 'Names'], recordMode: ['Для записи', 'Recording view'], exitRecording: ['Вернуть управление', 'Show controls'],
     tiers: ['Тиры команд', 'Team tiers'], pool: ['Для распределения', 'Unranked'], searchLabel: ['Найти команду', 'Find a team'], searchPlaceholder: ['Найти команду…', 'Find a team…'],
     noResults: ['По этому запросу команд нет.', 'No teams match this search.'],
     help: ['Перетащите фигурку или выберите её и нажмите букву тира. S / A / B / C / F — переместить, 0 — вернуть вниз, Esc — снять выбор. Ctrl+Z — отменить.', 'Drag a miniature, or select it and choose a tier. S / A / B / C / F — move, 0 — return to pool, Esc — clear selection. Ctrl+Z — undo.'],
@@ -256,7 +256,8 @@
     const panel = $('team-stats');
     if (panel.hidden || window.matchMedia('(max-width:700px)').matches) return;
     const board = $('board').getBoundingClientRect(), nav = document.querySelector('[data-companion-nav]')?.getBoundingClientRect();
-    const top = Math.round(Math.max(12, (nav?.bottom || 0) + 12, board.top));
+    const exitBottom = $('exit-recording').hidden ? 0 : $('exit-recording').getBoundingClientRect().bottom;
+    const top = Math.round(Math.max(12, (nav?.bottom || 0) + 12, exitBottom + 12, board.top));
     panel.style.setProperty('--tl-stats-top', top + 'px');
     panel.style.setProperty('--tl-stats-right', Math.max(16, Math.round(window.innerWidth - board.right)) + 'px');
     panel.classList.toggle('tl-stats-offscreen', top > window.innerHeight - 80);
@@ -287,7 +288,7 @@
   }
   function renderTeamStats() {
     const team = state.teamsById.get(teamStats.teamId);
-    if (!team || state.selected !== team.id || document.body.classList.contains('tl-recording')) { cancelTeamStats(); return; }
+    if (!team || state.selected !== team.id) { cancelTeamStats(); return; }
     const panel = $('team-stats'); panel.hidden = false;
     $('team-stats-title').textContent = team.name;
     const image = $('team-stats-logo');
@@ -316,13 +317,13 @@
     positionTeamStats();
   }
   function syncTeamStats() {
-    if (!state.selected || document.body.classList.contains('tl-recording')) { cancelTeamStats(); return; }
+    if (!state.selected) { cancelTeamStats(); return; }
     if (teamStats.teamId === state.selected) { renderTeamStats(); return; }
     void loadTeamStats(state.selected);
   }
   async function loadTeamStats(id, force = false) {
     const team = state.teamsById.get(id);
-    if (!team || state.selected !== id || document.body.classList.contains('tl-recording')) return;
+    if (!team || state.selected !== id) return;
     cancelTeamStats(); teamStats.teamId = id;
     const cached = teamStats.cache.get(id);
     if (!force && cached && Date.now() < cached.expiresAt) {
@@ -493,7 +494,8 @@
   }
   function recording(on) {
     document.body.classList.toggle('tl-recording', on); $('record-caption').hidden = !on; $('exit-recording').hidden = !on;
-    if (on) { clearSelection(); $('search').value = ''; render(); window.scrollTo({ top: 0 }); }
+    if (on) { $('search').value = ''; render(); window.scrollTo({ top: 0 }); }
+    scheduleStatsPosition();
   }
   function savePreferences() {
     $('workspace').style.setProperty('--tl-card-size', $('card-size').value + 'px');
@@ -553,7 +555,12 @@
     applyRecord({ ...saved.record, id: null, revision: null }, { baseline: '' }); toast(t('restored'));
   });
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { recording(false); clearSelection(true); return; }
+    if (event.key === 'Escape') {
+      if (event.repeat) return;
+      if (state.selected) clearSelection(true);
+      else recording(false);
+      return;
+    }
     if (event.target.closest('input,textarea,select,dialog') || !state.booted) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); $('undo').click(); return; }
     const key = event.key.toUpperCase();
