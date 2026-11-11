@@ -150,7 +150,7 @@ export function Shell({ initialRoute }: { initialRoute?: Route } = {}) {
     const sub = Linking.addEventListener("url", (event) => open(event.url));
     return () => sub.remove();
   }, [navigate]);
-  const active = ["game", "score", "review", "complete"].includes(route.name)
+  const active = ["games", "game", "score", "review", "complete", "history"].includes(route.name)
     ? "games"
     : [
           "tournament",
@@ -161,12 +161,12 @@ export function Shell({ initialRoute }: { initialRoute?: Route } = {}) {
           "pairing",
           "table",
           "roster-registration",
+          "roster",
+          "tournament-stats",
+          "tournaments",
         ].includes(route.name)
       ? "tournaments"
-      : ["settings", "account", "notifications"].includes(route.name) ||
-          route.name.startsWith("org")
-        ? "profile"
-        : route.name;
+      : route.name === "standings" ? "standings" : "profile";
   const nav = (
     <View
       accessibilityRole="tablist"
@@ -176,7 +176,7 @@ export function Shell({ initialRoute }: { initialRoute?: Route } = {}) {
         padding: 8,
         borderColor: colors.line,
         borderTopWidth: sideNav ? 0 : 1,
-        borderRightWidth: sideNav ? 1 : 0,
+        borderRightWidth: 0,
         backgroundColor: colors.surface,
         ...(sideNav ? { width: 188 } : {}),
       }}
@@ -324,7 +324,7 @@ export function Shell({ initialRoute }: { initialRoute?: Route } = {}) {
         )}
       </View>
       <View style={{ flex: 1, flexDirection: "row", minHeight: 0 }}>
-        {sideNav && <ScrollView style={{width:188,flexGrow:0}} contentContainerStyle={{flexGrow:1}}>{nav}</ScrollView>}
+        {sideNav && <ScrollView style={{width:188,flexGrow:0,backgroundColor:colors.surface,borderRightWidth:1,borderColor:colors.line}} contentContainerStyle={{flexGrow:1}}>{nav}</ScrollView>}
         <View style={{ flex: 1, minWidth: 0 }}>
           {error && (
             <Notice error>

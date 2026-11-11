@@ -75,7 +75,8 @@ const server = http.createServer((req, res) => {
             if (lastTab && lastTab.getBoundingClientRect().bottom > innerHeight) lastTab.scrollIntoView({ block: 'nearest' });
             const tabRect = lastTab?.getBoundingClientRect();
             const navReachable = !tabRect || tabRect.top >= 0 && tabRect.bottom <= innerHeight + 1;
-            return { overflow: document.documentElement.scrollWidth > innerWidth, clipped, navReachable, smallControls: buttons, title: document.querySelector('[role="heading"]')?.textContent || '', text: document.body.innerText.slice(0, 180) };
+            const selectedTabCount = document.querySelectorAll('[role="tab"][aria-selected="true"]').length;
+            return { overflow: document.documentElement.scrollWidth > innerWidth, clipped, navReachable, selectedTabCount, smallControls: buttons, title: document.querySelector('[role="heading"]')?.textContent || '', text: document.body.innerText.slice(0, 180) };
           });
           views.push({ ...current, ...layout });
           if (device.name === 'iPhone 16' && orientation === 'portrait' && ['games', 'score', 'pairing', 'org-registrations', 'org-result', 'org-rounds'].includes(screen)) await page.screenshot({ path: path.join(output, `${screen}-${theme}-phone.png`) });
@@ -89,7 +90,7 @@ const server = http.createServer((req, res) => {
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
   const jsDir = path.join(bundle, '_expo/static/js/web');
   const bundleDigests = Object.fromEntries(fs.readdirSync(jsDir).filter(name => name.endsWith('.js')).map(name => [name, require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(jsDir, name))).digest('hex')]));
-  const report = { scope: 'React Native Web rendering with browser-intercepted fictional API fixtures; not a native or backend integration test', generatedAt: new Date().toISOString(), bundleDigests, views: views.length, errors, blocked, overflows: views.filter(v => v.overflow || v.clipped.length || !v.navReachable), smallControls: views.filter(v => v.smallControls.length), results: views };
+  const report = { scope: 'React Native Web rendering with browser-intercepted fictional API fixtures; not a native or backend integration test', generatedAt: new Date().toISOString(), bundleDigests, views: views.length, errors, blocked, overflows: views.filter(v => v.overflow || v.clipped.length || !v.navReachable || v.selectedTabCount !== 1), smallControls: views.filter(v => v.smallControls.length), results: views };
   fs.writeFileSync(path.join(output, 'visual-report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ views: report.views, errors, blocked, overflows: report.overflows.length, smallControls: report.smallControls.length }));
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
