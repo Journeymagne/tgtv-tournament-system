@@ -1,3 +1,40 @@
-import {ExpoConfig} from 'expo/config';
-const config:ExpoConfig={name:'KT Companion',slug:'kt-companion-tournaments',version:'0.1.0',scheme:'ktcompanion',orientation:'default',userInterfaceStyle:'automatic',icon:'./assets/app-icon.png',ios:{supportsTablet:true,bundleIdentifier:'com.killteamcompanion.tournaments',infoPlist:{ITSAppUsesNonExemptEncryption:false}},android:{package:'com.killteamcompanion.tournaments',adaptiveIcon:{foregroundImage:'./assets/app-icon.png',backgroundColor:'#050505'}},web:{bundler:'metro',name:'KT Companion'},plugins:['expo-secure-store','expo-sharing','expo-font'],extra:{apiUrl:process.env.EXPO_PUBLIC_API_URL||'https://ktcompanion.ru'}};
+import { ExpoConfig } from "expo/config";
+const config: ExpoConfig = {
+  name: "KT Companion",
+  slug: "kt-companion-tournaments",
+  version: "0.1.0",
+  scheme: "ktcompanion",
+  orientation: "default",
+  userInterfaceStyle: "automatic",
+  icon: "./assets/app-icon.png",
+  ios: {
+    supportsTablet: true,
+    bundleIdentifier: "com.killteamcompanion.tournaments",
+    infoPlist: { ITSAppUsesNonExemptEncryption: false },
+  },
+  android: {
+    package: "com.killteamcompanion.tournaments",
+    adaptiveIcon: {
+      foregroundImage: "./assets/app-icon.png",
+      backgroundColor: "#050505",
+    },
+  },
+  web: { bundler: "metro", name: "KT Companion" },
+  plugins: [
+    "expo-secure-store",
+    "expo-sharing",
+    "expo-font",
+    [
+      "expo-image-picker",
+      {
+        photosPermission: "Выбор логотипа турнира / Select a tournament logo.",
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
+  ],
+  extra: {
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || "https://ktcompanion.ru",
+  },
+};
 export default config;

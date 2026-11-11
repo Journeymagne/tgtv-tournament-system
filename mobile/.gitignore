@@ -9,3 +9,6 @@ ios/
 *.mobileprovision
 .env.local
 artifacts/
+review/*.png
+review/visual-report.json
+review/visual-report.html

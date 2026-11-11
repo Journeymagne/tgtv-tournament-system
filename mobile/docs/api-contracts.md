@@ -31,6 +31,16 @@ uses the site's session flow; browser authorization-code/PKCE and device-session
 management from the concept remain a separate backend enhancement, not an
 already implemented capability.
 
+This change adds the optional `game.resultRevision` / `expectedResultRevision`
+contract to standard game reads and player result writes. The server computes a
+fingerprint from persisted result state and compares it **after locking** the
+tournament/team match/game in the same transaction as the mutation. Mobile sends
+the revision of the result the user actually reviewed. This backend change must
+be deployed before mobile result editing is enabled; old server responses without
+`resultRevision` are readable but must not silently bypass mobile concurrency
+protection. Existing website clients can omit the field and keep their current
+behavior. Organizer legacy result endpoints are not covered by this player guard.
+
 The server does not enable cross-origin browser CORS. Expo web at another origin
 cannot authenticate against production by copying native settings. Use a local,
 same-origin development proxy connected to a **local** database for integration
@@ -102,6 +112,10 @@ inventing a mobile-specific proxy. It only targets `/api/` on the configured ori
   stage. A 409 always requires refresh and user review.
 - Organizer reset/pairing endpoints have revision/identity confirmation fields.
   Do not use a generic destructive request without the route-specific confirmation.
+- `confirmResult(id, expectedResultRevision)` and `rejectResult(id, expectedResultRevision)`
+  send the revision of the displayed result. `submitResult` accepts it in the body.
+  A fresh read used to detect conflicts must not replace the revision without
+  returning the user to review the newly changed data.
 - Native APNs/FCM registration endpoints do not currently exist. In-app notifications
   and the existing linked Telegram channel are available; background native push
   must not be represented as working before backend/platform provisioning.
@@ -112,3 +126,11 @@ Contracts inspected against handlers and view builders, not only route names.
 No production writes, messages, new accounts or database mutations were made.
 No automated tests were run locally (repository AGENTS.md). Native session smoke,
 production version alignment, and CI integration checks remain release gates.
+
+Native CI uses JDK 17 and the Xcode 27 GitHub runner, based on the current
+[Expo SDK 58 build toolchain](https://docs.expo.dev/build-reference/infrastructure/)
+and [GitHub runner labels](https://github.com/actions/runner-images). Android
+`assembleRelease` embeds JavaScript and uses generated development signing for
+sideloading; this is not a Play Store signing identity. iOS produces a Release
+simulator `.app`, not an installable signed iPhone IPA. Neither build result by
+itself proves physical-device acceptance.
