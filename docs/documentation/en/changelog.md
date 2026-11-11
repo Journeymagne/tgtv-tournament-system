@@ -2,6 +2,13 @@
 
 KT Companion release history, newest first.
 
+## 1.5.15 — 11 November 2026
+
+- Added a standalone [tier list service](/tierlist), with S / A / B / C / F tiers and an unranked pool of 48 team miniatures with transparent backgrounds.
+- Save tier lists to your KT Companion profile with a selected season. Personal saved lists and a browser draft are available.
+- Selecting a team shows its logo and latest-season statistics: games, win rate, top 3 Tac Ops and top 3 players.
+- Supports light and dark themes, mobile screens, Russian and English.
+
 ## 1.5.14 — 10 November 2026
 
 - Added the missing releases to the public changelog in Russian and English, including the FAQ v2.0 update.

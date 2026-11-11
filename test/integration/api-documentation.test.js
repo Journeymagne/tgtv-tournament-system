@@ -113,6 +113,99 @@ test("Changelog upgrade preserves Handouts and archived edits and is safe to rep
   }
 });
 
+test("tier list release notes preserve bilingual editorial history and metadata and are idempotent", async () => {
+  const migration = require("../../src/db/migrations/088_tierlist_release_notes");
+  assert.ok(require("../../src/db/migrate").MIGRATIONS.includes(migration), "The normal migration runner includes the release notes");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("UPDATE tournaments.documentation_pages SET markdown='Retained administrator content', version=11, updated_by=1 WHERE page_id IN ('handouts', 'mmr')");
+    const otherPages = (await client.query("SELECT * FROM tournaments.documentation_pages WHERE page_id<>'changelog' ORDER BY page_id, locale")).rows;
+    const fixtures = new Map();
+    for (const locale of ["ru", "en"]) {
+      const newline = locale === "en" ? "\r\n" : "\n";
+      const intro = ["# Editor's changelog", "", `Custom ${locale} introduction.`, "", "## Editorial notice", "", "Keep this notice above releases.", "", ""].join(newline);
+      const history = ["## 1.5.14 — Reviewed date", "", `Custom ${locale} release correction.`, "", "## 1.4.35 — Earlier release", "", "Older editorial history stays verbatim.", ""].join(newline);
+      await client.query(`
+        UPDATE tournaments.documentation_pages
+        SET markdown=$2, title=$3, summary=$4, category=$5, position=37, version=7, updated_by=1, updated_at='2020-01-02T03:04:05Z'
+        WHERE page_id='changelog' AND locale=$1
+      `, [locale, intro + history, `Editor title ${locale}`, `Custom summary ${locale}`, `Editor category ${locale}`]);
+      const before = (await client.query("SELECT * FROM tournaments.documentation_pages WHERE page_id='changelog' AND locale=$1", [locale])).rows[0];
+      fixtures.set(locale, { intro, history, before });
+    }
+
+    await migration.up(client);
+    for (const locale of ["ru", "en"]) {
+      const after = (await client.query("SELECT * FROM tournaments.documentation_pages WHERE page_id='changelog' AND locale=$1", [locale])).rows[0];
+      const { intro, history, before } = fixtures.get(locale);
+      const seed = defaultPages().find(page => page.id === "changelog" && page.locale === locale).markdown;
+      const start = seed.indexOf("## 1.5.15 —");
+      assert.ok(start >= 0, `The ${locale} public seed contains the release`);
+      const remaining = seed.slice(start), next = remaining.indexOf("\n## ", 1);
+      const notes = remaining.slice(0, next < 0 ? undefined : next).trimEnd().replace(/\r\n/g, "\n");
+      assert.equal(after.markdown, intro + notes + "\n\n" + history, "Only the new release block is inserted; original whitespace and editorial text survive");
+      assert.equal(after.version, before.version + 1);
+      assert.ok(after.updated_at > before.updated_at);
+      for (const field of ["page_id", "locale", "title", "summary", "category", "position", "updated_by"]) assert.equal(after[field], before[field], `${locale}/${field}`);
+    }
+    assert.deepEqual((await client.query("SELECT * FROM tournaments.documentation_pages WHERE page_id<>'changelog' ORDER BY page_id, locale")).rows, otherPages);
+    const once = (await client.query("SELECT * FROM tournaments.documentation_pages ORDER BY page_id, locale")).rows;
+    await migration.up(client);
+    assert.deepEqual((await client.query("SELECT * FROM tournaments.documentation_pages ORDER BY page_id, locale")).rows, once, "Repeating the migration leaves content, versions and timestamps unchanged");
+  } finally {
+    await client.query("ROLLBACK");
+    client.release();
+  }
+});
+
+test("tier list release notes retain an already published editor-written release in either language", async () => {
+  const migration = require("../../src/db/migrations/088_tierlist_release_notes");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const locale of ["ru", "en"]) {
+      const heading = locale === "en" ? "## v1.5.15 — Editor's release" : "## 1.5.15 — Редакторский выпуск";
+      await client.query(`
+        UPDATE tournaments.documentation_pages
+        SET markdown=$2, summary=$3, version=19, updated_by=1, updated_at='2021-02-03T04:05:06Z'
+        WHERE page_id='changelog' AND locale=$1
+      `, [locale, `# Custom log\n\n${heading}\n\nReviewed ${locale} release copy.\n\n## 1.5.14 — Old release\n\nKeep this.\n`, `Retained summary ${locale}`]);
+    }
+    const before = (await client.query("SELECT * FROM tournaments.documentation_pages ORDER BY page_id, locale")).rows;
+    await migration.up(client);
+    assert.deepEqual((await client.query("SELECT * FROM tournaments.documentation_pages ORDER BY page_id, locale")).rows, before);
+  } finally {
+    await client.query("ROLLBACK");
+    client.release();
+  }
+});
+
+test("tier list release notes seed missing changelogs in both languages without changing other documents", async () => {
+  const migration = require("../../src/db/migrations/088_tierlist_release_notes");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("DELETE FROM tournaments.documentation_pages WHERE page_id='changelog'");
+    const preserved = (await client.query("SELECT * FROM tournaments.documentation_pages ORDER BY page_id, locale")).rows;
+    await migration.up(client);
+    for (const locale of ["ru", "en"]) {
+      const page = (await client.query("SELECT * FROM tournaments.documentation_pages WHERE page_id='changelog' AND locale=$1", [locale])).rows[0];
+      const seed = defaultPages().find(page => page.id === "changelog" && page.locale === locale);
+      for (const field of ["title", "summary", "category", "markdown"]) assert.equal(page[field], seed[field], `${locale}/${field}`);
+      assert.equal(page.version, 1); assert.equal(page.position, 0); assert.equal(page.updated_by, null);
+      assert.match(page.markdown, /^## 1\.5\.15 —/m);
+    }
+    assert.deepEqual((await client.query("SELECT * FROM tournaments.documentation_pages WHERE page_id<>'changelog' ORDER BY page_id, locale")).rows, preserved);
+    const once = (await client.query("SELECT * FROM tournaments.documentation_pages ORDER BY page_id, locale")).rows;
+    await migration.up(client);
+    assert.deepEqual((await client.query("SELECT * FROM tournaments.documentation_pages ORDER BY page_id, locale")).rows, once);
+  } finally {
+    await client.query("ROLLBACK");
+    client.release();
+  }
+});
+
 test("simultaneous saves allow one writer and reject the stale revision without losing content", async () => {
   const page = await read(admin);
   const results = await Promise.all(["First edit", "Second edit"].map((markdown) => admin.patch("/api/admin/documentation/ru/changelog", { ...page, markdown })));

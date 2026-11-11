@@ -84,7 +84,8 @@ const MIGRATIONS = [
   require("./migrations/084_pairing_instructions"),
   require("./migrations/085_faq_community_v2"),
   require("./migrations/086_public_changelog_backfill"),
-  require("./migrations/087_tierlists")
+  require("./migrations/087_tierlists"),
+  require("./migrations/088_tierlist_release_notes")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
