@@ -1,0 +1,270 @@
+name: Mobile native startup smoke
+
+on:
+  push:
+    branches: ['feat/mobile-tournaments']
+    paths: ['.github/workflows/mobile-smoke.yml']
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Existing Mobile push build source SHA (empty = latest mobile source commit)
+        type: string
+        default: ''
+
+# Reuse existing standalone binaries. This workflow never builds, signs or deploys.
+# Fresh emulator/simulator installs have no account cookies. No taps, login,
+# account creation or production mutations are performed: startup only reads APIs.
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: mobile-native-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 33
+    outputs:
+      run_id: ${{ steps.build.outputs.run_id }}
+      source_sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Identify existing binary source
+        id: source
+        shell: bash
+        env:
+          REQUESTED_SOURCE: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          source_sha="$REQUESTED_SOURCE"
+          if [[ -z "$source_sha" ]]; then
+            source_sha="$(git log -1 --format=%H -- mobile .github/workflows/mobile.yml public/companion-tokens.css)"
+          fi
+          [[ "$source_sha" =~ ^[a-fA-F0-9]{40}$ ]] || { echo 'Expected a full source commit SHA'; exit 1; }
+          git cat-file -e "${source_sha}^{commit}"
+          printf 'sha=%s\n' "${source_sha,,}" >> "$GITHUB_OUTPUT"
+      - name: Wait up to 30 minutes for matching successful Mobile push build
+        id: build
+        uses: actions/github-script@v7
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const source = process.env.SOURCE_SHA;
+            const deadline = Date.now() + 30 * 60 * 1000;
+            while (Date.now() < deadline) {
+              const {data} = await github.rest.actions.listWorkflowRuns({
+                owner, repo, workflow_id: 'mobile.yml', event: 'push', head_sha: source, per_page: 100
+              });
+              const runs = data.workflow_runs
+                .filter(run => run.head_sha === source && run.event === 'push')
+                .sort((a,b) => b.run_number - a.run_number || b.run_attempt - a.run_attempt);
+              const successful = runs.find(run => run.status === 'completed' && run.conclusion === 'success');
+              if (successful) {
+                const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+                  owner, repo, run_id: successful.id, per_page: 100
+                });
+                const names = new Set(artifacts.filter(a => !a.expired).map(a => a.name));
+                if (!names.has('android-sideload-apk') || !names.has('ios-simulator-app')) {
+                  core.setFailed('The successful source run has no complete, unexpired native artifact pair. No rebuild will be attempted.');
+                  return;
+                }
+                core.setOutput('run_id', String(successful.id));
+                await core.summary.addHeading('Native startup smoke source')
+                  .addRaw(`Source SHA: \`${source}\`\n\n`)
+                  .addLink('Existing Mobile build', successful.html_url).write();
+                return;
+              }
+              const active = runs.find(run => !['completed'].includes(run.status));
+              if (runs.length && !active) {
+                core.setFailed(`Matching Mobile build completed without success (${runs[0].conclusion}).`);
+                return;
+              }
+              core.info(active ? `Waiting for Mobile run ${active.id}: ${active.status}` : `Waiting for a Mobile push run for ${source}`);
+              await new Promise(resolve => setTimeout(resolve, 15000));
+            }
+            core.setFailed('No successful matching Mobile native build became available within 30 minutes.');
+
+  android:
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-sideload-apk
+          path: artifacts/android
+          run-id: ${{ needs.resolve.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Prepare diagnostics and Android smoke script
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+          SOURCE_RUN: ${{ needs.resolve.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p smoke/android
+          printf 'Source SHA: %s\nMobile build run: %s\nPackage: com.killteamcompanion.tournaments\nMode: anonymous startup, no UI actions\n' "$SOURCE_SHA" "$SOURCE_RUN" > smoke/android/source.txt
+          cat > smoke/android/run.sh <<'SMOKE'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          package=com.killteamcompanion.tournaments
+          collect() {
+            adb logcat -d -v threadtime > smoke/android/logcat.txt 2>&1 || true
+            adb logcat -d -b crash > smoke/android/crash-buffer.txt 2>&1 || true
+            adb shell dumpsys activity activities > smoke/android/activities.txt 2>&1 || true
+            adb shell dumpsys window > smoke/android/windows.txt 2>&1 || true
+            adb exec-out screencap -p > smoke/android/startup.png 2> smoke/android/screenshot-error.txt || true
+            adb shell uiautomator dump /sdcard/kt-startup.xml > smoke/android/uiautomator.txt 2>&1 || true
+            adb pull /sdcard/kt-startup.xml smoke/android/startup.xml >> smoke/android/uiautomator.txt 2>&1 || true
+          }
+          trap collect EXIT
+          mapfile -t apks < <(find artifacts/android -type f -name '*.apk')
+          [[ "${#apks[@]}" == 1 ]] || { echo 'Expected exactly one standalone APK'; exit 1; }
+          sha256sum "${apks[0]}" > smoke/android/apk.sha256
+          adb install --no-streaming "${apks[0]}" | tee smoke/android/install.txt
+          adb shell pm clear "$package" > smoke/android/clear-data.txt
+          adb logcat -c
+          activity="$(adb shell cmd package resolve-activity --brief "$package" | tr -d '\r' | tail -n 1)"
+          [[ "$activity" == "$package/"* ]] || { echo "Activity resolution failed: $activity"; exit 1; }
+          adb shell am start -W -n "$activity" | tee smoke/android/launch.txt
+          grep -q 'Status: ok' smoke/android/launch.txt
+          app_pid="$(adb shell pidof "$package" | tr -d '\r' | awk '{print $1}')"
+          [[ "$app_pid" =~ ^[0-9]+$ ]] || { echo 'Application has no process after launch'; exit 1; }
+          printf '%s\n' "$app_pid" > smoke/android/app-pid.txt
+          # Remain alive long enough to load the bundled JS/fonts and settle the
+          # anonymous session read. HTTP/network errors alone are not crashes.
+          for attempt in $(seq 1 30); do
+            sleep 1
+            live_pid="$(adb shell pidof "$package" | tr -d '\r' | awk '{print $1}')"
+            [[ "$live_pid" == "$app_pid" ]] || { echo 'Application exited or restarted during startup'; exit 1; }
+          done
+          adb logcat -d -v threadtime --pid="$app_pid" > smoke/android/app-logcat.txt
+          grep -Ev 'Network request failed|Unable to connect to server|Request cancelled or timed out|HTTP [45][0-9][0-9]' smoke/android/app-logcat.txt > smoke/android/runtime-errors-input.txt || true
+          if grep -Eiq 'FATAL EXCEPTION|Fatal signal|JavascriptException|Unhandled JS Exception|Unable to load script|ReactNativeJS.*(TypeError|ReferenceError|Invariant Violation|Error:)' smoke/android/runtime-errors-input.txt; then
+            echo 'Native/JavaScript startup failure detected in application log'
+            exit 1
+          fi
+          printf 'Standalone APK launched; same process survived 30 seconds; no detected fatal native/JS log entries.\n' > smoke/android/result.txt
+          SMOKE
+          chmod +x smoke/android/run.sh
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and launch existing release APK on API 36 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          target: google_apis
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save
+          script: bash smoke/android/run.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-native-startup-smoke
+          path: smoke/android
+          if-no-files-found: warn
+          retention-days: 7
+
+  ios:
+    needs: resolve
+    runs-on: xcode-27
+    timeout-minutes: 25
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-simulator-app
+          path: artifacts/ios
+          run-id: ${{ needs.resolve.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Boot available iPhone simulator and launch existing app
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+          SOURCE_RUN: ${{ needs.resolve.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p smoke/ios unpacked
+          printf 'Source SHA: %s\nMobile build run: %s\nMode: anonymous startup, no UI actions\n' "$SOURCE_SHA" "$SOURCE_RUN" > smoke/ios/source.txt
+          xcodebuild -version > smoke/ios/xcode.txt
+          xcrun simctl list devices available -j > smoke/ios/devices.json
+          python3 - <<'PY' > smoke/ios/selected-device.txt
+          import json,re
+          devices=json.load(open('smoke/ios/devices.json'))['devices']
+          runtimes=sorted((r for r in devices if '.iOS-' in r), key=lambda r:tuple(map(int,re.findall(r'\d+',r))), reverse=True)
+          for runtime in runtimes:
+              phones=[d for d in devices[runtime] if d.get('isAvailable') and d['name'].startswith('iPhone')]
+              if phones:
+                  phone=next((d for d in phones if d['state']=='Booted'),phones[0])
+                  print(phone['udid']); print(phone['state']); print(phone['name']); print(runtime)
+                  break
+          else: raise SystemExit('No available iPhone simulator runtime')
+          PY
+          device="$(sed -n '1p' smoke/ios/selected-device.txt)"
+          [[ "$device" =~ ^[A-Fa-f0-9-]{36}$ ]]
+          log_pid=''
+          executable=''
+          collect() {
+            xcrun simctl io "$device" screenshot smoke/ios/startup.png > smoke/ios/screenshot.txt 2>&1 || true
+            if [[ -n "$log_pid" ]]; then kill "$log_pid" 2>/dev/null || true; fi
+            if [[ -n "$executable" ]]; then
+              xcrun simctl spawn "$device" log show --style compact --last 3m --predicate "process == '$executable'" > smoke/ios/app-log-history.txt 2>&1 || true
+              APP_EXECUTABLE="$executable" python3 - <<'PY' || true
+          import os,pathlib,shutil
+          root=pathlib.Path.home()/'Library/Logs/DiagnosticReports'
+          out=pathlib.Path('smoke/ios/crash-reports'); out.mkdir(exist_ok=True)
+          for file in root.glob(os.environ['APP_EXECUTABLE']+'*'):
+              if file.is_file() and file.suffix in ('.ips','.crash'): shutil.copy2(file,out/file.name)
+          PY
+            fi
+            xcrun simctl shutdown "$device" 2>/dev/null || true
+          }
+          trap collect EXIT
+          if [[ "$(sed -n '2p' smoke/ios/selected-device.txt)" != 'Booted' ]]; then xcrun simctl boot "$device"; fi
+          xcrun simctl bootstatus "$device" -b > smoke/ios/boot.txt 2>&1
+          shasum -a 256 artifacts/ios/ios-simulator.zip > smoke/ios/app-archive.sha256
+          ditto -x -k artifacts/ios/ios-simulator.zip unpacked
+          apps=(unpacked/*.app)
+          [[ "${#apps[@]}" == 1 && -d "${apps[0]}" ]] || { echo 'Expected exactly one simulator .app'; exit 1; }
+          bundle="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "${apps[0]}/Info.plist")"
+          executable="$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "${apps[0]}/Info.plist")"
+          [[ "$bundle" == 'com.killteamcompanion.tournaments' ]]
+          [[ "$executable" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo 'Unexpected executable name'; exit 1; }
+          # Remove any installation in this CI simulator first so anonymous
+          # startup never inherits cookies from an earlier smoke run.
+          xcrun simctl uninstall "$device" "$bundle" > smoke/ios/previous-install.txt 2>&1 || true
+          xcrun simctl install "$device" "${apps[0]}" > smoke/ios/install.txt 2>&1
+          xcrun simctl spawn "$device" log stream --style compact --level debug --predicate "process == '$executable'" > smoke/ios/app-log-stream.txt 2>&1 &
+          log_pid=$!
+          xcrun simctl launch --terminate-running-process "$device" "$bundle" | tee smoke/ios/launch.txt
+          app_pid="$(tail -n 1 smoke/ios/launch.txt | awk '{print $NF}')"
+          [[ "$app_pid" =~ ^[0-9]+$ ]] || { echo 'Simulator launch did not return an application PID'; exit 1; }
+          printf '%s\n' "$app_pid" > smoke/ios/app-pid.txt
+          for attempt in $(seq 1 30); do
+            sleep 1
+            kill -0 "$app_pid" 2>/dev/null || { echo 'Application exited during startup'; exit 1; }
+          done
+          grep -Ev 'Network request failed|Unable to connect to server|Request cancelled or timed out|HTTP [45][0-9][0-9]' smoke/ios/app-log-stream.txt > smoke/ios/runtime-errors-input.txt || true
+          if grep -Eiq 'Unhandled JS Exception|JavascriptException|Invariant Violation|Unable to load script|Terminating app due to uncaught exception|\[runtime not ready\]|(TypeError|ReferenceError):' smoke/ios/runtime-errors-input.txt; then
+            echo 'Native/JavaScript startup failure detected in application log'
+            exit 1
+          fi
+          printf 'Existing iOS simulator app launched; process survived 30 seconds; no detected fatal native/JS log entries.\n' > smoke/ios/result.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-native-startup-smoke
+          path: smoke/ios
+          if-no-files-found: warn
+          retention-days: 7
