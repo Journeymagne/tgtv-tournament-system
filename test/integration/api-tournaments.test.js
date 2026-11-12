@@ -153,6 +153,22 @@ test("a stale result form cannot score a replacement opponent", async () => {
     second.participantA.userId, second.participantB.userId])).every(p => p.ratings.combined === 1000));
 });
 
+test("a recreated game rejects its stale form even with unchanged players", async () => {
+  const { started, params } = await reviewSoloCup(4, { venueMode: "irl" });
+  const match = started.rounds[0].matches[0];
+  const roundParams = { ...params, roundId: String(started.rounds[0].id) };
+  const preview = await tournamentsApi.getActivePairingsAdmin({ client, user: root, params: roundParams });
+  const body = editablePairingBody(preview);
+  [body.matchups[0].tableId, body.matchups[1].tableId] = [body.matchups[1].tableId, body.matchups[0].tableId];
+  const changed = await tournamentsApi.updateActivePairingsAdmin({ client, user: root, params: roundParams, body });
+  const current = changed.rounds[0].matches.find(m => m.id === match.id);
+  assert.notEqual(current.gameId, match.gameId);
+  const submission = { scores: scores(match.participantA.userId, match.participantB.userId), expectedGameId: match.gameId };
+  await assert.rejects(tournamentsApi.submitResult({ client, user: { id: match.participantA.userId },
+    params: { ...params, matchId: String(match.id) }, body: submission }), { status: 409 });
+  assert.equal((await gamesRepo.findById(client, current.gameId)).status, "open");
+});
+
 for (const deletedSide of ["participantA", "participantB"]) {
   test(`result correction retains recorded keys after deleting ${deletedSide}`, async () => {
     const { started, params } = await reviewSoloCup();
@@ -223,7 +239,9 @@ async function reviewTeamCup(pairingType = "shield_sword", captainPairingEnabled
     peopleByRoster.set(response.body.roster.id, people);
   }
   await tournamentsApi.closeRegistration({ client, user: root, params });
-  const tables = ["Volkus", "Gallowdark", "Tomb World"].map((killzone, index) => ({ killzone, deployment: index + 1 }));
+  const tables = Array.from({ length: pairingType === "sword_shield_classic" ? 6 : 3 }, (_, index) => ({
+    killzone: ["Volkus", "Gallowdark", "Tomb World"][index % 3], deployment: index % 3 + 1
+  }));
   await tournamentsApi.generateNextRoundAdmin({ client, user: root, params, body: { tables } });
   const started = await tournamentsApi.startAdmin({ client, user: root, params });
   return { tournament, params, started, peopleByRoster, tables };
