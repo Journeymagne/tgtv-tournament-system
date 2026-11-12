@@ -86,10 +86,19 @@ async function show(next){
 async function openDraft(id){
  try{
   const entry=cloud.state(id);
-  if(entry?.dirty){await adapter.openLocal(id);showEditor();return}
+  if(entry?.dirty){if(cloud.pendingProject(id)){await hydratePending(id)}else await adapter.openLocal(id);showEditor();return}
   const remote=await cloud.api('/api/drafts/'+encodeURIComponent(id));
   if(await adapter.openData(remote.project)){cloud.accept(remote);showEditor();status()}
  }catch(error){adapter.toast('Не удалось открыть черновик: '+error.message)}
+}
+async function hydratePending(id){
+ const pending=cloud.pendingProject(id);if(!pending)return true;
+ const expected=JSON.stringify(adapter.getData());
+ if(!await adapter.openData(pending.project,expected))return false;
+ // openData guards edits while its storage awaits. A new cloud generation can
+ // also appear during that await; never attach its lineage to this older copy.
+ if(cloud.pendingProject(id)?.key!==pending.key)return false;
+ cloud.adoptPending(id,pending.key);return true;
 }
 async function beginRename(id,draft){
  if(busy||!cloud)return;
@@ -289,7 +298,7 @@ async function resume(){
 async function init(options){
  adapter=options;
  if(root.KTAccount.id&&/^https?:$/.test(root.location?.protocol||'')){
-  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,journal:KTStorage.create({...root.KTAccount,databaseName:root.KTAccount.databaseName+'-pending',memoryFallback:false,journal:true}),loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),onChange:status,onRemove:id=>adapter.removeProject(id),onRename:(id,name)=>adapter.renameProject(id,name),onRecover:async(id,project)=>{await adapter.recoverProject(id,project);adapter.toast('Команда изменена в другой вкладке. Ваши правки сохранены отдельным черновиком в аккаунте.')}});
+  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,journal:KTStorage.create({...root.KTAccount,databaseName:root.KTAccount.databaseName+'-pending',memoryFallback:false,journal:true}),loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),beforeSave:async(id,key,needsAdoption)=>!needsAdoption||adapter.getData().team.id!==id||await hydratePending(id),onChange:status,onRemove:id=>adapter.removeProject(id),onRename:(id,name)=>adapter.renameProject(id,name),onRecover:async(id,project,options)=>{await adapter.recoverProject(options?.activate===false?null:id,project);adapter.toast('Команда изменена в другой вкладке. Ваши правки сохранены отдельным черновиком в аккаунте.')}});
   try{
    await cloud.connect();
    const localProjects=[];
@@ -303,13 +312,15 @@ async function init(options){
    }
    const active=adapter.getData().team.id,local=localProjects.find(project=>project.team.id===active);
    const selected=cloud.state(active)||(!local?cloud.list().find(team=>team.revision):null);
+   let adopted=true;
+   if(selected?.dirty)adopted=await hydratePending(selected.id);
    if(selected&&!selected.dirty){
     const remote=await cloud.api('/api/drafts/'+encodeURIComponent(selected.id));
     if(await adapter.openData(remote.project))cloud.accept(remote);
    }
    // Preserve access to local projects created before the header picker was removed.
    for(const project of localProjects)if(!cloud.state(project.team.id)&&!cloud.isDeleted(project.team.id))cloud.track(project);
-   await cloud.flush();
+   if(adopted)await cloud.flush();
   }catch(error){adapter.toast('Не удалось подключиться к хранилищу аккаунта: '+error.message);status()}
   const refresh=()=>void cloud.connect(true).then(async()=>{
    const snapshot=adapter.getData(),entry=cloud.state(snapshot.team.id);

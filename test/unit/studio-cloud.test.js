@@ -157,7 +157,7 @@ function recoveryHarness() {
   return create({storage:accountStorage,schedule:null,makeId:()=>`recovery-${++sequence}`,
    loadProject:async id=>accountStorage.getItem('kt-studio-cards-v6:'+id),
    onRemove:async id=>{removed.push(id);accountStorage.removeItem('kt-studio-cards-v6:'+id)},
-   onRecover:async(id,project)=>{recoveries.push({id,project});accountStorage.setItem('kt-studio-cards-v6:'+project.team.id,JSON.stringify(project))},
+   onRecover:async(id,project,options)=>{recoveries.push({id,project,options});accountStorage.setItem('kt-studio-cards-v6:'+project.team.id,JSON.stringify(project))},
    request:async(url,options={})=>{
     let value;
     if(url==='/api/session')value={csrfToken:'token'};
@@ -260,4 +260,18 @@ test('inaccessible pending journal stops connection before remote content can be
   request:async url=>{calls.push(url);return {ok:true,json:async()=>({teams:[]})}}});
  await assert.rejects(cloud.connect(),/Recovery journal unavailable/);
  assert.equal(cloud.isReady(),false);assert.deepEqual(calls,[]);
+});
+
+for(const remoteRevision of [1,2])test(`an unadopted restored upload at remote revision ${remoteRevision} preserves an independent editor branch`,async()=>{
+ const h=recoveryHarness(),editing=h.tab();await editing.connect();h.edit(editing,'Restored A');
+ await assert.rejects(editing.save('team'),/Offline/);
+ h.server.revision=remoteRevision;
+ const restarted=h.tab();await restarted.connect();h.server.fail=false;
+ let started,release;const sent=new Promise(resolve=>started=resolve),wait=new Promise(resolve=>release=resolve);
+ h.server.hold={started,wait};const saving=restarted.save('team');await sent;
+ h.edit(restarted,'Independent B');release();await saving;
+ if(remoteRevision===2){assert.equal(h.recoveries[0].project.team.name,'Restored A','the first recovery copy contains its uploaded payload, never the newer independent editor');assert.equal(h.recoveries[0].options.activate,false,'persist the earlier recovery without replacing the newer editor')}
+ await restarted.flush();
+ assert.deepEqual(h.uploads.map(row=>row.project.team.name),['Restored A','Independent B']);
+ assert.deepEqual(h.uploads.map(row=>row.revision),[1,1],'the independent branch must retain its own base revision after either normal or conflict acknowledgement');
 });

@@ -8,7 +8,7 @@ const Model=require('../../public/studio/model');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../../public/studio/community.js'),'utf8');
 function memory(){const values=new Map();return {getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key),keys:()=>[...values.keys()]};}
 
-function communityTab({storage,request}){
+function communityTab({storage,request,beforeOpenData}){
  const projectKey='kt-studio-cards-v6:team',listeners=new Map(),nodes=new Map(),toasts=[];
  let editor=JSON.parse(storage.getItem(projectKey)),cloud;
  const node=selector=>{if(!nodes.has(selector))nodes.set(selector,{dataset:{},classList:{toggle(){},add(){}},addEventListener(){},setAttribute(){}});return nodes.get(selector)};
@@ -24,6 +24,7 @@ function communityTab({storage,request}){
   // expected editor snapshot still matches after the await.
   openData:async(project,expected)=>{
    const next=Model.validate(Model.migrate(project));
+   if(beforeOpenData)await beforeOpenData(next,expected);
    await adapter.persist();if(expected!==undefined&&JSON.stringify(editor)!==expected)return false;
    await projectStorage.save(projectKey,JSON.stringify(next));
    if(expected!==undefined&&JSON.stringify(editor)!==expected)return false;
@@ -80,4 +81,35 @@ test('community restart hydrates active editor and ordinary storage from pending
  assert.equal(uploads[1].project.strategicPloys[0].body,'Recovered private rule','the next edit must not replace recovered content with the stale pre-restart editor');
  assert.equal(uploads[1].project.team.subtitle,'A subsequent edit');
  assert.deepEqual(restarted.toasts,[]);
+});
+
+test('pending adoption interrupted by a newer editor edit preserves both pending branches',{timeout:5000},async()=>{
+ const storage=memory(),projectKey='kt-studio-cards-v6:team';
+ const original=Model.validate(Model.migrate(Model.newProject('team','Team')));original.strategicPloys[0].body='Old ordinary rule';
+ storage.setItem(projectKey,JSON.stringify(original));
+ let uploads=0;
+ const request=async(url,options={})=>{
+  if(options.method==='PUT'){uploads++;return {ok:false,status:503,json:async()=>({error:'Offline'})}}
+  return {ok:true,json:async()=>url==='/api/session'?{csrfToken:'token'}:{teams:[{id:'team',name:'Team',revision:1}]}};
+ };
+ const editing=Cloud.create({storage,request,schedule:null,loadProject:async()=>storage.getItem(projectKey)});
+ await editing.connect();const pending=structuredClone(original);pending.strategicPloys[0].body='Recovered private rule';editing.track(pending);
+ await assert.rejects(editing.save('team'),/Offline/);
+ const pendingKey=storage.keys().find(key=>key.startsWith('kt-studio-pending-v1:'));
+ let began,release;const adopting=new Promise(resolve=>began=resolve),held=new Promise(resolve=>release=resolve);
+ const restarted=communityTab({storage,request,beforeOpenData:async(project,expected)=>{
+  assert.equal(project.strategicPloys[0].body,'Recovered private rule');assert.equal(typeof expected,'string','adoption uses the editor snapshot guard');
+  began();await held;
+ }});
+ const initializing=restarted.community.init(restarted.adapter);
+ await adopting;
+ restarted.editor.team.subtitle='Typed while recovery awaits storage';
+ restarted.community.track(restarted.adapter.getData());await restarted.adapter.persist();await nextTurn();
+ const retained=storage.getItem(pendingKey)!==null;
+ release();await initializing;
+ assert(retained,'a not-yet-adopted restored snapshot is independent of edits made in the stale editor');
+ assert.equal(restarted.editor.team.subtitle,'Typed while recovery awaits storage');
+ assert.equal(restarted.editor.strategicPloys[0].body,'Old ordinary rule','conditional adoption must not overwrite a newer editor');
+ assert.equal(uploads,1,'cancelled adoption must not acknowledge the pending snapshot during startup');
+ assert.equal(storage.keys().filter(key=>key.startsWith('kt-studio-pending-v1:')).length,2,'both the recovered payload and the newer editor branch remain recoverable');
 });
