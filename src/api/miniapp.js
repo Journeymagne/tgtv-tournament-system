@@ -93,6 +93,7 @@ async function preferences(ctx) {
 
 function route(method, path, handler, write = false) {
   return { method, path: "/api/miniapp" + path, tx: write, maxBodyBytes: 24576,
+    ratingMutation: write && path.startsWith("/games/"),
     handler: async ctx => handler(await miniAuth.authenticate(ctx, write)) };
 }
 

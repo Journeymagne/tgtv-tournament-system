@@ -1309,6 +1309,22 @@ async function prepareRolledBackRoundSetup(
 ) {
   const draft = tournament.roundDraft;
   const setupBody = roundDraftSetupBody(draft, body);
+  if (tournament.format === TOURNAMENT_FORMATS.SWISS && !Object.hasOwn(draft, "byeParticipantId") &&
+      setupBody.byeParticipantId == null) {
+    const eligible = participants.filter(participant => (rounds.length
+      ? [PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.PENDING_PLACEMENT]
+      : [PARTICIPANT_STATUSES.JOINED, PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.PENDING_PLACEMENT]).includes(participant.status));
+    if (eligible.length % 2 === 1 && setupBody.matchups.length === (eligible.length - 1) / 2) {
+      const assigned = setupBody.matchups.flatMap(match => [match.participantAId, match.participantBId])
+        .filter(id => id != null && id !== "").map(Number);
+      const assignedIds = new Set(assigned);
+      const missing = eligible.filter(participant => !assignedIds.has(participant.id));
+      if (assigned.length !== eligible.length - 1 || assignedIds.size !== assigned.length || missing.length !== 1) {
+        throw new HttpError(409, "The saved bye is ambiguous. Provide its recipient and complete pairings");
+      }
+      setupBody.byeParticipantId = missing[0].id;
+    }
+  }
   if (setupBody.byeParticipantId != null &&
       !roundSetupParticipantPool(participants).some(participant => participant.id === Number(setupBody.byeParticipantId))) {
     throw new HttpError(409, "The saved bye recipient is no longer available");

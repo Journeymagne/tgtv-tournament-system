@@ -164,6 +164,7 @@ function createRouter(routes, deps) {
     const runner = route.tx ? withTransaction : withClient;
     const execute = () =>
       runner(async (client) => {
+        if (route.ratingMutation) await require("../db/rating-write-lock").acquireRatingWriteLock(client);
         const auth = route.auth || "none";
         let user = null;
 
@@ -177,7 +178,6 @@ function createRouter(routes, deps) {
           user = await loadUser(client, req);
         }
 
-        if (route.ratingMutation) await require("../db/rating-write-lock").acquireRatingWriteLock(client);
         if (route.permission) user = await require("../api/authorization").authorize({ client, user, params, route });
         const context = { params, query: url.searchParams, body, user, client, req };
         await enforceResources(route, context);

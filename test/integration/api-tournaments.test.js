@@ -280,14 +280,25 @@ for (const legacyDraft of [false, true]) test(`a later odd Swiss draft preserves
   assert.deepEqual(restored.rounds.at(-1).matches.map(m => [m.participantAId, m.participantBId, m.isBye]), original);
 });
 
-for (const deletedSide of ["participantA", "participantB"]) test(`deleted ${deletedSide} retains its secondary registered faction`, async () => {
+for (const deletedSide of ["participantA", "participantB"]) for (const replaced of [false, true]) test(`deleted ${deletedSide} retains its secondary registered faction${replaced ? " through replacement" : ""}`, async () => {
   const { started, params } = await reviewSoloCup(4, { factionCount: 2 }, ["Kasrkin", "Legionaries"]);
   const match = started.rounds[0].matches[0];
   const body = { scores: scores(match.participantA.userId, match.participantB.userId) };
   body.scores[match.participantA.userId].faction = "Legionaries";
   await tournamentsApi.saveMatchResultAdmin({ client, user: root, params: { ...params, matchId: String(match.id) }, body });
   const original = await gamesRepo.findById(client, match.gameId);
+  if (replaced) {
+    const replacement = await createUser("Secondary faction replacement");
+    const previous = match[deletedSide];
+    await tournamentsApi.updateParticipant({ client, user: root, params: { ...params, participantId: String(previous.id) },
+      body: { userId: replacement.id, factions: ["Kommandos"], expectedIdentity: {
+        userId: previous.userId, displayName: previous.displayName, isProxy: false
+      } } });
+    await client.query("DELETE FROM users WHERE id=$1", [replacement.id]);
+  }
   await client.query("DELETE FROM users WHERE id=$1", [match[deletedSide].userId]);
+  const detail = await gamesApi.getOne({ client, user: root, params: { id: String(match.gameId) } });
+  assert.deepEqual(detail.game.players.find(p => p.id === match[deletedSide].userId).factions, ["Kasrkin", "Legionaries"]);
   await inTransaction(client, () => require("../../src/api/admin").saveGameResult({ client, user: root,
     params: { id: String(match.gameId) }, body }));
   const updated = await gamesRepo.findById(client, match.gameId);

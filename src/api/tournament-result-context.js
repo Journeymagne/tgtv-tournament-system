@@ -2,6 +2,17 @@ const { HttpError, ValidationError } = require("../http/io");
 const recordedParticipants = require("../db/repositories/game-participants");
 const { matchParticipant, participantIdentity, participantResultKey } = require("../domain/tournaments/results");
 
+function registeredFactionsForRecordedSide(match, participant, saved) {
+  const frozen = participant && match.participantSnapshots?.[participant.id];
+  if (frozen?.factions) return frozen.factions;
+  // Account deletion leaves the same seat's registered choices intact. A
+  // replacement has a frozen snapshot; never borrow its new occupant's list.
+  if (participant && !saved.isProxy && participant.userId === saved.userId) {
+    return participant.factions || saved.factions;
+  }
+  return saved.factions;
+}
+
 function resolveSides(match, participants, recorded) {
   const resolve = id => {
     const participant = matchParticipant(match, participants.find(p => p.id === id));
@@ -14,7 +25,7 @@ function resolveSides(match, participants, recorded) {
       resultKey: saved.resultKey,
       displayName: saved.displayNameSnapshot,
       faction: saved.factionSnapshot,
-      factions: match.participantSnapshots?.[id]?.factions || saved.factions,
+      factions: registeredFactionsForRecordedSide(match, participant, saved),
       isProxy: saved.isProxy
     };
   };
@@ -65,4 +76,4 @@ async function attachRecordedMatchIdentities(client, matches, participants) {
   });
 }
 
-module.exports = { resolveTournamentResultSides, assertTournamentResultContext, attachRecordedMatchIdentities };
+module.exports = { resolveTournamentResultSides, assertTournamentResultContext, attachRecordedMatchIdentities, registeredFactionsForRecordedSide };
