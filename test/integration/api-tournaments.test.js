@@ -126,10 +126,12 @@ async function addUnregisteredParticipant(tournament, displayName) {
   return result.body.participant;
 }
 
-async function reviewSoloCup(count = 4, overrides = {}) {
+async function reviewSoloCup(count = 4, overrides = {}, factions = []) {
   const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 3, ...overrides });
   for (let index = 0; index < count; index++) {
-    await addUserParticipant(tournament, await createUser(`Review ${tournament.id} ${index}`));
+    const player = await createUser(`Review ${tournament.id} ${index}`);
+    await tournamentsApi.addParticipant({ client, user: root, params: { id: String(tournament.id) },
+      body: { userId: player.id, ...(factions.length ? { factions } : {}) } });
   }
   return { tournament, started: await closeAndStart(tournament), params: { id: String(tournament.id) } };
 }
@@ -255,8 +257,8 @@ async function reviewTeamCup(pairingType = "shield_sword", captainPairingEnabled
   return { tournament, params, started, peopleByRoster, tables };
 }
 
-test("a later odd Swiss draft preserves its selected bye recipient", async () => {
-  const { started, params } = await reviewSoloCup(5, { pairingMode: "by_tp" });
+for (const legacyDraft of [false, true]) test(`a later odd Swiss draft preserves its selected bye recipient (${legacyDraft ? "legacy" : "current"})`, async () => {
+  const { tournament, started, params } = await reviewSoloCup(5, { pairingMode: "by_tp" });
   const played = started.rounds[0].matches.filter(match => !match.isBye);
   for (const match of played) await tournamentsApi.saveMatchResultAdmin({ client, user: root,
     params: { ...params, matchId: String(match.id) }, body: { scores: scores(match.participantA.userId, match.participantB.userId) } });
@@ -266,10 +268,86 @@ test("a later odd Swiss draft preserves its selected bye recipient", async () =>
   const original = second.rounds.at(-1).matches.map(m => [m.participantAId, m.participantBId, m.isBye]);
   assert.equal(second.rounds.at(-1).matches.find(m => m.isBye).participantAId, byeParticipantId);
   await tournamentsApi.rollbackLatestRoundAdmin({ client, user: root, params });
+  if (legacyDraft) {
+    const compact = second.rounds.at(-1).matches.filter(m => !m.isBye).map(m => ({
+      participantAId: m.participantAId, participantBId: m.participantBId, tableId: m.tableId
+    }));
+    await client.query("UPDATE tournaments SET round_draft=jsonb_set(round_draft - 'byeParticipantId', '{matchups}', $2::jsonb) WHERE id=$1", [tournament.id, JSON.stringify(compact)]);
+  }
   const preview = await tournamentsApi.previewNextRoundAdmin({ client, user: root, params });
   assert.deepEqual(preview.round.matches.map(m => [m.participantAId, m.participantBId, Boolean(m.isBye)]), original);
   const restored = await tournamentsApi.generateNextRoundAdmin({ client, user: root, params });
   assert.deepEqual(restored.rounds.at(-1).matches.map(m => [m.participantAId, m.participantBId, m.isBye]), original);
+});
+
+for (const deletedSide of ["participantA", "participantB"]) test(`deleted ${deletedSide} retains its secondary registered faction`, async () => {
+  const { started, params } = await reviewSoloCup(4, { factionCount: 2 }, ["Kasrkin", "Legionaries"]);
+  const match = started.rounds[0].matches[0];
+  const body = { scores: scores(match.participantA.userId, match.participantB.userId) };
+  body.scores[match.participantA.userId].faction = "Legionaries";
+  await tournamentsApi.saveMatchResultAdmin({ client, user: root, params: { ...params, matchId: String(match.id) }, body });
+  const original = await gamesRepo.findById(client, match.gameId);
+  await client.query("DELETE FROM users WHERE id=$1", [match[deletedSide].userId]);
+  await inTransaction(client, () => require("../../src/api/admin").saveGameResult({ client, user: root,
+    params: { id: String(match.gameId) }, body }));
+  const updated = await gamesRepo.findById(client, match.gameId);
+  assert.deepEqual(updated.result.scores, original.result.scores);
+  assert.equal(updated.result.winnerId, original.result.winnerId);
+  assert.equal(updated.result.scores[match[deletedSide].userId].faction, "Legionaries");
+});
+
+test("miniapp cookie renewal waits before session locks during account deletion", { timeout: 20000 }, async () => {
+  const { started } = await reviewSoloCup();
+  const match = started.rounds[0].matches[0];
+  const playerId = match.participantA.userId;
+  const token = "review-miniapp-aging-session";
+  await client.query("INSERT INTO platform_ownership(owner_user_id) VALUES($1)", [root.id]);
+  await require("../../src/db/repositories/sessions").create(client, { token, userId: playerId,
+    expiresAt: new Date(Date.now() + 60000).toISOString() });
+  const worker = await pool.connect();
+  const pid = (await worker.query("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+  const server = await require("../helpers/client").startApiServer(require("../../src/http/router").createRouter(
+    require("../../src/api/routes"), {
+      withClient: action => action(worker),
+      withTransaction: action => inTransaction(worker, () => action(worker)),
+      loadUser: authApi.loadUserFromRequest
+    }));
+  const cookie = `sid=${token}`;
+  const http = require("../helpers/client").createClient(server.baseUrl, {
+    cookie, "x-telegram-account": String(playerId),
+    "x-csrf-token": require("../../src/telegram/security").csrfToken({ headers: { cookie } })
+  });
+  let operation;
+  try {
+    const detail = await http.get(`/api/miniapp/games/${match.gameId}`);
+    assert.equal(detail.status, 200, JSON.stringify(detail.body));
+    await client.query("UPDATE sessions SET expires_at=NOW()+interval '1 minute' WHERE token=$1", [token]);
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(847362960)");
+    operation = http.post(`/api/miniapp/games/${match.gameId}/result`, {
+      revision: detail.body.game.revision, scores: scores(match.participantA.userId, match.participantB.userId)
+    });
+    operation.catch(() => {});
+    let waiting = false;
+    const deadline = Date.now() + 5000;
+    while (!waiting && Date.now() < deadline) {
+      waiting = (await client.query("SELECT wait_event='advisory' AS waiting FROM pg_stat_activity WHERE pid=$1", [pid])).rows[0]?.waiting;
+      if (!waiting) await new Promise(resolve => setImmediate(resolve));
+    }
+    assert.equal(waiting, true, "the miniapp request must reach the shared boundary");
+    await client.query("SELECT token FROM sessions WHERE token=$1 FOR UPDATE NOWAIT", [token]);
+    await require("../../src/api/admin").deleteUser({ client, user: root, params: { id: String(playerId) } });
+    await client.query("COMMIT");
+    assert.equal((await operation).status, 401, "deletion revokes the queued cookie before any result is written");
+    const game = await gamesRepo.findById(client, match.gameId);
+    assert.equal(game.status, "open");
+    assert.equal(game.result, null);
+  } finally {
+    await client.query("ROLLBACK");
+    await Promise.allSettled(operation ? [operation] : []);
+    await server.close();
+    worker.release();
+  }
 });
 
 test("Swiss generation uses the displayed standings after opponents leave", async () => {
