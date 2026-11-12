@@ -5,7 +5,7 @@ const challengesRepo = require("../db/repositories/challenges");
 const tournamentMatchesRepo = require("../db/repositories/tournament-matches");
 const { calculateSubmittedResult, matchScoreFor } = require("../domain/scoring");
 const { calculateElo, ELO_K } = require("../domain/elo");
-const { gameView } = require("./views");
+const { gameView, gameResultRevision } = require("./views");
 const { requirePositiveIntId } = require("./params");
 const { teamGamePermissions } = require("../domain/team-game-permissions");
 const { killTeamSearchKeys } = require("../domain/kill-teams");
@@ -35,6 +35,30 @@ async function findGame(client, id) {
   const game = await gamesRepo.findById(client, gameId);
   if (!game) throw new HttpError(404, "Game not found");
   return game;
+}
+
+async function guardExpectedResultRevision(client, candidate, body) {
+  if (!Object.hasOwn(body || {}, 'expectedResultRevision')) return;
+  const expected = body.expectedResultRevision;
+  if (typeof expected !== 'string' || !/^[a-f0-9]{64}$/.test(expected)) {
+    throw new HttpError(400, 'Invalid expected game revision');
+  }
+  // All callers run inside the router transaction. Match the domain lock order:
+  // tournament -> team match (when present) -> game. Never lock a game first and
+  // then wait for its tournament: pairing undo acquires these in the other order.
+  if (candidate.sourceType === 'tournament_match') {
+    const match = await tournamentMatchesRepo.findById(client, candidate.sourceId);
+    if (!match || match.gameId !== candidate.id) throw new HttpError(409, 'Tournament game link is invalid');
+    if (!await require('../db/repositories/tournaments').lockById(client, match.tournamentId)) throw new HttpError(404, 'Tournament not found');
+  } else if (candidate.sourceType === 'team_match_game') {
+    const teamMatches = require('../db/repositories/team-matches');
+    const match = await teamMatches.findById(client, candidate.sourceId);
+    if (!match) throw new HttpError(409, 'Team tournament game link is invalid');
+    if (!await require('../db/repositories/tournaments').lockById(client, match.tournamentId)) throw new HttpError(404, 'Tournament not found');
+    if (!await teamMatches.findById(client, match.id, true)) throw new HttpError(409, 'Pairing changed. Open the current game again');
+  }
+  const current = await lockGame(client, candidate.id);
+  if (gameResultRevision(current) !== expected) throw new HttpError(409, 'Game changed. Refresh and review its result before trying again');
 }
 
 async function tournamentRequest(client, game, context, action) {
@@ -228,6 +252,7 @@ async function getByTournamentMatch({ client, user, params }) {
 
 async function submitResult({ client, user, params, body }) {
   const candidate = await findGame(client, params.id);
+  await guardExpectedResultRevision(client, candidate, body);
   if (candidate.sourceType === "tournament_match") {
     return { game: await tournamentRequest(client, candidate, { client, user, params, body }, "submitResult") };
   }
@@ -277,8 +302,9 @@ async function exitGame({ client, user, params }) {
   return { game: await viewOf(client, cancelled) };
 }
 
-async function respondToResult({ client, user, params }) {
+async function respondToResult({ client, user, params, body = {} }) {
   const candidate = await findGame(client, params.id);
+  await guardExpectedResultRevision(client, candidate, body);
   if (candidate.sourceType === "tournament_match") {
     const action = params.action === "reject-result" ? "rejectResult" : "confirmResult";
     return { game: await tournamentRequest(client, candidate, { client, user, params }, action) };

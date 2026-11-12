@@ -69,6 +69,10 @@ function mapGameLink(row) {
       ? {
           id: row.game_id,
           status: row.game_status,
+          sourceType: row.source_type || "team_match_game",
+          sourceId: row.source_id || row.team_match_id || null,
+          submittedBy: row.submitted_by,
+          submittedAt: toIso(row.submitted_at),
           playerIds: row.player_ids || [],
           players: row.game_players || [],
           resultPlayerIds: row.game_players?.length ? row.game_players.map((player) => player.id) : row.player_ids || [],
@@ -268,6 +272,7 @@ async function listGameLinksForMatches(client, teamMatchIds) {
   if (!teamMatchIds.length) return [];
   const { rows } = await client.query(
     `SELECT l.*, g.status AS game_status, g.player_ids, g.pending_result, g.result, g.elo, g.venue_mode,
+            g.source_type, g.source_id, g.submitted_by, g.submitted_at,
             (SELECT jsonb_agg(jsonb_build_object('id', gp.result_key, 'userId', gp.user_id,
               'name', gp.display_name_snapshot,
               'faction', COALESCE(NULLIF(gp.faction_snapshot, ''), CASE WHEN NOT gp.is_proxy THEN
