@@ -65,6 +65,8 @@ for(const existing of [true,false])test(`review ${existing?'reassessment':'new f
  assert.equal(h.host.form.elements.reevaluate.checked,false,'approval to assess v2 never silently becomes approval for v3');
  assert.equal(h.host.form.querySelector('[data-review-submit]').disabled,true,'retained scores wait for confirmation of the refreshed version');
  assert.match(h.host.form.querySelector('[data-rated-version]').textContent,/3$/,'the refreshed target version is visible before confirmation');
+ await h.emit('submit',h.host.form);
+ assert.equal(h.calls.filter(row=>row.method==='PATCH'||row.method==='POST').length,1,'programmatic submit cannot bypass refreshed-version consent');
  await h.input({reevaluate:true});
  assert.match(h.host.form.querySelector('[data-rated-version]').textContent,/3$/,'confirmation targets the refreshed publication');
  assert.equal(h.host.form.querySelector('[data-review-submit]').disabled,false);

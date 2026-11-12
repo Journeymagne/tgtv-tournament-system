@@ -37,6 +37,13 @@ value for these defects. Durable recovery must not depend on a clean tab's last
 write to a shared metadata object. Notification consistency must be enforced in
 the real database transaction, with deterministic lock ordering across users.
 
+Implementation choices: operative stats remain extensible with 1–12 columns
+(an object, not an array/string); legacy renderer inputs still terminate beyond
+that limit. Studio recovery uses immutable pending records in account-scoped
+storage, with a separate IndexedDB-backed pending database when localStorage is
+full. A shell `kt:session` event carries only `{user}` and lets browser consumers
+invalidate earlier-account replies before committing state.
+
 Do not change tournament behavior, production authentication or database access
 boundaries. Preserve current publication privacy, revision conflict recovery,
 deleted-project tombstones, notification history and same-event idempotency.

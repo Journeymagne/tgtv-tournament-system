@@ -239,3 +239,25 @@ test('legacy dirty metadata still uploads its persisted project after restart',a
  const restarted=h.tab();await restarted.connect();await restarted.flush();
  assert.equal(h.uploads[0].revision,1);assert.equal(h.uploads[0].project.team.name,'Legacy local edit');
 });
+
+test('failed durable recovery write remains explicit when the account upload also fails',async()=>{
+ const cloud=create({storage:memory(),schedule:null,loadProject:async()=>null,
+  journal:{keys:async()=>[],save:async()=>false,load:async()=>null,remove:async()=>{}},
+  request:async(url,options={})=>{
+   if(options.method==='PUT')return {ok:false,status:503,json:async()=>({error:'Offline'})};
+   return {ok:true,json:async()=>url==='/api/session'?{csrfToken:'token'}:{teams:[{id:'team',revision:1}]}};
+  }});
+ await cloud.connect();cloud.track(model.newProject('team','Not durably saved'));
+ await assert.rejects(cloud.save('team'),/Offline/);
+ assert.equal(cloud.state('team').dirty,true);
+ assert.match(cloud.state('team').error,/Локальная копия.*Не закрывайте вкладку/,'the upload error must not hide failed local recovery persistence');
+});
+
+test('inaccessible pending journal stops connection before remote content can be adopted',async()=>{
+ const calls=[];
+ const cloud=create({storage:memory(),schedule:null,loadProject:async()=>null,
+  journal:{keys:async()=>{throw Error('Recovery journal unavailable')}},
+  request:async url=>{calls.push(url);return {ok:true,json:async()=>({teams:[]})}}});
+ await assert.rejects(cloud.connect(),/Recovery journal unavailable/);
+ assert.equal(cloud.isReady(),false);assert.deepEqual(calls,[]);
+});

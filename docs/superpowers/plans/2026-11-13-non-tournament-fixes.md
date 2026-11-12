@@ -31,12 +31,14 @@ integrates domain fixes, generated assets and independent review.
 
 ### Task 1: Studio persistence, rendering and review reconciliation (findings 1, 2, 6)
 
-**Files:** public/studio/{cloud,account,community,model,card-renderer,reviews}.js;
+**Files:** public/studio/{cloud,account,community,project-storage,model,card-renderer,reviews}.js;
 test/unit/studio-cloud.test.js; related renderer/review tests; new narrowly scoped
 browser harness tests if existing tests cannot exercise the real flows.
 
 **Interfaces:** Preserve KTCloud's callers and account-scoped storage. Extend the
 storage adapter only as needed for durable recovery. Preserve review API contracts.
+The pending journal uses strict durability and enumerates IndexedDB keys even
+when localStorage cannot store markers; its storage tests cover quota failure.
 
 - [ ] Add failing regressions: failed local upload → another clean tab refresh →
   restart; independent pending snapshots; deleted draft; oversized stats and

@@ -289,7 +289,7 @@ async function resume(){
 async function init(options){
  adapter=options;
  if(root.KTAccount.id&&/^https?:$/.test(root.location?.protocol||'')){
-  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),onChange:status,onRemove:id=>adapter.removeProject(id),onRename:(id,name)=>adapter.renameProject(id,name),onRecover:async(id,project)=>{await adapter.recoverProject(id,project);adapter.toast('Команда изменена в другой вкладке. Ваши правки сохранены отдельным черновиком в аккаунте.')}});
+  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,journal:KTStorage.create({...root.KTAccount,databaseName:root.KTAccount.databaseName+'-pending',memoryFallback:false,journal:true}),loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),onChange:status,onRemove:id=>adapter.removeProject(id),onRename:(id,name)=>adapter.renameProject(id,name),onRecover:async(id,project)=>{await adapter.recoverProject(id,project);adapter.toast('Команда изменена в другой вкладке. Ваши правки сохранены отдельным черновиком в аккаунте.')}});
   try{
    await cloud.connect();
    const localProjects=[];
