@@ -122,11 +122,12 @@ document.addEventListener('click',async event=>{
   if(action==='reconcile'){
    const result=await request(path());
    if(editing&&!result.myReview||result.myReview?.hidden)throw Error(t('Обзор удалён или скрыт. Скопируйте ваш текст перед обновлением.','Review removed or hidden. Copy your text before refreshing.'));
-   const changed=draft.versionLabel!==result.currentVersionLabel;
-   if(changed&&(!editing||draft.reevaluate)){versionConfirmation=true;draft.reevaluate=false}
+   const previousTarget=editing&&!draft.reevaluate&&!versionConfirmation?editing.versionLabel:draft.versionLabel;
+   const refreshedTarget=result.myReview&&!draft.reevaluate&&!versionConfirmation?result.myReview.versionLabel:result.currentVersionLabel;
+   if(previousTarget!==refreshedTarget){versionConfirmation=true;draft.reevaluate=false}
    draft.versionLabel=result.currentVersionLabel;editing=result.myReview||null;
    data={...data,...result};updateSummary(data.ratingSummary);render();
-   errorMessage({message:versionConfirmation?t('Версия команды обновлена. Подтвердите оценку новой версии перед сохранением.','Publication updated. Confirm the new version before saving.'):t('Ревизия обновлена. Проверьте свой текст и сохраните ещё раз.','Revision refreshed. Check your text and save again.')});return;
+   errorMessage({message:versionConfirmation?t('Целевая версия оценки изменилась. Подтвердите оценку текущей версии перед сохранением.','The rating target changed. Confirm the current version before saving.'):t('Ревизия обновлена. Проверьте свой текст и сохраните ещё раз.','Revision refreshed. Check your text and save again.')});return;
   }
   if(action==='link'){await navigator.clipboard.writeText(new URL('/studio#/library/'+team.id+'/reviews?review='+review.id,location.origin).href);errorMessage({message:t('Ссылка скопирована.','Link copied.')});return}
   if(action==='refresh'||action==='admin'||action==='reports'){if(!canLeave())return;discard();reportMode=false;if(action==='admin')adminMode=!adminMode;if(action==='reports'){await reports();return}await load();return}

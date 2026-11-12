@@ -204,7 +204,11 @@ function create({request,storage,journal,loadProject,onChange=()=>{},onRemove=()
     conflict:!sameRevision||!!local?.conflict,
     error:sameRevision?(local?.error||''):'Есть другая версия команды. При сохранении ваши правки попадут в отдельный черновик аккаунта.'});
    const pendingRecord=pending.get(active.get(id));
-   if(pendingRecord)remember(JSON.parse(snapshots.get(id)),entries.get(id).revision,lineage(pendingRecord),id,pendingRecord.branchId||pendingRecord.key);
+   if(pendingRecord){
+    const needsAdoption=detached.has(pendingRecord.key);
+    const replacement=remember(JSON.parse(snapshots.get(id)),entries.get(id).revision,lineage(pendingRecord),id,pendingRecord.branchId||pendingRecord.key);
+    if(needsAdoption)detached.add(replacement.key);
+   }
    notify();return result;
   }).catch(async error=>{if(error.status===410)await forget(id);if(error.status===401||error.status===403)ready=false;throw error});
   queue=job.then(()=>{},()=>{});return job;
