@@ -145,7 +145,7 @@
     const elimination = game.tournament?.format === "single_elimination";
     const setup = game.pendingResult?.result?.killzone || game.teamTournamentGame?.mission || game.tournamentMatch?.mission || {};
     const locked = game.teamTournamentGame?.missionLocked;
-    return `<form id="result-form" class="card"><h2>${game.status === "pending_confirmation" ? tr("Изменить результат") : tr("Внести результат")}</h2><p class="subtle">${tr("Очки за операции и основной бонус считаются по правилам сайта.")}</p>${game.players.map(p => {
+    return `<form id="result-form" class="card"><h2>${game.status === "pending_confirmation" ? tr("Изменить результат") : tr("Внести результат")}</h2>${game.players.map(p => {
       const score = points[p.id] || {};
       const factions = p.factions?.length ? p.factions : p.faction ? [p.faction] : [];
       return `<fieldset class="score-fieldset" data-player="${p.id}"><legend>${esc(p.name)}${playerIsMe(p) ? tr(" · вы") : ""}</legend><div class="score-fields">${["crit", "kill", "tac"].map(key => `<label>${key.toUpperCase()} OP<input type="number" inputmode="numeric" min="0" max="6" step="1" required name="${p.id}:${key}" value="${score[key] ?? ""}" aria-label="${esc(p.name)} — ${key.toUpperCase()} OP"></label>`).join("")}</div><div class="form-row"><label>${tr("Основная операция")}<select name="${p.id}:primary" required>${options(["crit", "kill", "tac"], score.primary)}</select></label><label>Tac Op<select name="${p.id}:tacOp">${options(reference.tacOpOptions, score.tacOp, tr("Не указан"))}</select></label></div>${factions.length ? `<label class="picker">${tr("Команда")}<select name="${p.id}:faction" required>${options(factions, score.faction || (factions.length === 1 ? factions[0] : ""))}</select></label>` : ""}<div class="score-total"><span>${tr("Всего с основным бонусом")}</span><b data-total="${p.id}">—</b></div></fieldset>`;
@@ -189,7 +189,7 @@
     if (profile.teams?.length) html += `<section class="card"><h2>${tr("Мои команды")}</h2>${profile.teams.filter(t => !t.archivedAt).map(t => `<span class="team-chip">${esc(t.name)}</span>`).join("")}</section>`;
     html += `<div class="section-title"><h2>${tr("Последние игры")}</h2></div>${profile.recentGames?.length ? profile.recentGames.map(matchLink).join("") : empty(tr("Первая игра впереди"), tr("Завершённые матчи и ваш прогресс появятся здесь."), "", "match")}`;
     html += notifications ? `<form id="preferences-form" class="card"><h2>${tr("Уведомления в Telegram")}</h2>${notifications.blocked ? `<p class="notice">${tr("Бот заблокирован. Откройте диалог с ним и нажмите Start, чтобы снова получать уведомления.")}</p>` : ""}<label class="check-row"><input name="enabled" type="checkbox"${notifications.enabled ? " checked" : ""}><span>${tr("Получать уведомления")}</span></label>${[["pairings", tr("Турнирные пары")], ["results", tr("Подтверждение результатов")], ["invitations", tr("Вызовы и приглашения")], ["tournaments", tr("Начало турниров")]].map(([key, title]) => `<label class="check-row"><input name="${key}" type="checkbox"${notifications.preferences[key] ? " checked" : ""}><span>${title}</span></label>`).join("")}<button class="primary wide" type="submit">${tr("Сохранить настройки")}</button></form>` : `<section class="card"><h2>${tr("Уведомления в Telegram")}</h2><p class="subtle">${tr("Подключите Telegram к существующему аккаунту в профиле сайта.")}</p>${websiteButton("/tournament#/profile", tr("Подключить аккаунт"))}</section>`;
-    html += `<p class="subtle">${tr("Язык берётся из настроек бота (/settings).")}</p>`;
+    html += `<p class="subtle">${tr("Изменить язык: /settings в боте.")}</p>`;
     html += `<div class="actions">${websiteButton("/tournament#/profile", tr("Полный профиль"))}${user.isAdmin || user.canCreateTournaments ? websiteButton("/tournament#/administration/tournaments", tr("Управление турнирами")) : ""}</div>`;
     return html;
   }
@@ -310,10 +310,9 @@
       applyLocale(session.locale);
       if (!session.authenticated) {
         state.ready = false; nav.hidden = true; content.setAttribute("aria-busy", "false");
-        content.innerHTML = heading(tr("Турниры в Telegram")) + empty(session.reason === "not_linked" ? tr("Подключите свой аккаунт") : tr("Добро пожаловать"), session.reason === "not_linked" ? tr("Войдите в профиль сайта, подключите этого Telegram-бота и подтвердите привязку. Ваш рейтинг и история сохранятся. Затем вернитесь сюда.") : tr("Откройте миниап из бота или войдите в свой аккаунт на сайте."), websiteButton("/tournament#/profile", tr("Открыть профиль сайта")) + `<button class="secondary" data-retry>${tr("Я подключил аккаунт")}</button>`, "shield");
+        content.innerHTML = heading(tr("Турниры в Telegram")) + empty(session.reason === "not_linked" ? tr("Подключите свой аккаунт") : tr("Добро пожаловать"), session.reason === "not_linked" ? tr("В профиле сайта подключите Telegram и подтвердите привязку, затем вернитесь сюда.") : tr("Откройте миниап из бота или войдите в свой аккаунт на сайте."), websiteButton("/tournament#/profile", tr("Открыть профиль сайта")) + `<button class="secondary" data-retry>${tr("Я подключил аккаунт")}</button>`, "shield");
         return;
       }
-      document.getElementById('admin-preview').hidden = !session.adminOnly;
       state.token = session.accessToken || null; state.csrf = session.csrfToken; state.user = session.user; state.ready = true;
       await loadScreen({ refresh: true });
     } catch (err) { content.innerHTML = empty(tr("Не удалось войти"), err.message, `<button class="primary" data-retry>${tr("Повторить")}</button>`, "shield"); showError(err); }

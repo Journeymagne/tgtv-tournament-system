@@ -1,6 +1,6 @@
 {
   "name": "tgtv-ranking-tournament-system",
-  "version": "1.5.16",
+  "version": "1.5.17",
   "private": true,
   "description": "TGTV ranking, matchmaking, Approved Ops, and Kill Team challenge tracker.",
   "engines": {
@@ -16,6 +16,7 @@
     "db:backup": "node scripts/backup-db.js",
     "db:provision-services": "node scripts/provision-service-roles.js",
     "telegram:setup": "node scripts/setup-telegram.js",
+    "telegram:worker": "node scripts/start-telegram-worker.js",
     "verify:migration:canonical-games": "node scripts/verify-canonical-games-migration.js",
     "test": "node --test --test-concurrency=1 \"test/unit/**/*.test.js\" \"test/integration/**/*.test.js\"",
     "test:unit": "node --test \"test/unit/**/*.test.js\"",

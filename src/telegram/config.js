@@ -9,12 +9,15 @@ function adminOnly() {
 
 function configuration() {
   const restricted = adminOnly();
+  const workerSetting = process.env.TELEGRAM_WORKER_ENABLED || 'true';
+  if (!['true', 'false'].includes(workerSetting)) throw Error('TELEGRAM_WORKER_ENABLED must be true or false');
+  const workerEnabled = workerSetting === 'true';
   const tunnelPort = Number(process.env.TELEGRAM_TUNNEL_PORT || 0);
   if (!Number.isInteger(tunnelPort) || tunnelPort < 0 || tunnelPort > 65535) throw Error('Invalid TELEGRAM_TUNNEL_PORT');
   const mode = process.env.TELEGRAM_MODE || "disabled";
   if (!["disabled", "local", "polling", "webhook"].includes(mode)) throw Error("Invalid TELEGRAM_MODE");
-  if (mode === "disabled") return { enabled: false, mode, adminOnly: restricted, tunnelPort };
-  const site = new URL(process.env.SITE_URL || "");
+  if (mode === "disabled") return { enabled: false, workerEnabled, mode, adminOnly: restricted, tunnelPort };
+  const site = new URL(process.env.TELEGRAM_SITE_URL || process.env.SITE_URL || "");
   const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(site.hostname);
   if (site.username || site.password || site.search || site.hash || site.pathname !== "/" ||
       (site.protocol !== "https:" && !(site.protocol === "http:" && loopback))) throw Error("Telegram requires a valid SITE_URL origin (HTTPS except local development)");
@@ -31,6 +34,6 @@ function configuration() {
     if (app.origin !== site.origin || app.protocol !== "https:" || loopback || app.username || app.password || app.search || app.hash || !["/miniapp", "/miniapp/"].includes(app.pathname)) throw Error("TELEGRAM_MINI_APP_URL must be the public HTTPS SITE_URL/miniapp address");
     miniAppUrl = app.href;
   }
-  return { enabled: true, mode, adminOnly: restricted, tunnelPort, site: site.origin, username, token, webhookSecret, miniAppUrl, captureDir: path.join(ROOT, "work", "telegram") };
+  return { enabled: true, workerEnabled, mode, adminOnly: restricted, tunnelPort, site: site.origin, username, token, webhookSecret, miniAppUrl, captureDir: path.join(ROOT, "work", "telegram") };
 }
 module.exports = { configuration, adminOnly };

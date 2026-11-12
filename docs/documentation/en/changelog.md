@@ -2,10 +2,16 @@
 
 KT Companion release history, newest first.
 
-## 1.5.16 — 11 November 2026
+## 1.5.17 — 12 November 2026
 
 - Selected-team statistics are available in the tier list recording view. The selected team and open panel are preserved when entering this view.
 - Escape first closes the panel while staying in recording view; pressing it again restores the controls.
+
+## 1.5.16 — 11 November 2026
+
+- The [KT Companion Telegram bot](https://t.me/ktcompanionbot) and Mini App are now open to all users. Connect Telegram from your existing account profile.
+- The bot runs on the European server; the Mini App opens at [killteamcompanion.com](https://killteamcompanion.com/miniapp). Accounts, tournaments and results are shared with the Russian website.
+- Removed administrator testing notices and unnecessary technical explanations. Russian and English follow the language selected in the bot settings.
 
 ## 1.5.15 — 11 November 2026
 
