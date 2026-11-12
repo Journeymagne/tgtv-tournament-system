@@ -131,8 +131,10 @@
     return true;
   }
   function setUser(value) {
+    const identityChanged = user === undefined || String(user?.id ?? '') !== String(value?.id ?? '');
     const previousId = user?.id;
     user = value;
+    if (identityChanged) window.dispatchEvent(new CustomEvent('kt:session', { detail: { user: user || null } }));
     if (active === "tournament") {
       for (const link of document.querySelectorAll('.companion-service-link')) link.href = serviceUrl('tournament') + (user ? '#/mygames' : '#/leaderboard');
     }
