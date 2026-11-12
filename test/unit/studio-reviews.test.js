@@ -46,7 +46,7 @@ function setup(existing){
  async function emit(type,target){for(const listener of listeners.get(type)||[])await listener({target,preventDefault(){}});await nextTurn()}
  function click(action){const target={dataset:{reviewAction:action},closest:selector=>selector==='[data-review-action]'?target:null};return emit('click',target)}
  function input(values){const form=host.form;for(const [key,value] of Object.entries(values)){assert(form.elements[key],`visible form control ${key} exists`);if(key==='reevaluate')form.elements[key].checked=value;else form.elements[key].value=String(value)}return emit('input',{closest:()=>form})}
- return {host,status,calls,started,root,click,input,emit,setVersion:version=>{currentVersion=version},setReviewRevision:revision=>{mine.revision=revision},conflict:()=>response.resolve({ok:false,status:409,json:async()=>({error:'Publication version changed'})})};
+ return {host,status,calls,started,root,click,input,emit,setVersion:version=>{currentVersion=version},setReviewRevision:revision=>{mine.revision=revision},setReviewVersion:version=>{mine.versionLabel=version;mine.previousVersion=version!==currentVersion},conflict:()=>response.resolve({ok:false,status:409,json:async()=>({error:'Publication version changed'})})};
 }
 
 for(const existing of [true,false])test(`review ${existing?'reassessment':'new form'} reconciles publication v2 to v3 while retaining its draft and requiring confirmation`,async()=>{
@@ -86,4 +86,40 @@ test('review revision-only reconciliation keeps its version consent and can retr
  await h.emit('submit',h.host.form);const attempts=h.calls.filter(row=>row.method==='PATCH');
  assert.equal(attempts.length,2);assert.equal(attempts[1].body.revision,2);assert.equal(attempts[1].body.versionLabel,'2');
  assert.equal(attempts[1].body.body,'Retained reassessment');assert.equal(attempts[1].body.reevaluate,true);
+});
+
+test('historical review reconciliation requires consent when another tab moves the review target to the unchanged current version',async()=>{
+ const h=setup(true);await h.root.KTReviews.open(h.host,{id:'publication'});await h.click('new');
+ await h.input({body:'Retained historical v1 text',themeScore:4,balanceScore:3,loreScore:5,reevaluate:false});
+ assert.match(h.host.form.querySelector('[data-rated-version]').textContent,/1$/,'the draft is explicitly editing historical v1');
+ const submitting=h.emit('submit',h.host.form);await h.started.promise;
+ const first=h.calls.find(row=>row.method==='PATCH');assert.equal(first.body.reevaluate,false);
+ // Tab B reassesses the same review to publication v2. The publication itself
+ // remains v2; only the saved review's rating target and revision have changed.
+ h.setReviewVersion('2');h.setReviewRevision(2);h.conflict();await submitting;await nextTurn();
+ await h.click('reconcile');
+ assert.equal(h.host.form.elements.body.value,'Retained historical v1 text');
+ for(const [key,value] of Object.entries({themeScore:4,balanceScore:3,loreScore:5}))assert.equal(Number(h.host.form.elements[key].value),value);
+ assert.equal(h.host.form.querySelector('[data-review-submit]').disabled,true,'historical scores must not silently become scores for the newer saved review target');
+ assert.match(h.host.form.querySelector('[data-rated-version]').textContent,/2$/,'the changed target is visible before confirming it');
+ assert(h.host.form.elements.reevaluate,'target change offers explicit confirmation even though publication metadata did not change');
+ assert.equal(h.host.form.elements.reevaluate.checked,false);
+ await h.emit('submit',h.host.form);assert.equal(h.calls.filter(row=>row.method==='PATCH').length,1);
+ await h.input({reevaluate:true});assert.equal(h.host.form.querySelector('[data-review-submit]').disabled,false);
+ await h.emit('submit',h.host.form);const attempts=h.calls.filter(row=>row.method==='PATCH');
+ assert.equal(attempts.length,2);assert.equal(attempts[1].body.revision,2);assert.equal(attempts[1].body.versionLabel,'2');assert.equal(attempts[1].body.reevaluate,true);
+ assert.equal(attempts[1].body.body,'Retained historical v1 text');
+ assert.deepEqual([attempts[1].body.themeScore,attempts[1].body.balanceScore,attempts[1].body.loreScore],[4,3,5]);
+});
+
+test('historical review revision-only reconciliation can retry when its rating target is unchanged',async()=>{
+ const h=setup(true);await h.root.KTReviews.open(h.host,{id:'publication'});await h.click('new');
+ await h.input({body:'Historical v1 correction',themeScore:4,balanceScore:3,loreScore:5,reevaluate:false});
+ const submitting=h.emit('submit',h.host.form);await h.started.promise;
+ h.setReviewRevision(2);h.conflict();await submitting;await nextTurn();await h.click('reconcile');
+ assert.match(h.host.form.querySelector('[data-rated-version]').textContent,/1$/);
+ assert.equal(h.host.form.elements.reevaluate.checked,false);assert.equal(h.host.form.querySelector('[data-review-submit]').disabled,false);
+ await h.emit('submit',h.host.form);const attempts=h.calls.filter(row=>row.method==='PATCH');
+ assert.equal(attempts.length,2);assert.equal(attempts[1].body.revision,2);assert.equal(attempts[1].body.reevaluate,false);
+ assert.equal(attempts[1].body.body,'Historical v1 correction');
 });

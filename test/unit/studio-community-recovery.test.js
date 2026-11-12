@@ -8,7 +8,7 @@ const Model=require('../../public/studio/model');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../../public/studio/community.js'),'utf8');
 function memory(){const values=new Map();return {getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key),keys:()=>[...values.keys()]};}
 
-function communityTab({storage,request,beforeOpenData}){
+function communityTab({storage,request,beforeOpenData,onBeforeSave}){
  const projectKey='kt-studio-cards-v6:team',listeners=new Map(),nodes=new Map(),toasts=[];
  let editor=JSON.parse(storage.getItem(projectKey)),cloud;
  const node=selector=>{if(!nodes.has(selector))nodes.set(selector,{dataset:{},classList:{toggle(){},add(){}},addEventListener(){},setAttribute(){}});return nodes.get(selector)};
@@ -35,7 +35,7 @@ function communityTab({storage,request,beforeOpenData}){
   renameProject:async(id,name)=>{editor.team.name=name},
   recoverProject:async(id,project)=>{if(editor.team.id===id)editor=structuredClone(project);await projectStorage.save('kt-studio-cards-v6:'+project.team.id,JSON.stringify(project))}
  };
- vm.runInNewContext(source,{window:root,document,KTCloud:{create:options=>cloud=Cloud.create({...options,schedule:null,delay:null})},KTStorage:projectStorage,KTModel:Model,KTCards:{esc:String},URLSearchParams,setTimeout,clearTimeout});
+ vm.runInNewContext(source,{window:root,document,KTCloud:{create:options=>cloud=Cloud.create({...options,schedule:null,delay:null,beforeSave:async(...args)=>{onBeforeSave?.(...args);return options.beforeSave(...args)}})},KTStorage:projectStorage,KTModel:Model,KTCards:{esc:String},URLSearchParams,setTimeout,clearTimeout});
  return {community:root.KTCommunity,adapter,toasts,get cloud(){return cloud},get editor(){return editor},
   async openDraft(){const button={dataset:{openDraft:'team'}};for(const listener of listeners.get('click')||[])await listener({target:{closest:selector=>selector==='button'?button:null}});await nextTurn()}};
 }
@@ -112,4 +112,52 @@ test('pending adoption interrupted by a newer editor edit preserves both pending
  assert.equal(restarted.editor.strategicPloys[0].body,'Old ordinary rule','conditional adoption must not overwrite a newer editor');
  assert.equal(uploads,1,'cancelled adoption must not acknowledge the pending snapshot during startup');
  assert.equal(storage.keys().filter(key=>key.startsWith('kt-studio-pending-v1:')).length,2,'both the recovered payload and the newer editor branch remain recoverable');
+});
+
+test('rename after failed startup preserves pending adoption through normal acknowledgement and the next edit',async()=>{
+ const storage=memory(),projectKey='kt-studio-cards-v6:team';
+ const original=Model.validate(Model.migrate(Model.newProject('team','Team')));original.strategicPloys[0].body='Old ordinary rule';
+ storage.setItem(projectKey,JSON.stringify(original));
+ let online=true,failUpload=true,revision=1,remote=structuredClone(original),restarted;
+ const uploads=[],atUpload=[],adoptions=[];
+ const unavailable=()=>({ok:false,status:503,json:async()=>({error:'Backend unavailable'})});
+ const request=async(url,options={})=>{
+  if(!online)return unavailable();let value;
+  if(url==='/api/session')value={csrfToken:'token'};
+  else if(url==='/api/drafts')value={teams:[{id:'team',name:remote.team.name,revision}]};
+  else if(options.method==='PATCH'){
+   const body=JSON.parse(options.body);assert.equal(body.revision,revision);remote.team.name=body.name;
+   value={id:'team',name:body.name,revision:++revision};
+  }else if(options.method==='PUT'){
+   if(failUpload)return unavailable();const body=JSON.parse(options.body);uploads.push(body);
+   atUpload.push({editor:restarted.adapter.getData(),ordinary:JSON.parse(storage.getItem(projectKey))});
+   assert.equal(body.revision,revision,'rename rebases the pending payload for a normal acknowledgement');
+   remote=body.project;value={id:'team',name:remote.team.name,revision:++revision};
+  }else value={id:'team',name:remote.team.name,revision,project:remote};
+  return {ok:true,status:200,json:async()=>structuredClone(value)};
+ };
+ const editing=Cloud.create({storage,request,schedule:null,loadProject:async()=>storage.getItem(projectKey)});
+ await editing.connect();const pending=structuredClone(original);pending.strategicPloys[0].body='Recovered private rule';editing.track(pending);
+ await assert.rejects(editing.save('team'),/Backend unavailable/);
+ online=false;
+ restarted=communityTab({storage,request,onBeforeSave:(id,key,needsAdoption)=>adoptions.push({id,key,needsAdoption})});
+ await restarted.community.init(restarted.adapter);
+ assert.equal(restarted.cloud.isReady(),false);assert.equal(restarted.editor.strategicPloys[0].body,'Old ordinary rule');
+ const restoredKey=restarted.cloud.pendingProject('team').key;
+ online=true;failUpload=false;
+ await restarted.cloud.rename('team','Renamed team',1);await nextTurn();
+ const replacement=restarted.cloud.pendingProject('team');
+ assert.notEqual(replacement.key,restoredKey);assert.equal(replacement.project.team.name,'Renamed team');
+ assert.equal(replacement.project.strategicPloys[0].body,'Recovered private rule');
+ assert.equal(restarted.editor.strategicPloys[0].body,'Old ordinary rule','renaming alone has not adopted the pending rules');
+ await restarted.community.flush();
+ assert.equal(adoptions[0].key,replacement.key);
+ assert.equal(adoptions[0].needsAdoption,true,'rename replacement must retain the restored snapshot adoption requirement');
+ assert.equal(uploads.length,1);assert.equal(uploads[0].revision,2);
+ assert.equal(atUpload[0].editor.strategicPloys[0].body,'Recovered private rule');
+ assert.equal(atUpload[0].ordinary.strategicPloys[0].body,'Recovered private rule');
+ restarted.editor.team.subtitle='Edit after renamed recovery';await restarted.adapter.persist();restarted.community.track(restarted.adapter.getData());await restarted.community.flush();
+ assert.equal(uploads.length,2);assert.equal(uploads[1].revision,3);
+ assert.equal(uploads[1].project.strategicPloys[0].body,'Recovered private rule');
+ assert.equal(uploads[1].project.team.subtitle,'Edit after renamed recovery');
 });
