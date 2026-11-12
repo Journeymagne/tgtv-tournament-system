@@ -121,7 +121,10 @@ test('training keeps a saved answer and XP when an older refresh bank request fi
   app.refreshWith({ state: progress({ bankRevision: 2 }) });
   const refresh = app.focus();
   await waitForBankRequest(app, 2);
-  app.answerWith({ state: progress({ revision: 11, bankRevision: 2, saved: true }), bank: bank(2) });
+  // Authenticated answer responses contain state only. Its own bank fetch must
+  // finish before the older refresh's deferred fetch completes.
+  app.banks.push(bank(2));
+  app.answerWith({ state: progress({ revision: 11, bankRevision: 2, saved: true }) });
   await app.answer();
   assert.equal(app.answers[0].revision, 10);
   assert.match(app.nodes.get('#main').innerHTML, /10 XP/);

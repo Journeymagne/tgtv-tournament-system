@@ -122,3 +122,20 @@ test('an unauthorized inbox refresh clears previously rendered private content',
   assert.equal(app.panel.hidden, true);
   assert.doesNotMatch(app.panel.textContent, /PRIVATE EXCERPT BEFORE EXPIRY/);
 });
+
+test('verified same-account sign-in restores the inbox after an unauthorized refresh', async () => {
+  const app = await boot(account(1));
+  await app.respond(0, inbox('ALPHA CONTENT BEFORE EXPIRY'));
+  app.intervals[0](); await flush();
+  await app.respond(1, { error: 'Unauthorized' }, 401);
+  assert.equal(app.panel.hidden, true);
+  assert.doesNotMatch(app.panel.textContent, /ALPHA CONTENT BEFORE EXPIRY/);
+  // The shell has not observed an anonymous session between expiry and the
+  // same account signing in again in another tab.
+  await app.crossTab(account(1));
+  assert.equal(app.panel.hidden, false, 'verified authentication must restore the widget');
+  assert.equal(app.requests.length, 3, 'the restored account must request a fresh inbox');
+  await app.respond(2, inbox('ALPHA CONTENT AFTER SIGN-IN'));
+  assert.match(app.panel.textContent, /ALPHA CONTENT AFTER SIGN-IN/);
+  assert.doesNotMatch(app.panel.textContent, /ALPHA CONTENT BEFORE EXPIRY/);
+});
