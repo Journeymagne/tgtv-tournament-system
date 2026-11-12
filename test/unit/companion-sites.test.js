@@ -109,11 +109,13 @@ test("login returns to an exact service origin and rejects external or deceptive
     ["https://user@studio.ktcompanion.ru/", false],
     ["javascript:alert(1)", false]
   ]) {
-    const redirects = [], location = new URL("https://ktcompanion.ru/tournament?next=" + encodeURIComponent(next));
+    const redirects = [], events = new EventTarget(), location = new URL("https://ktcompanion.ru/tournament?next=" + encodeURIComponent(next));
     location.replace = value => redirects.push(value);
     const root = { URL, URLSearchParams, location, KT_SITES: { subdomains: false, urls: sites.urls, current: "tournament" },
       document: { body: { dataset: { companionSection: "tournament" } }, querySelectorAll: () => [], querySelector: () => null, addEventListener() {} },
-      fetch: async () => ({ ok: true, json: async () => ({ user: { id: 7, name: "User" } }) }), addEventListener() {} };
+      fetch: async () => ({ ok: true, json: async () => ({ user: { id: 7, name: "User" } }) }),
+      CustomEvent: class extends Event { constructor(type, options = {}) { super(type); this.detail = options.detail; } },
+      addEventListener: events.addEventListener.bind(events), dispatchEvent: events.dispatchEvent.bind(events) };
     root.window = root;
     vm.runInNewContext(source, root);
     await root.KTCompanion.ready;

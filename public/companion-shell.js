@@ -131,10 +131,11 @@
     return true;
   }
   function setUser(value) {
-    const identityChanged = user === undefined || String(user?.id ?? '') !== String(value?.id ?? '');
     const previousId = user?.id;
     user = value;
-    if (identityChanged) window.dispatchEvent(new CustomEvent('kt:session', { detail: { user: user || null } }));
+    // Republish verified identity even when the shell's account is unchanged:
+    // a consumer may have independently cleared authentication after a 401.
+    window.dispatchEvent(new CustomEvent('kt:session', { detail: { user: user || null } }));
     if (active === "tournament") {
       for (const link of document.querySelectorAll('.companion-service-link')) link.href = serviceUrl('tournament') + (user ? '#/mygames' : '#/leaderboard');
     }
@@ -225,7 +226,7 @@
   });
   window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader, brandLogoUrl };
   if (active !== 'tournament' && mounts[0]) {
-    const script = document.createElement('script'); script.src='/companion-notifications.js?v=shared-88ae33de1a74'; document.head.append(script);
+    const script = document.createElement('script'); script.src='/companion-notifications.js?v=shared-eb1f42c65a5f'; document.head.append(script);
   }
   const exports = document.querySelector(".studio-export-menu");
   if (exports) {

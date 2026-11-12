@@ -194,6 +194,18 @@ test('training accepts newer saved progress while retaining an already newer cat
   assert.equal(app.nodes.get('.training-footer span:last-child').textContent, '2 вопросов · Kill Team 2024');
 });
 
+test('training retains the newer catalogue after a state-only answer waits on an older bank', async () => {
+  const app = await openTraining({ initialBank: bank(3, 2, 'Newest catalogue question') });
+  const delayed = deferred(); app.banks.push(delayed.promise);
+  app.answerWith({ state: progress({ revision: 11, bankRevision: 2, saved: true }) });
+  const answering = app.answer(); await waitForBankRequest(app, 2);
+  delayed.resolve(bank(2, 1, 'Obsolete catalogue question')); await answering;
+  assert.match(app.nodes.get('#main').innerHTML, /10 XP/);
+  assert.match(app.nodes.get('#main').innerHTML, /explanation success/);
+  assert.match(app.nodes.get('#main').innerHTML, /Newest catalogue question/);
+  assert.equal(app.nodes.get('.training-footer span:last-child').textContent, '2 вопросов · Kill Team 2024');
+});
+
 test('training accepts catalogue-only refreshes at an unchanged progress revision', async () => {
   const app = await openTraining();
   app.refreshWith({ state: progress({ bankRevision: 2 }), bank: bank(2, 2, 'Updated catalogue question') });
