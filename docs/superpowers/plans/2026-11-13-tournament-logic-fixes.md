@@ -1,6 +1,6 @@
 # Tournament Logic Fixes Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. This document is a proposal; this review request does not authorize implementing the fixes.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Implementation was authorized by the user's follow-up; automated tests must run through CI only.
 
 **Goal:** Устранить восемь дефектов результатов, Swiss-раундов и командных парингов, описанных в ревью F1–F8.
 
@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - `Do not run automated tests locally, including before merging into main, unless the user explicitly requests a local run.` Проверки red/green выполнять через CI для конкретного коммита. Нынешний статус CI неизвестен.
-- Исправления не реализуются в рамках запроса на ревью. Не менять ветку, не коммитить, не отправлять изменения и не сливать план автоматически.
+- Последующий запрос пользователя разрешил реализацию всех восьми исправлений и проверки через CI. Работать в отдельной ветке; слияние в release/main не запрошено.
 - Продуктовые правила сохранить: Unranked отключает личный MMR; существующий командный MMR включает Unranked. Не менять подтверждение личных турниров, правила WTC/Classic/Doubles и разрешённые пустые слоты.
 - Исторические `result_key`, `participantSnapshots`, результаты, счета и роли PostgreSQL сохраняются. Удалённый аккаунт нельзя восстанавливать присвоением старого `userId`.
 - Не добавлять зависимости или миграции без необходимости. Для этих исправлений новая схема данных не требуется; `roundDraft` уже хранится как JSON.

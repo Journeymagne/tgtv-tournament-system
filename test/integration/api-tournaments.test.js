@@ -169,13 +169,19 @@ test("a recreated game rejects its stale form even with unchanged players", asyn
   assert.equal((await gamesRepo.findById(client, current.gameId)).status, "open");
 });
 
-for (const deletedSide of ["participantA", "participantB"]) {
-  test(`result correction retains recorded keys after deleting ${deletedSide}`, async () => {
+for (const deletedSide of ["participantA", "participantB"]) for (const replaced of [false, true]) {
+  test(`result correction retains recorded keys after deleting ${deletedSide}${replaced ? " with a replacement snapshot" : ""}`, async () => {
     const { started, params } = await reviewSoloCup();
     const match = started.rounds[0].matches[0];
     const body = { scores: scores(match.participantA.userId, match.participantB.userId) };
     await tournamentsApi.saveMatchResultAdmin({ client, user: root, params: { ...params, matchId: String(match.id) }, body });
     const original = await gamesRepo.findById(client, match.gameId);
+    if (replaced) {
+      const replacement = await createUser("Historical replacement");
+      const previous = match[deletedSide];
+      await tournamentsApi.updateParticipant({ client, user: root, params: { ...params, participantId: String(previous.id) },
+        body: { userId: replacement.id, expectedIdentity: { userId: previous.userId, displayName: previous.displayName, isProxy: false } } });
+    }
     await client.query("DELETE FROM users WHERE id=$1", [match[deletedSide].userId]);
     const detail = await tournamentsApi.getAdmin({ client, user: root, params });
     assert.equal(detail.rounds[0].matches.find(m => m.id === match.id)[deletedSide].resultKey, match[deletedSide].userId);
@@ -222,7 +228,7 @@ for (const legacyDraft of [false, true]) {
     assert.deepEqual(slots(restored.round.matches), slots(original.matches));
     const regenerated = await tournamentsApi.generateNextRoundAdmin({ client, user: root, params });
     assert.deepEqual(slots(regenerated.rounds[0].matches), slots(original.matches));
-    assert.equal(regenerated.rounds[0].endsAt, deadline);
+    assert.equal(regenerated.rounds[0].metadata.endsAt, deadline);
   });
 }
 
@@ -248,6 +254,44 @@ async function reviewTeamCup(pairingType = "shield_sword", captainPairingEnabled
   const started = await tournamentsApi.startAdmin({ client, user: root, params });
   return { tournament, params, started, peopleByRoster, tables };
 }
+
+test("a later odd Swiss draft preserves its selected bye recipient", async () => {
+  const { started, params } = await reviewSoloCup(5, { pairingMode: "by_tp" });
+  const played = started.rounds[0].matches.filter(match => !match.isBye);
+  for (const match of played) await tournamentsApi.saveMatchResultAdmin({ client, user: root,
+    params: { ...params, matchId: String(match.id) }, body: { scores: scores(match.participantA.userId, match.participantB.userId) } });
+  const byeParticipantId = played[0].participantBId;
+  const second = await tournamentsApi.generateNextRoundAdmin({ client, user: root, params,
+    body: { byeParticipantId, endsAt: "2026-12-01T12:00:00.000Z" } });
+  const original = second.rounds.at(-1).matches.map(m => [m.participantAId, m.participantBId, m.isBye]);
+  assert.equal(second.rounds.at(-1).matches.find(m => m.isBye).participantAId, byeParticipantId);
+  await tournamentsApi.rollbackLatestRoundAdmin({ client, user: root, params });
+  const preview = await tournamentsApi.previewNextRoundAdmin({ client, user: root, params });
+  assert.deepEqual(preview.round.matches.map(m => [m.participantAId, m.participantBId, Boolean(m.isBye)]), original);
+  const restored = await tournamentsApi.generateNextRoundAdmin({ client, user: root, params });
+  assert.deepEqual(restored.rounds.at(-1).matches.map(m => [m.participantAId, m.participantBId, m.isBye]), original);
+});
+
+test("Swiss generation uses the displayed standings after opponents leave", async () => {
+  const { started, params } = await reviewSoloCup(6, { pairingMode: "by_tp", tiebreakerOrder: ["vp_diff"] });
+  const matches = started.rounds[0].matches;
+  for (const [index, match] of matches.entries()) await tournamentsApi.saveMatchResultAdmin({ client, user: root,
+    params: { ...params, matchId: String(match.id) }, body: { scores: {
+      [match.participantA.userId]: { crit: 4, kill: 3, tac: 3, primary: "crit" },
+      [match.participantB.userId]: { crit: 2, kill: index ? 2 : 3, tac: index ? 3 : 4, primary: "crit" }
+    } } });
+  for (const match of matches.slice(0, 2)) {
+    const p = match.participantB;
+    await tournamentsApi.removeParticipant({ client, user: root, params: { ...params, participantId: String(p.id) },
+      body: { expectedIdentity: { userId: p.userId, displayName: p.displayName, isProxy: false } } });
+  }
+  const view = await tournamentsApi.getAdmin({ client, user: root, params });
+  assert.deepEqual(view.standings.map(row => row.participantId), [matches[1].participantAId, matches[2].participantAId, matches[0].participantAId, matches[2].participantBId]);
+  const next = await tournamentsApi.generateNextRoundAdmin({ client, user: root, params });
+  assert.deepEqual(next.rounds.at(-1).matches.map(m => [m.participantAId, m.participantBId]), [
+    [matches[1].participantAId, matches[2].participantAId], [matches[0].participantAId, matches[2].participantBId]
+  ]);
+});
 
 for (const pairingType of ["shield_sword", "sword_shield_classic"]) {
   test(`reset cannot invalidate an earlier ${pairingType} round`, async () => {
@@ -301,22 +345,52 @@ for (const phase of ["sword_selection", "environment_selection"]) {
     const updated = await inTransaction(client, () => teamTournamentsApi.updateRoster({ client, user: root,
       params: { ...params, rosterId: String(roster.id) }, body }));
     assert.ok(updated.roster.members.some(p => !p.endedAt && p.userId === people[3].id));
+    const activeA = updated.roster.members.filter(p => !p.endedAt);
+    for (const [side, memberId] of [["a", activeA.find(p => p.slot === 2).id], ["b", match.rosterB.members[1].id]]) {
+      await inTransaction(client, () => teamTournamentsApi.selectShield({ ...context, body: { side, memberId } }));
+    }
+    for (const [side, memberId] of [["a", match.rosterB.members[2].id], ["b", activeA.find(p => p.slot === 3).id]]) {
+      await inTransaction(client, () => teamTournamentsApi.selectSword({ ...context, body: { side, memberId } }));
+    }
+    const steps = [{ side: "a", tableId: match.tableIds[0] }, { side: "b", mission: "Transmission" },
+      { side: "b", tableId: match.tableIds[1] }, { side: "a", mission: "Orb" }, { side: "b", mission: "Stake Claim" }];
+    for (const [step, body] of steps.entries()) await inTransaction(client, () => teamTournamentsApi.selectEnvironment({ ...context, body: { ...body, step } }));
+    const ready = await teamTournamentsApi.getPairingMatch(context);
+    assert.equal(ready.teamMatch.games.length, 3);
   });
 }
 
-test("independent tournament results wait before business locks and commit exactly once", { timeout: 20000 }, async () => {
+for (const throughRouter of [false, true]) test(`independent tournament results wait before business locks and commit exactly once (${throughRouter ? "HTTP" : "handler"})`, { timeout: 20000 }, async () => {
   const fixtures = [await reviewSoloCup(), await reviewSoloCup()];
   const workers = await Promise.all([pool.connect(), pool.connect()]);
   const pids = (await Promise.all(workers.map(c => c.query("SELECT pg_backend_pid() AS pid")))).map(r => r.rows[0].pid);
   const operations = [];
+  let server;
+  if (throughRouter) {
+    let nextWorker = 0;
+    server = await require("../helpers/client").startApiServer(require("../../src/http/router").createRouter(
+      require("../../src/api/routes"), {
+        withClient: action => action(client),
+        withTransaction: action => {
+          const worker = workers[nextWorker++];
+          return inTransaction(worker, () => action(worker));
+        },
+        loadUser: async () => root
+      }));
+  }
   try {
     await client.query("BEGIN");
     await client.query("SELECT pg_advisory_xact_lock(847362960)");
     for (const [index, worker] of workers.entries()) {
       const match = fixtures[index].started.rounds[0].matches[0];
-      const operation = inTransaction(worker, () => require("../../src/api/tournaments").saveMatchResultAdmin({ client: worker, user: root,
+      const body = { scores: scores(match.participantA.userId, match.participantB.userId) };
+      const operation = throughRouter
+        ? require("../helpers/client").createClient(server.baseUrl).post(
+          `/api/admin/tournaments/${fixtures[index].tournament.id}/matches/${match.id}/result`, body
+        ).then(response => { assert.equal(response.status, 200, JSON.stringify(response.body)); })
+        : inTransaction(worker, () => require("../../src/api/tournaments").saveMatchResultAdmin({ client: worker, user: root,
         params: { ...fixtures[index].params, matchId: String(match.id) },
-        body: { scores: scores(match.participantA.userId, match.participantB.userId) } }));
+        body }));
       operation.catch(() => {}); // Collect failures below without an unhandled-rejection race.
       operations.push(operation);
     }
@@ -342,8 +416,32 @@ test("independent tournament results wait before business locks and commit exact
   } finally {
     await client.query("ROLLBACK");
     await Promise.allSettled(operations);
+    await server?.close();
     workers.forEach(c => c.release());
   }
+});
+
+test("rating replay and result correction commit without a game-user lock inversion", { timeout: 20000 }, async () => {
+  const { started, params } = await reviewSoloCup();
+  const match = started.rounds[0].matches[0];
+  await tournamentsApi.saveMatchResultAdmin({ client, user: root, params: { ...params, matchId: String(match.id) },
+    body: { scores: scores(match.participantA.userId, match.participantB.userId) } });
+  const workers = await Promise.all([pool.connect(), pool.connect()]);
+  const adminApi = require("../../src/api/admin");
+  try {
+    await Promise.all([
+      inTransaction(workers[0], () => adminApi.saveGameResult({ client: workers[0], user: root,
+        params: { id: String(match.gameId) }, body: { scores: scores(match.participantB.userId, match.participantA.userId) } })),
+      inTransaction(workers[1], () => adminApi.recalculateGameRating({ client: workers[1], user: root, params: { id: String(match.gameId) } }))
+    ]);
+    const game = await gamesRepo.findById(client, match.gameId);
+    assert.equal(game.result.winnerId, match.participantB.userId);
+    const players = await usersRepo.findByIds(client, [match.participantA.userId, match.participantB.userId]);
+    assert.equal(players.find(p => p.id === match.participantA.userId).ratings.combined, 984);
+    assert.equal(players.find(p => p.id === match.participantB.userId).ratings.combined, 1016);
+    await inTransaction(client, () => adminApi.recalculateGameRating({ client, user: root, params: { id: String(match.gameId) } }));
+    assert.deepEqual((await usersRepo.findByIds(client, players.map(p => p.id))).map(p => p.ratings), players.map(p => p.ratings));
+  } finally { workers.forEach(c => c.release()); }
 });
 
 test("my tournaments includes ownership, assigned management and participation with independent pagination", async () => {

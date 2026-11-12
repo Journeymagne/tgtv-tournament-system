@@ -20,6 +20,23 @@ const actionButtonsSource = functionSource("adminTournamentActionButtons");
 const tabContentSource = functionSource("tournamentInfoTabContent");
 const runActionSource = functionSource("runAdminTournamentAction");
 
+test("round setup reserves the hidden bye recipient in player choices", () => {
+  const selects = [1, 3, 2, 4].map(value => ({
+    value: String(value),
+    options: ["", "1", "2", "3", "4", "5"].map(value => ({ value, disabled: false })),
+    querySelectorAll() { return this.options; }
+  }));
+  const document = { querySelectorAll: selector => selector === "[data-round-bye-index]" ? [{ value: "5" }] : selects };
+  const update = new Function("document", "syncUserSelect", "wireComboFields",
+    `${functionSource("updateRoundSetupPlayerSelects")}; return updateRoundSetupPlayerSelects;`)(document, () => {}, () => {});
+  update();
+  for (const select of selects) {
+    assert.equal(select.options.find(option => option.value === "5").disabled, true);
+    assert.equal(select.options.find(option => option.value === select.value).disabled, false);
+    assert.equal(select.options[0].disabled, false);
+  }
+});
+
 test("registration closed offers preparation first and a separate start only after saving a round", () => {
   const render = new Function("t", `${actionButtonsSource}; return adminTournamentActionButtons;`)((key) => key);
   for (const participantMode of ["individual", "team"]) {
