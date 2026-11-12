@@ -54,3 +54,14 @@ test("By TP applies to team rounds and never calls the random source", () => {
     () => { throw new Error("randomness is forbidden"); });
   assert.deepEqual(next.pairings.map(p => [p.rosterAId, p.rosterBId]), [[1, 3], [2, 4]]);
 });
+
+test("By TP retains removed opponents' VP when ordering the next round", () => {
+  // Seeds A,E,B,F,C,D; A wins 12-10, B and C win 12-8.
+  const field = participants.map(p => ({ ...p, status: [2, 4].includes(p.id) ? "removed" : "active" }));
+  const matches = [[1, 2, 12, 10], [3, 4, 12, 8], [5, 6, 12, 8]].map(([a, b, avp, bvp]) => ({
+    participantAId: a, participantBId: b, winnerParticipantId: a, status: "completed",
+    result: { winnerId: a, scoresByParticipantId: { [a]: { total: avp }, [b]: { total: bvp } } }
+  }));
+  const next = buildSwissNextRound({ swissRoundCount: 3, pairingMode: "by_tp", tiebreakerOrder: ["vp_diff"] }, field, matches, 2);
+  assert.deepEqual(next.matches.map(m => [m.participantAId, m.participantBId]), [[3, 5], [1, 6]]);
+});
