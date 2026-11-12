@@ -114,16 +114,27 @@ function readCredentials(body, minPasswordLength, tooShortMessage) {
 async function createAccount(client, credentials, isAdmin, req) {
   if (await users.isNameTaken(client, credentials.name)) throw new HttpError(409, "This name is already taken");
 
-  const user = await users.insert(client, {
-    name: credentials.name,
-    passwordHash: await hashPassword(credentials.password),
-    avatarData: null,
-    registerNickname: credentials.registerNickname,
-    telegramContact: credentials.telegramContact,
-    challengeCredits: [],
-    rating: INITIAL_RATING,
-    isAdmin
-  });
+  const passwordHash = await hashPassword(credentials.password);
+  let user;
+  try {
+    user = await users.insert(client, {
+      name: credentials.name,
+      passwordHash,
+      avatarData: null,
+      registerNickname: credentials.registerNickname,
+      telegramContact: credentials.telegramContact,
+      challengeCredits: [],
+      rating: INITIAL_RATING,
+      isAdmin
+    });
+  } catch (error) {
+    // Both checks above can observe an unused name. The unique indexes decide
+    // the winner; only the two username constraints are a registration conflict.
+    if (error.code === "23505" && ["users_name_key", "users_name_key_key"].includes(error.constraint)) {
+      throw new HttpError(409, "This name is already taken");
+    }
+    throw error;
+  }
 
   await mail.beginRegistration(client, user, credentials.email, credentials.locale, req);
   const token = await startSession(client, user.id);

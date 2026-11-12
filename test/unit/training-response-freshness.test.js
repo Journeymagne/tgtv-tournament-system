@@ -101,6 +101,7 @@ async function openTraining({ user = account, initialBank = bank(1) } = {}) {
   return {
     root, nodes, banks, questionRequests, answers,
     refreshWith(value) { refreshResult = value; }, answerWith(value) { answerResult = value; },
+    sessionWith(user) { windowEvents.get('kt:session')({ detail: { user } }); },
     focus: () => windowEvents.get('focus')(),
     async answer() {
       await nodes.get('#main').querySelectorAll('[data-option]')[0].emit('click');
@@ -163,4 +164,37 @@ test('training initial account and guest setup both accept their first progress 
     assert.match(app.nodes.get('#main').innerHTML, /0 XP/);
     if (user) assert.match(app.nodes.get('#save-status').textContent, /Trainee/);
   }
+});
+
+test('training ignores the old bank after the shared shell announces logout or another account', async () => {
+  for (const user of [null, { id: 99 }]) {
+    const app = await openTraining();
+    const before = app.nodes.get('#main').innerHTML;
+    const oldBank = deferred(); app.banks.push(oldBank.promise);
+    app.refreshWith({ state: progress({ bankRevision: 2 }) });
+    const refresh = app.focus(); await waitForBankRequest(app, 2);
+    app.sessionWith(user);
+    oldBank.resolve(bank(2, 2, 'Previous account bank')); await refresh;
+    assert.equal(app.nodes.get('#main').innerHTML, before);
+    assert.equal(app.nodes.get('.training-footer span:last-child').textContent, '1 вопросов · Kill Team 2024');
+  }
+});
+
+test('training accepts newer saved progress while retaining an already newer catalogue', async () => {
+  const app = await openTraining({ initialBank: bank(3, 2, 'Newest catalogue question') });
+  app.answerWith({ state: progress({ revision: 11, bankRevision: 2, saved: true }),
+    bank: bank(2, 1, 'Obsolete catalogue question') });
+  await app.answer();
+  assert.match(app.nodes.get('#main').innerHTML, /10 XP/);
+  assert.match(app.nodes.get('#main').innerHTML, /explanation success/);
+  assert.match(app.nodes.get('#main').innerHTML, /Newest catalogue question/);
+  assert.equal(app.nodes.get('.training-footer span:last-child').textContent, '2 вопросов · Kill Team 2024');
+});
+
+test('training accepts catalogue-only refreshes at an unchanged progress revision', async () => {
+  const app = await openTraining();
+  app.refreshWith({ state: progress({ bankRevision: 2 }), bank: bank(2, 2, 'Updated catalogue question') });
+  await app.focus();
+  assert.match(app.nodes.get('#main').innerHTML, /Updated catalogue question/);
+  assert.equal(app.nodes.get('.training-footer span:last-child').textContent, '2 вопросов · Kill Team 2024');
 });
