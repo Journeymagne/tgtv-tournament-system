@@ -324,3 +324,7 @@ module.exports = {
   lockGame,
   lockPlayers
 };
+
+for (const name of ["submitResult", "respondToResult", "exitGame"]) {
+  module.exports[name] = require("../db/rating-write-lock").withRatingWriteLock(module.exports[name]);
+}

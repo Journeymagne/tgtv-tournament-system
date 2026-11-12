@@ -65,6 +65,7 @@ async function gameDetail(ctx) {
 }
 
 async function changeResult(ctx) {
+  await require("../db/rating-write-lock").acquireRatingWriteLock(ctx.client);
   const initial = await games.getOne(ctx);
   // Match the existing tournament -> game lock order. The revision prevents
   // approving a different score after the opponent edited the pending result.

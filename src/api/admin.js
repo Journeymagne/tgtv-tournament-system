@@ -295,3 +295,7 @@ module.exports = {
   resetPassword,
   challengeCredit
 };
+
+for (const name of ["confirmGameResult", "saveGameResult", "deleteGame", "recalculateGameRating", "updateUser", "deleteUser"]) {
+  module.exports[name] = require("../db/rating-write-lock").withRatingWriteLock(module.exports[name]);
+}

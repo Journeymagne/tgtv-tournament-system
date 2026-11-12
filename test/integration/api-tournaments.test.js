@@ -177,6 +177,8 @@ for (const deletedSide of ["participantA", "participantB"]) {
     await tournamentsApi.saveMatchResultAdmin({ client, user: root, params: { ...params, matchId: String(match.id) }, body });
     const original = await gamesRepo.findById(client, match.gameId);
     await client.query("DELETE FROM users WHERE id=$1", [match[deletedSide].userId]);
+    const detail = await tournamentsApi.getAdmin({ client, user: root, params });
+    assert.equal(detail.rounds[0].matches.find(m => m.id === match.id)[deletedSide].resultKey, match[deletedSide].userId);
     await inTransaction(client, () => require("../../src/api/admin").saveGameResult({ client, user: root,
       params: { id: String(match.gameId) }, body }));
     const updated = await gamesRepo.findById(client, match.gameId);
