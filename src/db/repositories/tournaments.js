@@ -103,20 +103,20 @@ async function insert(client, tournament) {
 }
 
 async function findById(client, id) {
-  const { rows } = await client.query(`SELECT ${COLUMNS} FROM tournaments WHERE id = $1`, [id]);
+  const { rows } = await client.query(`SELECT * FROM tournaments WHERE id = $1`, [id]);
   return mapTournament(rows[0]);
 }
 
 async function lockById(client, id) {
   const { rows } = await client.query(
-    `SELECT ${COLUMNS} FROM tournaments WHERE id = $1 FOR UPDATE`,
+    `SELECT * FROM tournaments WHERE id = $1 FOR UPDATE`,
     [id]
   );
   return mapTournament(rows[0]);
 }
 
 async function findBySlug(client, slug) {
-  const { rows } = await client.query(`SELECT ${COLUMNS} FROM tournaments WHERE slug = $1`, [
+  const { rows } = await client.query(`SELECT * FROM tournaments WHERE slug = $1`, [
     slug
   ]);
   return mapTournament(rows[0]);
@@ -206,7 +206,7 @@ async function update(client, id, patch) {
     `UPDATE tournaments
      SET ${assignments.join(", ")}, updated_at = NOW()
      WHERE id = $1
-     RETURNING ${COLUMNS}`,
+     RETURNING *`,
     values
   );
   return mapTournament(rows[0]);

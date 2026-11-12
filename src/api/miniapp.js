@@ -65,6 +65,7 @@ async function gameDetail(ctx) {
 }
 
 async function changeResult(ctx) {
+  await require("../db/rating-write-lock").acquireRatingWriteLock(ctx.client);
   const initial = await games.getOne(ctx);
   // Match the existing tournament -> game lock order. The revision prevents
   // approving a different score after the opponent edited the pending result.
@@ -92,6 +93,7 @@ async function preferences(ctx) {
 
 function route(method, path, handler, write = false) {
   return { method, path: "/api/miniapp" + path, tx: write, maxBodyBytes: 24576,
+    ratingMutation: write && path.startsWith("/games/"),
     handler: async ctx => handler(await miniAuth.authenticate(ctx, write)) };
 }
 

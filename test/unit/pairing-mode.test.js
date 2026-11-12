@@ -54,3 +54,37 @@ test("By TP applies to team rounds and never calls the random source", () => {
     () => { throw new Error("randomness is forbidden"); });
   assert.deepEqual(next.pairings.map(p => [p.rosterAId, p.rosterBId]), [[1, 3], [2, 4]]);
 });
+
+test("By TP retains removed opponents' VP when ordering the next round", () => {
+  // Seeds A,E,B,F,C,D; A wins 12-10, B and C win 12-8.
+  const field = participants.map(p => ({ ...p, status: [2, 4].includes(p.id) ? "removed" : "active" }));
+  const matches = [[1, 2, 12, 10], [3, 4, 12, 8], [5, 6, 12, 8]].map(([a, b, avp, bvp]) => ({
+    participantAId: a, participantBId: b, winnerParticipantId: a, status: "completed",
+    result: { winnerId: a, scoresByParticipantId: { [a]: { total: avp }, [b]: { total: bvp } } }
+  }));
+  const next = buildSwissNextRound({ swissRoundCount: 3, pairingMode: "by_tp", tiebreakerOrder: ["vp_diff"] }, field, matches, 2);
+  assert.deepEqual(next.matches.map(m => [m.participantAId, m.participantBId]), [[3, 5], [1, 6]]);
+});
+
+test("By TP retains removed opponents' earned points in strength of schedule", () => {
+  const field = participants.map(p => ({ ...p, status: [2, 4].includes(p.id) ? "removed" : "active" }));
+  const matches = [[1, 2], [3, 4], [5, 6], [4, 2]].map(([a, b]) => ({
+    participantAId: a, participantBId: b, winnerParticipantId: a, status: "completed",
+    result: { winnerId: a, scoresByParticipantId: { [a]: { total: 12 }, [b]: { total: 8 } } }
+  }));
+  const next = buildSwissNextRound({ swissRoundCount: 5, pairingMode: "by_tp", tiebreakerOrder: ["strength_of_schedule"] }, field, matches, 3);
+  assert.deepEqual(next.matches.map(m => [m.participantAId, m.participantBId]), [[3, 5], [1, 6]]);
+});
+
+test("By TP preserves removed opponents in trimmed Buchholz after repeated manual pairings", () => {
+  const field = participants.map(p => ({ ...p, status: [2, 4].includes(p.id) ? "removed" : "active" }));
+  const match = (a, b, winner = a) => ({
+    participantAId: a, participantBId: b, winnerParticipantId: winner, status: "completed",
+    result: { winnerId: winner, scoresByParticipantId: { [a]: { total: 12 }, [b]: { total: winner === null ? 12 : 8 } } }
+  });
+  const matches = Array.from({ length: 3 }, () => [match(1, 2), match(3, 4), match(5, 6)]).flat();
+  matches.push(match(1, 3, null), match(4, 2), match(5, 6));
+  // C has 12 TP. B and A have 10 TP; B's trimmed Buchholz is 6, A's is 0.
+  const next = buildSwissNextRound({ swissRoundCount: 5, pairingMode: "by_tp", tiebreakerOrder: ["buchholz"] }, field, matches, 5);
+  assert.deepEqual(next.matches.map(m => [m.participantAId, m.participantBId]), [[5, 3], [1, 6]]);
+});

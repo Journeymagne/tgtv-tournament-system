@@ -298,7 +298,9 @@ function buildSwissNextRound(tournament, participants, matches, roundNumber, ran
     throw new ValidationError("Swiss round number is out of range");
   }
 
-  const standings = buildStandings(eligible, matches, tournament.tiebreakerOrder);
+  const eligibleIds = new Set(eligible.map(participant => participant.id));
+  const standings = buildStandings(participants, matches, tournament.tiebreakerOrder)
+    .filter(row => eligibleIds.has(row.participant.id));
   const rows = [...standings];
   const pairHistory = playedPairs(matches);
   const roundMatches = [];

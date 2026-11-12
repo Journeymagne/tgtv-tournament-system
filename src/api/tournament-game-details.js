@@ -1,5 +1,6 @@
 const tournamentMatchesRepo = require("../db/repositories/tournament-matches");
 const gameParticipantsRepo = require("../db/repositories/game-participants");
+const { registeredFactionsForRecordedSide } = require("./tournament-result-context");
 const {
   tournamentSummaryView,
   tournamentMatchView,
@@ -51,7 +52,8 @@ async function attachTournamentGameDetails(client, games) {
       isAdmin: Boolean(participant.user?.isAdmin),
       createdAt: participant.user?.createdAt || null,
       faction: participant.factionSnapshot || "",
-      ...(link.tournament.factionCount > 1 ? { factions: link.match.participantSnapshots?.[participant.tournamentParticipantId]?.factions || participant.factions } : {}),
+      ...(link.tournament.factionCount > 1 ? { factions: registeredFactionsForRecordedSide(
+        link.match, participantById.get(participant.tournamentParticipantId), participant) } : {}),
       tournamentParticipantId: participant.tournamentParticipantId || null,
       hasProfile: Boolean(participant.userId)
     }));

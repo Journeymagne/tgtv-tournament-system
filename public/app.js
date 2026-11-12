@@ -7010,7 +7010,9 @@ function renderTournamentResultForm(data, match, options = {}) {
       const path = admin
         ? `/api/admin/tournaments/${tournament.id}/matches/${match.id}/result`
         : `/api/tournaments/${tournament.id}/matches/${match.id}/result`;
-      await api(path, { method: "POST", body: approvedOpsPayloadFromForm(game.players) });
+      await api(path, { method: "POST", body: {
+        ...approvedOpsPayloadFromForm(game.players), expectedGameId: match.gameId
+      } });
       window.alert(t(admin ? "message.games.matchResultSaved" : "message.games.tournamentMatchSubmitted"));
       await refresh();
       await loadTop();
@@ -10193,6 +10195,9 @@ function updateRoundSetupPlayerSelects() {
     document.querySelectorAll('.round-setup-match-row select[name="participantAId"], .round-setup-match-row select[name="participantBId"], .round-setup-match-row select[name="rosterAId"], .round-setup-match-row select[name="rosterBId"]')
   );
   const assigned = new Set(selects.map((select) => select.value).filter(Boolean));
+  document.querySelectorAll("[data-round-bye-index]").forEach(input => {
+    if (input.value) assigned.add(input.value);
+  });
   selects.forEach((select) => {
     select.querySelectorAll("option").forEach((option) => {
       option.disabled = Boolean(option.value && option.value !== select.value && assigned.has(option.value));
