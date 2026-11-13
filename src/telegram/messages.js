@@ -47,9 +47,10 @@ function welcome(locale, linked) {
     t('✅ Напоминать, что результат игры ждёт твоего подтверждения.', '✅ Let you know when a game result needs your confirmation.')
   ];
   if (config.miniAppUrl) lines.push('',
-    t('<b>Компаньон внутри Telegram</b>', '<b>Companion inside Telegram</b>'),
+    t('📱 <b>Мини-приложение в Telegram</b>', '📱 <b>Mini App in Telegram</b>'),
     t('Смотри игры и таблицу, вноси счёт и подтверждай результаты в мини-приложении.',
-      'View games and standings, submit scores and confirm results in the mini app.'));
+      'View games and standings, submit scores and confirm results in the mini app.'),
+    t('Открыть в браузере: ', 'Open in browser: ') + config.miniAppUrl);
   lines.push('', linked
     ? t('<b>Аккаунт подключён.</b> Язык и уведомления — в /settings.',
       '<b>Your account is connected.</b> Set your language and notifications in /settings.')
@@ -59,7 +60,11 @@ function welcome(locale, linked) {
     text: lines.join('\n'),
     parse_mode: 'HTML',
     link_preview_options: { is_disabled: true },
-    reply_markup: linked ? menu(locale) : { inline_keyboard: [[button(choose(locale, "Подключить аккаунт", "Connect account"), "/tournament#/profile")], [{ text: choose(locale, "Турниры", "Tournaments"), callback_data: "m:tournaments" }]] }
+    reply_markup: linked ? menu(locale) : { inline_keyboard: [
+      [button(choose(locale, "Подключить аккаунт", "Connect account"), "/tournament#/profile")],
+      ...(config.miniAppUrl ? [[{ text: choose(locale, "Открыть мини-приложение", "Open Mini App"), web_app: { url: config.miniAppUrl } }]] : []),
+      [{ text: choose(locale, "Турниры", "Tournaments"), callback_data: "m:tournaments" }]
+    ] }
   };
 }
 function settings(link) {

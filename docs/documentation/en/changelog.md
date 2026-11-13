@@ -2,6 +2,10 @@
 
 KT Companion release history, newest first.
 
+## 1.5.20 — 13 November 2026
+
+- The Telegram welcome message includes a direct Mini App link and an “Open Mini App” button for new users. Both Russian and English are supported; personal data still requires a connected account.
+
 ## 1.5.19 — 13 November 2026
 
 - KnowThyKT now has a dedicated [What’s new](/knowthykt#changelog) tab with trainer and question-bank updates in Russian and English.
