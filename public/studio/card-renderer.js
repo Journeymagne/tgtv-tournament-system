@@ -184,11 +184,11 @@ function operative(c,d,assets={},index=0){
  const keywordScale=Math.min(1,(h-baseHeader-70)/Math.max(1,keywordHeight)),footer=Math.max(18,Math.ceil(keywordHeight*keywordScale+8));
  const uploaded=/^data:image\/(png|jpeg);base64,/.test(c.image||''),portrait=uploaded?c.image:assets[c.image];
  // Names share the full header up to the stats and render above the portrait.
- const {stats,statWidths,start,portraitWidth,portraitX}=operativeHeader(c,!!portrait),nw=start-pad*2;
+ const {stats,statWidths,start,portraitWidth,portraitX}=operativeHeader(c,!!portrait),nw=Math.max(0,start-pad*2);
  let size=c.nameFontSize??14;
  if(c.nameFontSize===undefined)while(wrap(c.name,nw,size,face(c.name)).length>2&&size>8)size-=.25;
  const titleLines=wrap(c.name,nw,size,face(c.name)),title=titleLines.slice(0,2);
- if(titleLines.length>2){let last=title[1];while(measure(last+'…',size,face(c.name))>nw)last=last.slice(0,-1);title[1]=last.trimEnd()+'…'}
+ if(titleLines.length>2){let last=title[1];while(last&&measure(last+'…',size,face(c.name))>nw)last=last.slice(0,-1);title[1]=measure('…',size,face(c.name))<=nw?last.trimEnd()+'…':''}
  const titleStep=size>14?size:12,titleY=title.length>1?Math.max(14,size):Math.max(23,size+2),underlineY=titleY+(title.length-1)*titleStep+3,nameHeader=Math.max(baseHeader,underlineY+3),loreTop=nameHeader+4;
  const loreLines=Text.plain(c.lore).trim()?richLines(c.lore,start-pad*2,6.8,'RobotoItalic',0,true):[];
  let loreCursor=0;

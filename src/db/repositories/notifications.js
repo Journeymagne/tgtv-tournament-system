@@ -1,4 +1,5 @@
 const { toIso } = require("../rows");
+const { lockRecipient } = require('../../notifications/recipient-lock');
 async function getLastSeenAt(client, userId) {
   const { rows } = await client.query(
     "SELECT last_seen_at FROM notification_inbox_state WHERE user_id = $1",
@@ -8,6 +9,7 @@ async function getLastSeenAt(client, userId) {
 }
 
 async function markReadThrough(client, userId, through) {
+  await lockRecipient(client, userId);
   const { rows } = await client.query(
     `INSERT INTO notification_inbox_state (user_id, last_seen_at, updated_at)
      VALUES ($1, LEAST($2::timestamptz, NOW()), NOW())

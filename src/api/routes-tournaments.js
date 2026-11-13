@@ -15,7 +15,11 @@ const documentation = require("./documentation");
 const accessManagement = require("./access-management");
 const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
 
-function withAction(handler, action) { return ctx => handler({ ...ctx, params: { ...ctx.params, action } }); }
+function withAction(handler, action) {
+  return Object.assign(ctx => handler({ ...ctx, params: { ...ctx.params, action } }), {
+    ratingMutation: handler.ratingMutation === true
+  });
+}
 
 module.exports = [
   { method: "GET", path: "/api/statistics/kill-team", handler: killTeamStatistics.get, auth: "none" },
@@ -437,6 +441,7 @@ module.exports = [
     tx: true
   }
 ].map(route => {
+  route = { ...route, ratingMutation: route.ratingMutation || route.handler.ratingMutation === true };
   if (route.permission) return route;
   if (route.path.startsWith("/api/admin/tournaments/:id")) return { ...route, auth: "user", permission: "tournament.manage" };
   if (route.path === "/api/admin/tournaments") return { ...route, auth: "user",

@@ -133,6 +133,9 @@
   function setUser(value) {
     const previousId = user?.id;
     user = value;
+    // Republish verified identity even when the shell's account is unchanged:
+    // a consumer may have independently cleared authentication after a 401.
+    window.dispatchEvent(new CustomEvent('kt:session', { detail: { user: user || null } }));
     if (active === "tournament") {
       for (const link of document.querySelectorAll('.companion-service-link')) link.href = serviceUrl('tournament') + (user ? '#/mygames' : '#/leaderboard');
     }

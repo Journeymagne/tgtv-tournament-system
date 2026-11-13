@@ -175,7 +175,8 @@ function validate(d){
    for(const pool of ['weapons','abilities','actions']){if(!Array.isArray(c[pool]))throw Error('Нет содержимого карточки: '+pool);const local=new Set();for(const r of c[pool]){if(typeof r.id!=='string'||local.has(r.id)||typeof r.name!=='string')throw Error('Повреждён блок '+pool);local.add(r.id);if(pool!=='weapons'&&typeof r.body!=='string')throw Error('Нет текста правила');if(pool==='weapons'&&r.rules!==undefined&&typeof r.rules!=='string')throw Error('Некорректные правила оружия')}}
    validateImage(c);
    if(c.kind==='operative'){
-    if(!c.stats||!Object.keys(c.stats).length||!Array.isArray(c.keywords)||!Array.isArray(c.loadouts))throw Error('Повреждён профиль');
+    // Twelve 26pt columns leave title space inside the 121mm header.
+    if(!c.stats||typeof c.stats!=='object'||Array.isArray(c.stats)||!Object.keys(c.stats).length||Object.keys(c.stats).length>12||!Array.isArray(c.keywords)||!Array.isArray(c.loadouts))throw Error('Профиль должен содержать от 1 до 12 характеристик');
     if(c.nameFontSize!==undefined&&(!Number.isInteger(c.nameFontSize)||c.nameFontSize<6||c.nameFontSize>24))throw Error('Кегль имени оперативника должен быть от 6 до 24 пт');
     if(c.baseSize!==undefined&&(typeof c.baseSize!=='string'||c.baseSize.length>16||/[\r\n\x00-\x1f]/.test(c.baseSize)))throw Error('Размер базы должен быть короткой строкой, например 25 или 60×35');
     for(const l of c.loadouts)if(typeof l.name!=='string'||!Array.isArray(l.weaponIds)||l.weaponIds.some(id=>!c.weapons.some(w=>w.id===id)))throw Error('Оружие комплектации должно принадлежать этой карточке');

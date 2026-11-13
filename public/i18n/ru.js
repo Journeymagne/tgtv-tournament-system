@@ -782,6 +782,7 @@ const TGTV_I18N_RU = {
   "admin.tournament.field.format": "Вариант",
   "admin.tournament.field.bracketSize": "Размер сетки",
   "admin.tournament.playerCount": { one: "{n} игрок", few: "{n} игрока", many: "{n} игроков", other: "{n} игрока" },
+  "admin.tournament.field.pairingMode": "Генерация парингов",
   "admin.tournament.field.swissRounds": "Раунды швейцарки",
   "admin.tournament.field.startsAt": "Начало",
   "admin.tournament.field.ratingPolicy": "Учёт рейтинга",

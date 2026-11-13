@@ -667,6 +667,10 @@ function adminTournamentSetupForm(data, { active, creating, canApplyTiebreakers 
             <label for="tournament-setup-rounds">${t("admin.tournament.field.swissRounds")}</label>
             <input id="tournament-setup-rounds" name="swissRoundCount" type="number" min="1" value="${tournament.swissRoundCount || 3}" ${lockAttrs}>
           </div>
+          <div class="field" data-format-field="swiss">
+            <label for="tournament-setup-pairing-mode">${t("admin.tournament.field.pairingMode")}</label>
+            <select id="tournament-setup-pairing-mode" name="pairingMode" ${lockAttrs}><option value="backet_random">Backet Random</option><option value="by_tp" ${tournament.pairingMode === "by_tp" ? "selected" : ""}>By TP</option></select>
+          </div>
           <div class="field" data-team-mode-field ${isTeam ? "" : "hidden"}>
             <label for="tournament-setup-team-size">${t("admin.tournament.field.teamSize")}</label>
             <input id="tournament-setup-team-size" data-team-size-label value="${t(doubles ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree")}" readonly ${lockAttrs}>
@@ -1972,6 +1976,7 @@ function adminTournamentBodyFromForm(form, options = {}) {
   setFormValue(body, form, "ratingPolicy");
   setFormValue(body, form, "challengeCreditPolicy");
   setFormValue(body, form, "seasonId");
+  setFormValue(body, form, "pairingMode");
   setFormValue(body, form, "venueMode");
   setFormValue(body, form, "venueAddress");
   if (includeSlug) setFormValue(body, form, "slug");

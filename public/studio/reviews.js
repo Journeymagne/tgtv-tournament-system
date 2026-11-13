@@ -5,7 +5,7 @@ const english=()=>root.KTUI?.locale()==='en';
 const t=(ru,en)=>english()?en:ru;
 const number=value=>value==null?'—':Number(value).toLocaleString(english()?'en-US':'ru-RU',{minimumFractionDigits:1,maximumFractionDigits:1});
 const date=value=>new Date(value).toLocaleString(english()?'en-GB':'ru-RU');
-let host,team,onSummary,data,user,csrf,sequence=0,working=false,editing=null,draft=null,initial='',adminMode=false,reportMode=false,targetId=null;
+let host,team,onSummary,data,user,csrf,sequence=0,working=false,editing=null,draft=null,initial='',adminMode=false,reportMode=false,targetId=null,versionConfirmation=false;
 const path=()=>'/api/studio/library/'+encodeURIComponent(team.id)+'/reviews';
 const adminPath=()=>'/api/studio/admin/library/'+encodeURIComponent(team.id);
 async function identity(){user=(await root.KTCompanion.session()).user;csrf=null;return user}
@@ -35,7 +35,7 @@ function errorMessage(error){
 }
 function dirty(){return !!draft&&JSON.stringify(draft)!==initial}
 function canLeave(){return !working&&(!dirty()||confirm(t('Закрыть форму и потерять несохранённые изменения?','Discard unsaved review changes?')))}
-function discard(){draft=null;editing=null;initial='';}
+function discard(){draft=null;editing=null;initial='';versionConfirmation=false;}
 function reset(){++sequence;discard();host=null;team=null;data=null;working=false;}
 function profile(author){return (root.KTCompanion?.serviceUrl('tournament')||'/tournament')+'#/players/'+encodeURIComponent(author.id)}
 function versionHistory(review){
@@ -53,7 +53,7 @@ function card(review){
 function form(){
  if(!draft)return '';
  const fields=[['themeScore',t('Тема','Theme'),t('Идея, характер и игровые механики команды','Team identity, concept and mechanics')],['balanceScore',t('Баланс','Balance'),t('Сила, ограничения и контригра','Power, limitations and counterplay')],['loreScore',t('Лор','Lore'),t('История и описание команды','Team history and background')]];
- return '<form class="review-form"><p data-rated-version>'+t('Оценка версии: ','Rating version: ')+esc(editing&&!draft.reevaluate?editing.versionLabel:data.currentVersionLabel)+'</p><h3>'+ (editing?t('Изменить обзор','Edit review'):t('Новый обзор','New review'))+'</h3><div class="review-rating-fields">'+fields.map(([key,label,hint])=>'<fieldset><legend>'+label+'</legend><p>'+hint+'</p><div class="review-stars">'+[1,2,3,4,5].map(value=>'<label><input type="radio" name="'+key+'" value="'+value+'" required '+(draft[key]===value?'checked':'')+'><span aria-hidden="true">★ '+value+'</span><span class="review-sr">'+value+' '+t('из 5','of 5')+'</span></label>').join('')+'</div></fieldset>').join('')+'</div><label>'+t('Ваш обзор','Your review')+'<textarea name="body" rows="6" maxlength="5000" required placeholder="'+t('Расскажите о впечатлениях от команды','Share your experience with this team')+'">'+esc(draft.body)+'</textarea></label><small data-review-length>'+draft.body.length+' / 5000</small>'+(editing?.previousVersion?'<label class="review-check"><input type="checkbox" name="reevaluate" '+(draft.reevaluate?'checked':'')+'>'+t('Переоценить текущую версию','Reassess the current version')+'</label>':'')+'<p>'+t('Ваши оценки войдут в рейтинг команды.','Your scores will contribute to the team rating.')+'</p><div class="review-actions"><button type="submit" class="primary" data-review-submit>'+t('Сохранить обзор','Save review')+'</button><button type="button" data-review-action="cancel">'+t('Отмена','Cancel')+'</button></div></form>';
+ return '<form class="review-form"><p data-rated-version>'+t('Оценка версии: ','Rating version: ')+esc(editing&&!draft.reevaluate&&!versionConfirmation?editing.versionLabel:draft.versionLabel)+'</p><h3>'+ (editing?t('Изменить обзор','Edit review'):t('Новый обзор','New review'))+'</h3><div class="review-rating-fields">'+fields.map(([key,label,hint])=>'<fieldset><legend>'+label+'</legend><p>'+hint+'</p><div class="review-stars">'+[1,2,3,4,5].map(value=>'<label><input type="radio" name="'+key+'" value="'+value+'" required '+(draft[key]===value?'checked':'')+'><span aria-hidden="true">★ '+value+'</span><span class="review-sr">'+value+' '+t('из 5','of 5')+'</span></label>').join('')+'</div></fieldset>').join('')+'</div><label>'+t('Ваш обзор','Your review')+'<textarea name="body" rows="6" maxlength="5000" required placeholder="'+t('Расскажите о впечатлениях от команды','Share your experience with this team')+'">'+esc(draft.body)+'</textarea></label><small data-review-length>'+draft.body.length+' / 5000</small>'+((editing?.previousVersion||versionConfirmation)?'<label class="review-check"><input type="checkbox" name="reevaluate" '+(draft.reevaluate?'checked':'')+'>'+t('Переоценить текущую версию','Reassess the current version')+'</label>':'')+'<p>'+t('Ваши оценки войдут в рейтинг команды.','Your scores will contribute to the team rating.')+'</p><div class="review-actions"><button type="submit" class="primary" data-review-submit>'+t('Сохранить обзор','Save review')+'</button><button type="button" data-review-action="cancel">'+t('Отмена','Cancel')+'</button></div></form>';
 }
 function render(){
  if(!host||!data)return;
@@ -66,7 +66,7 @@ function render(){
  '<div data-review-list>'+(data.items.length?data.items.map(card).join(''):'<p class="community-empty">'+t('Пока нет обзоров. Поделитесь первыми впечатлениями.','No reviews yet. Share your first impressions.')+'</p>')+'</div>'+(data.nextCursor?'<button type="button" data-review-action="more">'+t('Показать ещё','Show more')+'</button>':'');
  validateForm();
 }
-function validateForm(){const form=host?.querySelector('form.review-form');if(!form)return;form.querySelector('[data-review-submit]').disabled=working||!draft?.body.trim()||!['themeScore','balanceScore','loreScore'].every(key=>draft[key]>=1&&draft[key]<=5);form.querySelector('[data-review-length]').textContent=draft.body.length+' / 5000';}
+function validateForm(){const form=host?.querySelector('form.review-form');if(!form)return;form.querySelector('[data-review-submit]').disabled=working||versionConfirmation&&!draft?.reevaluate||!draft?.body.trim()||!['themeScore','balanceScore','loreScore'].every(key=>draft[key]>=1&&draft[key]<=5);form.querySelector('[data-review-length]').textContent=draft.body.length+' / 5000';}
 async function load(more=false){
  const current=++sequence,base=path(),cursor=more?data?.nextCursor:null;
  try{
@@ -85,7 +85,7 @@ async function open(element,publication,callback,focusId){
  host.dataset.uiSkip='';host.innerHTML='<p>'+t('Загружаю обзоры…','Loading reviews…')+'</p>';
  const current=sequence;try{await identity();if(current!==sequence)return;await load()}catch(error){if(current===sequence){host.innerHTML='<div data-review-status role="status"></div><button type="button" data-review-action="refresh">'+t('Повторить','Retry')+'</button>';errorMessage(error)}}
 }
-function startForm(review){reportMode=false;editing=review||null;draft={body:review?.body||'',themeScore:review?.themeScore||0,balanceScore:review?.balanceScore||0,loreScore:review?.loreScore||0,reevaluate:false,versionLabel:data.currentVersionLabel,clientRequestId:crypto.randomUUID()};initial=JSON.stringify(draft);render();host.querySelector('textarea')?.focus()}
+function startForm(review){reportMode=false;versionConfirmation=false;editing=review||null;draft={body:review?.body||'',themeScore:review?.themeScore||0,balanceScore:review?.balanceScore||0,loreScore:review?.loreScore||0,reevaluate:false,versionLabel:data.currentVersionLabel,clientRequestId:crypto.randomUUID()};initial=JSON.stringify(draft);render();host.querySelector('textarea')?.focus()}
 async function login(){if(await root.KTStudioLogin.open('review')){await identity();root.KTCompanion.changed();await load()}}
 function reasonDialog(title,reporting=false){
  return new Promise(resolve=>{
@@ -95,7 +95,7 @@ function reasonDialog(title,reporting=false){
  });
 }
 async function submit(event){
- if(!event.target.matches('.review-form'))return;event.preventDefault();if(working)return;
+ if(!event.target.matches('.review-form'))return;event.preventDefault();if(working||versionConfirmation&&!draft?.reevaluate)return;
  working=true;validateForm();
  try{const result=await request(path()+(editing?'/'+editing.id:''),{method:editing?'PATCH':'POST',body:{...draft,...(editing?{revision:editing.revision}:{})}});discard();updateSummary(result.ratingSummary);await load()}
  catch(error){errorMessage(error);if(error.status===409){const status=host.querySelector('[data-review-status]');const button=document.createElement('button');button.type='button';button.dataset.reviewAction='reconcile';button.textContent=t('Загрузить актуальный обзор, сохранив мой текст','Load current review, keeping my text');status.append(' ',button)}}
@@ -108,7 +108,7 @@ async function reports(more=false){
  if(more)host.querySelector('[data-review-list]').insertAdjacentHTML('beforeend',markup);else host.querySelector('[data-review-list]').innerHTML=markup;
  let button=host.querySelector('[data-review-action="more"]');if(button)button.remove();if(result.nextCursor)host.insertAdjacentHTML('beforeend','<button type="button" data-review-action="more">'+t('Показать ещё','Show more')+'</button>');
 }
-document.addEventListener('input',event=>{if(!host?.contains(event.target)||!draft)return;const f=event.target.closest('.review-form');if(!f)return;draft.body=f.elements.body.value;for(const key of ['themeScore','balanceScore','loreScore'])draft[key]=Number(f.elements[key].value)||0;draft.reevaluate=!!f.elements.reevaluate?.checked;f.querySelector('[data-rated-version]').textContent=t('Оценка версии: ','Rating version: ')+(editing&&!draft.reevaluate?editing.versionLabel:draft.versionLabel);validateForm()});
+document.addEventListener('input',event=>{if(!host?.contains(event.target)||!draft)return;const f=event.target.closest('.review-form');if(!f)return;draft.body=f.elements.body.value;for(const key of ['themeScore','balanceScore','loreScore'])draft[key]=Number(f.elements[key].value)||0;draft.reevaluate=!!f.elements.reevaluate?.checked;f.querySelector('[data-rated-version]').textContent=t('Оценка версии: ','Rating version: ')+(editing&&!draft.reevaluate&&!versionConfirmation?editing.versionLabel:draft.versionLabel);validateForm()});
 document.addEventListener('submit',event=>{if(host?.contains(event.target))void submit(event)});
 document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&host?.contains(event.target)&&event.target.closest('.review-form')){event.preventDefault();event.target.closest('form').requestSubmit()}});
 document.addEventListener('change',async event=>{if(!host?.contains(event.target)||!event.target.matches('[data-review-preference]'))return;try{await request('/api/studio/review-preferences',{method:'PATCH',body:{notifications:event.target.checked}});data.notifications=event.target.checked}catch(error){event.target.checked=!event.target.checked;errorMessage(error)}});
@@ -119,7 +119,16 @@ document.addEventListener('click',async event=>{
   if(action==='login'){await login();return}
   if(action==='new'||action==='edit'){if(canLeave())startForm(review||data.myReview);return}
   if(action==='cancel'){if(canLeave()){discard();render()}return}
-  if(action==='reconcile'){const result=await request(path());data.myReview=result.myReview;if(!result.myReview||result.myReview.hidden)throw Error(t('Обзор удалён или скрыт. Скопируйте ваш текст перед обновлением.','Review removed or hidden. Copy your text before refreshing.'));editing=result.myReview;errorMessage({message:t('Ревизия обновлена. Проверьте свой текст и сохраните ещё раз.','Revision refreshed. Check your text and save again.')});return}
+  if(action==='reconcile'){
+   const result=await request(path());
+   if(editing&&!result.myReview||result.myReview?.hidden)throw Error(t('Обзор удалён или скрыт. Скопируйте ваш текст перед обновлением.','Review removed or hidden. Copy your text before refreshing.'));
+   const previousTarget=editing&&!draft.reevaluate&&!versionConfirmation?editing.versionLabel:draft.versionLabel;
+   const refreshedTarget=result.myReview&&!draft.reevaluate&&!versionConfirmation?result.myReview.versionLabel:result.currentVersionLabel;
+   if(previousTarget!==refreshedTarget){versionConfirmation=true;draft.reevaluate=false}
+   draft.versionLabel=result.currentVersionLabel;editing=result.myReview||null;
+   data={...data,...result};updateSummary(data.ratingSummary);render();
+   errorMessage({message:versionConfirmation?t('Целевая версия оценки изменилась. Подтвердите оценку текущей версии перед сохранением.','The rating target changed. Confirm the current version before saving.'):t('Ревизия обновлена. Проверьте свой текст и сохраните ещё раз.','Revision refreshed. Check your text and save again.')});return;
+  }
   if(action==='link'){await navigator.clipboard.writeText(new URL('/studio#/library/'+team.id+'/reviews?review='+review.id,location.origin).href);errorMessage({message:t('Ссылка скопирована.','Link copied.')});return}
   if(action==='refresh'||action==='admin'||action==='reports'){if(!canLeave())return;discard();reportMode=false;if(action==='admin')adminMode=!adminMode;if(action==='reports'){await reports();return}await load();return}
   if(action==='more'){await (reportMode?reports(true):load(true));return}

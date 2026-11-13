@@ -24,7 +24,7 @@ const FEEDBACK_COLUMNS = `
 const TOURNAMENT_COLUMNS = `
   id, owner_user_id, slug, name, logo_data, description, game_system, starts_at,
   rules_summary, rules_link, status, format, swiss_round_count,
-  single_elimination_size, tiebreaker_order, rating_policy,
+  single_elimination_size, tiebreaker_order, pairing_mode, rating_policy,
   challenge_credit_policy, season_id, venue_mode, venue_address, final_results, round_draft,
   participant_mode, team_size, pairing_type, team_tables_locked, registration_limit, captain_pairing_enabled, team_tiebreaker_order,
   faction_count, published_at, started_at,
@@ -167,6 +167,7 @@ function mapTournament(row) {
     format: row.format,
     swissRoundCount: row.swiss_round_count,
     singleEliminationSize: row.single_elimination_size,
+    pairingMode: row.pairing_mode || "backet_random",
     tiebreakerOrder: row.tiebreaker_order || [],
     ratingPolicy: row.rating_policy || "ranked",
     challengeCreditPolicy: row.challenge_credit_policy || "count",

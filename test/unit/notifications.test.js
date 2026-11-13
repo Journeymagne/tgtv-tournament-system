@@ -16,6 +16,10 @@ function fakeClient(options = {}) {
   const stored = new Map();
   return {
     async query(sql, params = []) {
+      if (sql === 'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))') {
+        assert.equal(params[0], 'notification-inbox:1');
+        return { rows: [{}] };
+      }
       if (sql === "SELECT NOW() AS generated_at") return { rows: [{ generated_at: now }] };
       if (sql.includes("SELECT last_seen_at FROM notification_inbox_state")) {
         return { rows: options.lastSeenAt ? [{ last_seen_at: new Date(options.lastSeenAt) }] : [] };

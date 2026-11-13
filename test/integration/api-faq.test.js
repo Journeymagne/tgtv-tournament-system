@@ -60,6 +60,10 @@ test.before(async () => {
 test.after(async () => { await server?.close(); await closePool(); });
 test.beforeEach(async () => {
   await getPool().query('TRUNCATE users, faq_entries, faq_history RESTART IDENTITY CASCADE');
+  // Unlike source messages/inbox items, outbox rows have no user foreign key.
+  // Remove queued occurrences before reused user IDs can receive old test mail.
+  await getPool().query(`TRUNCATE faq.notification_messages, faq.notification_outbox,
+    notifications.notification_inbox_items, notifications.notification_inbox_state`);
   await getPool().query(`INSERT INTO faq_entries(id,content)
     SELECT value->>'id',value-'id' FROM jsonb_array_elements($1::jsonb)`, [JSON.stringify(seed.entries)]);
   limiter.reset();
@@ -125,6 +129,43 @@ test('a conflicting correction leaves its submission pending and the published t
   }), 409);
   assert.equal((await getPool().query('SELECT status FROM faq_submissions WHERE id=$1', [id])).rows[0].status, 'pending');
   assert.equal((await getPool().query('SELECT content FROM faq_entries WHERE id=$1', [entry.id])).rows[0].content.answer, 'Updated answer');
+});
+
+for (const status of ['accepted', 'rejected']) test(`a read returned FAQ decision does not consume a later ${status} decision`, async () => {
+  const { id } = await expect(player.http.request('POST', '/api/faq/submissions', ruling()), 201);
+  const path = '/api/faq/submissions/' + id;
+  const returnedNote = 'Add context ' + id, finalNote = 'Final decision ' + id;
+  await expect(moderator.http.request('POST', path + '/decision', { status: 'needs_changes', resolution: returnedNote }));
+  const deliver = require('../helpers/notifications').deliverNotifications;
+  await deliver();
+  const firstInbox = await expect(player.http.request('GET', '/api/notifications'));
+  const first = firstInbox.items.find(item => item.type === 'faq_submission' && item.excerpt === returnedNote);
+  assert.ok(first.unread);
+  await expect(player.http.request('POST', '/api/notifications/read', { id: first.id }));
+  await expect(player.http.request('PATCH', path, ruling({ answer: 'Revised answer' })));
+  await expect(moderator.http.request('POST', path + '/decision', {
+    status, resolution: finalNote, ...(status === 'accepted' ? { entry: ruling() } : {})
+  }));
+  await deliver();
+  const inbox = await expect(player.http.request('GET', '/api/notifications'));
+  const latest = inbox.items.find(item => item.type === 'faq_submission' && item.status === status && item.excerpt === finalNote);
+  assert.ok(latest);
+  assert.equal(latest.unread, true, 'the second moderation occurrence must be unread');
+  assert.notEqual(latest.id, first.id, 'each decision has its own notification identity');
+  assert.ok(new Date(latest.createdAt) >= new Date(first.createdAt));
+  assert.equal(inbox.items.find(item => item.id === first.id).unread, false);
+  // Replay exactly this delivery through the real source outbox. It must not
+  // reset the read state or add a third history entry.
+  await expect(player.http.request('POST', '/api/notifications/read', { id: latest.id }));
+  await getPool().query(`INSERT INTO faq.notification_outbox(user_id, notification_id, payload, operation)
+    VALUES ($1,$2,$3,'upsert')`, [player.id, latest.id, JSON.stringify(latest)]);
+  await deliver();
+  const retried = await expect(player.http.request('GET', '/api/notifications'));
+  assert.equal(retried.items.filter(item => item.type === 'faq_submission').length, 2);
+  const occurrenceIds = new Set([first.id, latest.id]);
+  assert.equal(retried.items.filter(item => occurrenceIds.has(item.id)).length, 2);
+  assert.deepEqual(retried.items.map(item => item.id), inbox.items.map(item => item.id), 'replay must preserve history without adding another occurrence');
+  assert.equal(retried.items.find(item => item.id === latest.id).unread, false);
 });
 
 test('an accepted correction to a GW answer creates a separate community clarification', async () => {

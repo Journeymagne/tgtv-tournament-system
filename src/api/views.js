@@ -272,6 +272,7 @@ function tournamentSummaryView(tournament) {
     teamTablesLocked: Boolean(tournament.teamTablesLocked),
     swissRoundCount: tournament.swissRoundCount,
     singleEliminationSize: tournament.singleEliminationSize,
+    pairingMode: tournament.pairingMode || "backet_random",
     tiebreakerOrder: tournament.tiebreakerOrder,
     ratingPolicy: tournament.ratingPolicy,
     challengeCreditPolicy: tournament.challengeCreditPolicy,
