@@ -8,7 +8,7 @@ const { SERVICE_PATHS } = require("../domain/sites");
 const SITE_NAME = "KT Companion";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.5.12";
+const ASSET_VERSION = "1.5.18";
 const { version: SHARED_ASSET_VERSION } = require("./shared-assets.json");
 
 function requestOrigin(req) {
@@ -189,7 +189,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
     <link rel="stylesheet" href="/companion-tokens.css?v=${SHARED_ASSET_VERSION}">
     <link rel="stylesheet" href="/styles.css?v=${SHARED_ASSET_VERSION}">
-    <link rel="stylesheet" href="/map-catalog-ui.css?v=${ASSET_VERSION}">
+    <link rel="stylesheet" href="/map-catalog-ui.css?v=1.5.18">
     <link rel="stylesheet" href="/training/journey-shared.css?v=${SHARED_ASSET_VERSION}">
     <link rel="stylesheet" href="/companion-shell.css?v=${SHARED_ASSET_VERSION}">
     <script src="/companion-sites.js?v=${SHARED_ASSET_VERSION}" defer></script>

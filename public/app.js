@@ -8893,7 +8893,23 @@ function teamRosterMemberLabel(roster, memberId) {
 function teamPairingRostersMarkup(match) {
   if (match.phase === "completed" || !match.rosterA || !match.rosterB) return "";
   const rosters = [match.rosterA, match.rosterB];
-  const members = rosters.map(roster => activeRosterMembersForUi(roster).slice().sort((a, b) => a.slot - b.slot).slice(0, teamSizeFor(match)));
+  const size = teamSizeFor(match);
+  const members = rosters.map(roster => activeRosterMembersForUi(roster).slice().sort((a, b) => a.slot - b.slot).slice(0, size));
+  // Use the same opponents as the game cards, including historical participants
+  // when a roster has since changed. An existing game takes precedence.
+  const matchups = new Map([...(match.pairings || []), ...(match.games || [])].map(pairing => [Number(pairing.slot), pairing]));
+  const used = [new Set(), new Set()];
+  const rows = [...matchups.values()].sort((a, b) => Number(a.slot) - Number(b.slot)).slice(0, size).map(pairing =>
+    rosters.map((roster, side) => {
+      const memberId = Number(side ? pairing.rosterBMemberId : pairing.rosterAMemberId);
+      const member = (roster.members || []).find(item => Number(item.id) === memberId);
+      if (member) used[side].add(Number(member.id));
+      return member;
+    })
+  );
+  const remaining = members.map((list, side) => list.filter(member => !used[side].has(Number(member.id))));
+  const remainingRows = Math.min(size - rows.length, Math.max(...remaining.map(list => list.length)));
+  for (let index = 0; index < remainingRows; index++) rows.push(remaining.map(list => list[index]));
   const id = `team-pairing-rosters-${Number(match.id)}`;
   const memberMarkup = (member, side) => {
     if (!member) return `<div aria-hidden="true"></div>`;
@@ -8907,9 +8923,7 @@ function teamPairingRostersMarkup(match) {
     <h3 id="${id}">${t("teams.tournament.rosters")}</h3>
     <div class="team-pairing-rosters-grid">
       ${rosters.map((roster, side) => `<h4 id="${id}-${side}">${teamRosterLabel(roster)}</h4>`).join("")}
-      ${Array.from({ length: Math.max(...members.map(list => list.length)) }, (_, index) =>
-        members.map((list, side) => memberMarkup(list[index], side)).join("")
-      ).join("")}
+      ${rows.map(row => row.map((member, side) => memberMarkup(member, side)).join("")).join("")}
     </div>
   </section>`;
 }
