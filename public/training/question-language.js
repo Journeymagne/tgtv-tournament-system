@@ -7,9 +7,12 @@
   }
   function localize(q, locale, translations) {
     if (!q || locale !== 'en') return q;
-    const entry = translations[q.id];
+    const current = translations[q.id];
+    const original = signature(q);
+    const entry = current?.original === original ? current
+      : current?.versions?.find(version => version.original === original);
     // Never apply a translation of a different editorial version to a saved answer.
-    if (!entry || entry.original !== signature(q)) return q;
+    if (!entry) return q;
     return { ...q, topic: entry.topic, question: entry.question,
       options: [...entry.options], explanation: entry.explanation,
       source: { ...q.source, section: entry.section } };
