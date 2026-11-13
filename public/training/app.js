@@ -56,7 +56,7 @@
   } };
   try {
     const [bank, identity, translations] = await Promise.all([api.questions(), window.KTCompanion.ready.catch(() => ({ user: null })),
-      fetch('/training/questions-en.json?v=20261030-archon').then(response => { if (!response.ok) throw Error('Could not load question translations.'); return response.json(); })]);
+      fetch('/training/questions-en.json?v=20261113-editorial-review').then(response => { if (!response.ok) throw Error('Could not load question translations.'); return response.json(); })]);
     questionTranslations = translations;
     if (sessionIdentity === undefined) sessionIdentity = identity.user?.id ?? null;
     if (!Array.isArray(bank.questions)) throw Error('Не удалось загрузить банк вопросов.');
