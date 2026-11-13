@@ -2,6 +2,14 @@
 
 KT Companion release history, newest first.
 
+## 1.5.18 — 13 November 2026
+
+- Team pairing previews align roster rows with the actual matchups and game cards.
+- Fixed tournament result submission, rating recalculation and Swiss pairing order, including removed players, replacements and byes. Swiss tournaments also offer the By TP pairing mode.
+- Studio more reliably restores unsaved edits across tabs and restarts. Review text survives a publication version change, and reviewing the new version requires confirmation.
+- Fixed account changes in notifications, read markers and repeated FAQ moderation decisions. Resolved KnowThyKT progress races and concurrent registrations with the same name.
+- Improved English wording in training questions.
+
 ## 1.5.17 — 12 November 2026
 
 - Selected-team statistics are available in the tier list recording view. The selected team and open panel are preserved when entering this view.
