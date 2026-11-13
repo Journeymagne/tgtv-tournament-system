@@ -56,7 +56,7 @@
   } };
   try {
     const [bank, identity, translations] = await Promise.all([api.questions(), window.KTCompanion.ready.catch(() => ({ user: null })),
-      fetch('/training/questions-en.json?v=20261113-editorial-review').then(response => { if (!response.ok) throw Error('Could not load question translations.'); return response.json(); })]);
+      fetch('/training/questions-en.json?v=1.5.19').then(response => { if (!response.ok) throw Error('Could not load question translations.'); return response.json(); })]);
     questionTranslations = translations;
     if (sessionIdentity === undefined) sessionIdentity = identity.user?.id ?? null;
     if (!Array.isArray(bank.questions)) throw Error('Не удалось загрузить банк вопросов.');
@@ -408,14 +408,17 @@
       <section class="panel"><div class="section-heading"><h2>Документы, использованные в вопросах</h2></div><div class="document-list">${official.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer"><span>PDF</span><strong>${esc(s.title)}</strong><span>↗</span></a>`).join('')}<a href="https://wahapedia.ru/kill-team3/the-rules/appendix/" target="_blank" rel="noopener noreferrer"><span>WEB</span><strong>Wahapedia · Appendix / Weapon rules</strong><span>↗</span></a><a href="https://wahapedia.ru/kill-team3/the-rules/killzones/" target="_blank" rel="noopener noreferrer"><span>WEB</span><strong>Wahapedia · Killzones</strong><span>↗</span></a><a href="https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/" target="_blank" rel="noopener noreferrer"><span>WEB</span><strong>Wahapedia · Approved Ops 2025</strong><span>↗</span></a></div></section>
       <section class="source-notes"><h2>Как проверяли банк</h2><p>Использованы локальные материалы проекта: справочники Combat Lab и архив Warhammer Community от 25.09.2026. Упрощённые Lite Rules сверены с общими правилами; допущения калькулятора не приняты за официальные правила. Core Rules Update Log проверен в редакции June ’26. Миссионные уточнения сверены по Approved Ops 2025.</p><p class="muted">Это датированный снимок: банк не обновляется автоматически при выходе новых правил. Ссылка у каждого ответа помогает проверить первоисточник. Названия Kill Team и Warhammer принадлежат Games Workshop; проект не связан с Games Workshop.</p></section>`;
   }
+  function changelogPage() {
+    main.innerHTML = window.KTTrainingChangelog.render(window.KTUI.locale());
+  }
   function render(preserveSelection = false) {
     updateProfile();
     if (preserveSelection !== true) selectedAnswer = null;
     const route = location.hash.slice(1) || 'journey';
     const activeNav = ['session', 'results'].includes(route) ? 'training' : route;
     document.querySelectorAll('[data-nav]').forEach(a => { const active = a.dataset.nav === activeNav; a.classList.toggle('active', active); if (active) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-    $('#breadcrumb').textContent = { journey: 'МОЙ ПУТЬ', training: 'ТРЕНИРОВКА', session: 'АКТИВНАЯ СЕССИЯ', results: 'РЕЗУЛЬТАТЫ', progress: 'МОЙ ПРОГРЕСС', bank: 'БАЗА ВОПРОСОВ', sources: 'ИСТОЧНИКИ', moderation: 'МОДЕРАЦИЯ' }[route] || 'МОЙ ПУТЬ';
-    ({ journey: journeyPage, training, session: sessionPage, results: resultsPage, progress: progressPage, bank: bankPage, sources: sourcesPage, moderation: moderationPage }[route] || journeyPage)();
+    $('#breadcrumb').textContent = { journey: 'МОЙ ПУТЬ', training: 'ТРЕНИРОВКА', session: 'АКТИВНАЯ СЕССИЯ', results: 'РЕЗУЛЬТАТЫ', progress: 'МОЙ ПРОГРЕСС', bank: 'БАЗА ВОПРОСОВ', sources: 'ИСТОЧНИКИ', changelog: 'ЧТО НОВОГО', moderation: 'МОДЕРАЦИЯ' }[route] || 'МОЙ ПУТЬ';
+    ({ journey: journeyPage, training, session: sessionPage, results: resultsPage, progress: progressPage, bank: bankPage, sources: sourcesPage, changelog: changelogPage, moderation: moderationPage }[route] || journeyPage)();
     if (busy) busyControls(true);
     if (preserveSelection !== true) window.scrollTo({ top: 0, behavior: 'instant' });
   }

@@ -2,6 +2,12 @@
 
 KT Companion release history, newest first.
 
+## 1.5.19 — 13 November 2026
+
+- KnowThyKT now has a dedicated [What’s new](/knowthykt#changelog) tab with trainer and question-bank updates in Russian and English.
+- Published clearer wording, answer options and English translations for 13 questions with frequent mistakes. All 7 Portable Barricade questions are excluded from training.
+- Answer history, earned XP and titles are retained. Historical question revisions keep their matching English translations.
+
 ## 1.5.18 — 13 November 2026
 
 - Team pairing previews align roster rows with the actual matchups and game cards.

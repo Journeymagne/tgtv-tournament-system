@@ -37,8 +37,11 @@ test.beforeEach(async () => {
 });
 const read = async (client, locale = "ru") => (await client.get(`/api/documentation/${locale}/changelog`)).body.page;
 
-test("1.5.18 release notes preserve editorial history and do not duplicate on replay", async () => {
-  const migration = require("../../src/db/migrations/090_review_fixes_release_notes");
+for (const [version, migrationFile] of [
+  ["1.5.18", "090_review_fixes_release_notes"],
+  ["1.5.19", "091_knowthykt_release_notes"]
+]) test(`${version} release notes preserve editorial history and do not duplicate on replay`, async () => {
+  const migration = require(`../../src/db/migrations/${migrationFile}`);
   const history = "# Editorial heading\n\nAn editor's introduction.\n\n## 1.5.17 — previous release\n\nPreserved release copy.\n";
   for (const locale of ["ru", "en"]) {
     await pool.query("UPDATE documentation_pages SET markdown=$2, version=7 WHERE page_id='changelog' AND locale=$1", [locale, history]);
@@ -59,10 +62,12 @@ test("1.5.18 release notes preserve editorial history and do not duplicate on re
   assert.equal(first.length, 2);
   for (const page of first) {
     assert.equal(page.version, 8);
-    assert.ok(page.markdown.startsWith("# Editorial heading\n\nAn editor's introduction.\n\n## 1.5.18"));
+    assert.ok(page.markdown.startsWith(`# Editorial heading\n\nAn editor's introduction.\n\n## ${version}`));
     assert.ok(page.markdown.endsWith("## 1.5.17 — previous release\n\nPreserved release copy.\n"));
     const notes = defaultPages().find(item => item.id === "changelog" && item.locale === page.locale).markdown;
-    assert.ok(page.markdown.includes(notes.slice(notes.indexOf("## 1.5.18"), notes.indexOf("## 1.5.17")).trimEnd()));
+    const start = notes.indexOf(`## ${version}`);
+    const nextRelease = notes.indexOf("\n## ", start + 1);
+    assert.ok(page.markdown.includes(notes.slice(start, nextRelease < 0 ? undefined : nextRelease).trimEnd()));
   }
   await apply();
   assert.deepEqual((await pool.query("SELECT locale, markdown, version FROM documentation_pages WHERE page_id='changelog' ORDER BY locale")).rows, first);

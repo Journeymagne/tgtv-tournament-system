@@ -50,6 +50,7 @@
     ['За всё время', 'All time'], ['ЕСТЬ ЧТО ПОВТОРИТЬ', 'NEEDS REVIEW'], ['Посмотреть мой путь →', 'View my journey →'],
     ['Все ранги открыты', 'All ranks unlocked'], ['Прогресс до следующего ранга', 'Progress to next rank'],
     ['Тренировка', 'Training'], ['Мой прогресс', 'My progress'], ['База вопросов', 'Question bank'], ['Источники', 'Sources'],
+    ['Что нового', "What's new"], ['ЧТО НОВОГО', "WHAT'S NEW"],
     ['Разделы тренажёра', 'Training sections'], ['Перейти к содержимому', 'Skip to content'],
     ['ТРЕНИРОВКА', 'TRAINING'], ['АКТИВНАЯ СЕССИЯ', 'ACTIVE SESSION'], ['РЕЗУЛЬТАТЫ', 'RESULTS'], ['МОЙ ПРОГРЕСС', 'MY PROGRESS'], ['БАЗА ВОПРОСОВ', 'QUESTION BANK'], ['ИСТОЧНИКИ', 'SOURCES'],
     ['Подключаем аккаунт…', 'Connecting your account…'], ['Загружаем вопросы и прогресс…', 'Loading questions and progress…'],
