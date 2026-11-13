@@ -49,7 +49,7 @@
     const english = language === 'en';
     const dateFormat = new Intl.DateTimeFormat(english ? 'en-GB' : 'ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
     return `<section class="training-changelog" data-ui-skip>
-      <div class="page-heading"><span class="eyebrow">KNOW THY KILL TEAM</span><h1>${english ? 'KnowThyKT updates' : 'Обновления KnowThyKT'}</h1><p>${english ? 'Updates to the trainer and its question bank.' : 'История изменений тренажёра и базы вопросов.'}</p></div>
+      <div class="page-heading"><div><span class="eyebrow">KNOW THY KILL TEAM</span><h1>${english ? 'KnowThyKT updates' : 'Обновления KnowThyKT'}</h1><p>${english ? 'Updates to the trainer and its question bank.' : 'История изменений тренажёра и базы вопросов.'}</p></div></div>
       <div class="training-changelog-list">${entries.map(entry => {
         const text = entry[language];
         const date = dateFormat.format(new Date(entry.date + 'T12:00:00Z'));
