@@ -2,6 +2,12 @@
 
 KT Companion release history, newest first.
 
+## 1.5.21 — 14 November 2026
+
+- Connect Telegram to an existing account directly inside the Mini App: enter your name or verified email and password, check both accounts, and confirm the connection.
+- After connecting, My games opens, or the game/tournament from your launch link. Sign-in and confirmation support Russian and English and both Companion themes.
+- Updated sign-in guidance, errors, and the bot welcome instructions. Connecting through the website profile, registration, and password recovery remain available.
+
 ## 1.5.20 — 13 November 2026
 
 - The Telegram welcome message includes a direct Mini App link and an “Open Mini App” button for new users. Both Russian and English are supported; personal data still requires a connected account.

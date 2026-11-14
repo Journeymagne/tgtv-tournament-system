@@ -39,9 +39,11 @@ async function createLink(ctx) {
 async function confirmLink(ctx) {
   await access.assertAllowed(ctx.client, ctx.user.id);
   enabled(); authorize(ctx);
+  const {rows:[observed]}=await ctx.client.query("SELECT telegram_id FROM telegram_link_tokens WHERE user_id=$1",[ctx.user.id]);
+  if (observed?.telegram_id) await require('../telegram/miniapp-link').lockTelegram(ctx.client,observed.telegram_id);
   await ctx.client.query("SELECT id FROM users WHERE id=$1 FOR UPDATE",[ctx.user.id]);
   const {rows:[pending]}=await ctx.client.query("SELECT * FROM telegram_link_tokens WHERE user_id=$1 AND expires_at>NOW() FOR UPDATE",[ctx.user.id]);
-  if (!pending?.telegram_id || String(ctx.body.telegramId)!==String(pending.telegram_id)) throw new HttpError(409,"Откройте ссылку в боте и проверьте выбранный Telegram-аккаунт.");
+  if (!pending?.telegram_id || String(observed?.telegram_id)!==String(pending.telegram_id) || String(ctx.body.telegramId)!==String(pending.telegram_id)) throw new HttpError(409,"Откройте ссылку в боте и проверьте выбранный Telegram-аккаунт.");
   const {rows:conflicts}=await ctx.client.query("SELECT 1 FROM telegram_links WHERE user_id=$1 OR telegram_id=$2",[ctx.user.id,pending.telegram_id]);
   if (conflicts.length) throw new HttpError(409,"Этот аккаунт уже связан. Обновите страницу.");
   let link;
@@ -72,7 +74,12 @@ async function preferences(ctx) {
 }
 async function unlink(ctx) {
   authorize(ctx);
+  const {rows:[observed]}=await ctx.client.query("SELECT telegram_id FROM telegram_links WHERE user_id=$1",[ctx.user.id]);
+  if (observed) await require('../telegram/miniapp-link').lockTelegram(ctx.client,observed.telegram_id);
   await ctx.client.query("SELECT id FROM users WHERE id=$1 FOR UPDATE",[ctx.user.id]);
+  const {rows:[current]}=await ctx.client.query("SELECT telegram_id FROM telegram_links WHERE user_id=$1",[ctx.user.id]);
+  if (String(current?.telegram_id)!==String(observed?.telegram_id)) throw new HttpError(409,"Этот аккаунт уже связан. Обновите страницу.");
+  await ctx.client.query('SELECT accounts.miniapp_link_revoke_user($1)',[ctx.user.id]);
   await ctx.client.query("DELETE FROM telegram_link_tokens WHERE user_id=$1",[ctx.user.id]);
   await ctx.client.query("DELETE FROM telegram_links WHERE user_id=$1",[ctx.user.id]);
   return status(ctx);
