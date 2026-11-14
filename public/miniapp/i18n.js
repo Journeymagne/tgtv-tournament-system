@@ -2,6 +2,33 @@
   "use strict";
   // Source-language keys are used only for interface copy, never player content.
   const en = {
+    "Войти в KT Companion": "Sign in to KT Companion",
+    "Войдите в свой аккаунт, чтобы подключить Telegram": "Sign in to your account to connect Telegram",
+    "Имя или email": "Name or email",
+    "Пароль": "Password",
+    "Продолжить": "Continue",
+    "Подключить этот Telegram к вашему аккаунту KT Companion?": "Connect this Telegram to your KT Companion account?",
+    "Подключить Telegram": "Connect Telegram",
+    "Назад": "Back",
+    "Подключение произойдёт только после подтверждения.": "The connection is made only after you confirm.",
+    "Показать пароль": "Show password",
+    "Скрыть пароль": "Hide password",
+    "После входа вы сможете проверить и подтвердить привязку.": "After signing in, you can review and confirm the connection.",
+    "Забыли пароль?": "Forgot password?",
+    "Создать аккаунт": "Create account",
+    "Также можно подключить Telegram через профиль сайта.": "You can also connect Telegram through your website profile.",
+    "Подключаем…": "Connecting…",
+    "Проверяем…": "Checking…",
+    "Загружаем…": "Loading…",
+    "Войти ещё раз": "Sign in again",
+    "Неверное имя, email или пароль": "Incorrect name, email or password",
+    "Время подтверждения истекло. Войдите ещё раз": "Confirmation expired. Sign in again",
+    "Telegram подключён": "Telegram connected",
+    "Вход в этот аккаунт временно недоступен.": "Sign-in to this account is temporarily unavailable.",
+    "Этот аккаунт или Telegram уже подключён. Войдите в нужный аккаунт или проверьте привязку в профиле сайта.": "This account or Telegram is already connected. Sign in to the correct account or check the connection in your website profile.",
+    "Слишком много попыток подключения. Подождите и попробуйте снова.": "Too many connection attempts. Please wait and try again.",
+    "Не удалось подтвердить привязку. Войдите ещё раз.": "Could not verify the connection. Sign in again.",
+    "Не удалось начать привязку. Закройте миниап и откройте его снова.": "Could not start the connection. Close the mini app and open it again.",
     "Идёт турнир": "In progress",
     "Регистрация открыта": "Registration open",
     "Скоро начало": "Starting soon",
@@ -197,6 +224,17 @@
     text(key, locale, values = {}) {
       const text = locale === "en" && Object.hasOwn(en, key) ? en[key] : key;
       return String(text).replace(/\{(\w+)\}/g, (match, name) => Object.hasOwn(values, name) ? String(values[name]) : match);
+    },
+    linkError(message, locale) {
+      const key = {
+        "Invalid name or password": "Неверное имя, email или пароль",
+        "Telegram linking expired. Sign in again.": "Время подтверждения истекло. Войдите ещё раз",
+        "This account is already linked.": "Этот аккаунт или Telegram уже подключён. Войдите в нужный аккаунт или проверьте привязку в профиле сайта.",
+        "Too many linking attempts. Try again later.": "Слишком много попыток подключения. Подождите и попробуйте снова.",
+        "Account is temporarily suspended": "Вход в этот аккаунт временно недоступен.",
+        "Invalid origin": "Не удалось начать привязку. Закройте миниап и откройте его снова."
+      }[message];
+      return key ? api.text(key, locale) : api.error(message, 400, locale);
     },
     error(message, status, locale) {
       if (typeof message === "string" && message) {
