@@ -78,6 +78,8 @@ async function isNameTaken(client, name, excludeId = null) {
 
 async function listLeaderboard(client, venueMode = "combined", query = "", paging) {
   const mode = normalizeRatingMode(venueMode), column = ratingColumn(mode);
+  const order = require('../../domain/statistics-sorting').sqlOrder(
+    { rank: 'rank', name: 'name', rating: 'selected_rating' }, paging?.get('sort'), paging?.get('direction'), 'rank', 'rank');
   const term = String(query || '').trim().toLowerCase().slice(0,200);
   const telegramTerm = term.replace(/^(?:https?:\/\/)?(?:t\.me\/)?@?/, '').replace(/\/$/, '');
   const result = await require('../../resources/pages').select(client, `SELECT * FROM (
@@ -85,7 +87,7 @@ async function listLeaderboard(client, venueMode = "combined", query = "", pagin
       is_admin,register_nickname,telegram_contact,row_number() OVER(ORDER BY ${column} DESC,name,id) AS rank
     FROM users) ranked WHERE $1='' OR strpos(lower(name),$1)>0 OR strpos(lower(COALESCE(register_nickname,'')),$1)>0
       OR ($2<>'' AND strpos(lower(COALESCE(telegram_contact,'')),$2)>0)
-    ORDER BY rank`, [term,telegramTerm], paging);
+    ORDER BY ${order}`, [term,telegramTerm], paging);
   return Object.assign(result.rows.map(row => ({ id:row.id,name:row.name,rank:Number(row.rank),
     avatarUrl:avatarUrl(row.id,row.avatar_version), rating:row.selected_rating,
     ratings:{tts:row.rating_tts,irl:row.rating_irl,combined:row.rating_combined},venueMode:mode,isAdmin:row.is_admin })), { pagination:result.pagination });

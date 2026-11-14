@@ -92,6 +92,20 @@ test("zero-game canonical team is valid and private account fields never enter t
   const full = await request(createHandler());
   assert.doesNotMatch(JSON.stringify(full.body), /password|telegram|registerNickname|csrfToken|email/i);
 });
+
+test("global complete and paginated game lists use the summary's published-tournament eligibility", async () => {
+  await completedChallenge();
+  await completedTournament("Visible global stats");
+  const hidden = await completedTournament("Hidden global stats");
+  await client.query("UPDATE tournaments SET status='draft' WHERE id=$1", [hidden]);
+  const api = require("../../src/api/games");
+  const all = await api.listCompleted({ client });
+  const page = await api.listCompleted({ client, query: new URLSearchParams({ page: "1" }) });
+  assert.equal(all.games.length, 2);
+  assert.equal(page.games.length, 2);
+  assert.equal(page.totalCompleted, 2);
+  assert.ok(!all.games.some(game => game.tournament?.id === hidden));
+});
 test("the public statistics route lives only in tournaments, without loading the account", () => {
   const routes = require("../../src/api/routes-tournaments");
   const route = routes.find(item => item.path === "/api/statistics/kill-team");

@@ -5084,3 +5084,9 @@ tr:last-child td {
 }
 
 .resource-quota-dialog{max-width:900px}.resource-quota-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.resource-quota-grid label{display:grid;gap:.3rem}.resource-quota-grid small{opacity:.75}@media(max-width:600px){.resource-quota-grid{grid-template-columns:1fr}}
+
+.statistics-order-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0; }
+.statistics-order-controls label { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:.875rem; color:var(--text-muted,inherit); }
+.statistics-order-controls select { max-width:100%; min-height:36px; }
+.statistics-order-controls .small-button { min-height:36px; }
+@media (max-width:600px) { .statistics-order-controls label { flex:1 1 100%; } .statistics-order-controls select { flex:1; min-width:0; } }

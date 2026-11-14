@@ -3,7 +3,7 @@ const { KILL_TEAMS, canonicalKillTeam } = require("../domain/kill-teams");
 const { currentSeason, seasons } = require("../../public/game-data");
 const { PUBLISHED_STATUSES } = require("../db/repositories/tournaments");
 const gamesApi = require("./games");
-const { TOURNAMENT_SOURCES, eligibleGames, summarizeTeam } = require("../domain/kill-team-statistics");
+const { TOURNAMENT_SOURCES, eligibleGames, aggregateTeam, orderSummary } = require("../domain/kill-team-statistics");
 
 async function publishedIds(client, games) {
   const ids = [...new Set(games.filter(game => TOURNAMENT_SOURCES.has(game.sourceType))
@@ -25,13 +25,15 @@ function cacheExpiry(now, season) {
 }
 function createHandler({ loadCompleted = gamesApi.listCompleted, loadPublishedIds = publishedIds,
   getSeason = currentSeason, clock = Date.now } = {}) {
-  // Bounded to the canonical registry (48 aggregate results), never raw games or
-  // account data. All teams share one load so opening many cards is inexpensive.
+  // Cache full aggregate candidates, then select each request's ordering before
+  // the top-three cut. Different sort queries share I/O without sharing selection.
   let cache = null, pending = null;
   return async function get({ client, query = new URLSearchParams() }) {
     const input = query.get("team");
     const team = typeof input === "string" && input.length <= 256 ? canonicalKillTeam(input) : null;
     if (!team) throw new HttpError(400, "Choose a valid Kill Team from the list");
+    const ordering = Object.fromEntries(['playerSort', 'playerDirection', 'tacOpSort', 'tacOpDirection']
+      .map(key => [key, query.get(key)]));
     const now = clock(), season = getSeason(now);
     if (!cache || cache.seasonId !== season.id || now >= cache.expiresAt) {
       if (!pending || pending.seasonId !== season.id) {
@@ -40,7 +42,7 @@ function createHandler({ loadCompleted = gamesApi.listCompleted, loadPublishedId
           const result = await loadCompleted({ client });
           const visible = await loadPublishedIds(client, result.games);
           const games = eligibleGames(result.games, season, visible);
-          const data = new Map(KILL_TEAMS.map(name => [name, summarizeTeam(name, games, season)]));
+          const data = new Map(KILL_TEAMS.map(name => [name, aggregateTeam(name, games, season)]));
           return { seasonId: season.id, expiresAt: cacheExpiry(clock(), season), data };
         })();
         pending = entry;
@@ -51,13 +53,13 @@ function createHandler({ loadCompleted = gamesApi.listCompleted, loadPublishedId
         if (pending === entry) cache = loaded;
         // An older in-flight season must not overwrite the next season cache.
         const remaining = Math.max(0, Math.floor((loaded.expiresAt - clock()) / 1000));
-        return { body: loaded.data.get(team), headers: { "Cache-Control": "public, max-age=" + remaining } };
+        return { body: orderSummary(loaded.data.get(team), ordering), headers: { "Cache-Control": "public, max-age=" + remaining } };
       } finally {
         if (pending === entry) pending = null;
       }
     }
     const remaining = Math.max(0, Math.floor((cache.expiresAt - now) / 1000));
-    return { body: cache.data.get(team), headers: { "Cache-Control": "public, max-age=" + remaining } };
+    return { body: orderSummary(cache.data.get(team), ordering), headers: { "Cache-Control": "public, max-age=" + remaining } };
   };
 }
 module.exports = { get: createHandler(), createHandler };

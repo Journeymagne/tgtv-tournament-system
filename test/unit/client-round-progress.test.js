@@ -15,7 +15,8 @@ const functions = names.map((name) => {
 }).join("\n");
 const { tournamentRoundMatchCounts: count, tournamentRoundsTabbedMarkup: render } = new Function(
   "t", "plural", "escapeHtml", "tournamentMatchStatusLabel", "tournamentRoundSelections", "state", "i18n",
-  `${functions}; return { ${names.join(", ")} };`
+  `${require("../helpers/statistics-client-source")}
+${functions}; return { ${names.join(", ")} };`
 )(i18n.t, i18n.plural, String, String, new Map(), {}, i18n);
 const teamTournament = { participantMode: "team", teamSize: 3 };
 const game = (slot, status) => ({ slot, game: { status, result: status === "completed" ? {} : null } });

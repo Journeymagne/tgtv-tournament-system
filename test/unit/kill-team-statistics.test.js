@@ -35,12 +35,76 @@ test("completed published sources alone qualify; drafts, missing links and pendi
     game(6, { sourceType: "team_match_game" })];
   assert.deepEqual(eligibleGames(games, season, new Set([10])).map(item => item.id), [1, 4]);
 });
-test("mirrors count both appearances; draws stay in denominator and zero samples have null win rate", () => {
+test("mirrors are counted separately and excluded from performance; draws stay in denominator", () => {
   const summary = summarizeTeam(team, [game(1, { opponent: team }), game(2, { winnerId: null })], season);
-  assert.deepEqual([summary.games, summary.wins, summary.losses, summary.draws, summary.winRate], [3, 1, 1, 1, 33]);
+  assert.deepEqual([summary.games, summary.wins, summary.losses, summary.draws, summary.winRate], [1, 0, 0, 1, 0]);
   assert.equal(summary.matchGames, 2); assert.equal(summary.mirrorGames, 1);
+  assert.deepEqual(summary.topPlayers.map(row => row.games), [1]);
   const empty = summarizeTeam("Dragon Masters", [game(1)], season);
   assert.equal(empty.winRate, null); assert.equal(empty.games, 0); assert.deepEqual(empty.topPlayers, []);
+});
+
+test("summary orders every player and Tac Op candidate before selecting three and retains official rank", () => {
+  const games = ["Alpha", "Beta", "Gamma", "Zulu"].map((name, index) => {
+    const row = game(index + 1, { players: [{ id: 1, userId: index + 1, name }, { id: 2 }] });
+    row.result.scores[1].tacOp = ["Flank", "Plant Banner", "Retrieval", "Rout"][index];
+    row.result.scores[1].tac = index;
+    return row;
+  });
+  const summary = summarizeTeam(team, games, season, {
+    playerSort: "name", playerDirection: "desc", tacOpSort: "avgPoints", tacOpDirection: "desc"
+  });
+  assert.deepEqual(summary.topPlayers.map(row => [row.name, row.rank]), [["Zulu", 4], ["Gamma", 3], ["Beta", 2]]);
+  assert.deepEqual(summary.topTacOps.map(row => row.name), ["Rout", "Retrieval", "Plant Banner"]);
+  const invalid = summarizeTeam(team, games, season, { playerSort: "__proto__", playerDirection: "DROP TABLE" });
+  assert.deepEqual(invalid.topPlayers.map(row => row.name), ["Alpha", "Beta", "Gamma"]);
+});
+
+test("played faction wins over registration, with legacy registration fallback", () => {
+  const legacy = game(1);
+  delete legacy.result.scores[1].faction;
+  legacy.players[0].faction = team;
+  const played = game(2);
+  played.players[0].faction = "Legionaries";
+  assert.equal(summarizeTeam(team, [legacy, played], season).games, 2);
+});
+
+test("summary cache preserves independent query orders across the top-three boundary", async () => {
+  let loads = 0;
+  const values = ["Alpha", "Beta", "Gamma", "Zulu"].map((name, index) =>
+    game(index + 1, { players: [{ id: 1, userId: index + 1, name }, { id: 2 }] }));
+  const get = createHandler({ getSeason: () => season, clock: () => Date.parse("2026-10-01"),
+    loadCompleted: async () => { loads++; return { games: values }; }, loadPublishedIds: async () => new Set() });
+  const request = extra => get({ query: new URLSearchParams({ team, ...extra }) });
+  const original = await request({});
+  const changed = await request({ playerSort: "name", playerDirection: "desc" });
+  assert.deepEqual(original.body.topPlayers.map(row => row.name), ["Alpha", "Beta", "Gamma"]);
+  assert.deepEqual(changed.body.topPlayers.map(row => row.name), ["Zulu", "Gamma", "Beta"]);
+  assert.deepEqual((await request({})).body.topPlayers, original.body.topPlayers);
+  assert.ok(loads <= 2);
+});
+
+test("every summary sort column selects from complete candidates with stable rank tie-breaks", () => {
+  const games = [];
+  for (const [index, name, count, wins] of [[0, 'Alpha', 1, 1], [1, 'Beta', 2, 1], [2, 'Gamma', 3, 2], [3, 'Zulu', 4, 0]]) {
+    for (let match = 0; match < count; match++) {
+      const row = game(games.length + 1, { winnerId: match < wins ? 1 : 2,
+        players: [{ id: 1, userId: index + 10, name }, { id: 2 }] });
+      row.result.scores[1].tacOp = ['Flank', 'Plant Banner', 'Retrieval', 'Rout'][index];
+      row.result.scores[1].tac = index + 1;
+      games.push(row);
+    }
+  }
+  for (const [key, direction, expected] of [
+    ['rank', 'desc', ['Zulu', 'Beta', 'Gamma']], ['name', 'desc', ['Zulu', 'Gamma', 'Beta']],
+    ['games', 'desc', ['Zulu', 'Gamma', 'Beta']], ['wins', 'desc', ['Gamma', 'Alpha', 'Beta']],
+    ['winRate', 'asc', ['Zulu', 'Beta', 'Gamma']]
+  ]) {
+    const response = summarizeTeam(team, games, season, { playerSort: key, playerDirection: direction,
+      tacOpSort: key, tacOpDirection: direction });
+    assert.deepEqual(response.topPlayers.map(row => row.name), expected, key);
+    if (key !== 'name') assert.deepEqual(response.topTacOps.map(row => row.games), expected.map(name => ({Alpha: 1, Beta: 2, Gamma: 3, Zulu: 4})[name]), key);
+  }
 });
 test("real players use userId while guests and proxies are scoped by tournament and historical identity", () => {
   const games = [

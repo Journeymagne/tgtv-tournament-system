@@ -1,5 +1,6 @@
 const { canonicalKillTeam, teamKey } = require("./kill-teams");
 const { tacOpOptions } = require("../../public/game-data");
+const { compareValues } = require("./statistics-sorting");
 const TOURNAMENT_SOURCES = new Set(["tournament_match", "team_match_game"]);
 
 // Keep the same boundary and legacy timestamp behaviour as filterGamesBySeason
@@ -43,20 +44,20 @@ function playerKey(player, game) {
   return JSON.stringify(["guest", game.sourceType, game.tournament?.id ?? "game:" + game.id,
     player.id, player.name || "Player"]);
 }
-function summarizeTeam(team, games, season) {
+function aggregateTeam(team, games, season) {
   const totals = { games: 0, wins: 0, losses: 0, draws: 0, matchGames: 0, mirrorGames: 0 };
   const players = new Map(), tacOps = new Map();
   for (const game of games) {
     if ((game.players || []).length < 2) continue;
     const entries = game.players.slice(0, 2).map(player => {
       const score = game.result.scores?.[player.id] || {};
-      return { player, score, team: scoreTeam(score) };
+      return { player, score, team: scoreTeam(score) || scoreTeam(player) };
     });
     if (entries.some(entry => !entry.team)) continue;
     const target = entries.filter(entry => entry.team === team);
     if (!target.length) continue;
     totals.matchGames += 1;
-    if (target.length === 2) totals.mirrorGames += 1;
+    if (target.length === 2) { totals.mirrorGames += 1; continue; }
     const winner = game.result.winnerId ? Number(game.result.winnerId) : null;
     for (const { player, score } of target) {
       const outcome = !winner ? "draws" : winner === Number(player.id) ? "wins" : "losses";
@@ -79,12 +80,29 @@ function summarizeTeam(team, games, season) {
     }
   }
   const topPlayers = [...players.values()].map(row => ({ ...row, winRate: winRate(row) }))
-    .sort(statRowSort).slice(0, 3);
+    .sort(statRowSort).map((row, index) => ({ ...row, rank: index + 1 }));
   const topTacOps = [...tacOps.values()].map(({ points, ...row }) => ({
     ...row, winRate: winRate(row), avgPoints: Math.round(points / row.games * 10) / 10
   })).sort((a, b) => b.winRate - a.winRate || b.wins - a.wins || b.games - a.games ||
-    b.avgPoints - a.avgPoints || a.name.localeCompare(b.name)).slice(0, 3);
+    b.avgPoints - a.avgPoints || a.name.localeCompare(b.name)).map((row, index) => ({ ...row, rank: index + 1 }));
   return { team, season: { id: season.id, name: season.name, startsAt: season.startsAt, endsAt: season.endsAt },
     ...totals, winRate: winRate(totals), topTacOps, topPlayers };
 }
-module.exports = { TOURNAMENT_SOURCES, inSeason, eligibleGames, summarizeTeam };
+
+function orderSummary(summary, options = {}) {
+  const select = (rows, prefix, keys) => {
+    const requested = options[prefix + 'Sort'], direction = options[prefix + 'Direction'];
+    const valid = keys.includes(requested) && (!direction || direction === 'asc' || direction === 'desc');
+    const key = valid ? requested : 'rank';
+    const order = valid ? direction || (['rank', 'name'].includes(key) ? 'asc' : 'desc') : 'asc';
+    return [...rows].sort((a, b) => compareValues(a[key], b[key], order) || a.rank - b.rank).slice(0, 3);
+  };
+  return { ...summary,
+    topPlayers: select(summary.topPlayers, 'player', ['rank', 'name', 'games', 'wins', 'winRate']),
+    topTacOps: select(summary.topTacOps, 'tacOp', ['rank', 'name', 'games', 'wins', 'winRate', 'avgPoints'])
+  };
+}
+function summarizeTeam(team, games, season, options) {
+  return orderSummary(aggregateTeam(team, games, season), options);
+}
+module.exports = { TOURNAMENT_SOURCES, inSeason, eligibleGames, aggregateTeam, orderSummary, summarizeTeam };

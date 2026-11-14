@@ -7,8 +7,9 @@
 
   function sortValue(text, type) {
     const value = String(text).trim();
-    if (type === "text") return value;
     if (!value || ["—", "–", "-"].includes(value)) return null;
+    if (type === "text") return value;
+    if (type === "date") return Number.isFinite(Date.parse(value)) ? Date.parse(value) : null;
     if (type === "record") {
       const record = value.match(/^(\d+)\s*-\s*(\d+)\s*-\s*(\d+)$/);
       return record ? [Number(record[1]), Number(record[2]), -Number(record[3])] : null;
@@ -48,7 +49,7 @@
       .filter(row => row.cells.length === headings.length)
       .map((node, index) => ({ node, index, ...metadata[index],
         search: `${node.textContent} ${metadata[index]?.searchText || ""}`.toLocaleLowerCase(),
-        values: [...node.cells].map((cell, column) => sortValue(cell.textContent, types[column])),
+        values: [...node.cells].map((cell, column) => sortValue(cell.dataset.sortValue ?? cell.textContent, types[column])),
         games: metadata[index]?.games ?? (options.gamesColumn === undefined ? 0 : Number(node.cells[options.gamesColumn].textContent)) }));
     const originalRows = readRows(table, options.metadata);
     const originalEmpty = originalRows.length ? null : table.tBodies[0].firstElementChild?.cloneNode(true);

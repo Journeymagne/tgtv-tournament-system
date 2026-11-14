@@ -382,13 +382,18 @@ async function listPage(client,query=new URLSearchParams(),mode='public') {
   const venue=['tts','irl'].includes(query.get('venue'))?query.get('venue'):'combined';
   const rating=venue==='combined'?'pt.rating_tts+pt.rating_irl-1000':`pt.rating_${venue}`;
   const term=String(query.get('q')||'').trim().toLowerCase().slice(0,200);
-  const result=await require('../../resources/pages').select(client,`SELECT pt.id,pt.slug,pt.name,pt.name_key,pt.description,pt.leader_user_id,
+  const order = require('../../domain/statistics-sorting').sqlOrder({ rank: 'rank', name: 'name_key',
+    leaderName: 'leader_name', memberCount: 'member_count', rating: 'selected_rating',
+    ratingTts: 'rating_tts', ratingIrl: 'rating_irl' }, query.get('sort'), query.get('direction'),
+    mode === 'leaderboard' ? 'rank' : '(archived_at IS NOT NULL), name_key, id', 'rank');
+  const result=await require('../../resources/pages').select(client,`SELECT * FROM (SELECT pt.id,pt.slug,pt.name,pt.name_key,pt.description,pt.leader_user_id,
     pt.rating_tts,pt.rating_irl,pt.archived_at,pt.created_at,pt.updated_at,${rating} AS selected_rating,
     CASE WHEN pt.logo_data IS NOT NULL THEN '/api/team-logos/'||pt.id||'?v='||left(encode(sha256(convert_to(pt.logo_data,'UTF8')),'hex'),16) END AS logo_data, leader.name AS leader_name,
-    (SELECT count(*)::int FROM player_team_memberships WHERE team_id=pt.id AND ended_at IS NULL) AS member_count
+    (SELECT count(*)::int FROM player_team_memberships WHERE team_id=pt.id AND ended_at IS NULL) AS member_count,
+    row_number() OVER (ORDER BY ${rating} DESC, pt.name_key, pt.id) AS rank
     FROM player_teams pt LEFT JOIN users leader ON leader.id=pt.leader_user_id
-    WHERE $1='' OR strpos(lower(pt.name),$1)>0
-    ORDER BY ${mode==='leaderboard'?'selected_rating DESC,':'(pt.archived_at IS NOT NULL),'} pt.name_key,pt.id`,[term],query);
-  return {teams:result.rows.map(row=>({...mapTeam(row),leaderName:row.leader_name||null,rating:Number(row.selected_rating),venueMode:venue})),pagination:result.pagination};
+    ) ranked WHERE $1='' OR strpos(lower(name),$1)>0
+    ORDER BY ${order}`,[term],query);
+  return {teams:result.rows.map(row=>({...mapTeam(row),rank:Number(row.rank),leaderName:row.leader_name||null,rating:Number(row.selected_rating),venueMode:venue})),pagination:result.pagination};
 }
 module.exports.listPage=listPage;

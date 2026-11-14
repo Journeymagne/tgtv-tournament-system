@@ -14,7 +14,7 @@ const translate = (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\
 const escape = value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
 
 function previewRenderer(me) {
-  return new Function("state", "t", "escapeHtml", "teamRosterLabel", "teamTournamentTables", [
+  return new Function("state", "t", "escapeHtml", "teamRosterLabel", "teamTournamentTables", require("../helpers/statistics-client-source") + "\n" + [
     "teamTournamentMatchPreviewMarkup", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "teamMatchPhaseLabel",
     "teamRosterMemberLabel", "teamPairingMemberLabel", "teamMissionLabel", "tableLabel",
     "teamGameResultPermissions", "teamGamePendingMessage", "teamMatchScoreLabel", "teamPairingPhaseLabel"

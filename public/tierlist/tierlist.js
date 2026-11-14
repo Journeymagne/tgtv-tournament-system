@@ -46,7 +46,9 @@
     statsLoading: ['Загрузка статистики…', 'Loading statistics…'], statsError: ['Не удалось загрузить статистику команды. Попробуйте ещё раз.', 'Could not load team statistics. Try again.'],
     statsGames: ['Игры', 'Games'], statsWinRate: ['Винрейт', 'Win rate'], statsTacOps: ['Топ-3 вторички', 'Top 3 Tac Ops'], statsPlayers: ['Топ-3 игрока', 'Top 3 players'],
     statsEmpty: ['За этот сезон игр пока нет.', 'No games recorded for this season yet.'], statsNoEntries: ['За этот сезон записей нет.', 'No entries for this season.'],
-    statsGameCount: ['Игр: {count}', 'Games: {count}'], statsMirrors: ['Зеркальные матчи учитывают обе стороны.', 'Mirror matches count both sides.']
+    statsGameCount: ['Игр: {count}', 'Games: {count}'], statsMirrors: ['Зеркальных игр: {count}. Они исключены из показателей.', 'Mirror games: {count}. Excluded from performance statistics.'],
+    statsName: ['Название', 'Name'], statsWins: ['Победы', 'Wins'], statsAvgPoints: ['Ср. очки', 'Avg points'],
+    statsReset: ['Сбросить сортировку', 'Reset sorting'], statsSort: ['Сортировать: {column}', 'Sort by {column}']
   };
   const locale = () => (window.KTAppearance?.locale || document.documentElement.lang) === 'en' ? 'en' : 'ru';
   function t(key, vars = {}) {
@@ -59,7 +61,8 @@
     csrf: '', savedLists: [], accountGeneration: 0, requestSerial: 0, lastIdentityCheck: 0 };
   const draftKey = user => 'kt-tierlist-draft-v1:' + (user?.id ?? 'guest');
   const preferencesKey = 'kt-tierlist-view-v1';
-  const teamStats = { teamId: null, status: 'idle', data: null, controller: null, serial: 0, cache: new Map() };
+  const teamStats = { teamId: null, status: 'idle', data: null, controller: null, serial: 0, cache: new Map(),
+    playerSort: { key: 'winRate', direction: 'desc' }, tacOpSort: { key: 'winRate', direction: 'desc' } };
   const snapshot = () => JSON.stringify({ title: state.record?.title || '', seasonId: state.record?.seasonId || '', rows: state.record?.rows || {} });
   const isDirty = () => Boolean(state.record && snapshot() !== state.baseline);
   function emptyRows() { return Object.fromEntries(zoneKeys.map(k => [k, k === 'pool' ? state.teams.map(team => team.id) : []])); }
@@ -265,26 +268,65 @@
   function statsPercent(value, games) {
     return games > 0 && Number.isFinite(value) ? new Intl.NumberFormat(locale(), { maximumFractionDigits: 1 }).format(value) + '%' : '—';
   }
+  function statsQuery(team) {
+    return new URLSearchParams({ team: team.statsName || team.name,
+      playerSort: teamStats.playerSort.key, playerDirection: teamStats.playerSort.direction,
+      tacOpSort: teamStats.tacOpSort.key, tacOpDirection: teamStats.tacOpSort.direction }).toString();
+  }
+  function changeStatsSort(surface, key) {
+    const view = surface === 'players' ? teamStats.playerSort : surface === 'tacops' ? teamStats.tacOpSort : null;
+    if (!view || (key !== null && !['name', 'games', 'wins', 'winRate', ...(surface === 'tacops' ? ['avgPoints'] : [])].includes(key))) return;
+    if (key === null) Object.assign(view, { key: 'winRate', direction: 'desc' });
+    else { view.direction = view.key === key ? (view.direction === 'asc' ? 'desc' : 'asc') : key === 'name' ? 'asc' : 'desc'; view.key = key; }
+    if (state.selected) void loadTeamStats(state.selected);
+  }
   function renderStatsRows(target, entries, players = false) {
-    const list = $(target); list.replaceChildren();
+    const container = $(target); container.replaceChildren();
+    const surface = players ? 'players' : 'tacops', view = players ? teamStats.playerSort : teamStats.tacOpSort;
+    const fields = [['name', 'statsName'], ['games', 'statsGames'], ['wins', 'statsWins'], ['winRate', 'statsWinRate']];
+    if (!players) fields.push(['avgPoints', 'statsAvgPoints']);
+    const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'tl-action tl-stats-reset'; reset.textContent = t('statsReset');
+    reset.dataset.statsReset = surface; container.append(reset);
+    const scroll = document.createElement('div'); scroll.className = 'tl-stats-scroll';
+    const table = document.createElement('table'); table.className = 'tl-stats-table';
+    table.setAttribute('aria-labelledby', target + '-title');
+    const headings = document.createElement('tr'), head = document.createElement('thead'), body = document.createElement('tbody');
+    for (const [key, labelKey] of fields) {
+      const th = document.createElement('th'); th.scope = 'col';
+      const active = view.key === key;
+      th.setAttribute('aria-sort', active ? view.direction === 'asc' ? 'ascending' : 'descending' : 'none');
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'tl-stats-sort';
+      button.dataset.statsSurface = surface; button.dataset.statsKey = key;
+      button.setAttribute('aria-label', t('statsSort', { column: t(labelKey) }));
+      button.append(document.createTextNode(t(labelKey)));
+      const direction = document.createElement('span'); direction.setAttribute('aria-hidden', 'true'); direction.textContent = active ? view.direction === 'asc' ? ' ↑' : ' ↓' : ' ↕';
+      button.append(direction); th.append(button); headings.append(th);
+    }
+    head.append(headings);
+    // The API orders the entire candidate set before selecting these three rows.
     for (const entry of (Array.isArray(entries) ? entries : []).slice(0, 3)) {
       if (!entry || typeof entry !== 'object') continue;
-      const row = document.createElement('li'); row.className = 'tl-team-stats-row';
+      const row = document.createElement('tr');
       const canLink = players && Number.isSafeInteger(entry.userId) && entry.userId > 0;
       const name = document.createElement(canLink ? 'a' : 'span'); name.className = 'tl-team-stats-name'; name.textContent = String(entry.name || '—');
       if (canLink) {
         const tournament = window.KT_SITES?.urls?.tournament || '/tournament';
         name.href = new URL(tournament, location.origin).href.replace(/\/$/, '') + '#/players/' + entry.userId;
       }
-      const games = Number.isFinite(entry.games) ? entry.games : 0;
-      const result = document.createElement('span'); result.className = 'tl-team-stats-result';
-      const rate = document.createElement('strong'); rate.textContent = statsPercent(entry.winRate, games);
-      const count = document.createElement('small'); count.textContent = t('statsGameCount', { count: new Intl.NumberFormat(locale()).format(games) });
-      result.append(rate, count); row.append(name, result); list.append(row);
+      const nameCell = document.createElement('td'); nameCell.append(name); row.append(nameCell);
+      for (const [key] of fields.slice(1)) {
+        const cell = document.createElement('td');
+        cell.textContent = key === 'winRate' ? statsPercent(entry.winRate, entry.games)
+          : Number.isFinite(entry[key]) ? new Intl.NumberFormat(locale(), { maximumFractionDigits: 1 }).format(entry[key]) : '—';
+        row.append(cell);
+      }
+      body.append(row);
     }
-    if (!list.childElementCount) {
-      const empty = document.createElement('li'); empty.className = 'tl-team-stats-empty'; empty.textContent = t('statsNoEntries'); list.append(empty);
+    if (!body.childElementCount) {
+      const row = document.createElement('tr'), empty = document.createElement('td'); empty.colSpan = fields.length;
+      empty.className = 'tl-team-stats-empty'; empty.textContent = t('statsNoEntries'); row.append(empty); body.append(row);
     }
+    table.append(head, body); scroll.append(table); container.append(scroll);
   }
   function renderTeamStats() {
     const team = state.teamsById.get(teamStats.teamId);
@@ -313,6 +355,7 @@
       renderStatsRows('team-stats-tacops', data.topTacOps);
       renderStatsRows('team-stats-players', data.topPlayers, true);
       $('team-stats-mirrors').hidden = !(data.mirrorGames > 0);
+      $('team-stats-mirrors').textContent = t('statsMirrors', { count: data.mirrorGames || 0 });
     }
     positionTeamStats();
   }
@@ -325,14 +368,15 @@
     const team = state.teamsById.get(id);
     if (!team || state.selected !== id) return;
     cancelTeamStats(); teamStats.teamId = id;
-    const cached = teamStats.cache.get(id);
+    const query = statsQuery(team), cacheKey = id + ":" + query;
+    const cached = teamStats.cache.get(cacheKey);
     if (!force && cached && Date.now() < cached.expiresAt) {
       teamStats.status = 'ready'; teamStats.data = cached.data; renderTeamStats(); return;
     }
     const serial = teamStats.serial, controller = new AbortController(); teamStats.controller = controller; teamStats.status = 'loading'; renderTeamStats();
     const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetch('/api/statistics/kill-team?team=' + encodeURIComponent(team.statsName || team.name), {
+      const response = await fetch('/api/statistics/kill-team?' + query, {
         credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }, signal: controller.signal
       });
       if (!response.ok) throw Error('statistics');
@@ -344,7 +388,7 @@
       const lifetime = /(?:^|,)\s*(?:no-store|no-cache)\b/i.test(cacheControl) ? 0 : Math.min(60, maxAge ? Number(maxAge[1]) : 60);
       const now = Date.now(), seasonEnd = data.season.endsAt == null ? NaN : Date.parse(data.season.endsAt);
       const expiresAt = Math.min(now + lifetime * 1000, Number.isFinite(seasonEnd) ? seasonEnd : Infinity);
-      if (expiresAt > now) teamStats.cache.set(id, { expiresAt, data }); else teamStats.cache.delete(id);
+      if (expiresAt > now) teamStats.cache.set(cacheKey, { expiresAt, data }); else teamStats.cache.delete(cacheKey);
       teamStats.data = data; teamStats.status = 'ready';
     } catch {
       if (serial !== teamStats.serial || state.selected !== id || teamStats.teamId !== id) return;
@@ -505,6 +549,11 @@
   $('confirm-cancel').addEventListener('click', () => finishConfirm(false));
   $('team-stats-close').addEventListener('click', () => clearSelection(true));
   $('team-stats-retry').addEventListener('click', () => { if (state.selected) void loadTeamStats(state.selected, true); });
+  $('team-stats').addEventListener('click', event => {
+    const button = event.target.closest('[data-stats-surface],[data-stats-reset]');
+    if (!button) return;
+    changeStatsSort(button.dataset.statsSurface || button.dataset.statsReset, button.dataset.statsReset ? null : button.dataset.statsKey);
+  });
   $('team-stats-logo').addEventListener('error', event => { event.currentTarget.hidden = true; });
   let statsPositionFrame = null;
   const scheduleStatsPosition = () => { if (statsPositionFrame == null) statsPositionFrame = requestAnimationFrame(() => { statsPositionFrame = null; positionTeamStats(); }); };

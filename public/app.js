@@ -82,6 +82,8 @@ const state = {
   selectedSeasonId: "",
   statisticsFilters: { classification: "all", team: "" },
   statisticsSort: { key: "winRate", dir: "desc" },
+  statisticsSorts: {},
+  statisticsTableViews: {},
   gameFilters: { playerQuery: "", playerId: "", team: "" },
   leaderboardTab: "leaderboard",
   leaderboardVenue: "combined",
@@ -1330,6 +1332,7 @@ function render() {
   handleSharedChallengeHash();
 }
 
+wireStatisticsOrderEvents();
 window.addEventListener("hashchange", handleHashNavigation);
 window.addEventListener("popstate", handleHashNavigation);
 document.addEventListener("click", rememberNavigationContext, true);
@@ -1691,7 +1694,7 @@ function currentNavigationEntry() {
 
 function navigationContextKeys() {
   return ["tournamentInfoTab", "tournamentSetupTab", "tournamentTableViews", "tournamentMatchViews", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
-    "selectedStatisticsTeam", "selectedSeasonId", "statisticsFilters", "statisticsSort",
+    "selectedStatisticsTeam", "selectedSeasonId", "statisticsFilters", "statisticsSort", "statisticsSorts", "statisticsTableViews",
     "gameFilters", "leaderboardPage", "teamLeaderboardPage", "adminUsersPage",
     "adminUsersQuery", "adminTeamsPage", "adminTeamsQuery", "teamsQuery", "challengeTab"];
 }
@@ -2960,9 +2963,10 @@ function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "", to
             </div>
             <button type="button" class="small-button" data-round-search-reset>${t("tournaments.table.reset")}</button>
           </div>
+          ${statisticsListControls(`round:${selectionKey}:${round.roundNumber}`, matchStatisticsColumns())}
           <p class="field-help" data-round-search-count aria-live="polite" aria-atomic="true"></p>
           <div class="list tournament-round-matches">
-            ${(round.matches || []).map(match => `<div data-round-match="${match.id}" data-live-key="round-match-${match.id}" data-round-search-text="${escapeHtml(tournamentMatchSearchText(match))}">${matchMarkup(match)}</div>`).join("")}
+            ${sortStatisticsRows(round.matches || [], statisticsSortState(`round:${selectionKey}:${round.roundNumber}`, "", "desc"), matchStatisticsValues).map(match => `<div data-round-match="${match.id}" data-live-key="round-match-${match.id}" data-round-search-text="${escapeHtml(tournamentMatchSearchText(match))}">${matchMarkup(match)}</div>`).join("")}
           </div>
           <p class="empty" data-round-search-empty hidden>${t("tournaments.round.searchEmpty")}</p>
         </section>
@@ -3655,7 +3659,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.5.18`;
+    script.src = `/admin.js?v=1.5.19-statistics`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -3804,8 +3808,8 @@ function renderPlay(live = false) {
   const teamPairings = state.teamPairings || [];
   const incoming = state.challenges.filter((item) => item.status === "pending" && item.toUserId === state.me?.id);
   const outgoing = state.challenges.filter((item) => item.status === "pending" && item.fromUserId === state.me?.id);
-  const openGames = state.games.filter((game) => ["open", "pending_confirmation"].includes(game.status));
-  const completedGames = state.games.filter((game) => game.status === "completed").slice(0, 8);
+  const openGames = sortStatisticsRows(state.games.filter(game => ["open", "pending_confirmation"].includes(game.status)), statisticsSortState("play-active", "", "desc"), game => gameStatisticsValues(game, state.me?.id));
+  const completedGames = sortStatisticsRows(state.games.filter(game => game.status === "completed"), statisticsSortState("play-recent", "date", "desc"), game => gameStatisticsValues(game, state.me?.id)).slice(0, 8);
 
   setLiveContent(content, `
     <section class="card panel" data-live-view="play" data-live-preserve>
@@ -3839,11 +3843,13 @@ function renderPlay(live = false) {
 
     <section class="card panel">
       <div class="panel-header"><h2>${t("play.active.title")}</h2></div>
+      ${statisticsListControls("play-active", gameStatisticsColumns(true))}
       <div class="list">${openGames.length ? openGames.map(gameCard).join("") : `<div class="empty">${t("play.active.empty")}</div>`}</div>
     </section>
 
     <section class="card panel">
       <div class="panel-header"><h2>${t("play.recent.title")}</h2></div>
+      ${statisticsListControls("play-recent", gameStatisticsColumns(true), "date", "desc")}
       <div class="list">${completedGames.length ? completedGames.map(gameCard).join("") : `<div class="empty">${t("play.recent.empty")}</div>`}</div>
     </section>
     <div class="message" data-message></div>
@@ -3868,7 +3874,8 @@ function teamPairingsPanelMarkup(pairings) {
   if (!pairings.length) return "";
   return `<section class="card panel captain-pairings-panel">
     <div class="panel-header"><div><h2>${t("play.teamPairings.title")}</h2><p class="muted">${t("play.teamPairings.hint")}</p></div></div>
-    <div class="list">${pairings.map(teamPairingCard).join("")}</div>
+    ${statisticsListControls("captain-pairings", matchStatisticsColumns())}
+    <div class="list">${sortStatisticsRows(pairings, statisticsSortState("captain-pairings", "", "desc"), matchStatisticsValues).map(teamPairingCard).join("")}</div>
   </section>`;
 }
 
@@ -4558,7 +4565,7 @@ function renderProfile() {
     }).catch(() => {});
   }
   const stats = getProfileStats();
-  const recentGames = stats.completedGames.slice(0, 5);
+  const recentGames = sortStatisticsRows(stats.completedGames, statisticsSortState("own-history", "date", "desc"), game => gameStatisticsValues(game, state.me?.id)).slice(0, 5);
   const latestActiveMatchmaking = latestActiveMatchmakingItem(stats);
   const challengeProgress = ownChallengeProgress();
   content.innerHTML = `
@@ -4680,6 +4687,7 @@ function renderProfile() {
       </section>
       <section class="settings-block profile-dashboard-card">
         <div class="panel-header"><h3>${t("profile.recent.title")}</h3></div>
+        ${statisticsListControls("own-history", gameStatisticsColumns(true), "date", "desc")}
         <div class="list profile-card-content">
           ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`}
         </div>
@@ -4897,6 +4905,7 @@ function renderPlayerProfile() {
             <p class="muted">${t("profile.playerProfile.recentSubtitle")}</p>
           </div>
         </div>
+        ${statisticsListControls("player-history:" + user.id, gameStatisticsColumns(true), "date", "desc")}
         <div class="list">
           ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`}
         </div>
@@ -5100,7 +5109,11 @@ function activeGameWith(userId) {
 
 async function loadPlayerProfile(userId) {
   if (state.adminPasswordReset?.userId !== Number(userId)) state.adminPasswordReset = null;
-  state.playerProfile = await api(`/api/users/${Number(userId)}`);
+  const sequence = loadPlayerProfile.sequence = (loadPlayerProfile.sequence || 0) + 1;
+  const query = statisticsSortQuery("player-history:" + Number(userId), true);
+  const data = await api(`/api/users/${Number(userId)}?${query}`);
+  if (sequence !== loadPlayerProfile.sequence || query !== statisticsSortQuery("player-history:" + Number(userId), true)) return null;
+  state.playerProfile = data;
   if (state.playerProfile?.challengeProgress) upsertChallengeProgress(state.playerProfile.challengeProgress);
   return state.playerProfile;
 }
@@ -5115,7 +5128,7 @@ async function openPlayerProfile(userId) {
     renderShell();
     return;
   }
-  await loadPlayerProfile(id);
+  if (!await loadPlayerProfile(id)) return;
   state.view = "player";
   syncAppHash();
   renderShell();
@@ -5181,6 +5194,8 @@ async function loadGames() {
   const requestId = ++gamesRequestId;
   const filters = { ...state.gameFilters };
   const query = new URLSearchParams({ page: state.gamesPage, ...filters });
+  const sort = serverSortState("games");
+  query.set("sort", sort.key); query.set("direction", sort.dir);
   state.gamesLoading = true;
   try {
     const data = await api(`/api/games?${query}`);
@@ -5303,6 +5318,7 @@ function renderGames(live = false) {
         </div>
       </div>
       <div class="filter-summary" data-games-filter-summary aria-live="polite">${gamesFilterSummary()}</div>
+      ${statisticsListControls("games", gameStatisticsColumns(), "date", "desc")}
       <div data-games-pagination>${gamesPaginationMarkup()}</div>
       <div class="list games-history-list" data-games-list aria-busy="${state.gamesLoading}">${gamesListMarkup(state.gamesPageItems)}</div>
       <div data-games-pagination>${gamesPaginationMarkup()}</div>
@@ -5467,7 +5483,7 @@ function renderStatistics() {
     : (state.statisticsGames || []).filter((game) => game.venueMode === state.statisticsVenue);
   const season = activeSeason();
   const seasonGames = filterGamesBySeason(games, season);
-  const showSeasonSelector = ["killTeamWinrates", "teams"].includes(state.statisticsTab);
+  const showSeasonSelector = ["killTeamWinrates", "tacOpWinrates", "teams"].includes(state.statisticsTab);
   const killTeamSummary = killTeamWinrateSummary(seasonGames);
   const statisticsContent = state.statisticsTab === "teams"
     ? state.selectedStatisticsTeam
@@ -5494,6 +5510,8 @@ function renderStatistics() {
       </div>
       ${showSeasonSelector ? seasonSelectorMarkup() : ""}
       ${["killTeamWinrates", "tacOpWinrates"].includes(state.statisticsTab) ? statsFiltersMarkup() : ""}
+      ${["killTeamWinrates", "tacOpWinrates"].includes(state.statisticsTab) ? statisticsListControls("global:" + state.statisticsTab,
+        state.statisticsTab === "killTeamWinrates" ? [["team", t("games.filter.teamLabel")], ["games", t("stats.column.games")], ["wins", t("stats.column.wins")], ["losses", t("stats.column.losses")], ["draws", t("stats.column.draws")], ["winRate", t("stats.column.winrate")]] : [["tacOp", t("op.tac")], ["games", t("stats.column.games")], ["wins", t("stats.column.wins")], ["winRate", t("stats.column.winrate")], ["avgPoints", t("stats.column.avgVp")], ["avgPrimaryPoints", t("stats.column.avgVpAsPrimary")]], "winRate", "desc") : ""}
       ${state.gamesError
         ? `<div class="empty">${t("stats.error.loadFailed", { error: escapeHtml(state.gamesError) })}</div>`
         : statisticsContent}
@@ -5515,6 +5533,12 @@ function renderStatistics() {
   wireStatsFilters();
   wireStatsSorting();
   wireTeamStatistics();
+  document.querySelectorAll("[data-statistics-detail]").forEach(table => {
+    const key = `${state.selectedStatisticsTeam}:${table.dataset.statisticsDetail}`;
+    TGTVTournamentTables.enhance(table, { t, key, view: (state.statisticsTableViews ||= {})[key] ||= {},
+      types: { 0: "text" }, defaultSort: { column: table.dataset.statisticsDetail === "players" ? 3 : 5, direction: "desc" },
+      searchPlaceholder: "tournaments.table.searchPlayers", onChange: rememberNavigationContext });
+  });
 }
 
 function activeSeason() {
@@ -5569,16 +5593,199 @@ function wireStatsFilters() {
   });
 }
 
+function statisticsSortState(id, key = "winRate", dir = "desc") {
+  const sorts = state.statisticsSorts ||= {};
+  return sorts[id] ||= { key, dir };
+}
+
+function sortStatisticsRows(rows, sort, valueFor = row => row) {
+  if (!sort?.key) return [...rows];
+  const sign = sort.dir === "asc" ? 1 : -1;
+  const missing = value => value == null || ["", "-", "—", "–"].includes(value);
+  return rows.map((row, index) => ({ row, index, value: valueFor(row)[sort.key] })).sort((a, b) => {
+    if (missing(a.value) || missing(b.value)) return missing(a.value) === missing(b.value) ? a.index - b.index : missing(a.value) ? 1 : -1;
+    return compareStatValues(a.value, b.value) * sign || a.index - b.index;
+  }).map(item => item.row);
+}
+
+function statisticsListControls(id, columns, defaultKey = "", defaultDir = "desc") {
+  const sort = statisticsSortState(id, defaultKey, defaultDir);
+  return `<div class="statistics-order-controls" data-statistics-order="${escapeHtml(id)}" data-default-key="${escapeHtml(defaultKey)}" data-default-dir="${defaultDir}">
+    <label>${t("stats.sort.by")} <select data-statistics-order-key="${escapeHtml(id)}">${[["", t("stats.sort.original")], ...columns].map(([key, label]) => `<option value="${escapeHtml(key)}" ${sort.key === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>
+    <button type="button" class="small-button" data-statistics-order-direction="${escapeHtml(id)}" aria-label="${t(sort.dir === "asc" ? "tournaments.table.sortDescending" : "tournaments.table.sortAscending")}">${t(sort.dir === "asc" ? "stats.sort.ascending" : "stats.sort.descending")} ${sort.dir === "asc" ? "↑" : "↓"}</button>
+    <button type="button" class="small-button" data-statistics-order-reset="${escapeHtml(id)}">${t("tournaments.table.reset")}</button>
+  </div>`;
+}
+
+function gameStatisticsColumns(personal = false) {
+  return [["date", t("stats.sort.date")], ["player", t("games.filter.playerLabel")], ["opponent", t("stats.column.opponent")],
+    ["faction", t("games.filter.teamLabel")], ["score", t(personal ? "stats.sort.myVp" : "stats.sort.firstVp")],
+    ["opponentScore", t("stats.sort.opponentScore")], ["vpDiff", t(personal ? "stats.sort.myVpDiff" : "stats.sort.firstVpDiff")], ["elo", t(personal ? "stats.sort.myElo" : "stats.sort.firstElo")],
+    ["tournament", t("nav.tournaments")], ["round", t("stats.sort.round")], ["status", t("stats.sort.status")]];
+}
+
+function gameStatisticsValues(game, userId = null) {
+  const result = game.result || game.pendingResult?.result;
+  const players = game.players?.length ? game.players : (game.resultPlayerIds || game.playerIds || []).map(id => ({ id }));
+  const own = (userId == null ? players[0] : players.find(player => Number(player.userId ?? player.id) === Number(userId))) || players[0] || {};
+  const opponent = players.find(player => player !== own) || {};
+  const score = result?.scores?.[own.id] || {};
+  const other = result?.scores?.[opponent.id] || {};
+  return { date: Date.parse(game.submittedAt || game.createdAt) || null, player: own.name, opponent: opponent.name,
+    faction: score.faction || score.killTeam || score.team || own.faction || null, score: score.total ?? null,
+    vpDiff: score.total == null || other.total == null ? null : Number(score.total) - Number(other.total),
+    elo: game.elo?.[own.id]?.delta ?? null, opponentScore: other.total ?? null, tournament: game.tournament?.name,
+    round: game.tournamentMatch?.roundNumber ?? game.teamMatch?.roundNumber ?? game.roundNumber, status: game.status };
+}
+
+function statisticsPlayerKey(player, game) {
+  const userId = Number(player.userId ?? (Number(player.id) > 0 ? player.id : 0));
+  if (!player.isProxy && player.hasProfile !== false && Number.isSafeInteger(userId) && userId > 0) return "user:" + userId;
+  return JSON.stringify(["guest", game.sourceType, game.tournament?.id ?? "game:" + game.id, player.id, player.name || "Player"]);
+}
+
+function matchStatisticsColumns() {
+  return [["player", t("games.filter.playerLabel") + " / A"], ["opponent", t("stats.column.opponent") + " / B"],
+    ["round", t("stats.sort.round")], ["table", t("stats.sort.table")], ["line", t("stats.sort.line")],
+    ["score", t("stats.sort.score")], ["opponentScore", t("stats.sort.opponentScore")],
+    ["tp", t("stats.sort.tp")], ["opponentTp", t("stats.sort.opponentTp")],
+    ["gp", t("stats.sort.gp")], ["opponentGp", t("stats.sort.opponentGp")],
+    ["completed", t("stats.sort.completed")], ["status", t("stats.sort.status")],
+    ["killzone", t("stats.sort.killzone")], ["critOp", t("stats.sort.critOp")], ["layout", t("stats.sort.layout")]];
+}
+
+function matchStatisticsValues(match) {
+  const a = match.participantA || {}, b = match.participantB || {};
+  const result = match.result || match.pendingResult?.result;
+  const own = result?.scoresByParticipantId?.[a.id] ?? result?.scores?.[a.resultKey ?? a.userId ?? -a.id];
+  const other = result?.scoresByParticipantId?.[b.id] ?? result?.scores?.[b.resultKey ?? b.userId ?? -b.id];
+  const mission = match.mission || result?.killzone || {}, progress = match.progress || {};
+  const teamScore = match.phase === "completed" || progress.completed > 0;
+  return { player: match.rosterA?.name || a.displayName, opponent: match.rosterB?.name || b.displayName,
+    round: match.roundNumber, table: match.table?.tableNumber, line: match.lineNumber,
+    score: own?.total ?? match.scoring?.totalVpA, opponentScore: other?.total ?? match.scoring?.totalVpB,
+    tp: teamScore ? match.teamTournamentPointsA ?? progress.tpA : null,
+    opponentTp: teamScore ? match.teamTournamentPointsB ?? progress.tpB : null,
+    gp: teamScore ? match.teamGamePointsA ?? progress.gpA : null,
+    opponentGp: teamScore ? match.teamGamePointsB ?? progress.gpB : null,
+    completed: progress.completed ?? (match.games ? match.games.filter(link => link.game?.status === "completed").length : null),
+    status: match.status || match.phase, killzone: mission.killzone, critOp: mission.critOp, layout: mission.layout };
+}
+
+function gameScoreColumns() {
+  return [["name", t("games.filter.playerLabel")], ["faction", t("games.filter.teamLabel")], ["tacOp", t("op.tac")],
+    ["crit", t("op.crit")], ["tac", t("tournaments.review.tacOpVp")], ["kill", t("op.kill")],
+    ["primaryBonus", t("tournaments.review.primaryBonus")], ["total", t("tournaments.score.total")]];
+}
+
+function sortedGamePlayers(game, result) {
+  return sortStatisticsRows(game.players || [], statisticsSortState("game-scores:" + game.id, "", "desc"),
+    player => ({ name: player.name, ...(result.scores?.[player.id] || {}) }));
+}
+
+function serverSortState(id) {
+  return statisticsSortState(id, id === "admin-teams" ? "" : id === "games" || id.startsWith("player-history:") || id.startsWith("team-history:") ? "date" : "rank",
+    id === "games" || id.includes("-history:") ? "desc" : "asc");
+}
+
+function statisticsSortQuery(id, history = false) {
+  const sort = serverSortState(id);
+  return new URLSearchParams(history ? { historySort: sort.key, historyDirection: sort.dir } : { sort: sort.key, direction: sort.dir }).toString();
+}
+
+function serverSortHeader(label, key, id) {
+  const sort = serverSortState(id), active = sort.key === key;
+  const nextDirection = active ? sort.dir === "asc" ? "desc" : "asc" : ["name", "leaderName", "rank"].includes(key) ? "asc" : "desc";
+  return `<th aria-sort="${active ? sort.dir === "asc" ? "ascending" : "descending" : "none"}"><button type="button" class="sort-button" data-statistics-server-sort="${escapeHtml(id)}" data-sort-key="${escapeHtml(key)}" aria-label="${escapeHtml(label)}: ${t(nextDirection === "asc" ? "tournaments.table.sortAscending" : "tournaments.table.sortDescending")}">${escapeHtml(label)} ${active ? sort.dir === "asc" ? "↑" : "↓" : "↕"}</button></th>`;
+}
+
+function preserveStatisticsForms() {
+  const signature = form => [...form.attributes].filter(attribute => /^(id|name|action|data-)/.test(attribute.name))
+    .map(attribute => attribute.name + "=" + attribute.value).join("|");
+  const forms = [...document.querySelectorAll("[data-content] form")].map(node => ({ node, key: signature(node) }));
+  return () => {
+    const candidates = [...document.querySelectorAll("[data-content] form")];
+    for (const saved of forms) {
+      const index = candidates.findIndex(node => signature(node) === saved.key);
+      if (index < 0) continue;
+      const [replacement] = candidates.splice(index, 1);
+      if (replacement !== saved.node) replacement.replaceWith(saved.node);
+    }
+  };
+}
+
+function refreshOwnHistory() {
+  const controls = document.querySelector('[data-statistics-order="own-history"]');
+  const list = controls?.nextElementSibling;
+  if (!list) return;
+  const games = sortStatisticsRows(getProfileStats().completedGames, statisticsSortState("own-history", "date", "desc"),
+    game => gameStatisticsValues(game, state.me?.id)).slice(0, 5);
+  list.innerHTML = games.length ? games.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`;
+  controls.outerHTML = statisticsListControls("own-history", gameStatisticsColumns(true), "date", "desc");
+  wireGameButtons();
+}
+
+async function refreshStatisticsSort(id) {
+  const location = navigationUrl(), choice = JSON.stringify(statisticsSortState(id));
+  const current = () => location === navigationUrl() && choice === JSON.stringify(statisticsSortState(id));
+  const restoreForms = preserveStatisticsForms();
+  try {
+    if (id === "own-history") refreshOwnHistory();
+    else if (id === "leaderboard") { state.leaderboardPage = 1; if (await loadLeaderboardSearch() && current()) renderTop(); }
+    else if (id === "team-leaderboard") { state.teamLeaderboardPage = 1; if (await loadTeamLeaderboard() && current()) renderTop(); }
+    else if (id === "admin-teams") { state.adminTeamsPage = 1; await adminUi().loadAdminTeams(); if (current()) adminUi().renderAdministration(); }
+    else if (id === "games") { state.gamesPage = 1; await reloadGamesPage(); if (current()) renderGames(); }
+    else if (id.startsWith("player-history:")) { if (await loadPlayerProfile(Number(id.slice(15))) && current()) renderPlayerProfile(); }
+    else if (id.startsWith("team-history:")) { const data = await loadPlayerTeam(id.slice(13), { force: true }); if (data && current()) renderPlayerTeamProfile(data); }
+    else if (tournamentSlugFromLocation() && state.publicTournamentDetail) renderPublicTournament(state.publicTournamentDetail);
+    else if (playerTeamSlugFromLocation() && state.teamProfile) renderPlayerTeamProfile(state.teamProfile);
+    else renderShell();
+    if (current()) rememberNavigationContext();
+  } finally { if (current()) restoreForms(); }
+}
+
+function wireStatisticsOrderEvents() {
+  document.addEventListener("change", async event => {
+    const input = event.target.closest("[data-statistics-order-key]");
+    if (!input) return;
+    const id = input.dataset.statisticsOrderKey, sort = statisticsSortState(id);
+    const previous = { ...sort };
+    sort.key = input.value;
+    try { await refreshStatisticsSort(id);
+      [...document.querySelectorAll("[data-statistics-order-key]")].find(node => node.dataset.statisticsOrderKey === id)?.focus({ preventScroll: true });
+    } catch (error) { Object.assign(sort, previous); setMessage(error.message, true); }
+  });
+  document.addEventListener("click", async event => {
+    const button = event.target.closest("[data-statistics-server-sort], [data-statistics-order-direction], [data-statistics-order-reset]");
+    if (!button || button.disabled) return;
+    const id = button.dataset.statisticsServerSort || button.dataset.statisticsOrderDirection || button.dataset.statisticsOrderReset;
+    const sort = button.dataset.statisticsServerSort ? serverSortState(id) : statisticsSortState(id);
+    const previous = { ...sort };
+    if (button.dataset.statisticsOrderReset) {
+      const controls = button.closest("[data-statistics-order]");
+      sort.key = controls?.dataset.defaultKey ?? (id === "admin-teams" ? "name" : "rank");
+      sort.dir = controls?.dataset.defaultDir ?? "asc";
+    } else if (button.dataset.statisticsServerSort) {
+      const key = button.dataset.sortKey;
+      sort.dir = sort.key === key ? sort.dir === "asc" ? "desc" : "asc" : ["name", "leaderName", "rank"].includes(key) ? "asc" : "desc";
+      sort.key = key;
+    } else sort.dir = sort.dir === "asc" ? "desc" : "asc";
+    button.disabled = true;
+    try { await refreshStatisticsSort(id);
+      const attribute = button.dataset.statisticsServerSort ? "statisticsServerSort" : button.dataset.statisticsOrderReset ? "statisticsOrderReset" : "statisticsOrderDirection";
+      [...document.querySelectorAll("[data-statistics-server-sort], [data-statistics-order-reset], [data-statistics-order-direction]")].find(node => node.dataset[attribute] === id && (!button.dataset.sortKey || node.dataset.sortKey === button.dataset.sortKey))?.focus({ preventScroll: true });
+    } catch (error) { Object.assign(sort, previous); setMessage(error.message, true); button.disabled = false; }
+  });
+}
+
 function wireStatsSorting() {
-  document.querySelectorAll("[data-stats-sort]").forEach((button) => {
+  document.querySelectorAll("[data-stats-sort]").forEach(button => {
     button.addEventListener("click", () => {
+      const sort = statisticsSortState("global:" + state.statisticsTab);
       const key = button.dataset.statsSort;
-      if (state.statisticsSort.key === key) {
-        state.statisticsSort.dir = state.statisticsSort.dir === "asc" ? "desc" : "asc";
-      } else {
-        state.statisticsSort.key = key;
-        state.statisticsSort.dir = key === "team" || key === "tacOp" ? "asc" : "desc";
-      }
+      sort.dir = sort.key === key ? sort.dir === "asc" ? "desc" : "asc" : ["team", "tacOp"].includes(key) ? "asc" : "desc";
+      sort.key = key;
+      rememberNavigationContext();
       renderStatistics();
     });
   });
@@ -5671,28 +5878,27 @@ function renderTacOpWinrates(summary) {
 }
 
 function sortableHeader(label, key) {
-  const active = state.statisticsSort.key === key;
-  const marker = active ? (state.statisticsSort.dir === "asc" ? " ^" : " v") : "";
-  return `<th><button class="sort-button" data-stats-sort="${escapeHtml(key)}">${escapeHtml(label)}${marker}</button></th>`;
+  const sort = statisticsSortState("global:" + state.statisticsTab), active = sort.key === key;
+  const nextDirection = active ? sort.dir === "asc" ? "desc" : "asc" : ["team", "tacOp"].includes(key) ? "asc" : "desc";
+  return `<th aria-sort="${active ? sort.dir === "asc" ? "ascending" : "descending" : "none"}"><button type="button" class="sort-button" data-stats-sort="${escapeHtml(key)}" aria-label="${escapeHtml(label)}: ${t(nextDirection === "asc" ? "tournaments.table.sortAscending" : "tournaments.table.sortDescending")}">${escapeHtml(label)} ${active ? sort.dir === "asc" ? "↑" : "↓" : "↕"}</button></th>`;
 }
 
 function sortedStatRows(rows, allowedKeys, defaultKey) {
-  const key = allowedKeys.includes(state.statisticsSort.key) ? state.statisticsSort.key : defaultKey;
-  const dir = state.statisticsSort.dir === "asc" ? 1 : -1;
-  return [...rows].sort((a, b) => compareStatValues(a[key], b[key]) * dir || String(a.team || a.tacOp || "").localeCompare(String(b.team || b.tacOp || "")));
+  const sort = statisticsSortState("global:" + state.statisticsTab, defaultKey);
+  if (!allowedKeys.includes(sort.key)) Object.assign(sort, { key: defaultKey, dir: "desc" });
+  return sortStatisticsRows(rows, sort);
 }
 
 function compareStatValues(a, b) {
-  const aNumber = statSortNumber(a);
-  const bNumber = statSortNumber(b);
+  const aNumber = statSortNumber(a), bNumber = statSortNumber(b);
   if (aNumber !== null && bNumber !== null) return aNumber - bNumber;
-  return String(a || "").localeCompare(String(b || ""));
+  return String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true, sensitivity: "base" });
 }
 
 function statSortNumber(value) {
-  if (value === "-" || value === undefined || value === null || value === "") return null;
+  if (value == null || ["-", "—", "–", ""].includes(value)) return null;
   const number = Number(value);
-  return Number.isNaN(number) ? null : number;
+  return Number.isFinite(number) ? number : null;
 }
 
 function applyStatsTeamFilters(rows) {
@@ -5704,8 +5910,9 @@ function statsTeamFilterMatches(team) {
 }
 
 function renderTeamCards(summary) {
-  const rows = teamCardRows(summary);
+  const rows = sortStatisticsRows(teamCardRows(summary), statisticsSortState("faction-cards", "winRate", "desc"));
   return `
+    ${statisticsListControls("faction-cards", [["team", t("games.filter.teamLabel")], ["games", t("stats.column.games")], ["winRate", t("stats.column.winrate")]], "winRate", "desc")}
     <div class="team-card-grid">
       ${rows.length
         ? rows.map((row) => `
@@ -5713,7 +5920,7 @@ function renderTeamCards(summary) {
             <img class="team-stat-logo" src="${killTeamLogoSrc(row.team)}"${killTeamLogoAttrs(112)} alt="">
             <span>${row.games ? plural("games.count", row.games) : t("stats.card.noGames")}</span>
             <strong>${escapeHtml(row.team)}</strong>
-            <div class="team-stat-rate">${row.winRate}%</div>
+            <div class="team-stat-rate">${row.games ? row.winRate + "%" : "—"}</div>
           </button>
         `).join("")
         : `<div class="empty">${t("stats.empty.killTeam")}</div>`}
@@ -5726,7 +5933,7 @@ function teamCardRows(summary) {
   const activeTeams = new Set(activeRows.map((row) => row.team));
   const inactiveRows = killTeamOptions
     .filter((team) => !activeTeams.has(team))
-    .map((team) => ({ team, games: 0, wins: 0, losses: 0, draws: 0, winRate: 0 }));
+    .map((team) => ({ team, games: 0, wins: 0, losses: 0, draws: 0, winRate: null }));
   return [...activeRows, ...inactiveRows];
 }
 
@@ -5754,19 +5961,21 @@ function renderTeamDetail(detail) {
         <a class="small-button" href="${killTeamRulesUrl(detail.team)}" target="_blank" rel="noreferrer">${t("stats.team.rules")}</a>
       </div>
 
+      <p class="muted">${t("stats.mirrorsExcluded", { count: detail.mirrorGames || 0 })}</p>
       <section class="grid-2 team-detail-grid">
         <div class="team-detail-section">
           <div class="panel-header"><h3>${t("stats.team.recentGames.title")}</h3></div>
+          ${statisticsListControls("faction-games:" + detail.team, gameStatisticsColumns(true), "date", "desc")}
           <div class="list">
             ${detail.recentGames.length
-              ? detail.recentGames.map((item) => teamRecentGameCard(item)).join("")
+              ? sortStatisticsRows(detail.recentGames, statisticsSortState("faction-games:" + detail.team, "date", "desc"), item => gameStatisticsValues(item.game, item.player.userId ?? item.player.id)).map((item) => teamRecentGameCard(item)).join("")
               : `<div class="empty">${t("stats.empty.teamGames")}</div>`}
           </div>
         </div>
         <div class="team-detail-section">
           <div class="panel-header"><h3>${t("stats.team.bestPlayers.title")}</h3></div>
           <div class="table-wrap">
-            <table class="data-table statistics-table" style="--table-metric-count:3">
+            <table class="data-table statistics-table" style="--table-metric-count:3" data-statistics-detail="players">
               <colgroup><col><col span="3" class="table-col-number"></colgroup>
               <thead><tr><th>${t("games.filter.playerLabel")}</th><th>${t("stats.column.games")}</th><th>${t("stats.column.wins")}</th><th>${t("stats.column.winrate")}</th></tr></thead>
               <tbody>
@@ -5789,7 +5998,7 @@ function renderTeamDetail(detail) {
       <section class="team-detail-section">
         <div class="panel-header"><h3>${t("stats.team.matchups.title")}</h3></div>
         <div class="table-wrap">
-          <table class="data-table statistics-table" style="--table-metric-count:5">
+          <table class="data-table statistics-table" style="--table-metric-count:5" data-statistics-detail="matchups">
             <colgroup><col><col span="5" class="table-col-number"></colgroup>
             <thead><tr><th>${t("stats.column.opponent")}</th><th>${t("stats.column.games")}</th><th>${t("stats.column.wins")}</th><th>${t("stats.column.losses")}</th><th>${t("stats.column.draws")}</th><th>${t("stats.column.winrate")}</th></tr></thead>
             <tbody>
@@ -5834,8 +6043,8 @@ function killTeamWinrateSummary(games) {
     const [a, b] = players;
     const scoreA = game.result.scores?.[a.id] || {};
     const scoreB = game.result.scores?.[b.id] || {};
-    const teamA = canonicalKillTeamName(scoreA.faction || scoreA.killTeam || scoreA.team);
-    const teamB = canonicalKillTeamName(scoreB.faction || scoreB.killTeam || scoreB.team);
+    const teamA = canonicalKillTeamName(scoreA.faction || scoreA.killTeam || scoreA.team || a.faction);
+    const teamB = canonicalKillTeamName(scoreB.faction || scoreB.killTeam || scoreB.team || b.faction);
     if (!teamA || !teamB) {
       skippedGames += 1;
       continue;
@@ -5864,14 +6073,16 @@ function killTeamWinrateSummary(games) {
   return { rows, totalGames, countedGames, mirrorGames, skippedGames };
 }
 
-function tacOpWinrateSummary(games, filters = { classification: "all", team: "" }) {
+function tacOpWinrateSummary(games, filters = { classification: "all", team: "" }, excludeMirrors = true) {
   const stats = new Map();
   const completedGames = games.filter((item) => item.status === "completed" && item.result);
   let totalPicks = 0;
 
   for (const game of completedGames) {
     const winnerId = game.result.winnerId ? Number(game.result.winnerId) : null;
-    for (const entry of gameScoreEntries(game)) {
+    const entries = gameScoreEntries(game);
+    if (excludeMirrors && entries.length === 2 && entries[0].team === entries[1].team) continue;
+    for (const entry of entries) {
       const { player, score, team } = entry;
       if (!statsTeamFilterMatchesWithFilters(team, filters)) continue;
       const tacOp = canonicalTacOpName(score.tacOp);
@@ -5916,7 +6127,7 @@ function gameScoreEntries(game) {
     return {
       player,
       score,
-      team: canonicalKillTeamName(score.faction || score.killTeam || score.team)
+      team: canonicalKillTeamName(score.faction || score.killTeam || score.team || player.faction)
     };
   }).filter((entry) => entry.team);
 }
@@ -5934,7 +6145,7 @@ function teamDetailSummary(team, games) {
   const playerStats = new Map();
   const matchupStats = new Map();
   const recentGames = [];
-  const totals = { games: 0, wins: 0, losses: 0, draws: 0 };
+  const totals = { games: 0, wins: 0, losses: 0, draws: 0, mirrorGames: 0 };
 
   for (const game of games.filter((item) => item.status === "completed" && item.result)) {
     const players = game.players || [];
@@ -5942,9 +6153,10 @@ function teamDetailSummary(team, games) {
     const [playerA, playerB] = players;
     const scoreA = game.result.scores?.[playerA.id] || {};
     const scoreB = game.result.scores?.[playerB.id] || {};
-    const teamA = canonicalKillTeamName(scoreA.faction || scoreA.killTeam || scoreA.team);
-    const teamB = canonicalKillTeamName(scoreB.faction || scoreB.killTeam || scoreB.team);
+    const teamA = canonicalKillTeamName(scoreA.faction || scoreA.killTeam || scoreA.team || playerA.faction);
+    const teamB = canonicalKillTeamName(scoreB.faction || scoreB.killTeam || scoreB.team || playerB.faction);
     if (!teamA || !teamB) continue;
+    if (teamA === targetTeam && teamB === targetTeam) { totals.mirrorGames += 1; continue; }
 
     const entries = [
       { player: playerA, score: scoreA, team: teamA, opponent: playerB, opponentScore: scoreB, opponentTeam: teamB },
@@ -5958,10 +6170,11 @@ function teamDetailSummary(team, games) {
       totals.losses += result === "loss" ? 1 : 0;
       totals.draws += result === "draw" ? 1 : 0;
 
-      if (!playerStats.has(entry.player.id)) {
-        playerStats.set(entry.player.id, { id: entry.player.id, name: entry.player.name, games: 0, wins: 0, losses: 0, draws: 0 });
+      const playerKey = statisticsPlayerKey(entry.player, game);
+      if (!playerStats.has(playerKey)) {
+        playerStats.set(playerKey, { id: entry.player.id, name: entry.player.name, games: 0, wins: 0, losses: 0, draws: 0 });
       }
-      addRecord(playerStats.get(entry.player.id), result);
+      addRecord(playerStats.get(playerKey), result);
 
       if (entry.opponentTeam !== targetTeam) {
         if (!matchupStats.has(entry.opponentTeam)) {
@@ -5993,7 +6206,7 @@ function teamDetailSummary(team, games) {
     recentGames: recentGames.sort((a, b) =>
       String(b.game.submittedAt || b.game.createdAt).localeCompare(String(a.game.submittedAt || a.game.createdAt))
     ),
-    players: Array.from(playerStats.values()).map(withWinRate).sort(statRowSort).slice(0, 10),
+    players: Array.from(playerStats.values()).map(withWinRate).sort(statRowSort),
     matchups: Array.from(matchupStats.values()).map(withWinRate).sort(statRowSort)
   };
 }
@@ -6396,8 +6609,9 @@ function renderGameDetail(live = false) {
         <div class="result-headline">${escapeHtml(resultHeadline(game, result))}</div>
         ${submitter ? `<p class="muted">${t("games.detail.submittedBy", { name: escapeHtml(submitter.name) })}${game.submittedAt ? ` &middot; ${fmtDate(game.submittedAt)}` : ""}</p>` : ""}
         ${killzoneReview(result)}
+        ${statisticsListControls("game-scores:" + game.id, gameScoreColumns())}
         <div class="score-grid">
-          ${game.players.map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
+          ${sortedGamePlayers(game, result).map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
         </div>
         ${result.tiebreakers?.enabled ? tieBreakerReview(game, result) : ""}
         ${game.elo ? eloReview(game) : ""}
@@ -6829,7 +7043,7 @@ function renderResultReview(gameId) {
       <div class="result-headline">${escapeHtml(reviewSummary)}</div>
       ${killzoneReview(result)}
       <div class="score-grid">
-        ${game.players.map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
+        ${sortedGamePlayers(game, result).map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
       </div>
       ${result.tiebreakers?.enabled ? tieBreakerReview(game, result) : ""}
       <div class="review-actions">
@@ -7058,7 +7272,7 @@ function renderTournamentResultReview(data, match, options = {}) {
       <div class="result-headline">${escapeHtml(resultHeadline(game, result))}</div>
       ${killzoneReview(result)}
       <div class="score-grid">
-        ${game.players.map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
+        ${sortedGamePlayers(game, result).map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
       </div>
       ${result.tiebreakers?.enabled ? tieBreakerReview(game, result) : ""}
       <div class="review-actions">
@@ -7933,9 +8147,9 @@ function updateTotals() {
 async function loadTop() { await loadLeaderboardSearch(); }
 async function loadLeaderboardSearch() {
   const requestId = ++leaderboardSearchRequestId;
-  const query = state.leaderboardQuery, venue = state.leaderboardVenue;
-  const data = await api(`/api/users?venue=${encodeURIComponent(venue)}&q=${encodeURIComponent(query)}&page=${state.leaderboardPage || 1}`);
-  if (requestId !== leaderboardSearchRequestId || query !== state.leaderboardQuery || venue !== state.leaderboardVenue) return false;
+  const query = state.leaderboardQuery, venue = state.leaderboardVenue, sortQuery = statisticsSortQuery("leaderboard");
+  const data = await api(`/api/users?venue=${encodeURIComponent(venue)}&q=${encodeURIComponent(query)}&page=${state.leaderboardPage || 1}&${sortQuery}`);
+  if (requestId !== leaderboardSearchRequestId || query !== state.leaderboardQuery || venue !== state.leaderboardVenue || sortQuery !== statisticsSortQuery("leaderboard")) return false;
   state.users = data.users || []; state.leaderboardPagination = data.pagination;
   state.leaderboardUserIds = null;
   return true;
@@ -7968,8 +8182,12 @@ function wireLeaderboardSearch() {
 }
 
 async function loadTeamLeaderboard() {
-  const data = await api(`/api/leaderboards/teams?venue=${encodeURIComponent(state.leaderboardVenue)}&page=${state.teamLeaderboardPage || 1}`);
+  const sequence = loadTeamLeaderboard.sequence = (loadTeamLeaderboard.sequence || 0) + 1;
+  const venue = state.leaderboardVenue, query = statisticsSortQuery("team-leaderboard");
+  const data = await api(`/api/leaderboards/teams?venue=${encodeURIComponent(venue)}&page=${state.teamLeaderboardPage || 1}&${query}`);
+  if (sequence !== loadTeamLeaderboard.sequence || venue !== state.leaderboardVenue || query !== statisticsSortQuery("team-leaderboard")) return false;
   state.teamLeaderboard = data.teams || []; state.teamLeaderboardPagination = data.pagination;
+  return true;
 }
 
 function paginate(items, page, pageSize = LEADERBOARD_PAGE_SIZE) {
@@ -8082,11 +8300,12 @@ function teamsTable(teams, { admin = false } = {}) {
   if (admin) state.adminTeamsPage = pageData.currentPage;
   else state.teamLeaderboardPage = pageData.currentPage;
   if (!pageData.total) return `<div class="empty">${t("teams.list.empty")}</div>`;
-  return `<div class="table-wrap"><table class="data-table ${admin ? "admin-teams-table" : "teams-leaderboard-table"}">
+  const sortId = admin ? "admin-teams" : "team-leaderboard";
+  return `${statisticsListControls(sortId, admin ? [["name", t("teams.field.name")], ["leaderName", t("teams.role.leader")], ["memberCount", t("teams.members.count")], ["ratingTts", t("teams.rating.tts")], ["ratingIrl", t("teams.rating.irl")]] : [["rank", "#"], ["name", t("teams.field.name")], ["memberCount", t("teams.members.count")], ["rating", t("tournaments.card.rating")]], admin ? "" : "rank", "asc")}<div class="table-wrap"><table class="data-table ${admin ? "admin-teams-table" : "teams-leaderboard-table"}">
     <colgroup>${admin ? '<col><col class="table-col-text">' : '<col class="table-col-rank"><col>'}<col class="table-col-number"><col ${admin ? 'span="2" ' : ''}class="table-col-rating"></colgroup>
-    <thead><tr>${admin ? "" : '<th class="rank">#</th>'}<th>${t("teams.field.name")}</th>${admin ? `<th>${t("teams.role.leader")}</th>` : ""}<th>${t("teams.members.count")}</th>${admin ? `<th>${t("teams.rating.tts")}</th><th>${t("teams.rating.irl")}</th>` : `<th>${t("tournaments.card.rating")}</th>`}</tr></thead>
+    <thead><tr>${admin ? "" : serverSortHeader("#", "rank", sortId)}${serverSortHeader(t("teams.field.name"), "name", sortId)}${admin ? serverSortHeader(t("teams.role.leader"), "leaderName", sortId) : ""}${serverSortHeader(t("teams.members.count"), "memberCount", sortId)}${admin ? serverSortHeader(t("teams.rating.tts"), "ratingTts", sortId) + serverSortHeader(t("teams.rating.irl"), "ratingIrl", sortId) : serverSortHeader(t("tournaments.card.rating"), "rating", sortId)}</tr></thead>
     <tbody>${pageData.items.map((team, index) => `<tr>
-      ${admin ? "" : `<td class="rank">${pageData.start + index + 1}</td>`}
+      ${admin ? "" : `<td class="rank">${team.rank ?? pageData.start + index + 1}</td>`}
       <td><a href="/teams/${escapeHtml(team.slug)}" data-app-link class="text-button player-name-button leaderboard-player-button" data-team-open="${escapeHtml(team.slug)}" title="${escapeHtml(team.name)}">
         <span class="leaderboard-avatar">${avatarMarkup({ name: team.name, avatarData: team.logoData })}</span><span>${escapeHtml(team.name)}</span>
       </a>${team.archivedAt ? `<span class="status">${t("teams.status.archived")}</span>` : ""}</td>
@@ -8107,10 +8326,11 @@ function usersTable(users) {
   state.leaderboardPage = pageData.currentPage;
   if (!pageData.total) return `<div class="empty">${t(state.leaderboardQuery.trim() ? "leaderboard.users.searchEmpty" : "leaderboard.empty")}</div>`;
   return `
+    ${statisticsListControls("leaderboard", [["rank", "#"], ["name", t("games.filter.playerLabel")], ["rating", t("tournaments.card.rating")]], "rank", "asc")}
     <div class="table-wrap">
       <table class="data-table leaderboard-table">
         <colgroup><col class="table-col-rank"><col><col class="table-col-rating"></colgroup>
-        <thead><tr><th class="rank">#</th><th>${t("games.filter.playerLabel")}</th><th>${t("tournaments.card.rating")}</th></tr></thead>
+        <thead><tr>${serverSortHeader("#", "rank", "leaderboard")}${serverSortHeader(t("games.filter.playerLabel"), "name", "leaderboard")}${serverSortHeader(t("tournaments.card.rating"), "rating", "leaderboard")}</tr></thead>
         <tbody>
           ${pageData.items.map((user) => `
             <tr>
@@ -8241,7 +8461,7 @@ function tournamentFactionPicks(data) {
 }
 
 function tournamentTacOpStats(games) {
-  return tacOpWinrateSummary(games, { classification: "all", team: "" }).rows;
+  return tacOpWinrateSummary(games, { classification: "all", team: "" }, false).rows;
 }
 
 function tournamentKillTeamStats(games, picks = []) {
@@ -8269,8 +8489,12 @@ function tournamentKillTeamStats(games, picks = []) {
   for (const game of games) {
     const [a, b] = game.players || [];
     if (!a || !b) continue;
-    addTournamentStatLine(rowForFaction(a.faction), a, b, game);
-    addTournamentStatLine(rowForFaction(b.faction), b, a, game);
+    const factionFor = player => {
+      const score = game.result?.scores?.[player.id] || {};
+      return canonicalKillTeamName(score.faction || score.killTeam || score.team || player.faction || "");
+    };
+    addTournamentStatLine(rowForFaction(factionFor(a)), a, b, game);
+    addTournamentStatLine(rowForFaction(factionFor(b)), b, a, game);
   }
   return [...byTeam.values()].sort((a, b) =>
     b.wins * 3 + b.draws - (a.wins * 3 + a.draws) ||
@@ -8528,7 +8752,8 @@ function wireRosterLinks(root = document) {
 }
 
 function rosterMatchHistoryMarkup(data) {
-  const matches = [...(data.teamMatches || [])].sort((a, b) => b.roundNumber - a.roundNumber || b.id - a.id);
+  const original = [...(data.teamMatches || [])].sort((a, b) => b.roundNumber - a.roundNumber || b.id - a.id);
+  const matches = sortStatisticsRows(original, statisticsSortState("roster-matches:" + data.roster?.id, "", "desc"), matchStatisticsValues);
   if (!matches.length) return `<div class="empty">${t("teams.roster.noMatches")}</div>`;
   return matches.map((match) => {
     const status = data.tournament.status === "registration_closed" ? t("admin.roundSetup.awaitingStart")
@@ -8584,7 +8809,7 @@ function renderRosterProfile() {
       <div class="row-title">${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })}${member.userId && member.userId === roster.captainUserId && !member.endedAt ? ` · ${t("teams.role.captain")}` : ""}</div>
       <div class="row-meta">${escapeHtml(tournamentFactionsLabel(member))}${member.endedAt ? ` · ${t("teams.roster.formerPlayer")} · ${fmtDate(member.endedAt)}` : ""}</div>
     </div></div>`).join("")}</div></section>
-    <section class="card panel"><h3>${t("teams.roster.matchHistory")}</h3><div class="list">${rosterMatchHistoryMarkup(data)}</div></section>
+    <section class="card panel"><h3>${t("teams.roster.matchHistory")}</h3>${statisticsListControls("roster-matches:" + roster.id, matchStatisticsColumns())}<div class="list">${rosterMatchHistoryMarkup(data)}</div></section>
     <div class="message" data-message></div>
   </div>`;
   content.querySelector("[data-roster-back]").addEventListener("click", () => navigateBack(state.administrationContext ? `/tournament#/administration/tournaments/admin/${tournament.id}` : tournamentPublicPath(tournament.slug), { tournamentTab: "standings" }));
@@ -9035,7 +9260,20 @@ function teamMatchGamesMarkup(match, options = {}) {
   const slots = [...new Set([...(options.preview && !match.resolution ? Array.from({ length: teamSizeFor(match) }, (_, index) => index + 1) : []), ...pairings.keys(), ...assignments.keys(), ...games.keys()])].sort((a, b) => a - b);
   if (!slots.length) return "";
   const summary = options.showProgress === false ? "" : teamMatchProgressMarkup(match);
-  return `${summary}<div class="team-match-games">${slots.map((slot) => {
+  const sortId = "team-game-slots:" + match.id;
+  const values = slot => {
+    const link = games.get(slot), pairing = pairings.get(slot), assignment = assignments.get(slot);
+    const mission = link?.mission || assignment?.mission || {};
+    return { ...gameStatisticsValues(link?.game || {}), slot, table: link?.table?.tableNumber ?? assignment?.tableId ?? link?.tableId,
+      player: teamRosterMemberLabel(match.rosterA, (link || pairing)?.rosterAMemberId),
+      opponent: teamRosterMemberLabel(match.rosterB, (link || pairing)?.rosterBMemberId),
+      killzone: mission.killzone, critOp: mission.critOp, layout: mission.layout };
+  };
+  const orderedSlots = sortStatisticsRows(slots, statisticsSortState(sortId, "", "desc"), values);
+  const hasScores = (match.games || []).some(link => link.game?.result || link.game?.pendingResult?.result);
+  const columns = gameStatisticsColumns().filter(([key]) => hasScores || !["score", "opponentScore", "vpDiff", "elo"].includes(key));
+  return `${summary}${statisticsListControls(sortId, [["slot", t("stats.sort.slot")], ...columns,
+    ["table", t("stats.sort.table")], ["killzone", t("stats.sort.killzone")], ["critOp", t("stats.sort.critOp")], ["layout", t("stats.sort.layout")]])}<div class="team-match-games">${orderedSlots.map((slot) => {
     const pairing = pairings.get(slot);
     const assignment = assignments.get(slot);
     const link = games.get(slot);
@@ -9699,7 +9937,7 @@ function wireTournamentDataTables(data) {
     enhance('[data-tournament-table-kind="tacOps"]', "tacOps", {
       types: { 0: "text" }, defaultSort: { column: 3, direction: "desc" }, gamesColumn: 1,
       factions, classification: true, minimumGames: true, searchPlaceholder: "tournaments.table.searchTacOps",
-      filteredTable: filters => tournamentTacOpStatsTable(tacOpWinrateSummary(games, filters).rows)
+      filteredTable: filters => tournamentTacOpStatsTable(tacOpWinrateSummary(games, filters, false).rows)
     });
     enhance('[data-tournament-table-kind="killTeams"]', "killTeams", {
       types: { 0: "text", 2: "record" }, factions, classification: true, minimumGames: true,
@@ -10711,9 +10949,14 @@ function wireTeamTournamentControls(data, options = {}) {
 }
 
 async function loadPlayerTeam(slug, options = {}) {
-  if (!options.force && state.teamProfile?.team?.slug === slug) return state.teamProfile;
-  const data = await api(`/api/teams/${encodeURIComponent(slug)}`);
+  const query = statisticsSortQuery("team-history:" + slug, true);
+  const signature = slug + ":" + query;
+  if (!options.force && state.teamProfile?.team?.slug === slug && loadPlayerTeam.signature === signature) return state.teamProfile;
+  const sequence = loadPlayerTeam.sequence = (loadPlayerTeam.sequence || 0) + 1;
+  const data = await api(`/api/teams/${encodeURIComponent(slug)}?${query}`);
+  if (sequence !== loadPlayerTeam.sequence || query !== statisticsSortQuery("team-history:" + slug, true)) return null;
   state.teamProfile = data;
+  loadPlayerTeam.signature = signature;
   return data;
 }
 
@@ -10728,7 +10971,7 @@ async function renderPlayerTeamRoute(slug, options = {}) {
   container.innerHTML = `<div class="loading">${t("teams.loading")}</div>`;
   try {
     const data = await loadPlayerTeam(slug, options);
-    renderPlayerTeamProfile(data);
+    if (data && playerTeamSlugFromLocation() === slug) renderPlayerTeamProfile(data);
   } catch (err) {
     container.innerHTML = `<section class="card panel"><h2>${t("teams.notFound")}</h2><p class="muted">${escapeHtml(err.message)}</p></section>`;
   }
@@ -10931,8 +11174,8 @@ function renderPlayerTeamProfile(data) {
       ${teamDeletionPanel(team)}
     ` }] : []),
     { id: "history", label: t("teams.profile.tab.history"), content: `
-      <section class="card panel"><h3>${t("teams.history.games")}</h3><div class="list">${teamGameHistory(data.recentGames || [])}</div></section>
-      <section class="card panel"><h3>${t("teams.history.tournaments")}</h3><div class="list">${teamRosterHistory(data.rosters || [])}</div></section>
+      <section class="card panel"><h3>${t("teams.history.games")}</h3>${statisticsListControls("team-history:" + team.slug, [["date", t("stats.sort.date")], ["tournament", t("nav.tournaments")], ["round", t("stats.sort.round")], ["rosterA", t("teams.tournament.roster") + " A"], ["rosterB", t("teams.tournament.roster") + " B"]], "date", "desc")}<div class="list">${teamGameHistory(data.recentGames || [])}</div></section>
+      <section class="card panel"><h3>${t("teams.history.tournaments")}</h3>${statisticsListControls("team-rosters:" + team.id, [["name", t("teams.field.name")], ["tournament", t("nav.tournaments")], ["seed", t("stats.sort.seed")], ["status", t("stats.sort.status")]])}<div class="list">${teamRosterHistory(data.rosters || [])}</div></section>
     ` }
   ];
   if (state.teamProfileTabTeamId !== team.id || !tabs.some((tab) => tab.id === state.teamProfileTab)) {
@@ -10973,7 +11216,7 @@ function teamMemberCards(members, team, canManage) {
 
 function teamRosterHistory(rosters) {
   if (!rosters.length) return `<div class="empty">${t("teams.history.empty")}</div>`;
-  return rosters.map((roster) => `<div class="row-card compact-row-card"><div class="row-main">
+  return sortStatisticsRows(rosters, statisticsSortState("team-rosters:" + state.teamProfile?.team?.id, "", "desc"), roster => ({ name: roster.name, tournament: roster.tournament?.name, seed: roster.seed, status: roster.status })).map((roster) => `<div class="row-card compact-row-card"><div class="row-main">
     <div class="row-title">${teamRosterLabel(roster)}</div>
     <div class="row-meta">${escapeHtml(roster.tournament?.name || "")} / ${t("teams.roster.seed", { seed: roster.seed || "-" })} / ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
     ${activeRosterMembersForUi(roster).map((member) => `${escapeHtml(member.displayNameSnapshot)} (${escapeHtml(tournamentFactionsLabel(member))})${member.userId && member.userId === roster.captainUserId ? ` — ${t("teams.role.captain")}` : ""}`).join("<br>")}

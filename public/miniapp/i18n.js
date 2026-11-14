@@ -2,6 +2,19 @@
   "use strict";
   // Source-language keys are used only for interface copy, never player content.
   const en = {
+    "Дата": "Date",
+    "Соперник": "Opponent",
+    "Разница VP": "VP difference",
+    "Изменение рейтинга": "Rating change",
+    "Сортировать: {column}": "Sort by {column}",
+    "Сбросить сортировку": "Reset sorting",
+    "Сортировка": "Sort by",
+    "Исходный порядок": "Original order",
+    "Изменить направление сортировки": "Change sort direction",
+    "По возрастанию": "Ascending",
+    "По убыванию": "Descending",
+    "Статус": "Status",
+    "Счёт": "Score",
     "Идёт турнир": "In progress",
     "Регистрация открыта": "Registration open",
     "Скоро начало": "Starting soon",

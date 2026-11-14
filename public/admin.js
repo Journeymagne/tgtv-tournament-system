@@ -288,7 +288,7 @@ async function adminForceConfirmGame(gameId, profileUserId = null) {
 
 async function loadAdminTeams() {
   const sequence=loadAdminTeams.sequence=(loadAdminTeams.sequence||0)+1;
-  const data = await api(`/api/admin/teams?page=${state.adminTeamsPage || 1}&q=${encodeURIComponent(state.adminTeamsQuery || "")}`);
+  const data = await api(`/api/admin/teams?page=${state.adminTeamsPage || 1}&q=${encodeURIComponent(state.adminTeamsQuery || "")}&${statisticsSortQuery("admin-teams")}`);
   if(sequence!==loadAdminTeams.sequence)return;
   state.adminTeams = data.teams || []; state.adminTeamsPagination = data.pagination;
 }

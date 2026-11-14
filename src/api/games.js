@@ -176,7 +176,8 @@ async function listCompleted({ client, query = new URLSearchParams() }) {
     if (playerId > 2147483647) throw new HttpError(400, "Invalid player");
     const playerQuery = String(query.get("playerQuery") || "").trim().slice(0, 256);
     const factionKeys = query.get("team") ? killTeamSearchKeys(query.get("team")) : [];
-    const result = await gamesRepo.listCompletedPage(client, { page, venue, playerId, playerQuery, factionKeys });
+    const result = await gamesRepo.listCompletedPage(client, { page, venue, playerId, playerQuery, factionKeys,
+      sort: query.get('sort'), direction: query.get('direction') });
     const completed = await attachTournamentGameDetails(client, result.games);
     const people = await usersRepo.findByIds(client, [...new Set(completed.flatMap((game) => game.playerIds))]);
     const players = await gamesRepo.completedPlayerSuggestions(client, { venue, playerQuery });

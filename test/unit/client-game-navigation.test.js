@@ -381,7 +381,7 @@ test("player profile loader requests one user and caches its challenge subentity
     "state",
     "api",
     "upsertChallengeProgress",
-    `${loadPlayerProfileSource}; return loadPlayerProfile;`
+    `${require("../helpers/statistics-client-source")}\n${loadPlayerProfileSource}; return loadPlayerProfile;`
   );
   const loadPlayerProfile = factory(
     state,
@@ -394,7 +394,7 @@ test("player profile loader requests one user and caches its challenge subentity
 
   const profile = await loadPlayerProfile(17);
 
-  assert.deepEqual(requestedPaths, ["/api/users/17"]);
+  assert.deepEqual(requestedPaths, ["/api/users/17?historySort=date&historyDirection=desc"]);
   assert.equal(state.playerProfile, profile);
   assert.deepEqual(cachedProgress, [profile.challengeProgress]);
 });
