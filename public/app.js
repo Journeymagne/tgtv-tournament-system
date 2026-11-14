@@ -3659,7 +3659,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.5.22-statistics`;
+    script.src = `/admin.js?v=1.5.22-statistics-games`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -4053,7 +4053,6 @@ function gameCard(game) {
       <div class="row-main">
         <div class="row-title">${title}</div>
         <div class="row-meta">${escapeHtml(meta)}</div>
-        ${teamTableImageMarkup(game.teamTournamentGame?.mission || game.mission)}
       </div>
       <div class="row-actions">
         <span class="status ${status}">${game.status === "completed" ? t("play.game.status.completed") : isPending ? t("play.game.status.pending") : t("play.game.status.active")}</span>
