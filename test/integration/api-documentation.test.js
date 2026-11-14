@@ -39,7 +39,8 @@ const read = async (client, locale = "ru") => (await client.get(`/api/documentat
 
 for (const [version, migrationFile] of [
   ["1.5.18", "090_review_fixes_release_notes"],
-  ["1.5.19", "091_knowthykt_release_notes"]
+  ["1.5.19", "091_knowthykt_release_notes"],
+  ["1.5.23", "093_statistics_release_notes"]
 ]) test(`${version} release notes preserve editorial history and do not duplicate on replay`, async () => {
   const migration = require(`../../src/db/migrations/${migrationFile}`);
   const history = "# Editorial heading\n\nAn editor's introduction.\n\n## 1.5.17 — previous release\n\nPreserved release copy.\n";

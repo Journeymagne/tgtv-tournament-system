@@ -2,6 +2,13 @@
 
 KT Companion release history, newest first.
 
+## 1.5.23 — 15 November 2026
+
+- Added sorting by every column across statistics, rankings, game history, tournament tables, the Mini App and tierlists. Official places are retained; sorting uses the full list before pagination and top-N limits.
+- Fixed statistics for played Kill Teams, separation of proxy participants and mirror-match handling. Selected sorting and entered data survive table updates.
+- Team tournaments now have a Personal standings tab for every participant: a win/draw/loss awards 3/1/0 TP, Total GP sums game points, and Diff GP is own GP minus opponents’ GP. Every column is sortable; results retain substituted players and include completed personal games in the current round.
+- Removed map previews from game lists and history. Maps remain available inside tournaments.
+
 ## 1.5.22 — 14 November 2026
 
 - [KT Calculator](/combat) automatically recalculates shooting and fighting after input changes.
