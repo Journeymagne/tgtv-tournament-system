@@ -25,6 +25,7 @@ const { normalizeRosterName, teamNameKey, defaultRosterName } = require("../doma
 const { rosterForViewer } = require("../domain/tournaments/privacy");
 const { teamGamePermissions } = require("../domain/team-game-permissions");
 const { participantResultKey } = require("../domain/tournaments/results");
+const { buildTeamIndividualStandings } = require("../domain/team-individual-standings");
 const { normalizeFactions, registeredFactions, validateResultFactions } = require("../domain/tournaments/factions");
 const {
   teamSizeFor,
@@ -1343,13 +1344,16 @@ function redactTeamMatch(match, rosterA, rosterB, user) {
 }
 
 async function tournamentData(client, tournament, user, { includeAudit = false } = {}) {
+  const includeHistory = includeAudit || Boolean(canManageTournament(user, tournament));
   const storedRosters = await rostersRepo.listByTournament(client, tournament.id, {
     includeWithdrawn: true,
-    includeHistory: includeAudit || Boolean(canManageTournament(user, tournament))
+    includeHistory: true
   });
   const myTeams = user ? await teamsRepo.listForUser(client, user.id) : [];
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
-  const rosters = storedRosters.map((roster) => rosterForViewer(roster, user, {
+  const rosters = storedRosters.map((roster) => rosterForViewer(includeHistory ? roster : {
+    ...roster, members: roster.members.filter(member => !member.endedAt)
+  }, user, {
     rounds,
     teamLeader: myTeams.some((team) => team.id === roster.teamId && team.leaderUserId === user?.id)
   }));
@@ -1405,6 +1409,7 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
       matches: matches.filter((match) => match.roundId === round.id) })),
     teamMatches: matches,
     standings: teamStandings(activeRosters, rawMatches, tournament.teamTiebreakerOrder ?? null, { ...tournament, historicalRosters: rosters }).map((row) => ({ ...row, rosterId: row.roster.id, roster: undefined })),
+    individualStandings: buildTeamIndividualStandings(storedRosters, rawMatches),
     tournamentGames,
     viewerTeams,
     finalResults: tournament.finalResults || null,

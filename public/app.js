@@ -105,6 +105,7 @@ const state = {
   tournamentInfoTab: "preview",
   tournamentMatchViews: {},
   tournamentTableViews: {},
+  teamTournamentStandingsTabs: {},
   adminPasswordReset: null,
   playerProfile: null,
   feedback: [],
@@ -1693,7 +1694,7 @@ function currentNavigationEntry() {
 }
 
 function navigationContextKeys() {
-  return ["tournamentInfoTab", "tournamentSetupTab", "tournamentTableViews", "tournamentMatchViews", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
+  return ["tournamentInfoTab", "tournamentSetupTab", "tournamentTableViews", "tournamentMatchViews", "teamTournamentStandingsTabs", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
     "selectedStatisticsTeam", "selectedSeasonId", "statisticsFilters", "statisticsSort", "statisticsSorts", "statisticsTableViews",
     "gameFilters", "leaderboardPage", "teamLeaderboardPage", "adminUsersPage",
     "adminUsersQuery", "adminTeamsPage", "adminTeamsQuery", "teamsQuery", "challengeTab"];
@@ -2780,7 +2781,7 @@ function tournamentInfoTabContent(activeTab, data, options = {}) {
   if (activeTab === "tables") return adminUi().adminTournamentTablesContent(data);
   if (activeTab === "stats") return tournamentStatsContent(data);
   if (activeTab === "matches") return tournamentMatchesContent(data, options);
-  return data?.tournament?.participantMode === "team" ? teamStandingsTable(data) : publicStandingsTable(data);
+  return data?.tournament?.participantMode === "team" ? teamTournamentStandingsContent(data) : publicStandingsTable(data);
 }
 
 function tournamentMatchesContent(data, options = {}) {
@@ -3659,7 +3660,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.5.22-statistics-games`;
+    script.src = `/admin.js?v=1.5.22-personal-standings`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -9062,6 +9063,32 @@ function teamManualPairingForm(match) {
     </fieldset>`).join("")}<button type="submit" class="primary-button">${t("classic.savePairs")}</button></form>`;
 }
 
+function teamTournamentStandingsContent(data) {
+  const tabs = state.teamTournamentStandingsTabs ||= {};
+  const id = data.tournament.id;
+  const active = tabs[id] === "individual" ? "individual" : "team";
+  tabs[id] = active;
+  return `<div class="tabs tournament-info-tabs team-standings-tabs" role="tablist" aria-label="${t("tournaments.tab.standings")}">
+    ${["team", "individual"].map(tab => `<button type="button" class="tab ${active === tab ? "active" : ""}" data-team-standings-tab="${tab}" role="tab" aria-selected="${active === tab}" id="team-standings-tab-${id}-${tab}" aria-controls="team-standings-panel-${id}">${t(tab === "team" ? "teams.tournament.teamStandings" : "teams.tournament.individualStandings")}</button>`).join("")}
+    </div>
+    <div role="tabpanel" id="team-standings-panel-${id}" aria-labelledby="team-standings-tab-${id}-${active}">
+      ${active === "individual" ? teamIndividualStandingsTable(data) : teamStandingsTable(data)}
+    </div>`;
+}
+
+function teamIndividualStandingsTable(data) {
+  const rows = data.individualStandings || [];
+  const hint = `<p class="field-help">${t("teams.tournament.individualStandingsHint")}</p>`;
+  if (!rows.length) return `${hint}<div class="empty">${t("teams.tournament.individualStandingsEmpty")}</div>`;
+  return `${hint}<div class="table-wrap">
+    <table class="data-table team-individual-standings-table" style="--table-metric-count:5">
+      <colgroup><col class="table-col-rank"><col><col class="table-col-text"><col span="5" class="table-col-number"></colgroup>
+      <thead><tr><th class="rank">#</th><th>${t("tournaments.player.fallback")}</th><th>${t("teams.tournament.roster")}</th><th>${t("teams.tournament.individualGames")}</th><th>${t("tournaments.standings.column.tp")}</th><th>${t("teams.tournament.individualGp")}</th><th>${t("teams.tournament.individualDiff")}</th><th>${t("tournaments.standings.column.wdl")}</th></tr></thead>
+      <tbody>${rows.map(row => `<tr><td class="rank">${row.rank}</td><td>${tournamentParticipantProfileLink({ userId: row.isProxy ? null : row.userId, displayName: row.name }, t("tournaments.player.fallback"))}</td><td>${escapeHtml((row.rosterNames || []).join(" · ") || "—")}</td><td>${row.gamesPlayed ?? 0}</td><td>${row.matchPoints ?? 0}</td><td>${row.totalGp ?? 0}</td><td>${row.gpDiff ?? 0}</td><td>${row.wins ?? 0}-${row.draws ?? 0}-${row.losses ?? 0}</td></tr>`).join("")}</tbody>
+    </table>
+  </div>`;
+}
+
 function teamStandingsTable(data) {
   const source = Array.isArray(data.tournament?.finalResults) && data.tournament.finalResults.length
     ? data.tournament.finalResults
@@ -9869,6 +9896,7 @@ function wireTournamentInfoControls(data, options = {}) {
   wireTournamentRoundTabs();
   wireTeamRosterDetailsControls(data, options);
   if (data?.tournament?.participantMode === "team") wireTeamTournamentControls(data, options);
+  wireTeamTournamentStandingsTabs(data, options);
   document.querySelectorAll("[data-tournament-info-tab]").forEach((button) => {
     onLive(button, "click", async () => {
       state.tournamentInfoTab = button.dataset.tournamentInfoTab || "preview";
@@ -9894,6 +9922,17 @@ function wireTournamentInfoControls(data, options = {}) {
   }
   // Bind every row's profile links before restoring filters that hide some rows.
   wireTournamentDataTables(data);
+}
+
+function wireTeamTournamentStandingsTabs(data, options = {}) {
+  document.querySelectorAll("[data-team-standings-tab]").forEach(button => {
+    onLive(button, "click", () => {
+      (state.teamTournamentStandingsTabs ||= {})[data.tournament.id] = button.dataset.teamStandingsTab === "individual" ? "individual" : "team";
+      if (options.publicRoute) renderPublicTournament(data);
+      else renderTournaments();
+      rememberNavigationContext();
+    });
+  });
 }
 
 function wireTournamentDataTables(data) {
@@ -9934,6 +9973,13 @@ function wireTournamentDataTables(data) {
       ascendingColumns: [0], defaultSort: { column: 0, direction: "asc" },
       metadata, factions: metadata.flatMap(row => row.factions), matches: matchesFaction,
       searchPlaceholder: "tournaments.table.searchRosters"
+    });
+  }
+  if (document.querySelector(".team-individual-standings-table")) {
+    enhance(".team-individual-standings-table", "teamIndividualStandings", {
+      types: { 1: "text", 2: "text", 7: "record" },
+      ascendingColumns: [0], defaultSort: { column: 0, direction: "asc" },
+      searchPlaceholder: "tournaments.table.searchPlayers"
     });
   }
   if (document.querySelector("[data-tournament-table-kind]")) {
