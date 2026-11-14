@@ -2,6 +2,23 @@
 
 KT Companion release history, newest first.
 
+## 1.5.22 — 14 November 2026
+
+- [KT Calculator](/combat) automatically recalculates shooting and fighting after input changes.
+- Situation 2 can be collapsed while retaining its inputs and its contribution to the result.
+- Added a Situation 1 + 2 summary for the selected settings of both shooting situations: average damage, kill chance and the chance of leaving the target injured but alive. Target wounds come from Situation 1.
+- Weapon-profile saving and loading are fully translated into English; user-authored names remain unchanged.
+
+## 1.5.21 — 14 November 2026
+
+- Connect Telegram to an existing account directly inside the Mini App: enter your name or verified email and password, check both accounts, and confirm the connection.
+- After connecting, My games opens, or the game/tournament from your launch link. Sign-in and confirmation support Russian and English and both Companion themes.
+- Updated sign-in guidance, errors, and the bot welcome instructions. Connecting through the website profile, registration, and password recovery remain available.
+
+## 1.5.20 — 13 November 2026
+
+- The Telegram welcome message includes a direct Mini App link and an “Open Mini App” button for new users. Both Russian and English are supported; personal data still requires a connected account.
+
 ## 1.5.19 — 13 November 2026
 
 - KnowThyKT now has a dedicated [What’s new](/knowthykt#changelog) tab with trainer and question-bank updates in Russian and English.

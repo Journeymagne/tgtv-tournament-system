@@ -232,7 +232,7 @@ async function setupAdmin() {
 // Заглушка нужной длины: verifyPassword на ней всё равно считает scrypt, так что время ответа не выдаёт существование учётной записи.
 const ABSENT_USER_HASH = `${"0".repeat(32)}:${"0".repeat(128)}`;
 
-async function login({ client, body }) {
+async function verifyCredentials(client, body) {
   const identifier = normalizeName(body.name);
   const email = identifier.includes("@") ? identifier.toLowerCase() : null;
   let user = email
@@ -250,6 +250,12 @@ async function login({ client, body }) {
   if (!user || !matches) throw new HttpError(401, "Invalid name or password");
 
   access.assertActive(await access.hydrate(client, user));
+
+  return user;
+}
+
+async function login({ client, body }) {
+  const user = await verifyCredentials(client, body);
 
   await require('../resources/quotas').spend(client, user.id, 'loginMinute', 60);
   await require('../resources/quotas').spend(client, user.id, 'loginHour', 3600);
@@ -279,6 +285,7 @@ module.exports = {
   applyProfilePatch,
   register,
   setupAdmin,
+  verifyCredentials,
   login,
   logout
 };

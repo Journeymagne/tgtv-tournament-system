@@ -9,7 +9,8 @@ function appFunction(name, context) {
   const plain = source.indexOf('  function ' + name + '(');
   const start = plain < 0 ? source.indexOf('  async function ' + name + '(') : plain;
   const rest = source.slice(start);
-  const end = start + rest.slice(1).search(/\n  (?:async )?function /) + 1;
+  const next = rest.slice(1).search(/\n  (?:async )?function /);
+  const end = next < 0 ? start + rest.indexOf('\n  }\n') + 5 : start + next + 1;
   return vm.runInNewContext(source.slice(start, end) + '\n' + name, context);
 }
 
@@ -167,3 +168,36 @@ test('a sort/reset cycle rejects an older summary even when its requested path m
   assert.equal(state.data, original);
   assert.deepEqual(busy, ['true', 'false']);
 });
+
+for (const lifecycle of ['boot', 'pagehide', 'acceptSession']) {
+  test('an old profile sort response cannot update the page after ' + lifecycle, async () => {
+    const pending = [], container = { innerHTML: 'current', isConnected: true, setAttribute() {} };
+    const original = { user: { id: 1 }, profile: { recentGames: [{ id: 9 }] } };
+    const state = { sequence: 0, user: original.user, data: original };
+    const context = { state, profileSortSequence: 0, bootSequence: 0, linking: false,
+      profileSummaryPath: () => '/summary', route: () => ({ screen: 'profile' }), initData: '',
+      content: { innerHTML: '', setAttribute() {} }, nav: {}, linkFlow: { dispose() {} }, tg: null,
+      document: { querySelector: () => container, getElementById: () => ({ disabled: false }) },
+      api: path => new Promise(resolve => pending.push({ path, resolve })),
+      gameOrderControls: () => 'controls', matchLink: g => String(g.id), showError: assert.fail,
+      tr: key => key, applyLocale() {}, acceptSession() {}, loadScreen() {},
+      explicitDestination: true, toast() {} };
+    const oldSort = appFunction('refreshProfileGames', context)();
+    let operation;
+    if (lifecycle === 'boot') operation = appFunction('boot', context)();
+    else if (lifecycle === 'pagehide') {
+      const handler = source.match(/window\.addEventListener\("pagehide", (\(\) => \{[^\n]*\})\);/);
+      assert.ok(handler);
+      vm.runInNewContext('(' + handler[1] + ')', context)();
+    } else operation = appFunction('acceptSession', context)({ user: { id: 2 }, locale: 'en' }, true);
+    pending[0].resolve({ profile: { recentGames: [{ id: 2 }] } });
+    await oldSort;
+    assert.equal(container.innerHTML, 'current');
+    assert.deepEqual(state.data?.profile.recentGames ?? null, lifecycle === 'acceptSession' ? null : [{ id: 9 }]);
+    if (lifecycle === 'boot') {
+      assert.equal(pending[1].path, '/session');
+      pending[1].resolve({ authenticated: true, locale: 'en' });
+    }
+    await operation;
+  });
+}

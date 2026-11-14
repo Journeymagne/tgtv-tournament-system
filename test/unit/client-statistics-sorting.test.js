@@ -131,9 +131,9 @@ test('an obsolete sorting request failure cannot roll back a newer successful ch
   const state = {}, events = {}, requests = [], errors = [];
   const document = { addEventListener: (name, handler) => { events[name] = handler; }, querySelectorAll: () => [] };
   const code = source.match(/function wireStatisticsOrderEvents\([^]*?\r?\n\}/)?.[0];
-  const wire = new Function('state', 'document', 'refreshStatisticsSort', 'setMessage',
+  const wire = new Function('state', 'document', 'refreshStatisticsSort', 'setMessage', 'navigationUrl',
     require('../helpers/statistics-client-source') + '\n' + code + ';return wireStatisticsOrderEvents;')(
-      state, document, () => new Promise((resolve, reject) => requests.push({ resolve, reject })), error => errors.push(error));
+      state, document, () => new Promise((resolve, reject) => requests.push({ resolve, reject })), error => errors.push(error), () => "/test");
   wire();
   const click = key => events.click({ target: { closest: () => ({ disabled: false,
     dataset: { statisticsServerSort: 'leaderboard', sortKey: key } }) } });

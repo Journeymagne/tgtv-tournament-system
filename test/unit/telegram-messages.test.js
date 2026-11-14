@@ -4,6 +4,7 @@ Object.assign(process.env, { TGTV_ENV_LOADED: '1', TELEGRAM_MODE: 'polling', TEL
   TELEGRAM_BOT_USERNAME: 'PreviewTestBot', TELEGRAM_BOT_TOKEN: '123456:' + 'a'.repeat(32),
   SITE_URL: 'https://example.com', TELEGRAM_MINI_APP_URL: 'https://example.com/miniapp', TELEGRAM_TUNNEL_PORT: '' });
 const { notification, CATEGORY } = require('../../src/telegram/messages');
+const { welcome } = require('../../src/telegram/messages');
 const injected = '<b>Injected</b>&<a href="https://evil.example">link</a>';
 function item(type) {
   return { type, href: '/tournament#/mygames', actor: { name: injected }, team: { name: injected },
@@ -11,6 +12,16 @@ function item(type) {
     ownTeam: { name: injected }, opponentTeam: { name: injected }, roundNumber: 2,
     table: { number: 4, killzone: injected }, mission: { critOp: injected } };
 }
+for (const locale of ['ru', 'en']) test(`unlinked welcome explains inline sign-in and keeps website fallback in ${locale}`, () => {
+  const payload = welcome(locale, false);
+  assert.match(payload.text, locale === 'ru' ? /Войди в существующий аккаунт прямо в мини-приложении/ : /Sign in to your existing account inside the Mini App/);
+  assert.match(payload.text, locale === 'ru' ? /через профиль сайта/ : /through your website profile/);
+  const buttons = payload.reply_markup.inline_keyboard.flat();
+  assert.ok(buttons.some(b => b.web_app?.url === 'https://example.com/miniapp'));
+  assert.ok(buttons.some(b => b.url === 'https://example.com/tournament#/profile'));
+  assert.ok(buttons.some(b => b.callback_data === 'm:tournaments'));
+  assert.match(payload.text, locale === 'ru' ? /Присылать вызовы/ : /Send game challenges/);
+});
 for (const locale of ['ru', 'en']) test(`all notification kinds escape user text in ${locale} HTML`, () => {
   for (const type of Object.keys(CATEGORY)) {
     const payload = notification(item(type), locale);

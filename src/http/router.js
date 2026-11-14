@@ -156,6 +156,20 @@ function createRouter(routes, deps) {
     // who also sends malformed JSON now sees 400 before 401 (was: reverse).
     const body = METHODS_WITH_BODY.has(route.method) ? await readBody(req, route.maxBodyBytes, route.rawBody) : {};
 
+    // Persist linking budgets independently of the transaction that may reject a
+    // password/proof. Cookie-based bootstrap retains its existing request rules.
+    if (route.miniappLinkLimit && (route.miniappLinkLimit !== 'challenge' || body?.initData !== undefined)) {
+      try {
+        await withClient(async client => {
+          if (route.miniappLinkPreflight) await route.miniappLinkPreflight(client, req, body);
+          else await require('../domain/miniapp-link-security').checkRequest(client, req, body, route.miniappLinkLimit);
+        });
+      } catch (error) {
+        if (limiterKey) authLimiter.recordFailure(limiterKey);
+        throw error;
+      }
+    }
+
     if (route.emailLimit && (route.emailLimit !== "when-enabled" || require("../email/config").configuration().enabled)) {
       if (!/^application\/json(?:\s*;|$)/i.test(String(req.headers["content-type"] || ""))) throw new HttpError(415, "Use application/json");
       if (!body || typeof body !== "object" || Array.isArray(body)) throw new HttpError(400, "Invalid request body");
@@ -252,11 +266,11 @@ function createRouter(routes, deps) {
         status = err.status;
         sendJson(res, err.status, { error: err.message, ...(err.quota ? { quota: err.quota } : {}),
           ...(err.pairingWarningReview ? { pairingWarningReview: err.pairingWarningReview } : {})
-        }, err.headers || {});
+        }, { ...(matchLinkingPath(pathname) ? { 'Cache-Control': 'private, no-store' } : {}), ...err.headers });
       } else {
         status = 500;
         logError(`unhandled error on ${method} ${pathname}`, err);
-        sendJson(res, 500, { error: "Server error" });
+        sendJson(res, 500, { error: "Server error" }, matchLinkingPath(pathname) ? { 'Cache-Control': 'private, no-store' } : {});
       }
     } finally {
       logRequest({ method, path: pathname, status, durationMs: Date.now() - startedAt });
@@ -265,3 +279,7 @@ function createRouter(routes, deps) {
 }
 
 module.exports = { matchRoute, normalizeApiPath, createRouter };
+
+function matchLinkingPath(pathname) {
+  return pathname === '/api/auth/telegram-link' || pathname === '/api/miniapp/session' || pathname.startsWith('/api/miniapp/link/');
+}

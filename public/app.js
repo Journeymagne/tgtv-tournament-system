@@ -3659,7 +3659,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.5.19-statistics`;
+    script.src = `/admin.js?v=1.5.22-statistics`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -5752,10 +5752,12 @@ function wireStatisticsOrderEvents() {
     const previous = { ...sort };
     const revisions = wireStatisticsOrderEvents.revisions ||= {};
     const revision = revisions[id] = (revisions[id] || 0) + 1;
+    const actionLocation = navigationUrl();
     sort.key = input.value;
     try { await refreshStatisticsSort(id);
+      if (revisions[id] !== revision || actionLocation !== navigationUrl()) return;
       [...document.querySelectorAll("[data-statistics-order-key]")].find(node => node.dataset.statisticsOrderKey === id)?.focus({ preventScroll: true });
-    } catch (error) { if (revisions[id] === revision) { Object.assign(sort, previous); setMessage(error.message, true); } }
+    } catch (error) { if (revisions[id] === revision && actionLocation === navigationUrl()) { Object.assign(sort, previous); setMessage(error.message, true); } }
   });
   document.addEventListener("click", async event => {
     const button = event.target.closest("[data-statistics-server-sort], [data-statistics-order-direction], [data-statistics-order-reset]");
@@ -5765,6 +5767,7 @@ function wireStatisticsOrderEvents() {
     const previous = { ...sort };
     const revisions = wireStatisticsOrderEvents.revisions ||= {};
     const revision = revisions[id] = (revisions[id] || 0) + 1;
+    const actionLocation = navigationUrl();
     if (button.dataset.statisticsOrderReset) {
       const controls = button.closest("[data-statistics-order]");
       sort.key = controls?.dataset.defaultKey ?? (id === "admin-teams" ? "name" : "rank");
@@ -5776,9 +5779,10 @@ function wireStatisticsOrderEvents() {
     } else sort.dir = sort.dir === "asc" ? "desc" : "asc";
     button.disabled = true;
     try { await refreshStatisticsSort(id);
+      if (revisions[id] !== revision || actionLocation !== navigationUrl()) return;
       const attribute = button.dataset.statisticsServerSort ? "statisticsServerSort" : button.dataset.statisticsOrderReset ? "statisticsOrderReset" : "statisticsOrderDirection";
       [...document.querySelectorAll("[data-statistics-server-sort], [data-statistics-order-reset], [data-statistics-order-direction]")].find(node => node.dataset[attribute] === id && (!button.dataset.sortKey || node.dataset.sortKey === button.dataset.sortKey))?.focus({ preventScroll: true });
-    } catch (error) { if (revisions[id] === revision) { Object.assign(sort, previous); setMessage(error.message, true); } button.disabled = false; }
+    } catch (error) { if (revisions[id] === revision && actionLocation === navigationUrl()) { Object.assign(sort, previous); setMessage(error.message, true); } button.disabled = false; }
   });
 }
 

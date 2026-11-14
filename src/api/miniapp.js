@@ -3,6 +3,7 @@ const { configuration } = require("../telegram/config");
 const { hash, csrfToken } = require("../telegram/security");
 const miniAuth = require("../telegram/miniapp-auth");
 const telegramAccess = require('../telegram/access');
+const miniappLink = require('../telegram/miniapp-link');
 const auth = require("./auth");
 const games = require("./games");
 const tournaments = require("./tournaments");
@@ -18,7 +19,8 @@ async function session(ctx) {
     if (!config.enabled || !config.token) throw new HttpError(503, "Вход через Telegram пока не настроен.");
     const person = miniAuth.validateInitData(ctx.body.initData, config.token);
     const linked = await miniAuth.linkedUser(ctx.client, person.id);
-    if (!linked) return noStore({ authenticated: false, reason: "not_linked", locale: person.language_code?.startsWith("en") ? "en" : "ru" });
+    if (!linked) return noStore({ authenticated: false, reason: "not_linked", locale: person.language_code?.startsWith("en") ? "en" : "ru",
+      link: await miniappLink.createChallenge(ctx, person) });
     return noStore({ authenticated: true, locale: linked.link.locale, adminOnly: config.adminOnly, user: publicUser(linked.user), accessToken: miniAuth.issueToken(linked.link, config.token), expiresIn: miniAuth.SESSION_SECONDS });
   }
   const user = await auth.loadUserFromRequest(ctx.client, ctx.req);
@@ -101,7 +103,10 @@ function route(method, path, handler, write = false) {
 }
 
 module.exports = { routes: [
-  { method: "POST", path: "/api/miniapp/session", handler: session, tx: true, rateLimit: "auth", maxBodyBytes: 24576 },
+  { method: "POST", path: "/api/miniapp/session", handler: session, tx: true, rateLimit: "auth", maxBodyBytes: 24576,
+    miniappLinkLimit: 'challenge', miniappLinkPreflight: miniappLink.preflight },
+  { method:'POST', path:'/api/miniapp/link/confirm', handler:miniappLink.confirm, tx:true, miniappLinkLimit:'confirm', maxBodyBytes:24576 },
+  { method:'POST', path:'/api/miniapp/link/cancel', handler:miniappLink.cancel, tx:true, miniappLinkLimit:'cancel', maxBodyBytes:24576 },
   route("GET", "/summary", summary),
   route("GET", "/tournaments/:slug", async ctx => noStore(await tournaments.getPublic(ctx))),
   route("GET", "/games/:id", async ctx => noStore(await gameDetail(ctx))),
