@@ -30,6 +30,54 @@
   const statuses = { in_progress: "Идёт турнир", registration_open: "Регистрация открыта", registration_closed: "Скоро начало", completed: "Завершён", cancelled: "Отменён", open: "Можно внести счёт", pending_confirmation: "Ожидает подтверждения" };
   const state = { token: null, csrf: null, user: null, data: null, detail: null, game: null, slug: launch.get("tournament"), dirty: false, busy: false, sequence: 0, query: "", onlyMine: false, ready: false };
   const tabs = [["match", "Мои игры"], ["tournament", "Мой турнир"], ["standings", "Таблица"], ["profile", "Профиль"]];
+  let linking = false, bootSequence = 0;
+  const linkFlow = window.KTMiniLinkFlow.create({ fetch: (...args) => fetch(...args), initData,
+    clearPassword() { const input = document.getElementById("link-password"); if (input) input.value = ""; },
+    onChange(view) { if (linking) { applyLocale(view.locale); renderLink(view); } },
+    onAuthenticated: session => acceptSession(session, true)
+  });
+
+  function renderLink(view) {
+    const name = document.getElementById("link-name")?.value || "";
+    nav.hidden = true; connection.hidden = true;
+    content.setAttribute("aria-busy", String(view.busy));
+    document.getElementById("refresh-button").disabled = view.busy;
+    if (view.stage === "confirm" || view.stage === "submitting") tg?.BackButton?.show?.();
+    else tg?.BackButton?.hide?.();
+    const error = view.error ? `<p id="link-error" class="notice error" role="alert" tabindex="-1">${esc(i18n.linkError(view.error, locale))}</p>` : "";
+    const disabled = view.busy ? " disabled" : "";
+    const restart = view.restartRequired;
+    const confirmation = view.stage === "confirm" || view.stage === "submitting";
+    content.innerHTML = `<section class="card link-card" aria-labelledby="link-title"><div class="link-emblem">${icon("shield")}</div><h1 id="link-title" tabindex="-1">${tr(confirmation ? "Подключить Telegram" : "Войти в KT Companion")}</h1>${confirmation ? `
+      <p class="subtle">${tr("Подключить этот Telegram к вашему аккаунту KT Companion?")}</p>
+      <dl class="link-identities"><div><dt>KT Companion</dt><dd>${esc(view.account.name)}</dd></div><div><dt>Telegram</dt><dd>${esc(view.telegram.displayName)}${view.telegram.username ? `<small>@${esc(view.telegram.username)}</small>` : ""}</dd></div></dl>
+      ${error}<p class="subtle">${tr("Подключение произойдёт только после подтверждения.")}</p>
+      <div class="link-actions"><button type="button" class="primary wide" data-link-confirm${disabled}>${tr(view.busy ? "Подключаем…" : "Подключить Telegram")}</button><button type="button" class="secondary wide" data-link-back${disabled}>${tr("Назад")}</button></div>` : `
+      <p class="subtle">${tr("Войдите в свой аккаунт, чтобы подключить Telegram")}</p>
+      ${error}${restart ? `<button type="button" class="primary wide" data-link-back${disabled}>${tr(view.busy ? "Загружаем…" : "Войти ещё раз")}</button>` : `<form id="link-form" aria-describedby="${view.error ? "link-error" : "link-help"}">
+      <label class="link-field" for="link-name">${tr("Имя или email")}<input id="link-name" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" value="${esc(name)}" required${disabled}></label>
+      <label class="link-field" for="link-password">${tr("Пароль")}</label><div class="link-password"><input id="link-password" name="password" type="password" autocomplete="current-password" maxlength="256" aria-describedby="link-help" required${disabled}><button type="button" class="secondary" data-link-password aria-controls="link-password" aria-pressed="false"${disabled}>${tr("Показать пароль")}</button></div>
+      <p id="link-help" class="subtle link-help">${tr("После входа вы сможете проверить и подтвердить привязку.")}</p>
+      <button type="submit" class="primary wide"${disabled}>${tr(view.busy ? "Проверяем…" : "Продолжить")}</button></form>`}
+      <div class="link-support"><a data-external href="/account-email.html#forgot">${tr("Забыли пароль?")}</a><a data-external href="/tournament#register">${tr("Создать аккаунт")}</a></div>
+      <p class="subtle link-fallback">${tr("Также можно подключить Telegram через профиль сайта.")} <a data-external href="/tournament#/profile">${tr("Профиль на сайте")}</a></p>`}</section>`;
+    if (!view.busy) {
+      const focus = view.error ? document.getElementById("link-error") : confirmation || restart ? document.getElementById("link-title") : document.getElementById("link-name");
+      focus?.focus({ preventScroll: true });
+    }
+  }
+  async function acceptSession(session, newlyLinked = false) {
+    linking = false; linkFlow.dispose(); tg?.BackButton?.hide?.();
+    applyLocale(session.locale);
+    state.token = session.accessToken || null; state.csrf = session.csrfToken; state.user = session.user; state.ready = true;
+    document.getElementById("refresh-button").disabled = false;
+    if (newlyLinked) {
+      state.data = null; state.detail = null; state.game = null;
+      if (!explicitDestination) { history.replaceState(null, "", location.pathname + location.search + "#match"); previousHash = location.hash; }
+      toast(tr("Telegram подключён"));
+    }
+    await loadScreen({ refresh: true });
+  }
 
   function route() {
     const [screen, id] = location.hash.slice(1).split("/");
@@ -67,7 +115,7 @@
       if (!state.token && state.csrf) { headers["X-CSRF-Token"] = state.csrf; headers["X-Telegram-Account"] = String(state.user.id); }
     }
     let response;
-    try { response = await fetch("/api/miniapp" + path, { method, headers, credentials: state.token ? "omit" : "same-origin", cache: "no-store", body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(20000) }); }
+    try { response = await fetch("/api/miniapp" + path, { method, headers, credentials: initData || state.token ? "omit" : "same-origin", cache: "no-store", body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(20000) }); }
     catch { throw new Error(tr("Нет связи с сервером. Проверьте подключение и попробуйте снова.")); }
     const data = await response.json();
     if (!response.ok) { const err = new Error(i18n.error(data.error, response.status, locale)); err.status = response.status; throw err; }
@@ -278,6 +326,7 @@
 
   async function reload() {
     if (state.busy) return;
+    if (linking) { if (!linkFlow.snapshot().busy) await linkFlow.cancel(); return; }
     if (state.dirty && !await confirmAction(tr("Обновить данные?"), tr("Несохранённые изменения формы будут потеряны."))) return;
     state.dirty = false;
     if (!state.ready) return boot();
@@ -303,20 +352,25 @@
     syncTheme();
   }
   async function boot() {
+    const current = ++bootSequence;
+    linking = false; linkFlow.dispose(); state.token = null; state.csrf = null; state.user = null; state.ready = false; nav.hidden = true;
     document.getElementById("refresh-button").disabled = true;
     content.innerHTML = `<div class="loading"><span class="loader"></span><p>${tr("Загружаем ваши турниры…")}</p></div>`;
     try {
       const session = await api("/session", initData ? { initData } : {}, "POST");
+      if (current !== bootSequence) return;
       applyLocale(session.locale);
       if (!session.authenticated) {
         state.ready = false; nav.hidden = true; content.setAttribute("aria-busy", "false");
+        if (initData && session.reason === "not_linked" && session.link) { linking = true; linkFlow.start(session); return; }
         content.innerHTML = heading(tr("Турниры в Telegram")) + empty(session.reason === "not_linked" ? tr("Подключите свой аккаунт") : tr("Добро пожаловать"), session.reason === "not_linked" ? tr("В профиле сайта подключите Telegram и подтвердите привязку, затем вернитесь сюда.") : tr("Откройте миниап из бота или войдите в свой аккаунт на сайте."), websiteButton("/tournament#/profile", tr("Открыть профиль сайта")) + `<button class="secondary" data-retry>${tr("Я подключил аккаунт")}</button>`, "shield");
         return;
       }
-      state.token = session.accessToken || null; state.csrf = session.csrfToken; state.user = session.user; state.ready = true;
-      await loadScreen({ refresh: true });
-    } catch (err) { content.innerHTML = empty(tr("Не удалось войти"), err.message, `<button class="primary" data-retry>${tr("Повторить")}</button>`, "shield"); showError(err); }
-    finally { document.getElementById("refresh-button").disabled = false; }
+      await acceptSession(session);
+    } catch (err) {
+      if (current !== bootSequence) return;
+      content.innerHTML = empty(tr("Не удалось войти"), err.message, `<button class="primary" data-retry>${tr("Повторить")}</button>`, "shield"); showError(err);
+    } finally { if (current === bootSequence) document.getElementById("refresh-button").disabled = false; }
   }
   document.getElementById("theme-button").innerHTML = icon("theme");
   document.getElementById("refresh-button").innerHTML = icon("refresh");
@@ -330,6 +384,13 @@
   document.addEventListener("click", async event => {
     const target = event.target.closest("a,button");
     if (!target) return;
+    if (target.hasAttribute("data-link-back")) { event.preventDefault(); await linkFlow.cancel(); return; }
+    if (target.hasAttribute("data-link-confirm")) { event.preventDefault(); await linkFlow.confirm(locale); return; }
+    if (target.hasAttribute("data-link-password")) {
+      const input = document.getElementById("link-password"); if (!input) return;
+      const shown = input.type === "password"; input.type = shown ? "text" : "password";
+      target.textContent = tr(shown ? "Скрыть пароль" : "Показать пароль"); target.setAttribute("aria-pressed", String(shown)); return;
+    }
     if (target.hasAttribute("data-retry")) { event.preventDefault(); await reload(); return; }
     if (target.dataset.resultAction) { event.preventDefault(); await saveResult(target.dataset.resultAction); return; }
     if (target.hasAttribute("data-external") && initData && tg?.openLink) { event.preventDefault(); tg.openLink(new URL(target.getAttribute("href"), location.origin).href); return; }
@@ -355,6 +416,12 @@
     if (event.target.closest("#result-form")) { state.dirty = true; tg?.enableClosingConfirmation?.(); updateTotals(); }
   });
   document.addEventListener("submit", async event => {
+    if (event.target.id === "link-form") {
+      event.preventDefault();
+      const name = document.getElementById("link-name").value, input = document.getElementById("link-password");
+      let password = input.value; input.value = "";
+      const submission = linkFlow.submit(name, password); password = ""; await submission; return;
+    }
     if (event.target.id === "result-form") { event.preventDefault(); await saveResult("result", event.target); }
     if (event.target.id === "preferences-form") {
       event.preventDefault(); if (state.busy) return;
@@ -373,6 +440,8 @@
     if (state.ready) { window.scrollTo(0, 0); await loadScreen(); }
   });
   window.addEventListener("beforeunload", event => { if (state.dirty) { event.preventDefault(); event.returnValue = ""; } });
+  window.addEventListener("pagehide", () => { bootSequence++; state.sequence++; state.ready = false; linkFlow.dispose(); linking = false; });
+  window.addEventListener("pageshow", event => { if (event.persisted) boot(); });
   window.addEventListener("kt:appearance", syncTheme);
   window.addEventListener("offline", () => showError(new Error(tr("Нет интернета. Показаны последние загруженные данные."))));
   window.addEventListener("online", () => { if (state.ready && !state.dirty && !state.busy) loadScreen({ silent: true, refresh: true }); });
@@ -380,11 +449,14 @@
   setInterval(() => { if (state.ready && !state.dirty && !state.busy && !document.hidden && !document.activeElement?.matches("input,select")) loadScreen({ silent: true, refresh: true }); }, 45000);
   if (initData) {
     tg.ready(); tg.expand();
-    tg.BackButton?.onClick(() => { location.hash = "tournament"; });
+    tg.BackButton?.onClick(() => { if (linking) { linkFlow.cancel(); return; } location.hash = "tournament"; });
     tg.onEvent?.("themeChanged", () => { document.documentElement.dataset.theme = tg.colorScheme === "light" ? "light" : "dark"; syncTheme(); });
     document.documentElement.dataset.theme = tg.colorScheme === "light" ? "light" : "dark";
   }
   const start = tg?.initDataUnsafe?.start_param || launch.get("tgWebAppStartParam") || "";
+  const explicitDestination = /^#(tournament|match(?:\/\d+)?|standings|profile)$/.test(location.hash) ||
+    tabs.some(([key]) => key === launch.get("screen")) || Boolean(integer(launch.get("game"))) || Boolean(launch.get("tournament")) ||
+    /^game_\d+$/.test(start) || start.startsWith("tournament_") || tabs.some(([key]) => key === start);
   let initial = tabs.some(([key]) => key === launch.get("screen")) ? launch.get("screen") : "tournament";
   if (integer(launch.get("game"))) initial = "match/" + integer(launch.get("game"));
   if (/^game_\d+$/.test(start)) initial = "match/" + integer(start.slice(5));

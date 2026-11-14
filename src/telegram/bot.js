@@ -11,6 +11,9 @@ async function command(client, update, person, chatId, link, action) {
   if (action.startsWith("link_")) {
     const code = action.slice(5);
     if (!/^[a-zA-Z0-9_-]{43}$/.test(code)) return reply({ text:t("Ссылка недействительна. Создайте новую в профиле сайта.","Invalid link. Create a new one in your website profile.") });
+    const { rows:[observed] } = await client.query("SELECT user_id FROM telegram_link_tokens WHERE token_hash=$1 AND expires_at>NOW()",[hash(code)]);
+    if (link && observed && observed.user_id !== link.user_id) return reply({ text:t("Ссылка истекла или аккаунт уже связан. Проверьте настройки на сайте.","The link expired or the account is already linked. Check website settings.") });
+    if (observed) await client.query('SELECT id FROM accounts.users WHERE id=$1 FOR UPDATE',[observed.user_id]);
     const { rows:[token] } = await client.query("SELECT * FROM telegram_link_tokens WHERE token_hash=$1 AND expires_at>NOW() FOR UPDATE",[hash(code)]);
     if (adminOnly() && !await access.allowed(client, token?.user_id)) return;
     const { rows:conflict } = await client.query("SELECT user_id FROM telegram_links WHERE telegram_id=$1",[person.id]);
@@ -92,7 +95,11 @@ async function handleUpdate(client, update) {
   const person = update.callback_query?.from || update.message?.from;
   if (message?.chat?.type !== "private" || person?.is_bot || !Number.isSafeInteger(person?.id) || person.id<=0 || message.chat.id!==person.id) return;
   await client.query("SELECT pg_advisory_xact_lock(91827, $1)",[person.id % 2147483647]);
-  const link = await data.linkFor(client,person.id);
+  let link = await data.linkFor(client,person.id);
+  if (link) {
+    await client.query('SELECT id FROM accounts.users WHERE id=$1 FOR UPDATE',[link.user_id]);
+    link = await data.linkFor(client,person.id);
+  }
   if (link) await client.query("UPDATE telegram_links SET blocked=FALSE WHERE id=$1",[link.id]);
   // Limit each Telegram sender independently, including attempts to claim links.
   const { rows:[rate] } = await client.query(`SELECT COUNT(*)::int AS count FROM telegram_outbox WHERE chat_id=$1 AND created_at>NOW()-INTERVAL '1 minute'`,[person.id]);

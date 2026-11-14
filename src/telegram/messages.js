@@ -54,6 +54,8 @@ function welcome(locale, linked) {
   lines.push('', linked
     ? t('<b>Аккаунт подключён.</b> Язык и уведомления — в /settings.',
       '<b>Your account is connected.</b> Set your language and notifications in /settings.')
+    : config.miniAppUrl ? t('<b>Как подключиться</b>\nВойди в существующий аккаунт прямо в мини-приложении и подтверди подключение Telegram. Также можно подключиться через профиль сайта: нажми «Подключить аккаунт», войди и выбери «Подключить Telegram». Перейди по персональной ссылке, нажми Start и вернись на сайт для подтверждения.',
+      '<b>Get connected</b>\nSign in to your existing account inside the Mini App and confirm the Telegram connection. You can also connect through your website profile: tap “Connect account”, sign in and choose “Connect Telegram”. Follow your personal link, tap Start, then return to the website to confirm.')
     : t('<b>Как подключиться</b>\nНажми «Подключить аккаунт», войди на сайт и в профиле выбери «Подключить Telegram». Перейди по персональной ссылке, нажми Start и вернись на сайт, чтобы подтвердить привязку.',
       '<b>Get connected</b>\nTap “Connect account”, sign in on the website and choose “Connect Telegram” in your profile. Follow your personal link, tap Start, then return to the website to confirm the connection.'));
   return {

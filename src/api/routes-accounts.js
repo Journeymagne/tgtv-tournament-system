@@ -7,6 +7,8 @@ const accessManagement = require("./access-management");
 const feedback = require('./feedback');
 
 module.exports = [
+  { method:'POST', path:'/api/auth/telegram-link', handler:require('./miniapp-account-link').login,
+    tx:true, rateLimit:'auth', miniappLinkLimit:'credentials', maxBodyBytes:4096 },
   { method:'GET', path:'/api/account/quotas', handler:require('./resource-quotas').get, auth:'user' },
   { method:'GET', path:'/api/admin/users/:id/quotas', handler:require('./resource-quotas').get, auth:'user', permission:'super' },
   { method:'PATCH', path:'/api/admin/users/:id/quotas', handler:require('./resource-quotas').update, auth:'user', permission:'super', tx:true, maxBodyBytes:16384 },
