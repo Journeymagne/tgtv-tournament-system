@@ -27,6 +27,13 @@ async function provision() {
         GRANT SELECT(${publicColumns}) ON accounts.users TO ${role}`);
     }
     await client.query('GRANT EXECUTE ON FUNCTION accounts.resource_usage(INTEGER) TO kt_accounts');
+    await client.query(`
+      REVOKE ALL ON accounts.telegram_miniapp_link_flows,accounts.telegram_miniapp_link_budgets FROM kt_tournaments;
+      GRANT EXECUTE ON FUNCTION accounts.miniapp_link_budget(TEXT,TEXT),accounts.miniapp_link_account_linked(INTEGER) TO kt_accounts;
+      GRANT EXECUTE ON FUNCTION accounts.miniapp_link_budget(TEXT,TEXT),accounts.miniapp_link_create(TEXT,BIGINT,TEXT,TEXT,TEXT),
+        accounts.miniapp_link_inspect(TEXT),accounts.miniapp_link_consume(TEXT,TEXT,BIGINT,TEXT,INTEGER),accounts.miniapp_link_cancel(TEXT,BIGINT,TEXT),
+        accounts.miniapp_link_revoke_user(INTEGER) TO kt_tournaments;
+    `);
     for (const source of ['tournaments','studio','faq','knowthykt']) await client.query(`
       GRANT USAGE ON SCHEMA ${source} TO kt_notifications;
       GRANT SELECT,DELETE ON ${source}.notification_outbox TO kt_notifications;
