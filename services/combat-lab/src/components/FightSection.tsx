@@ -9,7 +9,7 @@ import NotesList from 'src/components/NotesList';
 import { notesFromControls } from 'src/components/controlNotes';
 import { getFightStateFromUrl, useFightUrlState } from 'src/hooks/useUrlState';
 import {createCalculatorWorker} from 'src/lab/createWorkers';
-import useCalculationWorker from 'src/lab/useCalculationWorker';
+import useAutomaticCalculation from 'src/lab/useAutomaticCalculation';
 import {FightJob,CalculatorResult} from 'src/lab/calculatorJob';
 import {pack} from 'src/simulation/model';
 import {EmptyResult,ProfileTitle,ResultNotice,ResultsHeader,RunPanel,profileStamp} from 'src/lab/LabUi';
@@ -32,25 +32,24 @@ const FightSection: React.FC<FightSectionProps> = ({ isActive }) => {
   const {getShareUrl,addParamsToUrl}=useFightUrlState(fighterA,fighterB,fightOptions);
   const {setShareFunctions}=useShareContext();
   React.useEffect(()=>{if(isActive)setShareFunctions({getShareUrl,addParamsToUrl});},[isActive,getShareUrl,addParamsToUrl,setShareFunctions]);
-  const calc=useCalculationWorker<FightJob,CalculatorResult>(createCalculatorWorker);
-  const cancel=calc.cancel;
-  React.useEffect(()=>{if(!isActive)cancel();},[isActive,cancel]);
   const currentStamp=profileStamp({fighterA,fighterB,fightOptions});
+  const calc=useAutomaticCalculation<FightJob,CalculatorResult>(createCalculatorWorker,{
+    mode:'fight',fighterA:pack(fighterA),fighterB:pack(fighterB),options:fightOptions,
+  },currentStamp,isActive);
   const dirty=!!calc.result&&currentStamp!==calc.stamp;
   const woundsA=React.useMemo(()=>new Map(calc.result?.woundsA||[]),[calc.result]);
   const woundsB=React.useMemo(()=>new Map(calc.result?.woundsB||[]),[calc.result]);
-  const run=()=>{if(isActive)calc.run({mode:'fight',fighterA:pack(fighterA),fighterB:pack(fighterB),options:fightOptions},currentStamp);};
   return <div className="calculator-section">
     <div className="calc-profile-grid">
       <Panel title={<ProfileTitle letter="A" title="Fighter A"/>} fullWidth className="calc-profile-card" bodyStyle={{padding:'18px 20px'}} bodyScrollX><FighterControls idPrefix="fa" attacker={fighterA} changeHandler={setFighterA}/></Panel>
       <Panel title={<ProfileTitle letter="B" title="Fighter B"/>} fullWidth className="calc-profile-card" bodyStyle={{padding:'18px 20px'}} bodyScrollX><FighterControls idPrefix="fb" attacker={fighterB} changeHandler={setFighterB}/></Panel>
     </div>
     <Panel title="Параметры боя" fullWidth className="calc-fight-options" bodyStyle={{padding:'16px 20px'}} bodyScrollX><FightOptionControls idPrefix="fo" fightOptions={fightOptions} changeHandler={setFightOptions}/></Panel>
-    <RunPanel context="Ближний бой · выбранные стратегии" detail="Порядок ударов и число раундов задаются в параметрах боя" busy={calc.busy} onRun={run} onCancel={calc.cancel}/>
+    <RunPanel automatic context="Ближний бой · выбранные стратегии" detail="Результаты обновляются после изменения параметров" busy={calc.busy} onRun={calc.run} onCancel={calc.cancel}/>
     <section className="results-panel" aria-live="polite" aria-busy={calc.busy}>
       <ResultsHeader hasResult={!!calc.result} extra={calc.result&&<span className="calculation-label">MONTE CARLO · {Math.round(calc.result.elapsed)} мс</span>}/>
-      <ResultNotice busy={calc.busy} dirty={dirty} error={calc.error}/>
-      {calc.result&&calc.job?<div className="calc-fight-results"><FightResultsDisplay fighterAWoundProbs={woundsA} fighterBWoundProbs={woundsB} fighterAWoundsOrig={calc.job.fighterA.wounds} fighterBWoundsOrig={calc.job.fighterB.wounds}/></div>:<EmptyResult/>}
+      <ResultNotice automatic busy={calc.busy} dirty={dirty} error={calc.error}/>
+      {calc.result&&calc.job?<div className="calc-fight-results"><FightResultsDisplay fighterAWoundProbs={woundsA} fighterBWoundProbs={woundsB} fighterAWoundsOrig={calc.job.fighterA.wounds} fighterBWoundsOrig={calc.job.fighterB.wounds}/></div>:<EmptyResult automatic/>}
     </section>
     <details className="lab-notes"><summary>Правила и пояснения</summary><NotesList notes={notes} advancedNotes={advancedNotes}>
               <li>

@@ -45,7 +45,7 @@ export default function WeaponProfiles({mode,model,onChange,idPrefix}: {mode:'sh
       // A weapon preset must not replace the current fighter's health or defenses.
       restored.wounds=model.wounds;restored.fnp=model.fnp;restored.saintlyRelics=model.saintlyRelics;restored.hardyx=model.hardyx;
       onChange(restored);setStatus(`Выбран профиль «${profile.name}»`);
-    }}><option value="">Мои профили оружия ({profiles.length})</option>{profiles.map((p,i)=><option key={p.name} value={i}>{p.name}</option>)}</select>
+    }}><option value="">Мои профили оружия ({profiles.length})</option>{profiles.map((p,i)=><option key={p.name} value={i} data-ui-skip>{p.name}</option>)}</select>
     <button type="button" className="lab-button lab-button-secondary lab-button-small" aria-expanded={open} onClick={()=>setOpen(!open)}>Сохранить профиль оружия</button>
     {open&&<form className="scenario-save" onSubmit={e=>{e.preventDefault();save();}}>
       <input aria-label="Название профиля оружия" placeholder="Например: Баньша" maxLength={100} value={name} onChange={e=>setName(e.target.value)} autoFocus/>
