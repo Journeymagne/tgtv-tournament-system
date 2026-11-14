@@ -126,3 +126,21 @@ test('global Tac Op balance excludes mirrors while event totals can include them
   assert.equal(summarize([mirror]).rows.length, 0);
   assert.equal(summarize([mirror], { classification: 'all', team: '' }, false).rows.length, 2);
 });
+
+test('an obsolete sorting request failure cannot roll back a newer successful choice', async () => {
+  const state = {}, events = {}, requests = [], errors = [];
+  const document = { addEventListener: (name, handler) => { events[name] = handler; }, querySelectorAll: () => [] };
+  const code = source.match(/function wireStatisticsOrderEvents\([^]*?\r?\n\}/)?.[0];
+  const wire = new Function('state', 'document', 'refreshStatisticsSort', 'setMessage',
+    require('../helpers/statistics-client-source') + '\n' + code + ';return wireStatisticsOrderEvents;')(
+      state, document, () => new Promise((resolve, reject) => requests.push({ resolve, reject })), error => errors.push(error));
+  wire();
+  const click = key => events.click({ target: { closest: () => ({ disabled: false,
+    dataset: { statisticsServerSort: 'leaderboard', sortKey: key } }) } });
+  const first = click('name');
+  const second = click('rating');
+  requests[1].resolve(); await second;
+  requests[0].reject(new Error('old failure')); await first;
+  assert.deepEqual(state.statisticsSorts.leaderboard, { key: 'rating', dir: 'desc' });
+  assert.deepEqual(errors, []);
+});

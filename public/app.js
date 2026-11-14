@@ -5750,10 +5750,12 @@ function wireStatisticsOrderEvents() {
     if (!input) return;
     const id = input.dataset.statisticsOrderKey, sort = statisticsSortState(id);
     const previous = { ...sort };
+    const revisions = wireStatisticsOrderEvents.revisions ||= {};
+    const revision = revisions[id] = (revisions[id] || 0) + 1;
     sort.key = input.value;
     try { await refreshStatisticsSort(id);
       [...document.querySelectorAll("[data-statistics-order-key]")].find(node => node.dataset.statisticsOrderKey === id)?.focus({ preventScroll: true });
-    } catch (error) { Object.assign(sort, previous); setMessage(error.message, true); }
+    } catch (error) { if (revisions[id] === revision) { Object.assign(sort, previous); setMessage(error.message, true); } }
   });
   document.addEventListener("click", async event => {
     const button = event.target.closest("[data-statistics-server-sort], [data-statistics-order-direction], [data-statistics-order-reset]");
@@ -5761,6 +5763,8 @@ function wireStatisticsOrderEvents() {
     const id = button.dataset.statisticsServerSort || button.dataset.statisticsOrderDirection || button.dataset.statisticsOrderReset;
     const sort = button.dataset.statisticsServerSort ? serverSortState(id) : statisticsSortState(id);
     const previous = { ...sort };
+    const revisions = wireStatisticsOrderEvents.revisions ||= {};
+    const revision = revisions[id] = (revisions[id] || 0) + 1;
     if (button.dataset.statisticsOrderReset) {
       const controls = button.closest("[data-statistics-order]");
       sort.key = controls?.dataset.defaultKey ?? (id === "admin-teams" ? "name" : "rank");
@@ -5774,7 +5778,7 @@ function wireStatisticsOrderEvents() {
     try { await refreshStatisticsSort(id);
       const attribute = button.dataset.statisticsServerSort ? "statisticsServerSort" : button.dataset.statisticsOrderReset ? "statisticsOrderReset" : "statisticsOrderDirection";
       [...document.querySelectorAll("[data-statistics-server-sort], [data-statistics-order-reset], [data-statistics-order-direction]")].find(node => node.dataset[attribute] === id && (!button.dataset.sortKey || node.dataset.sortKey === button.dataset.sortKey))?.focus({ preventScroll: true });
-    } catch (error) { Object.assign(sort, previous); setMessage(error.message, true); button.disabled = false; }
+    } catch (error) { if (revisions[id] === revision) { Object.assign(sort, previous); setMessage(error.message, true); } button.disabled = false; }
   });
 }
 
