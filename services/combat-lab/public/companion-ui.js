@@ -27,7 +27,7 @@
       ["Ранение: цель выжила, осталось меньше половины ран.", "Injured: the target survives with fewer than half its wounds remaining."],
       ["Сохранить профиль оружия", "Save weapon profile"], ["Сохранённые профили оружия", "Saved weapon profiles"],
       ["Название профиля оружия", "Weapon profile name"], ["Например: Баньша", "For example: Banshee"],
-      ["Сохранить", "Save"], ["Сохранение с тем же названием заменит профиль.", "Saving with the same name replaces the profile."],
+      ["Сохранить профиль", "Save profile"], ["Сохранение с тем же названием заменит профиль.", "Saving with the same name replaces the profile."],
       ["Не удалось сохранить профиль: проверьте доступ браузера к локальному хранилищу", "Could not save the profile: check browser access to local storage"],
       ["Не удалось завершить расчёт. Проверьте параметры и повторите.", "Could not finish the calculation. Check the inputs and try again."],
       ["Расчёт занял больше минуты. Уменьшите число кубиков или сложность бонусов.", "The calculation took longer than a minute. Reduce the dice count or bonus complexity."],

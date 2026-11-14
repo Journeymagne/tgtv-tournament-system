@@ -52,7 +52,7 @@ export function ScenarioActions({getShareUrl,writeUrl,saved,onSave,onRestore}: {
   return <div className="lab-scenario-actions">
     <div className="lab-action-buttons"><button type="button" className="lab-button lab-button-secondary" onClick={share}>↗ Поделиться</button><button type="button" className="lab-button lab-button-secondary" aria-expanded={open} onClick={()=>setOpen(!open)}>Сохранить сценарий</button></div>
     {saved.length>0&&<select aria-label="Сохранённые сценарии" value="" onChange={e=>{if(e.target.value!=='')onRestore(Number(e.target.value));}}><option value="">Мои сценарии ({saved.length})</option>{saved.map((scenario,index)=><option key={index} value={index}>{scenario.name}</option>)}</select>}
-    {open&&<form className="scenario-save" onSubmit={e=>{e.preventDefault();save();}}><input aria-label="Название сценария" placeholder="Название сценария" maxLength={100} value={name} onChange={e=>setName(e.target.value)} autoFocus/><button type="submit" className="lab-button lab-button-primary" disabled={!name.trim()}>Сохранить</button></form>}
+    {open&&<form className="scenario-save" onSubmit={e=>{e.preventDefault();save();}}><input aria-label="Название сценария" placeholder="Название сценария" maxLength={100} value={name} onChange={e=>setName(e.target.value)} autoFocus/><button type="submit" className="lab-button lab-button-primary" disabled={!name.trim()}>Сохранить сценарий</button></form>}
     {status&&<div className="sim-status" role="status">{status}<button type="button" aria-label="Закрыть сообщение" onClick={()=>{setStatus('');setFallback('');}}>×</button></div>}
     {fallback&&<input className="lab-share-url" aria-label="Ссылка на сценарий" readOnly value={fallback} onFocus={e=>e.target.select()}/>}
   </div>;
