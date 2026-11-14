@@ -2,6 +2,13 @@
 
 KT Companion release history, newest first.
 
+## 1.5.22 — 14 November 2026
+
+- [KT Calculator](/combat) automatically recalculates shooting and fighting after input changes.
+- Situation 2 can be collapsed while retaining its inputs and its contribution to the result.
+- Added a Situation 1 + 2 summary for the selected settings of both shooting situations: average damage, kill chance and the chance of leaving the target injured but alive. Target wounds come from Situation 1.
+- Weapon-profile saving and loading are fully translated into English; user-authored names remain unchanged.
+
 ## 1.5.21 — 14 November 2026
 
 - Connect Telegram to an existing account directly inside the Mini App: enter your name or verified email and password, check both accounts, and confirm the connection.
