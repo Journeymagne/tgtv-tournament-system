@@ -11,7 +11,7 @@ export default function useCalculationWorker<Job,Result extends {id:number;error
   React.useEffect(()=>()=>stop(),[stop]);
   const cancel=React.useCallback(()=>{stop();setBusy(false);},[stop]);
   const clear=React.useCallback(()=>{cancel();setOutcome(null);setError('');},[cancel]);
-  const run=(job:Job,snapshot:string)=>{
+  const run=React.useCallback((job:Job,snapshot:string)=>{
     stop();setError('');setBusy(true);const id=serial.current;
     try{
       const instance=makeWorker();worker.current=instance;
@@ -25,6 +25,6 @@ export default function useCalculationWorker<Job,Result extends {id:number;error
       timeout.current=setTimeout(()=>fail('Расчёт занял больше минуты. Уменьшите число кубиков или сложность бонусов.'),60000);
       instance.postMessage({...job,id});
     }catch{stop();setBusy(false);setError('Не удалось запустить расчёт. Обновите страницу и повторите.');}
-  };
+  },[makeWorker,stop]);
   return {result:outcome?.result||null,stamp:outcome?.stamp||'',job:outcome?.job||null,busy,error,run,cancel,clear};
 }

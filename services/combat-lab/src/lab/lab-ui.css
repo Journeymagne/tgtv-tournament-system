@@ -57,6 +57,13 @@
 .lab-notes>ul{padding:14px 20px}
 .calc-profile-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:62px;align-items:start}
 .calc-profile-card{min-width:0}
+.situation-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.combined-shoot-results{margin:24px 0;padding:18px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2)}
+.combined-shoot-results h3{font-size:16px;font-weight:750;margin:0 0 8px}
+.combined-shoot-results p{font-size:11px;color:var(--muted);margin:8px 0 0}
+.combined-shoot-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:18px 0}
+.combined-shoot-stats dt{font-size:11px;color:var(--muted);font-weight:600}
+.combined-shoot-stats dd{font-size:24px;font-weight:750;font-variant-numeric:tabular-nums;margin:5px 0 0;color:var(--ink)}
 .lab-panel-heading{border-bottom:1px solid var(--line)}
 .lab-profile-title{display:flex;align-items:center;gap:12px;--side:var(--accent-text)}
 .lab-profile-title.side-b{--side:var(--opp)}
@@ -115,6 +122,10 @@
  .lab-toolbar-hint{font-size:10px}
  .calc-profile-grid,.calc-result-grid{grid-template-columns:1fr;gap:20px}
  .calc-profile-card .lab-panel-heading{padding:16px!important}
+ .situation-actions{flex-direction:column;flex-shrink:0}
+ .situation-actions .lab-button{min-height:30px;padding:5px 8px;font-size:10px}
+ .combined-shoot-results{padding:14px}
+ .combined-shoot-stats{grid-template-columns:1fr;gap:14px}
  .lab-profile-title strong{font-size:15px}
  .lab-run-panel{padding:16px;flex-direction:column;gap:16px}
  .lab-run-panel>div{width:100%;gap:15px;flex-wrap:wrap}
