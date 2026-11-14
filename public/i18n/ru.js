@@ -1258,8 +1258,8 @@ const TGTV_I18N_RU = {
   "stats.sort.line": "Линия",
   "stats.mirrorsExcluded": "Зеркальные матчи исключены из показателей: {count}.",
   "stats.sort.slot": "Номер игры",
-  "stats.sort.killzone": "Киллзона",
-  "stats.sort.critOp": "Основная операция",
+  "stats.sort.killzone": "Killzone",
+  "stats.sort.critOp": "Crit Op",
   "stats.sort.layout": "Расстановка",
 };
 

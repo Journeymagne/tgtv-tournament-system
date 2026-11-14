@@ -12,7 +12,7 @@ const t = (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_,
 const escapeHtml = (text) => String(text).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
 
 test("standings and team participation history open the particular roster, not the parent team", () => {
-  const render = new Function("t", "escapeHtml", require("../helpers/statistics-client-source") + "\n" + ["usesIndividualTeamPoints", "teamRosterLabel", "teamStandingsTable", "teamRosterHistory", "teamRosterStatusLabel", "activeRosterMembersForUi"].map(extract).join("\n") + ";return {teamStandingsTable,teamRosterHistory};")(t, escapeHtml);
+  const render = new Function("t", "escapeHtml", "state", require("../helpers/statistics-client-source") + "\n" + ["usesIndividualTeamPoints", "teamRosterLabel", "teamStandingsTable", "teamRosterHistory", "teamRosterStatusLabel", "activeRosterMembersForUi"].map(extract).join("\n") + ";return {teamStandingsTable,teamRosterHistory};")(t, escapeHtml, {});
   const rosters = [1, 2].map((id) => ({ id, name: `Roster ${id}`, team: { slug: "same-team" }, tournament: { slug: "cup" } }));
   for (const html of [render.teamStandingsTable({ rosters, standings: rosters.map((roster) => ({ rosterId: roster.id, rank: roster.id })) }), render.teamRosterHistory(rosters)]) {
     assert.match(html, /data-roster-profile-link="1"/);
