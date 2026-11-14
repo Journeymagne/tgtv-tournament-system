@@ -367,8 +367,10 @@
         return;
       }
       await acceptSession(session);
-    } catch (err) { content.innerHTML = empty(tr("Не удалось войти"), err.message, `<button class="primary" data-retry>${tr("Повторить")}</button>`, "shield"); showError(err); }
-    finally { document.getElementById("refresh-button").disabled = false; }
+    } catch (err) {
+      if (current !== bootSequence) return;
+      content.innerHTML = empty(tr("Не удалось войти"), err.message, `<button class="primary" data-retry>${tr("Повторить")}</button>`, "shield"); showError(err);
+    } finally { if (current === bootSequence) document.getElementById("refresh-button").disabled = false; }
   }
   document.getElementById("theme-button").innerHTML = icon("theme");
   document.getElementById("refresh-button").innerHTML = icon("refresh");
@@ -438,7 +440,7 @@
     if (state.ready) { window.scrollTo(0, 0); await loadScreen(); }
   });
   window.addEventListener("beforeunload", event => { if (state.dirty) { event.preventDefault(); event.returnValue = ""; } });
-  window.addEventListener("pagehide", () => { linkFlow.dispose(); linking = false; });
+  window.addEventListener("pagehide", () => { bootSequence++; state.sequence++; state.ready = false; linkFlow.dispose(); linking = false; });
   window.addEventListener("pageshow", event => { if (event.persisted) boot(); });
   window.addEventListener("kt:appearance", syncTheme);
   window.addEventListener("offline", () => showError(new Error(tr("Нет интернета. Показаны последние загруженные данные."))));

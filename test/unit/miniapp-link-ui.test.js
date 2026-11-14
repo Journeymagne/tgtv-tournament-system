@@ -138,6 +138,117 @@ for (const expected of [true, false]) test(`lost confirmation response ${expecte
   if (!expected) assert.ok(h.flow.snapshot().error, 'A mismatched session must require safe repetition');
 });
 
+test('an unresolved confirmation keeps its expected account through mismatched restart sessions', async () => {
+  const h = harness([response(prepared()), Error('connection lost'), response(authenticated(99)),
+    response(authenticated(99)), response(authenticated(42))]);
+  await h.flow.submit('player', password); await h.flow.confirm('en');
+  await h.flow.cancel();
+  assert.equal(h.successes.length, 0, 'Restart must not silently adopt the rejected account');
+  assert.equal(h.flow.snapshot().restartRequired, true);
+  assert.ok(h.flow.snapshot().error);
+  await h.flow.cancel();
+  assert.equal(h.successes.length, 1, 'A later retry can still recover the expected account');
+  assert.equal(h.successes[0].user.id, 42);
+});
+
+test('a verified unlinked restart permits a different account only after a new explicit confirmation', async () => {
+  const other = { ...prepared(), account: { id: 99, name: 'Other Companion' } };
+  const h = harness([response(prepared()), Error('connection lost'), response(authenticated(99)),
+    response(unlinked()), response(other), response(authenticated(99))]);
+  await h.flow.submit('player', password); await h.flow.confirm('en'); await h.flow.cancel();
+  assert.equal(h.flow.snapshot().stage, 'credentials');
+  await h.flow.submit('other-player', password);
+  assert.equal(h.flow.snapshot().stage, 'confirm');
+  assert.equal(h.successes.length, 0);
+  await h.flow.confirm('en');
+  assert.equal(h.successes[0].user.id, 99);
+});
+
+// This small DOM host executes the real app and controller. It models event
+// delivery and rendered content, without adding a browser dependency to CI.
+function appHarness(replies) {
+  const calls = [], elements = new Map(), documentEvents = new Map(), windowEvents = new Map();
+  function element(id) {
+    if (!elements.has(id)) elements.set(id, { id, value: '', innerHTML: '', hidden: false, disabled: false, dataset: {},
+      setAttribute(name, value) { this[name] = value; }, focus() {}, querySelectorAll: () => [],
+      addEventListener(name, handler) { this[name] = handler; } });
+    return elements.get(id);
+  }
+  const document = { documentElement: { dataset: { theme: 'dark' } },
+    getElementById(id) {
+      if (id.startsWith('link-') && !element('content').innerHTML.includes(`id="${id}"`)) return null;
+      return element(id);
+    },
+    querySelector: () => element('brand-image'), querySelectorAll: () => [],
+    addEventListener: (name, handler) => documentEvents.set(name, handler) };
+  const location = new URL('https://example.test/miniapp');
+  const noop = () => {};
+  const window = { document, KTMiniI18n: i18n,
+    Telegram: { WebApp: { initData: 'signed-launch', initDataUnsafe: { user: { language_code: 'en' } }, colorScheme: 'dark',
+      ready: noop, expand: noop, BackButton: { show: noop, hide: noop, onClick: noop } } },
+    addEventListener: (name, handler) => windowEvents.set(name, handler), scrollTo: noop };
+  const context = vm.createContext({ window, document, location, navigator: { language: 'en' },
+    history: { replaceState: (_state, _title, href) => { location.href = new URL(href, location).href; } },
+    URL, URLSearchParams, AbortSignal, setTimeout: () => 1, clearTimeout: noop, setInterval: noop,
+    fetch: async (url, options) => {
+      calls.push({ url, ...options });
+      assert.ok(replies.length, 'Unexpected app HTTP request: ' + url);
+      const next = replies.shift();
+      if (typeof next === 'function') return next();
+      if (next instanceof Error) throw next;
+      return next;
+    } });
+  vm.runInContext(fs.readFileSync(filename, 'utf8'), context, { filename });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../../public/miniapp/app.js'), 'utf8'), context);
+  return { calls, element, documentEvents, windowEvents,
+    click: attribute => documentEvents.get('click')({ preventDefault: noop,
+      target: { closest() { return this; }, hasAttribute: name => name === attribute } }),
+    submit: () => documentEvents.get('submit')({ preventDefault: noop, target: { id: 'link-form' } }) };
+}
+const settleApp = () => new Promise(resolve => setImmediate(resolve));
+
+test('rendered Sign in again action rejects a different account after uncertain confirmation', async () => {
+  const session = unlinked(); session.link.expiresAt = new Date(Date.now() + 300000).toISOString();
+  const login = { ...prepared(), expiresAt: session.link.expiresAt };
+  const h = appHarness([response(session), response(login), Error('connection lost'), response(authenticated(99)), response(authenticated(99))]);
+  await settleApp();
+  h.element('link-name').value = 'player'; h.element('link-password').value = password;
+  await h.submit(); await h.click('data-link-confirm');
+  assert.match(h.element('content').innerHTML, /Sign in again/);
+  await h.click('data-link-back');
+  assert.match(h.element('content').innerHTML, /Could not verify the connection/);
+  assert.ok(h.calls.every(call => call.url !== '/api/miniapp/summary'), 'Wrong account must never enter the authenticated application');
+});
+
+test('obsolete bootstrap rejection after BFCache restore cannot replace the new form or unlock its operation', async () => {
+  let rejectOld, resolveCredentials;
+  const session = unlinked(); session.link.expiresAt = new Date(Date.now() + 300000).toISOString();
+  const h = appHarness([() => new Promise((_resolve, reject) => { rejectOld = reject; }), response(session),
+    () => new Promise(resolve => { resolveCredentials = resolve; })]);
+  h.windowEvents.get('pagehide')({}); h.windowEvents.get('pageshow')({ persisted: true });
+  await settleApp();
+  assert.match(h.element('content').innerHTML, /id="link-form"/);
+  h.element('link-name').value = 'player'; h.element('link-password').value = password;
+  const submission = h.submit();
+  assert.equal(h.element('refresh-button').disabled, true);
+  const currentHTML = h.element('content').innerHTML;
+  rejectOld(Error('obsolete bootstrap failed')); await settleApp();
+  assert.equal(h.element('content').innerHTML, currentHTML);
+  assert.equal(h.element('refresh-button').disabled, true);
+  resolveCredentials(response({ ...prepared(), expiresAt: session.link.expiresAt })); await submission;
+  assert.match(h.element('content').innerHTML, /data-link-confirm/);
+});
+
+test('pagehide alone invalidates an outstanding bootstrap success and its cleanup', async () => {
+  let resolveOld;
+  const session = unlinked(); session.link.expiresAt = new Date(Date.now() + 300000).toISOString();
+  const h = appHarness([() => new Promise(resolve => { resolveOld = resolve; })]);
+  const before = h.element('content').innerHTML;
+  h.windowEvents.get('pagehide')({}); resolveOld(response(session)); await settleApp();
+  assert.equal(h.element('content').innerHTML, before);
+  assert.equal(h.element('refresh-button').disabled, true);
+});
+
 test('expired confirmation clears proof and prevents submission without extending challenge lifetime', async () => {
   const h = harness([response(prepared())]);
   await h.flow.submit('player', password);

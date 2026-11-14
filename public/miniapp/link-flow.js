@@ -7,7 +7,7 @@
     const now = options.now || Date.now;
     const schedule = options.setTimer || setTimeout;
     const unschedule = options.clearTimer || clearTimeout;
-    let sequence = 0, timer, challenge = null, proof = null;
+    let sequence = 0, timer, challenge = null, proof = null, expectedAccount;
     let view = { stage: "credentials", busy: false, account: null, telegram: null, error: null, expiresAt: null, restartRequired: true };
     const snapshot = () => ({ ...view, account: view.account ? { ...view.account } : null, telegram: view.telegram ? { ...view.telegram } : null });
     const emit = () => options.onChange(snapshot());
@@ -46,10 +46,10 @@
         (expected === undefined || session.user.id === expected);
     }
     function finish(session) {
-      sequence++; clear(); view.error = null; emit(); options.onAuthenticated(session);
+      sequence++; clear(); expectedAccount = undefined; view.error = null; emit(); options.onAuthenticated(session);
     }
     function start(session) {
-      sequence++; clear(); view.telegram = null; view.error = null; view.locale = session?.locale;
+      sequence++; clear(); expectedAccount = undefined; view.telegram = null; view.error = null; view.locale = session?.locale;
       const link = session?.authenticated === false && session.reason === "not_linked" ? session.link : null;
       if (link && /^[A-Za-z0-9_-]{43}$/.test(link.challenge) && typeof link.telegram?.id === "string" &&
           typeof link.telegram.displayName === "string" && Number.isFinite(Date.parse(link.expiresAt))) {
@@ -85,6 +85,10 @@
       if (view.busy || view.stage !== "confirm") return;
       if (expired()) { expire(); return; }
       const current = ++sequence, expected = view.account.id;
+      // Clearing proof/render state after an uncertain result must not forget
+      // which account the person actually confirmed. Retries keep this boundary
+      // until success, a verified unlinked challenge, or a new launch/disposal.
+      expectedAccount = expected;
       const body = JSON.stringify({ challenge, proof, initData: options.initData, locale });
       view.stage = "submitting"; view.busy = true; view.error = null; emit();
       try {
@@ -114,14 +118,15 @@
       try {
         const session = await request("/api/miniapp/session", JSON.stringify({ initData: options.initData }));
         if (current !== sequence) return;
-        if (authenticated(session)) finish(session);
+        if (authenticated(session, expectedAccount)) finish(session);
+        else if (session.authenticated) { clear(); view.error = UNCERTAIN; emit(); }
         else start(session);
       } catch (error) {
         if (current !== sequence) return;
         clear(); view.error = error.message; emit();
       }
     }
-    function dispose() { sequence++; clear(); view.telegram = null; view.error = null; }
+    function dispose() { sequence++; clear(); expectedAccount = undefined; view.telegram = null; view.error = null; }
     return { start, submit, confirm, cancel, dispose, snapshot };
   }
   const api = { create };
