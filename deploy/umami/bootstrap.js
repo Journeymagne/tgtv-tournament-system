@@ -10,7 +10,9 @@
 
   function section(path) {
     if (/^\/(?:home\.html)?$/.test(path)) return 'Главная';
-    if (/^\/(?:tournament|tournaments|teams|miniapp)(?:\/|$)/.test(path) || path === '/index.html') return 'Турниры';
+    if (/^\/miniapp(?:\/|$)/.test(path)) return 'Telegram Mini App';
+    if (/^\/tierlist(?:\/|$)/.test(path)) return 'Тирлист';
+    if (/^\/(?:tournament|tournaments|teams)(?:\/|$)/.test(path) || path === '/index.html') return 'Турниры';
     if (/^\/studio(?:\/|$)/.test(path)) return 'Студия';
     if (/^\/dice(?:\/|$)/.test(path)) return 'Кубики';
     if (/^\/combat(?:\/|$)/.test(path)) return 'Боевой калькулятор';

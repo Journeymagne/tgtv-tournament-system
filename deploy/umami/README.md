@@ -6,6 +6,8 @@ Combat Lab build and server-rendered tournament pages. History navigation is
 tracked by Umami. Query strings and fragments are excluded, including from
 referrers. No account identifiers, replays or automatic error capture are enabled.
 Browser blocking and privacy preferences can reduce measured visitor counts.
+`/tierlist` is tagged as `Тирлист`; `/miniapp` is tagged as `Telegram Mini App`,
+separately from tournaments.
 
 ## Install on the production host
 
@@ -101,6 +103,13 @@ changes to the system OpenSSL configuration. To revert, remove only the
 dashboard: section popularity, pages within sections, and sources/devices.
 The tracker tags each pageview with its section. Setup backs up the analytics
 database and prior board configurations, then labels previously untagged
-pageviews without changing their URLs, timestamps or session IDs. The ranking
+pageviews without changing their URLs, timestamps or session IDs. Existing tags,
+including earlier classifications of `/tierlist` and `/miniapp`, are preserved. The ranking
 counts distinct Umami visitors per section; one visitor may use several sections.
 No public sharing links are created. Existing personal dashboards are preserved.
+
+After changing section rules, copy `bootstrap.js` and `setup-boards.py` to
+`/app/ktcompanion-analytics` and run `python3 /app/ktcompanion-analytics/setup-boards.py`.
+The script keeps the existing board IDs, so administration links remain valid.
+Nginx serves the bootstrap with `Cache-Control: no-cache`; application releases
+and container restarts are not needed for this update.

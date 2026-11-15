@@ -5496,12 +5496,14 @@ function renderStatistics() {
             : t("stats.hintWithVenue", { venue: state.statisticsVenue === "irl" ? t("venue.irl") : "TTS" })}</p>
         </div>
       </div>
-      <div class="tabs stats-tabs">
-        <button class="tab ${state.statisticsTab === "killTeamWinrates" ? "active" : ""}" data-statistics-tab="killTeamWinrates">${t("stats.tab.killTeamWinrates")}</button>
-        <button class="tab ${state.statisticsTab === "tacOpWinrates" ? "active" : ""}" data-statistics-tab="tacOpWinrates">${t("stats.tab.tacOpWinrates")}</button>
-        <button class="tab ${state.statisticsTab === "teams" ? "active" : ""}" data-statistics-tab="teams">${t("stats.tab.teams")}</button>
+      <div class="statistics-toolbar">
+        <div class="tabs stats-tabs">
+          <button class="tab ${state.statisticsTab === "killTeamWinrates" ? "active" : ""}" data-statistics-tab="killTeamWinrates">${t("stats.tab.killTeamWinrates")}</button>
+          <button class="tab ${state.statisticsTab === "tacOpWinrates" ? "active" : ""}" data-statistics-tab="tacOpWinrates">${t("stats.tab.tacOpWinrates")}</button>
+          <button class="tab ${state.statisticsTab === "teams" ? "active" : ""}" data-statistics-tab="teams">${t("stats.tab.teams")}</button>
+        </div>
+        ${showSeasonSelector ? seasonSelectorMarkup() : ""}
       </div>
-      ${showSeasonSelector ? seasonSelectorMarkup() : ""}
       ${["killTeamWinrates", "tacOpWinrates"].includes(state.statisticsTab) ? statsFiltersMarkup() : ""}
       ${["killTeamWinrates", "tacOpWinrates"].includes(state.statisticsTab) ? statisticsListControls("global:" + state.statisticsTab,
         state.statisticsTab === "killTeamWinrates" ? [["team", t("games.filter.teamLabel")], ["games", t("stats.column.games")], ["wins", t("stats.column.wins")], ["losses", t("stats.column.losses")], ["draws", t("stats.column.draws")], ["winRate", t("stats.column.winrate")]] : [["tacOp", t("op.tac")], ["games", t("stats.column.games")], ["wins", t("stats.column.wins")], ["winRate", t("stats.column.winrate")], ["avgPoints", t("stats.column.avgVp")], ["avgPrimaryPoints", t("stats.column.avgVpAsPrimary")]], "winRate", "desc") : ""}
@@ -5965,9 +5967,9 @@ function renderTeamDetail(detail) {
                   ? detail.players.map((row) => `
                     <tr>
                       <td><strong>${escapeHtml(row.name)}</strong></td>
-                      <td>${row.games}</td>
-                      <td>${row.wins}</td>
-                      <td><span class="rating-pill stat-rate">${row.winRate}%</span></td>
+                      <td data-label="${escapeHtml(t("stats.column.games"))}">${row.games}</td>
+                      <td data-label="${escapeHtml(t("stats.column.wins"))}">${row.wins}</td>
+                      <td data-label="${escapeHtml(t("stats.column.winrate"))}"><span class="rating-pill stat-rate">${row.winRate}%</span></td>
                     </tr>
                   `).join("")
                   : `<tr><td colspan="4">${t("stats.empty.players")}</td></tr>`}
@@ -5975,29 +5977,28 @@ function renderTeamDetail(detail) {
             </table>
           </div>
         </div>
-      </section>
-
-      <section class="team-detail-section">
-        <div class="panel-header"><h3>${t("stats.team.matchups.title")}</h3></div>
-        <div class="table-wrap">
-          <table class="data-table statistics-table" style="--table-metric-count:5" data-statistics-table="faction-matchups" data-statistics-detail="matchups">
-            <colgroup><col><col span="5" class="table-col-number"></colgroup>
-            <thead><tr><th>${t("stats.column.opponent")}</th><th>${t("stats.column.games")}</th><th>${t("stats.column.wins")}</th><th>${t("stats.column.losses")}</th><th>${t("stats.column.draws")}</th><th>${t("stats.column.winrate")}</th></tr></thead>
-            <tbody>
-              ${detail.matchups.length
-                ? detail.matchups.map((row) => `
-                  <tr>
-                    <td><strong>${escapeHtml(row.team)}</strong></td>
-                    <td>${row.games}</td>
-                    <td>${row.wins}</td>
-                    <td>${row.losses}</td>
-                    <td>${row.draws}</td>
-                    <td><span class="rating-pill stat-rate">${row.winRate}%</span></td>
-                  </tr>
-                `).join("")
-                : `<tr><td colspan="6">${t("stats.empty.matchups")}</td></tr>`}
-            </tbody>
-          </table>
+        <div class="team-detail-section team-detail-matchups">
+          <div class="panel-header"><h3>${t("stats.team.matchups.title")}</h3></div>
+          <div class="table-wrap">
+            <table class="data-table statistics-table" style="--table-metric-count:5" data-statistics-table="faction-matchups" data-statistics-detail="matchups">
+              <colgroup><col><col span="5" class="table-col-number"></colgroup>
+              <thead><tr><th>${t("stats.column.opponent")}</th><th>${t("stats.column.games")}</th><th>${t("stats.column.wins")}</th><th>${t("stats.column.losses")}</th><th>${t("stats.column.draws")}</th><th>${t("stats.column.winrate")}</th></tr></thead>
+              <tbody>
+                ${detail.matchups.length
+                  ? detail.matchups.map((row) => `
+                    <tr>
+                      <td><strong>${escapeHtml(row.team)}</strong></td>
+                      <td data-label="${escapeHtml(t("stats.column.games"))}">${row.games}</td>
+                      <td data-label="${escapeHtml(t("stats.column.wins"))}">${row.wins}</td>
+                      <td data-label="${escapeHtml(t("stats.column.losses"))}">${row.losses}</td>
+                      <td data-label="${escapeHtml(t("stats.column.draws"))}">${row.draws}</td>
+                      <td data-label="${escapeHtml(t("stats.column.winrate"))}"><span class="rating-pill stat-rate">${row.winRate}%</span></td>
+                    </tr>
+                  `).join("")
+                  : `<tr><td colspan="6">${t("stats.empty.matchups")}</td></tr>`}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </div>

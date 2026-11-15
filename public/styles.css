@@ -809,8 +809,8 @@ input[type="file"]::file-selector-button {
 .layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
-  gap: 18px;
-  width: min(1280px, calc(100% - 36px));
+  gap: clamp(18px, 1.25vw, 28px);
+  width: calc(100% - 2 * clamp(18px, 1.25vw, 40px));
   margin: 14px auto 28px;
 }
 
@@ -863,6 +863,12 @@ input[type="file"]::file-selector-button {
   grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-content: start;
+  min-width: 0;
+}
+
+/* Input forms keep a comfortable measure inside the fluid workspace. */
+.feedback-form {
+  max-width: 760px;
 }
 
 /* ======================================================================
@@ -1922,8 +1928,24 @@ input[type="file"]::file-selector-button {
   line-height: 1;
 }
 
+.statistics-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  margin-bottom: 18px;
+}
+
 .stats-tabs {
+  flex: 1 1 480px;
+  min-width: 0;
   max-width: 760px;
+  margin: 0;
+}
+
+.statistics-toolbar .stats-season-row {
+  margin: 0;
 }
 
 .stats-season-row {
@@ -2032,6 +2054,7 @@ input[type="file"]::file-selector-button {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+  container: team-detail / inline-size;
 }
 
 .team-detail-hero {
@@ -2105,7 +2128,111 @@ input[type="file"]::file-selector-button {
 }
 
 .team-detail-grid {
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
+}
+
+/* Reserve the table minimum plus 32px for section padding and wrapper borders.
+   Integer flex factors also fill the row when another track hits its minimum. */
+@container team-detail (min-width: 920px) {
+  .team-detail-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(568px, 3fr);
+  }
+
+  .team-detail-matchups {
+    grid-column: 1 / -1;
+  }
+}
+
+@container team-detail (min-width: 2000px) {
+  .team-detail-grid {
+    grid-template-columns: minmax(320px, 17fr) minmax(568px, 20fr) minmax(792px, 28fr);
+  }
+
+  .team-detail-matchups {
+    grid-column: auto;
+  }
+}
+
+/* When the full matchup table cannot fit, keep every metric visible in cards.
+   Column headings remain visible and operable as wrapping sort controls. */
+@container team-detail (max-width: 791px) {
+  .team-detail-section .table-wrap {
+    border: 0;
+    overflow: visible;
+  }
+
+  .team-detail-section .statistics-table {
+    display: block;
+    min-width: 0;
+    background: transparent;
+  }
+
+  .team-detail-section .statistics-table colgroup { display: none; }
+  .team-detail-section .statistics-table :is(thead, tbody) { display: block; }
+
+  .team-detail-section .statistics-table thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .team-detail-section .statistics-table th {
+    display: block;
+    flex: 1 1 80px;
+    height: auto;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+
+  .team-detail-section .statistics-table th .sort-button { text-align: left; }
+
+  .team-detail-section .statistics-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .team-detail-section .statistics-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px 8px;
+    height: auto;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-2);
+  }
+
+  .team-detail-section .statistics-table td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .team-detail-section .statistics-table td:first-child {
+    grid-column: 1 / -1;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .team-detail-section .statistics-table tbody td[data-label] {
+    display: grid;
+    align-content: start;
+    justify-items: start;
+    gap: 6px;
+    text-align: left;
+  }
+
+  .team-detail-section .statistics-table td[data-label]::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .team-detail-section .statistics-table .stat-rate { min-width: 0; padding-inline: 6px; }
 }
 
 .settings-grid {
@@ -2201,6 +2328,7 @@ input[type="file"]::file-selector-button {
 
 .list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -2279,6 +2407,7 @@ input[type="file"]::file-selector-button {
 
 .row-main {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .row-title {

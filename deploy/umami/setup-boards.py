@@ -40,7 +40,9 @@ old_boards = api('boards?pageSize=100', token=token)
 sql = """BEGIN;
 UPDATE website_event SET tag = CASE
  WHEN url_path IN ('/', '/home.html') THEN 'Главная'
- WHEN url_path ~ '^/(tournament|tournaments|teams|miniapp)(/|$)' OR url_path='/index.html' THEN 'Турниры'
+ WHEN url_path ~ '^/miniapp(/|$)' THEN 'Telegram Mini App'
+ WHEN url_path ~ '^/tierlist(/|$)' THEN 'Тирлист'
+ WHEN url_path ~ '^/(tournament|tournaments|teams)(/|$)' OR url_path='/index.html' THEN 'Турниры'
  WHEN url_path ~ '^/studio(/|$)' THEN 'Студия'
  WHEN url_path ~ '^/dice(/|$)' THEN 'Кубики'
  WHEN url_path ~ '^/combat(/|$)' THEN 'Боевой калькулятор'
@@ -75,7 +77,7 @@ overview = [
     row(component('TextBlock', 'Как читать рейтинг', {'text': 'Разделы отсортированы по числу посетителей за выбранный период. Все страницы каждого сервиса объединены: например, отдельные турниры относятся к «Турниры». Один посетитель может пользоваться несколькими разделами, поэтому суммы по разделам могут превышать аудиторию всего сайта. Период меняется сверху.'})),
     row(table('Популярные страницы', 'path'), table('С каких страниц начинают', 'entry'), table('На каких страницах заканчивают', 'exit')),
 ]
-sections = ['Турниры', 'Студия', 'Боевой калькулятор', 'Инициатива', 'Трекер активаций', 'Кубики', 'FAQ', 'KTKT', 'Главная', 'Личный кабинет']
+sections = ['Турниры', 'Telegram Mini App', 'Тирлист', 'Студия', 'Боевой калькулятор', 'Инициатива', 'Трекер активаций', 'Кубики', 'FAQ', 'KTKT', 'Главная', 'Личный кабинет']
 detail = [row(component('TextBlock', 'Страницы внутри разделов', {'text': 'Для каждого раздела показаны наиболее посещаемые страницы и число их посетителей. Сравнение общей популярности разделов находится на доске «Куда заходят посетители».'}))]
 for index in range(0, len(sections), 3):
     detail.append(row(*(table(section, 'path', tag='eq.' + section) for section in sections[index:index+3])))
