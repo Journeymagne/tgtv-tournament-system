@@ -2,6 +2,13 @@
 
 KT Companion release history, newest first.
 
+## 1.5.25 — 15 November 2026
+
+- My games in Telegram opens a single menu with active and all games, pagination and game cards.
+- Submit a result directly in chat: choose both players' Crit/Kill/Tac scores and primary operation, review the total and submit. Editing, optional fields, cancellation and opponent confirmation follow the game's rules.
+- Menus and result entry use Russian or English from your bot settings. Repeated and outdated buttons do not change entered scores or submit a result twice.
+- The menu uses short database queries, and reply delivery runs separately from background notification preparation.
+
 ## 1.5.24 — 15 November 2026
 
 - Sorting is limited to statistics: Games, Kill Team and tournament statistics, standings, leaderboards and tierlist statistics.
