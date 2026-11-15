@@ -123,7 +123,7 @@ async function cleanup() {
 function startWorker() {
   const config=configuration();
   if(!config.enabled || !config.workerEnabled) return async()=>{};
-  let stopped=false, timer, backgroundTimer, active=Promise.resolve(), background=Promise.resolve(), lastCleanup=0, verified=config.mode==="local", nextVerification=0;
+  let stopped=false, timer, backgroundTimer, notificationTimer, active=Promise.resolve(), background=Promise.resolve(), notifications=Promise.resolve(), lastCleanup=0, verified=config.mode==="local", nextVerification=0;
   const controller=new AbortController();
   const pause=ms=>new Promise(resolve=>{
     if(controller.signal.aborted) return resolve();
@@ -158,12 +158,19 @@ function startWorker() {
         if(!verified) return;
         if(Date.now()-lastCleanup>3600000) {await cleanup();lastCleanup=Date.now();}
         await withTransaction(data.expandEvents);
-        if(!stopped) await tick('notification',{signal:controller.signal});
       } catch {if(!stopped) log('telegram notification worker failed');}
       finally {if(!stopped) {backgroundTimer=setTimeout(expand,1000);backgroundTimer.unref();}}
     })();
   };
   expand();
+  const notify=()=>{
+    notifications=(async()=>{
+      try {if(verified && !stopped) await tick('notification',{signal:controller.signal});}
+      catch {if(!stopped) log('telegram notification delivery failed');}
+      finally {if(!stopped) {notificationTimer=setTimeout(notify,1000);notificationTimer.unref();}}
+    })();
+  };
+  notify();
   let poll=Promise.resolve();
   if(config.mode==="polling") poll=(async()=>{
     while(!stopped) {
@@ -197,6 +204,6 @@ function startWorker() {
       if(!stopped) await pause(5000);
     }
   })();
-  return async()=>{stopped=true;clearTimeout(timer);clearTimeout(backgroundTimer);controller.abort();await Promise.allSettled([active,background,poll]);};
+  return async()=>{stopped=true;clearTimeout(timer);clearTimeout(backgroundTimer);clearTimeout(notificationTimer);controller.abort();await Promise.allSettled([active,background,notifications,poll]);};
 }
 module.exports={startWorker,tick,claim,payloadFor,processUpdate};

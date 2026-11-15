@@ -21,7 +21,7 @@ test.before(async () => { pool = new Pool(require('../helpers/schema').poolOptio
 test.after(async () => { await pool?.end(); await require('../../src/db/pool').closePool(); });
 test.beforeEach(async () => {
   await pool.query('TRUNCATE users RESTART IDENTITY CASCADE');
-  await pool.query('TRUNCATE telegram_updates');
+  await pool.query('TRUNCATE telegram_updates,telegram_state');
   alpha = await users.insert(pool, { name: 'MenuAlpha', passwordHash: 's:h', rating: 1000 });
   bravo = await users.insert(pool, { name: 'MenuBravo', passwordHash: 's:h', rating: 1000 });
   link = (await pool.query("INSERT INTO telegram_links(user_id,telegram_id,chat_id,locale) VALUES($1,870001,870001,'en') RETURNING *", [alpha.id])).rows[0];
@@ -41,6 +41,22 @@ async function fill(values = [6, 4, 5, 'crit', 2, 3, 1, 'kill']) {
     assert.ok(callback, 'real bot payload exposes the selected score'); await act(callback.callback_data);
   }
   return current();
+}
+async function captainGame() {
+  const tournament = (await pool.query("INSERT INTO tournaments(slug,name,status,format,participant_mode,team_size,pairing_type) VALUES('menu-captains','Captain event','in_progress','swiss','team',3,'shield_sword') RETURNING id")).rows[0];
+  const round = (await pool.query("INSERT INTO tournament_rounds(tournament_id,round_number,status) VALUES($1,1,'active') RETURNING id", [tournament.id])).rows[0];
+  const sides = [];
+  for(const [i, captain] of [alpha, bravo].entries()) {
+    const team = (await pool.query('INSERT INTO player_teams(slug,name,name_key,leader_user_id) VALUES($1,$1,$1,$2) RETURNING id', ['menu-team-' + i, captain.id])).rows[0];
+    const roster = (await pool.query("INSERT INTO tournament_team_rosters(tournament_id,team_id,name,name_key,captain_user_id,team_name_snapshot,status) VALUES($1,$2,$3,$3,$4,$3,'active') RETURNING id", [tournament.id, team.id, 'Menu roster ' + i, captain.id])).rows[0];
+    const member = (await pool.query("INSERT INTO tournament_team_roster_members(tournament_id,roster_id,slot,display_name_snapshot,faction_snapshot) VALUES($1,$2,1,$3,'Kasrkin') RETURNING id", [tournament.id, roster.id, 'Proxy ' + i])).rows[0];
+    sides.push({ roster, member });
+  }
+  const match = (await pool.query("INSERT INTO tournament_team_matches(tournament_id,round_id,round_number,bracket_position,roster_a_id,roster_b_id,phase) VALUES($1,$2,1,1,$3,$4,'in_progress') RETURNING id", [tournament.id, round.id, sides[0].roster.id, sides[1].roster.id])).rows[0];
+  const record = await games.insert(pool, { playerIds: [], sourceType: 'team_match_game', sourceId: match.id, sourceSlot: 1,
+    participants: sides.map((side, i) => ({ userId: null, resultKey: -side.member.id, isProxy: true, displayNameSnapshot: 'Proxy ' + i, factionSnapshot: 'Kasrkin' })) });
+  await pool.query("INSERT INTO tournament_team_match_games(team_match_id,game_id,slot,roster_a_member_id,roster_b_member_id,mission) VALUES($1,$2,1,$3,$4,'{}')", [match.id, record.id, sides[0].member.id, sides[1].member.id]);
+  return record;
 }
 test('games command queues one compact screen without activeItems or per-game hydration', async t => {
   ready(data, 'queueScreen');
@@ -69,6 +85,35 @@ test('stale duplicate malformed and replaced-draft callbacks leave the current f
   await act('g:d:bad:0:choose:6'); assert.equal((await current()).version, next.version);
   await act(`g:s:${game.id}:submit`); const replacement = await current(); assert.notEqual(replacement.token, first.token);
   await act(`g:d:${first.token}:1:choose:1`); assert.equal((await current()).token, replacement.token);
+});
+test('Back Edit Extras and Cancel preserve choices and never reuse a version for a different field', async () => {
+  ready(messages, 'renderDraft'); await act(`g:s:${game.id}:submit`);
+  let view = await current(); await act(`g:d:${view.token}:0:choose:6`); view = await current();
+  await act(`g:d:${view.token}:${view.version}:back`); const back = await current(); assert.equal(back.step.field, 'crit'); assert.equal(back.step.value, 6);
+  await act(`g:d:${view.token}:1:choose:0`); assert.equal((await current()).version, back.version, 'old Kill choice cannot overwrite Crit after Back');
+  view = await fill(); await act(`g:d:${view.token}:${view.version}:extras`); view = await current();
+  const index = view.editableFields.findIndex(field => field.extra && field.field === 'faction'); assert.ok(index >= 0);
+  await act(`g:d:${view.token}:${view.version}:edit:${index}`); view = await current(); assert.equal(view.step.field, 'faction');
+  await act(`g:p:${view.token}:${view.version}:1`); assert.equal((await current()).version, view.version, 'dictionary paging does not advance the field');
+  await act(`g:d:${view.token}:${view.version}:choose:0`); view = await current(); assert.equal(view.screen, 'extras');
+  await act(`g:d:${view.token}:${view.version}:back`); view = await current(); assert.equal(view.screen, 'summary');
+  await act(`g:d:${view.token}:${view.version}:cancel`); assert.equal((await current()).screen, 'cancelled'); assert.equal((await games.findById(pool, game.id)).status, 'open');
+});
+test('another linked private chat cannot advance a token owned by the first account', async () => {
+  ready(messages, 'renderDraft'); await act(`g:s:${game.id}:submit`); const view = await current();
+  await pool.query("INSERT INTO telegram_links(user_id,telegram_id,chat_id,locale) VALUES($1,870002,870002,'en')", [bravo.id]);
+  const foreign = update(`g:d:${view.token}:0:choose:6`); foreign.callback_query.from.id = 870002; foreign.callback_query.message.chat.id = 870002;
+  await tx(client => bot.handleUpdate(client, foreign)); assert.equal((await current()).version, 0);
+  const reply = (await pool.query('SELECT payload FROM telegram_outbox WHERE chat_id=870002')).rows[0]; assert.match(reply.payload.text, /no longer available|unavailable/i);
+});
+test('captain-only proxy bot submission retains negative result keys and revocation blocks a replacement draft', async () => {
+  ready(messages, 'renderDraft'); game = await captainGame();
+  await act('games'); assert.ok(buttons((await latest()).payload).some(button => button.callback_data === `g:v:${game.id}`));
+  const view = await fill(); assert.ok(view.game.playerIds.every(id => id < 0));
+  await act(`g:d:${view.token}:${view.version}:submit`); const saved = await games.findById(pool, game.id); assert.equal(saved.status, 'pending_confirmation');
+  assert.ok(Object.keys(saved.pendingResult.result.scores).every(key => Number(key) < 0));
+  await pool.query('UPDATE tournament_team_rosters SET captain_user_id=NULL WHERE captain_user_id=$1', [alpha.id]);
+  await act(`g:s:${game.id}:submit`); assert.deepEqual(await games.findById(pool, game.id), saved); assert.match((await latest()).payload.text, /unavailable|changed/i);
 });
 test('numeric callbacks avoid full hydration and start/final acquire rating before generic user locks', async t => {
   ready(messages, 'renderDraft'); const queries = [];
@@ -127,6 +172,77 @@ test('delivery revalidates current account permissions before making a remote ca
   assert.equal(calls, 0);
   assert.equal((await latest()).state, 'cancelled');
 });
+test('same-chat concurrent delivery is serialized and the latest edit follows an older in-flight call', { timeout: 10000 }, async () => {
+  ready(delivery, 'deliver'); await act(`g:s:${game.id}:submit`);
+  const old = await latest(); let release, entered;
+  const started = new Promise(resolve => { entered = resolve; }); const wait = new Promise(resolve => { release = resolve; });
+  const calls = [];
+  const send = async (method, body) => { calls.push([method, body.text]); if(calls.length === 1) { entered(); await wait; } return { message_id: 777 }; };
+  const first = delivery.deliver(pool, old, { send });
+  try {
+    await started; const view = await current(); await act(`g:d:${view.token}:0:choose:6`);
+    const fresh = await latest(); await delivery.deliver(pool, fresh, { send }); assert.equal(calls.length, 1, 'second worker does not overlap a chat request');
+    release(); await first; await delivery.deliver(pool, fresh, { send }); assert.equal(calls.length, 2);
+    assert.equal(calls[1][1], fresh.payload.text); assert.notEqual(calls[0][1], calls[1][1]); assert.equal((await latest()).state, 'sent');
+  } finally { release(); await first; }
+});
+for(const mode of ['confirm', 'reject']) test(`bot ${mode} review requires explicit final confirmation and replays exactly once`, async () => {
+  ready(messages, 'renderDraft');
+  await tx(client => website.submitResult({ client, user: bravo, params: { id: String(game.id) }, body: { scores: {
+    [alpha.id]: { crit: 6, kill: 4, tac: 5, primary: 'crit' }, [bravo.id]: { crit: 2, kill: 3, tac: 1, primary: 'kill' }
+  } } }));
+  await act(`g:s:${game.id}:${mode}`); const view = await current(); assert.equal(view.screen, 'review'); assert.equal((await games.findById(pool, game.id)).status, 'pending_confirmation');
+  assert.ok(!buttons((await latest()).payload).some(button => /:edit:|:choose:/.test(button.callback_data || '')));
+  const action = `g:d:${view.token}:${view.version}:submit`; const queries = [];
+  await tx(client => bot.handleUpdate({ query: async (sql, args) => { queries.push(sql); return client.query(sql, args); } }, update(action)));
+  const rating = queries.findIndex(sql => sql.includes('847362960')); const generic = queries.findIndex(sql => sql.includes('91827,')); assert.ok(rating >= 0 && rating < generic);
+  const saved = await games.findById(pool, game.id); assert.equal(saved.status, mode === 'confirm' ? 'completed' : 'open');
+  await act(action); assert.deepEqual(await games.findById(pool, game.id), saved);
+});
+test('interactive work gets priority while aged notifications and other chats keep making progress', async () => {
+  ready(data, 'queueScreen'); const worker = require('../../src/telegram/worker');
+  await act('games');
+  const other = (await pool.query('INSERT INTO telegram_links(user_id,telegram_id,chat_id) VALUES($1,870002,870002) RETURNING *', [bravo.id])).rows[0];
+  await data.queueReply(pool, other.chat_id, { text: 'other chat' }, 'fair-other', other.id);
+  const insert = () => pool.query("INSERT INTO telegram_outbox(link_id,chat_id,notification,dedup_key) VALUES($1,870001,'{}','fair-notification') RETURNING *", [link.id]);
+  const notification = (await insert()).rows[0];
+  assert.equal(await tx(client => worker.claim(client, 'notification')), undefined, 'fresh notification yields to a due interactive request');
+  const first = await tx(client => worker.claim(client)); assert.equal(first.notification, null);
+  const otherJob = await tx(client => worker.claim(client)); assert.equal(String(otherJob.chat_id), '870002', 'one busy chat cannot block another');
+  await pool.query("UPDATE telegram_outbox SET state='sent',sent_at=NOW()-INTERVAL '2 seconds',locked_until=NULL WHERE id=ANY($1::bigint[])", [[first.id, otherJob.id]]);
+  await act('games');
+  await pool.query("UPDATE telegram_outbox SET created_at=NOW()-INTERVAL '20 seconds' WHERE id=$1", [notification.id]);
+  assert.equal(await tx(client => worker.claim(client)), undefined, 'aged notification reserves one fair turn');
+  const fair = await tx(client => worker.claim(client, 'notification')); assert.equal(fair.id, notification.id);
+});
+test('a permanent command error rolls back partial work and advances the poll offset with one durable error reply', async t => {
+  ready(data, 'queueScreen');
+  t.mock.method(data, 'queueScreen', () => { throw Error('synthetic renderer outage'); });
+  const logs = []; t.mock.method(console, 'error', line => logs.push(line));
+  const event = update(`g:s:${game.id}:submit`); const worker = require('../../src/telegram/worker');
+  await worker.processUpdate(event, { answer: async () => {}, transaction: tx });
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM telegram_game_drafts')).rows[0].n, 0);
+  assert.equal((await games.findById(pool, game.id)).status, 'open');
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM telegram_outbox WHERE link_id=$1', [link.id])).rows[0].n, 1);
+  assert.equal(Number((await pool.query("SELECT value FROM telegram_state WHERE key='poll-offset'")).rows[0].value), event.update_id + 1);
+  assert.equal(logs.length, 1);
+});
+test('fan-out cursors bound each expansion to ten links and eventually include every eligible recipient', async () => {
+  ready(data, 'queueScreen');
+  for(let i = 0; i < 12; i++) {
+    const actor = await users.insert(pool, { name: 'Fanout' + i, passwordHash: 's:h', rating: 1000 });
+    await pool.query('INSERT INTO telegram_links(user_id,telegram_id,chat_id) VALUES($1,$2,$2)', [actor.id, 880000 + i]);
+  }
+  await pool.query('TRUNCATE telegram_events');
+  await pool.query("INSERT INTO telegram_events(entity,entity_id) VALUES('games',$1)", [game.id]);
+  const recipients = [];
+  // Observe recipient lookup through the real expansion and real SQL client.
+  const observed = { query: async (sql, args) => { const result = await pool.query(sql, args); if(sql.includes('SELECT DISTINCT g.id')) recipients.push(args[0]); return result; } };
+  await data.expandEvents(observed); assert.equal(recipients.length, 10);
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM telegram_state WHERE key='event-expansion'")).rows[0].n, 1);
+  await data.expandEvents(observed); assert.equal(new Set(recipients).size, 13);
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM telegram_events WHERE processed_at IS NULL')).rows[0].n, 0);
+});
 test('bounded request admission permits a complete wizard but does not create unlimited errors', async () => {
   ready(messages, 'renderDraft'); await fill();
   for (let i = 0; i < 150; i++) await act('g:invalid');
@@ -146,5 +262,25 @@ test('elimination bot flow final-submits APL tie resolution and replays without 
   const callback = `g:d:${view.token}:${view.version}:submit`; await act(callback);
   const saved = await games.findById(pool, game.id); assert.equal(saved.status, 'completed'); assert.equal(saved.result.winnerId, alpha.id);
   const ratings = (await pool.query('SELECT id,rating FROM users ORDER BY id')).rows;
+  ready(delivery, 'deliver'); await delivery.deliver(pool, await latest(), { send: async () => { throw Object.assign(Error('telegram_network_error'), { retryable: true }); } });
   await act(callback); assert.deepEqual(await games.findById(pool, game.id), saved); assert.deepEqual((await pool.query('SELECT id,rating FROM users ORDER BY id')).rows, ratings);
+});
+test('restricted tournaments role runs the actual bot wizard and screen delivery without account secrets', async () => {
+  ready(delivery, 'deliver');
+  for(const schema of require('../../src/db/schemas').SCHEMAS) process.env[schema.toUpperCase() + '_DB_PASSWORD'] = 'isolated-menu-role-test-' + schema;
+  await require('../../scripts/provision-service-roles').provision();
+  const restricted = fn => tx(async client => { await client.query('SET LOCAL ROLE kt_tournaments'); return fn(client); });
+  await restricted(client => bot.handleUpdate(client, update(`g:s:${game.id}:submit`)));
+  for(const value of [6, 4, 5, 'crit', 2, 3, 1, 'kill']) {
+    const view = await current(); const index = view.choices.findIndex(choice => choice.value === value);
+    await restricted(client => bot.handleUpdate(client, update(`g:d:${view.token}:${view.version}:choose:${index}`)));
+  }
+  const view = await current(); await restricted(client => bot.handleUpdate(client, update(`g:d:${view.token}:${view.version}:submit`)));
+  assert.equal((await games.findById(pool, game.id)).status, 'pending_confirmation');
+  const client = await pool.connect();
+  try {
+    await client.query('SET ROLE kt_tournaments'); let calls = 0;
+    await delivery.deliver(client, await latest(), { send: async () => { calls++; return { message_id: 777 }; } }); assert.equal(calls, 1);
+    for(const sql of ['SELECT password_hash FROM accounts.users', 'SELECT * FROM accounts.sessions']) await assert.rejects(client.query(sql), error => error.code === '42501');
+  } finally { await client.query('RESET ROLE'); client.release(); }
 });

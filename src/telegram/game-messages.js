@@ -1,5 +1,6 @@
 const msg = require('./messages');
 const PAGE_SIZE = 12;
+const BRAND = '🔶 <b>KT COMPANION</b>';
 const clean = value => msg.short(value, 100);
 const esc = value => clean(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const button = (text, callback_data) => ({text:msg.short(text,60),callback_data});
@@ -23,7 +24,7 @@ function choiceName(choice,field,game,locale) {
   return String(choice.value??t(locale,'Не указано','Not set'));
 }
 function contextLines(game,locale) {
-  const lines=[`<b>${names(game)}</b>`,`#${game.id} · ${status(game.status,locale)}`];
+  const lines=[BRAND,'',`<b>${names(game)}</b>`,`#${game.id} · ${status(game.status,locale)}`];
   if(game.tournament) lines.push(esc(game.tournament.name));
   const match=game.tournamentMatch || game.teamMatch;
   if(match?.roundNumber) lines.push(t(locale,'Раунд ','Round ')+match.roundNumber);
@@ -51,18 +52,20 @@ function resultLines(game,result,locale) {
     lines.push(t(locale,'Критерий: ','Decided by: ')+(labels[result.tiebreakers.decidedBy] || 'APL'));
     if(result.tiebreakers.apl) lines.push('APL: '+game.players.map(player=>`${esc(player.name)} ${result.tiebreakers.apl[player.id]??0}`).join(' · '));
   }
-  if(result.killzone) lines.push([result.killzone.killzone,result.killzone.critOp,result.killzone.layout?t(locale,'Расстановка ','Layout ')+result.killzone.layout:null].filter(Boolean).map(esc).join(' · '));
+  const assigned=game.teamTournamentGame?.mission || game.tournamentMatch?.mission;
+  const missionKey=value=>JSON.stringify([value?.killzone || '',value?.critOp || '',value?.layout || null]);
+  if(result.killzone && missionKey(result.killzone)!==missionKey(assigned)) lines.push([result.killzone.killzone,result.killzone.critOp,result.killzone.layout?t(locale,'Расстановка ','Layout ')+result.killzone.layout:null].filter(Boolean).map(esc).join(' · '));
   return lines;
 }
 function renderMenu(page,locale) {
-  const lines=[`<b>${t(locale,'Мои игры','My games')}</b>`,t(locale,page.filter==='all'?'Все игры':'Активные игры',page.filter==='all'?'All games':'Active games')];
+  const lines=[BRAND,'',`<b>${t(locale,'Мои игры','My games')}</b>`,t(locale,page.filter==='all'?'Все игры':'Активные игры',page.filter==='all'?'All games':'Active games')];
   const rows=[[
     button(t(locale,'Активные','Active'),'g:l:active:next:0'),button(t(locale,'Все','All'),'g:l:all:next:0')
   ]];
   for(const game of page.games.slice(0,6)) {
-    lines.push('',`#${game.id} · ${names(game)}`,status(game.status,locale));
-    if(game.tournament) lines.push(esc(game.tournament.name));
-    if(game.score) lines.push(game.score.map(score=>score.total??'—').join(' : '));
+    const score=game.score?' · '+game.score.map(score=>score.total??'—').join(':'):'';
+    lines.push('',`#${game.id} · ${status(game.status,locale)}${score}`);
+    if(game.tournament) lines.push(esc(msg.short(game.tournament.name,35))+(game.tournament.round?' · '+t(locale,'Р','R')+game.tournament.round:''));
     rows.push([button(`#${game.id} · ${game.players.map(player=>clean(player.name)).join(' — ')}`,`g:v:${game.id}`)]);
   }
   if(!page.games.length) lines.push('',t(locale,'Игр пока нет.','No games yet.'));
@@ -85,8 +88,9 @@ function renderDraft(view,locale) {
   const {game}=view; const lines=contextLines(game,locale); const rows=[];
   const prefix=`g:d:${view.token}:${view.version}`;
   const action=(label,type)=>button(label,`${prefix}:${type}`);
-  const editable=(onlyExtras)=>view.editableFields.map((field,index)=>({field,index})).filter(({field})=>Boolean(field.extra)===onlyExtras)
-    .map(({field,index})=>[button(`${field.playerId!==null?clean(game.players.find(player=>player.id===field.playerId)?.name)+': ':''}${fieldName(field.field,locale)}`,`${prefix}:edit:${index}`)]);
+  const editable=(onlyExtras)=>chunks(view.editableFields.map((field,index)=>({field,index})).filter(({field})=>Boolean(field.extra)===onlyExtras)
+    .map(({field,index})=>button(`${field.playerId!==null?msg.short(game.players.find(player=>player.id===field.playerId)?.name,10)+' · ':''}${
+      field.field==='primary'?t(locale,'Основная','Primary'):field.field==='crit'?'Crit':field.field==='kill'?'Kill':field.field==='tac'?'Tac':fieldName(field.field,locale)}`,`${prefix}:edit:${index}`)),2);
   if(view.screen==='choice') {
     const field=view.step.field;
     const player=game.players.find(item=>item.id===view.step.playerId);
@@ -132,6 +136,6 @@ function renderError(error,locale) {
   else if(error.status===404) text=t(locale,'Игра или форма уже недоступна. Открой текущий список игр.','The game or form is no longer available. Open your current games.');
   else if(error.status===400) text=t(locale,'Эта кнопка недействительна. Открой текущий список игр.','This button is invalid. Open your current games.');
   else text=t(locale,'Игра или форма изменилась. Старая кнопка не применена. Открой текущую игру.','The game or form changed. The old button was not applied. Open the current game.');
-  return payload(text,[[button(t(locale,'Мои игры','My games'),'g:l:active:next:0')]]);
+  return payload(BRAND+'\n\n'+text,[[button(t(locale,'Мои игры','My games'),'g:l:active:next:0')]]);
 }
 module.exports={renderMenu,renderGame,renderDraft,renderError};

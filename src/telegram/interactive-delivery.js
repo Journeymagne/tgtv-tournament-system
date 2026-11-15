@@ -35,7 +35,8 @@ async function allowedGame(client,gameId,userId) {
   return rows.length>0;
 }
 async function deliver(source,job,{send=call}={}) {
-  const client=typeof source.connect==='function'?await source.connect():source;
+  const ownsConnection=typeof source.connect==='function' && typeof source.release!=='function';
+  const client=ownsConnection?await source.connect():source;
   try {
     return await withChatLock(client,job,async()=>{
       const {rows:[current]}=await client.query('SELECT * FROM telegram_outbox WHERE id=$1',[job.id]);
@@ -58,9 +59,10 @@ async function deliver(source,job,{send=call}={}) {
       const safeSend=async(method,body)=> {
         // A new request can commit while an old HTTP call is in flight. Recheck
         // immediately before every call, including a deleted-message fallback.
-        const {rows:[latest]}=await client.query(`SELECT s.generation,l.blocked,u.suspended_until FROM telegram_chat_screens s
+        const {rows:[latest]}=await client.query(`SELECT s.generation,l.chat_id,l.user_id,l.blocked,u.suspended_until FROM telegram_chat_screens s
           JOIN telegram_links l ON l.id=s.link_id JOIN users u ON u.id=l.user_id WHERE s.link_id=$1`,[current.link_id]);
-        if(!latest || String(latest.generation)!==String(current.screen_generation) || latest.blocked ||
+        if(!latest || String(latest.generation)!==String(current.screen_generation) || String(latest.chat_id)!==String(current.chat_id) ||
+            latest.user_id!==screen.user_id || latest.blocked ||
             (latest.suspended_until && new Date(latest.suspended_until).getTime()>Date.now()) || !await access.allowed(client,screen.user_id) ||
             !await allowedGame(client,current.game_id,screen.user_id)) throw Object.assign(Error('obsolete_screen'),{obsolete:true});
         return send(method,body);

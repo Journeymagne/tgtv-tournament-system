@@ -11,18 +11,22 @@ const game = { id: 42, status: 'open', sourceType: 'challenge', playerIds: [1, 2
   resultPermissions: { canSubmit: true, canReview: false }, confirmationRequired: true };
 function ready(name) { assert.equal(typeof messages[name], 'function', `${name} renders native game buttons`); }
 function buttons(payload) { return payload.reply_markup.inline_keyboard.flat(); }
-function valid(payload) {
+function valid(payload,containsNames=true) {
   assert.ok(payload.text.length <= 4096); assert.equal(payload.parse_mode, 'HTML');
   for (const button of buttons(payload)) if (button.callback_data) assert.ok(Buffer.byteLength(button.callback_data) <= 64);
-  assert.ok(!payload.text.includes('<Alpha & Co>')); assert.ok(payload.text.includes('&lt;Alpha &amp; Co&gt;'));
+  assert.ok(!payload.text.includes('<Alpha & Co>'));
+  if(containsNames) assert.ok(payload.text.includes('&lt;Alpha &amp; Co&gt;'));
+  assert.ok(payload.text.startsWith('🔶 <b>KT COMPANION</b>'));
 }
 test('menu renders six compact native game entries with Active All and keyset navigation', () => {
   ready('renderMenu');
   const page = { games: Array.from({ length: 6 }, (_, i) => ({ ...game, id: 42 + i })), filter: 'all', previousCursor: 48, nextCursor: 42 };
-  const payload = messages.renderMenu(page, 'en'); valid(payload);
+  const payload = messages.renderMenu(page, 'en'); valid(payload,false);
   assert.equal(buttons(payload).filter(b => /^g:v:/.test(b.callback_data)).length, 6);
   assert.ok(buttons(payload).some(b => b.callback_data === 'g:l:active:next:0'));
   assert.ok(buttons(payload).some(b => b.callback_data === 'g:l:all:previous:48'));
+  assert.ok(buttons(payload).find(b => b.callback_data === 'g:v:42').text.includes('<Alpha & Co>'));
+  assert.ok(payload.text.split('\n').length <= 23, 'compact menu leaves names on native game buttons');
 });
 test('card exposes only current permitted actions and retains Companion fallback', () => {
   ready('renderGame');
@@ -49,6 +53,7 @@ test('renderer walks every score primary and summary using the real pure engine'
   assert.ok(buttons(summary).some(b => b.callback_data === `g:d:abcdefghijklmnop:${version}:submit`));
   assert.ok(buttons(summary).some(b => /:extras$/.test(b.callback_data || '')));
   assert.ok(summary.text.includes('6') && summary.text.includes('4'));
+  assert.ok(summary.reply_markup.inline_keyboard.filter(row => row.some(button => /:edit:/.test(button.callback_data || ''))).every(row => row.length === 2));
 });
 test('large optional dictionaries page within one version without losing absolute choice indices', () => {
   ready('renderDraft'); const state = engine.createState(game);

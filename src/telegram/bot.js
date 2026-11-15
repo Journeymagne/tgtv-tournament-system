@@ -101,7 +101,7 @@ async function handleUpdate(client, update) {
   if (link) await client.query("UPDATE telegram_links SET blocked=FALSE WHERE id=$1",[link.id]);
   // Limit each Telegram sender independently, including attempts to claim links.
   if (!gameMenu.handles(action) || !link) {
-    const { rows:[rate] } = await client.query(`SELECT COUNT(*)::int AS count FROM telegram_outbox WHERE chat_id=$1 AND created_at>NOW()-INTERVAL '1 minute'`,[person.id]);
+    const { rows:[rate] } = await client.query(`SELECT COUNT(*)::int AS count FROM telegram_outbox WHERE chat_id=$1 AND screen_generation IS NULL AND created_at>NOW()-INTERVAL '1 minute'`,[person.id]);
     if (rate.count>=30) return;
   }
   // Unlinked administrators enter through their one-time website link only.

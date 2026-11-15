@@ -42,3 +42,33 @@ test('interactive tick does not await event expansion', async t => {
   delete require.cache[require.resolve('../../src/telegram/worker')];
   await require('../../src/telegram/worker').tick(); assert.equal(expanded, false);
 });
+test('worker keeps serving interactive work during slow expansion and shutdown drains both loops', async t => {
+  const pool = require('../../src/db/pool'); const data = require('../../src/telegram/data'); const transport = require('../../src/telegram/client');
+  process.env.TELEGRAM_MODE = 'webhook'; process.env.TELEGRAM_WEBHOOK_SECRET = 's'.repeat(40);
+  process.env.TELEGRAM_WORKER_ENABLED = 'true'; process.env.TELEGRAM_MINI_APP_URL = '';
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+  let claims = 0, expansions = 0, releaseExpansion;
+  const held = new Promise(resolve => { releaseExpansion = resolve; });
+  t.mock.method(transport, 'call', async method => { assert.equal(method, 'getMe'); return { id: 12, username: 'ExampleBot' }; });
+  const client = { query: async sql => {
+    if(sql.includes('WITH candidate')) claims++;
+    return { rows: sql.includes("WHERE key='bot-id'") ? [{ value: '12' }] : [], rowCount: 0 };
+  } };
+  t.mock.method(pool, 'withTransaction', fn => fn(client));
+  t.mock.method(pool, 'withClient', fn => fn(client));
+  t.mock.method(data, 'expandEvents', async () => { expansions++; await held; });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  delete require.cache[require.resolve('../../src/telegram/worker')];
+  const stop = require('../../src/telegram/worker').startWorker();
+  try {
+    await flush(); t.mock.timers.tick(1000); await flush(); assert.equal(expansions, 1);
+    const before = claims; t.mock.timers.tick(250); await flush(); assert.ok(claims > before, 'slow fan-out leaves the interactive loop running');
+    let finished = false; const stopping = stop().then(() => { finished = true; });
+    await flush(); assert.equal(finished, false, 'shutdown waits for in-flight expansion');
+    const atStop = claims; t.mock.timers.tick(10000); await flush(); assert.equal(claims, atStop, 'shutdown never schedules more work');
+    releaseExpansion(); await stopping; assert.equal(finished, true);
+  } finally {
+    releaseExpansion(); await stop(); process.env.TELEGRAM_MODE = 'polling';
+    delete require.cache[require.resolve('../../src/telegram/worker')];
+  }
+});
