@@ -1,4 +1,4 @@
-const { TOURNAMENT_COLUMNS: COLUMNS, mapTournament } = require("../rows");
+const { TOURNAMENT_COLUMNS: COLUMNS, COMPACT_TOURNAMENT_COLUMNS, mapTournament } = require("../rows");
 const { currentSeason } = require("../../../public/game-data");
 
 const PUBLISHED_STATUSES = [
@@ -102,8 +102,8 @@ async function insert(client, tournament) {
   return mapTournament(rows[0]);
 }
 
-async function findById(client, id) {
-  const { rows } = await client.query(`SELECT * FROM tournaments WHERE id = $1`, [id]);
+async function findById(client, id, { compactTournament = false } = {}) {
+  const { rows } = await client.query(`SELECT ${compactTournament ? COMPACT_TOURNAMENT_COLUMNS : '*'} FROM tournaments WHERE id = $1`, [id]);
   return mapTournament(rows[0]);
 }
 

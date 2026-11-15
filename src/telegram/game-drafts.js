@@ -131,7 +131,7 @@ async function startDraft(client, { user, link, gameId, mode }) {
     if (!Number.isSafeInteger(gameId) || gameId <= 0 || !['submit', 'confirm', 'reject'].includes(mode)) throw failure(400, 'GAME_DRAFT_INPUT', 'Invalid game draft.');
     const actor = await identity(client, user, link);
     const before = await context(client, gameId, actor.user.id);
-    const detail = (await results.gameDetail({ client, user: actor.user, params: { id: String(gameId) } })).game;
+    const detail = (await results.gameDetail({ client, user: actor.user, params: { id: String(gameId) }, compactTournament: true })).game;
     assertPermission(detail, mode);
     const fresh = await context(client, gameId, actor.user.id);
     if (before.contextRevision !== fresh.contextRevision || before.resultRevision !== fresh.resultRevision || detail.revision !== fresh.resultRevision) throw conflict();
@@ -199,11 +199,11 @@ async function transitionDraft(client, { user, link, token, version, event }) {
       await lockContext(client, fresh);
       fresh = await context(client, row.game_id, actor.user.id);
       assertUnchanged(row, fresh);
-      const detail = (await results.gameDetail({ client, user: actor.user, params: { id: String(row.game_id) } })).game;
+      const detail = (await results.gameDetail({ client, user: actor.user, params: { id: String(row.game_id) }, compactTournament: true })).game;
       assertPermission(detail, row.mode);
       const body = row.mode === 'submit' ? steps.resultBody(row.state.context, row.state.workflow) : {};
       const action = { submit: 'result', confirm: 'confirm-result', reject: 'reject-result' }[row.mode];
-      const saved = (await results.changeResult({ client, user: actor.user, params: { id: String(row.game_id), action }, body: { ...body, revision: row.result_revision } })).game;
+      const saved = (await results.changeResult({ client, user: actor.user, params: { id: String(row.game_id), action }, body: { ...body, revision: row.result_revision }, compactTournament: true })).game;
       row.state.context = compact(saved);
       row.state.receipt = { outcome: row.mode === 'reject' ? 'rejected' : row.mode === 'confirm' ? 'confirmed' : saved.status === 'completed' ? 'completed' : 'submitted', savedAt: new Date().toISOString() };
       row.state.workflow.screen = 'saved';

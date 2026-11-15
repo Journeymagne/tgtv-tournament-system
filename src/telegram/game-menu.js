@@ -61,7 +61,7 @@ async function handle({client,update,person,link,user,action}) {
       return queue(messages.renderMenu({...page,pairings:rows},locale),null,{gameIds:page.games.map(game=>game.id),pairingIds:rows.map(pairing=>pairing.id)});
     }
     if(parsed.type==='game') {
-      const {game}=await results.gameDetail({client,user,params:{id:String(parsed.gameId)}});
+      const {game}=await results.gameDetail({client,user,params:{id:String(parsed.gameId)},compactTournament:true});
       // The website permits some public views; the bot's personal card remains
       // limited to a real participant or a currently permitted captain.
       const {rows}=await client.query(`SELECT 1 FROM games g WHERE g.id=$1 AND

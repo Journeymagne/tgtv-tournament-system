@@ -2,6 +2,12 @@
 
 KT Companion release history, newest first.
 
+## 1.5.26 — 16 November 2026
+
+- Reduced the wait when opening game cards and starting result entry in Telegram, especially for tournaments with uploaded images and rules.
+- Button presses are processed while Telegram acknowledges the tap. Permission, game freshness and duplicate-result checks remain in place.
+- Primary Op is used consistently in the bot, Mini App and tournament interface in Russian and English.
+
 ## 1.5.25 — 15 November 2026
 
 - My games in Telegram opens a single menu with active and all games, pagination and game cards.

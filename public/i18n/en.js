@@ -351,7 +351,7 @@ const TGTV_I18N_EN = {
   "games.result.notSelected": "Not selected",
   "games.result.critOp": "Crit Op",
   "games.result.tiebreaker.enable": "Enable Tie-Breakers",
-  "games.result.tiebreaker.primary": "Primary",
+  "games.result.tiebreaker.primary": "Primary Op",
   "games.result.tiebreaker.tacCrit": "Tac Op + Crit Op",
   "games.result.tiebreaker.apl": "APL on table",
   "games.result.tiebreaker.rollOff": "Roll-off",
