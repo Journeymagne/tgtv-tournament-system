@@ -4,6 +4,7 @@ KT Companion release history, newest first.
 
 ## 1.5.27 — 16 November 2026
 
+- Completed tournaments now have a Results tab with final standings and a PNG export.
 - Standardized game terminology in the Russian website, Telegram bot and Mini App: Crit Op, Kill Op, Tac Op and Primary Op remain in English; Killzone, Kill Team unit labels, Roll-off, Layout and Deployment use their agreed Russian translations.
 - Companion tools retain Turning Point, Counteract, Order, Ready, Expended, Re-roll, Strategic Ploys, Firefight Ploys, Equipment and Wounds in English. Team names, mission names and user-authored content are preserved.
 
