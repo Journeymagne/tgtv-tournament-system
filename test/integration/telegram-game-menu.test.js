@@ -213,6 +213,37 @@ test('same-chat concurrent delivery is serialized and the latest edit follows an
     assert.equal(calls[1][1], fresh.payload.text); assert.notEqual(calls[0][1], calls[1][1]); assert.equal((await latest()).state, 'sent');
   } finally { release(); await first; }
 });
+
+for(const scope of ['game','pairing']) for(const change of ['captain','publication']) test(`queued ${scope} menu is cancelled after ${change} access changes`, async () => {
+  const captain = await captainGame();
+  if(scope==='pairing') {
+    await pool.query("UPDATE games SET status='cancelled' WHERE id=$1",[captain.id]);
+    await pool.query("UPDATE tournament_team_matches SET phase='awaiting_roll'");
+  }
+  await act('games'); const job = await latest();
+  assert.ok(scope==='game' ? buttons(job.payload).some(b=>b.callback_data===`g:v:${captain.id}`) : buttons(job.payload).some(b=>b.url?.includes('/team-matches/')));
+  if(change==='captain') await pool.query('UPDATE tournament_team_rosters SET captain_user_id=NULL WHERE captain_user_id=$1',[alpha.id]);
+  else await pool.query("UPDATE tournaments SET status='draft' WHERE slug='menu-captains'");
+  let calls=0;
+  await delivery.deliver(pool,job,{send:async()=>{calls++;return {message_id:777};}});
+  assert.equal(calls,0,'queued menu must not disclose content after access is revoked');
+  assert.equal((await latest()).state,'cancelled');
+});
+
+test('menu delivery retains valid access and rechecks it before deleted-message fallback', async () => {
+  await captainGame(); await act('games');
+  let calls=0;
+  await delivery.deliver(pool,await latest(),{send:async()=>{calls++;return {message_id:777};}});
+  assert.equal(calls,1); assert.equal((await latest()).state,'sent');
+  await act('games'); const job=await latest(); const methods=[];
+  await delivery.deliver(pool,job,{send:async method=>{
+    methods.push(method);
+    await pool.query('UPDATE tournament_team_rosters SET captain_user_id=NULL WHERE captain_user_id=$1',[alpha.id]);
+    throw Object.assign(Error('telegram_http_400'),{code:400,description:'Bad Request: message to edit not found',retryable:false});
+  }});
+  assert.deepEqual(methods,['editMessageText'],'revocation during edit must suppress the fallback send');
+  assert.equal((await latest()).state,'cancelled');
+});
 for(const mode of ['confirm', 'reject']) test(`bot ${mode} review requires explicit final confirmation and replays exactly once`, async () => {
   ready(messages, 'renderDraft');
   await tx(client => website.submitResult({ client, user: bravo, params: { id: String(game.id) }, body: { scores: {
@@ -241,6 +272,22 @@ test('interactive work gets priority while aged notifications and other chats ke
   await pool.query("UPDATE telegram_outbox SET created_at=NOW()-INTERVAL '20 seconds' WHERE id=$1", [notification.id]);
   assert.equal(await tx(client => worker.claim(client)), undefined, 'aged notification reserves one fair turn');
   const fair = await tx(client => worker.claim(client, 'notification')); assert.equal(fair.id, notification.id);
+});
+
+test('an aged notification backlog alternates with pending interactive replies before it drains', async () => {
+  const worker=require('../../src/telegram/worker');
+  await act('games');
+  for(let i=0;i<4;i++) await pool.query("INSERT INTO telegram_outbox(link_id,chat_id,notification,dedup_key,created_at) VALUES($1,870001,'{}',$2,NOW()-INTERVAL '30 seconds')",[link.id,'backlog-'+i]);
+  const sent=job=>pool.query("UPDATE telegram_outbox SET state='sent',sent_at=NOW()-INTERVAL '2 seconds',locked_until=NULL WHERE id=$1",[job.id]);
+  assert.equal(await tx(client=>worker.claim(client)),undefined);
+  const first=await tx(client=>worker.claim(client,'notification')); assert.ok(first?.notification); await sent(first);
+  assert.equal(await tx(client=>worker.claim(client,'notification')),undefined,'one aged notification yields the next turn');
+  const answer=await tx(client=>worker.claim(client)); assert.ok(answer && answer.notification===null,'interactive work proceeds while three old notifications remain'); await sent(answer);
+  await act('games');
+  assert.equal(await tx(client=>worker.claim(client)),undefined,'notifications also retain a bounded fair turn');
+  const second=await tx(client=>worker.claim(client,'notification')); assert.ok(second?.notification); await sent(second);
+  assert.equal(await tx(client=>worker.claim(client,'notification')),undefined);
+  assert.ok(await tx(client=>worker.claim(client)));
 });
 test('a permanent command error rolls back partial work and advances the poll offset with one durable error reply', async t => {
   ready(data, 'queueScreen');
