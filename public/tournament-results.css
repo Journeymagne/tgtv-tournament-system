@@ -3,7 +3,7 @@
 .tournament-results-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
 .tournament-result-eyebrow { margin: 0 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--accent-text); text-transform: uppercase; }
 .tournament-results > h2 { margin: 0 0 16px; font-size: clamp(30px, 4vw, 43px); line-height: 1.15; letter-spacing: -.035em; }
-.tournament-result-event-name { margin: 0; font-size: 15px; font-weight: 650; overflow-wrap: anywhere; }
+.tournament-result-event-name { margin: 0; color: var(--ink); font-size: 15px; font-weight: 650; overflow-wrap: anywhere; }
 .tournament-result-meta { margin: 10px 0 0; font-size: 12px; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
 .tournament-result-podium { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; margin-top: 28px; }
 .tournament-result-card { position: relative; min-width: 0; padding: 24px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }

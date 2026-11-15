@@ -90,7 +90,7 @@
   // or network fonts can taint the downloadable image.
   function createCanvas(model, { t, locale = 'ru', document: doc = document, colors = {} } = {}) {
     if (!model?.entries.length) throw new Error(t('results.exportFailed'));
-    const palette = { surface: '#101010', panel: '#202020', ink: '#f4f4f4', muted: '#b9b9b9', line: '#3b3b3b', accent: '#ff7a1a', good: '#39c27f', ...colors };
+    const palette = { surface: '#101010', medallion: '#111111', panel: '#202020', ink: '#f4f4f4', muted: '#b9b9b9', line: '#3b3b3b', accent: '#ff7a1a', good: '#39c27f', ...colors };
     const canvas = doc.createElement('canvas'); canvas.width = 1200;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error(t('results.exportFailed'));
@@ -135,7 +135,7 @@
     }
     function line(x, y, width) { ctx.strokeStyle = palette.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + width, y); ctx.stroke(); }
     function circle(row, x, y, size, accent = false) {
-      ctx.beginPath(); ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2); ctx.fillStyle = palette.surface; ctx.fill(); ctx.strokeStyle = accent ? palette.accent : palette.line; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2); ctx.fillStyle = palette.medallion; ctx.fill(); ctx.strokeStyle = accent ? palette.accent : palette.line; ctx.lineWidth = 2; ctx.stroke();
       font(size * .43, 750); const value = initial(label(row, t)); ctx.fillStyle = palette.accent; ctx.fillText(value, x + (size - ctx.measureText(value).width) / 2, y + size * .25);
     }
     text('†  KT COMPANION', 44, 40, 15, palette.accent, 750);
