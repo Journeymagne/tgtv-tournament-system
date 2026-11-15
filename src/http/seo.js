@@ -8,7 +8,7 @@ const { SERVICE_PATHS } = require("../domain/sites");
 const SITE_NAME = "KT Companion";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.5.24-results1";
+const ASSET_VERSION = "1.5.28";
 const { version: SHARED_ASSET_VERSION } = require("./shared-assets.json");
 
 function requestOrigin(req) {
