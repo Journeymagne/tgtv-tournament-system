@@ -394,7 +394,7 @@ test("player profile loader requests one user and caches its challenge subentity
 
   const profile = await loadPlayerProfile(17);
 
-  assert.deepEqual(requestedPaths, ["/api/users/17?historySort=date&historyDirection=desc"]);
+  assert.deepEqual(requestedPaths, ["/api/users/17"]);
   assert.equal(state.playerProfile, profile);
   assert.deepEqual(cachedProgress, [profile.challengeProgress]);
 });
