@@ -41,7 +41,8 @@ for (const [version, migrationFile] of [
   ["1.5.18", "090_review_fixes_release_notes"],
   ["1.5.19", "091_knowthykt_release_notes"],
   ["1.5.23", "093_statistics_release_notes"],
-  ["1.5.24", "094_statistics_scope_release_notes"]
+  ["1.5.24", "094_statistics_scope_release_notes"],
+  ["1.5.28", "097_widescreen_release_notes"]
 ]) test(`${version} release notes preserve editorial history and do not duplicate on replay`, async () => {
   const migration = require(`../../src/db/migrations/${migrationFile}`);
   const history = "# Editorial heading\n\nAn editor's introduction.\n\n## 1.5.17 — previous release\n\nPreserved release copy.\n";
@@ -274,4 +275,26 @@ test("upgrading an existing database seeds pairing guides through the migration 
     assert.equal(response.status, 200);
     assert.ok(response.body.page.markdown.includes("WTC"));
   }
+});
+
+test("pairing terminology migration preserves editorial text and English content on replay", async () => {
+  const migration = require("../../src/db/migrations/098_pairing_instruction_terms");
+  const previous = "Эта встреча сохранена по прежней версии правил. Капитаны выполняют ролл-офф; победитель — Attacker, проигравший — Defender. Этапа банов нет.";
+  const editorial = "Редакторский абзац: ролл-офф здесь не заменяем.";
+  const connection = await pool.connect();
+  try {
+    await connection.query("BEGIN");
+    await connection.query("UPDATE documentation_pages SET markdown=$1, version=7 WHERE page_id='pairing-instructions' AND locale='ru'", [previous + "\n\n" + editorial]);
+    await connection.query("UPDATE documentation_pages SET markdown='English editorial copy', version=7 WHERE page_id='pairing-instructions' AND locale='en'");
+    await migration.up(connection);
+    const first = (await connection.query("SELECT locale, markdown, version FROM documentation_pages WHERE page_id='pairing-instructions' ORDER BY locale")).rows;
+    const russian = first.find(page => page.locale === "ru"), english = first.find(page => page.locale === "en");
+    assert.equal(russian.version, 8);
+    assert.ok(russian.markdown.includes("Капитаны выполняют бросок;"));
+    assert.ok(russian.markdown.endsWith(editorial));
+    assert.equal(english.markdown, "English editorial copy");
+    assert.equal(english.version, 7);
+    await migration.up(connection);
+    assert.deepEqual((await connection.query("SELECT locale, markdown, version FROM documentation_pages WHERE page_id='pairing-instructions' ORDER BY locale")).rows, first);
+  } finally { await connection.query("ROLLBACK"); connection.release(); }
 });

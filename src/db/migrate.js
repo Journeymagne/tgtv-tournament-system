@@ -94,7 +94,8 @@ const MIGRATIONS = [
   require("./migrations/094_statistics_scope_release_notes"),
   require("./migrations/095_telegram_game_drafts"),
   require("./migrations/096_telegram_interactive_delivery"),
-  require("./migrations/097_widescreen_release_notes")
+  require("./migrations/097_widescreen_release_notes"),
+  require("./migrations/098_pairing_instruction_terms")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
