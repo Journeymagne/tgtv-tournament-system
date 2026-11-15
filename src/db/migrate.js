@@ -91,7 +91,9 @@ const MIGRATIONS = [
   require("./migrations/091_knowthykt_release_notes"),
   require("./migrations/092_miniapp_account_link"),
   require("./migrations/093_statistics_release_notes"),
-  require("./migrations/094_statistics_scope_release_notes")
+  require("./migrations/094_statistics_scope_release_notes"),
+  require("./migrations/095_telegram_game_drafts"),
+  require("./migrations/096_telegram_interactive_delivery")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

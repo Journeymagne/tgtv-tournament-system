@@ -66,12 +66,45 @@ async function queueReply(client,chatId,payload,key,linkId=null) {
   await client.query(`INSERT INTO telegram_outbox(chat_id,payload,dedup_key,link_id) VALUES($1,$2,$3,$4)
     ON CONFLICT(dedup_key) DO NOTHING`,[chatId,JSON.stringify(payload),key,linkId]);
 }
+// Caller owns the business transaction. A later generation wins even if an old
+// callback was received out of order; delivery never repeats its business action.
+async function queueScreen(client,{link,chatId,targetMessageId,payload,generation,dedupKey,gameId=null,accessScope={gameIds:[],pairingIds:[]}}) {
+  if (!link?.id || String(link.chat_id)!==String(chatId) || !Number.isSafeInteger(generation) || generation<0 ||
+      !payload || typeof payload.text!=='string' || payload.text.length>4096 ||
+      (targetMessageId!=null && (!Number.isSafeInteger(Number(targetMessageId)) || Number(targetMessageId)<=0))) throw Error('Invalid Telegram screen');
+  for(const [key,max] of [['gameIds',6],['pairingIds',3]]) {
+    const ids=accessScope?.[key];
+    if(!Array.isArray(ids) || ids.length>max || new Set(ids).size!==ids.length ||
+      ids.some(id=>!Number.isSafeInteger(id) || id<=0 || id>2147483647)) throw Error('Invalid Telegram screen access');
+  }
+  for (const row of payload.reply_markup?.inline_keyboard || []) for (const button of row) {
+    if (button.callback_data && Buffer.byteLength(button.callback_data)>64) throw Error('Invalid Telegram callback');
+  }
+  const {rows:[screen]}=await client.query(`INSERT INTO telegram_chat_screens(link_id,chat_id,generation,target_message_id)
+    VALUES($1,$2,$3,$4) ON CONFLICT(link_id) DO UPDATE SET generation=EXCLUDED.generation,
+      target_message_id=COALESCE(telegram_chat_screens.target_message_id,EXCLUDED.target_message_id),updated_at=clock_timestamp()
+    WHERE telegram_chat_screens.generation<EXCLUDED.generation RETURNING *`,[link.id,chatId,generation,targetMessageId || null]);
+  if(!screen) return;
+  await client.query(`UPDATE telegram_outbox SET state='cancelled',payload=NULL,locked_until=NULL
+    WHERE link_id=$1 AND screen_generation<$2 AND state='pending'`,[link.id,generation]);
+  await client.query(`INSERT INTO telegram_outbox(link_id,chat_id,payload,dedup_key,delivery_method,screen_generation,target_message_id,game_id,access_scope)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(dedup_key) DO NOTHING`,
+  [link.id,chatId,JSON.stringify(payload),dedupKey,screen.target_message_id?'editMessageText':'sendMessage',generation,screen.target_message_id,gameId,JSON.stringify(accessScope)]);
+}
 async function expandEvents(client) {
-  const { rows: events } = await client.query("SELECT * FROM telegram_events WHERE processed_at IS NULL ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 25");
-  if (!events.length) return;
+  // Persist a bounded fan-out cursor instead of holding one transaction across
+  // every linked account. This lane has its own loop and cannot delay commands.
+  await client.query('SELECT pg_advisory_xact_lock(91827060)');
+  const {rows:[cursor]}=await client.query("SELECT value FROM telegram_state WHERE key='event-expansion'");
+  const position=cursor?JSON.parse(cursor.value):null;
+  const { rows: events } = position?
+    await client.query('SELECT * FROM telegram_events WHERE id=ANY($1::bigint[]) AND processed_at IS NULL ORDER BY id FOR UPDATE',[position.eventIds]):
+    await client.query("SELECT * FROM telegram_events WHERE processed_at IS NULL ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 25");
+  if (!events.length) { if(cursor) await client.query("DELETE FROM telegram_state WHERE key='event-expansion'"); return; }
   const { rows: links } = await client.query(`SELECT l.* FROM telegram_links l JOIN users u ON u.id=l.user_id
-    WHERE l.enabled AND NOT l.blocked AND (u.suspended_until IS NULL OR u.suspended_until<=NOW())`);
-  for (const link of links) {
+    WHERE l.id>$1 AND l.enabled AND NOT l.blocked AND (u.suspended_until IS NULL OR u.suspended_until<=NOW())
+    ORDER BY l.id LIMIT 11`,[position?.afterLinkId || 0]);
+  for (const link of links.slice(0,10)) {
     if (!await access.allowed(client, link.user_id)) continue;
     const eligible = events.filter(event=>event.created_at >= link.linked_at);
     if (!eligible.length) continue;
@@ -81,6 +114,11 @@ async function expandEvents(client) {
         ON CONFLICT(dedup_key) DO NOTHING`,[link.id,link.chat_id,JSON.stringify(item),`n:${link.id}:${item.id}:${fingerprint(item)}`]);
     }
   }
-  await client.query("UPDATE telegram_events SET processed_at=NOW() WHERE id=ANY($1::bigint[])",[events.map(event=>event.id)]);
+  if(links.length>10) await client.query(`INSERT INTO telegram_state(key,value) VALUES('event-expansion',$1)
+    ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`,[JSON.stringify({eventIds:events.map(event=>event.id),afterLinkId:links[9].id})]);
+  else {
+    await client.query("UPDATE telegram_events SET processed_at=NOW() WHERE id=ANY($1::bigint[])",[events.map(event=>event.id)]);
+    await client.query("DELETE FROM telegram_state WHERE key='event-expansion'");
+  }
 }
-module.exports = { linkFor, activeGames, activeItems, forEvent, fingerprint, queueReply, expandEvents, users, DEFAULTS };
+module.exports = { linkFor, activeGames, activeItems, forEvent, fingerprint, queueReply, queueScreen, expandEvents, users, DEFAULTS };

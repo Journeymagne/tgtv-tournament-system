@@ -13,10 +13,10 @@ function tournamentGameIds(games) {
     .map((game) => game.id);
 }
 
-async function attachTournamentGameDetails(client, games) {
+async function attachTournamentGameDetails(client, games, options) {
   const gameIds = tournamentGameIds(games);
   const [links, gameParticipants] = await Promise.all([
-    tournamentMatchesRepo.listByGameIds(client, gameIds),
+    tournamentMatchesRepo.listByGameIds(client, gameIds, options),
     gameParticipantsRepo.listByGameIds(client, gameIds)
   ]);
   if (!links.length) return require("./team-tournaments").attachTeamGameDetails(client, games);

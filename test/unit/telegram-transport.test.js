@@ -28,6 +28,26 @@ test('transport errors never expose the token or underlying URL', async t => {
   t.mock.method(https, 'request', () => { throw Error(process.env.TELEGRAM_BOT_TOKEN); });
   await assert.rejects(call('getMe'), err => err.message === 'telegram_network_error' && err.retryable === true);
 });
+
+test('transport preserves only safe edit failure classifications and bounded retry metadata', async t => {
+  let description = 'Bad Request: message is not modified';
+  let errorCode = 400;
+  t.mock.method(https, 'request', (options, callback) => {
+    const req = new EventEmitter();
+    req.end = () => {
+      const res = new PassThrough(); res.statusCode = errorCode; callback(res);
+      res.end(JSON.stringify({ ok: false, error_code: errorCode, description, parameters: { retry_after: 12 } }));
+    };
+    return req;
+  });
+  await assert.rejects(call('editMessageText'), error => error.description === description && error.code === 400);
+  description = 'Bad Request: message to edit not found';
+  await assert.rejects(call('editMessageText'), error => error.description === description);
+  description = process.env.TELEGRAM_BOT_TOKEN;
+  await assert.rejects(call('editMessageText'), error => !JSON.stringify(error).includes(description));
+  errorCode = 429;
+  await assert.rejects(call('sendMessage'), error => error.retryable === true && error.retryAfter === 12);
+});
 test('invalid restriction values fail closed and invalid tunnel ports fail configuration', () => {
   process.env.TELEGRAM_ADMIN_ONLY = 'yes';
   assert.throws(configuration, /TELEGRAM_ADMIN_ONLY/);
