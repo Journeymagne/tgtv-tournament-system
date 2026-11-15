@@ -24,12 +24,17 @@ const FEEDBACK_COLUMNS = `
 const TOURNAMENT_COLUMNS = `
   id, owner_user_id, slug, name, logo_data, description, game_system, starts_at,
   rules_summary, rules_link, status, format, swiss_round_count,
-  single_elimination_size, tiebreaker_order, rating_policy,
+  single_elimination_size, tiebreaker_order, pairing_mode, rating_policy,
   challenge_credit_policy, season_id, venue_mode, venue_address, final_results, round_draft,
   participant_mode, team_size, pairing_type, team_tables_locked, registration_limit, captain_pairing_enabled, team_tiebreaker_order,
   faction_count, published_at, started_at,
   completed_at, cancelled_at, created_at, updated_at
 `;
+
+// Text-only game clients need rules/permissions metadata, not embedded uploads,
+// editorial content or tournament-wide result/draft documents over the wire.
+const COMPACT_TOURNAMENT_COLUMNS = TOURNAMENT_COLUMNS.split(',').map(column => column.trim())
+  .filter(column => column && !['logo_data', 'description', 'rules_summary', 'rules_link', 'final_results', 'round_draft'].includes(column)).join(', ');
 
 const TOURNAMENT_PARTICIPANT_COLUMNS = `
   id, tournament_id, user_id, display_name, display_name_key, faction, factions,
@@ -167,6 +172,7 @@ function mapTournament(row) {
     format: row.format,
     swissRoundCount: row.swiss_round_count,
     singleEliminationSize: row.single_elimination_size,
+    pairingMode: row.pairing_mode || "backet_random",
     tiebreakerOrder: row.tiebreaker_order || [],
     ratingPolicy: row.rating_policy || "ranked",
     challengeCreditPolicy: row.challenge_credit_policy || "count",
@@ -299,6 +305,7 @@ module.exports = {
   GAME_COLUMNS,
   FEEDBACK_COLUMNS,
   TOURNAMENT_COLUMNS,
+  COMPACT_TOURNAMENT_COLUMNS,
   TOURNAMENT_PARTICIPANT_COLUMNS,
   TOURNAMENT_ROUND_COLUMNS,
   TOURNAMENT_MATCH_COLUMNS,

@@ -1,5 +1,6 @@
 const tournamentMatchesRepo = require("../db/repositories/tournament-matches");
 const gameParticipantsRepo = require("../db/repositories/game-participants");
+const { registeredFactionsForRecordedSide } = require("./tournament-result-context");
 const {
   tournamentSummaryView,
   tournamentMatchView,
@@ -12,10 +13,10 @@ function tournamentGameIds(games) {
     .map((game) => game.id);
 }
 
-async function attachTournamentGameDetails(client, games) {
+async function attachTournamentGameDetails(client, games, options) {
   const gameIds = tournamentGameIds(games);
   const [links, gameParticipants] = await Promise.all([
-    tournamentMatchesRepo.listByGameIds(client, gameIds),
+    tournamentMatchesRepo.listByGameIds(client, gameIds, options),
     gameParticipantsRepo.listByGameIds(client, gameIds)
   ]);
   if (!links.length) return require("./team-tournaments").attachTeamGameDetails(client, games);
@@ -51,7 +52,8 @@ async function attachTournamentGameDetails(client, games) {
       isAdmin: Boolean(participant.user?.isAdmin),
       createdAt: participant.user?.createdAt || null,
       faction: participant.factionSnapshot || "",
-      ...(link.tournament.factionCount > 1 ? { factions: link.match.participantSnapshots?.[participant.tournamentParticipantId]?.factions || participant.factions } : {}),
+      ...(link.tournament.factionCount > 1 ? { factions: registeredFactionsForRecordedSide(
+        link.match, participantById.get(participant.tournamentParticipantId), participant) } : {}),
       tournamentParticipantId: participant.tournamentParticipantId || null,
       hasProfile: Boolean(participant.userId)
     }));

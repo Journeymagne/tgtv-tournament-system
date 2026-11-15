@@ -5,7 +5,7 @@ const http = require('node:http');
 const { spawn } = require('node:child_process');
 const { parseEnv } = require('node:util');
 const { SERVICES, DEFAULT_PORTS } = require('../src/services/catalog');
-const ALL = [...SERVICES, 'gateway'];
+const { sanitizeServiceEnvironment } = require('./service-environment');
 const fileEnv = file => parseEnv(fs.readFileSync(file, 'utf8'));
 const statePath = app => `${app}-shared/runtime.json`;
 function readState(app) { return fs.existsSync(statePath(app)) ? JSON.parse(fs.readFileSync(statePath(app), 'utf8')) : null; }
@@ -13,10 +13,11 @@ function writeJson(file, data) {
   fs.writeFileSync(file + '.tmp', JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
   fs.renameSync(file + '.tmp', file);
 }
-function serviceEnvironment(base, service, releaseId) {
-  if (!ALL.includes(service)) throw Error('Unknown service');
+function serviceEnvironment(base, service, releaseId, catalog = { SERVICES, DEFAULT_PORTS }) {
+  const services = catalog.SERVICES, ports = catalog.DEFAULT_PORTS;
+  if (![...services, 'gateway'].includes(service)) throw Error('Unknown service');
   const env = { ...base, NODE_ENV: 'production', TGTV_ENV_LOADED: '1', TGTV_RELEASE_ID: releaseId,
-    SERVICE_NAME: service, HOST: '127.0.0.1', PORT: String(service === 'gateway' ? base.PORT || 3000 : base[service.toUpperCase() + '_PORT'] || DEFAULT_PORTS[service]),
+    SERVICE_NAME: service, HOST: '127.0.0.1', PORT: String(service === 'gateway' ? base.PORT || 3000 : base[service.toUpperCase() + '_PORT'] || ports[service]),
     DB_POOL_SIZE: String(base.SERVICE_DB_POOL_SIZE || 3), TRUST_PROXY: service === 'gateway' ? base.TRUST_PROXY || 'false' : 'true' };
   if (['gateway', 'calculators'].includes(service)) env.DATABASE_URL = '';
   else {
@@ -26,26 +27,24 @@ function serviceEnvironment(base, service, releaseId) {
     database.username = 'kt_' + service; database.password = password;
     env.DATABASE_URL = database.href;
   }
-  for (const name of SERVICES) {
-    delete env[name.toUpperCase() + '_DB_PASSWORD'];
-    delete env[name.toUpperCase() + '_DATABASE_URL'];
-    env[name.toUpperCase() + '_URL'] = `http://127.0.0.1:${base[name.toUpperCase() + '_PORT'] || DEFAULT_PORTS[name]}`;
+  for (const name of services) {
+    env[name.toUpperCase() + '_URL'] = `http://127.0.0.1:${base[name.toUpperCase() + '_PORT'] || ports[name]}`;
   }
-  if (service !== 'accounts') {
-    for (const key of Object.keys(env)) if (/^(EMAIL_|RESEND_)/.test(key)) delete env[key];
-    env.EMAIL_PROVIDER = 'disabled';
-  }
-  if (service !== 'tournaments') {
-    for (const key of Object.keys(env)) if (/^TELEGRAM_/.test(key)) delete env[key];
-    env.TELEGRAM_MODE = 'disabled';
-  }
-  return env;
+  return sanitizeServiceEnvironment(env, service);
 }
-function environments(base, id) {
-  const result = Object.fromEntries(ALL.map(service => [service, serviceEnvironment(base, service, id)]));
-  const ports = ALL.map(service => Number(result[service].PORT));
+function environments(base, id, catalog = { SERVICES, DEFAULT_PORTS }) {
+  const all = [...catalog.SERVICES, 'gateway'];
+  const result = Object.fromEntries(all.map(service => [service, serviceEnvironment(base, service, id, catalog)]));
+  const ports = all.map(service => Number(result[service].PORT));
   if (new Set(ports).size !== ports.length || ports.some(port => !Number.isInteger(port) || port < 1 || port > 65535)) throw Error('Invalid or duplicate service ports');
   return result;
+}
+function releaseEnvironments(base, target) {
+  if (target.mode === 'monolith') return { monolith: { ...base, SERVICE_NAME: 'monolith' } };
+  if (target.mode !== 'services') throw Error('Invalid runtime mode');
+  const catalog = require(path.join(target.directory, 'src', 'services', 'catalog.js'));
+  if (!Array.isArray(catalog.SERVICES) || !catalog.DEFAULT_PORTS) throw Error('Invalid release service catalog');
+  return environments(base, target.id, catalog);
 }
 function run(command, args, { env = process.env, cwd, capture = false } = {}) {
   return new Promise((resolve, reject) => {
@@ -77,13 +76,15 @@ async function waitForService(env, service) {
   }
   throw Error('Service did not become ready: ' + service);
 }
-async function verifyGateway(env) {
+async function verifyGateway(env, services = SERVICES) {
   const origin = `http://127.0.0.1:${env.PORT}`;
   const headers = env.COMPANION_ORIGIN ? { Host: new URL(env.COMPANION_ORIGIN).host } : {};
   for (const [route, service, status] of [['/', 'gateway', 200], ['/api/session', 'accounts', 200],
     ['/api/me', 'tournaments', 200], ['/api/notifications', 'notifications', 401],
     ['/api/studio/library', 'studio', 200], ['/api/faq', 'faq', 200],
-    ['/knowthykt', 'knowthykt', 200], ['/combat/api/health', 'calculators', 200]]) {
+    ['/tierlist', 'tierlists', 200], ['/api/tierlists/catalog', 'tierlists', 200],
+    ['/api/tierlists', 'tierlists', 401], ['/knowthykt', 'knowthykt', 200], ['/combat/api/health', 'calculators', 200]]) {
+    if (service !== 'gateway' && !services.includes(service)) continue;
     const response = await request(origin, route, headers);
     if (response.status !== status || response.headers['x-kt-service'] !== service || response.headers['x-kt-release'] !== env.TGTV_RELEASE_ID) throw Error('Gateway route failed: ' + route);
     if (route === '/combat/api/health' && JSON.parse(response.body).buildReady !== true) throw Error('Calculator build unavailable');
@@ -123,8 +124,13 @@ async function switchRelease({ app, name, candidate, id, mode, migrationRollback
   const next = { mode, directory: candidate, id };
   const baseEnv = target => ({ ...process.env, ...fileEnv(path.join(target.directory, '.env')), ...secrets,
     TGTV_ENV_LOADED: '1', TGTV_RELEASE_ID: target.id, NODE_ENV: 'production' });
-  if (mode === 'services') environments(baseEnv(next), id); // Validate before stopping anything.
-  const managed = [name, ...SERVICES.map(service => `${name}-${service}`)];
+  // Validate the candidate and any rollback target before stopping writers.
+  const nextEnvironments = releaseEnvironments(baseEnv(next), next);
+  const previousEnvironments = previous.mode === 'services'
+    ? releaseEnvironments(baseEnv(previous), previous) : {};
+  const managedServices = new Set([...SERVICES, ...Object.keys(nextEnvironments), ...Object.keys(previousEnvironments)]);
+  managedServices.delete('gateway'); managedServices.delete('monolith');
+  const managed = [name, ...[...managedServices].map(service => `${name}-${service}`)];
   const processes = async () => JSON.parse(await run('pm2', ['jlist'], { capture: true }));
   for (const proc of await processes()) if (managed.includes(proc.name) && !proc.pm2_env.pm_exec_path.startsWith(releases)) throw Error('Refusing to replace an unmanaged PM2 process');
   writeJson(path.join(shared, 'rollback.json'), { ...previous, rollbackSafe: migrationRollbackSafe });
@@ -135,7 +141,7 @@ async function switchRelease({ app, name, candidate, id, mode, migrationRollback
   };
   const start = async target => {
     const base = baseEnv(target);
-    const entries = target.mode === 'services' ? Object.entries(environments(base, target.id)) : [['monolith', { ...base, SERVICE_NAME: 'monolith' }]];
+    const entries = Object.entries(releaseEnvironments(base, target));
     for (const [service, env] of entries) {
       const processName = ['gateway', 'monolith'].includes(service) ? name : `${name}-${service}`;
       await run('pm2', ['start', path.join(target.directory, 'server.js'), '--name', processName, '--cwd', target.directory,
@@ -155,7 +161,10 @@ async function switchRelease({ app, name, candidate, id, mode, migrationRollback
       fs.symlinkSync(target.directory, temporary, 'dir'); fs.renameSync(temporary, app);
     }, start,
     verify: async target => {
-      if (target.mode === 'services') await verifyGateway(environments(baseEnv(target), target.id).gateway);
+      if (target.mode === 'services') {
+        const envs = releaseEnvironments(baseEnv(target), target);
+        await verifyGateway(envs.gateway, Object.keys(envs));
+      }
       else {
         const { ready, healthOrigin, healthHeaders } = require('./deploy-release');
         await ready(healthOrigin(baseEnv(target)), target.id, { headers: healthHeaders(baseEnv(target)) });
@@ -173,4 +182,4 @@ if (require.main === module) {
   switchRelease({ app, name, candidate: previous.directory, id: previous.id, mode: previous.mode, migrationRollbackSafe: true, migrate: false })
     .catch(error => { console.error(error.message); process.exitCode = 1; });
 }
-module.exports = { serviceEnvironment, environments, readState, switchRelease, transition, verifyGateway };
+module.exports = { serviceEnvironment, environments, releaseEnvironments, readState, switchRelease, transition, verifyGateway };

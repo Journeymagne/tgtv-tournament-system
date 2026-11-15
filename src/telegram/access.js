@@ -12,7 +12,7 @@ async function allowed(client, userId) {
 }
 
 async function assertAllowed(client, userId) {
-  if (!await allowed(client, userId)) throw new HttpError(403, 'Telegram и Mini App доступны только администраторам во время тестирования.');
+  if (!await allowed(client, userId)) throw new HttpError(403, 'Telegram и мини-приложение доступны только администраторам.');
 }
 
 async function chatAllowed(client, chatId) {

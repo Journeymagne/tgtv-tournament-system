@@ -4,6 +4,7 @@ const usersRepo = require("../db/repositories/users");
 const teamsRepo = require("../db/repositories/player-teams");
 const rostersRepo = require("../db/repositories/team-rosters");
 const roundsRepo = require("../db/repositories/tournament-rounds");
+const { completedOrderBy } = require("../db/repositories/games");
 const { rosterForViewer } = require("../domain/tournaments/privacy");
 const { uniqueSlug } = require("../domain/tournaments/slug");
 const {
@@ -81,7 +82,7 @@ async function leaderboard({ client, query }) {
   return {...result,teams:result.teams.map(teamView)};
 }
 
-async function profileData(client, team, user) {
+async function profileData(client, team, user, query = new URLSearchParams()) {
   const memberships = await teamsRepo.listMemberships(client, team.id);
   const rosters = await rostersRepo.listByTeam(client, team.id);
   const firstRounds = await roundsRepo.listFirstByTournamentIds(client, [...new Set(rosters.map((roster) => roster.tournamentId))]);
@@ -133,7 +134,7 @@ async function profileData(client, team, user) {
      JOIN tournament_team_rosters rb ON rb.id = tm.roster_b_id
      JOIN tournaments t ON t.id = tm.tournament_id
      WHERE ra.team_id = $1 OR rb.team_id = $1
-     ORDER BY COALESCE(g.submitted_at, g.created_at) DESC, g.id DESC LIMIT 50`,
+     ORDER BY ${completedOrderBy(query.get('historySort'), query.get('historyDirection'))} LIMIT 50`,
     [team.id]
   );
   const viewerMembership = user ? memberships.find((item) => !item.endedAt && item.userId === user.id) : null;
@@ -176,10 +177,10 @@ async function profileData(client, team, user) {
   };
 }
 
-async function get({ client, user, params }) {
+async function get({ client, user, params, query }) {
   const team = await teamsRepo.findBySlug(client, params.slug);
   if (!team) throw new HttpError(404, "Team not found");
-  return profileData(client, team, user);
+  return profileData(client, team, user, query);
 }
 
 async function dashboard({ client, user, query }) {

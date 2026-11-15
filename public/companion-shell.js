@@ -13,7 +13,7 @@
   syncBrandLogos();
   const sites = window.KT_SITES || { subdomains: false, urls: {
     home: "/", initiative: "/initiative", tracker: "/tracker",
-    tournament: "/tournament", studio: "/studio", dice: "/dice", faq: "/faq", combat: "/combat", training: "/knowthykt"
+    tournament: "/tournament", studio: "/studio", dice: "/dice", faq: "/faq", combat: "/combat", training: "/knowthykt", tierlist: "/tierlist"
   } };
   const serviceUrl = name => new URL(sites.urls[name], location.origin).href;
   const path = location.pathname;
@@ -43,7 +43,7 @@
     const name = document.createElement("span"); name.className = "companion-service-name";
     name.textContent = "KT COMPANION";
     title.append(name);
-    const label = ({ account: "Почта и доступ", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Dice Generator", faq: "TTS Community FAQ", combat: "Combat Lab", training: "Know Thy Kill Team" })[active];
+    const label = ({ account: "Почта и доступ", tournament: "Турнирная система", initiative: "Калькулятор инициативы", tracker: "Трекер активаций", studio: "КТ Студия", dice: "Dice Generator", faq: "TTS Community FAQ", combat: "Combat Lab", training: "Know Thy Kill Team", tierlist: "Тирлист" })[active];
     if (label) {
       const tool = document.createElement("small"); tool.className = "companion-service-tool";
       tool.textContent = label; title.append(tool);
@@ -133,6 +133,9 @@
   function setUser(value) {
     const previousId = user?.id;
     user = value;
+    // Republish verified identity even when the shell's account is unchanged:
+    // a consumer may have independently cleared authentication after a 401.
+    window.dispatchEvent(new CustomEvent('kt:session', { detail: { user: user || null } }));
     if (active === "tournament") {
       for (const link of document.querySelectorAll('.companion-service-link')) link.href = serviceUrl('tournament') + (user ? '#/mygames' : '#/leaderboard');
     }
@@ -223,7 +226,7 @@
   });
   window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader, brandLogoUrl };
   if (active !== 'tournament' && mounts[0]) {
-    const script = document.createElement('script'); script.src='/companion-notifications.js?v=shared-34c1e9eccd96'; document.head.append(script);
+    const script = document.createElement('script'); script.src='/companion-notifications.js?v=shared-f98dbc1b19ab'; document.head.append(script);
   }
   const exports = document.querySelector(".studio-export-menu");
   if (exports) {

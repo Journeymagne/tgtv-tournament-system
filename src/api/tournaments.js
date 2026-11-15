@@ -249,6 +249,11 @@ function applyRoundSetupBody(roundBlueprint, participants, body = {}) {
       sourceB: null
     });
   }
+  for (const match of baseMatches.filter(match => match.isBye)) {
+    if (!participantIds.has(match.participantAId)) throw new ValidationError("Round setup uses a player outside this tournament");
+    if (seen.has(match.participantAId)) throw new ValidationError("Each player can appear only once in a generated round");
+    seen.add(match.participantAId);
+  }
   const matches = baseMatches.map((match, index) => {
     const setup = setupMatches[index] || {};
     if (match.isBye) return { ...match, mission: roundMission };
@@ -338,13 +343,16 @@ function finalStandingsOrderFromBody(body, standings) {
   return ids;
 }
 
+const { resolveTournamentResultSides, assertTournamentResultContext, attachRecordedMatchIdentities } = require("./tournament-result-context");
+
 async function fullView(client, tournament, user, { includeAudit = false } = {}) {
   if (tournament.participantMode === "team") {
     return require("./team-tournaments").tournamentData(client, tournament, user, { includeAudit });
   }
   const participants = await participantsRepo.listByTournament(client, tournament.id);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
-  const matches = await matchesRepo.listByTournament(client, tournament.id);
+  const matches = await attachRecordedMatchIdentities(client,
+    await matchesRepo.listByTournament(client, tournament.id), participants);
   const tables = await tablesRepo.listByTournament(client, tournament.id);
   const people = await peopleForParticipants(client, participants);
   const standings = buildStandings(participants, matches, tournament.tiebreakerOrder);
@@ -458,7 +466,7 @@ async function updateAdmin({ client, user, params, body }) {
   const seasonOnly = user.isSuperAdmin && Object.keys(body).length > 0 && Object.keys(body).every(key => key === "seasonId");
   if (!seasonOnly) assertEditableSetup(tournament);
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
-    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules", "venueAddress", ...(user.isSuperAdmin ? ["seasonId"] : []), ...(tournament.participantMode === "team" ? ["captainPairingEnabled", "teamTiebreakerOrder"] : [])]);
+    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules", "venueAddress", "pairingMode", ...(user.isSuperAdmin ? ["seasonId"] : []), ...(tournament.participantMode === "team" ? ["captainPairingEnabled", "teamTiebreakerOrder"] : [])]);
     for (const key of Object.keys(body || {})) {
       if (!allowed.has(key)) throw new HttpError(409, "Tournament setup is locked after start");
     }
@@ -487,7 +495,7 @@ async function updateAdmin({ client, user, params, body }) {
     const count = entries.filter((entry) => !["withdrawn", "removed"].includes(entry.status)).length;
     if (patch.registrationLimit < count) throw new HttpError(409, "Registration limit cannot be lower than the number already registered");
   }
-  const preparationFields = ["format", "participantMode", "teamSize", "pairingType", "swissRoundCount", "singleEliminationSize", "venueMode"];
+  const preparationFields = ["pairingMode", "format", "participantMode", "teamSize", "pairingType", "swissRoundCount", "singleEliminationSize", "venueMode"];
   if (preparationFields.some((key) => Object.hasOwn(patch, key) && patch[key] !== tournament[key])) {
     await clearPreparedRounds(client, tournament);
   }
@@ -1303,6 +1311,7 @@ function pairingsCountForTables(roundBlueprint) {
 
 function roundDraftSetupBody(draft, body = {}) {
   return {
+    byeParticipantId: Object.hasOwn(body, "byeParticipantId") ? body.byeParticipantId : draft.byeParticipantId,
     endsAt: Object.hasOwn(body, "endsAt") ? body.endsAt : draft.endsAt,
     mission: Object.prototype.hasOwnProperty.call(body, "mission")
       ? body.mission
@@ -1322,6 +1331,26 @@ async function prepareRolledBackRoundSetup(
 ) {
   const draft = tournament.roundDraft;
   const setupBody = roundDraftSetupBody(draft, body);
+  if (tournament.format === TOURNAMENT_FORMATS.SWISS && !Object.hasOwn(draft, "byeParticipantId") &&
+      setupBody.byeParticipantId == null) {
+    const eligible = participants.filter(participant => (rounds.length
+      ? [PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.PENDING_PLACEMENT]
+      : [PARTICIPANT_STATUSES.JOINED, PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.PENDING_PLACEMENT]).includes(participant.status));
+    if (eligible.length % 2 === 1 && setupBody.matchups.length === (eligible.length - 1) / 2) {
+      const assigned = setupBody.matchups.flatMap(match => [match.participantAId, match.participantBId])
+        .filter(id => id != null && id !== "").map(Number);
+      const assignedIds = new Set(assigned);
+      const missing = eligible.filter(participant => !assignedIds.has(participant.id));
+      if (assigned.length !== eligible.length - 1 || assignedIds.size !== assigned.length || missing.length !== 1) {
+        throw new HttpError(409, "The saved bye is ambiguous. Provide its recipient and complete pairings");
+      }
+      setupBody.byeParticipantId = missing[0].id;
+    }
+  }
+  if (setupBody.byeParticipantId != null &&
+      !roundSetupParticipantPool(participants).some(participant => participant.id === Number(setupBody.byeParticipantId))) {
+    throw new HttpError(409, "The saved bye recipient is no longer available");
+  }
   let roundBlueprint;
 
   if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
@@ -1330,7 +1359,7 @@ async function prepareRolledBackRoundSetup(
       roundBlueprint = preview.rounds[0];
     } else {
       const nextRoundNumber = assertNextSwissRoundAllowed(tournament, rounds, matches);
-      roundBlueprint = await require('../resources/workers').run('swiss', { tournament, participants, matches, round: nextRoundNumber, bye: body.byeParticipantId });
+      roundBlueprint = await require('../resources/workers').run('swiss', { tournament, participants, matches, round: nextRoundNumber, bye: setupBody.byeParticipantId });
       roundBlueprint.generatedBy = `admin:${user.id}`;
     }
   } else {
@@ -1356,6 +1385,18 @@ async function prepareRolledBackRoundSetup(
 
   if (Number(roundBlueprint?.roundNumber) !== Number(draft.roundNumber)) {
     throw new HttpError(409, "The tournament has moved past the rolled-back round");
+  }
+  const byeIndex = roundBlueprint.matches.findIndex(match => match.isBye);
+  if (byeIndex !== -1) {
+    if (setupBody.byeParticipantId != null) {
+      const byeId = Number(setupBody.byeParticipantId);
+      roundBlueprint.matches[byeIndex] = { ...roundBlueprint.matches[byeIndex], participantAId: byeId, winnerParticipantId: byeId };
+    }
+    // Drafts created before bye slots were preserved have a compact array.
+    if (setupBody.matchups.length === roundBlueprint.matches.length - 1) {
+      setupBody.matchups = [...setupBody.matchups];
+      setupBody.matchups.splice(byeIndex, 0, {});
+    }
   }
   const setupRound = applyRoundSetupBody(
     roundBlueprint,
@@ -2122,9 +2163,9 @@ function rollbackRoundDraft(round, matches) {
     roundNumber: round.roundNumber,
     endsAt: round.metadata?.endsAt || null,
     mission: round.metadata?.mission || {},
+    byeParticipantId: matches.find(match => match.isBye)?.participantAId || null,
     matchups: matches
-      .filter((match) => !match.isBye)
-      .map((match) => ({
+      .map((match) => match.isBye ? {} : ({
         participantAId: match.participantAId || null,
         participantBId: match.participantBId || null,
         tableId: match.tableId || null
@@ -2270,7 +2311,8 @@ async function completeMatch(
   options = {}
 ) {
   const { replaceCompleted = false } = options;
-  const { participantA, participantB } = requireMatchParticipants(match, participants);
+  const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
+  assertTournamentResultContext({ scores: result.scores }, match, { participantA, participantB });
   const winnerParticipantId = winnerParticipantIdFromResult(result, participantA, participantB);
   assertMatchWinner({ ...match, winnerParticipantId }, [participantA, participantB]);
   assertCompletableResult(tournament, result, winnerParticipantId);
@@ -2320,8 +2362,9 @@ async function submitResult({ client, user, params, body }) {
   }
 
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
-  const { participantA, participantB } = requireMatchParticipants(match, participants);
+  const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
   assertMatchParticipantUser(match, participantA, participantB, user, "submit the result");
+  assertTournamentResultContext(body, match, { participantA, participantB });
   const result = calculateSubmittedResult(
     body,
     participantResultKey(participantA),
@@ -2364,7 +2407,7 @@ async function confirmResult({ client, user, params }) {
   }
 
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
-  const { participantA, participantB } = requireMatchParticipants(match, participants);
+  const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
   assertMatchParticipantUser(match, participantA, participantB, user, "confirm the result");
   const completed = await completeMatch(
     client,
@@ -2396,7 +2439,7 @@ async function rejectResult({ client, user, params }) {
   }
 
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
-  const { participantA, participantB } = requireMatchParticipants(match, participants);
+  const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
   assertMatchParticipantUser(match, participantA, participantB, user, "reject the result");
   if (match.gameId) await gamesRepo.clearResult(client, match.gameId);
   const updated = await matchesRepo.update(client, match.id, {
@@ -2425,7 +2468,8 @@ async function saveMatchResultAdmin({ client, user, params, body }) {
   const replaceCompleted = await assertCompletedMatchEditable(client, tournament, match);
 
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
-  const { participantA, participantB } = requireMatchParticipants(match, participants);
+  const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
+  assertTournamentResultContext(body, match, { participantA, participantB });
   const playerAId = participantResultKey(participantA);
   const playerBId = participantResultKey(participantB);
   const result = calculateSubmittedResult(body, playerAId, playerBId);
@@ -2483,3 +2527,8 @@ module.exports = {
   rejectResult,
   saveMatchResultAdmin
 };
+
+for (const name of ["deleteAdmin", "resetMatchResultAdmin", "submitResult", "confirmResult", "rejectResult", "saveMatchResultAdmin",
+  "updateParticipant", "removeParticipant", "updateActivePairingsAdmin", "recalculateStandingsAdmin", "rollbackLatestRoundAdmin"]) {
+  module.exports[name] = require("../db/rating-write-lock").withRatingWriteLock(module.exports[name]);
+}

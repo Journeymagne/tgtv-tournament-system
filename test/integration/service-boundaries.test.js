@@ -97,18 +97,33 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
     await new Promise(resolve => setTimeout(resolve, 200));
   }
   assert.ok(delivered, 'tournament worker and notification service must deliver across scoped schemas');
-  for (const service of ['studio', 'knowthykt', 'tournaments']) {
+  for (const service of ['studio', 'knowthykt', 'tournaments', 'tierlists']) {
     const env = environments(base, 'ci-services')[service];
     const { Client } = require('pg'); const db = new Client({ connectionString: env.DATABASE_URL });
     await db.connect();
-    try { await assert.rejects(db.query('SELECT password_hash FROM accounts.users'), error => error.code === '42501'); }
+    try {
+      await assert.rejects(db.query('SELECT password_hash FROM accounts.users'), error => error.code === '42501');
+      if (service === 'tierlists') {
+        for (const table of ['tournaments.games', 'studio.studio_projects', 'knowthykt.training_sessions']) {
+          await assert.rejects(db.query('SELECT * FROM ' + table), error => error.code === '42501');
+        }
+      }
+    }
     finally { await db.end(); }
   }
+  const publicStats = await ok(createClient(origin).get('/api/statistics/kill-team?team=Kommandos'));
+  assert.equal(publicStats.team, 'Kommandos');
+  assert.equal(typeof publicStats.games, 'number');
+  assert.ok(Array.isArray(publicStats.topPlayers));
   await stop('tournaments');
   await ok(admin.get('/api/me'), 503);
-  for (const route of ['/api/session', '/api/studio/drafts', '/api/faq', '/api/knowthykt/progress']) await ok(admin.get(route));
+  // Optional public statistics can fail while the independent editor remains usable.
+  await ok(admin.get('/api/statistics/kill-team?team=Kommandos'), 503);
+  for (const route of ['/api/session', '/api/studio/drafts', '/api/faq', '/api/knowthykt/progress', '/api/tierlists']) await ok(admin.get(route));
   await stop('accounts');
   // Session validation uses the restricted DB contract, not the accounts HTTP process.
   await ok(admin.get('/api/studio/drafts'));
   await ok(admin.get('/api/knowthykt/progress'));
+  await ok(admin.get('/api/tierlists'));
+  await ok(admin.get('/api/tierlists/catalog'));
 });

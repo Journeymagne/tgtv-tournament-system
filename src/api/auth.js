@@ -114,16 +114,27 @@ function readCredentials(body, minPasswordLength, tooShortMessage) {
 async function createAccount(client, credentials, isAdmin, req) {
   if (await users.isNameTaken(client, credentials.name)) throw new HttpError(409, "This name is already taken");
 
-  const user = await users.insert(client, {
-    name: credentials.name,
-    passwordHash: await hashPassword(credentials.password),
-    avatarData: null,
-    registerNickname: credentials.registerNickname,
-    telegramContact: credentials.telegramContact,
-    challengeCredits: [],
-    rating: INITIAL_RATING,
-    isAdmin
-  });
+  const passwordHash = await hashPassword(credentials.password);
+  let user;
+  try {
+    user = await users.insert(client, {
+      name: credentials.name,
+      passwordHash,
+      avatarData: null,
+      registerNickname: credentials.registerNickname,
+      telegramContact: credentials.telegramContact,
+      challengeCredits: [],
+      rating: INITIAL_RATING,
+      isAdmin
+    });
+  } catch (error) {
+    // Both checks above can observe an unused name. The unique indexes decide
+    // the winner; only the two username constraints are a registration conflict.
+    if (error.code === "23505" && ["users_name_key", "users_name_key_key"].includes(error.constraint)) {
+      throw new HttpError(409, "This name is already taken");
+    }
+    throw error;
+  }
 
   await mail.beginRegistration(client, user, credentials.email, credentials.locale, req);
   const token = await startSession(client, user.id);
@@ -221,7 +232,7 @@ async function setupAdmin() {
 // Заглушка нужной длины: verifyPassword на ней всё равно считает scrypt, так что время ответа не выдаёт существование учётной записи.
 const ABSENT_USER_HASH = `${"0".repeat(32)}:${"0".repeat(128)}`;
 
-async function login({ client, body }) {
+async function verifyCredentials(client, body) {
   const identifier = normalizeName(body.name);
   const email = identifier.includes("@") ? identifier.toLowerCase() : null;
   let user = email
@@ -239,6 +250,12 @@ async function login({ client, body }) {
   if (!user || !matches) throw new HttpError(401, "Invalid name or password");
 
   access.assertActive(await access.hydrate(client, user));
+
+  return user;
+}
+
+async function login({ client, body }) {
+  const user = await verifyCredentials(client, body);
 
   await require('../resources/quotas').spend(client, user.id, 'loginMinute', 60);
   await require('../resources/quotas').spend(client, user.id, 'loginHour', 3600);
@@ -268,6 +285,7 @@ module.exports = {
   applyProfilePatch,
   register,
   setupAdmin,
+  verifyCredentials,
   login,
   logout
 };

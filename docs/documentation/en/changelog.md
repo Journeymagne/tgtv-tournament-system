@@ -2,6 +2,81 @@
 
 KT Companion release history, newest first.
 
+## 1.5.26 — 16 November 2026
+
+- Reduced the wait when opening game cards and starting result entry in Telegram, especially for tournaments with uploaded images and rules.
+- Button presses are processed while Telegram acknowledges the tap. Permission, game freshness and duplicate-result checks remain in place.
+- Primary Op is used consistently in the bot, Mini App and tournament interface in Russian and English.
+
+## 1.5.25 — 15 November 2026
+
+- My games in Telegram opens a single menu with active and all games, pagination and game cards.
+- Submit a result directly in chat: choose both players' Crit/Kill/Tac scores and primary operation, review the total and submit. Editing, optional fields, cancellation and opponent confirmation follow the game's rules.
+- Menus and result entry use Russian or English from your bot settings. Repeated and outdated buttons do not change entered scores or submit a result twice.
+- The menu uses short database queries, and reply delivery runs separately from background notification preparation.
+
+## 1.5.24 — 15 November 2026
+
+- Sorting is limited to statistics: Games, Kill Team and tournament statistics, standings, leaderboards and tierlist statistics.
+- Removed unnecessary sorting from individual game results and confirmation, captain pairings, round lists, personal team matchups, short profile histories and team administration. Player, pairing and slot order is preserved.
+- In the Mini App, sorting remains available in tournament standings; work lists and a single game’s operation scores no longer show extra sorting controls.
+
+## 1.5.23 — 15 November 2026
+
+- Added sorting by every column across statistics, rankings, game history, tournament tables, the Mini App and tierlists. Official places are retained; sorting uses the full list before pagination and top-N limits.
+- Fixed statistics for played Kill Teams, separation of proxy participants and mirror-match handling. Selected sorting and entered data survive table updates.
+- Team tournaments now have a Personal standings tab for every participant: a win/draw/loss awards 3/1/0 TP, Total GP sums game points, and Diff GP is own GP minus opponents’ GP. Every column is sortable; results retain substituted players and include completed personal games in the current round.
+- Removed map previews from game lists and history. Maps remain available inside tournaments.
+
+## 1.5.22 — 14 November 2026
+
+- [KT Calculator](/combat) automatically recalculates shooting and fighting after input changes.
+- Situation 2 can be collapsed while retaining its inputs and its contribution to the result.
+- Added a Situation 1 + 2 summary for the selected settings of both shooting situations: average damage, kill chance and the chance of leaving the target injured but alive. Target wounds come from Situation 1.
+- Weapon-profile saving and loading are fully translated into English; user-authored names remain unchanged.
+
+## 1.5.21 — 14 November 2026
+
+- Connect Telegram to an existing account directly inside the Mini App: enter your name or verified email and password, check both accounts, and confirm the connection.
+- After connecting, My games opens, or the game/tournament from your launch link. Sign-in and confirmation support Russian and English and both Companion themes.
+- Updated sign-in guidance, errors, and the bot welcome instructions. Connecting through the website profile, registration, and password recovery remain available.
+
+## 1.5.20 — 13 November 2026
+
+- The Telegram welcome message includes a direct Mini App link and an “Open Mini App” button for new users. Both Russian and English are supported; personal data still requires a connected account.
+
+## 1.5.19 — 13 November 2026
+
+- KnowThyKT now has a dedicated [What’s new](/knowthykt#changelog) tab with trainer and question-bank updates in Russian and English.
+- Published clearer wording, answer options and English translations for 13 questions with frequent mistakes. All 7 Portable Barricade questions are excluded from training.
+- Answer history, earned XP and titles are retained. Historical question revisions keep their matching English translations.
+
+## 1.5.18 — 13 November 2026
+
+- Team pairing previews align roster rows with the actual matchups and game cards.
+- Fixed tournament result submission, rating recalculation and Swiss pairing order, including removed players, replacements and byes. Swiss tournaments also offer the By TP pairing mode.
+- Studio more reliably restores unsaved edits across tabs and restarts. Review text survives a publication version change, and reviewing the new version requires confirmation.
+- Fixed account changes in notifications, read markers and repeated FAQ moderation decisions. Resolved KnowThyKT progress races and concurrent registrations with the same name.
+- Improved English wording in training questions.
+
+## 1.5.17 — 12 November 2026
+
+- Selected-team statistics are available in the tier list recording view. The selected team and open panel are preserved when entering this view.
+- Escape first closes the panel while staying in recording view; pressing it again restores the controls.
+
+## 1.5.16 — 11 November 2026
+
+- The [KT Companion Telegram bot](https://t.me/ktcompanionbot) and Mini App are now open to all users. Connect Telegram from your existing account profile.
+- The bot runs on the European server; the Mini App opens at [killteamcompanion.com](https://killteamcompanion.com/miniapp). Accounts, tournaments and results are shared with the Russian website.
+- Removed administrator testing notices and unnecessary technical explanations. Russian and English follow the language selected in the bot settings.
+
+## 1.5.15 — 11 November 2026
+
+- Added a standalone [tier list service](/tierlist), with S / A / B / C / F tiers and an unranked pool of 48 team miniatures with transparent backgrounds.
+- Save tier lists to your KT Companion profile with a selected season. Personal saved lists and a browser draft are available.
+- Selecting a team shows its logo and latest-season statistics: games, win rate, top 3 Tac Ops and top 3 players.
+- Supports light and dark themes, mobile screens, Russian and English.
+
 ## 1.5.14 — 10 November 2026
 
 - Added the missing releases to the public changelog in Russian and English, including the FAQ v2.0 update.

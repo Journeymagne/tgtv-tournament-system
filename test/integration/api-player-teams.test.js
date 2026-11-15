@@ -182,10 +182,10 @@ test("only a leader or administrator can delete a team, including an archived te
   assert.equal((await admin.http.del(`/api/teams/${team.id}`)).status, 404);
 });
 
-async function deletionTournament(status = "registration_open") {
+async function deletionTournament(status = "registration_open", suffix = "") {
   const { rows: [cup] } = await getPool().query(
     `INSERT INTO tournaments (slug, name, status, format, participant_mode, team_size, pairing_type)
-     VALUES ('deletion-cup', 'Deletion cup', $1, 'swiss', 'team', 3, 'shield_sword') RETURNING *`, [status]
+     VALUES ($2, $3, $1, 'swiss', 'team', 3, 'shield_sword') RETURNING *`, [status, 'deletion-cup' + suffix, suffix ? 'Zulu cup' : 'Deletion cup']
   );
   const { rows: rosters } = await getPool().query(
     `INSERT INTO tournament_team_rosters (tournament_id, team_id, name, name_key, team_name_snapshot)
@@ -269,6 +269,54 @@ test("an active tournament roster is protected before its first pairing", async 
   assert.equal(profile.viewer.canDelete, false);
   assert.equal(profile.viewer.deleteBlockedReason, "activeTournament");
   assert.equal((await admin.http.del(`/api/teams/${team.id}`)).status, 409);
+});
+
+test("team history ordering considers all games before the fifty-row selection", async () => {
+  const ordinaryEvent = await deletionTournament(), olderEvent = await deletionTournament('registration_open', '-old');
+  for (const context of [ordinaryEvent, olderEvent]) {
+    const number = context === olderEvent ? 10 : 2;
+    const { rows: [round] } = await getPool().query(
+      "INSERT INTO tournament_rounds (tournament_id,round_number,status) VALUES ($1,$2,'active') RETURNING id", [context.cup.id, number]);
+    context.round = round; context.number = number;
+  }
+  await getPool().query("UPDATE tournament_team_rosters SET name='Zulu ' || id WHERE tournament_id=$1", [olderEvent.cup.id]);
+  const repository = require('../../src/db/repositories/games');
+  let oldest;
+  for (let index = 0; index < 51; index++) {
+    const { cup, rosters, members, round, number } = index === 0 ? olderEvent : ordinaryEvent;
+    const { rows: [match] } = await getPool().query(
+      `INSERT INTO tournament_team_matches (tournament_id,round_id,round_number,bracket_position,roster_a_id,roster_b_id,phase)
+       VALUES ($1,$2,$6,$3,$4,$5,'completed') RETURNING id`, [cup.id, round.id, index + 1, rosters[0].id, rosters[1].id, number]);
+    const game = await repository.insert(getPool(), { playerIds: [leader.id, member.id], sourceType: 'team_match_game', sourceId: match.id, sourceSlot: 1 });
+    await repository.saveFinalResult(getPool(), game.id, { result: { winnerId: leader.id, scores: {
+      [leader.id]: { total: 100 - index, faction: 'Kasrkin' }, [member.id]: { total: index === 0 ? 10 : 0, faction: 'Legionaries' }
+    } }, elo: {} });
+    await getPool().query("UPDATE games SET submitted_at='2026-10-01'::timestamptz + $2 * interval '1 day' WHERE id=$1", [game.id, index]);
+    await getPool().query(`INSERT INTO tournament_team_match_games (team_match_id,game_id,slot,roster_a_member_id,roster_b_member_id,mission)
+      VALUES ($1,$2,1,$3,$4,'{}')`, [match.id, game.id, members[0].id, members[1].id]);
+    if (index === 0) oldest = game.id;
+  }
+  const ordinary = await leader.http.get(`/api/teams/${team.slug}`);
+  assert.equal(ordinary.body.recentGames.length, 50);
+  assert.ok(!ordinary.body.recentGames.some(game => game.id === oldest));
+  for (const key of ['score', 'tournament', 'round', 'rosterA', 'rosterB']) {
+    const sorted = await leader.http.get(`/api/teams/${team.slug}?historySort=${key}&historyDirection=desc`);
+    assert.equal(sorted.status, 200);
+    assert.equal(sorted.body.recentGames[0].id, oldest, key);
+    assert.equal(sorted.body.recentGames.length, 50);
+  }
+  for (const sort of ['tournament', 'round', 'opponentScore']) {
+    const sorted = await repository.listCompletedPage(getPool(), { page: 1, venue: null, factionKeys: [], sort, direction: 'desc' });
+    assert.equal(sorted.games[0].id, oldest, sort);
+    assert.equal(sorted.games.length, 25);
+  }
+  // Legacy team games recover the same account's roster faction in their view;
+  // a replacement proxy must never inherit that account's registration.
+  await getPool().query("UPDATE games SET result=result #- ARRAY['scores',$2::text,'faction'] WHERE id=$1", [oldest, String(leader.id)]);
+  const factionPage = () => repository.listCompletedPage(getPool(), { page: 1, venue: null, factionKeys: [], sort: 'faction', direction: 'desc' });
+  assert.equal((await factionPage()).games[0].id, oldest);
+  await getPool().query("UPDATE game_participants SET is_proxy=true,user_id=NULL WHERE game_id=$1 AND slot=1", [oldest]);
+  assert.ok(!(await factionPage()).games.some(game => game.id === oldest));
 });
 
 test("concurrent team deletions produce one success and one not found", async () => {

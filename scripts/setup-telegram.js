@@ -19,6 +19,21 @@ async function main() {
   ];
   await call("setMyCommands",{commands:commands.map(([command,description])=>({command,description}))});
   await call("setMyCommands",{language_code:"en",commands:commands.map(([command,,description])=>({command,description}))});
+  const descriptions = {
+    ru: {
+      description: 'KT Companion — игры и турниры в Telegram. Получайте пары, вызовы, приглашения и запросы подтверждения результата. В мини-приложении смотрите свои игры, турнирную таблицу и профиль, вносите счёт. Нажмите Start и подключите свой аккаунт KT Companion.',
+      short_description: 'Игры, турниры, пары и результаты Kill Team. Подключите аккаунт KT Companion и откройте мини-приложение.'
+    },
+    en: {
+      description: 'KT Companion — games and tournaments in Telegram. Get pairings, challenges, invitations and result confirmation requests. Open the mini app to view your games, standings and profile, and submit scores. Tap Start and connect your KT Companion account.',
+      short_description: 'Kill Team games, tournaments, pairings and results. Connect your KT Companion account and open the mini app.'
+    }
+  };
+  for (const language_code of ['', 'ru', 'en']) {
+    const copy = descriptions[language_code || 'ru'];
+    await call('setMyDescription', { language_code, description: copy.description });
+    await call('setMyShortDescription', { language_code, short_description: copy.short_description });
+  }
   await call("setChatMenuButton",{menu_button:config.miniAppUrl ? {type:"web_app",text:"Турниры",web_app:{url:config.miniAppUrl}} : {type:"commands"}});
   if(config.mode==="webhook") await call("setWebhook",{url:config.site+"/api/telegram/webhook",secret_token:config.webhookSecret,allowed_updates:["message","callback_query","my_chat_member"],drop_pending_updates:false});
   else await call("deleteWebhook",{drop_pending_updates:false});

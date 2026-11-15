@@ -5,6 +5,7 @@ const challengesRepo = require("../db/repositories/challenges");
 const playerTeamsRepo = require("../db/repositories/player-teams");
 const {
   leaderboardUser,
+  gameView,
   publicUserSummary,
   challengeProgressView,
   publicProfileSummary
@@ -16,6 +17,7 @@ const {
 } = require("../domain/kill-teams");
 const { requirePositiveIntId } = require("./params");
 const { decodeDataUrl, contentVersion } = require("../domain/data-url");
+const { sortHistory } = require("../domain/game-history-sorting");
 const {
   attachTournamentGameDetails,
   sortGameViews
@@ -66,7 +68,7 @@ async function requireUser(client, id) {
   return found;
 }
 
-async function profile({ client, user, params }) {
+async function profile({ client, user, params, query = new URLSearchParams() }) {
   // A malformed path id (e.g. "abc") never matched the old server.js route
   // regex, so it fell through to the router's own 404 "Route not found".
   // Mirror that here instead of letting NaN reach the parameterized query.
@@ -109,6 +111,7 @@ async function profile({ client, user, params }) {
     adminPendingGames,
     allGamesForProgress: allCompletedGames
     }),
+    recentGames: sortHistory(allCompletedGames.map(game => gameView(game, people)), query, target.id).slice(0, 5),
     playerTeams: playerTeams.map((team) => ({
       id: team.id,
       slug: team.slug,

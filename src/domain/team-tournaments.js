@@ -1,7 +1,7 @@
 const { validLayout } = require("../../public/map-catalog");
 const { ValidationError } = require("../http/io");
 const { CRIT_OPS, KILLZONES } = require("./kill-teams");
-const { pairScoreBrackets } = require("./tournaments/swiss");
+const { pairScoreBrackets, pairByTP } = require("./tournaments/swiss");
 const { shuffledIds } = require("./tournaments/seeding");
 const { DOUBLES_STANDINGS_TIEBREAKERS } = require("./tournaments/constants");
 
@@ -120,8 +120,8 @@ function buildFirstTeamRound(tournament, rosters) {
     status: "active",
     pairings: seeded.slice(0, half).map((roster, index) => ({
       bracketPosition: index + 1,
-      rosterAId: roster.id,
-      rosterBId: seeded[index + half].id
+      rosterAId: (tournament.pairingMode === "by_tp" ? seeded[index * 2] : roster).id,
+      rosterBId: (tournament.pairingMode === "by_tp" ? seeded[index * 2 + 1] : seeded[index + half]).id
     })).concat(bye ? [{ bracketPosition: half + 1, rosterAId: bye.id, rosterBId: null }] : [])
   };
 }
@@ -243,6 +243,12 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber, random = 
   const withBye = (pairings) => pairings.concat(bye
     ? [{ bracketPosition: pairings.length + 1, rosterAId: bye.roster.id, rosterBId: null }] : []);
   const history = new Set(matches.map((match) => pairKey(match.rosterAId, match.rosterBId)));
+  if (tournament.pairingMode === "by_tp") {
+    const pairs = pairByTP(standings.map(row => ({ ...row, participant: row.roster })), history);
+    return { roundNumber, status: "active", pairings: withBye(pairs.map(([a, b], index) => ({
+      bracketPosition: index + 1, rosterAId: a.roster.id, rosterBId: b.roster.id
+    }))) };
+  }
   const standingsIndex = new Map(standings.map((row, index) => [row.roster.id, index]));
   // TP defines the draw groups. Personal wins, VP and seed only rank the table;
   // they must not select opponents within a group.

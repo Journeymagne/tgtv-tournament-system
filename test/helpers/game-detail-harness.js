@@ -50,6 +50,7 @@ function renderDetail({ game = gameFixture(), me = { id: 11, isAdmin: true }, lo
     adminUi: () => ({}),
     exitOpenGame: () => {}
   });
+  vm.runInContext(require("./statistics-client-source"), context);
   for (const name of ["escapeHtml", "playerProfileLink", "gamePlayerLinks", "gameTeamMatchId",
     "teamGameResultPermissions", "teamGamePendingMessage", "teamGameResultAction", "renderGameDetail"]) {
     const body = source.match(new RegExp(`function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];

@@ -7,6 +7,8 @@ const accessManagement = require("./access-management");
 const feedback = require('./feedback');
 
 module.exports = [
+  { method:'POST', path:'/api/auth/telegram-link', handler:require('./miniapp-account-link').login,
+    tx:true, rateLimit:'auth', miniappLinkLimit:'credentials', maxBodyBytes:4096 },
   { method:'GET', path:'/api/account/quotas', handler:require('./resource-quotas').get, auth:'user' },
   { method:'GET', path:'/api/admin/users/:id/quotas', handler:require('./resource-quotas').get, auth:'user', permission:'super' },
   { method:'PATCH', path:'/api/admin/users/:id/quotas', handler:require('./resource-quotas').update, auth:'user', permission:'super', tx:true, maxBodyBytes:16384 },
@@ -45,8 +47,8 @@ module.exports = [
     tx: true,
     rateLimit: "auth"
   },
-  { method: "PATCH", path: "/api/admin/users/:id", handler: admin.updateUser, auth: "admin", tx: true },
-  { method: "DELETE", path: "/api/admin/users/:id", handler: admin.deleteUser, auth: "admin", tx: true }
+  { method: "PATCH", path: "/api/admin/users/:id", handler: admin.updateUser, auth: "admin", tx: true, ratingMutation: true },
+  { method: "DELETE", path: "/api/admin/users/:id", handler: admin.deleteUser, auth: "admin", tx: true, ratingMutation: true }
 ].map(route => {
   if (route.permission) return route;
   if (route.path.startsWith("/api/admin/tournaments/:id")) return { ...route, auth: "user", permission: "tournament.manage" };

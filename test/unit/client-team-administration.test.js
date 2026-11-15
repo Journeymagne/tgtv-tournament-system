@@ -21,6 +21,7 @@ function harness(state = {}) {
     const LEADERBOARD_PAGE_SIZE = 20;
     const wirePageTabs = () => {}, wireVenueTabs = () => {}, wirePaginationControls = () => {}, wireTeamLinks = () => {}, wireLeaderboardProfiles = () => {}, wireLeaderboardSearch = () => {}, wireAdminUserControls = () => {};
     const venueTabs = () => '', usersTable = () => 'player rows', adminUsersPanel = () => 'user admin';
+    ${require("../helpers/statistics-client-source")}
     ${helpers.map(extract).join("\n")}
     return { pageTabs, renderTop, teamsTable, filterAdminTeams, adminTeamsPanel };
   `);
@@ -90,4 +91,13 @@ test("logo removal sends null while an unchanged logo is omitted", async () => {
   assert.equal(await readLogo({ elements: {} }), undefined);
   assert.equal(await readLogo({ elements: { removeLogo: { checked: true } } }), null);
   assert.equal(await readLogo({ elements: { logo: { files: [{ type: "image/png", size: 100 }] } } }), "uploaded-logo");
+});
+
+
+test("team display sorting never renumbers official ranks", () => {
+  const ui = harness({ teamLeaderboardPage: 1, teamLeaderboardPagination: { total: 2, totalPages: 1, currentPage: 1, start: 0, end: 2 } });
+  const html = ui.teamsTable([{ id: 2, slug: 'b', name: 'B', rank: 9, rating: 1200 }, { id: 1, slug: 'a', name: 'A', rank: 2, rating: 1300 }]);
+  assert.match(html, /<td class="rank">9<\/td>/);
+  assert.match(html, /<td class="rank">2<\/td>/);
+  assert.match(html, /data-statistics-server-sort="team-leaderboard"/);
 });

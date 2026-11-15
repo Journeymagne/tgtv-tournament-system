@@ -43,7 +43,7 @@ test("upgrade from 2.3.2 imports the achievement catalog without demo data or aw
     const before = { users: [user], player_teams: [team], tournaments: [tournament], games: [game] };
 
     assert.deepEqual(await migrate(pool), MIGRATIONS.filter((item) => item.version > 21).map((item) => item.version));
-    Object.assign(tournament, { registration_limit: null, captain_pairing_enabled: true, team_tiebreaker_order: null, faction_count: 1, venue_address: "" });
+    Object.assign(tournament, { registration_limit: null, captain_pairing_enabled: true, team_tiebreaker_order: null, faction_count: 1, venue_address: "", pairing_mode: "backet_random" });
     Object.assign(user, {can_create_tournaments:false, suspended_until:null, suspension_reason:"", is_faq_moderator:false, bcp_email:null});
     Object.assign(game, { source_slot: 0 });
     for (const [table, expected] of Object.entries(before)) {

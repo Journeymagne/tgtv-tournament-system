@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const Model = require("../../public/studio/model");
 const Cards = require("../../public/studio/card-renderer");
 const { buildTeamPDF } = require("../../public/studio/pdf-template");
+const { Worker } = require('node:worker_threads');
 
 function project(lore = "") {
   const team = Model.newProject("lore-test", "Lore test");
@@ -11,6 +12,47 @@ function project(lore = "") {
     weapons: [{ id: "weapon", name: "Throwing knives", kind: "ranged", attacks: 4, hit: "2+", damage: "3/4", special: "Range 6″", critical: "" }],
     abilities: [{ id: "ability", name: "Rule heading", body: "Rule body remains separate." }] });
   return team;
+}
+
+function stats(count){return Object.fromEntries(Array.from({length:count},(_,index)=>['STAT'+index,index+1]));}
+
+test('operative profile validation bounds stat columns to the available header width',()=>{
+  const team=project(),operative=team.operatives[0];operative.name='ABC';
+  for(const count of [1,4,5,12]){operative.stats=stats(count);assert.doesNotThrow(()=>Model.validate(team));}
+  for(const value of [stats(13),stats(14),[],[1,2,3],null,'APL']){
+    operative.stats=value;assert.throws(()=>Model.validate(team),undefined,'unsupported stat dimensions or object shape must be rejected');
+  }
+});
+
+// node:test timeouts cannot interrupt an infinite synchronous render. Run the
+// actual renderer in a disposable worker so a regression fails instead of
+// blocking every subsequent CI test. Start timing after module startup.
+async function boundedRender(data){
+  const worker=new Worker(`
+    const {parentPort,workerData}=require('node:worker_threads');
+    const Cards=require(workerData.renderer);
+    parentPort.on('message',data=>{try{parentPort.postMessage({cards:Cards.renderCard(data.operatives[0],data)})}catch(error){parentPort.postMessage({error:error.message})}});
+    parentPort.postMessage({ready:true});
+  `,{eval:true,workerData:{renderer:require.resolve('../../public/studio/card-renderer')}});
+  let timer;
+  try{return await new Promise((resolve,reject)=>{
+    timer=setTimeout(()=>reject(Error('Renderer worker did not start within 10 seconds')),10000);
+    worker.on('error',reject);
+    worker.on('message',message=>{
+      if(message.ready){clearTimeout(timer);timer=setTimeout(()=>reject(Error('Operative rendering exceeded 1000 ms')),1000);worker.postMessage(data);return}
+      if(message.error)reject(Error(message.error));else resolve(message.cards);
+    });
+  });}finally{clearTimeout(timer);await worker.terminate();}
+}
+
+for(const count of [12,13,14])for(const size of [undefined,6,24]){
+  test(`direct legacy operative render terminates at ${count} stats and ${size??'automatic'} pt title`,async()=>{
+    const team=project(),operative=team.operatives[0];operative.name='ABC';operative.stats=stats(count);
+    if(size!==undefined)operative.nameFontSize=size;
+    const cards=await boundedRender(team);
+    assert(cards.length>0);assert(cards.every(card=>card.svg.startsWith('<svg')));
+    assert(cards.every(card=>!/(?:NaN|Infinity)/.test(card.svg)),'legacy profiles must render finite geometry');
+  });
 }
 const headerHeight = svg => Number(svg.match(/<rect x="0" y="0" width="[^"]+" height="([^"]+)" fill="#141718"/)[1]);
 const loreGroups = svg => [...svg.matchAll(/<g class="operative-lore">([\s\S]*?)<\/g>/g)].map(match => match[1]);

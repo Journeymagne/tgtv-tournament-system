@@ -121,6 +121,6 @@ test("the on-demand bundles are not linked from any first-paint shell", () => {
 test("sitemap lists all Companion sections once using canonical paths", () => {
   const xml = sitemapXml("https://ktcompanion.ru", []);
   const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
-  assert.deepEqual(urls, ["/", "/tournament", "/initiative", "/tracker", "/studio", "/dice", "/faq", "/combat", "/knowthykt"].map(path => "https://ktcompanion.ru" + path));
+  assert.deepEqual(urls, ["/", "/tournament", "/initiative", "/tracker", "/studio", "/dice", "/faq", "/combat", "/knowthykt", "/tierlist"].map(path => "https://ktcompanion.ru" + path));
   assert.equal(new Set(urls).size, urls.length);
 });

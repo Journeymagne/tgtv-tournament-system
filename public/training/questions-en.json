@@ -93,7 +93,7 @@
   "kt-008": {
     "original": "[\"Действия\",\"Сколько AP стоит обычное действие Shoot без модификаторов стоимости?\",\"0 AP\",\"2 AP\",\"3 AP\",\"1 AP\",\"Базовая стоимость Shoot составляет 1 AP. Дополнительные эффекты могут изменять стоимость, но в условии их нет.\",\"Стр. 1: Shoot 1AP\"]",
     "topic": "Actions",
-    "question": "What is the AP cost of a normal Shoot action, with no cost modifiers?",
+    "question": "How many AP does a Shoot action cost without any cost modifiers?",
     "options": [
       "0 AP",
       "2 AP",
@@ -197,14 +197,14 @@
   "kt-016": {
     "original": "[\"Стрельба\",\"Сколько кубиков защиты обычно получает цель при стрельбе, если нет Piercing и других модификаторов?\",\"Один\",\"Столько же, сколько кубиков атаки\",\"Столько же, сколько оставшихся ран\",\"Три\",\"Базовое количество кубиков защиты при стрельбе — три. Правила вроде Piercing могут его уменьшить.\",\"Стр. 2: Shoot, шаг 4\"]",
     "topic": "Shooting",
-    "question": "How many defense dice does a target usually receive when shooting, if there are no Piercing and other modifiers?",
+    "question": "How many defence dice does the defender roll if no rules modify the number of defence dice?",
     "options": [
       "One",
       "Same as attack dice",
       "The same as the remaining wounds",
       "Three"
     ],
-    "explanation": "The basic number of defense dice when shooting is three. Rules like Piercing can reduce this.",
+    "explanation": "The defender normally rolls three defence dice. Rules such as Piercing can reduce that number.",
     "section": "Page 2: Shoot, step 4"
   },
   "kt-017": {
@@ -236,14 +236,14 @@
   "kt-019": {
     "original": "[\"Стрельба\",\"Цель находится в укрытии и получает обычный cover save, без улучшений от Vantage или других правил. Что она может сделать с одним кубиком защиты?\",\"Сохранить его как критический успех\",\"Добавить его к трём обычным кубикам\",\"Сохранить его как обычный успех без броска\",\"Заменить его автоматическим провалом противника\",\"Один из кубиков защиты можно не бросать и сразу сохранить как обычный успех. Это заменяет бросок этого кубика, а не добавляет новый.\",\"Стр. 2: Shoot, шаг 4\"]",
     "topic": "Shooting",
-    "question": "The target is in cover and receives the normal cover save, without the upgrades from Vantage or other rules. What can she do with one defense die?",
+    "question": "The target receives a standard cover save, with no enhancements. How can the defender retain one defence die?",
     "options": [
       "Retain it as a critical success",
-      "Add it to three regular dice",
-      "Retain it as a normal success without rolling",
-      "Replace it with enemy's automatic failure"
+      "Add it to the three defence dice",
+      "Retain it as a normal success without rolling it",
+      "Replace it with an automatic fail for the attacker"
     ],
-    "explanation": "One of the defense dice can be omitted and immediately retained as a normal success. This replaces the roll of that die rather than adding a new one.",
+    "explanation": "The defender can retain one of their defence dice as a normal success without rolling it. This replaces rolling that die; it does not add another die.",
     "section": "Page 2: Shoot, step 4"
   },
   "kt-020": {
@@ -932,7 +932,7 @@
       "12″",
       "Unlimited distance"
     ],
-    "explanation": "Comms Device increases the controlling operative's ranged SUPPORT conditions related to allies by 3″. Alien Comms Device does not give such a bonus.",
+    "explanation": "Your Comms Device increases by 3″ the distances in its controlling operative’s SUPPORT rules that specify friendly operatives. An opponent’s Comms Device does not grant this benefit.",
     "section": "PDF s. 1: Comms Device"
   },
   "kt-073": {
@@ -975,17 +975,32 @@
     "section": "PDF p. 3: Approved Ops 2025 - Martyrs"
   },
   "kt-076": {
-    "original": "[\"Оружие\",\"Оружие имеет Accurate 1 и Severe. Один кубик заранее сохранён через Accurate как обычный успех; все брошенные кубики провалены. Можно ли Severe превратить именно автоматический успех в критический?\",\"Да: Severe меняет уже сохранённый успех\",\"Нет: Accurate запрещает любые последующие изменения\",\"Нет: Severe требует числовой результат 6\",\"Да, но только после переброса автоматического кубика\",\"Повторно сохранить тот же кубик нельзя, но Severe именно меняет уже сохранённый успех. Поэтому автоматический обычный успех подходит, если других критических успехов нет.\",\"PDF с. 5: retaining once versus changing retained dice\"]",
+    "original": "[\"Оружие\",\"Оружие одновременно имеет Accurate 1 и Severe. Через Accurate вы сохранили один обычный успех, остальные кубики провалены. Может ли Severe изменить сохранённый успех на критический?\",\"Да: Severe меняет уже сохранённый успех\",\"Нет: Accurate запрещает любые последующие изменения\",\"Нет: Severe требует числовой результат 6\",\"Да, но только после переброса автоматического кубика\",\"Да. Severe позволяет изменить уже сохранённый обычный успех на критический, если критических успехов нет. Это не повторное сохранение кубика. Accurate само по себе не даёт Severe: для такого взаимодействия оружие должно иметь оба правила.\",\"PDF с. 5: retaining once versus changing retained dice\"]",
     "topic": "Weapons",
-    "question": "A weapon has Accurate 1 and Severe. One die is retained as a normal success through Accurate before rolling; all rolled dice fail. Can Severe change that automatic success into a critical success?",
+    "question": "A weapon has both Accurate 1 and Severe. You retain one normal success using Accurate, and all rolled dice fail. Can Severe change the retained success to a critical success?",
     "options": [
       "Yes: Severe changes already retained success",
       "No: Accurate prohibits any subsequent changes",
       "No: Severe requires a numeric result of 6",
       "Yes, but only after re-rolling the automatic die"
     ],
-    "explanation": "You cannot save the same die again, but Severe changes the already retained success. Therefore, an automatic normal success is appropriate if there are no other critical successes.",
-    "section": "PDF p. 5: retaining once versus changing retained dice"
+    "explanation": "Yes. Severe can change an already retained normal success to a critical success if you have no critical successes. This does not retain the die a second time. Accurate does not grant Severe; the weapon must have both rules.",
+    "section": "PDF p. 5: retaining once versus changing retained dice",
+    "versions": [
+      {
+        "original": "[\"Оружие\",\"Оружие имеет Accurate 1 и Severe. Один кубик заранее сохранён через Accurate как обычный успех; все брошенные кубики провалены. Можно ли Severe превратить именно автоматический успех в критический?\",\"Да: Severe меняет уже сохранённый успех\",\"Нет: Accurate запрещает любые последующие изменения\",\"Нет: Severe требует числовой результат 6\",\"Да, но только после переброса автоматического кубика\",\"Повторно сохранить тот же кубик нельзя, но Severe именно меняет уже сохранённый успех. Поэтому автоматический обычный успех подходит, если других критических успехов нет.\",\"PDF с. 5: retaining once versus changing retained dice\"]",
+        "topic": "Weapons",
+        "question": "A weapon has Accurate 1 and Severe. One die is retained as a normal success through Accurate before rolling; all rolled dice fail. Can Severe change that automatic success into a critical success?",
+        "options": [
+          "Yes: Severe changes already retained success",
+          "No: Accurate prohibits any subsequent changes",
+          "No: Severe requires a numeric result of 6",
+          "Yes, but only after re-rolling the automatic die"
+        ],
+        "explanation": "You cannot save the same die again, but Severe changes the already retained success. Therefore, an automatic normal success is appropriate if there are no other critical successes.",
+        "section": "PDF p. 5: retaining once versus changing retained dice"
+      }
+    ]
   },
   "kt-077": {
     "original": "[\"Оружие\",\"У оружия Severe, Rending, Punishing, Devastating 2 и Piercing Crits 1. До применения Severe сохранены два обычных успеха, остальные кубики провалены; критических успехов нет. Какие результаты получатся после применения Severe?\",\"2 критических и 1 обычный; сработают все правила\",\"1 критический и 2 обычных; Piercing Crits не сработает\",\"2 обычных; Severe не действует вместе с Rending\",\"1 критический и 1 обычный; Devastating 2 и Piercing Crits 1 сработают\",\"Severe меняет один обычный успех на критический и запускает Devastating и Piercing Crits. Rending и Punishing от такого изменения не срабатывают, поэтому новых успехов не добавляется.\",\"PDF с. 2: Appendix — Severe\"]",
@@ -1066,17 +1081,32 @@
     "section": "PDF s. 5: failed action on incapacitation and limited uses"
   },
   "kt-083": {
-    "original": "[\"Взаимодействия\",\"Incapacitated оперативник несёт маркер. Два разных правила каждое предлагают ему бесплатное действие до удаления; также нужно выполнить Place Marker. Сколько из предложенных двух действий он может выполнить, помимо Place Marker?\",\"Оба; они предоставлены разными правилами\",\"Только одно; порядок своих эффектов до удаления выбирает его владелец\",\"Ни одного: Place Marker занимает единственное разрешённое действие\",\"Одно, но исключительно выбранное игроком с инициативой\",\"До удаления разрешено не больше одного бесплатного действия, не считая Place Marker. Порядок собственных правил в этом окне выбирает владелец оперативника.\",\"PDF с. 2: Damage — actions before removal\"]",
+    "original": "[\"Взаимодействия\",\"Оперативник с переносимым маркером incapacitated. Два разных правила разрешают ему выполнить по бесплатному действию до удаления. Сколько таких действий он может выполнить, не считая Place Marker?\",\"Оба действия\",\"Только одно из двух действий\",\"Ни одного: Place Marker занимает единственное разрешённое действие\",\"Любое количество: бесплатные действия не ограничены\",\"До удаления incapacitated оперативник может выполнить не больше одного бесплатного действия, не считая Place Marker. Поэтому из двух предложенных действий он может выполнить только одно. Place Marker не расходует этот лимит.\",\"PDF с. 2: Damage — actions before removal\"]",
     "topic": "Interactions",
-    "question": "Incapacitated operative carries a marker. Two different rules each offer him a free action until removed; you also need to run Place Marker. How many of the two suggested actions can it perform, in addition to Place Marker?",
+    "question": "An incapacitated operative is carrying a marker. Two different rules each allow it to perform a free action before it is removed. How many of those actions can it perform, excluding Place Marker?",
     "options": [
-      "Both; they are provided by different rules",
-      "Only one thing; the order of its effects before removal is chosen by its owner",
-      "None: Place Marker occupies the only allowed action",
-      "One, but exclusively chosen by the player with the initiative"
+      "Both actions",
+      "Only one of the two actions",
+      "Neither: Place Marker uses the only permitted action",
+      "Any number: free actions are unlimited"
     ],
-    "explanation": "Before deletion, no more than one free action is allowed, not counting Place Marker. The order of his own rules in this window is chosen by the owner of the operative.",
-    "section": "PDF s. 2: Damage - actions before removal"
+    "explanation": "Before being removed, an incapacitated operative can perform no more than one free action, excluding Place Marker. It can therefore perform only one of the two offered actions. Place Marker does not use this allowance.",
+    "section": "PDF s. 2: Damage - actions before removal",
+    "versions": [
+      {
+        "original": "[\"Взаимодействия\",\"Incapacitated оперативник несёт маркер. Два разных правила каждое предлагают ему бесплатное действие до удаления; также нужно выполнить Place Marker. Сколько из предложенных двух действий он может выполнить, помимо Place Marker?\",\"Оба; они предоставлены разными правилами\",\"Только одно; порядок своих эффектов до удаления выбирает его владелец\",\"Ни одного: Place Marker занимает единственное разрешённое действие\",\"Одно, но исключительно выбранное игроком с инициативой\",\"До удаления разрешено не больше одного бесплатного действия, не считая Place Marker. Порядок собственных правил в этом окне выбирает владелец оперативника.\",\"PDF с. 2: Damage — actions before removal\"]",
+        "topic": "Interactions",
+        "question": "Incapacitated operative carries a marker. Two different rules each offer him a free action until removed; you also need to run Place Marker. How many of the two suggested actions can it perform, in addition to Place Marker?",
+        "options": [
+          "Both; they are provided by different rules",
+          "Only one thing; the order of its effects before removal is chosen by its owner",
+          "None: Place Marker occupies the only allowed action",
+          "One, but exclusively chosen by the player with the initiative"
+        ],
+        "explanation": "Before deletion, no more than one free action is allowed, not counting Place Marker. The order of his own rules in this window is chosen by the owner of the operative.",
+        "section": "PDF s. 2: Damage - actions before removal"
+      }
+    ]
   },
   "kt-084": {
     "original": "[\"Взаимодействия\",\"При активации есть эффекты трёх видов: A — «would be activated», B — «is activated» с уроном, C — «is activated» без урона. Никакие дополнительные приоритеты не указаны. В каком порядке разрешать категории?\",\"A, затем B, затем C\",\"B, затем A, затем C\",\"C, затем B, затем A\",\"Все одновременно без установленного порядка\",\"Сначала идут правила would be activated. Затем идут правила is activated, причём внутри этой группы сначала разрешают эффекты, наносящие урон.\",\"PDF с. 5: order of activation rules\"]",
@@ -1105,17 +1135,32 @@
     "section": "PDF p. 6: APL reduced during activation"
   },
   "kt-086": {
-    "original": "[\"Взаимодействия\",\"В Strategy phase специальное правило разрешает бесплатный Shoot. Защитник хочет сыграть обычный firefight ploy, в тексте которого нет разрешения на использование вне Firefight phase. Можно ли?\",\"Да: любое действие Shoot открывает окно для всех firefight ploys\",\"Да, если заплатить дополнительный CP\",\"Нет: бесплатный Shoot не создаёт Firefight phase\",\"Да, если защищающийся имеет инициативу\",\"Firefight ploys нельзя использовать за пределами Firefight phase без отдельного разрешения в самом ploy. Бесплатное действие в другой фазе это правило не меняет.\",\"PDF с. 6: firefight ploys outside Firefight phase\"]",
+    "original": "[\"Взаимодействия\",\"Во время Strategy phase оперативник выполняет разрешённый специальным правилом Shoot. Может ли защищающийся использовать Command Re-roll для переброса кубика защиты?\",\"Да: любое действие Shoot разрешает использовать Command Re-roll\",\"Да, если заплатить дополнительный CP\",\"Нет: Command Re-roll является firefight ploy и не разрешён вне Firefight phase\",\"Да, если защищающийся имеет инициативу\",\"Command Re-roll — firefight ploy. Firefight ploys нельзя использовать вне Firefight phase, если сам ploy прямо не разрешает исключение. Разрешение выполнить Shoot в Strategy phase не меняет фазу и не разрешает Command Re-roll.\",\"PDF с. 6: firefight ploys outside Firefight phase\"]",
     "topic": "Interactions",
-    "question": "In Strategy phase, a special rule allows free Shoot. The defender wants to play a regular firefight ploy, the text of which does not allow for use outside of Firefight phase. Is it possible?",
+    "question": "During the Strategy phase, an operative performs a Shoot action permitted by a special rule. Can the defender use Command Re-roll to re-roll a defence die?",
     "options": [
-      "Yes: any action by Shoot opens a window for all firefight ploys",
-      "Yes, if you pay additional CP",
-      "No: free Shoot does not create Firefight phase",
-      "Yes, if the defender has the initiative"
+      "Yes: any Shoot action permits Command Re-roll",
+      "Yes, by spending an additional CP",
+      "No: Command Re-roll is a firefight ploy and is not permitted outside the Firefight phase",
+      "Yes, if the defender has initiative"
     ],
-    "explanation": "Firefight ploys cannot be used outside of Firefight phase without separate permission within ploy itself. A free action in another phase does not change this rule.",
-    "section": "PDF p. 6: firefight ploys outside Firefight phase"
+    "explanation": "Command Re-roll is a firefight ploy. Firefight ploys cannot be used outside the Firefight phase unless the ploy itself explicitly permits it. Permission to perform Shoot during the Strategy phase does not change the phase or permit Command Re-roll.",
+    "section": "PDF p. 6: firefight ploys outside Firefight phase",
+    "versions": [
+      {
+        "original": "[\"Взаимодействия\",\"В Strategy phase специальное правило разрешает бесплатный Shoot. Защитник хочет сыграть обычный firefight ploy, в тексте которого нет разрешения на использование вне Firefight phase. Можно ли?\",\"Да: любое действие Shoot открывает окно для всех firefight ploys\",\"Да, если заплатить дополнительный CP\",\"Нет: бесплатный Shoot не создаёт Firefight phase\",\"Да, если защищающийся имеет инициативу\",\"Firefight ploys нельзя использовать за пределами Firefight phase без отдельного разрешения в самом ploy. Бесплатное действие в другой фазе это правило не меняет.\",\"PDF с. 6: firefight ploys outside Firefight phase\"]",
+        "topic": "Interactions",
+        "question": "In Strategy phase, a special rule allows free Shoot. The defender wants to play a regular firefight ploy, the text of which does not allow for use outside of Firefight phase. Is it possible?",
+        "options": [
+          "Yes: any action by Shoot opens a window for all firefight ploys",
+          "Yes, if you pay additional CP",
+          "No: free Shoot does not create Firefight phase",
+          "Yes, if the defender has the initiative"
+        ],
+        "explanation": "Firefight ploys cannot be used outside of Firefight phase without separate permission within ploy itself. A free action in another phase does not change this rule.",
+        "section": "PDF p. 6: firefight ploys outside Firefight phase"
+      }
+    ]
   },
   "kt-087": {
     "original": "[\"Террейн\",\"Gallowdark: ваш оперативник On Guard прерывает активацию врага. Его способность разрешена только «during this operative’s activation». Можно ли применить её к выстрелу по Guard?\",\"Да: любое действие делает выполняющего его оперативника активированным\",\"Нет: сейчас идёт активация врага, а не этого оперативника\",\"Да: Guard всегда начинает новую активацию\",\"Да, если оперативник ещё ready\",\"Guard-прерывание происходит во время активации, но это активация противника. FAQ исключает в этом случае правила, требующие именно собственной активации стреляющего.\",\"PDF с. 6: Guard — during an activation versus this operative’s activation\"]",
@@ -1170,30 +1215,60 @@
     "section": "Weapon Rules – Shock"
   },
   "kt-091": {
-    "original": "[\"Стрельба\",\"Стрелок на Vantage имеет Seek Light. Видимая цель с Conceal укрыта только Light terrain; условия Vantage также выполнены. Можно ли выбрать её благодаря одному Seek Light, не используя улучшенный cover save от Vantage?\",\"Нет: Vantage обязательно даёт улучшенный cover save\",\"Да: можно использовать только Seek Light, оставив обычный cover save\",\"Да: но Seek Light тогда убирает вообще все cover saves\",\"Нет: Seek Light не работает у стрелка на Vantage\",\"Официальный комментарий разрешает опираться только на Seek Light. Это позволяет не давать улучшенный cover save от Vantage, но само Seek Light обычный cover save не убирает.\",\"PDF с. 5: Seek Light and Vantage cover saves\"]",
+    "original": "[\"Стрельба\",\"Стрелок на Vantage использует оружие с Seek Light. Видимая цель с Conceal получает cover только от Light terrain; условия Vantage также выполнены. Если для выбора цели использовать только Seek Light, какой cover save получает цель?\",\"Улучшенный cover save от Vantage обязателен\",\"Обычный cover save без улучшения от Vantage\",\"Никакого cover save\",\"Цель нельзя выбрать, поэтому броска защиты не будет\",\"Официальный комментарий разрешает опираться только на Seek Light. Это позволяет не давать улучшенный cover save от Vantage, но само Seek Light обычный cover save не убирает.\",\"PDF с. 5: Seek Light and Vantage cover saves\"]",
     "topic": "Shooting",
-    "question": "The shooter on Vantage has Seek Light. The visible target with Conceal is covered only by Light terrain; Vantage conditions are also met. Is it possible to choose it thanks to one Seek Light, without using the improved cover save from Vantage?",
+    "question": "A shooter on Vantage uses a weapon with Seek Light. A visible target with a Conceal order is in cover only from Light terrain; the Vantage conditions are also met. If the shooter relies only on Seek Light to select the target, what cover save does the target receive?",
     "options": [
-      "No: Vantage necessarily gives an improved cover save",
-      "Yes: you can only use Seek Light, leaving the regular cover save",
-      "Yes: but Seek Light then removes everything from cover saves",
-      "No: Seek Light does not work for the shooter on Vantage"
+      "The improved Vantage cover save is mandatory",
+      "Its normal cover save, without the Vantage improvement",
+      "No cover save",
+      "The target cannot be selected, so no defence roll occurs"
     ],
     "explanation": "The official comment allows reliance only on Seek Light. This makes it possible not to give the improved cover save from Vantage, but Seek Light itself does not remove the usual cover save.",
-    "section": "PDF p. 5: Seek Light and Vantage cover saves"
+    "section": "PDF p. 5: Seek Light and Vantage cover saves",
+    "versions": [
+      {
+        "original": "[\"Стрельба\",\"Стрелок на Vantage имеет Seek Light. Видимая цель с Conceal укрыта только Light terrain; условия Vantage также выполнены. Можно ли выбрать её благодаря одному Seek Light, не используя улучшенный cover save от Vantage?\",\"Нет: Vantage обязательно даёт улучшенный cover save\",\"Да: можно использовать только Seek Light, оставив обычный cover save\",\"Да: но Seek Light тогда убирает вообще все cover saves\",\"Нет: Seek Light не работает у стрелка на Vantage\",\"Официальный комментарий разрешает опираться только на Seek Light. Это позволяет не давать улучшенный cover save от Vantage, но само Seek Light обычный cover save не убирает.\",\"PDF с. 5: Seek Light and Vantage cover saves\"]",
+        "topic": "Shooting",
+        "question": "The shooter on Vantage has Seek Light. The visible target with Conceal is covered only by Light terrain; Vantage conditions are also met. Is it possible to choose it thanks to one Seek Light, without using the improved cover save from Vantage?",
+        "options": [
+          "No: Vantage necessarily gives an improved cover save",
+          "Yes: you can only use Seek Light, leaving the regular cover save",
+          "Yes: but Seek Light then removes everything from cover saves",
+          "No: Seek Light does not work for the shooter on Vantage"
+        ],
+        "explanation": "The official comment allows reliance only on Seek Light. This makes it possible not to give the improved cover save from Vantage, but Seek Light itself does not remove the usual cover save.",
+        "section": "PDF p. 5: Seek Light and Vantage cover saves"
+      }
+    ]
   },
   "kt-092": {
-    "original": "[\"Стрельба\",\"Основная цель Blast имела Conceal и cover от Light terrain, но была выбрана благодаря Vantage и получила улучшенный cover save. Получают ли вторичные цели Blast этот улучшенный cover save?\",\"Да: вторичные цели наследуют и это улучшение\",\"Нет: наследуется только обычный cover save\",\"Только если все вторичные цели тоже с Conceal\",\"Только если вторичные цели выше стрелка\",\"FAQ отдельно подтверждает наследование улучшенного cover save от основной цели Blast. Не нужно заново проверять для каждой вторичной цели условие, давшее это улучшение основной.\",\"PDF с. 5: Blast and improved Vantage cover saves\"]",
+    "original": "[\"Стрельба\",\"Основная цель Blast имела Conceal и cover от Light terrain. Её выбрали благодаря Vantage, и она получила улучшенный cover save. Как определяют cover save вторичных целей этой атаки Blast?\",\"Они наследуют улучшенный cover save основной цели\",\"Они наследуют только обычный cover save основной цели\",\"Они не могут сохранять cover saves\",\"Для каждой заново проверяют право на улучшение от Vantage\",\"FAQ отдельно подтверждает наследование улучшенного cover save от основной цели Blast. Не нужно заново проверять для каждой вторичной цели условие, давшее это улучшение основной.\",\"PDF с. 5: Blast and improved Vantage cover saves\"]",
     "topic": "Shooting",
-    "question": "The main target Blast had Conceal and cover from Light terrain, but was selected thanks to Vantage and received the improved cover save. Do Blast secondary targets get this upgraded cover save?",
+    "question": "The primary Blast target had a Conceal order and cover from Light terrain. It was selected using Vantage and received the improved cover save. How are cover saves determined for the secondary targets of that Blast attack?",
     "options": [
-      "Yes: secondary targets inherit this improvement too",
-      "No: only the regular cover save is inherited",
-      "Only if all secondary targets are also with Conceal",
-      "Only if secondary targets are above the shooter"
+      "They inherit the primary target’s improved cover save",
+      "They inherit only the primary target’s normal cover save",
+      "They cannot retain cover saves",
+      "Eligibility for the Vantage improvement is checked again for each secondary target"
     ],
     "explanation": "FAQ separately confirms the inheritance of the improved cover save from the main target Blast. There is no need to re-check for each secondary target the condition that gave this improvement to the main one.",
-    "section": "PDF p. 5: Blast and improved Vantage cover saves"
+    "section": "PDF p. 5: Blast and improved Vantage cover saves",
+    "versions": [
+      {
+        "original": "[\"Стрельба\",\"Основная цель Blast имела Conceal и cover от Light terrain, но была выбрана благодаря Vantage и получила улучшенный cover save. Получают ли вторичные цели Blast этот улучшенный cover save?\",\"Да: вторичные цели наследуют и это улучшение\",\"Нет: наследуется только обычный cover save\",\"Только если все вторичные цели тоже с Conceal\",\"Только если вторичные цели выше стрелка\",\"FAQ отдельно подтверждает наследование улучшенного cover save от основной цели Blast. Не нужно заново проверять для каждой вторичной цели условие, давшее это улучшение основной.\",\"PDF с. 5: Blast and improved Vantage cover saves\"]",
+        "topic": "Shooting",
+        "question": "The main target Blast had Conceal and cover from Light terrain, but was selected thanks to Vantage and received the improved cover save. Do Blast secondary targets get this upgraded cover save?",
+        "options": [
+          "Yes: secondary targets inherit this improvement too",
+          "No: only the regular cover save is inherited",
+          "Only if all secondary targets are also with Conceal",
+          "Only if secondary targets are above the shooter"
+        ],
+        "explanation": "FAQ separately confirms the inheritance of the improved cover save from the main target Blast. There is no need to re-check for each secondary target the condition that gave this improvement to the main one.",
+        "section": "PDF p. 5: Blast and improved Vantage cover saves"
+      }
+    ]
   },
   "kt-093": {
     "original": "[\"Террейн\",\"Volkus: оперативник стоит на fire step своего stronghold. Нужно определить obscured между ним и целью. Следует ли автоматически игнорировать весь остальной этот stronghold, как будто он на обычном Vantage этого элемента?\",\"Да: любой fire step полностью отключает obscured от stronghold\",\"Да, но только когда оперативник стреляет, а не когда он цель\",\"Да: stronghold вообще не может давать obscured\",\"Нет: нахождение на fire step не даёт такого автоматического исключения\",\"FAQ прямо запрещает автоматически игнорировать остальной stronghold только из-за положения на fire step. Obscured нужно проверять с учётом применимых правил террейна.\",\"PDF с. 5: Volkus — fire step and obscured\"]",
@@ -1209,17 +1284,32 @@
     "section": "PDF p. 5: Volkus - fire step and obscured"
   },
   "kt-094": {
-    "original": "[\"Террейн\",\"Оперативник прыгает с Vantage выше 2″ над полом. У края отправления есть парапет. Можно ли игнорировать его высоту лишь потому, что площадка приземления отличается по высоте не более чем на 1″?\",\"Да: при разнице высот до 1″ игнорируются оба парапета\",\"Да: прыжок всегда начинается с основания парапета\",\"Нет: парапет на стороне отправления сначала нужно перелезть\",\"Нет: прыжки между Vantage вообще запрещены\",\"Послабление для разницы высоты при приземлении не отменяет подъём через парапет на стороне отправления. Прыгать нужно с наивысшей точки, через которую требуется перелезть.\",\"PDF с. 2: Terrain and Movement — Jumping\"]",
+    "original": "[\"Террейн\",\"Оперативник прыгает с одной площадки Vantage на другую. Обе находятся выше 2″ над полом, а разница их высот не превышает 1″. На краю исходной площадки есть парапет. Нужно ли сначала перелезть через него?\",\"Нет: разница высот до 1″ позволяет игнорировать оба парапета\",\"Нет: прыжок всегда начинается с основания парапета\",\"Да: парапет на исходной площадке сначала нужно перелезть\",\"Только если на площадке приземления тоже есть парапет\",\"Да. Перед прыжком нужно перелезть через парапет на исходной площадке и прыгать с наивысшей точки, через которую требуется перелезть. Послабление для разницы высот при приземлении не отменяет это требование.\",\"PDF с. 2: Terrain and Movement — Jumping\"]",
     "topic": "Terrain",
-    "question": "The operative jumps from Vantage above 2″ above the floor. There is a parapet at the edge of the departure. Is it possible to ignore its height just because the landing area differs in height by no more than 1″?",
+    "question": "An operative jumps from one Vantage platform to another. Both are more than 2\" above the killzone floor, and their heights differ by no more than 1\". There is a rampart at the edge of the starting platform. Must the operative climb over it first?",
     "options": [
-      "Yes: if the height difference is up to 1″, both parapets are ignored",
-      "Yes: the jump always starts from the base of the parapet",
-      "No: the parapet on the departure side must first be climbed over",
-      "No: jumping between Vantage is generally prohibited"
+      "No: a height difference of up to 1\" lets it ignore both ramparts",
+      "No: a jump always starts at the bottom of the rampart",
+      "Yes: it must first climb over the rampart on the starting platform",
+      "Only if the destination platform also has a rampart"
     ],
-    "explanation": "The relief for landing height difference does not eliminate the lift over the parapet on the departure side. You need to jump from the highest point you need to climb over.",
-    "section": "PDF s. 2: Terrain and Movement - Jumping"
+    "explanation": "Yes. Before jumping, the operative must climb the rampart on the starting platform and jump from the highest point it must climb over. The allowance for a small height difference at the destination does not remove this requirement.",
+    "section": "PDF s. 2: Terrain and Movement - Jumping",
+    "versions": [
+      {
+        "original": "[\"Террейн\",\"Оперативник прыгает с Vantage выше 2″ над полом. У края отправления есть парапет. Можно ли игнорировать его высоту лишь потому, что площадка приземления отличается по высоте не более чем на 1″?\",\"Да: при разнице высот до 1″ игнорируются оба парапета\",\"Да: прыжок всегда начинается с основания парапета\",\"Нет: парапет на стороне отправления сначала нужно перелезть\",\"Нет: прыжки между Vantage вообще запрещены\",\"Послабление для разницы высоты при приземлении не отменяет подъём через парапет на стороне отправления. Прыгать нужно с наивысшей точки, через которую требуется перелезть.\",\"PDF с. 2: Terrain and Movement — Jumping\"]",
+        "topic": "Terrain",
+        "question": "The operative jumps from Vantage above 2″ above the floor. There is a parapet at the edge of the departure. Is it possible to ignore its height just because the landing area differs in height by no more than 1″?",
+        "options": [
+          "Yes: if the height difference is up to 1″, both parapets are ignored",
+          "Yes: the jump always starts from the base of the parapet",
+          "No: the parapet on the departure side must first be climbed over",
+          "No: jumping between Vantage is generally prohibited"
+        ],
+        "explanation": "The relief for landing height difference does not eliminate the lift over the parapet on the departure side. You need to jump from the highest point you need to climb over.",
+        "section": "PDF s. 2: Terrain and Movement - Jumping"
+      }
+    ]
   },
   "kt-095": {
     "original": "[\"Террейн\",\"Высокая модель на круглой базе 50 мм проходит под Ceiling. Правило позволяет игнорировать высоту модели при проходе. Можно ли закончить действие под потолком там, где миниатюру физически нельзя разместить?\",\"Да: Ceiling полностью отменяет ограничения размещения\",\"Нет: исключение для прохода не отменяет требование законного конечного положения\",\"Да: достаточно положить модель набок\",\"Только если у модели Conceal\",\"Ceiling разрешает подходящим базам проходить под потолком независимо от высоты миниатюры. Но завершить действие всё равно нужно там, где оперативника можно разместить.\",\"PDF с. 2: Terrain Types — Ceiling\"]",
@@ -1328,12 +1418,12 @@
   "kt-103": {
     "original": "[\"Основы\",\"Вы уже использовали конкретный STRATEGIC GAMBIT в текущем turning point. Можно ли без специального исключения применить тот же гамбит ещё раз?\",\"Да, если после него пасовал соперник\",\"Да, если выбрать другого оперативника\",\"Нет, каждый такой гамбит используется не более одного раза за turning point\",\"Да, если заплатить двойную стоимость\",\"Ограничение относится к каждому отдельному STRATEGIC GAMBIT. Достаточное количество CP само по себе не снимает его.\",\"PDF с. 1: Strategy Phase — Strategic Gambits\"]",
     "topic": "Basics",
-    "question": "You have already used a specific STRATEGIC GAMBIT in the current turning point. Is it possible to use the same gambit again without special exception?",
+    "question": "Can you use the same STRATEGIC GAMBIT twice in one turning point without a specific exception?",
     "options": [
-      "Yes, if the opponent passed after him",
-      "Yes, if you choose another operative",
-      "No, each such gambit is used no more than once per turning point",
-      "Yes, if you pay double the price"
+      "Yes, if your opponent has passed since you used it",
+      "Yes, if you select another operative",
+      "No. Each player can use each STRATEGIC GAMBIT only once per turning point.",
+      "Yes, by paying twice its cost"
     ],
     "explanation": "The limitation applies to each individual STRATEGIC GAMBIT. Enough CP alone will not remove it.",
     "section": "PDF s. 1: Strategy Phase - Strategic Gambits"
@@ -1367,12 +1457,12 @@
   "kt-106": {
     "original": "[\"Основы\",\"Вы только что бросили кубики защиты при стрельбе. Как их позволяет изменить Command Re-roll?\",\"Превратить все провалы в обычные успехи\",\"Перебросить один из этих кубиков\",\"Заменить один результат автоматической шестёркой\",\"Добавить ещё три кубика защиты\",\"Command Re-roll можно использовать после броска своих кубиков атаки или защиты. Он разрешает один переброс из соответствующего броска.\",\"PDF с. 1: Command Re-roll\"]",
     "topic": "Basics",
-    "question": "You have just rolled your shooting defense dice. How does Command Re-roll allow you to change them?",
+    "question": "You have just rolled your defence dice. What does Command Re-roll allow you to do?",
     "options": [
-      "Turn all failures into normal successes",
-      "Reroll one of these dice",
-      "Replace one result with an automatic six",
-      "Add three more defense dice"
+      "Change all fails to normal successes",
+      "Re-roll one of those dice",
+      "Change one result to an automatic six",
+      "Add three more defence dice"
     ],
     "explanation": "Command Re-roll can be used after rolling your attack or defense dice. It allows one re-roll from the corresponding roll.",
     "section": "PDF s. 1: Command Re-roll"
@@ -1393,7 +1483,7 @@
   "kt-108": {
     "original": "[\"Основы\",\"В третьем turning point вы выиграли бросок за инициативу. Можно ли по обычным правилам отдать инициативу сопернику?\",\"Нет, победитель обязательно получает её сам\",\"Только если у соперника меньше оперативников\",\"Только за 1 CP\",\"Да, победитель выбирает, кто получит инициативу\",\"Выигранный бросок даёт право решить, у кого будет инициатива. Вы можете выбрать соперника.\",\"PDF с. 1: Strategy Phase — Initiative\"]",
     "topic": "Basics",
-    "question": "In the third turning point you win the initiative roll. Is it possible, according to the usual rules, to give the initiative to an opponent?",
+    "question": "You win the initiative roll-off for the third turning point. Can you choose to give your opponent initiative?",
     "options": [
       "No, the winner must receive it himself",
       "Only if the opponent has fewer operatives",
@@ -1404,17 +1494,32 @@
     "section": "PDF s. 1: Strategy Phase - Initiative"
   },
   "kt-109": {
-    "original": "[\"Основы\",\"Где нужно проверить, как определяется инициатива самого первого turning point в выбранной игре?\",\"В последовательности игры используемого набора миссий\",\"В характеристике Move лидера\",\"В размере баз оперативников\",\"В описании правила оружия Balanced\",\"Для первого turning point порядок задаётся используемым mission pack. Общая процедура последующих turning points не заменяет его указания.\",\"Strategy Phase — 1. Initiative\"]",
+    "original": "[\"Основы\",\"Какая часть правил определяет порядок получения инициативы в первом turning point?\",\"Последовательность подготовки и проведения игры в используемом mission pack\",\"В характеристике Move лидера\",\"В размере баз оперативников\",\"В описании правила оружия Balanced\",\"Инициатива первого turning point определяется последовательностью игры используемого mission pack. Бросок за инициативу для последующих turning points не заменяет эту процедуру.\",\"Strategy Phase — 1. Initiative\"]",
     "topic": "Basics",
-    "question": "Where should I check how the initiative of the very first turning point in the selected game is determined?",
+    "question": "Which part of the rules determines how initiative is decided in the first turning point?",
     "options": [
-      "In the game sequence of the mission set used",
+      "The game sequence in the mission pack being used",
       "Characteristics of Move leader",
       "In size of operative bases",
       "In the description of the weapon rules Balanced"
     ],
-    "explanation": "For the first turning point, the order is determined by the mission pack used. The general procedure of subsequent turning points does not replace his instructions.",
-    "section": "Strategy Phase - 1. Initiative"
+    "explanation": "Initiative in the first turning point is determined by the game sequence in the mission pack being used. The initiative roll-off for later turning points does not replace that procedure.",
+    "section": "Strategy Phase - 1. Initiative",
+    "versions": [
+      {
+        "original": "[\"Основы\",\"Где нужно проверить, как определяется инициатива самого первого turning point в выбранной игре?\",\"В последовательности игры используемого набора миссий\",\"В характеристике Move лидера\",\"В размере баз оперативников\",\"В описании правила оружия Balanced\",\"Для первого turning point порядок задаётся используемым mission pack. Общая процедура последующих turning points не заменяет его указания.\",\"Strategy Phase — 1. Initiative\"]",
+        "topic": "Basics",
+        "question": "Where should I check how the initiative of the very first turning point in the selected game is determined?",
+        "options": [
+          "In the game sequence of the mission set used",
+          "Characteristics of Move leader",
+          "In size of operative bases",
+          "In the description of the weapon rules Balanced"
+        ],
+        "explanation": "For the first turning point, the order is determined by the mission pack used. The general procedure of subsequent turning points does not replace his instructions.",
+        "section": "Strategy Phase - 1. Initiative"
+      }
+    ]
   },
   "kt-110": {
     "original": "[\"Основы\",\"У обоих игроков все оперативники стали expended. Что происходит по обычной последовательности игры?\",\"Все немедленно получают бесплатный Shoot\",\"Firefight phase завершается\",\"Игра обязательно заканчивается независимо от миссии\",\"Игрок с инициативой активирует всех заново\",\"Firefight phase продолжается, пока игроки заканчивают активации своих оперативников. После того как все стали expended, фаза заканчивается.\",\"PDF с. 1: Firefight Phase\"]",
@@ -1521,17 +1626,32 @@
     "section": "PDF s. 2: Shoot — 1. Select Weapon"
   },
   "kt-118": {
-    "original": "[\"Основы\",\"Откуда проводят линию видимости, чтобы определить, видит ли оперативник другую миниатюру?\",\"От любой точки базы до центра базы цели\",\"От головы оперативника до части миниатюры цели, не её базы\",\"От оружия оперативника только до головы цели\",\"От центра игрового поля до базы цели\",\"Видимость проверяют от головы смотрящего оперативника к самой миниатюре цели. Её база не считается видимой частью для этой проверки.\",\"PDF с. 2: Visible\"]",
+    "original": "[\"Основы\",\"Как проверяют, является ли миниатюра противника видимой — Visible — для вашего оперативника?\",\"От любой точки базы вашего оперативника проводят линию до центра базы цели\",\"Проводят незаблокированную прямую от головы вашего оперативника до любой части миниатюры противника, кроме базы\",\"Проводят линию от оружия вашего оперативника только до головы цели\",\"Проводят линию от центра игрового поля до базы цели\",\"Для проверки Visible проводят незаблокированную прямую от головы смотрящего оперативника до любой части миниатюры цели, кроме её базы. Это проверка видимости миниатюры. Targeting lines между базами — другая проверка, используемая при определении intervening terrain для cover и obscured.\",\"PDF с. 2: Visible\"]",
     "topic": "Basics",
-    "question": "Where is line of sight drawn to determine if the operative can see another miniature?",
+    "question": "How do you check whether an enemy miniature is visible to your operative?",
     "options": [
-      "From any point of the base to the center of the target base",
-      "From the operative's head to part of the target's miniature, not its base",
-      "From the operative's weapon only to the target's head",
-      "From the center of the playing field to the target base"
+      "Draw a line from any point on your operative's base to the centre of the target's base",
+      "Draw an unobstructed straight line from your operative's head to any part of the enemy miniature, excluding its base",
+      "Draw a line from your operative's weapon only to the target's head",
+      "Draw a line from the centre of the killzone to the target's base"
     ],
-    "explanation": "Visibility is checked from the head of the looking operative to the target miniature itself. Its base is not considered a visible part for this check.",
-    "section": "PDF s. 2: Visible"
+    "explanation": "To check visibility, draw an unobstructed straight line from the observing operative's head to any part of the target miniature, excluding its base. Targeting lines between bases are a separate check used to determine intervening terrain for cover and obscured.",
+    "section": "PDF s. 2: Visible",
+    "versions": [
+      {
+        "original": "[\"Основы\",\"Откуда проводят линию видимости, чтобы определить, видит ли оперативник другую миниатюру?\",\"От любой точки базы до центра базы цели\",\"От головы оперативника до части миниатюры цели, не её базы\",\"От оружия оперативника только до головы цели\",\"От центра игрового поля до базы цели\",\"Видимость проверяют от головы смотрящего оперативника к самой миниатюре цели. Её база не считается видимой частью для этой проверки.\",\"PDF с. 2: Visible\"]",
+        "topic": "Basics",
+        "question": "Where is line of sight drawn to determine if the operative can see another miniature?",
+        "options": [
+          "From any point of the base to the center of the target base",
+          "From the operative's head to part of the target's miniature, not its base",
+          "From the operative's weapon only to the target's head",
+          "From the center of the playing field to the target base"
+        ],
+        "explanation": "Visibility is checked from the head of the looking operative to the target miniature itself. Its base is not considered a visible part for this check.",
+        "section": "PDF s. 2: Visible"
+      }
+    ]
   },
   "kt-119": {
     "original": "[\"Стрельба\",\"Видимый враг стоит за обычным укрытием всего в 1,5 дюйма от стрелка. Специальных исключений нет. Может ли этот террейн дать ему cover относительно стрелка?\",\"Да, если у врага Conceal\",\"Да, если террейн Heavy\",\"Нет: в пределах 2 дюймов от стрелка обычный cover не действует\",\"Да, если стрелок уже двигался\",\"По обычному правилу цель не может находиться в cover от оперативника, который расположен в пределах 2 дюймов от неё.\",\"PDF с. 2: Cover\"]",
@@ -1718,14 +1838,14 @@
   "kt-133": {
     "original": "[\"Снаряжение\",\"Вы выбрали из Universal Equipment одну smoke и одну stun grenade. Союзник уже использовал единственную smoke. Может ли другой оперативник вашей команды бросить ещё одну smoke без иных источников гранат?\",\"Нет, выбранный лимит относится ко всей команде\",\"Да, каждый оперативник получает свою копию\",\"Да, если это новый turning point\",\"Да, если второй оперативник является лидером\",\"Количество применений выбранных utility grenades общее для kill team на всю битву. Смена оперативника не восстанавливает потраченную гранату.\",\"PDF с. 2–3: Utility Grenades — selection and use limit\"]",
     "topic": "Equipment",
-    "question": "You have selected one smoke and one stun grenade from Universal Equipment. The ally has already used the only smoke. Can another operative on your team roll another smoke without other grenade sources?",
+    "question": "You selected one smoke grenade and one stun grenade. A friendly operative has used the smoke grenade. With no other sources of smoke grenades, can another friendly operative use one?",
     "options": [
-      "No, the selected limit applies to the entire team",
-      "Yes, each operative receives his own copy",
-      "Yes, if it's a new turning point",
-      "Yes, if the second operative is the leader"
+      "No: the allowance applies to the whole kill team",
+      "Yes: each operative receives its own grenade",
+      "Yes, if a new turning point has started",
+      "Yes, if that operative is the leader"
     ],
-    "explanation": "The number of uses of selected utility grenades is total for kill team for the entire battle. Changing operatives does not restore a spent grenade.",
+    "explanation": "The selected utility grenade allowance applies to the whole kill team for the entire battle. Selecting a different operative does not restore a used grenade.",
     "section": "PDF p. 2–3: Utility Grenades - selection and use limit"
   },
   "kt-134": {
@@ -1755,17 +1875,32 @@
     "section": "PDF s. 4: Utility Grenades - Smoke Grenade, placement"
   },
   "kt-136": {
-    "original": "[\"Снаряжение\",\"Маркер Smoke Grenade установлен на верхней площадке. Распространяется ли созданная им область дыма ниже уровня маркера?\",\"Да, до пола killzone\",\"Да, но только на 1 дюйм вниз\",\"Да, если под площадкой нет стены\",\"Нет\",\"Область дыма распространяется от маркера вверх, но не ниже него. Поэтому один только такой маркер не создаёт дым под своей высотой.\",\"PDF с. 4: Smoke Grenade — area of smoke\"]",
+    "original": "[\"Снаряжение\",\"Маркер Smoke Grenade установлен на верхней площадке. Где по вертикали начинается область созданного им дыма?\",\"На полу killzone под маркером\",\"На 1″ ниже маркера\",\"На 2″ ниже маркера\",\"На уровне маркера; ниже него дым не распространяется\",\"Область дыма распространяется от маркера вверх, но не ниже него. Поэтому один только такой маркер не создаёт дым под своей высотой.\",\"PDF с. 4: Smoke Grenade — area of smoke\"]",
     "topic": "Equipment",
-    "question": "Marker Smoke Grenade is installed on the upper platform. Does the area of smoke it creates extend below the marker level?",
+    "question": "A Smoke Grenade marker is on an upper platform. Where does its smoke area begin vertically?",
     "options": [
-      "Yes, to the floor killzone",
-      "Yes, but only 1 inch down",
-      "Yes, if there is no wall under the platform",
-      "No"
+      "At the killzone floor below the marker",
+      "1″ below the marker",
+      "2″ below the marker",
+      "At the marker’s level; it does not extend below the marker"
     ],
     "explanation": "The smoke area extends from the marker up, but not below it. Therefore, such a marker alone does not create smoke under its height.",
-    "section": "PDF s. 4: Smoke Grenade - area of smoke"
+    "section": "PDF s. 4: Smoke Grenade - area of smoke",
+    "versions": [
+      {
+        "original": "[\"Снаряжение\",\"Маркер Smoke Grenade установлен на верхней площадке. Распространяется ли созданная им область дыма ниже уровня маркера?\",\"Да, до пола killzone\",\"Да, но только на 1 дюйм вниз\",\"Да, если под площадкой нет стены\",\"Нет\",\"Область дыма распространяется от маркера вверх, но не ниже него. Поэтому один только такой маркер не создаёт дым под своей высотой.\",\"PDF с. 4: Smoke Grenade — area of smoke\"]",
+        "topic": "Equipment",
+        "question": "Marker Smoke Grenade is installed on the upper platform. Does the area of smoke it creates extend below the marker level?",
+        "options": [
+          "Yes, to the floor killzone",
+          "Yes, but only 1 inch down",
+          "Yes, if there is no wall under the platform",
+          "No"
+        ],
+        "explanation": "The smoke area extends from the marker up, but not below it. Therefore, such a marker alone does not create smoke under its height.",
+        "section": "PDF s. 4: Smoke Grenade - area of smoke"
+      }
+    ]
   },
   "kt-137": {
     "original": "[\"Снаряжение\",\"Сколько AP стоит обычное действие Ammo Resupply у вашего Ammo Cache, без модификаторов?\",\"0 AP\",\"1 AP\",\"2 AP\",\"Все оставшиеся AP\",\"Ammo Resupply напечатано со стоимостью 0 AP. При этом нужно выполнить условия самого действия.\",\"PDF с. 1: Ammo Cache — Ammo Resupply 0AP\"]",
@@ -1783,7 +1918,7 @@
   "kt-138": {
     "original": "[\"Снаряжение\",\"Один оперативник использовал ваш Ammo Cache в текущем turning point. Может ли второй затем выполнить Ammo Resupply у того же маркера в этом же turning point?\",\"Да, если у второго другой приказ\",\"Нет, этот маркер уже использован в данном turning point\",\"Да, если потратить 1 AP\",\"Да, если первый оперативник уже expended\",\"Ammo Resupply запрещено у маркера, уже использованного в текущем turning point. Ограничение относится к маркеру, а не только к первому оперативнику.\",\"PDF с. 1: Ammo Cache — Ammo Resupply, conditions\"]",
     "topic": "Equipment",
-    "question": "One operative used your Ammo Cache in the current turning point. Can the second one then perform Ammo Resupply at the same marker in the same turning point?",
+    "question": "A friendly operative has performed Ammo Resupply at your Ammo Cache marker. Can another friendly operative perform Ammo Resupply at the same marker during the same turning point?",
     "options": [
       "Yes, if the second one has a different order",
       "No, this marker has already been used in this turning point",
@@ -1833,17 +1968,32 @@
     "section": "PDF s. 3: Portable Barricade - Move With Barricade"
   },
   "kt-142": {
-    "original": "[\"Снаряжение\",\"Оперативник пересекает Razor Wire, находясь в пределах 1 дюйма от неё. Как свойство Obstructing меняет учитываемую дистанцию?\",\"Уменьшает её на 1 дюйм\",\"Добавляет 1 дюйм\",\"Удваивает всё движение\",\"Не меняет её, но наносит 1 урон\",\"Obstructing добавляет к такому пересечению 1 дюйм учитываемой дистанции. Само это свойство не наносит урон.\",\"PDF с. 1: Razor Wire — Obstructing\"]",
+    "original": "[\"Снаряжение\",\"Оперативник пересекает Razor Wire в пределах 1″ от неё. Как Obstructing меняет расход движения на это пересечение?\",\"Расход движения уменьшается на 1″\",\"Расход движения увеличивается на 1″\",\"Расход на всё движение удваивается\",\"Расход движения не меняется, но оперативник получает 1 урон\",\"Obstructing увеличивает расход движения на пересечение на 1″. Поэтому после пересечения у оперативника остаётся на 1″ меньше доступного движения, но затраченная дистанция становится на 1″ больше. Само свойство Obstructing не наносит урон.\",\"PDF с. 1: Razor Wire — Obstructing\"]",
     "topic": "Equipment",
-    "question": "The operative crosses Razor Wire while within 1\" of her. How does the Obstructing property change the distance taken into account?",
+    "question": "An operative crosses Razor Wire while within 1″ of it. How does Obstructing change the movement cost of that crossing?",
     "options": [
-      "Reduces it by 1 inch",
-      "Adds 1 inch",
-      "Doubles all movement",
-      "Doesn't change it, but deals 1 damage"
+      "The movement cost is reduced by 1″",
+      "The movement cost is increased by 1″",
+      "The movement cost of the entire move is doubled",
+      "The movement cost is unchanged, but the operative suffers 1 damage"
     ],
-    "explanation": "Obstructing adds 1 inch of countable distance to such intersection. This property itself does not cause damage.",
-    "section": "PDF s. 1: Razor Wire - Obstructing"
+    "explanation": "Obstructing adds 1″ to the movement cost of the crossing. The operative therefore has 1″ less movement remaining, while the distance counted as spent increases by 1″. Obstructing itself does not inflict damage.",
+    "section": "PDF s. 1: Razor Wire - Obstructing",
+    "versions": [
+      {
+        "original": "[\"Снаряжение\",\"Оперативник пересекает Razor Wire, находясь в пределах 1 дюйма от неё. Как свойство Obstructing меняет учитываемую дистанцию?\",\"Уменьшает её на 1 дюйм\",\"Добавляет 1 дюйм\",\"Удваивает всё движение\",\"Не меняет её, но наносит 1 урон\",\"Obstructing добавляет к такому пересечению 1 дюйм учитываемой дистанции. Само это свойство не наносит урон.\",\"PDF с. 1: Razor Wire — Obstructing\"]",
+        "topic": "Equipment",
+        "question": "The operative crosses Razor Wire while within 1\" of her. How does the Obstructing property change the distance taken into account?",
+        "options": [
+          "Reduces it by 1 inch",
+          "Adds 1 inch",
+          "Doubles all movement",
+          "Doesn't change it, but deals 1 damage"
+        ],
+        "explanation": "Obstructing adds 1 inch of countable distance to such intersection. This property itself does not cause damage.",
+        "section": "PDF s. 1: Razor Wire - Obstructing"
+      }
+    ]
   },
   "kt-143": {
     "original": "[\"Снаряжение\",\"При подъёме по террейну Ladder из Universal Equipment находится в зоне контроля оперативника на протяжении всего подъёма. Её льгота в этом действии ещё не использовалась. За какую вертикальную дистанцию считают этот подъём?\",\"0 дюймов\",\"2 дюйма\",\"1 дюйм\",\"За полную высоту террейна без изменений\",\"При соблюдении условий лестницы вертикальную часть этого подъёма считают за 1 дюйм. Это не делает остальное горизонтальное движение бесплатным.\",\"PDF с. 2: Ladders — climbing\"]",
@@ -1900,14 +2050,14 @@
   "kt-147": {
     "original": "[\"Миссии\",\"Approved Ops 2025, Retrieval: во втором turning point ваш оперативник законно обыскал objective marker действием Retrieve. Это первый поиск вашей команды у этого маркера. Сколько VP начисляется за сам первый поиск?\",\"0 VP до конца битвы\",\"2 VP\",\"1 VP\",\"3 VP\",\"Первый поиск вашей команды у каждого objective marker приносит 1 VP. Награда за переносимый Retrieval marker в конце битвы считается отдельно.\",\"PDF с. 3: Recon Tac Ops — Retrieval, Victory Points\"]",
     "topic": "Missions",
-    "question": "Approved Ops 2025, Retrieval: In the second turning point, your operative legitimately searched objective marker with the action of Retrieve. This is your team's first search at this marker. How much VP is awarded for the first search itself?",
+    "question": "Approved Ops 2025, Retrieval: During the second turning point, your operative performs Retrieve on an objective marker your team has not searched before. How many VP do you score immediately?",
     "options": [
       "0 VP until the end of the battle",
       "2 VP",
       "1 VP",
       "3 VP"
     ],
-    "explanation": "Your team's first search for each objective marker earns 1 VP. The reward for carrying Retrieval marker at the end of the battle is counted separately.",
+    "explanation": "You score 1 VP the first time each objective marker is searched by friendly operatives. VP for carrying Retrieval mission markers at the end of the battle are scored separately.",
     "section": "PDF p. 3: Recon Tac Ops - Retrieval, Victory Points"
   },
   "kt-148": {
@@ -1939,12 +2089,12 @@
   "kt-150": {
     "original": "[\"Основы\",\"У вас остались неистраченные CP в конце turning point. Что происходит с ними по обычным правилам?\",\"Все CP исчезают\",\"Они сохраняются, пока вы их не потратите\",\"Они превращаются в раны лидера\",\"Их получает игрок с инициативой\",\"CP не сбрасываются в конце turning point. Сохранённые CP можно использовать позднее.\",\"Strategy Phase — 2. Ready\"]",
     "topic": "Basics",
-    "question": "You have unspent CP at the end of turning point. What happens to them according to the usual rules?",
+    "question": "What happens to your unspent CP at the end of a turning point?",
     "options": [
-      "All CP disappear",
-      "They last until you spend them.",
-      "They turn into wounds of the leader",
-      "They are awarded to the player with the initiative."
+      "All CP are lost",
+      "They are carried over until you spend them",
+      "They become wounds for your leader",
+      "They are given to the player with initiative"
     ],
     "explanation": "CP are not reset at the end of turning point. Saved CP can be used later.",
     "section": "Strategy Phase - 2. Ready"
@@ -1976,17 +2126,32 @@
     "section": "PDF p. 5: Firefight Ploy - Just a Scratch"
   },
   "kt-153": {
-    "original": "[\"Взаимодействия\",\"У врага три ваших Markerlight tokens из правил Pathfinders. Во время своей активации он последовательно выполняет Reposition и Dash; других изменений жетонов нет. Сколько жетонов останется после этих действий?\",\"Два\",\"Один\",\"Три\",\"Ни одного\",\"Снятие жетона за перечисленные действия движения происходит только один раз за активацию этого врага. Поэтому Reposition и следующий Dash вместе снимают один жетон.\",\"PDF с. 6: Faction Rule — Markerlights, removing tokens\"]",
+    "original": "[\"Взаимодействия\",\"Pathfinders — Markerlights. У оперативника противника три ваших Markerlight tokens. В своей активации он выполняет Reposition, затем Dash. Другие эффекты не меняют число жетонов. Сколько ваших Markerlight tokens останется на нём после обоих действий?\",\"Два: за активацию снимается один жетон\",\"Один: по жетону за каждое действие движения\",\"Три: движение не снимает жетоны\",\"Ни одного: первое движение снимает все жетоны\",\"Жетон снимается при первом подходящем действии движения, но только один раз за активацию этого оперативника. Reposition снимает один из трёх ваших Markerlight tokens; следующий Dash в той же активации не снимает ещё один. Остаётся 3 − 1 = 2 жетона.\",\"PDF с. 6: Faction Rule — Markerlights, removing tokens\"]",
     "topic": "Interactions",
-    "question": "The enemy has three of your Markerlight tokens from the Pathfinders rules. During its activation, it executes Reposition and Dash in sequence; There are no other token changes. How many tokens will remain after these actions?",
+    "question": "Pathfinders — Markerlights. An enemy operative has three of your Markerlight tokens. During its activation, it performs Reposition and then Dash. No other effects change its tokens. How many of your Markerlight tokens remain on it after both actions?",
     "options": [
-      "Two",
-      "One",
-      "Three",
-      "None"
+      "Two: one token is removed per activation",
+      "One: one token is removed for each move action",
+      "Three: movement does not remove tokens",
+      "None: the first move removes all tokens"
     ],
-    "explanation": "Removing a token for the listed movement actions occurs only once per activation of that enemy. Therefore, Reposition and the next Dash remove one token together.",
-    "section": "PDF p. 6: Faction Rule - Markerlights, removing tokens"
+    "explanation": "Remove a token when the operative performs its first qualifying move action, but only once during each of its activations. Reposition removes one of your three Markerlight tokens; Dash during the same activation does not remove another. It has 3 − 1 = 2 tokens remaining.",
+    "section": "PDF p. 6: Faction Rule - Markerlights, removing tokens",
+    "versions": [
+      {
+        "original": "[\"Взаимодействия\",\"У врага три ваших Markerlight tokens из правил Pathfinders. Во время своей активации он последовательно выполняет Reposition и Dash; других изменений жетонов нет. Сколько жетонов останется после этих действий?\",\"Два\",\"Один\",\"Три\",\"Ни одного\",\"Снятие жетона за перечисленные действия движения происходит только один раз за активацию этого врага. Поэтому Reposition и следующий Dash вместе снимают один жетон.\",\"PDF с. 6: Faction Rule — Markerlights, removing tokens\"]",
+        "topic": "Interactions",
+        "question": "The enemy has three of your Markerlight tokens from the Pathfinders rules. During its activation, it executes Reposition and Dash in sequence; There are no other token changes. How many tokens will remain after these actions?",
+        "options": [
+          "Two",
+          "One",
+          "Three",
+          "None"
+        ],
+        "explanation": "Removing a token for the listed movement actions occurs only once per activation of that enemy. Therefore, Reposition and the next Dash remove one token together.",
+        "section": "PDF p. 6: Faction Rule - Markerlights, removing tokens"
+      }
+    ]
   },
   "kt-154": {
     "original": "[\"Ближний бой\",\"Hit бойца — 4+. Один союзник помогает ему в Fight: стоит в control range выбранного врага и не связан другим врагом. Иных модификаторов нет. Какой Hit у бойца?\",\"4+\",\"5+\",\"2+\",\"3+\",\"Каждый подходящий помощник улучшает Hit ближнего оружия на 1. Один помощник меняет 4+ на 3+.\",\"Fight — Roll Attack Dice: assisting\"]",
@@ -2236,17 +2401,32 @@
     "section": "PDF s. 2: Ladders - setup"
   },
   "kt-173": {
-    "original": "[\"Снаряжение\",\"Мину из Universal Equipment хотят поставить ровно в 2″ от objective marker, без исключений killzone. Все прочие требования выполнены. Можно ли?\",\"Нет: от других маркеров требуется больше 2″\",\"Да: ровно 2″ достаточно\",\"Да: objective markers не учитываются\",\"Только если маркер сейчас никто не контролирует\",\"Правило Mines требует расстояния строго больше 2″ от других маркеров. Ровно 2″ этому условию не соответствует.\",\"PDF с. 1: Mines — setup\"]",
+    "original": "[\"Снаряжение\",\"При расстановке Mines маркер мины хотят поставить ровно в 2″ от objective marker. Допускает ли правило Mines такое расстояние?\",\"Нет: от других маркеров требуется больше 2″\",\"Да: ровно 2″ достаточно\",\"Да: objective markers не учитываются\",\"Только если маркер сейчас никто не контролирует\",\"Нет. Правило Mines требует размещать маркер мины дальше чем в 2″ от других маркеров, включая objective markers. Ровно 2″ не соответствует требованию «больше 2″».\",\"PDF с. 1: Mines — setup\"]",
     "topic": "Equipment",
-    "question": "They want to place the mine from Universal Equipment exactly 2″ from objective marker, without exception killzone. All other requirements are met. Is it possible?",
+    "question": "When setting up Mines, you want to place the Mines marker exactly 2\" from an objective marker. Does the Mines rule permit this distance?",
     "options": [
       "No: other markers require more than 2″",
       "Yes: exactly 2″ is enough",
       "Yes: objective markers are not counted",
       "Only if no one controls the marker now"
     ],
-    "explanation": "The Mines rule requires a distance strictly greater than 2″ from other markers. Exactly 2″ does not meet this condition.",
-    "section": "PDF s. 1: Mines - setup"
+    "explanation": "No. The Mines rule requires the Mines marker to be more than 2\" from other markers, including objective markers. Exactly 2\" does not meet that requirement.",
+    "section": "PDF s. 1: Mines - setup",
+    "versions": [
+      {
+        "original": "[\"Снаряжение\",\"Мину из Universal Equipment хотят поставить ровно в 2″ от objective marker, без исключений killzone. Все прочие требования выполнены. Можно ли?\",\"Нет: от других маркеров требуется больше 2″\",\"Да: ровно 2″ достаточно\",\"Да: objective markers не учитываются\",\"Только если маркер сейчас никто не контролирует\",\"Правило Mines требует расстояния строго больше 2″ от других маркеров. Ровно 2″ этому условию не соответствует.\",\"PDF с. 1: Mines — setup\"]",
+        "topic": "Equipment",
+        "question": "They want to place the mine from Universal Equipment exactly 2″ from objective marker, without exception killzone. All other requirements are met. Is it possible?",
+        "options": [
+          "No: other markers require more than 2″",
+          "Yes: exactly 2″ is enough",
+          "Yes: objective markers are not counted",
+          "Only if no one controls the marker now"
+        ],
+        "explanation": "The Mines rule requires a distance strictly greater than 2″ from other markers. Exactly 2″ does not meet this condition.",
+        "section": "PDF s. 1: Mines - setup"
+      }
+    ]
   },
   "kt-174": {
     "original": "[\"Снаряжение\",\"Оперативник хочет выполнить Move With Barricade, сохраняя щит при себе. Выбранный путь включает короткий спуск с уступа. Дистанции движения хватает. Разрешён ли этот путь?\",\"Да: если спуск меньше 2″ и не расходует движение\",\"Да: если у бойца APL 3\",\"Да: переносная баррикада игнорирует террейн\",\"Нет: Move With Barricade запрещает drop\",\"Для Move With Barricade отдельно запрещены climb, drop и jump. Даже спуск, который обычно не расходует дистанцию, остаётся drop.\",\"PDF с. 3: Portable Barricade — Move With Barricade\"]",
@@ -2522,17 +2702,32 @@
     "section": "PDF p. 3: Flank - Victory Points"
   },
   "kt-195": {
-    "original": "[\"Миссии\",\"Approved Ops 2025, Envoy: оперативник был посланником во втором Turning Point и выжил; в третьем выбирали другого. Можно ли снова назначить первого оперативника в четвёртом?\",\"Да: между назначениями прошёл один Turning Point\",\"Да: если в первый раз он не заработал VP\",\"Нет: запрещено повторно выбирать посланника из любого предыдущего Turning Point\",\"Да: при трате 1 CP\",\"Envoy запрещает выбирать оперативника, уже назначенного в любом предыдущем Turning Point этой битвы. Пропуск одного Turning Point не снимает запрет; результат прошлого задания также неважен.\",\"PDF с. 3: Envoy — selection restrictions\"]",
+    "original": "[\"Миссии\",\"Можно ли в течение одной битвы повторно назначить одного оперативника Envoy, если между назначениями прошёл хотя бы один turning point?\",\"Да: между назначениями прошёл один turning point\",\"Да: если в первый раз он не заработал VP\",\"Нет: запрет на повторное назначение действует на всю битву\",\"Да: при трате 1 CP\",\"Envoy запрещает выбирать оперативника, которого вы уже назначали в любом предыдущем turning point этой битвы. Это запрет на повторное назначение за всю битву, а не только на назначение два turning points подряд. Результат прошлого задания неважен.\",\"PDF с. 3: Envoy — selection restrictions\"]",
     "topic": "Missions",
-    "question": "Approved Ops 2025, Envoy: the operative was an envoy in the second Turning Point and survived; in the third they chose someone else. Is it possible to assign the first operative again in the fourth?",
+    "question": "Can you select the same operative as your Envoy again during a battle if at least one turning point has passed between selections?",
     "options": [
-      "Yes: one Turning Point passed between appointments",
-      "Yes: if the first time it didn't work VP",
-      "No: It is prohibited to re-select an envoy from any previous Turning Point",
-      "Yes: when spending 1 CP"
+      "Yes: one turning point has passed between selections",
+      "Yes, if it did not score VP the first time",
+      "No: the restriction on selecting the same operative again lasts for the entire battle",
+      "Yes, by spending 1 CP"
     ],
-    "explanation": "Envoy prohibits selecting an operative already assigned to any previous Turning Point of this battle. Skipping one Turning Point does not remove the ban; The result of the previous task is also unimportant.",
-    "section": "PDF p. 3: Envoy - selection restrictions"
+    "explanation": "Envoy prevents you from selecting an operative you selected in any previous turning point of that battle. This prevents selecting the same operative again during the battle, not just in consecutive turning points. Whether it previously scored VP does not matter.",
+    "section": "PDF p. 3: Envoy - selection restrictions",
+    "versions": [
+      {
+        "original": "[\"Миссии\",\"Approved Ops 2025, Envoy: оперативник был посланником во втором Turning Point и выжил; в третьем выбирали другого. Можно ли снова назначить первого оперативника в четвёртом?\",\"Да: между назначениями прошёл один Turning Point\",\"Да: если в первый раз он не заработал VP\",\"Нет: запрещено повторно выбирать посланника из любого предыдущего Turning Point\",\"Да: при трате 1 CP\",\"Envoy запрещает выбирать оперативника, уже назначенного в любом предыдущем Turning Point этой битвы. Пропуск одного Turning Point не снимает запрет; результат прошлого задания также неважен.\",\"PDF с. 3: Envoy — selection restrictions\"]",
+        "topic": "Missions",
+        "question": "Approved Ops 2025, Envoy: the operative was an envoy in the second Turning Point and survived; in the third they chose someone else. Is it possible to assign the first operative again in the fourth?",
+        "options": [
+          "Yes: one Turning Point passed between appointments",
+          "Yes: if the first time it didn't work VP",
+          "No: It is prohibited to re-select an envoy from any previous Turning Point",
+          "Yes: when spending 1 CP"
+        ],
+        "explanation": "Envoy prohibits selecting an operative already assigned to any previous Turning Point of this battle. Skipping one Turning Point does not remove the ban; The result of the previous task is also unimportant.",
+        "section": "PDF p. 3: Envoy - selection restrictions"
+      }
+    ]
   },
   "kt-196": {
     "original": "[\"Миссии\",\"Approved Ops 2025, Martyrs: в конце второго Turning Point вы оспариваете маркер с одним вашим Martyr token, но не контролируете его. Снимаете этот жетон. Сколько VP получаете?\",\"0 VP\",\"1 VP\",\"2 VP\",\"3 VP\",\"Для базового 1 VP достаточно contest. Увеличение до 2 VP требует ещё и контроля маркера.\",\"PDF с. 3: Martyrs — Victory Points\"]",
@@ -3237,17 +3432,32 @@
     "section": "Physical page 4: Opening a Stockade → Shoot, Hit treated as 2+ then other changes"
   },
   "kt-250": {
-    "original": "[\"Gallowdark\",\"Gallowdark: учебная способность позволяет второй Shoot за активацию, только если он выполняется из bolt pistol. Оперативник уже выполнил первый Shoot, затем законно выбрал Guard как второй Shoot по этой способности. При прерывании у него есть допустимые цели для bolt pistol и plasma gun. Какое оружие можно выбрать?\",\"Любое: выбор Guard полностью отменяет оружейное условие\",\"Только bolt pistol, как требует основание для дополнительного Shoot\",\"Только plasma gun, поскольку bolt pistol уже зарезервирован для Guard\",\"Никакое: Guard вообще нельзя использовать вместо такого Shoot\",\"Официальный FAQ разрешает Guard при условии использования конкретного оружия. Если при прерывании выполняется Shoot, нужно выбрать именно предусмотренное оружие.\",\"Физическая стр. 4: Guard with rules requiring a specific weapon for Shoot\"]",
+    "original": "[\"Gallowdark\",\"Gallowdark. Способность оперативника разрешает два Shoot за активацию, причём второй — только из bolt pistol. Первый Shoot он выполнил из plasma gun, а вместо второго выполнил Guard. При прерывании он стреляет и имеет допустимые цели для обоих видов оружия. Какое оружие можно выбрать?\",\"Любое: выбор Guard полностью отменяет оружейное условие\",\"Только bolt pistol, как требует основание для дополнительного Shoot\",\"Только plasma gun, поскольку bolt pistol уже зарезервирован для Guard\",\"Никакое: Guard вообще нельзя использовать вместо такого Shoot\",\"Только bolt pistol. Правило, разрешившее второй Shoot, требует использовать это оружие. Guard не отменяет данное условие: при Shoot во время прерывания нужно выбрать bolt pistol. Первый Shoot в условии выполнен из plasma gun.\",\"Физическая стр. 4: Guard with rules requiring a specific weapon for Shoot\"]",
     "topic": "Gallowdark",
-    "question": "Gallowdark: The hypothetical ability allows a second Shoot per activation only if executed from bolt pistol. The operative had already completed the first Shoot, then legitimately selected Guard as the second Shoot for this ability. When interrupted, it has valid targets for bolt pistol and plasma gun. What weapons can you choose?",
+    "question": "Gallowdark. An operative has a rule allowing two Shoot actions per activation, but the second must use a bolt pistol. It first shoots with a plasma gun, then performs Guard instead of the second Shoot. When it interrupts, it shoots and has valid targets for both weapons. Which weapon can it select?",
     "options": [
       "Any: Selecting Guard completely cancels the weapon condition",
       "bolt pistol only, as required by the base for the optional Shoot",
       "Only plasma gun, since bolt pistol is already reserved for Guard",
       "None: Guard cannot be used at all instead of such Shoot"
     ],
-    "explanation": "The official FAQ allows Guard, subject to the use of a specific weapon. If Shoot is executed during an interruption, the intended weapon must be selected.",
-    "section": "Physical page 4: Guard with rules requiring a specific weapon for Shoot"
+    "explanation": "Only the bolt pistol. The rule permitting the second Shoot requires that weapon. Guard does not remove this condition: if the operative shoots during the interrupt, it must select the bolt pistol. Its first Shoot used the plasma gun.",
+    "section": "Physical page 4: Guard with rules requiring a specific weapon for Shoot",
+    "versions": [
+      {
+        "original": "[\"Gallowdark\",\"Gallowdark: учебная способность позволяет второй Shoot за активацию, только если он выполняется из bolt pistol. Оперативник уже выполнил первый Shoot, затем законно выбрал Guard как второй Shoot по этой способности. При прерывании у него есть допустимые цели для bolt pistol и plasma gun. Какое оружие можно выбрать?\",\"Любое: выбор Guard полностью отменяет оружейное условие\",\"Только bolt pistol, как требует основание для дополнительного Shoot\",\"Только plasma gun, поскольку bolt pistol уже зарезервирован для Guard\",\"Никакое: Guard вообще нельзя использовать вместо такого Shoot\",\"Официальный FAQ разрешает Guard при условии использования конкретного оружия. Если при прерывании выполняется Shoot, нужно выбрать именно предусмотренное оружие.\",\"Физическая стр. 4: Guard with rules requiring a specific weapon for Shoot\"]",
+        "topic": "Gallowdark",
+        "question": "Gallowdark: The hypothetical ability allows a second Shoot per activation only if executed from bolt pistol. The operative had already completed the first Shoot, then legitimately selected Guard as the second Shoot for this ability. When interrupted, it has valid targets for bolt pistol and plasma gun. What weapons can you choose?",
+        "options": [
+          "Any: Selecting Guard completely cancels the weapon condition",
+          "bolt pistol only, as required by the base for the optional Shoot",
+          "Only plasma gun, since bolt pistol is already reserved for Guard",
+          "None: Guard cannot be used at all instead of such Shoot"
+        ],
+        "explanation": "The official FAQ allows Guard, subject to the use of a specific weapon. If Shoot is executed during an interruption, the intended weapon must be selected.",
+        "section": "Physical page 4: Guard with rules requiring a specific weapon for Shoot"
+      }
+    ]
   },
   "kt-251": {
     "original": "[\"Стрельба\",\"Стрелок на Vantage на 4″ выше цели с Engage. Оружие: Atk 5, Hit 4+, собственный Accurate 1, Devastating 2 и Piercing Crits 2. Цель obscured из-за другого, отдельного элемента Heavy. Стрелок использовал максимальное число автоматических успехов; на оставшихся кубиках выпали 6, 4 и 1. Каков итог до броска защиты?\",\"Один критический и два обычных; 2 урона Devastating и один кубик защиты\",\"Четыре обычных успеха; защитник собирает три кубика\",\"Три обычных успеха, 0 урона Devastating; защитник собирает три кубика\",\"Один критический и три обычных; 2 урона Devastating и один кубик защиты\",\"Vantage даёт Accurate 2; несколько Accurate не складываются до 3. Два автоматических и два брошенных успеха дают четыре, затем obscured убирает один и исключает криты. Devastating и Piercing Crits не запускаются.\",\"Vantage; Appendix: Accurate; Core Rules: Obscured\"]",
@@ -3315,17 +3525,32 @@
     "section": "PDF p. 6: Hit changes and Hot; Appendix: Hot"
   },
   "kt-256": {
-    "original": "[\"Оружие\",\"При выборе цели учебный эффект одновременно улучшает Hit оружия с 4+ до 3+ до конца turning point и даёт ему Lethal 5+. Особого момента применения не указано. Следом на двух кубиках этой атаки выпали 3 и 5. Что получится?\",\"Оба — обычные успехи\",\"3 — обычный, 5 — критический успех\",\"3 — провал, 5 — критический успех\",\"3 — провал, 5 — обычный успех\",\"Изменение характеристики Hit ждёт завершения действия. Изменение правил оружия действует сразу, поэтому новый Lethal 5+ уже превращает успешную пятёрку в крит.\",\"PDF с. 2: Datacards — changes to stats versus weapon rules\"]",
+    "original": "[\"Оружие\",\"Рассмотрим условную ситуацию. У оружия Hit 4+. Во время Shoot, после выбора цели, эффект улучшает его Hit до 3+ и добавляет Lethal 5+ до конца turning point. Особого момента применения изменений не указано. На кубиках выпали 3 и 5. Как классифицируются эти результаты в текущей атаке?\",\"Оба — обычные успехи\",\"3 — обычный, 5 — критический успех\",\"3 — провал, 5 — критический успех\",\"3 — провал, 5 — обычный успех\",\"3 — провал, 5 — критический успех. Изменение характеристики Hit, возникшее во время действия, применяется после завершения действия: в текущей атаке остаётся Hit 4+. Изменение правил оружия применяется сразу, поэтому Lethal 5+ уже действует.\",\"PDF с. 2: Datacards — changes to stats versus weapon rules\"]",
     "topic": "Weapons",
-    "question": "When selecting a target, the hypothetical effect simultaneously upgrades the weapon's Hit from 4+ to 3+ until the end of turning point and gives it Lethal 5+. No specific point of use is indicated. Next, 3 and 5 came up on the two dice of this attack. What happens?",
+    "question": "Consider a hypothetical situation. A weapon has Hit 4+. During Shoot, after the target is selected, an effect improves its Hit to 3+ and grants Lethal 5+ until the end of the turning point. No special timing for applying these changes is specified. You roll a 3 and a 5. How are these results classified in the current attack?",
     "options": [
       "Both are normal successes.",
       "3 - normal, 5 - critical success",
       "3 - failure, 5 - critical success",
       "3 - failure, 5 - normal success"
     ],
-    "explanation": "Changing the Hit characteristic is waiting for the action to complete. The change in weapon rules takes effect immediately, so the new Lethal 5+ is already turning a successful five into a crit.",
-    "section": "PDF s. 2: Datacards - changes to stats versus weapon rules"
+    "explanation": "The 3 is a fail; the 5 is a critical success. A change to the Hit stat arising during an action is applied after that action is completed, so this attack still uses Hit 4+. Changes to weapon rules apply immediately, so Lethal 5+ already applies.",
+    "section": "PDF s. 2: Datacards - changes to stats versus weapon rules",
+    "versions": [
+      {
+        "original": "[\"Оружие\",\"При выборе цели учебный эффект одновременно улучшает Hit оружия с 4+ до 3+ до конца turning point и даёт ему Lethal 5+. Особого момента применения не указано. Следом на двух кубиках этой атаки выпали 3 и 5. Что получится?\",\"Оба — обычные успехи\",\"3 — обычный, 5 — критический успех\",\"3 — провал, 5 — критический успех\",\"3 — провал, 5 — обычный успех\",\"Изменение характеристики Hit ждёт завершения действия. Изменение правил оружия действует сразу, поэтому новый Lethal 5+ уже превращает успешную пятёрку в крит.\",\"PDF с. 2: Datacards — changes to stats versus weapon rules\"]",
+        "topic": "Weapons",
+        "question": "When selecting a target, the hypothetical effect simultaneously upgrades the weapon's Hit from 4+ to 3+ until the end of turning point and gives it Lethal 5+. No specific point of use is indicated. Next, 3 and 5 came up on the two dice of this attack. What happens?",
+        "options": [
+          "Both are normal successes.",
+          "3 - normal, 5 - critical success",
+          "3 - failure, 5 - critical success",
+          "3 - failure, 5 - normal success"
+        ],
+        "explanation": "Changing the Hit characteristic is waiting for the action to complete. The change in weapon rules takes effect immediately, so the new Lethal 5+ is already turning a successful five into a crit.",
+        "section": "PDF s. 2: Datacards - changes to stats versus weapon rules"
+      }
+    ]
   },
   "kt-257": {
     "original": "[\"Оружие\",\"У оружия Hit 4+, Ceaseless и Balanced. Первоначальные результаты: 1, 2, 2, 4, 6. Через Ceaseless обе двойки уже переброшены в 1 и 5. Balanced ещё не использован. Какой из оставшихся провалов разрешено перебросить через Balanced?\",\"Только единицу, полученную при перебросе двойки\",\"Только единицу из первоначального броска\",\"Любую из двух единиц\",\"Ни одну: после Ceaseless Balanced всегда запрещён\",\"Разные источники перебросов можно применять к разным кубикам. Однако конкретный кубик нельзя перебросить повторно: новая единица уже исчерпала переброс, первоначальная — ещё нет.\",\"Dice: one re-roll per dice; Appendix: Balanced / Ceaseless\"]",
@@ -3432,17 +3657,32 @@
     "section": "Datacards: minimum Move; Damage; Charge"
   },
   "kt-265": {
-    "original": "[\"Действия\",\"У учебного mission action исходная стоимость 1 AP; два действующих эффекта уменьшают её каждый на 1 AP. Оперативник уже выполнил это действие в текущей активации. Особого разрешения повторять его нет. Можно ли выполнить его ещё раз и получить AP за отрицательную стоимость?\",\"Да: второе выполнение вернёт 1 AP\",\"Да, но только бесплатно, без возврата AP\",\"Нет, потому что стоимость любого действия не может быть ниже 1 AP\",\"Нет: минимальная стоимость 0 AP, а запрет повторять действие остаётся\",\"Стоимость не опускается ниже 0 AP. Бесплатность сама по себе не отменяет action restrictions: для второго одинакового действия требуется отдельное разрешение.\",\"Firefight Phase: Perform Actions; Actions: Free actions\"]",
+    "original": "[\"Действия\",\"Действие стоит 1 AP. Два применимых эффекта уменьшают его стоимость каждый на 1 AP. Какова итоговая стоимость действия?\",\"1 AP\",\"−1 AP: выполнение возвращает 1 AP\",\"2 AP\",\"0 AP\",\"Минимальная стоимость действия — 0 AP независимо от количества уменьшающих её эффектов. Стоимость 1 AP с двумя уменьшениями на 1 AP становится 0 AP, а не отрицательной. Выполнение действия не возвращает AP.\",\"Firefight Phase — Perform Actions: minimum action cost 0AP\"]",
     "topic": "Actions",
-    "question": "The hypothetical mission action has an initial cost of 1 AP; two active effects each reduce it by 1 AP. The operative has already performed this action in the current activation. There is no special permission to repeat it. Is it possible to do it again and get AP for a negative cost?",
+    "question": "An action costs 1 AP. Two applicable effects each reduce its cost by 1 AP. What is the final AP cost?",
     "options": [
-      "Yes: the second execution will return 1 AP",
-      "Yes, but only for free, no return AP",
-      "No, because the cost of any action cannot be lower than 1 AP",
-      "No: the minimum cost is 0 AP, and the ban on repeating the action remains"
+      "1 AP",
+      "−1 AP: performing it refunds 1 AP",
+      "2 AP",
+      "0 AP"
     ],
-    "explanation": "The cost does not fall below 0 AP. Being free does not cancel action restrictions: for the second identical action a separate permission is required.",
-    "section": "Firefight Phase: Perform Actions; Actions: Free actions"
+    "explanation": "The minimum cost of an action is 0 AP, regardless of how many effects reduce it. An action costing 1 AP with two reductions of 1 AP therefore costs 0 AP, not a negative amount. Performing it does not refund AP.",
+    "section": "Firefight Phase — Perform Actions: minimum action cost 0AP",
+    "versions": [
+      {
+        "original": "[\"Действия\",\"У учебного mission action исходная стоимость 1 AP; два действующих эффекта уменьшают её каждый на 1 AP. Оперативник уже выполнил это действие в текущей активации. Особого разрешения повторять его нет. Можно ли выполнить его ещё раз и получить AP за отрицательную стоимость?\",\"Да: второе выполнение вернёт 1 AP\",\"Да, но только бесплатно, без возврата AP\",\"Нет, потому что стоимость любого действия не может быть ниже 1 AP\",\"Нет: минимальная стоимость 0 AP, а запрет повторять действие остаётся\",\"Стоимость не опускается ниже 0 AP. Бесплатность сама по себе не отменяет action restrictions: для второго одинакового действия требуется отдельное разрешение.\",\"Firefight Phase: Perform Actions; Actions: Free actions\"]",
+        "topic": "Actions",
+        "question": "The hypothetical mission action has an initial cost of 1 AP; two active effects each reduce it by 1 AP. The operative has already performed this action in the current activation. There is no special permission to repeat it. Is it possible to do it again and get AP for a negative cost?",
+        "options": [
+          "Yes: the second execution will return 1 AP",
+          "Yes, but only for free, no return AP",
+          "No, because the cost of any action cannot be lower than 1 AP",
+          "No: the minimum cost is 0 AP, and the ban on repeating the action remains"
+        ],
+        "explanation": "The cost does not fall below 0 AP. Being free does not cancel action restrictions: for the second identical action a separate permission is required.",
+        "section": "Firefight Phase: Perform Actions; Actions: Free actions"
+      }
+    ]
   },
   "kt-266": {
     "original": "[\"Ближний бой\",\"Атакующий с оружием Dmg 3/4, Shock и Brutal сохранил два крита. Защитник имеет 8 ран, один крит и один обычный успех. Атакующий первым наносит критический strike. Дополнительных правил нет. Может ли защитник затем заблокировать второй крит и выжить?\",\"Нет: атакующий вправе убрать крит через Shock, оставив защитнику только обычный успех\",\"Да: Shock убирает обычный успех, а оставшийся крит может блокировать; у защитника остаётся 4 раны\",\"Нет: Brutal запрещает любые блоки против критических успехов\",\"Да: обычный успех защитника блокирует второй крит, а его крит наносит ответный удар\",\"При наличии обычного успеха Shock должен убрать именно его. Сохранившийся крит разрешено использовать для block против второго крита: требование Brutal соблюдено. Второго удара не происходит, поэтому остаются 8−4=4 раны.\",\"Shock; Brutal; Core Rules: Fight — Resolve Attack Dice\"]",
@@ -3467,34 +3707,64 @@
       "Defender; right after his first pass",
       "Both reroll all selected dice at the same time"
     ],
-    "explanation": "The rule of simultaneous re-rolls directly sets the rotation starting with the player with the initiative. It separately takes precedence over the general permission of concurrent rules. One pass does not end the exchange.",
+    "explanation": "When both players can re-roll dice at the same time, they alternate re-rolling one die or passing, starting with the player who has initiative. This specific procedure takes precedence over the general rule for resolving simultaneous rules. The exchange ends after two consecutive passes.",
     "section": "Dice: alternating re-rolls and passes"
   },
   "kt-268": {
-    "original": "[\"Взаимодействия\",\"Два учебных специальных правила вне Core Book конфликтуют: одно разрешает выполнить действие X, другое прямо говорит, что этот оперативник не может выполнять X. У правил нет специальных оговорок о приоритете, официальный FAQ этот конфликт не разбирает. Активный игрок хочет разрешить X, инициатива у соперника. Что решает конфликт?\",\"Активный игрок выбирает разрешение X\",\"Решает только игрок с инициативой\",\"Запрет X: при равном уровне правил «cannot» имеет приоритет\",\"Нужно бросить roll-off\",\"После отсутствующих явного приоритета и FAQ оба правила находятся на одинаковом уровне источника. Следующий критерий — запрет «cannot»; до выбора активного игрока или инициативы дело не доходит.\",\"Precedence: ordered priority criteria\"]",
+    "original": "[\"Взаимодействия\",\"Два гипотетических специальных правила вне Core Book конфликтуют: одно разрешает выполнить действие X, другое прямо запрещает этому оперативнику выполнять X. У правил нет специальных оговорок о приоритете; официальный FAQ не разрешает конфликт. Активный игрок хочет разрешить X, инициатива у соперника. Что решает конфликт?\",\"Активный игрок выбирает разрешение X\",\"Решает только игрок с инициативой\",\"Запрет X: при равном уровне правил «cannot» имеет приоритет\",\"Нужно бросить roll-off\",\"При отсутствии явного приоритета и решения в FAQ оба специальных правила имеют одинаковый уровень приоритета. Следующий критерий — преимущество запрета «cannot». Выбор активного игрока или игрока с инициативой здесь не требуется.\",\"Precedence: ordered priority criteria\"]",
     "topic": "Interactions",
-    "question": "Two hypothetical special rules outside of Core Book conflict: one allows the action X to be performed, the other explicitly states that this operative cannot perform X. The rules do not have special reservations about priority; the official FAQ does not resolve this conflict. The active player wants to resolve X, the opponent has the initiative. What resolves the conflict?",
+    "question": "Two hypothetical special rules outside the Core Book conflict: one permits action X, while the other explicitly says that this operative cannot perform X. Neither specifies precedence, and the official FAQ does not resolve the conflict. The active player wants to allow X; the opponent has initiative. What resolves the conflict?",
     "options": [
       "The active player chooses to allow X",
       "Only the player with initiative decides",
       "X is prohibited: at equal rules priority, “cannot” takes precedence",
       "Resolve a new roll-off"
     ],
-    "explanation": "After missing explicit priority and FAQ, both rules are at the same source level. The next criterion is the ban on “cannot”; it doesn't come down to choosing an active player or initiative.",
-    "section": "Precedence: ordered priority criteria"
+    "explanation": "With no explicit precedence or FAQ ruling, the two special rules have equal priority. The next criterion gives precedence to ‘cannot’, so neither the active player nor the player with initiative needs to choose.",
+    "section": "Precedence: ordered priority criteria",
+    "versions": [
+      {
+        "original": "[\"Взаимодействия\",\"Два учебных специальных правила вне Core Book конфликтуют: одно разрешает выполнить действие X, другое прямо говорит, что этот оперативник не может выполнять X. У правил нет специальных оговорок о приоритете, официальный FAQ этот конфликт не разбирает. Активный игрок хочет разрешить X, инициатива у соперника. Что решает конфликт?\",\"Активный игрок выбирает разрешение X\",\"Решает только игрок с инициативой\",\"Запрет X: при равном уровне правил «cannot» имеет приоритет\",\"Нужно бросить roll-off\",\"После отсутствующих явного приоритета и FAQ оба правила находятся на одинаковом уровне источника. Следующий критерий — запрет «cannot»; до выбора активного игрока или инициативы дело не доходит.\",\"Precedence: ordered priority criteria\"]",
+        "topic": "Interactions",
+        "question": "Two hypothetical special rules outside of Core Book conflict: one allows the action X to be performed, the other explicitly states that this operative cannot perform X. The rules do not have special reservations about priority; the official FAQ does not resolve this conflict. The active player wants to resolve X, the opponent has the initiative. What resolves the conflict?",
+        "options": [
+          "The active player chooses to allow X",
+          "Only the player with initiative decides",
+          "X is prohibited: at equal rules priority, “cannot” takes precedence",
+          "Resolve a new roll-off"
+        ],
+        "explanation": "After missing explicit priority and FAQ, both rules are at the same source level. The next criterion is the ban on “cannot”; it doesn't come down to choosing an active player or initiative.",
+        "section": "Precedence: ordered priority criteria"
+      }
+    ]
   },
   "kt-269": {
-    "original": "[\"Оружие\",\"Учебная способность разрешает два Shoot за активацию, но требует использовать разное оружие в каждом. Других ограничений нет. У оперативника есть plasma gun (standard) и plasma gun (supercharge). Первым был standard. Разрешён ли supercharge вторым по этому условию?\",\"Нет: одно основное название всегда означает одно weapon\",\"Да: профили используются как разные weapons\",\"Да, только если первый Shoot не нанёс урон\",\"Нет: смена профиля требует отдельного действия\",\"В Core Rules профили с разными вторичными названиями используются как разные weapons. При этом правило, называющее только «plasma gun», охватывало бы оба профиля. Условие примера не добавляет такого запрета.\",\"Datacards: Weapon stats, primary and secondary weapon names\"]",
+    "original": "[\"Оружие\",\"Гипотетическая способность разрешает два Shoot за активацию с разным оружием в каждом; других ограничений нет. У оперативника есть plasma gun (standard) и plasma gun (supercharge). Первым использован standard. Как трактуются эти профили для требования разного оружия?\",\"Это одно оружие из-за общего основного названия, поэтому второй профиль не подходит\",\"Это разные weapons, поэтому supercharge подходит для второго Shoot\",\"Это разные weapons только если первый Shoot не нанёс урона\",\"Это разные weapons только после отдельного действия смены профиля\",\"В Core Rules профили с разными вторичными названиями используются как разные weapons. При этом правило, называющее только «plasma gun», охватывало бы оба профиля. Условие примера не добавляет такого запрета.\",\"Datacards: Weapon stats, primary and secondary weapon names\"]",
     "topic": "Weapons",
-    "question": "The hypothetical ability allows two Shoot per activation, but requires using a different weapon in each. There are no other restrictions. The operative has plasma gun (standard) and plasma gun (supercharge). The first was standard. Is supercharge allowed second under this condition?",
+    "question": "A hypothetical ability allows two Shoot actions per activation, using a different weapon for each, with no other restrictions. An operative has plasma gun (standard) and plasma gun (supercharge), and uses standard first. How are these profiles treated for the different-weapon requirement?",
     "options": [
-      "No: one main name always means one weapon",
-      "Yes: profiles are used as different weapons",
-      "Yes, only if the first Shoot did not cause damage",
-      "No: changing your profile requires a separate action"
+      "They are one weapon because they share a primary name, so the second profile does not qualify",
+      "They are different weapons, so supercharge qualifies for the second Shoot",
+      "They are different weapons only if the first Shoot inflicted no damage",
+      "They are different weapons only after a separate action to change profile"
     ],
     "explanation": "In Core Rules, profiles with different secondary names are used as different weapons. In this case, a rule naming only “plasma gun” would cover both profiles. The example condition does not add such a prohibition.",
-    "section": "Datacards: Weapon stats, primary and secondary weapon names"
+    "section": "Datacards: Weapon stats, primary and secondary weapon names",
+    "versions": [
+      {
+        "original": "[\"Оружие\",\"Учебная способность разрешает два Shoot за активацию, но требует использовать разное оружие в каждом. Других ограничений нет. У оперативника есть plasma gun (standard) и plasma gun (supercharge). Первым был standard. Разрешён ли supercharge вторым по этому условию?\",\"Нет: одно основное название всегда означает одно weapon\",\"Да: профили используются как разные weapons\",\"Да, только если первый Shoot не нанёс урон\",\"Нет: смена профиля требует отдельного действия\",\"В Core Rules профили с разными вторичными названиями используются как разные weapons. При этом правило, называющее только «plasma gun», охватывало бы оба профиля. Условие примера не добавляет такого запрета.\",\"Datacards: Weapon stats, primary and secondary weapon names\"]",
+        "topic": "Weapons",
+        "question": "The hypothetical ability allows two Shoot per activation, but requires using a different weapon in each. There are no other restrictions. The operative has plasma gun (standard) and plasma gun (supercharge). The first was standard. Is supercharge allowed second under this condition?",
+        "options": [
+          "No: one main name always means one weapon",
+          "Yes: profiles are used as different weapons",
+          "Yes, only if the first Shoot did not cause damage",
+          "No: changing your profile requires a separate action"
+        ],
+        "explanation": "In Core Rules, profiles with different secondary names are used as different weapons. In this case, a rule naming only “plasma gun” would cover both profiles. The example condition does not add such a prohibition.",
+        "section": "Datacards: Weapon stats, primary and secondary weapon names"
+      }
+    ]
   },
   "kt-270": {
     "original": "[\"Контроль маркеров\",\"На врага с APL 1, несущего objective marker по миссии, вышли два ваших оперативника с APL 3 каждый. Они в control range носителя; никакие действия сейчас не выполняются. Можно ли перехватить именно переносимый маркер превосходством APL?\",\"Да: 6 APL превосходят 1 APL\",\"Да, если у носителя Conceal\",\"Маркер становится ничейным до конца turning point\",\"Нет: пока маркер несут, его оспаривает и контролирует только носитель\",\"Для переносимого маркера действует специальная часть правила Markers: носитель — единственный, кто может его оспаривать и контролировать. Обычное сравнение сумм APL здесь не применяется.\",\"Markers: carrying a marker; Pick Up Marker\"]",
@@ -3523,17 +3793,32 @@
     "section": "PDF s. 7: combined vertical distance before rounding; Core Rules: Reposition"
   },
   "kt-272": {
-    "original": "[\"Террейн\",\"За одно действие оперативник дважды падает вниз на 1,5″. Все условия перемещения соблюдены, подъёмов нет; два прямых горизонтальных отрезка имеют длину по 1,2″. Иных перемещений или скидок нет. Сколько движения расходуется?\",\"4″\",\"6″\",\"5″\",\"7″\",\"Вертикальные падения суммарно равны 3″; за всё действие игнорируются только 2″, остаётся 1″. Каждый отдельный горизонтальный отрезок округляется до 2″: итог 1+2+2=5″.\",\"PDF с. 7: vertical distance; Killzones: Dropping; Reposition increments\"]",
+    "original": "[\"Террейн\",\"За одно действие оперативник дважды выполняет спуск по правилу Dropping, каждый раз на 1,5″ вниз. Все условия движения соблюдены, подъёмов нет; два отдельных прямых горизонтальных отрезка имеют длину по 1,2″. Иного движения и скидок нет. Сколько движения расходуется?\",\"4″\",\"6″\",\"5″\",\"7″\",\"Общая вертикальная дистанция спуска равна 3″; за всё действие игнорируются только 2″, поэтому остаётся оплатить 1″. Каждый отдельный горизонтальный отрезок округляется до 2″. Итог: 1 + 2 + 2 = 5″.\",\"PDF с. 7: vertical distance; Killzones: Dropping; Reposition increments\"]",
     "topic": "Terrain",
-    "question": "During one action, the operative falls down 1.5″ twice. All movement conditions are met, there are no climbs; two straight horizontal segments are 1.2″ long. There are no other re-rolls or discounts. How much movement is used?",
+    "question": "During one action, an operative drops twice using the Dropping rule, descending 1.5″ each time. All movement requirements are met and there are no climbs. Its two separate straight horizontal segments are each 1.2″ long. There is no other movement or reduction in movement cost. How much movement does it use?",
     "options": [
       "4″",
       "6″",
       "5″",
       "7″"
     ],
-    "explanation": "Vertical drops total 3″; for the entire action, only 2″ are ignored, leaving 1″. Each individual horizontal segment is rounded to 2″: total 1+2+2=5″.",
-    "section": "PDF s. 7: vertical distance; Killzones: Dropping; Reposition increments"
+    "explanation": "The drops total 3″ vertically. Only 2″ is ignored over the whole action, leaving 1″ to pay. Each separate horizontal segment rounds up to 2″, for a total of 1 + 2 + 2 = 5″.",
+    "section": "PDF p. 7: vertical distance; Killzones — Dropping; Reposition increments",
+    "versions": [
+      {
+        "original": "[\"Террейн\",\"За одно действие оперативник дважды падает вниз на 1,5″. Все условия перемещения соблюдены, подъёмов нет; два прямых горизонтальных отрезка имеют длину по 1,2″. Иных перемещений или скидок нет. Сколько движения расходуется?\",\"4″\",\"6″\",\"5″\",\"7″\",\"Вертикальные падения суммарно равны 3″; за всё действие игнорируются только 2″, остаётся 1″. Каждый отдельный горизонтальный отрезок округляется до 2″: итог 1+2+2=5″.\",\"PDF с. 7: vertical distance; Killzones: Dropping; Reposition increments\"]",
+        "topic": "Terrain",
+        "question": "During one action, the operative falls down 1.5″ twice. All movement conditions are met, there are no climbs; two straight horizontal segments are 1.2″ long. There are no other re-rolls or discounts. How much movement is used?",
+        "options": [
+          "4″",
+          "6″",
+          "5″",
+          "7″"
+        ],
+        "explanation": "Vertical drops total 3″; for the entire action, only 2″ are ignored, leaving 1″. Each individual horizontal segment is rounded to 2″: total 1+2+2=5″.",
+        "section": "PDF s. 7: vertical distance; Killzones: Dropping; Reposition increments"
+      }
+    ]
   },
   "kt-273": {
     "original": "[\"Снаряжение\",\"Оперативник с обычным Move 5″ уже injured и соединён с внутренней стороной Portable Barricade. Он законно выполняет Move With Barricade по ровному свободному пути. Других эффектов нет. Как далеко он может передвинуться?\",\"2″\",\"4″\",\"3″\",\"1″\",\"Injured снижает характеристику Move до минимальных 4″. Действие ограничивает перемещение значением Move минус 2″ — это лимит действия, а не дальнейшее снижение характеристики, поэтому можно пройти 2″.\",\"PDF с. 3: Move With Barricade; Core Rules: minimum Move\"]",
@@ -3562,17 +3847,32 @@
     "section": "Ladders: once per action; Core Rules Update Log s. 7: rounding combined vertical distance"
   },
   "kt-275": {
-    "original": "[\"Террейн\",\"Во время Counteract оперативник законно выполняет Dash с края Vantage. Весь горизонтальный путь — один отрезок ровно 1″; после него падение на пол ровно 3″. Он не поднимается, итоговую позицию можно занять, врагов рядом нет. Укладывается ли движение в лимит Counteract?\",\"Нет: геометрическая длина пути 4″ всегда превышает лимит\",\"Нет: Counteract полностью запрещает падения\",\"Да: 1″ горизонтали плюс 1″ учитываемого падения равны 2″\",\"Да: при Counteract вертикальная дистанция вообще не учитывается\",\"За действие игнорируются первые 2″ падения. FAQ подтверждает, что изменения учитываемой дистанции работают и для лимита Counteract. Dash позволяет падать, хотя не позволяет подниматься.\",\"PDF с. 6: Counteract and counted distance; Killzones: Dropping; Dash\"]",
+    "original": "[\"Террейн\",\"Во время Counteract оперативник выполняет Dash: перемещается на 1″ по горизонтали и падает на 3″. Других перемещений и изменений учитываемой дистанции нет. Сколько движения засчитывается для ограничения Counteract?\",\"4″: вся физически пройденная дистанция\",\"3″: только падение\",\"2″: 1″ по горизонтали и 1″ за падение\",\"0″: движение во время Dash не учитывается\",\"Засчитывается 2″: 1″ по горизонтали плюс 1″ за падение, поскольку первые 2″ падения за действие игнорируются. FAQ подтверждает, что правила изменения учитываемой дистанции применяются и к лимиту Counteract. Dash позволяет падать, но не подниматься.\",\"PDF с. 6: Counteract and counted distance; Killzones: Dropping; Dash\"]",
     "topic": "Terrain",
-    "question": "During Counteract, the operative legally performs Dash from the edge of Vantage. The entire horizontal path is one segment exactly 1″; after it the fall to the floor is exactly 3″. It does not rise, the final position can be taken, there are no enemies nearby. Does the movement fit within the Counteract limit?",
+    "question": "During Counteract, an operative performs Dash: it moves 1\" horizontally and drops 3\". There is no other movement or change to the distance counted. How much movement counts towards the Counteract limit?",
     "options": [
-      "No: a geometric path length of 4″ is always over the limit",
-      "No: Counteract completely prohibits falls",
-      "Yes: 1″ of horizontal plus 1″ of fall taken into account equals 2″",
-      "Yes: with Counteract the vertical distance is not taken into account at all"
+      "4\": the entire physical distance travelled",
+      "3\": only the drop",
+      "2\": 1\" horizontally and 1\" for the drop",
+      "0\": movement during Dash does not count"
     ],
-    "explanation": "The first 2″ falls are ignored for the action. FAQ confirms that changes to the distance taken into account also work for the Counteract limit. Dash allows you to fall, although it does not allow you to rise.",
-    "section": "PDF p. 6: Counteract and counted distance; Killzones: Dropping; Dash"
+    "explanation": "The move counts as 2\": 1\" horizontally plus 1\" for the drop, because the first 2\" of dropping during an action are ignored. The FAQ confirms that rules changing the distance a move counts as also apply to the Counteract limit. Dash allows dropping, but not climbing.",
+    "section": "PDF p. 6: Counteract and counted distance; Killzones: Dropping; Dash",
+    "versions": [
+      {
+        "original": "[\"Террейн\",\"Во время Counteract оперативник законно выполняет Dash с края Vantage. Весь горизонтальный путь — один отрезок ровно 1″; после него падение на пол ровно 3″. Он не поднимается, итоговую позицию можно занять, врагов рядом нет. Укладывается ли движение в лимит Counteract?\",\"Нет: геометрическая длина пути 4″ всегда превышает лимит\",\"Нет: Counteract полностью запрещает падения\",\"Да: 1″ горизонтали плюс 1″ учитываемого падения равны 2″\",\"Да: при Counteract вертикальная дистанция вообще не учитывается\",\"За действие игнорируются первые 2″ падения. FAQ подтверждает, что изменения учитываемой дистанции работают и для лимита Counteract. Dash позволяет падать, хотя не позволяет подниматься.\",\"PDF с. 6: Counteract and counted distance; Killzones: Dropping; Dash\"]",
+        "topic": "Terrain",
+        "question": "During Counteract, the operative legally performs Dash from the edge of Vantage. The entire horizontal path is one segment exactly 1″; after it the fall to the floor is exactly 3″. It does not rise, the final position can be taken, there are no enemies nearby. Does the movement fit within the Counteract limit?",
+        "options": [
+          "No: a geometric path length of 4″ is always over the limit",
+          "No: Counteract completely prohibits falls",
+          "Yes: 1″ of horizontal plus 1″ of fall taken into account equals 2″",
+          "Yes: with Counteract the vertical distance is not taken into account at all"
+        ],
+        "explanation": "The first 2″ falls are ignored for the action. FAQ confirms that changes to the distance taken into account also work for the Counteract limit. Dash allows you to fall, although it does not allow you to rise.",
+        "section": "PDF p. 6: Counteract and counted distance; Killzones: Dropping; Dash"
+      }
+    ]
   },
   "kt-276": {
     "original": "[\"Стрельба\",\"Стрелок на Vantage на 3″ выше видимой цели с Conceal. Цель в cover только от Light и целиком в дыму; между моделями больше 2″. Оружие имеет Piercing 2 и Saturate. Других эффектов нет. Какие правила защиты и выбора цели действуют?\",\"Цель допустима; она obscured, защита бросает два кубика без cover save\",\"Цель недопустима: дым и Conceal всегда запрещают выбирать её\",\"Цель допустима; бросается один кубик защиты и сохраняются два cover save\",\"Цель допустима; дым полностью отменяет Piercing, поэтому бросаются три кубика\",\"Vantage позволяет выбрать Conceal-цель в Light cover. Дым даёт obscured и меняет Piercing 2 на 1. Из трёх кубиков остаются два; Saturate не позволяет сохранять cover saves, включая улучшенные от Vantage.\",\"Smoke Grenade; Killzones: Vantage; Appendix: Saturate / Piercing\"]",
@@ -3837,27 +4137,27 @@
   "kt-296": {
     "original": "[\"Миссии\",\"Approved Ops 2025, Energy Cells: за turning points 2 и 3 вы набрали суммарно 2 Crit VP. В конце четвёртого два ваших живых оперативника с APL 1 несут по одному objective marker; рядом с каждым стоит враг с APL 3 в control range. Третий objective marker на полу контролирует соперник. Сколько Crit VP у вас будет до бонуса Primary?\",\"4 VP\",\"2 VP\",\"5 VP\",\"6 VP\",\"Переносимые маркеры контролируют только их носители, несмотря на больший вражеский APL. Поэтому вы контролируете два против одного: ещё 1 VP за превосходство и 2 за переноску в конце боя. Вместе с прежними 2 получается 5.\",\"PDF с. 2: Energy Cells; Core Rules: carried markers\"]",
     "topic": "Missions",
-    "question": "Approved Ops 2025, Energy Cells: for turning points 2 and 3 you scored a total of 2 Crit VP. At the end of the fourth, your two living operatives with APL 1 each carry one objective marker; Next to each is an enemy with APL 3 to control range. The third objective marker on the floor is controlled by the opponent. How many Crit VP will you have before the Primary bonus?",
+    "question": "Approved Ops 2025, Energy Cells: you scored 2 Crit VP in total during the second and third turning points. At the end of the fourth, two surviving friendly operatives with APL 1 each carry one objective marker, and an enemy with APL 3 is within each carrier’s control range. Your opponent controls the third objective marker on the floor. How many Crit VP do you have before the primary op bonus?",
     "options": [
       "4 VP",
       "2 VP",
       "5 VP",
       "6 VP"
     ],
-    "explanation": "Carryable markers are controlled only by their bearers, despite the larger enemy APL. Therefore, you control two against one: 1 more VP for dominance and 2 for carry at the end of the fight. Together with the previous 2 we get 5.",
+    "explanation": "Carried markers are controlled only by their carriers, even against enemies with higher APL. You control two markers to your opponent’s one, scoring another 1 VP for controlling more markers and 2 VP for carrying markers at the end of the battle. Adding the earlier 2 gives 5 VP.",
     "section": "PDF p. 2: Energy Cells; Core Rules: carried markers"
   },
   "kt-297": {
     "original": "[\"Миссии\",\"Approved Ops 2025, Sweep & Clear после августовского обновления: центральный маркер cleared и swept. Его оспаривают ваш оперативник с APL 3 и враг с APL 2; вы его контролируете. Других подходящих маркеров нет. Сколько VP даёт Tac Op в конце turning point после первого?\",\"1 VP\",\"2 VP\",\"0 VP\",\"3 VP\",\"Условие cleared-маркера требует, чтобы враги его не оспаривали, и здесь не выполняется. Но отдельное условие дружественного контроля swept-маркера выполняется и даёт 1 VP.\",\"PDF с. 1: Sweep & Clear — two separate scoring conditions\"]",
     "topic": "Missions",
-    "question": "Approved Ops 2025, Sweep & Clear after August update: center marker cleared and swept. It is contested by your operative with APL 3 and an enemy with APL 2; you control it. There are no other suitable markers. How much does VP give Tac Op at the end of turning point after the first?",
+    "question": "Approved Ops 2025, Sweep & Clear after the August update: the centre objective marker is both cleared and swept. A friendly operative with APL 3 and an enemy with APL 2 contest it, so you control it. No other markers qualify. How many VP does this tac op score at the end of a turning point after the first?",
     "options": [
       "1 VP",
       "2 VP",
       "0 VP",
       "3 VP"
     ],
-    "explanation": "The cleared marker condition requires that enemies do not challenge it, and is not met here. But a separate condition for friendly control of the swept marker is satisfied and gives 1 VP.",
+    "explanation": "The cleared-marker scoring condition is not met because an enemy contests the marker. The separate condition for friendly control of a swept marker is met and scores 1 VP.",
     "section": "PDF p. 1: Sweep & Clear – two separate scoring conditions"
   },
   "kt-298": {
@@ -3876,14 +4176,14 @@
   "kt-299": {
     "original": "[\"Миссии\",\"Approved Ops 2025 Tournament Companion: организатор заранее применяет рекомендованные критерии рейтинга. У двух игроков одинаковый результат по победам/ничьим/поражениям и одинаковая сила расписания. У A за турнир 58 общих VP и 7 бонусных VP от Primary, у B — 49 общих VP и 8 бонусных VP от Primary. Кто выше по следующему рекомендованному критерию?\",\"A: сравниваются все VP за турнир\",\"A: меньший Primary-бонус считается лучшим результатом\",\"B: сравниваются бонусные VP от выбранных Primary Ops\",\"Обязательна дополнительная партия\",\"Следующий рекомендованный критерий — суммарные очки именно бонуса Primary Op. Общий VP не предлагается как этот критерий; конкретное положение турнира может заранее задать другие правила.\",\"Tournament Companion: Rankings, third criterion and Primary Op example\"]",
     "topic": "Missions",
-    "question": "Approved Ops 2025 Tournament Companion: The organizer applies the recommended ranking criteria in advance. The two players have the same win/draw/loss record and the same strength of schedule. A has 58 total VP and 7 bonus VP from Primary for the tournament, B has 49 total VP and 8 bonus VP from Primary. Who is higher according to the following recommended criterion?",
+    "question": "Approved Ops 2025 Tournament Companion: the organiser has announced the recommended ranking criteria in advance. Two players have the same win/draw/loss record and strength of schedule. Across the tournament, A has 58 total VP and 7 primary op bonus VP; B has 49 total VP and 8 primary op bonus VP. Who ranks higher on the next recommended tiebreaker?",
     "options": [
       "A: all VP for the tournament are compared",
       "A: smaller Primary bonus is considered the best result",
       "B: bonus VP from selected Primary Ops are compared",
       "An additional game is required"
     ],
-    "explanation": "The next recommended criterion is the total points of the Primary Op bonus. The generic VP is not offered as this criterion; the specific tournament position may predetermine different rules.",
+    "explanation": "The next recommended tiebreaker is total primary op bonus VP. Total VP is not this recommended criterion. An organiser may announce different ranking rules in the tournament regulations.",
     "section": "Tournament Companion: Rankings, third criterion and Primary Op example"
   },
   "kt-300": {
@@ -4535,5 +4835,18 @@
     ],
     "explanation": "The exception for Stimulated Senses allows it once in addition to another invigoration. It does not grant a separate use for every action or weapon.",
     "section": "PDF, p. 4: Power From Pain; Stimulated Senses"
+  },
+  "kt-301": {
+    "original": "[\"Действия\",\"Оперативник уже выполнил действие в текущей активации. Теперь это действие доступно ему за 0 AP. Разрешает ли бесплатность повторить его без специального разрешения?\",\"Да: бесплатные действия можно повторять без ограничений\",\"Нет: нулевая стоимость не отменяет запрет повторения действия\",\"Да, если в активации ещё остались AP\",\"Да, если это mission action\",\"Нет. Стоимость 0 AP меняет только затраты AP. Ограничение на повтор одного и того же действия в активации остаётся; для повторного выполнения нужно отдельное разрешение правила.\",\"Firefight Phase — Perform Actions; Actions — Free actions: action restrictions\"]",
+    "topic": "Actions",
+    "question": "An operative has already performed an action during its current activation. That action is now available to it for 0 AP. Does the zero AP cost allow it to repeat the action without specific permission?",
+    "options": [
+      "Yes: free actions can be repeated without restriction",
+      "No: a zero AP cost does not remove action restrictions",
+      "Yes, if it still has AP left during the activation",
+      "Yes, if it is a mission action"
+    ],
+    "explanation": "No. A cost of 0 AP only changes the AP spent. The restriction on performing the same action more than once during an activation still applies; repeating it requires specific permission from a rule.",
+    "section": "Firefight Phase — Perform Actions; Actions — Free actions: action restrictions"
   }
 }

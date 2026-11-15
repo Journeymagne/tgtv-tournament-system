@@ -307,6 +307,59 @@ test("updateMe отклоняет занятое имя", async () => {
   );
 });
 
+test("concurrent registration of the same normalized name returns 201 and 409", async () => {
+  const connections = await Promise.all([pool.connect(), pool.connect()]);
+  let checked = 0;
+  let releaseChecks;
+  const bothChecked = new Promise(resolve => { releaseChecks = resolve; });
+  const seen = [];
+  // Gate real SELECT replies, after both transactions observed the name absent.
+  // Neither transaction can insert before the other has completed its check.
+  const clients = connections.map(connection => ({
+    async query(sql, params) {
+      const result = await connection.query(sql, params);
+      if (/SELECT 1 FROM users WHERE name_key/.test(sql)) {
+        seen.push(result.rows.length);
+        if (++checked === 2) releaseChecks();
+        await bothChecked;
+      }
+      return result;
+    }
+  }));
+  try {
+    const outcomes = await Promise.allSettled(clients.map((connection, index) =>
+      withTx(connection, () => auth.register({ client: connection,
+        body: body(index ? "  rAcEr  " : "Racer") }))));
+    assert.deepEqual(seen, [0, 0], "both checks must precede either insertion");
+    const winners = outcomes.filter(result => result.status === "fulfilled");
+    const losers = outcomes.filter(result => result.status === "rejected");
+    assert.equal(winners.length, 1);
+    assert.equal(winners[0].value.status, 201);
+    assert.equal(losers.length, 1);
+    assert.equal(losers[0].reason.status, 409);
+    assert.equal(losers[0].reason.message, "This name is already taken");
+    const { rows } = await client.query("SELECT name_key FROM users");
+    assert.deepEqual(rows, [{ name_key: "racer" }]);
+    assert.equal((await client.query("SELECT count(*)::int AS count FROM sessions")).rows[0].count, 1);
+  } finally {
+    for (const connection of connections) connection.release();
+  }
+});
+
+test("registration propagates uniqueness violations unrelated to the username", async () => {
+  await auth.register({ client, body: body("First", { telegramContact: "@shared" }) });
+  await client.query("CREATE UNIQUE INDEX auth_test_telegram_unique ON users(telegram_contact)");
+  try {
+    await assert.rejects(
+      () => withTx(client, () => auth.register({ client,
+        body: body("Second", { telegramContact: "@shared" }) })),
+      error => error.code === "23505" && error.constraint === "auth_test_telegram_unique" && !error.status
+    );
+  } finally {
+    await client.query("DROP INDEX auth_test_telegram_unique");
+  }
+});
+
 test("MEDIUM 1: гонка при записи имени (23505) отображается как 409, а не 500", async () => {
   await auth.register({ client, body: body("Alice") });
   await auth.register({ client, body: body("Bob") });

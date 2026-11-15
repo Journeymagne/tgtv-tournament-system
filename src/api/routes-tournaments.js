@@ -3,6 +3,7 @@ const auth = require("./auth");
 const users = require("./users");
 const challenges = require("./challenges");
 const games = require("./games");
+const killTeamStatistics = require("./kill-team-statistics");
 const admin = require("./admin");
 const tournaments = require("./tournaments");
 const tournamentRegistration = require("./tournament-registration");
@@ -14,9 +15,14 @@ const documentation = require("./documentation");
 const accessManagement = require("./access-management");
 const { MAX_TOURNAMENT_REQUEST_BYTES } = require("../config");
 
-function withAction(handler, action) { return ctx => handler({ ...ctx, params: { ...ctx.params, action } }); }
+function withAction(handler, action) {
+  return Object.assign(ctx => handler({ ...ctx, params: { ...ctx.params, action } }), {
+    ratingMutation: handler.ratingMutation === true
+  });
+}
 
 module.exports = [
+  { method: "GET", path: "/api/statistics/kill-team", handler: killTeamStatistics.get, auth: "none" },
   {method:'GET',path:'/api/admin/tournaments/:id/audit',handler:tournaments.auditPage,auth:'user',permission:'tournament.manage'},
   ...require("./miniapp").routes,
   ...require("./telegram").routes,
@@ -435,6 +441,7 @@ module.exports = [
     tx: true
   }
 ].map(route => {
+  route = { ...route, ratingMutation: route.ratingMutation || route.handler.ratingMutation === true };
   if (route.permission) return route;
   if (route.path.startsWith("/api/admin/tournaments/:id")) return { ...route, auth: "user", permission: "tournament.manage" };
   if (route.path === "/api/admin/tournaments") return { ...route, auth: "user",

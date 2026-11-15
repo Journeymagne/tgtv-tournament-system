@@ -284,3 +284,146 @@ test("the inbox keeps exactly the latest five, including read and resolved entri
   const { rows: [newest] } = await client.query("INSERT INTO challenges (from_user_id, to_user_id, status) VALUES ($1, $2, 'pending') RETURNING id", [bravo.id, alpha.id]);
   assert.deepEqual((await listFor(alpha)).items.map(item => item.id), [`game_challenge:${newest.id}`, ...expected.slice(0, 4)]);
 });
+
+// The worker is loaded with only its transaction provider replaced. SQL, source
+// loops and delivery decisions are the production worker on real DB clients.
+function deliveryWorker(connection, afterQuery = async () => {}) {
+  const fs = require('node:fs'), vm = require('node:vm');
+  const filename = require.resolve('../../src/notifications/worker');
+  const realRequire = require('node:module').createRequire(filename);
+  const module = { exports: {} };
+  const query = async (...args) => {
+    const result = await connection.query(...args);
+    await afterQuery(args[0], result);
+    return result;
+  };
+  vm.runInThisContext(`(function(require,module,exports){${fs.readFileSync(filename, 'utf8')}\n})`, { filename })(
+    name => name === '../db/pool' ? { withTransaction: async callback => {
+      await connection.query('BEGIN');
+      try { const result = await callback({ query }); await connection.query('COMMIT'); return result; }
+      catch (error) { await connection.query('ROLLBACK'); throw error; }
+    } } : realRequire(name), module, module.exports);
+  return module.exports;
+}
+
+function gate() {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve };
+}
+
+async function completesOrBlocks(operation, pid, blocker) {
+  let completed = false;
+  operation.finally(() => { completed = true; }).catch(() => {});
+  const deadline = Date.now() + 5000;
+  while (!completed && Date.now() < deadline) {
+    const { rows: [row] } = await client.query('SELECT $2::int = ANY(pg_blocking_pids($1)) AS blocked', [pid, blocker]);
+    if (row.blocked) return;
+  }
+  assert.ok(completed, 'the concurrent request must either complete or block on the other transaction');
+}
+
+for (const initialState of [false, true]) test(`read-through includes an uncommitted delivery (existing state: ${initialState})`, async () => {
+  for (const source of require('../../src/notifications/publish').SOURCES) await client.query(`TRUNCATE ${source}.notification_outbox`);
+  if (initialState) await client.query("INSERT INTO notification_inbox_state(user_id,last_seen_at) VALUES($1,NOW()-interval '1 day')", [alpha.id]);
+  const { rows: [clock] } = await client.query("SELECT NOW() - interval '1 minute' AS occurred, NOW() AS through");
+  const payload = { id: 'faq_submission:watermark', type: 'faq_submission', createdAt: clock.occurred.toISOString() };
+  await require('../../src/notifications/publish').publish(client, 'faq', alpha.id, payload);
+  const writer = await pool.connect(), reader = await pool.connect();
+  const inserted = gate(), release = gate();
+  let delivery, read;
+  try {
+    const worker = deliveryWorker(writer, async sql => {
+      if (/INSERT INTO notifications\.notification_inbox_items/i.test(sql)) { inserted.resolve(); await release.promise; }
+    });
+    delivery = worker.tick(); delivery.catch(() => {});
+    await Promise.race([inserted.promise, delivery.then(() => { throw Error('worker completed without reaching the gated inbox insert'); })]);
+    await reader.query('BEGIN');
+    read = (async () => {
+      await notificationsApi.markRead({ client: reader, user: alpha, body: { through: clock.through.toISOString() } });
+      await reader.query('COMMIT');
+    })();
+    await completesOrBlocks(read, reader.processID, writer.processID);
+    release.resolve();
+    await Promise.all([delivery, read]);
+    const inbox = await notificationsApi.list({ client, user: alpha });
+    assert.equal(inbox.items.find(item => item.id === payload.id).unread, false,
+      'an occurrence at or before the committed watermark must not remain unread');
+  } finally {
+    release.resolve();
+    await Promise.allSettled([delivery, read].filter(Boolean));
+    await reader.query('ROLLBACK');
+    writer.release(); reader.release();
+  }
+});
+
+test('concurrent source batches serialize recipients in the same order', async () => {
+  for (const source of require('../../src/notifications/publish').SOURCES) await client.query(`TRUNCATE ${source}.notification_outbox`);
+  const occurred = new Date(Date.now() - 60000).toISOString();
+  // Real source-specific events arrive in opposite recipient order. Acquiring
+  // recipient locks event-by-event would introduce a cycle between these batches.
+  for (const [source, users] of [['tournaments', [alpha, bravo]], ['studio', [bravo, alpha]]]) {
+    const type = source === 'studio' ? 'studio_comment' : 'tournament_started';
+    for (const user of users) await require('../../src/notifications/publish').publish(client, source, user.id,
+      { id: type + ':batch-' + user.id, type, createdAt: occurred });
+  }
+  const first = await pool.connect(), second = await pool.connect();
+  const firstInserted = gate(), secondInserted = gate(), releaseFirst = gate(), releaseSecond = gate();
+  let firstRun, secondRun;
+  try {
+    let firstCount = 0, secondCount = 0;
+    firstRun = deliveryWorker(first, async sql => {
+      if (/INSERT INTO notifications\.notification_inbox_items/i.test(sql) && ++firstCount === 1) {
+        firstInserted.resolve(); await releaseFirst.promise;
+      }
+    }).tick(); firstRun.catch(() => {});
+    await Promise.race([firstInserted.promise, firstRun.then(() => { throw Error('first source did not deliver'); })]);
+    secondRun = deliveryWorker(second, async sql => {
+      if (/INSERT INTO notifications\.notification_inbox_items/i.test(sql) && ++secondCount === 1) {
+        secondInserted.resolve(); await releaseSecond.promise;
+      }
+    }).tick(); secondRun.catch(() => {});
+    let reachedInsert = false;
+    secondInserted.promise.then(() => { reachedInsert = true; });
+    let blocked = false, completed = false;
+    secondRun.finally(() => { completed = true; }).catch(() => {});
+    const deadline = Date.now() + 5000;
+    while (!reachedInsert && !blocked && !completed && Date.now() < deadline) {
+      blocked = (await client.query('SELECT $2::int = ANY(pg_blocking_pids($1)) AS blocked', [second.processID, first.processID])).rows[0].blocked;
+    }
+    assert.ok(reachedInsert || blocked || completed, 'second worker must reach the recipient boundary');
+    releaseFirst.resolve(); releaseSecond.resolve();
+    const outcomes = await Promise.allSettled([firstRun, secondRun]);
+    assert.deepEqual(outcomes.map(outcome => outcome.status), ['fulfilled', 'fulfilled'],
+      outcomes.filter(outcome => outcome.reason).map(outcome => outcome.reason.message).join('; '));
+    assert.equal((await notificationsApi.list({ client, user: alpha })).items.length, 2);
+    assert.equal((await notificationsApi.list({ client, user: bravo })).items.length, 2);
+  } finally {
+    releaseFirst.resolve(); releaseSecond.resolve();
+    await Promise.allSettled([firstRun, secondRun].filter(Boolean));
+    first.release(); second.release();
+  }
+});
+
+test('delivery waits for an initially absent inbox watermark transaction', async () => {
+  for (const source of require('../../src/notifications/publish').SOURCES) await client.query(`TRUNCATE ${source}.notification_outbox`);
+  const { rows: [clock] } = await client.query("SELECT NOW() - interval '1 minute' AS occurred, NOW() AS through");
+  const payload = { id: 'faq_submission:watermark-first', type: 'faq_submission', createdAt: clock.occurred.toISOString() };
+  await require('../../src/notifications/publish').publish(client, 'faq', alpha.id, payload);
+  const reader = await pool.connect(), writer = await pool.connect();
+  let delivery;
+  try {
+    await reader.query('BEGIN');
+    await notificationsApi.markRead({ client: reader, user: alpha, body: { through: clock.through.toISOString() } });
+    delivery = deliveryWorker(writer).tick(); delivery.catch(() => {});
+    await completesOrBlocks(delivery, writer.processID, reader.processID);
+    await reader.query('COMMIT');
+    await delivery;
+    const inbox = await notificationsApi.list({ client, user: alpha });
+    assert.equal(inbox.items.find(item => item.id === payload.id).unread, false);
+  } finally {
+    await reader.query('ROLLBACK');
+    await Promise.allSettled(delivery ? [delivery] : []);
+    reader.release(); writer.release();
+  }
+});

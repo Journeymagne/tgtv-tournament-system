@@ -5,5 +5,6 @@ module.exports = [
   ...require("./routes-faq"),
   ...require("./routes-accounts"),
   ...require("./routes-studio"),
-  ...require("./routes-notifications")
+  ...require("./routes-notifications"),
+  ...require("./routes-tierlists")
 ];

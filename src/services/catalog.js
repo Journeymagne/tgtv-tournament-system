@@ -1,7 +1,8 @@
-const SERVICES = ['accounts','notifications','tournaments','studio','faq','knowthykt','calculators'];
+const SERVICES = ['accounts','notifications','tournaments','studio','faq','knowthykt','calculators','tierlists'];
 const DEFAULT_PORTS = Object.fromEntries(SERVICES.map((name, i) => [name, 3021 + i]));
 
 function apiService(path, method = 'GET') {
+  if (/^\/api\/tierlists(?:\/|$)/.test(path)) return 'tierlists';
   if (/^\/api\/(?:training|knowthykt)(?:\/|$)/.test(path)) return 'knowthykt';
   if (/^\/api\/faq\/moderators(?:\/|$)/.test(path)) return 'accounts';
   if (/^\/api\/faq(?:\/|$)/.test(path)) return 'faq';
@@ -17,6 +18,7 @@ function apiService(path, method = 'GET') {
 }
 
 function pageService(path) {
+  if (/^\/tierlist(?:\/|$)/.test(path)) return 'tierlists';
   if (['/companion/css/common.css','/training/journey-shared.css'].includes(path)) return null;
   if (/^\/(?:app\.js|admin\.js|resource-quotas\.js|styles\.css|i18n\/|pairing-warnings\.js|tournament-tables\.js|telegram-account\.js|robots\.txt|sitemap\.xml)/.test(path)) return 'tournaments';
   if (/^\/(?:studio|dice)(?:\/|$)/.test(path)) return 'studio';

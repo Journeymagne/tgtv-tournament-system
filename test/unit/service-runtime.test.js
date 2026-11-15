@@ -1,6 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { serviceEnvironment, environments, transition } = require('../../scripts/service-runtime');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const http = require('node:http');
+const { serviceEnvironment, environments, releaseEnvironments, transition, verifyGateway } = require('../../scripts/service-runtime');
 const { SERVICES } = require('../../src/services/catalog');
 const base = { DATABASE_URL: 'postgres://owner:owner-secret@127.0.0.1:5432/app', PORT: '3000',
   EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 'mail-secret', TELEGRAM_MODE: 'polling', TELEGRAM_BOT_TOKEN: 'telegram-secret',
@@ -37,4 +41,54 @@ test('incompatible schema changes never automatically restart old writers', asyn
     start: async target => started.push(target.mode), verify: async () => { throw Error('bad'); }, save: async () => {} },
   { mode: 'monolith' }, { mode: 'services' }, false), /automatic rollback unavailable/);
   assert.deepEqual(started, ['services']);
+});
+
+function oldServicesRelease(t) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'kt-runtime-release-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const services = SERVICES.filter(name => name !== 'tierlists');
+  const catalogDirectory = path.join(directory, 'src', 'services');
+  fs.mkdirSync(catalogDirectory, { recursive: true });
+  fs.writeFileSync(path.join(catalogDirectory, 'catalog.js'), 'module.exports=' + JSON.stringify({
+    SERVICES: services, DEFAULT_PORTS: Object.fromEntries(services.map((name, i) => [name, 4101 + i]))
+  }));
+  return { mode: 'services', directory, id: 'before-tierlists', services };
+}
+
+test('rollback starts the target release service set and ports without requiring a new service password', t => {
+  const previous = oldServicesRelease(t), legacyBase = { ...base };
+  delete legacyBase.TIERLISTS_DB_PASSWORD;
+  const envs = releaseEnvironments(legacyBase, previous);
+  assert.deepEqual(Object.keys(envs), [...previous.services, 'gateway']);
+  assert.equal(envs.accounts.PORT, '4101');
+  assert.equal(envs.gateway.ACCOUNTS_URL, 'http://127.0.0.1:4101');
+  assert.equal(envs.tierlists, undefined);
+  assert.equal(envs.accounts.TGTV_RELEASE_ID, previous.id);
+  assert.equal(Object.keys(releaseEnvironments(base, previous).accounts).some(key => key.endsWith('_DB_PASSWORD')), false);
+});
+
+test('a previous monolith can restart without a service catalog', () => {
+  const envs = releaseEnvironments(base, { mode: 'monolith', directory: '/no-service-catalog', id: 'monolith' });
+  assert.deepEqual(Object.keys(envs), ['monolith']);
+  assert.equal(envs.monolith.SERVICE_NAME, 'monolith');
+  assert.equal(envs.monolith.DATABASE_URL, base.DATABASE_URL);
+});
+
+test('rollback readiness probes only services present in the previous release', async t => {
+  const previous = oldServicesRelease(t), requested = [];
+  const server = http.createServer((req, res) => {
+    requested.push(req.url);
+    const services = { '/': 'gateway', '/api/session': 'accounts', '/api/me': 'tournaments',
+      '/api/notifications': 'notifications', '/api/studio/library': 'studio', '/api/faq': 'faq',
+      '/knowthykt': 'knowthykt', '/combat/api/health': 'calculators' };
+    res.writeHead(req.url === '/api/notifications' ? 401 : 200, {
+      'X-KT-Service': services[req.url] || 'missing', 'X-KT-Release': previous.id, 'Content-Type': 'application/json'
+    });
+    res.end(JSON.stringify({ buildReady: true }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  await verifyGateway({ PORT: server.address().port, TGTV_RELEASE_ID: previous.id }, previous.services);
+  assert.ok(requested.includes('/api/session'));
+  assert.equal(requested.some(route => route.includes('tierlist')), false);
 });

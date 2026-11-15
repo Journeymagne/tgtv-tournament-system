@@ -4,7 +4,9 @@
   let api = window.KTTrainingAPI;
   const main = $('#main');
   const emptyState = () => ({ user: null, revision: 0, active: null, history: [], stats: {}, completedCount: 0 });
-  let questions, state = emptyState();
+  let questions, state = emptyState(), hasProgress = false;
+  let sessionIdentity;
+  window.addEventListener('kt:session', event => { sessionIdentity = event.detail.user?.id ?? null; });
   let bankSnapshot, questionMap = new Map();
   let questionTranslations = {};
   const displayQuestion = q => window.KTTrainingQuestionLanguage.localize(q, window.KTUI.locale(), questionTranslations);
@@ -25,9 +27,24 @@
     $('.training-footer span:last-child').textContent = `${questions.length} вопросов · Kill Team 2024`;
   }
   async function accept(result) {
-    if (result.bank) setBank(result.bank);
-    else if (result.state.bankRevision !== bankSnapshot.revision) setBank(await window.KTTrainingAPI.questions());
-    state = result.state;
+    const next = result.state;
+    let bank = result.bank || bankSnapshot;
+    if (!result.bank && next.bankRevision !== bankSnapshot.revision) bank = await window.KTTrainingAPI.questions();
+    // A refresh can wait for its catalogue while an answer commits newer
+    // progress. Stage both pieces, then check freshness immediately before
+    // changing either the catalogue or the saved progress.
+    const identity = next.user?.id ?? null;
+    if ((hasProgress && (identity !== (state.user?.id ?? null) || next.revision < state.revision ||
+          (next.revision === state.revision && next.bankRevision < state.bankRevision))) ||
+        (sessionIdentity !== undefined && String(identity) !== String(sessionIdentity)) ||
+        (window.KTAccount && String(identity) !== String(window.KTAccount.id ?? null))) return false;
+    // New progress may have been calculated before a catalogue-only refresh.
+    // Keep its confirmed answer while retaining the newer local catalogue.
+    if (bank.revision < bankSnapshot.revision) bank = bankSnapshot;
+    if (bank !== bankSnapshot) setBank(bank);
+    state = next;
+    hasProgress = true;
+    return true;
   }
   const engine = { summary(value) {
     const stats = Object.values(value.stats);
@@ -39,8 +56,9 @@
   } };
   try {
     const [bank, identity, translations] = await Promise.all([api.questions(), window.KTCompanion.ready.catch(() => ({ user: null })),
-      fetch('/training/questions-en.json?v=20261030-archon').then(response => { if (!response.ok) throw Error('Could not load question translations.'); return response.json(); })]);
+      fetch('/training/questions-en.json?v=1.5.19').then(response => { if (!response.ok) throw Error('Could not load question translations.'); return response.json(); })]);
     questionTranslations = translations;
+    if (sessionIdentity === undefined) sessionIdentity = identity.user?.id ?? null;
     if (!Array.isArray(bank.questions)) throw Error('Не удалось загрузить банк вопросов.');
     setBank(bank);
     if (identity.user) await accept(await api.connect(identity.user));
@@ -123,7 +141,7 @@
       $('#connection-notice').hidden = true;
       if (next.revision >= state.revision && next.user?.id === state.user?.id) {
         const changed = next.revision !== state.revision || next.bankRevision !== bankSnapshot.revision;
-        await accept(result);
+        if (!await accept(result)) return;
         if (changed && location.hash !== '#moderation') { render(); if (showMessage) notify('Прогресс или банк вопросов обновлён.'); }
         else updateProfile();
       }
@@ -137,7 +155,7 @@
       const previousRank = journey().rank.tier;
       const earnedTeams = new Set(teamAchievements().filter(course => course.earned).map(course => course.id));
       const result = await operation();
-      await accept(result);
+      if (!await accept(result)) return false;
       if (journey().rank.tier > previousRank) notify('Новый ранг: ' + journey().rank.name + '! Ачивка обновлена.');
       const unlocked = teamAchievements().find(course => course.earned && !earnedTeams.has(course.id));
       if (unlocked) notify(t('Ачивка получена: Знаток команды · ', 'Achievement earned: Team expert · ') + unlocked.name);
@@ -146,7 +164,7 @@
       return true;
     } catch (error) {
       if (error.status === 409 || error.status === 403) {
-        try { await accept(await api.refresh()); render(); } catch (refreshError) { connectionError(refreshError); }
+        try { if (await accept(await api.refresh())) render(); } catch (refreshError) { connectionError(refreshError); }
       }
       connectionError(error);
       return false;
@@ -390,14 +408,17 @@
       <section class="panel"><div class="section-heading"><h2>Документы, использованные в вопросах</h2></div><div class="document-list">${official.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer"><span>PDF</span><strong>${esc(s.title)}</strong><span>↗</span></a>`).join('')}<a href="https://wahapedia.ru/kill-team3/the-rules/appendix/" target="_blank" rel="noopener noreferrer"><span>WEB</span><strong>Wahapedia · Appendix / Weapon rules</strong><span>↗</span></a><a href="https://wahapedia.ru/kill-team3/the-rules/killzones/" target="_blank" rel="noopener noreferrer"><span>WEB</span><strong>Wahapedia · Killzones</strong><span>↗</span></a><a href="https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/" target="_blank" rel="noopener noreferrer"><span>WEB</span><strong>Wahapedia · Approved Ops 2025</strong><span>↗</span></a></div></section>
       <section class="source-notes"><h2>Как проверяли банк</h2><p>Использованы локальные материалы проекта: справочники Combat Lab и архив Warhammer Community от 25.09.2026. Упрощённые Lite Rules сверены с общими правилами; допущения калькулятора не приняты за официальные правила. Core Rules Update Log проверен в редакции June ’26. Миссионные уточнения сверены по Approved Ops 2025.</p><p class="muted">Это датированный снимок: банк не обновляется автоматически при выходе новых правил. Ссылка у каждого ответа помогает проверить первоисточник. Названия Kill Team и Warhammer принадлежат Games Workshop; проект не связан с Games Workshop.</p></section>`;
   }
+  function changelogPage() {
+    main.innerHTML = window.KTTrainingChangelog.render(window.KTUI.locale());
+  }
   function render(preserveSelection = false) {
     updateProfile();
     if (preserveSelection !== true) selectedAnswer = null;
     const route = location.hash.slice(1) || 'journey';
     const activeNav = ['session', 'results'].includes(route) ? 'training' : route;
     document.querySelectorAll('[data-nav]').forEach(a => { const active = a.dataset.nav === activeNav; a.classList.toggle('active', active); if (active) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-    $('#breadcrumb').textContent = { journey: 'МОЙ ПУТЬ', training: 'ТРЕНИРОВКА', session: 'АКТИВНАЯ СЕССИЯ', results: 'РЕЗУЛЬТАТЫ', progress: 'МОЙ ПРОГРЕСС', bank: 'БАЗА ВОПРОСОВ', sources: 'ИСТОЧНИКИ', moderation: 'МОДЕРАЦИЯ' }[route] || 'МОЙ ПУТЬ';
-    ({ journey: journeyPage, training, session: sessionPage, results: resultsPage, progress: progressPage, bank: bankPage, sources: sourcesPage, moderation: moderationPage }[route] || journeyPage)();
+    $('#breadcrumb').textContent = { journey: 'МОЙ ПУТЬ', training: 'ТРЕНИРОВКА', session: 'АКТИВНАЯ СЕССИЯ', results: 'РЕЗУЛЬТАТЫ', progress: 'МОЙ ПРОГРЕСС', bank: 'БАЗА ВОПРОСОВ', sources: 'ИСТОЧНИКИ', changelog: 'ЧТО НОВОГО', moderation: 'МОДЕРАЦИЯ' }[route] || 'МОЙ ПУТЬ';
+    ({ journey: journeyPage, training, session: sessionPage, results: resultsPage, progress: progressPage, bank: bankPage, sources: sourcesPage, changelog: changelogPage, moderation: moderationPage }[route] || journeyPage)();
     if (busy) busyControls(true);
     if (preserveSelection !== true) window.scrollTo({ top: 0, behavior: 'instant' });
   }
@@ -433,7 +454,7 @@
     $('#report-submit').disabled = false; $('#report-cancel').disabled = false;
   });
   const moderation = window.KTTrainingModeration({ main, api: window.KTTrainingAPI, esc, notify,
-    onChange: async () => { await accept(await api.refresh()); updateProfile(); } });
+    onChange: async () => { if (await accept(await api.refresh())) updateProfile(); } });
   function moderationPage() {
     if (!state.user?.isAdmin) { changePage('journey'); return; }
     moderation.open();

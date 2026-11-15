@@ -37,8 +37,8 @@ function welcome(locale, linked) {
   const lines = [
     '🔶 <b>KT COMPANION</b>',
     '',
-    t('Привет! Я помогу следить за играми и турнирами и вовремя узнавать о важных событиях.',
-      'Hi! I help you keep track of your games and tournaments and stay up to date with important events.'),
+    t('Привет! Здесь — твои игры, турниры и уведомления.',
+      'Hi! Find your games, tournaments and notifications here.'),
     '',
     t('<b>Что я умею</b>', '<b>What I can do</b>'),
     t('⚔️ Присылать вызовы на игру и приглашения в команду.', '⚔️ Send game challenges and team invitations.'),
@@ -47,22 +47,26 @@ function welcome(locale, linked) {
     t('✅ Напоминать, что результат игры ждёт твоего подтверждения.', '✅ Let you know when a game result needs your confirmation.')
   ];
   if (config.miniAppUrl) lines.push('',
-    t('<b>Компаньон внутри Telegram</b>', '<b>Companion inside Telegram</b>'),
-    t('Открой мини-приложение: здесь можно посмотреть свои игры, турниры и таблицу, внести счёт и подтвердить результат.',
-      'Open the mini app to view your games, tournaments and standings, submit scores and confirm results.'));
+    t('📱 <b>Мини-приложение в Telegram</b>', '📱 <b>Mini App in Telegram</b>'),
+    t('Смотри игры и таблицу, вноси счёт и подтверждай результаты в мини-приложении.',
+      'View games and standings, submit scores and confirm results in the mini app.'),
+    t('Открыть в браузере: ', 'Open in browser: ') + config.miniAppUrl);
   lines.push('', linked
-    ? t('<b>Аккаунт подключён.</b> Выбери действие кнопками ниже. Язык бота и нужные уведомления — в /settings.',
-      '<b>Your account is connected.</b> Choose an action below. Set your bot language and notifications in /settings.')
+    ? t('<b>Аккаунт подключён.</b> Язык и уведомления — в /settings.',
+      '<b>Your account is connected.</b> Set your language and notifications in /settings.')
+    : config.miniAppUrl ? t('<b>Как подключиться</b>\nВойди в существующий аккаунт прямо в мини-приложении и подтверди подключение Telegram. Также можно подключиться через профиль сайта: нажми «Подключить аккаунт», войди и выбери «Подключить Telegram». Перейди по персональной ссылке, нажми Start и вернись на сайт для подтверждения.',
+      '<b>Get connected</b>\nSign in to your existing account inside the Mini App and confirm the Telegram connection. You can also connect through your website profile: tap “Connect account”, sign in and choose “Connect Telegram”. Follow your personal link, tap Start, then return to the website to confirm.')
     : t('<b>Как подключиться</b>\nНажми «Подключить аккаунт», войди на сайт и в профиле выбери «Подключить Telegram». Перейди по персональной ссылке, нажми Start и вернись на сайт, чтобы подтвердить привязку.',
       '<b>Get connected</b>\nTap “Connect account”, sign in on the website and choose “Connect Telegram” in your profile. Follow your personal link, tap Start, then return to the website to confirm the connection.'));
-  if (config.adminOnly) lines.push('', t(
-    '🛠 <b>Закрытый тест для администраторов.</b> Используются настоящие данные: внесённые результаты сохраняются на сайте.',
-    '🛠 <b>Administrators-only preview.</b> This uses live data: submitted results are saved on the website.'));
   return {
     text: lines.join('\n'),
     parse_mode: 'HTML',
     link_preview_options: { is_disabled: true },
-    reply_markup: linked ? menu(locale) : { inline_keyboard: [[button(choose(locale, "Подключить аккаунт", "Connect account"), "/tournament#/profile")], [{ text: choose(locale, "Турниры", "Tournaments"), callback_data: "m:tournaments" }]] }
+    reply_markup: linked ? menu(locale) : { inline_keyboard: [
+      [button(choose(locale, "Подключить аккаунт", "Connect account"), "/tournament#/profile")],
+      ...(config.miniAppUrl ? [[{ text: choose(locale, "Открыть мини-приложение", "Open Mini App"), web_app: { url: config.miniAppUrl } }]] : []),
+      [{ text: choose(locale, "Турниры", "Tournaments"), callback_data: "m:tournaments" }]
+    ] }
   };
 }
 function settings(link) {

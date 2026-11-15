@@ -45,6 +45,7 @@ function resolveStaticPath(pathname) {
     return null;
   }
   if (requested.includes("\0")) return null;
+  if (requested === '/tierlist' || requested === '/tierlist/') requested = '/tierlist/index.html';
   if (requested === '/account' || requested === '/account/') requested = '/account/index.html';
   if (requested === '/knowthykt' || requested === '/knowthykt/') requested = '/training/index.html';
   if (requested === "/initiative" || requested === "/initiative/") requested = "/killteam-initiative-calculator.html";

@@ -82,6 +82,7 @@ function ratingReplayOrder(a, b) {
 }
 
 async function recalculateCompletedGameRatings(client, options = {}) {
+  await require("../db/rating-write-lock").acquireRatingWriteLock(client);
   const includeCombined = options.includeCombined !== false;
   const users = await usersRepo.listForRatingReplay(client, { includeCombined });
   const games = await gamesRepo.listCompletedForRatingReplay(client);

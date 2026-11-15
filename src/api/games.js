@@ -90,10 +90,10 @@ async function lockPlayers(client, game) {
   return { playerA, playerB, players };
 }
 
-async function viewOf(client, game) {
+async function viewOf(client, game, options) {
   let detailed = game;
   if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
-    [detailed] = await attachTournamentGameDetails(client, [game]);
+    [detailed] = await attachTournamentGameDetails(client, [game], options);
   }
   const people = Array.isArray(detailed.players) && detailed.players.length
     ? []
@@ -200,7 +200,8 @@ async function listCompleted({ client, query = new URLSearchParams() }) {
     if (playerId > 2147483647) throw new HttpError(400, "Invalid player");
     const playerQuery = String(query.get("playerQuery") || "").trim().slice(0, 256);
     const factionKeys = query.get("team") ? killTeamSearchKeys(query.get("team")) : [];
-    const result = await gamesRepo.listCompletedPage(client, { page, venue, playerId, playerQuery, factionKeys });
+    const result = await gamesRepo.listCompletedPage(client, { page, venue, playerId, playerQuery, factionKeys,
+      sort: query.get('sort'), direction: query.get('direction') });
     const completed = await attachTournamentGameDetails(client, result.games);
     const people = await usersRepo.findByIds(client, [...new Set(completed.flatMap((game) => game.playerIds))]);
     const players = await gamesRepo.completedPlayerSuggestions(client, { venue, playerQuery });
@@ -218,13 +219,13 @@ async function listCompleted({ client, query = new URLSearchParams() }) {
   };
 }
 
-async function getOne({ client, user, params }) {
+async function getOne({ client, user, params, compactTournament = false }) {
   const game = await findGame(client, params.id);
-  const view = await viewOf(client, game);
+  const view = await viewOf(client, game, { compactTournament });
   let publicTournament = false;
   if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
     const tournaments = require("../db/repositories/tournaments");
-    const tournament = view.tournament?.id ? await tournaments.findById(client, view.tournament.id) : null;
+    const tournament = view.tournament?.id ? await tournaments.findById(client, view.tournament.id, { compactTournament }) : null;
     publicTournament = Boolean(tournament && tournaments.PUBLISHED_STATUSES.includes(tournament.status));
     if (!publicTournament && !require("../domain/access").canManageTournament(user, tournament)) {
       throw new HttpError(404, "Game not found");
@@ -350,3 +351,7 @@ module.exports = {
   lockGame,
   lockPlayers
 };
+
+for (const name of ["submitResult", "respondToResult", "exitGame"]) {
+  module.exports[name] = require("../db/rating-write-lock").withRatingWriteLock(module.exports[name]);
+}

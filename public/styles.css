@@ -2466,7 +2466,7 @@ tr:last-child td {
 .admin-teams-table {
   min-width: calc(var(--table-name-min-width) + var(--table-text-width) + var(--table-number-width) + 2 * var(--table-rating-width));
 }
-.individual-standings-table {
+:is(.individual-standings-table, .team-individual-standings-table) {
   min-width: calc(var(--table-rank-width) + var(--table-name-min-width) + var(--table-text-width) + var(--table-metric-count) * var(--table-number-width));
 }
 .team-standings-table {
@@ -2486,7 +2486,7 @@ tr:last-child td {
   white-space: nowrap;
   overflow-wrap: normal;
 }
-:is(.statistics-table, .individual-standings-table, .team-standings-table) th { height: 72px; }
+:is(.statistics-table, .individual-standings-table, .team-standings-table, .team-individual-standings-table) th { height: 72px; }
 
 .leaderboard-table :is(th, td):last-child,
 :is(.teams-leaderboard-table, .admin-teams-table) :is(th, td):nth-child(n+3):not([colspan]),
@@ -2494,7 +2494,7 @@ tr:last-child td {
   text-align: right;
 }
 .team-standings-table :is(th, td):nth-child(n+3):not([colspan]),
-.individual-standings-table :is(th, td):nth-child(n+4):not([colspan]) {
+:is(.individual-standings-table, .team-individual-standings-table) :is(th, td):nth-child(n+4):not([colspan]) {
   text-align: center;
 }
 .data-table .sort-button { width: 100%; white-space: normal; line-height: inherit; text-align: inherit; }
@@ -5084,3 +5084,9 @@ tr:last-child td {
 }
 
 .resource-quota-dialog{max-width:900px}.resource-quota-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.resource-quota-grid label{display:grid;gap:.3rem}.resource-quota-grid small{opacity:.75}@media(max-width:600px){.resource-quota-grid{grid-template-columns:1fr}}
+
+.statistics-order-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0; }
+.statistics-order-controls label { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:.875rem; color:var(--text-muted,inherit); }
+.statistics-order-controls select { max-width:100%; min-height:36px; }
+.statistics-order-controls .small-button { min-height:36px; }
+@media (max-width:600px) { .statistics-order-controls label { flex:1 1 100%; } .statistics-order-controls select { flex:1; min-width:0; } }

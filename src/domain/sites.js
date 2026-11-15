@@ -1,4 +1,4 @@
-const SERVICE_PATHS = { home: "/", tournament: "/tournament", initiative: "/initiative", tracker: "/tracker", studio: "/studio", dice: "/dice", faq: "/faq", combat: "/combat", training: "/knowthykt" };
+const SERVICE_PATHS = { home: "/", tournament: "/tournament", initiative: "/initiative", tracker: "/tracker", studio: "/studio", dice: "/dice", faq: "/faq", combat: "/combat", training: "/knowthykt", tierlist: "/tierlist" };
 
 function parseOrigin(value) {
   let origin;

@@ -7,10 +7,12 @@ const translations = require('../../public/training/questions-en.json');
 const { localize, signature } = require('../../public/training/question-language');
 
 test('all core and team question versions have complete English wording and unchanged answer indices', () => {
-  assert.equal(Object.keys(translations).length, bank.length);
+  assert.ok(Object.keys(translations).length >= bank.length);
   for (const question of bank) {
     const original = structuredClone(question);
-    const entry = translations[question.id];
+    const current = translations[question.id];
+    const entry = [current, ...(current?.versions || [])].find(item => item?.original === signature(question));
+    assert.ok(entry, question.id);
     assert.equal(entry.original, signature(question), question.id);
     const en = localize(question, 'en', translations);
     assert.notEqual(en, question);
@@ -26,6 +28,29 @@ test('all core and team question versions have complete English wording and unch
     assert.deepEqual(question, original);
     assert.equal(localize(question, 'ru', translations), question);
   }
+});
+
+test('published editorial revisions and their saved historical versions keep separate translations', () => {
+  let revisions = 0;
+  for (const [id, current] of Object.entries(translations)) {
+    for (const entry of [current, ...(current.versions || [])]) {
+      const [topic, question, ...fields] = JSON.parse(entry.original);
+      const snapshot = { id, topic, question, options: fields.slice(0, 4), explanation: fields[4], source: { section: fields[5] }, answer: 1 };
+      const english = localize(snapshot, 'en', translations);
+      assert.notEqual(english, snapshot, id);
+      assert.equal(english.question, entry.question, id);
+      assert.deepEqual(english.options, entry.options, id);
+      assert.equal(english.answer, snapshot.answer, id);
+      for (const text of [english.topic, english.question, ...english.options, english.explanation, english.source.section]) {
+        assert.ok(text.trim().length, id);
+        assert.doesNotMatch(text, /[а-яё]|ZXTERM|ZXFIELD/i, id);
+      }
+      const edited = { ...snapshot, question: snapshot.question + ' Untranslated edit.' };
+      assert.equal(localize(edited, 'en', translations), edited, id);
+    }
+    revisions += (current.versions || []).length;
+  }
+  assert.ok(revisions > 0, 'editorial revisions retain the previous translated snapshots');
 });
 
 test('a moderator edit cannot inherit an outdated translation, but saved history stays translatable', () => {

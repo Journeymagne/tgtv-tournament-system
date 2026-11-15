@@ -1,10 +1,11 @@
 const { HttpError } = require("../http/io");
 const { configuration } = require("../telegram/config");
-const { hash, csrfToken } = require("../telegram/security");
+const { csrfToken } = require("../telegram/security");
 const miniAuth = require("../telegram/miniapp-auth");
 const telegramAccess = require('../telegram/access');
+const miniappLink = require('../telegram/miniapp-link');
 const auth = require("./auth");
-const games = require("./games");
+const { gameDetail, changeResult } = require('./game-results');
 const tournaments = require("./tournaments");
 const { publicUser } = require("./views");
 const { DEFAULTS } = require("../telegram/messages");
@@ -18,7 +19,8 @@ async function session(ctx) {
     if (!config.enabled || !config.token) throw new HttpError(503, "Вход через Telegram пока не настроен.");
     const person = miniAuth.validateInitData(ctx.body.initData, config.token);
     const linked = await miniAuth.linkedUser(ctx.client, person.id);
-    if (!linked) return noStore({ authenticated: false, reason: "not_linked", locale: person.language_code?.startsWith("en") ? "en" : "ru" });
+    if (!linked) return noStore({ authenticated: false, reason: "not_linked", locale: person.language_code?.startsWith("en") ? "en" : "ru",
+      link: await miniappLink.createChallenge(ctx, person) });
     return noStore({ authenticated: true, locale: linked.link.locale, adminOnly: config.adminOnly, user: publicUser(linked.user), accessToken: miniAuth.issueToken(linked.link, config.token), expiresIn: miniAuth.SESSION_SECONDS });
   }
   const user = await auth.loadUserFromRequest(ctx.client, ctx.req);
@@ -44,42 +46,6 @@ async function summary(ctx) {
     notifications: link || null, reference: require("../../public/game-data") });
 }
 
-function revision(game) { return hash(JSON.stringify({ status: game.status, result: game.result, pending: game.pendingResult })); }
-
-async function gameDetail(ctx) {
-  const { game } = await games.getOne(ctx);
-  if (game.tournament?.id && !game.tournament.status) {
-    const tournament = await require("../db/repositories/tournaments").findById(ctx.client, game.tournament.id);
-    if (tournament) game.tournament = { ...game.tournament, status: tournament.status, format: tournament.format };
-  }
-  const participant = game.players.some(player => (player.userId ?? player.id) === ctx.user.id && !player.isProxy);
-  const ownSubmission = game.pendingResult?.submittedBy === ctx.user.id;
-  const permissions = game.resultPermissions || {
-    canSubmit: participant && (game.status === "open" || (game.status === "pending_confirmation" && (game.sourceType === "tournament_match" || ownSubmission))),
-    canReview: participant && game.status === "pending_confirmation" && !ownSubmission
-  };
-  if (game.tournament && game.tournament.status !== "in_progress") {
-    permissions.canSubmit = false;
-    permissions.canReview = false;
-  }
-  const confirmationRequired = game.sourceType === "tournament_match" ? false :
-    !(game.sourceType === "team_match_game" && game.tournament?.venueMode === "irl" && !permissions.submitsAsCaptain);
-  return { game: { ...game, resultPermissions: permissions, confirmationRequired, revision: revision(game) } };
-}
-
-async function changeResult(ctx) {
-  const initial = await games.getOne(ctx);
-  // Match the existing tournament -> game lock order. The revision prevents
-  // approving a different score after the opponent edited the pending result.
-  if (initial.game.tournament?.id) await ctx.client.query("SELECT id FROM tournaments WHERE id=$1 FOR UPDATE", [initial.game.tournament.id]);
-  await games.lockGame(ctx.client, ctx.params.id);
-  const { game } = await gameDetail(ctx);
-  if (typeof ctx.body.revision !== "string" || ctx.body.revision !== game.revision) throw new HttpError(409, "Результат изменился. Обновите матч перед сохранением.");
-  if (ctx.params.action === "result") await games.submitResult(ctx);
-  else await games.respondToResult(ctx);
-  return noStore(await gameDetail(ctx));
-}
-
 async function preferences(ctx) {
   if (typeof ctx.body.enabled !== "boolean" || !ctx.body.preferences || typeof ctx.body.preferences !== "object" || Array.isArray(ctx.body.preferences)) throw new HttpError(400, "Invalid notification settings");
   const { rows: [link] } = await ctx.client.query("SELECT id,preferences FROM telegram_links WHERE user_id=$1 FOR UPDATE", [ctx.user.id]);
@@ -95,14 +61,18 @@ async function preferences(ctx) {
 
 function route(method, path, handler, write = false) {
   return { method, path: "/api/miniapp" + path, tx: write, maxBodyBytes: 24576,
+    ratingMutation: write && path.startsWith("/games/"),
     handler: async ctx => handler(await miniAuth.authenticate(ctx, write)) };
 }
 
 module.exports = { routes: [
-  { method: "POST", path: "/api/miniapp/session", handler: session, tx: true, rateLimit: "auth", maxBodyBytes: 24576 },
+  { method: "POST", path: "/api/miniapp/session", handler: session, tx: true, rateLimit: "auth", maxBodyBytes: 24576,
+    miniappLinkLimit: 'challenge', miniappLinkPreflight: miniappLink.preflight },
+  { method:'POST', path:'/api/miniapp/link/confirm', handler:miniappLink.confirm, tx:true, miniappLinkLimit:'confirm', maxBodyBytes:24576 },
+  { method:'POST', path:'/api/miniapp/link/cancel', handler:miniappLink.cancel, tx:true, miniappLinkLimit:'cancel', maxBodyBytes:24576 },
   route("GET", "/summary", summary),
   route("GET", "/tournaments/:slug", async ctx => noStore(await tournaments.getPublic(ctx))),
   route("GET", "/games/:id", async ctx => noStore(await gameDetail(ctx))),
-  ...["result", "confirm-result", "reject-result"].map(action => route("POST", `/games/:id/${action}`, ctx => changeResult({ ...ctx, params: { ...ctx.params, action } }), true)),
+  ...["result", "confirm-result", "reject-result"].map(action => route("POST", `/games/:id/${action}`, async ctx => noStore(await changeResult({ ...ctx, params: { ...ctx.params, action } })), true)),
   route("PATCH", "/preferences", preferences, true)
 ] };

@@ -69,7 +69,7 @@ async function start() {
     if (service === 'monolith') await migrate(getPool());
     else {
       const { rows } = await getPool().query('SELECT max(version) AS version FROM public.schema_migrations');
-      if (rows[0].version < 67) throw Error('Run npm run db:migrate before starting the services');
+      if (rows[0].version < (service === 'tierlists' ? 87 : 67)) throw Error('Run npm run db:migrate before starting the services');
     }
   }
   if (['monolith','accounts'].includes(service)) {

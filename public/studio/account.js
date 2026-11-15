@@ -39,7 +39,8 @@
         storage: {
           getItem: key => localStorage.getItem(prefix + key),
           setItem: (key, value) => localStorage.setItem(prefix + key, value),
-          removeItem: key => localStorage.removeItem(prefix + key)
+          removeItem: key => localStorage.removeItem(prefix + key),
+          keys: () => Array.from({length:localStorage.length},(_,index)=>localStorage.key(index)).filter(key=>key?.startsWith(prefix)).map(key=>key.slice(prefix.length))
         }
       };
     }

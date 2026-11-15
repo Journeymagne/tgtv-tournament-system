@@ -25,6 +25,7 @@ const { normalizeRosterName, teamNameKey, defaultRosterName } = require("../doma
 const { rosterForViewer } = require("../domain/tournaments/privacy");
 const { teamGamePermissions } = require("../domain/team-game-permissions");
 const { participantResultKey } = require("../domain/tournaments/results");
+const { buildTeamIndividualStandings } = require("../domain/team-individual-standings");
 const { normalizeFactions, registeredFactions, validateResultFactions } = require("../domain/tournaments/factions");
 const {
   teamSizeFor,
@@ -251,6 +252,8 @@ async function updateRoster({ client, user, params, body }) {
         }
       } else replacements.push({ current, member });
     }
+    await assertRosterReplacementSafe(client, tournament, roster,
+      replacements.map(replacement => replacement.current?.id).filter(Number.isInteger));
     // End every changed slot first so a valid slot swap cannot collide with the
     // tournament-wide unique active-player constraint midway through the update.
     for (const replacement of replacements) {
@@ -286,6 +289,21 @@ async function updateRoster({ client, user, params, body }) {
   } catch (err) {
     if (err.code === "23505") throw new HttpError(409, "Roster name, seed, or player is already used in this tournament");
     throw err;
+  }
+}
+
+async function assertRosterReplacementSafe(client, tournament, roster, replacedMemberIds) {
+  if (!replacedMemberIds.length || tournament.status !== "in_progress") return;
+  const replaced = new Set(replacedMemberIds);
+  const matches = await teamMatchesRepo.listByTournament(client, tournament.id);
+  for (const match of matches) {
+    if (match.resolution || match.phase === "completed" || match.games.length ||
+        ![match.rosterAId, match.rosterBId].includes(roster.id)) continue;
+    const selected = [match.shieldAMemberId, match.shieldBMemberId, match.swordAMemberId, match.swordBMemberId,
+      ...(match.pairings || []).flatMap(pair => [pair.rosterAMemberId, pair.rosterBMemberId])];
+    if (selected.some(id => replaced.has(id))) {
+      throw new HttpError(409, "Reset this pairing before replacing a selected player");
+    }
   }
 }
 
@@ -1326,13 +1344,16 @@ function redactTeamMatch(match, rosterA, rosterB, user) {
 }
 
 async function tournamentData(client, tournament, user, { includeAudit = false } = {}) {
+  const includeHistory = includeAudit || Boolean(canManageTournament(user, tournament));
   const storedRosters = await rostersRepo.listByTournament(client, tournament.id, {
     includeWithdrawn: true,
-    includeHistory: includeAudit || Boolean(canManageTournament(user, tournament))
+    includeHistory: true
   });
   const myTeams = user ? await teamsRepo.listForUser(client, user.id) : [];
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
-  const rosters = storedRosters.map((roster) => rosterForViewer(roster, user, {
+  const rosters = storedRosters.map((roster) => rosterForViewer(includeHistory ? roster : {
+    ...roster, members: roster.members.filter(member => !member.endedAt)
+  }, user, {
     rounds,
     teamLeader: myTeams.some((team) => team.id === roster.teamId && team.leaderUserId === user?.id)
   }));
@@ -1388,6 +1409,7 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
       matches: matches.filter((match) => match.roundId === round.id) })),
     teamMatches: matches,
     standings: teamStandings(activeRosters, rawMatches, tournament.teamTiebreakerOrder ?? null, { ...tournament, historicalRosters: rosters }).map((row) => ({ ...row, rosterId: row.roster.id, roster: undefined })),
+    individualStandings: buildTeamIndividualStandings(storedRosters, rawMatches),
     tournamentGames,
     viewerTeams,
     finalResults: tournament.finalResults || null,
@@ -1474,9 +1496,9 @@ function matchIdForLink(matches, link) {
 async function resetMatchAdmin({ client, user, params, body }) {
   const context = await requireMatchContext(client, params, user);
   if (!canManageTournament(user, context.tournament)) throw new HttpError(403, "Administrator rights required");
+  const rounds = await roundsRepo.listByTournament(client, context.tournament.id);
+  if (rounds.some(round => round.roundNumber > context.match.roundNumber)) throw new HttpError(409, "Roll back later rounds before changing this pairing");
   if (context.match.pairingType === "doubles") {
-    const rounds = await roundsRepo.listByTournament(client, context.tournament.id);
-    if (rounds.some(round => round.roundNumber > context.match.roundNumber)) throw new HttpError(409, "Roll back later rounds before changing this pairing");
     if (context.match.games.some(link => link.game?.status === "pending_confirmation") && body.confirmResultsReset !== true) throw new HttpError(409, "Confirm removal of submitted personal results before resetting pairing");
   }
   const targetPhase = context.match.captainPairingEnabled === false ? "environment_selection" : String(body.phase || "awaiting_roll");
@@ -1809,3 +1831,7 @@ module.exports = {
   attachTeamGameDetails,
   redactTeamMatch
 };
+
+for (const name of ["undoPairing", "resetMatchAdmin", "handleGameRequest", "deleteRoster", "updateRoster"]) {
+  module.exports[name] = require("../db/rating-write-lock").withRatingWriteLock(module.exports[name]);
+}

@@ -95,7 +95,7 @@ test("admin polling preserves independent Shield drafts for both sides", () => {
 
 test("anonymous pairing shows submitted VP while only confirmed results count toward GP", () => {
   const render = new Function("state", "t", "escapeHtml", "teamMissionLabel", "teamRosterMemberLabel",
-    ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
+    require("../helpers/statistics-client-source") + "\n" + ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
   )({ me: null }, (key, values) => key === "teams.results.progress"
     ? `${values.count}/${values.total}: ${values.a}:${values.b}` : key, String, () => "Volkus", () => "Player");
   const match = { progress: { completed: 1, total: 3, gpA: 14, gpB: 6 }, games: [
@@ -122,7 +122,7 @@ test("anonymous pairing shows submitted VP while only confirmed results count to
 test("each game keeps one card as pairings, partial environment choices and results arrive", () => {
   const messages = require("../../public/i18n/en.js");
   const render = new Function("state", "t", "escapeHtml", "teamTournamentTables",
-    ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "teamMissionLabel", "tableLabel", "teamRosterMemberLabel", "teamPairingMemberLabel"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
+    require("../helpers/statistics-client-source") + "\n" + ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "teamMissionLabel", "tableLabel", "teamRosterMemberLabel", "teamPairingMemberLabel"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
   )({ me: { id: 1 } }, (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name]), String,
     () => assert.fail("use the match's table snapshot"));
   const match = {

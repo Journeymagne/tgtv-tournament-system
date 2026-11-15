@@ -1,10 +1,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
-const GROUPS = ['accounts', 'notifications', 'tournaments', 'studio', 'faq', 'knowthykt'];
+const GROUPS = ['accounts', 'notifications', 'tournaments', 'studio', 'faq', 'knowthykt', 'tierlists'];
 
 function testGroup(file) {
   const name = path.basename(file);
+  if (/tierlist/.test(name)) return 'tierlists';
   if (/studio/.test(name)) return 'studio';
   if (/training/.test(name)) return 'knowthykt';
   if (/faq/.test(name)) return 'faq';
@@ -30,6 +31,9 @@ function affected(files, { full = false, runtimeChanged = false } = {}) {
       const group = testGroup(file);
       if (group === 'shared') all(); else groups.add(group);
       continue;
+    }
+    if (/^(public\/tierlist\/|src\/tierlists\/|src\/api\/(?:tierlists|routes-tierlists)|src\/domain\/tierlist|src\/db\/repositories\/tierlist)/.test(file)) {
+      groups.add('tierlists'); continue;
     }
     if (/^(public\/training\/|src\/training\/|src\/api\/(?:training|routes-knowthykt))/.test(file)) {
       groups.add('knowthykt'); groups.add('notifications'); continue;

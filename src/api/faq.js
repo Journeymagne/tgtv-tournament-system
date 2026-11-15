@@ -146,7 +146,9 @@ async function decide({client,user,params,body}){
   }else{await require('../resources/quotas').spend(client,user.id,'faqCreateDay',86400);resultId=crypto.randomUUID();await client.query('INSERT INTO faq_entries(id,content,created_by,updated_by) VALUES($1,$2,$3,$3)',[resultId,JSON.stringify(payload),user.id]);await history(client,user,resultId,'submission_accepted',{after:payload,submissionId:s.id});}
  }
  await client.query('UPDATE faq_submissions SET status=$2,resolution=$3,result_entry_id=$4,decided_by=$5,decided_at=NOW() WHERE id=$1',[s.id,body.status,note,resultId,user.id]);
- await require('../notifications/publish').publish(client,'faq',s.author_id,{id:'faq_submission:'+s.id,type:'faq_submission',createdAt:new Date().toISOString(),title:'Решение по вашей заявке FAQ',status:body.status,excerpt:note,href:'/faq#view=mine'});
+ // A returned submission can receive several decisions. The committed message
+ // stores each occurrence's identity; outbox retries reuse that same identity.
+ await require('../notifications/publish').publish(client,'faq',s.author_id,{id:'faq_submission:'+crypto.randomUUID(),type:'faq_submission',createdAt:new Date().toISOString(),title:'Решение по вашей заявке FAQ',status:body.status,excerpt:note,href:'/faq#view=mine'});
  return {ok:true,entryId:resultId};
 }
 async function reviseSubmission({client,user,params,body}){

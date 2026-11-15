@@ -83,6 +83,8 @@ const FORBIDDEN = [
 // the reason. Anything not listed here and not made purely of protected terms
 // fails check 7.
 const SAME_IN_BOTH = {
+  "teams.tournament.individualGp": "Requested personal standings metric label: Total GP.",
+  "teams.tournament.individualDiff": "Requested personal standings metric label: Diff GP.",
   "admin.tournament.action.rollbackLatestRound": "User-requested button label: Undo round.",
   "achievements.hallOfFame": "User explicitly requested the Hall Of Fame label in both locales.",
   "tiebreaker.strengthOfSchedule.label": "Strength of Schedule stays English by decision.",

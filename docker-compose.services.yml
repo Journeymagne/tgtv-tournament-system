@@ -51,6 +51,7 @@ services:
       STUDIO_DB_PASSWORD: ${STUDIO_DB_PASSWORD:?Set a random hexadecimal password}
       FAQ_DB_PASSWORD: ${FAQ_DB_PASSWORD:?Set a random hexadecimal password}
       KNOWTHYKT_DB_PASSWORD: ${KNOWTHYKT_DB_PASSWORD:?Set a random hexadecimal password}
+      TIERLISTS_DB_PASSWORD: ${TIERLISTS_DB_PASSWORD:?Set a random hexadecimal password}
   gateway:
     <<: *app
     ports:
@@ -66,6 +67,7 @@ services:
       STUDIO_URL: http://studio:3000
       FAQ_URL: http://faq:3000
       KNOWTHYKT_URL: http://knowthykt:3000
+      TIERLISTS_URL: http://tierlists:3000
       CALCULATORS_URL: http://calculators:3000
   accounts:
     <<: *app
@@ -114,6 +116,12 @@ services:
       <<: *env
       SERVICE_NAME: knowthykt
       DATABASE_URL: postgres://kt_knowthykt:${KNOWTHYKT_DB_PASSWORD}@postgres:5432/tgtv_tournament
+  tierlists:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE_NAME: tierlists
+      DATABASE_URL: postgres://kt_tierlists:${TIERLISTS_DB_PASSWORD}@postgres:5432/tgtv_tournament
   calculators:
     <<: *app
     environment:
