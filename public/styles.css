@@ -2443,6 +2443,27 @@ input[type="file"]::file-selector-button {
   justify-content: flex-end;
 }
 
+.game-row-actions {
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 100%;
+}
+
+.game-status-row,
+.game-button-row {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+}
+
+@media (max-width: 560px) {
+  .game-row-actions { align-items: flex-start; }
+  .game-status-row,
+  .game-button-row { justify-content: flex-start; }
+}
+
 /* ======================================================================
    Status pills
    ====================================================================== */

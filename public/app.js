@@ -4057,13 +4057,17 @@ function gameCard(game) {
         <div class="row-title">${title}</div>
         <div class="row-meta">${escapeHtml(meta)}</div>
       </div>
-      <div class="row-actions">
-        <span class="status ${status}">${game.status === "completed" ? t("play.game.status.completed") : isPending ? t("play.game.status.pending") : t("play.game.status.active")}</span>
-        ${detailsAction}
-        ${tournamentAction}
-        ${mainAction}
-        ${adminResultAction}
-        ${exitAction}
+      <div class="row-actions game-row-actions">
+        <div class="game-status-row">
+          <span class="status ${status}">${game.status === "completed" ? t("play.game.status.completed") : isPending ? t("play.game.status.pending") : t("play.game.status.active")}</span>
+        </div>
+        <div class="game-button-row">
+          ${detailsAction}
+          ${tournamentAction}
+          ${mainAction}
+          ${adminResultAction}
+          ${exitAction}
+        </div>
       </div>
     </div>
   `;
