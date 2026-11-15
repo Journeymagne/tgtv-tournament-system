@@ -65,13 +65,13 @@ test("team picks count current roster members once, including players with no co
   data.tournamentGames = [];
   assert.equal(picks(data).rows[0].picks, 2);
   for (const [locale, title, pickLabel, empty] of [["en", "Kill Team stats", "Picks", "No completed tournament games yet"],
-    ["ru", "Статистика Kill Team", "Пики", "Пока нет завершённых турнирных игр"]]) {
+    ["ru", "Статистика киллтимов", "Пики", "Пока нет завершённых турнирных игр"]]) {
     i18n.setLocale(locale);
     const html = render(data);
     assert.ok(html.includes(title));
     assert.ok(html.includes(empty));
     assert.equal((html.match(/class="admin-subpanel tournament-stat-table"/g) || []).length, 1);
-    assert.match(html, new RegExp(`<th>Kill Team</th>\\s*<th>${pickLabel}</th>`));
+    assert.match(html, new RegExp(`<th>${locale === "ru" ? "Киллтим" : "Kill Team"}</th>\\s*<th>${pickLabel}</th>`));
     assert.match(html, /Kommandos<\/td>\s*<td>2<\/td>\s*<td>0-0-0<\/td>/);
     assert.doesNotMatch(html, /tournament-faction-picks/);
   }
