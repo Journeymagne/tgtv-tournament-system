@@ -9,7 +9,7 @@ export default class Note {
 }
 
 export const Reroll = new Note(
-  `Reroll`,
+  `Re-roll`,
   `Balanced rerolls 1 die.  Relentless rerolls fails.`
     + `  Ceasless rerolls most common fail result (ex: reroll 2s); it's called "ceaseless" in KT2024.`
     + `  CritFishRelentless rerolls non-crits.`

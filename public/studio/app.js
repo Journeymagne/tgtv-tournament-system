@@ -244,7 +244,7 @@ function render(){
  $('#add-item').textContent=section==='lorePages'?'+ Страница':'+ Карточка';
  $('#view-toggle').textContent=previewOnly?(section==='dice'?'Настроить кубики':section==='lorePages'?'Редактировать страницу':'Редактировать карточку'):(section==='dice'?'Показать кубик':section==='lorePages'?'Показать страницу':'Показать карточку');
  renderRecordList();
- $('#section-note').textContent=section==='selectionCards'?'Группы выбора, варианты вооружения и общие ограничения — в формате оригинальной карточки состава.':section==='equipment'?'Четыре карточки снаряжения. Оружие и правила редактируются внутри каждой карточки.':section==='firefightPloys'?'Четыре карточки Firefight Ploys.':section==='strategicPloys'?'Четыре карточки Strategic Ploys.':section==='teamCards'?'Любое число карточек правил фракции. Состав находится в отдельной вкладке.':'';
+ $('#section-note').textContent=section==='selectionCards'?'Группы выбора, варианты вооружения и общие ограничения — в формате оригинальной карточки состава.':section==='equipment'?'Четыре карточки Equipment. Оружие и правила редактируются внутри каждой карточки.':section==='firefightPloys'?'Четыре карточки Firefight Ploys.':section==='strategicPloys'?'Четыре карточки Strategic Ploys.':section==='teamCards'?'Любое число карточек правил фракции. Состав находится в отдельной вкладке.':'';
  if(section==='lorePages')$('#section-note').textContent='Лор, фотографии и референсы моделей с подписями оружия. Отдельные страницы A4 после карточек в PDF.';
  if(section==='tokenCards')$('#section-note').textContent='Карточки жетонов для PDF и TTS. Круги по умолчанию 20 мм; размеры сохраняются при печати PDF в масштабе 100%.';
  if(section==='dice'){$('#section-note').textContent='Кубики с логотипом вашей команды: настройте оформление и количество для общего набора TTS.';$('#breadcrumb').textContent=data.team.name+' / КУБИКИ';}
@@ -453,7 +453,7 @@ function renderEditor(options={}){
   out=panel('КАРТОЧКА',nameEditor+(section==='teamCards'?field('Подзаголовок','subtitle',c.subtitle||''):'')+(fixed()?field('Стоимость (если есть)','cost',c.cost):''),c.sourcePage?esc(data.team.name)+' · стр. '+c.sourcePage:'Свободная карточка');
   if(section==='equipment'){
    const source=data.sourceArchive?.equipment||[];
-   if(source.length)out+=panel('ВЫБРАТЬ ИЗ ИСХОДНИКА','<label>Снаряжение '+esc(data.team.name)+'<select id="source-equipment"><option value="">Выберите предмет</option>'+source.map((e,i)=>'<option value="'+i+'">'+esc(e.name)+' · '+esc(e.cost)+'</option>').join('')+'</select></label><button data-action="use-source">Заполнить эту карточку</button><p class="hint">После вставки оружие и правила редактируются прямо здесь.</p>');
+   if(source.length)out+=panel('ВЫБРАТЬ ИЗ ИСХОДНИКА','<label>Equipment '+esc(data.team.name)+'<select id="source-equipment"><option value="">Выберите предмет</option>'+source.map((e,i)=>'<option value="'+i+'">'+esc(e.name)+' · '+esc(e.cost)+'</option>').join('')+'</select></label><button data-action="use-source">Заполнить эту карточку</button><p class="hint">После вставки оружие и правила редактируются прямо здесь.</p>');
   }
   if(c.kind==='operative'){
    out+=imageEditor(c);

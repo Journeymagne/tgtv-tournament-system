@@ -12,8 +12,6 @@ const { tacOpOptions, gameSystemOptions, seasons } = require("../game-data.js");
 // listed explicitly: the word-boundary check treats "Tac Ops" and "Tac Op" as
 // different terms.
 const RULES_TERMS = [
-  "Kill Team",
-  "Kill Teams",
   "Approved Ops",
   "Crit Op",
   "Crit Ops",
@@ -24,16 +22,40 @@ const RULES_TERMS = [
   "Primary Op",
   "Primary Ops",
   "VP",
-  "Killzone",
-  "Killzones",
   "Dataslate",
   "APL",
-  "Roll-off",
+  "Turning Point",
+  "Turning Points",
+  "Counteract",
+  "Re-roll",
+  "Re-rolls",
+  "Strategic Ploys",
+  "Firefight Ploys",
+  "Equipment",
+  "Wounds",
+  "Expended",
   "Elo",
   "Strength of Schedule",
   "SoS",
   "SOS"
 ];
+
+// Game states only. Ordinary UI order/ready/save wording remains Russian.
+const CONTEXTUAL_RULES_TERMS = ["Order", "Ready"];
+
+// Approved labels, not replacements for serialized names/options.
+const TRANSLATED_LABELS = {
+  "Killzone": "Киллзона", "Kill Team": "Киллтим", "Victory Points": "Победные очки",
+  "Roll-off": "Бросок", "Layout": "Раскладка", "Deployment": "Расстановка",
+  "Mission": "Миссия", "Faction": "Фракция", "Operative": "Оперативник",
+  "Activation": "Активация", "Initiative": "Инициатива", "Weapon": "Оружие",
+  "Weapon profile": "Профиль оружия", "Weapon rules": "Правила оружия",
+  "Ability": "Способность", "Action": "Действие", "Shooting": "Стрельба",
+  "Fighting": "Бой", "Melee": "Ближний бой", "Strike": "Удар", "Parry": "Парирование",
+  "Normal damage": "Обычный урон", "Critical damage": "Критический урон",
+  "Hit": "Попадание", "Save": "Сейв", "Cover": "Укрытие", "Terrain": "Террейн",
+  "Visibility": "Видимость", "Token": "Жетон", "Marker": "Маркер"
+};
 
 // Product and feature names.
 const PROPER_NAMES = [
@@ -97,14 +119,11 @@ const SAME_IN_BOTH = {
   "nav.brand.name": "Product name, matches auth.brand.title.",
   "nav.brand.subtitle": "Product name, matches auth.brand.title.",
   "auth.field.telegramContactPlaceholder": "Placeholder format example, not localized text.",
-  "games.filter.teamLabel": "Rules term.",
-  "games.result.killzoneLabel": "Rules term.",
   "games.result.critOp": "Rules term.",
   "games.result.tiebreaker.tacCrit": "Rules term.",
   "games.result.withElo": "Rules term. (Elo, otherwise only placeholders and punctuation.)",
   "tournaments.field.telegram": "Product name.",
   "tournaments.registration.telegramPlaceholder": "Placeholder format example, not localized text.",
-  "tournaments.mission.killzone": "Rules term.",
   "tournaments.mission.critOp": "Rules term.",
   "tournaments.review.tacOpVp": "Rules term.",
   "tournaments.score.primaryOp": "Rules term.",
@@ -112,14 +131,13 @@ const SAME_IN_BOTH = {
   "stats.classification.nonClassified": "Challenge classification, a feature name.",
   "challenge.title": "Feature name.",
   "challenge.tab.classified": "Challenge classification, a feature name.",
-  "challenge.tab.allKillTeam": "Feature and classification names.",
   "challenge.wildcards.title": "Game term kept English, per the challenge.subtitle worked translation.",
   "challenge.card.wildcard": "Game term kept English, per the challenge.subtitle worked translation.",
   "admin.tournament.field.namePlaceholder": "Placeholder example tournament name, not localized text.",
   "admin.tournament.field.rulesLinkPlaceholder": "Placeholder format example, not localized text.",
   "admin.tournament.participants.tgtvUser": "Product/brand abbreviation, no other words to translate.",
   "leaderboard.users.contact.telegram": "Product name.",
-  "stats.tab.teams": "Requested feature label is Killteams in both locales."
+  "challenge.tab.allKillTeam": "Feature name, not the unit label."
 };
 
-module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };
+module.exports = { PROTECTED, RULES_TERMS, CONTEXTUAL_RULES_TERMS, TRANSLATED_LABELS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };

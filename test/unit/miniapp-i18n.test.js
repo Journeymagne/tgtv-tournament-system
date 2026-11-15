@@ -25,7 +25,7 @@ test('Mini App interface keys have English translations, including static shell 
 
 test('API errors remain useful in both languages, with localized fallbacks', () => {
   assert.equal(i18n.error('Результат изменился. Обновите матч перед сохранением.', 409, 'en'), 'The result has changed. Refresh the game before saving.');
-  assert.equal(i18n.error('Choose a valid Killzone', 400, 'ru'), 'Выберите допустимый Killzone.');
+  assert.equal(i18n.error('Choose a valid Killzone', 400, 'ru'), 'Выберите допустимую киллзону.');
   assert.equal(i18n.error('Choose a valid Killzone', 400, 'en'), 'Choose a valid Killzone');
   assert.equal(i18n.error('Новая серверная ошибка', 403, 'en'), 'You do not have permission to perform this action.');
   assert.match(i18n.error(null, 401, 'en'), /session has expired/);
