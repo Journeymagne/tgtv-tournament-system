@@ -1263,7 +1263,7 @@ const TGTV_I18N_EN = {
   "results.title": "Tournament results",
   "results.final": "Final results",
   "results.completed": "Tournament finished",
-  "results.download": "Download PNG",
+  "results.download": "Save PNG",
   "results.champions": "Tournament champions",
   "results.silver": "Runners-up",
   "results.bronze": "Third place",

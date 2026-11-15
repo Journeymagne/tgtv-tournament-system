@@ -8,7 +8,7 @@ Completed tournaments show an **Итоги / Results** tab and the same results 
 
 Use the existing `--surface`, `--panel`, `--panel-2`, `--line`, `--accent`, `--ink`, and control tokens. Cards use neutral surfaces, 10px corners, and a thin orange champion border; controls use the existing primary/secondary classes and standard sizes. The page adapts to mobile. Both languages and themes work.
 
-A public **Скачать PNG / Download PNG** action produces a shareable result image using the same canonical client model as the page. The browser canvas renderer avoids external rendering services, dependencies, network fonts and cross-origin assets; wrap long names and grow the image if needed. Download uses the tournament name and a PNG MIME type. Export errors are visible and retryable.
+A public **Скачать PNG / Save PNG** action produces a shareable result image using the same canonical client model as the page. The browser canvas renderer avoids external rendering services, dependencies, network fonts and cross-origin assets; wrap long names and grow the image if needed. Download uses the tournament name and a PNG MIME type. Export errors are visible and retryable. The English label avoids the protected mission name “Download”.
 
 Approaches considered: a generated poster, a traditional table page, and a champion-led card composition. The user chose the card composition and its subsequent UI-kit revision. Canvas export is an implementation choice to keep hosting and deployment unchanged.
 
