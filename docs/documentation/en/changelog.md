@@ -2,6 +2,14 @@
 
 KT Companion release history, newest first.
 
+## 1.5.28 — 16 November 2026
+
+- The tournament system uses widescreen monitor space. Faction statistics show every metric without horizontal scrolling: sections sit alongside one another on large screens and tables become labeled cards in narrow layouts.
+- Organizers explicitly finish a tournament after all rounds and matches are confirmed. Published results show medalists, the official top ten and team-event personal winners, with PNG downloads.
+- Added result revision checks for entry and confirmation from clients that support result versions. Stale submissions return a conflict instead of overwriting newer data.
+- Game cards separate status from action buttons, which wrap when space is limited.
+- Approved Russian game terminology is consistent across the website, Telegram, Mini App and Companion tools; Layout and Deployment keep their distinct meanings.
+
 ## 1.5.27 — 16 November 2026
 
 - Standardized game terminology in the Russian website, Telegram bot and Mini App: Crit Op, Kill Op, Tac Op and Primary Op remain in English; Killzone, Kill Team unit labels, Roll-off, Layout and Deployment use their agreed Russian translations.
