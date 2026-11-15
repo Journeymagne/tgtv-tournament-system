@@ -110,7 +110,7 @@
     const champion = model.entries[0], heroLines = lines(label(champion, t), 445, 58, 750);
     const titleLines = lines(model.name, 1112, 18, 650);
     const headHeight = 192 + titleLines.length * 25;
-    const heroHeight = Math.max(334, 136 + heroLines.length * 65 + (champion.members.length ? lines(champion.members.join(' · '), 605, 13).length * 20 : 0));
+    const heroHeight = Math.max(334, 176 + heroLines.length * 65 + (champion.members.length ? lines(champion.members.join(' · '), 605, 13).length * 20 : 0));
     const runners = model.entries.slice(1, 3);
     const runnerHeights = runners.map(row => Math.max(154, 95 + lines(label(row, t), 335, 23, 650).length * 28));
     const podiumHeight = Math.max(heroHeight, runnerHeights.reduce((sum, height) => sum + height, 0) + Math.max(0, runners.length - 1) * 16);

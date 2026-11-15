@@ -77,9 +77,9 @@ test('HTML escapes user names and exposes an accessible public PNG action', () =
 });
 
 test('canvas export renders published values and grows for long names instead of clipping', () => {
-  const texts = [], context = {
+  const texts = [], dividers = [], context = {
     measureText: text => ({ width: String(text).length * 10 }),
-    fillText: (...args) => texts.push(args), fillRect() {}, beginPath() {}, roundRect() {}, fill() {}, stroke() {}, moveTo() {}, lineTo() {}, arc() {}
+    fillText: (...args) => texts.push(args), fillRect() {}, beginPath() {}, roundRect() {}, fill() {}, stroke() {}, moveTo() {}, lineTo: (x,y) => dividers.push(y), arc() {}
   };
   const canvas = { getContext: () => context };
   const data = finalData(); data.rosters[11].name = 'A very long champion roster name '.repeat(12);
@@ -91,6 +91,8 @@ test('canvas export renders published values and grows for long names instead of
   assert.ok(texts.some(([text]) => text === '24 TP'));
   assert.ok(texts.some(([text]) => String(text).includes('108 Total GP')));
   assert.ok(texts.every(([, x, y]) => x >= 0 && x < image.width && y >= 0 && y < image.height));
+  const memberY = texts.find(([text]) => text === 'Player <one>')[2];
+  assert.ok(Math.min(...dividers.filter(y => y > memberY)) >= memberY + 20, 'champion member text must clear the footer divider');
   assert.deepEqual(model, before);
 });
 
