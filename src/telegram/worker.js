@@ -11,6 +11,11 @@ const interactive = require('./interactive-delivery');
 
 async function claim(client,lane='interactive') {
   await client.query("SELECT pg_advisory_xact_lock(91827058)");
+  // Alternate attempted lanes when both have due work and notifications aged.
+  // Counting attempts also lets replies proceed after a failed/cancelled alert.
+  const lastWasNotification=`COALESCE((SELECT recent.notification IS NOT NULL FROM telegram_outbox recent
+    WHERE recent.chat_id=o.chat_id AND recent.delivery_started_at IS NOT NULL
+    ORDER BY recent.delivery_started_at DESC,recent.id DESC LIMIT 1),FALSE)`;
   // One in-flight message per chat, including unlinked bot replies.
   const {rows:[job]}=await client.query(`WITH candidate AS (
     SELECT o.id FROM telegram_outbox o WHERE next_attempt_at<=NOW() AND
@@ -19,12 +24,12 @@ async function claim(client,lane='interactive') {
       (state='pending' OR (state='processing' AND locked_until<NOW())) AND
       NOT EXISTS(SELECT 1 FROM telegram_outbox other WHERE other.chat_id=o.chat_id AND other.id<>o.id AND
         ((other.state='processing' AND other.locked_until>NOW()) OR other.sent_at>NOW()-INTERVAL '1 second')) AND
-      ${lane==='notification'?`(o.created_at<NOW()-INTERVAL '10 seconds' OR NOT EXISTS(SELECT 1 FROM telegram_outbox fast
+      ${lane==='notification'?`((NOT ${lastWasNotification} AND o.created_at<NOW()-INTERVAL '10 seconds') OR NOT EXISTS(SELECT 1 FROM telegram_outbox fast
         WHERE fast.chat_id=o.chat_id AND fast.notification IS NULL AND fast.state='pending' AND fast.next_attempt_at<=NOW()))`:
-        `NOT EXISTS(SELECT 1 FROM telegram_outbox fair WHERE fair.chat_id=o.chat_id AND fair.notification IS NOT NULL
-          AND fair.state='pending' AND fair.next_attempt_at<=NOW() AND fair.created_at<NOW()-INTERVAL '10 seconds')`}
+        `(${lastWasNotification} OR NOT EXISTS(SELECT 1 FROM telegram_outbox fair WHERE fair.chat_id=o.chat_id AND fair.notification IS NOT NULL
+          AND fair.state='pending' AND fair.next_attempt_at<=NOW() AND fair.created_at<NOW()-INTERVAL '10 seconds'))`}
     ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)
-    UPDATE telegram_outbox SET state='processing',attempts=attempts+1,locked_until=NOW()+INTERVAL '45 seconds'
+    UPDATE telegram_outbox SET state='processing',attempts=attempts+1,locked_until=NOW()+INTERVAL '45 seconds',delivery_started_at=clock_timestamp()
     WHERE id IN(SELECT id FROM candidate) RETURNING *`);
   return job;
 }

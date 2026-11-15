@@ -68,10 +68,15 @@ async function queueReply(client,chatId,payload,key,linkId=null) {
 }
 // Caller owns the business transaction. A later generation wins even if an old
 // callback was received out of order; delivery never repeats its business action.
-async function queueScreen(client,{link,chatId,targetMessageId,payload,generation,dedupKey,gameId=null}) {
+async function queueScreen(client,{link,chatId,targetMessageId,payload,generation,dedupKey,gameId=null,accessScope={gameIds:[],pairingIds:[]}}) {
   if (!link?.id || String(link.chat_id)!==String(chatId) || !Number.isSafeInteger(generation) || generation<0 ||
       !payload || typeof payload.text!=='string' || payload.text.length>4096 ||
       (targetMessageId!=null && (!Number.isSafeInteger(Number(targetMessageId)) || Number(targetMessageId)<=0))) throw Error('Invalid Telegram screen');
+  for(const [key,max] of [['gameIds',6],['pairingIds',3]]) {
+    const ids=accessScope?.[key];
+    if(!Array.isArray(ids) || ids.length>max || new Set(ids).size!==ids.length ||
+      ids.some(id=>!Number.isSafeInteger(id) || id<=0 || id>2147483647)) throw Error('Invalid Telegram screen access');
+  }
   for (const row of payload.reply_markup?.inline_keyboard || []) for (const button of row) {
     if (button.callback_data && Buffer.byteLength(button.callback_data)>64) throw Error('Invalid Telegram callback');
   }
@@ -82,9 +87,9 @@ async function queueScreen(client,{link,chatId,targetMessageId,payload,generatio
   if(!screen) return;
   await client.query(`UPDATE telegram_outbox SET state='cancelled',payload=NULL,locked_until=NULL
     WHERE link_id=$1 AND screen_generation<$2 AND state='pending'`,[link.id,generation]);
-  await client.query(`INSERT INTO telegram_outbox(link_id,chat_id,payload,dedup_key,delivery_method,screen_generation,target_message_id,game_id)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(dedup_key) DO NOTHING`,
-  [link.id,chatId,JSON.stringify(payload),dedupKey,screen.target_message_id?'editMessageText':'sendMessage',generation,screen.target_message_id,gameId]);
+  await client.query(`INSERT INTO telegram_outbox(link_id,chat_id,payload,dedup_key,delivery_method,screen_generation,target_message_id,game_id,access_scope)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(dedup_key) DO NOTHING`,
+  [link.id,chatId,JSON.stringify(payload),dedupKey,screen.target_message_id?'editMessageText':'sendMessage',generation,screen.target_message_id,gameId,JSON.stringify(accessScope)]);
 }
 async function expandEvents(client) {
   // Persist a bounded fan-out cursor instead of holding one transaction across

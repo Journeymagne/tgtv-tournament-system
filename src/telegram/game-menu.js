@@ -26,7 +26,7 @@ function error(status,code) { return Object.assign(Error(code),{status,code}); }
 async function handle({client,update,person,link,user,action}) {
   const locale=link.locale || (person.language_code?.startsWith('en')?'en':'ru');
   const messageId=update.callback_query?.message?.message_id;
-  const queue=(payload,gameId=null)=>data.queueScreen(client,{link,chatId:person.id,targetMessageId:messageId,payload,generation:update.update_id,dedupKey:`g:${update.update_id}`,gameId});
+  const queue=(payload,gameId=null,accessScope)=>data.queueScreen(client,{link,chatId:person.id,targetMessageId:messageId,payload,generation:update.update_id,dedupKey:`g:${update.update_id}`,gameId,accessScope});
   // Admission counts requests rather than outbox rows. A normal wizard, Back,
   // Extras and field editing fit comfortably; only one throttle response/window.
   const {rows:[admission]}=await client.query(`INSERT INTO telegram_chat_screens(link_id,chat_id,request_count) VALUES($1,$2,1)
@@ -58,7 +58,7 @@ async function handle({client,update,person,link,user,action}) {
         JOIN tournament_team_rosters rb ON rb.id=tm.roster_b_id
         WHERE t.status='in_progress' AND tm.phase IN ('awaiting_roll','mission_ban','shield_selection','sword_selection','environment_selection')
           AND (ra.captain_user_id=$1 OR rb.captain_user_id=$1) ORDER BY tm.id DESC LIMIT 3`,[user.id]);
-      return queue(messages.renderMenu({...page,pairings:rows},locale));
+      return queue(messages.renderMenu({...page,pairings:rows},locale),null,{gameIds:page.games.map(game=>game.id),pairingIds:rows.map(pairing=>pairing.id)});
     }
     if(parsed.type==='game') {
       const {game}=await results.gameDetail({client,user,params:{id:String(parsed.gameId)}});

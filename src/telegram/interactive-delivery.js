@@ -22,17 +22,34 @@ async function withChatLock(client,job,fn) {
   try { return await fn(); }
   finally { await client.query('SELECT pg_advisory_unlock(91827059,$1)',[key]); }
 }
-async function allowedGame(client,gameId,userId) {
-  if(!gameId) return true;
-  const {rows}=await client.query(`SELECT 1 FROM games g
+async function allowedGames(client,gameIds,userId) {
+  if(!gameIds.length) return true;
+  const {rows}=await client.query(`SELECT DISTINCT g.id FROM games g
     LEFT JOIN tournament_matches sm ON g.source_type='tournament_match' AND sm.game_id=g.id
     LEFT JOIN tournament_team_match_games l ON g.source_type='team_match_game' AND l.game_id=g.id
     LEFT JOIN tournament_team_matches m ON m.id=l.team_match_id
     LEFT JOIN tournaments t ON t.id=COALESCE(sm.tournament_id,m.tournament_id)
-    WHERE g.id=$1 AND (g.source_type NOT IN ('tournament_match','team_match_game') OR t.status=ANY($3::text[])) AND
+    WHERE g.id=ANY($1::int[]) AND (g.source_type NOT IN ('tournament_match','team_match_game') OR t.status=ANY($3::text[])) AND
     (EXISTS(SELECT 1 FROM game_participants p WHERE p.game_id=g.id AND p.user_id=$2 AND NOT p.is_proxy)
-    OR EXISTS(SELECT 1 FROM tournament_team_rosters r WHERE r.id IN (m.roster_a_id,m.roster_b_id) AND r.captain_user_id=$2))`,[gameId,userId,PUBLISHED_STATUSES]);
-  return rows.length>0;
+    OR EXISTS(SELECT 1 FROM tournament_team_rosters r WHERE r.id IN (m.roster_a_id,m.roster_b_id) AND r.captain_user_id=$2))`,[gameIds,userId,PUBLISHED_STATUSES]);
+  return rows.length===gameIds.length;
+}
+async function allowedScope(client,job,userId) {
+  const scope=job.access_scope;
+  for(const [key,max] of [['gameIds',6],['pairingIds',3]]) {
+    if(!Array.isArray(scope?.[key]) || scope[key].length>max || scope[key].some(id=>!Number.isSafeInteger(id) || id<=0 || id>2147483647)) return false;
+  }
+  const gameIds=[...new Set([...scope.gameIds,...(job.game_id?[job.game_id]:[])])];
+  if(!await allowedGames(client,gameIds,userId)) return false;
+  const pairingIds=[...new Set(scope.pairingIds)];
+  if(!pairingIds.length) return true;
+  const {rows}=await client.query(`SELECT tm.id FROM tournament_team_matches tm
+    JOIN tournaments t ON t.id=tm.tournament_id JOIN tournament_team_rosters ra ON ra.id=tm.roster_a_id
+    JOIN tournament_team_rosters rb ON rb.id=tm.roster_b_id
+    WHERE tm.id=ANY($1::int[]) AND t.status='in_progress'
+      AND tm.phase IN ('awaiting_roll','mission_ban','shield_selection','sword_selection','environment_selection')
+      AND (ra.captain_user_id=$2 OR rb.captain_user_id=$2)`,[pairingIds,userId]);
+  return rows.length===pairingIds.length;
 }
 async function deliver(source,job,{send=call}={}) {
   const ownsConnection=typeof source.connect==='function' && typeof source.release!=='function';
@@ -46,7 +63,7 @@ async function deliver(source,job,{send=call}={}) {
         JOIN telegram_links l ON l.id=s.link_id JOIN users u ON u.id=l.user_id
         WHERE s.link_id=$1 AND s.chat_id=$2 AND l.chat_id=s.chat_id AND NOT l.blocked
           AND (u.suspended_until IS NULL OR u.suspended_until<=NOW())`,[current.link_id,current.chat_id]);
-      if(!screen || String(screen.generation)!==String(current.screen_generation) || !await access.allowed(client,screen.user_id) || !await allowedGame(client,current.game_id,screen.user_id)) return cancel();
+      if(!screen || String(screen.generation)!==String(current.screen_generation) || !await access.allowed(client,screen.user_id) || !await allowedScope(client,current,screen.user_id)) return cancel();
       // Direct callers may supply a pending job; the worker normally claims it.
       let attempts=current.attempts;
       if(current.state==='pending') {
@@ -64,7 +81,7 @@ async function deliver(source,job,{send=call}={}) {
         if(!latest || String(latest.generation)!==String(current.screen_generation) || String(latest.chat_id)!==String(current.chat_id) ||
             latest.user_id!==screen.user_id || latest.blocked ||
             (latest.suspended_until && new Date(latest.suspended_until).getTime()>Date.now()) || !await access.allowed(client,screen.user_id) ||
-            !await allowedGame(client,current.game_id,screen.user_id)) throw Object.assign(Error('obsolete_screen'),{obsolete:true});
+            !await allowedScope(client,current,screen.user_id)) throw Object.assign(Error('obsolete_screen'),{obsolete:true});
         return send(method,body);
       };
       try {
