@@ -550,7 +550,7 @@ function adminTournamentActionButtons(data, tab) {
       buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round" ${rollbackState.canRollback ? "" : "disabled"}>${t("admin.tournament.action.rollbackLatestRound")}</button>`);
       if (!rollbackState.canRollback) buttons.push(`<span class="field-help">${t("admin.round.resultsLocked")}</span>`);
     }
-    if (tournamentFinalStandingsReady(data)) {
+    if (tournamentFinalStandingsReady(data) && canFinishTournamentUi(data)) {
       buttons.push(`<button class="primary-button" data-admin-tournament-action="close-tournament">${t("admin.tournament.action.closeTournament")}</button>`);
     } else {
       const nextRoundState = nextRoundActionState(data);
@@ -2083,12 +2083,19 @@ async function runAdminTournamentAction(action) {
       }
       return;
     } else if (action === "close-tournament") {
-      if (!await confirmAction({ message: t("dialog.admin.closeTournament"), confirmLabel: t("admin.tournament.action.closeTournament"), danger: false })) return;
-      const participantIds = (state.adminTournamentDetail?.standings || []).map((row) => row.participantId);
-      await api(`/api/admin/tournaments/${tournament.id}/standings/publish`, {
-        method: "POST",
-        body: { participantIds }
-      });
+      if (state.adminTournamentClosing) return;
+      state.adminTournamentClosing = true;
+      try {
+        if (!await confirmAction({ message: t("dialog.admin.closeTournament"), confirmLabel: t("admin.tournament.action.closeTournament"), danger: false })) return;
+        const participantIds = (state.adminTournamentDetail?.standings || []).map((row) => row.participantId);
+        await api(`/api/admin/tournaments/${tournament.id}/standings/publish`, { method: "POST", body: { participantIds } });
+        state.tournamentInfoTab = "results";
+        await loadTournamentAdmin();
+        renderTournaments();
+      } finally {
+        state.adminTournamentClosing = false;
+      }
+      return;
     } else if (action === "edit-active-pairings") {
       const round = state.adminTournamentDetail?.rounds?.at(-1);
       if (!round) return;

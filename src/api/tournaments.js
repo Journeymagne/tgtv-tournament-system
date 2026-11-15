@@ -1,5 +1,5 @@
 const { HttpError, ValidationError } = require("../http/io");
-const { canManageTournament, canCreateTournament, tournamentPermissions } = require("../domain/access");
+const { canManageTournament, canCreateTournament, canFinishTournament, tournamentPermissions } = require("../domain/access");
 const tournamentsRepo = require("../db/repositories/tournaments");
 const participantsRepo = require("../db/repositories/tournament-participants");
 const roundsRepo = require("../db/repositories/tournament-rounds");
@@ -318,12 +318,7 @@ function finalResultFromStanding(row, rank) {
 }
 
 function finalStandingsReady(tournament, rounds, matches) {
-  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) return false;
-  if (!matches.length || matches.some((match) => match.status !== MATCH_STATUSES.COMPLETED)) return false;
-  if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
-    return rounds.length >= Number(tournament.swissRoundCount || 0);
-  }
-  return true;
+  return require('../../public/tournament-results').isReady({ tournament, rounds, matches });
 }
 
 function finalStandingsOrderFromBody(body, standings) {
@@ -1856,6 +1851,8 @@ async function exportAdmin({ client, params }) {
 
 async function publishFinalStandingsAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
+  if (!canFinishTournament(user, tournament)) throw new HttpError(403, "Only the organizer can finish this tournament");
+  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) throw new HttpError(409, "Tournament is not in progress");
   if (tournament.participantMode === "team") {
     return require("./team-tournaments").publishFinalStandings(client, tournament, user, body);
   }

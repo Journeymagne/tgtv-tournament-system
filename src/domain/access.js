@@ -14,6 +14,10 @@ function canManageJudges(user, tournament) {
   return Boolean(user && (user.isSuperAdmin || Number(tournament?.ownerUserId) === user.id));
 }
 
+function canFinishTournament(user, tournament) {
+  return Boolean(user && (isPlatformAdmin(user) || Number(tournament?.ownerUserId) === user.id));
+}
+
 function canCreateTournament(user) {
   return Boolean(user && (isPlatformAdmin(user) || user.canCreateTournaments));
 }
@@ -26,6 +30,7 @@ function tournamentPermissions(user, tournament) {
   const canAdmin = canManageTournament(user, tournament);
   return {
     canAdmin,
+    canFinish: canFinishTournament(user, tournament),
     canManageJudges: canManageJudges(user, tournament),
     role: user?.isSuperAdmin ? "super_admin" : user && tournament?.ownerUserId === user.id ? "organizer"
       : canAdmin ? "judge" : "player"
@@ -43,5 +48,5 @@ function userCapabilities(user) {
   };
 }
 
-module.exports = { isPlatformAdmin, canManageTournament, canManageJudges, canCreateTournament,
+module.exports = { isPlatformAdmin, canManageTournament, canManageJudges, canFinishTournament, canCreateTournament,
   canOpenAdministration, tournamentPermissions, userCapabilities };

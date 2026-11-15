@@ -102,6 +102,7 @@ test("completed rounds replace Generate next round with Close tournament", () =>
     "nextRoundActionState",
     "escapeHtml",
     "t",
+    "canFinishTournamentUi",
     `${actionButtonsSource}; return adminTournamentActionButtons;`
   );
   const renderButtons = factory(
@@ -112,7 +113,8 @@ test("completed rounds replace Generate next round with Close tournament", () =>
     (key) => {
       translatedKeys.push(key);
       return key;
-    }
+    },
+    () => true
   );
 
   const markup = renderButtons({
@@ -188,6 +190,7 @@ test("Close tournament confirms and publishes the displayed standings order", as
   );
 
   await runAction("close-tournament");
+  assert.equal(state.tournamentInfoTab, "results");
 
   assert.deepEqual(confirmations, ["dialog.admin.closeTournament"]);
   assert.deepEqual(requests, [[
