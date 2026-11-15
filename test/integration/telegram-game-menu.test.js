@@ -81,7 +81,12 @@ test('real bot score flow survives eight steps and commits a saved receipt with 
 test('stale duplicate malformed and replaced-draft callbacks leave the current field unchanged with useful errors', async () => {
   ready(messages, 'renderDraft'); await act(`g:s:${game.id}:submit`); const first = await current();
   const callback = `g:d:${first.token}:0:choose:6`; await act(callback); const next = await current();
+  const nextScreen = await latest();
   await act(callback); assert.equal((await current()).version, next.version); assert.match((await latest()).payload.text, /changed|old|refresh|current/i);
+  const preserved = (await pool.query('SELECT generation FROM telegram_chat_screens WHERE link_id=$1', [link.id])).rows[0];
+  assert.equal(String(preserved.generation), String(nextScreen.screen_generation), 'a stale tap must retain the latest working screen generation');
+  const pendingScreen = (await pool.query('SELECT state,payload FROM telegram_outbox WHERE id=$1', [nextScreen.id])).rows[0];
+  assert.equal(pendingScreen.state, 'pending'); assert.deepEqual(pendingScreen.payload, nextScreen.payload);
   await act('g:d:bad:0:choose:6'); assert.equal((await current()).version, next.version);
   await act(`g:s:${game.id}:submit`); const replacement = await current(); assert.notEqual(replacement.token, first.token);
   await act(`g:d:${first.token}:1:choose:1`); assert.equal((await current()).token, replacement.token);
@@ -105,6 +110,13 @@ test('another linked private chat cannot advance a token owned by the first acco
   const foreign = update(`g:d:${view.token}:0:choose:6`); foreign.callback_query.from.id = 870002; foreign.callback_query.message.chat.id = 870002;
   await tx(client => bot.handleUpdate(client, foreign)); assert.equal((await current()).version, 0);
   const reply = (await pool.query('SELECT payload FROM telegram_outbox WHERE chat_id=870002')).rows[0]; assert.match(reply.payload.text, /no longer available|unavailable/i);
+});
+test('a delayed start from an older card on the same edited message cannot replace the new draft', async () => {
+  ready(messages, 'renderDraft'); await act(`g:v:${game.id}`);
+  const start = buttons((await latest()).payload).find(button => button.callback_data?.startsWith(`g:s:${game.id}:submit`)); assert.ok(start);
+  await act(start.callback_data); const first = await current();
+  await act(`g:d:${first.token}:0:choose:6`); const next = await current();
+  await act(start.callback_data); const after = await current(); assert.equal(after.token, first.token); assert.equal(after.version, next.version);
 });
 test('captain-only proxy bot submission retains negative result keys and revocation blocks a replacement draft', async () => {
   ready(messages, 'renderDraft'); game = await captainGame();
@@ -153,6 +165,21 @@ test('old-message taps cannot replace a newer delivered screen or start another 
   await pool.query('UPDATE telegram_chat_screens SET target_message_id=999 WHERE link_id=$1', [link.id]);
   await act(`g:d:${before.token}:0:choose:6`, 777); assert.equal((await current()).version, before.version);
   await act(`g:s:${game.id}:submit`, 777); assert.equal((await current()).token, before.token);
+});
+test('My games from the welcome or an error message always reopens the current game screen', async () => {
+  ready(data, 'queueScreen'); await act(`g:s:${game.id}:submit`); const draft = await current();
+  const screen = (await pool.query('SELECT generation FROM telegram_chat_screens WHERE link_id=$1', [link.id])).rows[0];
+  await pool.query('UPDATE telegram_chat_screens SET target_message_id=999 WHERE link_id=$1', [link.id]);
+  await act(`g:d:${draft.token}:0:choose:6`, 777);
+  const notice = await latest();
+  assert.equal(notice.screen_generation, null, 'old-message guidance must not overwrite the current screen');
+  assert.ok(buttons(notice.payload).some(button => button.callback_data === 'm:games'));
+  assert.equal(String((await pool.query('SELECT generation FROM telegram_chat_screens WHERE link_id=$1', [link.id])).rows[0].generation), String(screen.generation));
+  await act('m:games', 778);
+  const reopened = await latest(); assert.match(reopened.payload.text, /My games/);
+  assert.ok(buttons(reopened.payload).some(button => button.callback_data === `g:v:${game.id}`));
+  assert.equal(String(reopened.target_message_id), '999');
+  assert.equal((await current()).version, draft.version);
 });
 test('429 leaves game state untouched and a newer screen supersedes its pending retry', async () => {
   ready(data, 'queueScreen'); ready(delivery, 'deliver');
