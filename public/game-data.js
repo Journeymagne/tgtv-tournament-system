@@ -32,11 +32,19 @@ const critOpOptions = [
 ];
 
 const killzoneOptions = [
-  "Volkus",
+  "Volkus 2024",
+  "Volkus 2025",
   "Gallowdark",
+  "Tomb World",
+  "Bheta-Decima 2025",
+  "Non-Specific Killzone",
+  "Octarius 2025",
+  "WTC Open 2025",
+  "WTC ITD 2026",
+  "Squad-Games Gallowdark+",
+  "Volkus",
   "Bheta-Decima",
   "Octarius",
-  "Tomb World",
   "WTC ITD",
   "WTC Open",
   "Non-specific"
@@ -49,9 +57,23 @@ const seasons = [
     id: "2026-q2-dataslate",
     name: "2026 Q2 Dataslate",
     startsAt: null,
+    endsAt: "2026-09-26T00:00:00+04:00"
+  },
+  {
+    id: "2026-q3-dataslate",
+    name: "2026 Q3 Dataslate",
+    startsAt: "2026-09-26T00:00:00+04:00",
     endsAt: null
   }
 ];
+
+function currentSeason(at = Date.now(), available = seasons) {
+  const time = new Date(at).getTime();
+  const startsAt = season => season.startsAt ? Date.parse(season.startsAt) : Number.NEGATIVE_INFINITY;
+  const ordered = [...available].sort((a, b) => startsAt(b) - startsAt(a));
+  return ordered.find(season => time >= startsAt(season) && (!season.endsAt || time < Date.parse(season.endsAt))) ||
+    ordered.find(season => time >= startsAt(season)) || ordered.at(-1);
+}
 
 const venueModeOptions = [
   { key: "tts", labelKey: "venue.tts" },
@@ -65,6 +87,7 @@ if (typeof module !== "undefined") {
     killzoneOptions,
     gameSystemOptions,
     seasons,
+    currentSeason,
     venueModeOptions
   };
 }

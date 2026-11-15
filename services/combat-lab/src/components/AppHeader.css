@@ -1,0 +1,149 @@
+.AppHeader {
+  background-color: black;
+}
+
+/* One row on desktop: brand, view toggle, help link, then share buttons pushed
+   right. On narrow screens the share buttons wrap to their own row instead of
+   running off the edge. */
+.AppHeader .AppHeader-container {
+  max-width: 1320px;
+}
+
+.AppHeader-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 6px 8px;
+  column-gap: 16px;
+  row-gap: 6px;
+}
+
+.AppHeader-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.AppHeader-brand img {
+  height: 36px;
+}
+
+.AppHeader-title {
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* Shoot / Fight segmented toggle. */
+.AppHeader-views {
+  display: flex;
+  border: 1px solid #3a4048;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.AppHeader .AppHeader-view {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background-color: black;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 5px 12px;
+  text-decoration: none;
+}
+
+.AppHeader .AppHeader-view + .AppHeader-view {
+  border-left: 1px solid #3a4048;
+}
+
+.AppHeader .AppHeader-view:hover:not(.is-active) {
+  background-color: #1f2329;
+  color: white;
+  text-decoration: none;
+}
+
+/* turns the white SVG orange */
+.AppHeader .AppHeader-view img {
+  filter: invert(39%) sepia(31%) saturate(6521%) hue-rotate(351deg) brightness(100%) contrast(94%);
+}
+
+/* The active view (aria-current="page") shows as the selected segment. */
+.AppHeader .AppHeader-view.is-active,
+.AppHeader .AppHeader-view.is-active:hover {
+  background-color: #e8731a;
+  color: black;
+  opacity: 1;
+  cursor: default;
+}
+
+/* turns the SVG black */
+.AppHeader .AppHeader-view.is-active img {
+  filter: brightness(0%);
+}
+
+.AppHeader-help {
+  color: white;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.AppHeader-help:hover,
+.AppHeader-help.is-active {
+  color: #e8731a;
+  text-decoration: none;
+}
+
+.AppHeader-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.AppHeader-right .btn {
+  background-color: #1f2329;
+  border: 1px solid #3a414b;
+  color: white;
+  padding: 4px 10px;
+  font-size: 13px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.AppHeader-right .btn:hover {
+  background-color: #2a3038;
+  border-color: #3a414b;
+  color: white;
+}
+
+@media (max-width: 575px) {
+  .AppHeader-container {
+    column-gap: 12px;
+  }
+
+  /* Icons alone carry the toggle on phones; each link's aria-label still
+     names the calculator for screen readers. */
+  .AppHeader-view-label {
+    display: none;
+  }
+
+  .AppHeader .AppHeader-view {
+    padding: 5px 10px;
+  }
+
+  .AppHeader-right {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .AppHeader-right .btn {
+    flex: 1;
+  }
+}

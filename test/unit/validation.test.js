@@ -6,6 +6,7 @@ const {
   requireName,
   profileText,
   requiredProfileText,
+  markdownText,
   validateAvatarData,
   scoreInput,
   primaryInput,
@@ -38,6 +39,22 @@ test("profileText режет по длине", () => {
 test("requiredProfileText требует непустое значение", () => {
   assert.throws(() => requiredProfileText("", "Telegram Contact", 80), ValidationError);
   assert.equal(requiredProfileText(" @user ", "Telegram Contact", 80), "@user");
+});
+
+test("markdownText сохраняет переносы строк и структуру markdown", () => {
+  const source = "# Заголовок\n\n- пункт один\n- пункт два\n\n> цитата";
+  assert.equal(markdownText(source, "Description", 6000), source);
+});
+
+test("markdownText нормализует CRLF, хвостовые пробелы и лишние пустые строки", () => {
+  assert.equal(
+    markdownText("  строка один   \r\n\r\n\r\n\r\nстрока два  \r\n  ", "Description", 6000),
+    "строка один\n\nстрока два"
+  );
+});
+
+test("markdownText режет по длине", () => {
+  assert.throws(() => markdownText("x".repeat(41), "Description", 40), ValidationError);
 });
 
 test("validateAvatarData принимает data URL и пустое значение", () => {

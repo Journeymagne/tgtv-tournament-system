@@ -2,8 +2,10 @@ const { HttpError } = require("../http/io");
 const usersRepo = require("../db/repositories/users");
 const gamesRepo = require("../db/repositories/games");
 const challengesRepo = require("../db/repositories/challenges");
+const playerTeamsRepo = require("../db/repositories/player-teams");
 const {
   leaderboardUser,
+  gameView,
   publicUserSummary,
   challengeProgressView,
   publicProfileSummary
@@ -14,6 +16,8 @@ const {
   WILDCARDS
 } = require("../domain/kill-teams");
 const { requirePositiveIntId } = require("./params");
+const { decodeDataUrl, contentVersion } = require("../domain/data-url");
+const { sortHistory } = require("../domain/game-history-sorting");
 const {
   attachTournamentGameDetails,
   sortGameViews
@@ -22,9 +26,30 @@ const {
 const SEARCH_LIMIT = 10;
 
 async function list({ client, query = new URLSearchParams() }) {
-  const venue = query.get("venue") === "irl" ? "irl" : "tts";
-  const rows = await usersRepo.listLeaderboard(client, venue);
-  return { users: rows.map(leaderboardUser) };
+  const requestedMode = query.get("venue");
+  const ratingMode = ["combined", "tts", "irl"].includes(requestedMode) ? requestedMode : "combined";
+  const rows = await usersRepo.listLeaderboard(client, ratingMode, query.get("q"), query);
+  return { users: rows.map(row => ({...leaderboardUser(row), rank:row.rank})), pagination:rows.pagination };
+}
+
+// The picture, served as a file. Public because the leaderboard is: the same
+// avatars are already visible to anyone who can load the player list.
+async function avatar({ client, params, req }) {
+  const id = requirePositiveIntId(params.id, 404, "Player not found");
+  const stored = await usersRepo.readAvatar(client, id);
+  const file = stored ? decodeDataUrl(stored) : null;
+  if (!file) throw new HttpError(404, "This player has no avatar");
+  const etag = `"${contentVersion(stored)}"`;
+  const headers = {
+    ETag: etag,
+    // A versioned request names one exact image, so it can be cached forever;
+    // the bare URL has to stay revalidatable.
+    "Cache-Control": req?.url?.includes("v=")
+      ? "public, max-age=604800, immutable"
+      : "public, max-age=0, must-revalidate"
+  };
+  if (req?.headers?.["if-none-match"] === etag) return { status: 304, buffer: null, headers };
+  return { buffer: file.bytes, contentType: file.contentType, headers };
 }
 
 async function search({ client, user, query }) {
@@ -43,27 +68,28 @@ async function requireUser(client, id) {
   return found;
 }
 
-async function profile({ client, user, params }) {
+async function profile({ client, user, params, query = new URLSearchParams() }) {
   // A malformed path id (e.g. "abc") never matched the old server.js route
   // regex, so it fell through to the router's own 404 "Route not found".
   // Mirror that here instead of letting NaN reach the parameterized query.
   const targetId = requirePositiveIntId(params.id, 404, "Route not found");
   const target = await requireUser(client, targetId);
-  const isSelf = target.id === user.id;
+  const isSelf = target.id === user?.id;
 
   const completedGames = await attachTournamentGameDetails(
     client,
     await gamesRepo.listCompletedForUser(client, target.id)
   );
-  const activeGame = isSelf ? null : await gamesRepo.findActiveBetween(client, user.id, target.id);
-  const pendingChallenge = isSelf
+  const activeGame = !user || isSelf ? null : await gamesRepo.findActiveBetween(client, user.id, target.id);
+  const pendingChallenge = !user || isSelf
     ? null
     : await challengesRepo.findPendingBetween(client, user.id, target.id);
-  const adminPendingGames = user.isAdmin
+  const adminPendingGames = user?.isAdmin
     ? await attachTournamentGameDetails(client, await gamesRepo.listPendingForUser(client, target.id))
     : [];
+  const playerTeams = await playerTeamsRepo.listForUser(client, target.id);
 
-  const peopleIds = new Set([target.id, user.id]);
+  const peopleIds = new Set([target.id, ...(user ? [user.id] : [])]);
   for (const game of [...completedGames, ...adminPendingGames]) {
     for (const id of game.playerIds) peopleIds.add(id);
   }
@@ -75,7 +101,8 @@ async function profile({ client, user, params }) {
   const people = await usersRepo.findByIds(client, [...peopleIds]);
   const allCompletedGames = sortGameViews(completedGames);
 
-  return publicProfileSummary({
+  return {
+    ...publicProfileSummary({
     user: target,
     completedGames: allCompletedGames,
     people,
@@ -83,7 +110,16 @@ async function profile({ client, user, params }) {
     pendingChallenge,
     adminPendingGames,
     allGamesForProgress: allCompletedGames
-  });
+    }),
+    recentGames: sortHistory(allCompletedGames.map(game => gameView(game, people)), query, target.id).slice(0, 5),
+    playerTeams: playerTeams.map((team) => ({
+      id: team.id,
+      slug: team.slug,
+      name: team.name,
+      logoData: team.logoData,
+      archivedAt: team.archivedAt
+    }))
+  };
 }
 
 async function challengeProgress({ client, user, query }) {
@@ -93,6 +129,7 @@ async function challengeProgress({ client, user, query }) {
   // a valid-but-unknown id gets) -- reproduce that instead of letting NaN
   // reach the parameterized query.
   const raw = query.get("userId");
+  if (!raw && !user) throw new HttpError(400, "Choose a player");
   const requestedId = raw ? requirePositiveIntId(raw, 404, "User not found") : user.id;
   const target = await requireUser(client, requestedId);
   const completedGames = await gamesRepo.listCompletedForUser(client, target.id);
@@ -110,4 +147,4 @@ async function challengeProgress({ client, user, query }) {
   };
 }
 
-module.exports = { list, search, profile, challengeProgress };
+module.exports = { list, avatar, search, profile, challengeProgress };

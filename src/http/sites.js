@@ -1,0 +1,78 @@
+const { COMPANION_SITES } = require("../config");
+const { SERVICE_PATHS } = require("../domain/sites");
+const { SECURITY_HEADERS } = require("./io");
+
+const ROOT_DOCUMENTS = {
+  home: "home.html", initiative: "killteam-initiative-calculator.html",
+  tracker: "killteam-activation-tracker.html", tournament: "index.html", studio: "studio/index.html", dice: "dice/index.html", faq: "faq/index.html", training: "training/index.html", tierlist: "tierlist/index.html"
+};
+const ALIASES = {
+  "/tierlist/": "tierlist", "/tierlist/index.html": "tierlist",
+  "/studio": "studio", "/dice": "dice", "/faq": "faq", "/knowthykt": "training",
+  "/training": "training", "/knowthykt/": "training",
+  "/training/": "training", "/training/index.html": "training", "/know-thy-kill-team": "training", "/know-thy-kill-team/": "training",
+  "/dice/": "dice", "/dice/index.html": "dice",
+  "/home.html": "home", "/index.html": "tournament", "/tournament/": "tournament",
+  "/studio/": "studio", "/studio/index.html": "studio", "/initiative/": "initiative", "/tracker/": "tracker",
+  "/combat/": "combat", "/faq/": "faq", "/faq/index.html": "faq", "/community-faq": "faq", "/community-faq/": "faq",
+  "/killteam-initiative-calculator.html": "initiative", "/killteam-activation-tracker.html": "tracker"
+};
+
+function siteName(req) {
+  const pathname = new URL(req.url, "http://localhost").pathname;
+  if (ALIASES[pathname]) return ALIASES[pathname];
+  if (/^\/(?:faq|community-faq)\/(?:info|conduct)\/?$/.test(pathname)) return "faq";
+  if (/^\/(tournaments|teams)\/[^/]+\/?$/.test(pathname)) return "tournament";
+  return Object.keys(SERVICE_PATHS).find(name => SERVICE_PATHS[name] === pathname) || null;
+}
+
+function siteOrigin(req, sites = COMPANION_SITES) {
+  const host = String(req?.headers?.host || "").toLowerCase();
+  return sites ? (sites.origins || [sites.origin]).find(origin => new URL(origin).host === host) || null : null;
+}
+
+function rootDocument(req) {
+  return ROOT_DOCUMENTS[siteName(req) || "home"];
+}
+
+function pageDestination(req, sites = COMPANION_SITES) {
+  if (!["GET", "HEAD"].includes(req.method)) return null;
+  const url = new URL(req.url, "http://localhost");
+  const name = siteName(req);
+  if (!name) return null;
+  const faqPage = /^\/(?:faq|community-faq)\/(info|conduct)\/?$/.exec(url.pathname);
+  let pathname = faqPage ? "/faq/" + faqPage[1] : ALIASES[url.pathname] ? SERVICE_PATHS[name] : url.pathname;
+  // Keep old service-host bookmarks working when they reach this application.
+  if (sites && url.pathname === "/") {
+    const canonical = new URL(sites.origin);
+    const host = String(req.headers.host || "").toLowerCase();
+    for (const [prefix, service] of Object.entries({ rating: "tournament", initiative: "initiative", tracker: "tracker", studio: "studio" })) {
+      if (host === prefix + "." + canonical.host) pathname = SERVICE_PATHS[service];
+    }
+  }
+  if (/^\/(tournaments|teams)\/[^/]+\/$/.test(pathname)) pathname = pathname.slice(0, -1);
+  const target = pathname + url.search;
+  if (sites && !siteOrigin(req, sites)) return new URL(target, sites.origin).href;
+  return pathname === url.pathname ? null : target;
+}
+
+function handleSiteRequest(req, res, sites = COMPANION_SITES) {
+  const url = new URL(req.url, "http://localhost");
+  if (url.pathname === "/companion-sites.js" && ["GET", "HEAD"].includes(req.method)) {
+    const origin = siteOrigin(req, sites);
+    const urls = origin ? Object.fromEntries(Object.entries(SERVICE_PATHS).map(([name, pathname]) => [name, new URL(pathname, origin).href])) : sites?.urls || SERVICE_PATHS;
+    const config = { subdomains: false, urls };
+    const source = "window.KT_SITES = " + JSON.stringify(config) + ";\n";
+    res.writeHead(200, { ...SECURITY_HEADERS, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store", "Content-Length": Buffer.byteLength(source) });
+    res.end(req.method === "HEAD" ? undefined : source);
+    return true;
+  }
+  const destination = pageDestination(req, sites);
+  if (!destination) return false;
+  // Browsers carry any legacy fragment to the destination automatically.
+  res.writeHead(301, { ...SECURITY_HEADERS, Location: destination, "Cache-Control": "public, max-age=3600" });
+  res.end();
+  return true;
+}
+
+module.exports = { handleSiteRequest, rootDocument, siteName, siteOrigin, pageDestination };

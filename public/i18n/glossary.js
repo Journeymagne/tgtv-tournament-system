@@ -31,7 +31,8 @@ const RULES_TERMS = [
   "Roll-off",
   "Elo",
   "Strength of Schedule",
-  "SoS"
+  "SoS",
+  "SOS"
 ];
 
 // Product and feature names.
@@ -39,6 +40,13 @@ const PROPER_NAMES = [
   "Warhammer 40k Kill Team",
   "Tabletop Simulator",
   "TTS",
+  "Combined MMR",
+  // What the profile shows. The value behind it is the combined rating, but
+  // players read it as their one rating number, so the label drops the word.
+  "MMR",
+  "WTC",
+  "SWORD SHIELD CLASSIC",
+  "Doubles",
   "All Kill Team Challenge",
   "Classified",
   "Non-Classified",
@@ -75,6 +83,10 @@ const FORBIDDEN = [
 // the reason. Anything not listed here and not made purely of protected terms
 // fails check 7.
 const SAME_IN_BOTH = {
+  "teams.tournament.individualGp": "Requested personal standings metric label: Total GP.",
+  "teams.tournament.individualDiff": "Requested personal standings metric label: Diff GP.",
+  "admin.tournament.action.rollbackLatestRound": "User-requested button label: Undo round.",
+  "achievements.hallOfFame": "User explicitly requested the Hall Of Fame label in both locales.",
   "tiebreaker.strengthOfSchedule.label": "Strength of Schedule stays English by decision.",
   "op.crit": "Rules term.",
   "op.kill": "Rules term.",
@@ -106,7 +118,8 @@ const SAME_IN_BOTH = {
   "admin.tournament.field.namePlaceholder": "Placeholder example tournament name, not localized text.",
   "admin.tournament.field.rulesLinkPlaceholder": "Placeholder format example, not localized text.",
   "admin.tournament.participants.tgtvUser": "Product/brand abbreviation, no other words to translate.",
-  "leaderboard.users.contact.telegram": "Product name."
+  "leaderboard.users.contact.telegram": "Product name.",
+  "stats.tab.teams": "Requested feature label is Killteams in both locales."
 };
 
 module.exports = { PROTECTED, RULES_TERMS, PROPER_NAMES, FORBIDDEN, SAME_IN_BOTH };

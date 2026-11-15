@@ -3,6 +3,8 @@ const path = require("node:path");
 
 const { PUBLIC_DIR } = require("../config");
 const { SECURITY_HEADERS, sendText } = require("./io");
+const { MIN_COMPRESS_BYTES, negotiateEncoding, compressSync } = require("./compression");
+const { rootDocument } = require("./sites");
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -11,46 +13,158 @@ const MIME = {
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
-  ".ico": "image/x-icon"
+  ".pdf": "application/pdf",
+  ".ico": "image/x-icon",
+  ".webp": "image/webp",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".txt": "text/plain; charset=utf-8",
+  ".map": "application/json; charset=utf-8"
 };
 
+// Only text-shaped payloads are worth compressing; png/ico/woff2 are already
+// compressed and re-encoding them costs CPU for a larger body.
+const COMPRESSIBLE = new Set([".html", ".css", ".js", ".json", ".svg", ".txt", ".map"]);
+
 const PUBLIC_PREFIX = PUBLIC_DIR.endsWith(path.sep) ? PUBLIC_DIR : PUBLIC_DIR + path.sep;
+
+// filePath -> { mtimeMs, size, etag, raw, gzip, br }. The client bundle is a
+// single ~430 KB file requested on every cold load; re-reading and
+// re-compressing it per request is the dominant cost of serving this app.
+// Entries are revalidated against fs.stat, so an edit on disk still wins.
+const fileCache = new Map();
 
 function resolveStaticPath(pathname) {
   let requested;
   try {
-    requested = pathname === "/" ? "/index.html" : decodeURIComponent(pathname);
+    requested = pathname === "/" ? "/home.html" : decodeURIComponent(pathname);
   } catch {
     return null;
   }
   if (requested.includes("\0")) return null;
+  if (requested === '/tierlist' || requested === '/tierlist/') requested = '/tierlist/index.html';
+  if (requested === '/account' || requested === '/account/') requested = '/account/index.html';
+  if (requested === '/knowthykt' || requested === '/knowthykt/') requested = '/training/index.html';
+  if (requested === "/initiative" || requested === "/initiative/") requested = "/killteam-initiative-calculator.html";
+  if (requested === "/tracker" || requested === "/tracker/") requested = "/killteam-activation-tracker.html";
+  if (requested === "/tournament" || requested === "/tournament/") requested = "/index.html";
+  if (requested === "/miniapp" || requested === "/miniapp/") requested = "/miniapp/index.html";
+  if (requested === "/studio" || requested === "/studio/") requested = "/studio/index.html";
+  if (requested === "/dice" || requested === "/dice/") requested = "/dice/index.html";
+  if (requested === "/training" || requested === "/training/") requested = "/training/index.html";
+  if (["/faq", "/faq/", "/community-faq", "/community-faq/", "/faq/conduct", "/faq/conduct/", "/community-faq/conduct", "/community-faq/conduct/", "/faq/info", "/faq/info/", "/community-faq/info", "/community-faq/info/"].includes(requested)) requested = "/faq/index.html";
+  if (requested === "/rygau" || requested === "/rygau/") requested = "/rygayu.html";
+  // Team profiles use client-side rendering, including on direct visits/reloads.
+  if (/^\/teams\/[^/\\]+\/?$/.test(requested)) return path.join(PUBLIC_DIR, "index.html");
   const filePath = path.normalize(path.join(PUBLIC_DIR, requested));
   if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_PREFIX)) return null;
   return filePath;
 }
 
+// Static bodies are compressed synchronously and cached per file: unlike API
+// responses they are bounded in size and the result is reused across requests.
+function encodedBody(entry, encoding) {
+  if (!encoding) return entry.raw;
+  if (entry[encoding]) return entry[encoding];
+  const encoded = compressSync(entry.raw, encoding);
+  // A compressed body larger than the original is never worth sending.
+  entry[encoding] = encoded.length < entry.raw.length ? encoded : entry.raw;
+  return entry[encoding];
+}
+
+function loadFile(filePath, done) {
+  fs.stat(filePath, (statErr, stats) => {
+    if (statErr || !stats.isFile()) {
+      done(statErr || new Error("not a file"));
+      return;
+    }
+    const cached = fileCache.get(filePath);
+    if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+      done(null, cached);
+      return;
+    }
+    fs.readFile(filePath, (readErr, raw) => {
+      if (readErr) {
+        done(readErr);
+        return;
+      }
+      const entry = {
+        mtimeMs: stats.mtimeMs,
+        size: stats.size,
+        etag: `"${stats.size.toString(16)}-${Math.floor(stats.mtimeMs).toString(16)}"`,
+        raw,
+        gzip: null,
+        br: null
+      };
+      fileCache.set(filePath, entry);
+      done(null, entry);
+    });
+  });
+}
+
 function sendStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
-  const filePath = resolveStaticPath(url.pathname);
+  const filePath = url.pathname === "/" ? path.join(PUBLIC_DIR, rootDocument(req)) : resolveStaticPath(url.pathname);
   if (!filePath) {
     sendText(res, 403, "Forbidden");
     return;
   }
 
-  fs.readFile(filePath, (err, data) => {
+  loadFile(filePath, (err, entry) => {
     if (err) {
       sendText(res, 404, "Not found");
       return;
     }
-    const ext = path.extname(filePath);
-    const cacheControl = ext === ".html" ? "no-store, max-age=0" : "public, max-age=604800";
     if (res.headersSent) return;
-    res.writeHead(200, {
+
+    const ext = path.extname(filePath);
+    // index.html carries the `?v=` markers that bust every other asset, so it
+    // must never be cached itself. Assets requested with an explicit version
+    // marker can be treated as immutable for that version.
+    const cacheControl =
+      ext === ".html"
+        ? "no-store, max-age=0"
+        : url.searchParams.has("v")
+          ? "public, max-age=604800, immutable"
+          : url.pathname.startsWith("/companion/") || url.pathname.startsWith("/studio/")
+            ? "public, max-age=0, must-revalidate"
+            : "public, max-age=604800";
+
+    const headers = {
       "Content-Type": MIME[ext] || "application/octet-stream",
       "Cache-Control": cacheControl,
+      ETag: entry.etag,
       ...SECURITY_HEADERS
-    });
-    res.end(data);
+    };
+
+    // Telegram Web embeds Mini Apps. Keep the exception scoped to this HTML
+    // document; the website and other pages retain their frame protection.
+    if (filePath === path.join(PUBLIC_DIR, "miniapp", "index.html")) {
+      delete headers["X-Frame-Options"];
+      headers["Content-Security-Policy"] = SECURITY_HEADERS["Content-Security-Policy"]
+        .replace("script-src 'self'", "script-src 'self' https://telegram.org")
+        .replace("frame-ancestors 'none'", "frame-ancestors 'self' https://web.telegram.org https://*.web.telegram.org");
+    }
+
+    if (req.headers["if-none-match"] === entry.etag) {
+      res.writeHead(304, headers);
+      res.end();
+      return;
+    }
+
+    const canCompress = COMPRESSIBLE.has(ext) && entry.raw.length >= MIN_COMPRESS_BYTES;
+    const encoding = canCompress ? negotiateEncoding(req.headers["accept-encoding"]) : null;
+    if (canCompress) headers.Vary = "Accept-Encoding";
+
+    const body = encodedBody(entry, encoding);
+    if (encoding && body !== entry.raw) headers["Content-Encoding"] = encoding;
+    headers["Content-Length"] = body.length;
+
+    res.writeHead(200, headers);
+    res.end(body);
   });
 }
 

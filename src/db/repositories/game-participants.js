@@ -1,3 +1,4 @@
+const { avatarUrl } = require("../../domain/avatars");
 function mapParticipant(row) {
   if (!row) return null;
   return {
@@ -5,15 +6,17 @@ function mapParticipant(row) {
     gameId: row.game_id,
     slot: row.slot,
     userId: row.user_id,
+    isProxy: Boolean(row.is_proxy),
     tournamentParticipantId: row.tournament_participant_id,
     resultKey: row.result_key,
     displayNameSnapshot: row.display_name_snapshot,
     factionSnapshot: row.faction_snapshot || "",
+    factions: Array.isArray(row.registered_factions) ? row.registered_factions : row.faction_snapshot ? [row.faction_snapshot] : [],
     user: row.user_id
       ? {
           id: row.user_id,
           name: row.user_name || row.display_name_snapshot,
-          avatarData: row.avatar_data || null,
+          avatarUrl: avatarUrl(row.user_id, row.avatar_version),
           registerNickname: row.register_nickname || "",
           telegramContact: row.telegram_contact || "",
           rating: row.rating,
@@ -34,9 +37,9 @@ async function replaceForGame(client, gameId, participants) {
     const { rows } = await client.query(
       `INSERT INTO game_participants (
          game_id, slot, user_id, tournament_participant_id, result_key,
-         display_name_snapshot, faction_snapshot
+         display_name_snapshot, faction_snapshot, is_proxy
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         gameId,
@@ -45,7 +48,8 @@ async function replaceForGame(client, gameId, participants) {
         participant.tournamentParticipantId || null,
         participant.resultKey,
         participant.displayNameSnapshot,
-        participant.factionSnapshot || ""
+        participant.factionSnapshot || "",
+        Boolean(participant.isProxy)
       ]
     );
     saved.push(mapParticipant(rows[0]));
@@ -75,11 +79,21 @@ async function replaceFromUserIds(client, gameId, userIds) {
 async function listByGameIds(client, gameIds) {
   const ids = [...new Set(gameIds)].filter(Number.isInteger);
   if (!ids.length) return [];
+  // Legacy team games have no saved faction. Recover only from the linked
+  // original account; saved factions and intentionally empty proxies stay intact.
   const { rows } = await client.query(
     `SELECT
        gp.*,
+       COALESCE(NULLIF(gp.faction_snapshot, ''), CASE WHEN NOT gp.is_proxy THEN
+         CASE WHEN gp.slot = 1 AND gp.user_id = ma.user_id THEN ma.faction_snapshot
+              WHEN gp.slot = 2 AND gp.user_id = mb.user_id THEN mb.faction_snapshot END
+       END, '') AS faction_snapshot,
+       CASE WHEN gp.result_key = COALESCE(tp.user_id, -tp.id) THEN tp.factions
+            WHEN gp.slot = 1 AND gp.result_key = COALESCE(ma.user_id, -ma.id) THEN ma.factions
+            WHEN gp.slot = 2 AND gp.result_key = COALESCE(mb.user_id, -mb.id) THEN mb.factions
+       END AS registered_factions,
        u.name AS user_name,
-       u.avatar_data,
+       u.avatar_version,
        u.register_nickname,
        u.telegram_contact,
        u.rating,
@@ -87,6 +101,10 @@ async function listByGameIds(client, gameIds) {
        u.created_at AS user_created_at
      FROM game_participants gp
      LEFT JOIN users u ON u.id = gp.user_id
+     LEFT JOIN tournament_participants tp ON tp.id = gp.tournament_participant_id
+     LEFT JOIN tournament_team_match_games link ON link.game_id = gp.game_id
+     LEFT JOIN tournament_team_roster_members ma ON ma.id = link.roster_a_member_id
+     LEFT JOIN tournament_team_roster_members mb ON mb.id = link.roster_b_member_id
      WHERE gp.game_id = ANY($1::int[])
      ORDER BY gp.game_id, gp.slot`,
     [ids]

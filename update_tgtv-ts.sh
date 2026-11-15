@@ -1,14 +1,42 @@
 #!/bin/bash
-set -e
+set -Eeuo pipefail
 
 # Usage:
-#   bash update_tgtv-ts.sh              # production (default)
-#   bash update_tgtv-ts.sh production
-#   bash update_tgtv-ts.sh staging
+#   bash update_tgtv-ts.sh [production|staging] [--prepare-only]
+#   bash update_tgtv-ts.sh production --ref <sha-or-tag> [--prepare-only]
+# Deployment details and recovery: docs/deployment.md
+usage() {
+  echo "Usage: $0 [production|staging] [--ref <sha-or-tag>] [--prepare-only] [--services|--monolith]" >&2
+}
 
-ENV="${1:-production}"
+TARGET="${1:-production}"
+shift || true
+REF=""
+MODE=""
+RUNTIME=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --services|--monolith)
+      RUNTIME="${1#--}"
+      shift
+      ;;
+    --prepare-only)
+      MODE="--prepare-only"
+      shift
+      ;;
+    --ref)
+      [[ $# -ge 2 && -n "${2:-}" ]] || { echo "Missing value for --ref" >&2; usage; exit 1; }
+      REF="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+  esac
+done
 
-case "$ENV" in
+case "$TARGET" in
   production|prod)
     REPO_DIR="/app/Repos/tgtv-tournament-system"
     APP_DIR="/app/tgtv-ts"
@@ -24,62 +52,55 @@ case "$ENV" in
     BRANCH="feat/tournament-system-mvp"
     ;;
   *)
-    echo "Usage: $0 [production|staging]"
-    echo "  production — branch main → /app/tgtv-ts"
-    echo "  staging    — branch feat/tournament-system-mvp → /app/tgtv-ts-staging"
+    usage
     exit 1
     ;;
 esac
 
-echo "=== Deploy target: $ENV ==="
-echo "  repo:   $REPO_DIR ($BRANCH)"
-echo "  app:    $APP_DIR"
-echo "  pm2:    $APP_NAME"
-echo "  env:    $ENV_FILE"
-echo ""
+for command in git node npm pm2 tar flock; do
+  command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 1; }
+done
+[[ -f "$ENV_FILE" ]] || { echo "Missing environment file: $ENV_FILE" >&2; exit 1; }
+node -e 'if (Number(process.versions.node.split(".")[0]) < 22) process.exit(1)' || {
+  echo "Node.js 22+ is required" >&2; exit 1;
+}
+# Lock covers repository update, preparation and activation. The OS releases it on exit.
+exec 9>"${APP_DIR}.update.lock"
+flock -n 9 || { echo "Another deployment is in progress for $APP_NAME" >&2; exit 1; }
 
-echo "=== [1/6] git pull ($BRANCH) ==="
+export SSH_ASKPASS=/root/.ssh/askpass.sh
+export SSH_ASKPASS_REQUIRE=force
+export DISPLAY=:0
+export GIT_TERMINAL_PROMPT=0
+export GIT_SSH_COMMAND="setsid -w ssh -o StrictHostKeyChecking=accept-new"
+
 cd "$REPO_DIR"
-git fetch origin
-git checkout "$BRANCH"
-git pull --ff-only origin "$BRANCH"
+[[ -z "$(git status --porcelain)" ]] || { echo "Repository has uncommitted changes" >&2; exit 1; }
+git fetch origin --tags --prune
+git fetch origin "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
 
-echo "=== [2/6] Stopping pm2 app (if running) ==="
-pm2 stop "$APP_NAME" 2>/dev/null || true
-
-echo "=== [3/6] Syncing files to $APP_DIR ==="
-# node_modules исключены из --delete, чтобы не сносить их при каждом деплое
-rsync -av --delete \
-  --exclude='.git' \
-  --exclude='.env' \
-  --exclude='node_modules' \
-  "$REPO_DIR/" "$APP_DIR/"
-
-echo "=== [4/6] Installing npm dependencies from package-lock.json ==="
-cd "$APP_DIR"
-npm ci --omit=dev
-
-echo "=== [5/6] Copying .env ==="
-if [ ! -f "$ENV_FILE" ]; then
-    echo "ERROR: env file not found at $ENV_FILE"
-    echo "Create it from the template:"
-    echo "  cp $REPO_DIR/.env.example $ENV_FILE"
-    echo "  nano $ENV_FILE"
+if [[ -n "$REF" ]]; then
+  # Resolve the requested tag/SHA to a commit and deploy exactly that tree.
+  if ! git cat-file -e "${REF}^{commit}" 2>/dev/null; then
+    git fetch origin "$REF"
+  fi
+  RESOLVED="$(git rev-parse --verify "${REF}^{commit}")"
+  git merge-base --is-ancestor "$RESOLVED" "origin/$BRANCH" || {
+    echo "Ref $REF ($RESOLVED) is not on origin/$BRANCH; refusing deploy" >&2
     exit 1
+  }
+  git checkout --detach "$RESOLVED"
+  echo "Preparing $TARGET (ref $REF → $RESOLVED) for $APP_NAME"
+else
+  git checkout "$BRANCH"
+  git merge --ff-only "origin/$BRANCH"
+  # Avoid accidentally deploying local-only commits from this server.
+  [[ "$(git rev-parse HEAD)" == "$(git rev-parse "origin/$BRANCH")" ]] || {
+    echo "Local branch differs from origin/$BRANCH" >&2; exit 1;
+  }
+  echo "Preparing $TARGET ($BRANCH) for $APP_NAME"
 fi
-cp "$ENV_FILE" "$APP_DIR/.env"
 
-echo "=== [6/6] Starting pm2 app ==="
-# NODE_ENV=production makes src/config.js default COOKIE_SECURE to true (the
-# session cookie, including the one carrying an admin password reset, gets
-# the Secure flag). pm2 fixes the env a process was (re)started with and
-# keeps reusing it on later restarts unless told otherwise, so --update-env
-# is required here too -- without it, an app that was ever started without
-# NODE_ENV set would keep running without it forever, even after this script
-# starts exporting it.
-export NODE_ENV=production
-pm2 start server.js --name "$APP_NAME" 2>/dev/null || pm2 restart "$APP_NAME" --update-env
-pm2 save
-
-echo ""
-echo "=== Deploy complete ($ENV) ==="
+ARGS=("$REPO_DIR" "$APP_DIR" "$APP_NAME" "$ENV_FILE")
+[[ -z "$MODE" ]] || ARGS+=("$MODE")
+TGTV_RUNTIME_MODE="$RUNTIME" TGTV_DEPLOY_LOCKED="$APP_DIR" node scripts/deploy-release.js "${ARGS[@]}"

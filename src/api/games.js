@@ -7,6 +7,8 @@ const { calculateSubmittedResult, matchScoreFor } = require("../domain/scoring")
 const { calculateElo, ELO_K } = require("../domain/elo");
 const { gameView } = require("./views");
 const { requirePositiveIntId } = require("./params");
+const { teamGamePermissions } = require("../domain/team-game-permissions");
+const { killTeamSearchKeys } = require("../domain/kill-teams");
 const {
   attachTournamentGameDetails,
   sortGameViews
@@ -46,6 +48,10 @@ async function tournamentRequest(client, game, context, action) {
   return viewOf(client, await gamesRepo.findById(client, game.id));
 }
 
+async function teamTournamentRequest(client, game, context, action) {
+  return require("./team-tournaments").handleGameRequest(context, action);
+}
+
 function requireParticipant(game, user, message) {
   if (!game.playerIds.includes(user.id)) throw new HttpError(403, message);
 }
@@ -60,9 +66,14 @@ async function lockPlayers(client, game) {
   return { playerA, playerB, players };
 }
 
-async function viewOf(client, game) {
-  const [detailed] = await attachTournamentGameDetails(client, [game]);
-  const people = await usersRepo.findByIds(client, detailed.playerIds);
+async function viewOf(client, game, options) {
+  let detailed = game;
+  if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
+    [detailed] = await attachTournamentGameDetails(client, [game], options);
+  }
+  const people = Array.isArray(detailed.players) && detailed.players.length
+    ? []
+    : await usersRepo.findByIds(client, detailed.playerIds);
   return gameView(detailed, people);
 }
 
@@ -77,17 +88,39 @@ async function applyElo(client, game, playerA, playerB, result, confirmedBy, opt
   const venue = usersRepo.normalizeVenueMode(game.venueMode);
   const ratingA = usersRepo.ratingForVenue(playerA, venue);
   const ratingB = usersRepo.ratingForVenue(playerB, venue);
+  const combinedRatingA = usersRepo.ratingForVenue(playerA, "combined");
+  const combinedRatingB = usersRepo.ratingForVenue(playerB, "combined");
 
   const matchScoreA = matchScoreFor(result, playerA.id, playerB.id);
   const { deltaA, deltaB } = calculateElo(ratingA, ratingB, matchScoreA);
+  const { deltaA: combinedDeltaA, deltaB: combinedDeltaB } = calculateElo(
+    combinedRatingA,
+    combinedRatingB,
+    matchScoreA
+  );
 
   const updatedA = await usersRepo.addRating(client, playerA.id, deltaA, venue);
   const updatedB = await usersRepo.addRating(client, playerB.id, deltaB, venue);
+  await usersRepo.addRating(client, playerA.id, combinedDeltaA, "combined");
+  await usersRepo.addRating(client, playerB.id, combinedDeltaB, "combined");
 
   const elo = {
     k: ELO_K,
     [playerA.id]: { before: ratingA, after: usersRepo.ratingForVenue(updatedA, venue), delta: deltaA },
-    [playerB.id]: { before: ratingB, after: usersRepo.ratingForVenue(updatedB, venue), delta: deltaB }
+    [playerB.id]: { before: ratingB, after: usersRepo.ratingForVenue(updatedB, venue), delta: deltaB },
+    combined: {
+      k: ELO_K,
+      [playerA.id]: {
+        before: combinedRatingA,
+        after: combinedRatingA + combinedDeltaA,
+        delta: combinedDeltaA
+      },
+      [playerB.id]: {
+        before: combinedRatingB,
+        after: combinedRatingB + combinedDeltaB,
+        delta: combinedDeltaB
+      }
+    }
   };
 
   return gamesRepo.saveFinalResult(client, game.id, {
@@ -103,6 +136,8 @@ async function reverseElo(client, game) {
   for (const playerId of game.playerIds) {
     const delta = Number(game.elo?.[playerId]?.delta || 0);
     if (delta) await usersRepo.addRating(client, playerId, -delta, game.venueMode);
+    const combinedDelta = Number(game.elo?.combined?.[playerId]?.delta || 0);
+    if (combinedDelta) await usersRepo.addRating(client, playerId, -combinedDelta, "combined");
   }
 }
 
@@ -132,104 +167,73 @@ async function cancelGame(client, game) {
 }
 
 async function listCompleted({ client, query = new URLSearchParams() }) {
-  const venue = ["tts", "irl"].includes(query.get("venue"))
-    ? query.get("venue")
-    : null;
-
-  const pageParam = query.get("page");
-  const limitParam = query.get("limit");
-
-  const page = Number(pageParam);
-  const limit = Number(limitParam);
-
-  const usePagination =
-    pageParam !== null &&
-    Number.isInteger(page) &&
-    page > 0;
-
-  // Если page не передан — сохраняем старое поведение.
-  // Это пока нужно Statistics и другим частям приложения.
-  if (!usePagination) {
-    const completed = await attachTournamentGameDetails(
-      client,
-      await gamesRepo.listCompleted(client, venue)
-    );
-
-    const peopleIds = new Set();
-
-    for (const game of completed) {
-      for (const id of game.playerIds) {
-        peopleIds.add(id);
-      }
-    }
-
-    const people = await usersRepo.findByIds(
-      client,
-      [...peopleIds]
-    );
-
-    return {
-      games: sortGameViews(
-        completed.map((game) =>
-          gameView(game, people)
-        )
-      )
-    };
+  const venue = ["tts", "irl"].includes(query.get("venue")) ? query.get("venue") : null;
+  if (query.has("page")) {
+    const page = requirePositiveIntId(query.get("page"), 400, "Invalid page");
+    const playerId = query.get("playerId")
+      ? requirePositiveIntId(query.get("playerId"), 400, "Invalid player") : null;
+    if (!Number.isSafeInteger(page)) throw new HttpError(400, "Invalid page");
+    if (playerId > 2147483647) throw new HttpError(400, "Invalid player");
+    const playerQuery = String(query.get("playerQuery") || "").trim().slice(0, 256);
+    const factionKeys = query.get("team") ? killTeamSearchKeys(query.get("team")) : [];
+    const result = await gamesRepo.listCompletedPage(client, { page, venue, playerId, playerQuery, factionKeys,
+      sort: query.get('sort'), direction: query.get('direction') });
+    const completed = await attachTournamentGameDetails(client, result.games);
+    const people = await usersRepo.findByIds(client, [...new Set(completed.flatMap((game) => game.playerIds))]);
+    const players = await gamesRepo.completedPlayerSuggestions(client, { venue, playerQuery });
+    return { ...result, games: completed.map((game) => gameView(game, people)), players };
   }
-
-  // Новое поведение для:
-  // /api/games?page=1&limit=10
-  const pageData = await gamesRepo.listCompletedPage(
-    client,
-    {
-      venueMode: venue,
-      page,
-      limit:
-        Number.isInteger(limit) && limit > 0
-          ? limit
-          : 10
-    }
-  );
-
-  const completed = await attachTournamentGameDetails(
-    client,
-    pageData.games
-  );
-
+  // The statistics screen still needs the complete result set.
+  const completed = await attachTournamentGameDetails(client, await gamesRepo.listCompleted(client, venue));
   const peopleIds = new Set();
-
   for (const game of completed) {
-    for (const id of game.playerIds) {
-      peopleIds.add(id);
+    for (const id of game.playerIds) peopleIds.add(id);
+  }
+  const people = await usersRepo.findByIds(client, [...peopleIds]);
+  return {
+    games: sortGameViews(completed.map((game) => gameView(game, people)))
+  };
+}
+
+async function getOne({ client, user, params, compactTournament = false }) {
+  const game = await findGame(client, params.id);
+  const view = await viewOf(client, game, { compactTournament });
+  let publicTournament = false;
+  if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
+    const tournaments = require("../db/repositories/tournaments");
+    const tournament = view.tournament?.id ? await tournaments.findById(client, view.tournament.id, { compactTournament }) : null;
+    publicTournament = Boolean(tournament && tournaments.PUBLISHED_STATUSES.includes(tournament.status));
+    if (!publicTournament && !require("../domain/access").canManageTournament(user, tournament)) {
+      throw new HttpError(404, "Game not found");
     }
   }
+  if (game.sourceType === "team_match_game") {
+    const permissions = teamGamePermissions(view, view.teamMatch?.rosterA, view.teamMatch?.rosterB, user);
+    if (publicTournament) permissions.canView = true;
+    if (!permissions.canView) throw new HttpError(403, "You cannot view this game");
+    return { game: { ...view, resultPermissions: permissions } };
+  }
+  const isParticipant = Boolean(user && game.playerIds.includes(user.id));
+  if (!publicTournament && game.status !== "completed" && !require("../domain/access").canManageTournament(user, view.tournament) && !isParticipant) {
+    throw new HttpError(403, "You cannot view this game");
+  }
+  return { game: view };
+}
 
-  const people = await usersRepo.findByIds(
-    client,
-    [...peopleIds]
-  );
-
-  return {
-    games: sortGameViews(
-      completed.map((game) =>
-        gameView(game, people)
-      )
-    ),
-
-    pagination: {
-      page: pageData.page,
-      limit: pageData.limit,
-      total: pageData.total,
-      totalPages: pageData.totalPages,
-      hasMore: pageData.hasMore
-    }
-  };
+async function getByTournamentMatch({ client, user, params }) {
+  const matchId = requirePositiveIntId(params.matchId, 404, "Route not found");
+  const match = await tournamentMatchesRepo.findById(client, matchId);
+  if (!match?.gameId) throw new HttpError(404, "Game not found");
+  return getOne({ client, user, params: { id: match.gameId } });
 }
 
 async function submitResult({ client, user, params, body }) {
   const candidate = await findGame(client, params.id);
   if (candidate.sourceType === "tournament_match") {
     return { game: await tournamentRequest(client, candidate, { client, user, params, body }, "submitResult") };
+  }
+  if (candidate.sourceType === "team_match_game") {
+    return { game: await teamTournamentRequest(client, candidate, { client, user, params, body }, "submit") };
   }
   const game = await lockGame(client, params.id);
   requireParticipant(game, user, "Only a game participant can submit the result");
@@ -258,7 +262,7 @@ async function submitResult({ client, user, params, body }) {
 
 async function exitGame({ client, user, params }) {
   const game = await lockGame(client, params.id);
-  if (game.sourceType === "tournament_match") {
+  if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
     throw new HttpError(409, "Tournament games cannot be exited independently from their tournament");
   }
   requireParticipant(game, user, "Only a game participant can exit this game");
@@ -279,6 +283,10 @@ async function respondToResult({ client, user, params }) {
   if (candidate.sourceType === "tournament_match") {
     const action = params.action === "reject-result" ? "rejectResult" : "confirmResult";
     return { game: await tournamentRequest(client, candidate, { client, user, params }, action) };
+  }
+  if (candidate.sourceType === "team_match_game") {
+    const action = params.action === "reject-result" ? "reject" : "confirm";
+    return { game: await teamTournamentRequest(client, candidate, { client, user, params }, action) };
   }
   const game = await lockGame(client, params.id);
   requireParticipant(game, user, "Only a game participant can confirm the result");
@@ -301,6 +309,8 @@ async function respondToResult({ client, user, params }) {
 
 module.exports = {
   listCompleted,
+  getOne,
+  getByTournamentMatch,
   submitResult,
   exitGame,
   respondToResult,
@@ -311,6 +321,11 @@ module.exports = {
   findGame,
   viewOf,
   tournamentRequest,
+  teamTournamentRequest,
   lockGame,
   lockPlayers
 };
+
+for (const name of ["submitResult", "respondToResult", "exitGame"]) {
+  module.exports[name] = require("../db/rating-write-lock").withRatingWriteLock(module.exports[name]);
+}

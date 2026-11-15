@@ -1,0 +1,43 @@
+name: ktcompanion-analytics
+services:
+  umami:
+    image: ${UMAMI_IMAGE:?Set an official Umami image pinned by digest}
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:3010:3000"
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD:?Set a random hexadecimal password}@db:5432/umami
+      APP_SECRET: ${UMAMI_APP_SECRET:?Set a random secret}
+      TWO_FACTOR_ENCRYPTION_KEY: ${UMAMI_2FA_KEY:?Set a random hexadecimal key}
+      CLIENT_IP_HEADER: x-real-ip
+      DISABLE_TELEMETRY: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 768m
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:?Set a random hexadecimal password}
+    volumes:
+      - umami-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 256m
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  umami-data:

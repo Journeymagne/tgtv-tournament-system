@@ -59,15 +59,15 @@ function approvedOps(faction, { crit, kill, tac, primary }) {
   return { crit, kill, tac, primary, faction, tacOp: "" };
 }
 
-test("первый зарегистрированный становится администратором", async () => {
+test("первый зарегистрированный остаётся обычным игроком", async () => {
   const client = createClient(server.baseUrl);
   const res = await client.post("/api/register", registration("Alpha"));
 
   assert.equal(res.status, 201);
   assert.equal(res.body.user.name, "Alpha");
-  assert.equal(res.body.user.isAdmin, true);
+  assert.equal(res.body.user.isAdmin, false);
   assert.equal(res.body.user.rating, 1000);
-  assert.equal(res.body.hasAdmin, true);
+  assert.equal(res.body.hasAdmin, false);
 });
 
 test("второй зарегистрированный администратором не становится", async () => {
@@ -102,7 +102,7 @@ test("вход по неверному паролю отдаёт 401", async () 
 
 test("защищённый маршрут без сессии отдаёт 401", async () => {
   const client = createClient(server.baseUrl);
-  const res = await client.get("/api/games");
+  const res = await client.get("/api/notifications");
   assert.equal(res.status, 401);
 });
 
@@ -212,7 +212,7 @@ test("КОНТРАКТ B1: лидерборд не отдаёт контакты
   assert.ok(!JSON.stringify(res.body).includes("@alpha"));
   assert.deepEqual(
     Object.keys(res.body.users[0]).sort(),
-    ["avatarData", "id", "isAdmin", "name", "rating", "ratings"]
+    ["avatarUrl", "id", "isAdmin", "name", "publicId", "rank", "rating", "ratings"]
   );
 });
 

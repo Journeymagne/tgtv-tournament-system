@@ -1,15 +1,14 @@
-const { MAX_AVATAR_DATA_URL_LENGTH } = require("../config");
+const { contentVersion } = require("../domain/data-url");
+const { publicId } = require("../domain/entity-id");
+const { winnerParticipantIdFromResult, matchParticipant } = require("../domain/tournaments/results");
 const { buildChallengeTracks } = require("../domain/challenge-progress");
-
-function safeAvatar(value) {
-  if (!value || value.length > MAX_AVATAR_DATA_URL_LENGTH) return null;
-  return value;
-}
+const { tournamentFactionsHidden } = require("../domain/tournaments/privacy");
 
 function publicRatings(user) {
   return {
     tts: Number(user?.ratings?.tts ?? user?.rating ?? 1000),
-    irl: Number(user?.ratings?.irl ?? user?.rating ?? 1000)
+    irl: Number(user?.ratings?.irl ?? user?.rating ?? 1000),
+    combined: Number(user?.ratings?.combined ?? user?.rating ?? 1000)
   };
 }
 
@@ -17,8 +16,10 @@ function publicUser(user) {
   if (!user) return null;
   return {
     id: user.id,
+    publicId: publicId('user', user.id),
+    userId: user.id,
     name: user.name,
-    avatarData: safeAvatar(user.avatarData),
+    avatarUrl: user.avatarUrl || null,
     registerNickname: user.registerNickname || "",
     telegramContact: user.telegramContact || "",
     rating: user.rating,
@@ -32,6 +33,7 @@ function publicUserSummary(user) {
   if (!user) return null;
   return {
     id: user.id,
+    publicId: publicId('user', user.id),
     name: user.name,
     registerNickname: user.registerNickname || "",
     telegramContact: user.telegramContact || "",
@@ -45,8 +47,9 @@ function publicUserSummary(user) {
 function leaderboardUser(user) {
   return {
     id: user.id,
+    publicId: publicId('user', user.id),
     name: user.name,
-    avatarData: safeAvatar(user.avatarData),
+    avatarUrl: user.avatarUrl || null,
     rating: user.rating,
     ratings: publicRatings(user),
     isAdmin: Boolean(user.isAdmin)
@@ -67,6 +70,7 @@ function challengeView(challenge, people) {
 }
 
 function gameView(game, people) {
+  game = { ...game, publicId: publicId('game', game.id) };
   if (Array.isArray(game.players) && game.players.length) {
     return { ...game, players: game.players };
   }
@@ -97,12 +101,16 @@ function challengeProgressView(games, user) {
   return { ...classified, tracks: { classified, allKillTeam } };
 }
 
-function userSummary({ user, hasAdmin, challenges, games, people }) {
+function userSummary({ user, hasAdmin, challenges, games, teamPairings = [], people }) {
   return {
-    user: publicUser(user),
+    user: { ...publicUser(user), bcpEmail: user.bcpEmail || "", isSuperAdmin: Boolean(user.isSuperAdmin),
+      isFAQModerator: Boolean(user.isFAQModerator),
+      canCreateTournaments: Boolean(user.canCreateTournaments),
+      capabilities: user.capabilities || {}, managedTournamentIds: user.managedTournamentIds || [] },
     hasAdmin,
     challenges: challenges.map((challenge) => challengeView(challenge, people)),
-    games: games.map((game) => gameView(game, people))
+    games: games.map((game) => gameView(game, people)),
+    teamPairings
   };
 }
 
@@ -145,11 +153,15 @@ function tournamentParticipantView(participant, people = []) {
   const user = findUser(people, participant.userId);
   return {
     id: participant.id,
+    publicId: publicId('tournamentParticipant', participant.id),
+    userPublicId: publicId('user', participant.userId),
     tournamentId: participant.tournamentId,
     userId: participant.userId,
     user: user ? publicUser(user) : null,
     displayName: participant.displayName,
+    isProxy: Boolean(participant.isProxy),
     faction: participant.faction || "",
+    factions: participant.factions || (participant.faction ? [participant.faction] : []),
     factionRules: participant.factionRules || "",
     seed: participant.seed,
     status: participant.status,
@@ -162,8 +174,19 @@ function tournamentParticipantView(participant, people = []) {
 }
 
 function tournamentMatchView(match, participantById = new Map()) {
+  const participantA = matchParticipant(match, participantById.get(match.participantAId));
+  const participantB = matchParticipant(match, participantById.get(match.participantBId));
+  // Legacy pending submissions are game results, not completed tournament outcomes.
+  // Convert explicitly for their preview; never make the browser guess the namespace.
+  const pendingResult = match.pendingResult?.result && participantA && participantB
+    ? { ...match.pendingResult, winnerParticipantId: winnerParticipantIdFromResult(
+      match.pendingResult.result, participantA, participantB) }
+    : match.pendingResult;
   return {
     id: match.id,
+    publicId: publicId('tournamentMatch', match.id),
+    winnerParticipantPublicId: publicId('tournamentParticipant', match.winnerParticipantId),
+    gamePublicId: publicId('game', match.gameId),
     tournamentId: match.tournamentId,
     roundId: match.roundId,
     roundNumber: match.roundNumber,
@@ -172,12 +195,12 @@ function tournamentMatchView(match, participantById = new Map()) {
     isBye: match.isBye,
     participantAId: match.participantAId,
     participantBId: match.participantBId,
-    participantA: participantById.get(match.participantAId) || null,
-    participantB: participantById.get(match.participantBId) || null,
+    participantA,
+    participantB,
     sourceMatchAId: match.sourceMatchAId,
     sourceMatchBId: match.sourceMatchBId,
     winnerParticipantId: match.winnerParticipantId,
-    pendingResult: match.pendingResult,
+    pendingResult,
     result: match.result,
     matchPoints: match.matchPoints,
     elo: match.elo,
@@ -204,26 +227,58 @@ function tournamentRoundView(round, matches, participantById) {
   };
 }
 
+function tournamentRulesType(tournament) {
+  const link = String(tournament?.rulesLink || "");
+  if (!link) return "";
+  return link.startsWith("data:") || link.startsWith("/api/tournaments/") ? "pdf" : "url";
+}
+
+function tournamentRulesUrl(tournament) {
+  const link = String(tournament?.rulesLink || "");
+  if (!link) return "";
+  if (!link.startsWith("data:")) return link;
+  // Content-addressed so the browser can cache the file forever and still pick
+  // up a replacement the moment an administrator uploads one.
+  return `/api/tournaments/${encodeURIComponent(tournament.slug)}/rules?v=${contentVersion(link)}`;
+}
+
+const { logoUrl } = require("../domain/logos");
+
 function tournamentSummaryView(tournament) {
   return {
     id: tournament.id,
     ownerUserId: tournament.ownerUserId,
+    logoData: logoUrl("tournament", tournament.id, tournament.logoData),
     slug: tournament.slug,
     name: tournament.name,
     description: tournament.description,
     gameSystem: tournament.gameSystem,
     startsAt: tournament.startsAt,
+    registrationLimit: tournament.registrationLimit || null,
+    factionCount: tournament.factionCount || 1,
     rulesSummary: tournament.rulesSummary,
-    rulesLink: tournament.rulesLink,
+    // An uploaded PDF is served by its own route rather than inlined here: the
+    // same summary object rides along with every game of the tournament, so a
+    // 130 KB base64 blob was being repeated once per match.
+    rulesLink: tournamentRulesUrl(tournament),
+    rulesLinkType: tournamentRulesType(tournament),
     status: tournament.status,
     format: tournament.format,
+    participantMode: tournament.participantMode || "individual",
+    teamSize: tournament.teamSize || null,
+    pairingType: tournament.pairingType || null,
+    captainPairingEnabled: tournament.captainPairingEnabled !== false,
+    teamTiebreakerOrder: tournament.teamTiebreakerOrder ?? null,
+    teamTablesLocked: Boolean(tournament.teamTablesLocked),
     swissRoundCount: tournament.swissRoundCount,
     singleEliminationSize: tournament.singleEliminationSize,
+    pairingMode: tournament.pairingMode || "backet_random",
     tiebreakerOrder: tournament.tiebreakerOrder,
     ratingPolicy: tournament.ratingPolicy,
     challengeCreditPolicy: tournament.challengeCreditPolicy,
     seasonId: tournament.seasonId,
     venueMode: tournament.venueMode,
+    venueAddress: tournament.venueMode === "irl" ? tournament.venueAddress || "" : "",
     finalResults: tournament.finalResults,
     participantCount: tournament.participantCount,
     roundCount: tournament.roundCount,
@@ -231,6 +286,7 @@ function tournamentSummaryView(tournament) {
     startedAt: tournament.startedAt,
     completedAt: tournament.completedAt,
     cancelledAt: tournament.cancelledAt,
+    updatedAt: tournament.updatedAt,
     createdAt: tournament.createdAt
   };
 }
@@ -242,6 +298,8 @@ function tournamentTableView(table) {
     tableNumber: table.tableNumber,
     killzone: table.killzone || "",
     deployment: table.deployment,
+    imageId: table.imageId || null,
+    imageUrl: table.imageId ? `/api/tournament-table-images/${table.imageId}` : null,
     createdAt: table.createdAt,
     updatedAt: table.updatedAt
   };
@@ -250,6 +308,7 @@ function tournamentTableView(table) {
 function tournamentDetailView({
   tournament,
   participants = [],
+  matchParticipants = participants,
   people = [],
   rounds = [],
   matches = [],
@@ -259,10 +318,19 @@ function tournamentDetailView({
   viewer = {},
   auditEvents = []
 }) {
-  const participantViews = participants.map((participant) =>
-    tournamentParticipantView(participant, people)
-  );
-  const participantById = new Map(participantViews.map((participant) => [participant.id, participant]));
+  const hideFactions = tournamentFactionsHidden(rounds) && !viewer.canAdmin;
+  const participantView = (participant) => {
+    const view = tournamentParticipantView(participant, people);
+    if (viewer.canAdmin) view.paid = Boolean(participant.paid);
+    if (hideFactions && participant.id !== viewer.participantId) {
+      return { ...view, faction: "", factions: [], factionRules: "", factionHidden: true };
+    }
+    return view;
+  };
+  // Removed seats remain available to historical matches, while the current
+  // roster and standings contain only participants who are still listed.
+  const participantById = new Map(matchParticipants.map(participant => [participant.id, participantView(participant)]));
+  const participantViews = participants.map(participant => participantById.get(participant.id) || participantView(participant));
   const tableViews = tables.map(tournamentTableView);
   const tableById = new Map(tableViews.map((table) => [table.id, table]));
   const matchesWithTables = matches.map((match) => ({

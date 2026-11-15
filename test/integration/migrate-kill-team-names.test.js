@@ -9,7 +9,7 @@ const migration = require("../../src/db/migrations/002_kill_team_names");
 let pool;
 
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
+  pool = new Pool(require("../helpers/schema").poolOptions);
 });
 
 test.after(async () => {
@@ -20,7 +20,7 @@ test.after(async () => {
 // schema_migrations: тест сначала засевает данные в старом виде, и лишь затем
 // migrate(pool) применяет 001 (идемпотентно) и 002.
 test.beforeEach(async () => {
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  await require("../helpers/schema").resetSchemas(pool);
   const client = await pool.connect();
   try {
     await MIGRATIONS[0].up(client);

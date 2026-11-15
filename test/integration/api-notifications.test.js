@@ -1,0 +1,429 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { Pool } = require("pg");
+
+const { TEST_DATABASE_URL } = require("../helpers/db");
+const { migrate } = require("../../src/db/migrate");
+const notificationsApi = require("../../src/api/notifications");
+const usersRepo = require("../../src/db/repositories/users");
+const gamesRepo = require("../../src/db/repositories/games");
+
+let pool;
+let client;
+let alpha;
+let bravo;
+
+test.before(async () => {
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
+  await migrate(pool);
+});
+
+test.after(async () => {
+  await pool.end();
+  await require("../../src/db/pool").closePool();
+});
+
+test.beforeEach(async () => {
+  await pool.query("TRUNCATE users RESTART IDENTITY CASCADE");
+  client = await pool.connect();
+  alpha = await usersRepo.insert(client, {
+    name: "Alpha", passwordHash: "s:h", registerNickname: "", telegramContact: "@a",
+    rating: 1000, isAdmin: false
+  });
+  bravo = await usersRepo.insert(client, {
+    name: "Bravo", passwordHash: "s:h", registerNickname: "", telegramContact: "@b",
+    rating: 1000, isAdmin: false
+  });
+});
+
+test.afterEach(() => {
+  client.release();
+});
+
+async function listFor(user) {
+  await require("../helpers/notifications").deliverNotifications();
+  return notificationsApi.list({ client, user });
+}
+
+async function createIndividualPairing() {
+  const { rows: tournamentRows } = await client.query(
+    `INSERT INTO tournaments (owner_user_id, slug, name, status, format)
+     VALUES ($1, 'individual-cup', 'Individual Cup', 'in_progress', 'swiss') RETURNING id`,
+    [alpha.id]
+  );
+  const tournamentId = tournamentRows[0].id;
+  const { rows: roundRows } = await client.query(
+    `INSERT INTO tournament_rounds (tournament_id, round_number, status)
+     VALUES ($1, 1, 'active') RETURNING id`,
+    [tournamentId]
+  );
+  const { rows: participantRows } = await client.query(
+    `INSERT INTO tournament_participants
+       (tournament_id, user_id, display_name, display_name_key, faction, seed, status, source)
+     VALUES
+       ($1, $2, 'Alpha', 'alpha', 'Kasrkin', 1, 'active', 'self_join'),
+       ($1, $3, 'Bravo', 'bravo', 'Legionaries', 2, 'active', 'self_join')
+     RETURNING id, user_id, display_name, faction`,
+    [tournamentId, alpha.id, bravo.id]
+  );
+  const byUser = new Map(participantRows.map((row) => [row.user_id, row]));
+  const { rows: tableRows } = await client.query(
+    `INSERT INTO tournament_tables (tournament_id, table_number, killzone)
+     VALUES ($1, 4, 'Volkus') RETURNING id`,
+    [tournamentId]
+  );
+  const { rows: matchRows } = await client.query(
+    `INSERT INTO tournament_matches
+       (tournament_id, round_id, round_number, status, participant_a_id, participant_b_id, table_id, mission)
+     VALUES ($1, $2, 1, 'active', $3, $4, $5, $6::jsonb) RETURNING id`,
+    [
+      tournamentId,
+      roundRows[0].id,
+      byUser.get(alpha.id).id,
+      byUser.get(bravo.id).id,
+      tableRows[0].id,
+      JSON.stringify({ critOp: "Loot" })
+    ]
+  );
+  return gamesRepo.insert(client, {
+    challengeId: null,
+    playerIds: [alpha.id, bravo.id],
+    sourceType: "tournament_match",
+    sourceId: matchRows[0].id,
+    participants: participantRows.map((row) => ({
+      userId: row.user_id,
+      tournamentParticipantId: row.id,
+      resultKey: row.user_id,
+      displayNameSnapshot: row.display_name,
+      factionSnapshot: row.faction
+    }))
+  });
+}
+
+async function createTeamPairing() {
+  const { rows: tournamentRows } = await client.query(
+    `INSERT INTO tournaments
+       (owner_user_id, slug, name, status, format, participant_mode, team_size, pairing_type)
+     VALUES ($1, 'team-cup', 'Team Cup', 'in_progress', 'swiss', 'team', 3, 'shield_sword')
+     RETURNING id`,
+    [alpha.id]
+  );
+  const tournamentId = tournamentRows[0].id;
+  const { rows: roundRows } = await client.query(
+    `INSERT INTO tournament_rounds (tournament_id, round_number, status)
+     VALUES ($1, 2, 'active') RETURNING id`,
+    [tournamentId]
+  );
+  const { rows: teamRows } = await client.query(
+    `INSERT INTO player_teams (slug, name, name_key, leader_user_id)
+     VALUES ('alpha-team', 'Alpha Team', 'alpha team', $1),
+            ('bravo-team', 'Bravo Team', 'bravo team', $2)
+     RETURNING id, slug`,
+    [alpha.id, bravo.id]
+  );
+  const teamBySlug = new Map(teamRows.map((row) => [row.slug, row]));
+  const { rows: rosterRows } = await client.query(
+    `INSERT INTO tournament_team_rosters
+       (tournament_id, team_id, name, name_key, captain_user_id, registered_by_user_id,
+        seed, status, team_name_snapshot, started_at)
+     VALUES
+       ($1, $2, 'Alpha Roster', 'alpha roster', $4, $4, 1, 'active', 'Alpha Team', NOW()),
+       ($1, $3, 'Bravo Roster', 'bravo roster', $5, $5, 2, 'active', 'Bravo Team', NOW())
+     RETURNING id, team_id`,
+    [
+      tournamentId,
+      teamBySlug.get("alpha-team").id,
+      teamBySlug.get("bravo-team").id,
+      alpha.id,
+      bravo.id
+    ]
+  );
+  const rosterByTeam = new Map(rosterRows.map((row) => [row.team_id, row]));
+  const alphaRoster = rosterByTeam.get(teamBySlug.get("alpha-team").id);
+  const bravoRoster = rosterByTeam.get(teamBySlug.get("bravo-team").id);
+  const { rows: memberRows } = await client.query(
+    `INSERT INTO tournament_team_roster_members
+       (tournament_id, roster_id, user_id, slot, display_name_snapshot, faction_snapshot)
+     VALUES
+       ($1, $2, $4, 1, 'Alpha', 'Kasrkin'),
+       ($1, $3, $5, 1, 'Bravo', 'Legionaries')
+     RETURNING id, roster_id, user_id`,
+    [tournamentId, alphaRoster.id, bravoRoster.id, alpha.id, bravo.id]
+  );
+  const memberByUser = new Map(memberRows.map((row) => [row.user_id, row]));
+  const { rows: matchRows } = await client.query(
+    `INSERT INTO tournament_team_matches
+       (tournament_id, round_id, round_number, bracket_position, roster_a_id, roster_b_id, phase)
+     VALUES ($1, $2, 2, 1, $3, $4, 'in_progress') RETURNING id`,
+    [tournamentId, roundRows[0].id, alphaRoster.id, bravoRoster.id]
+  );
+  const game = await gamesRepo.insert(client, {
+    challengeId: null,
+    playerIds: [alpha.id, bravo.id],
+    sourceType: "team_match_game",
+    sourceSlot: 1,
+    sourceId: matchRows[0].id,
+    participants: [
+      { userId: alpha.id, resultKey: alpha.id, displayNameSnapshot: alpha.name, factionSnapshot: "Kasrkin" },
+      { userId: bravo.id, resultKey: bravo.id, displayNameSnapshot: bravo.name, factionSnapshot: "Legionaries" }
+    ]
+  });
+  await client.query(
+    `INSERT INTO tournament_team_match_games
+       (team_match_id, game_id, slot, roster_a_member_id, roster_b_member_id, mission)
+     VALUES ($1, $2, 1, $3, $4, $5::jsonb)`,
+    [
+      matchRows[0].id,
+      game.id,
+      memberByUser.get(alpha.id).id,
+      memberByUser.get(bravo.id).id,
+      JSON.stringify({ critOp: "Secure" })
+    ]
+  );
+  return game;
+}
+
+test("active inbox aggregates challenges and invitations and keeps read items active", async () => {
+  const { rows: challengeRows } = await client.query(
+    `INSERT INTO challenges (from_user_id, to_user_id, status)
+     VALUES ($1, $2, 'pending') RETURNING id`,
+    [bravo.id, alpha.id]
+  );
+  const { rows: teamRows } = await client.query(
+    `INSERT INTO player_teams (slug, name, name_key, leader_user_id)
+     VALUES ('bravo-team', 'Bravo Team', 'bravo team', $1) RETURNING id`,
+    [bravo.id]
+  );
+  await client.query(
+    `INSERT INTO player_team_invitations (team_id, invitee_user_id, invited_by_user_id)
+     VALUES ($1, $2, $3)`,
+    [teamRows[0].id, alpha.id, bravo.id]
+  );
+
+  const beforeRead = await listFor(alpha);
+  assert.deepEqual(beforeRead.items.map((item) => item.type).sort(), ["game_challenge", "team_invitation"]);
+  assert.equal(beforeRead.unreadCount, 2);
+  assert.match(beforeRead.items.find((item) => item.type === "game_challenge").href, /^\/tournament#\/mygames\/challenge\/\d+$/);
+
+  await notificationsApi.markRead({ client, user: alpha, body: { through: beforeRead.generatedAt } });
+  const afterRead = await listFor(alpha);
+  assert.equal(afterRead.items.length, 2);
+  assert.equal(afterRead.unreadCount, 0);
+
+  await client.query("UPDATE challenges SET status = 'declined' WHERE id = $1", [challengeRows[0].id]);
+  await client.query("UPDATE player_teams SET archived_at = NOW() WHERE id = $1", [teamRows[0].id]);
+  const inactive = await listFor(alpha);
+  assert.equal(inactive.items.length, 2);
+  assert.equal(inactive.unreadCount, 0);
+});
+
+test("individual and captain-completed team pairings create personal notifications", async () => {
+  const individualGame = await createIndividualPairing();
+  const teamGame = await createTeamPairing();
+
+  const inbox = await listFor(alpha);
+  const individual = inbox.items.find((item) => item.type === "tournament_pairing");
+  const team = inbox.items.find((item) => item.type === "team_tournament_pairing");
+  assert.equal(individual.gameId, individualGame.id);
+  assert.equal(individual.opponent.name, "Bravo");
+  assert.equal(individual.roundNumber, 1);
+  assert.match(individual.href, /games\/tournament-match/);
+  assert.equal(team.gameId, teamGame.id);
+  assert.equal(team.opponentTeam.name, "Bravo Roster");
+  assert.equal(team.mission.critOp, "Secure");
+  assert.equal(team.href, `/tournament#/games/game/${teamGame.id}`);
+
+  await client.query("UPDATE games SET status = 'completed' WHERE id = ANY($1::int[])", [[individualGame.id, teamGame.id]]);
+  const completed = await listFor(alpha);
+  assert.equal(completed.items.length, 2);
+  assert.deepEqual(completed.items.map(item => item.id), inbox.items.map(item => item.id));
+});
+
+test("click reads only that notification, survives new connections and cannot read another user's inbox", async () => {
+  const game = await createIndividualPairing();
+  await createTeamPairing();
+  const before = await listFor(alpha);
+  const target = before.items.find(item => item.gameId === game.id);
+  const read = await notificationsApi.markRead({ client, user: alpha, body: { id: target.id } });
+  assert.equal(read.id, target.id);
+  assert.ok(read.readAt);
+  const otherConnection = await pool.connect();
+  try {
+    const after = await notificationsApi.list({ client: otherConnection, user: alpha });
+    assert.equal(after.unreadCount, 1);
+    assert.equal(after.items.find(item => item.id === target.id).unread, false);
+    assert.equal(after.items.find(item => item.id !== target.id).unread, true);
+  } finally { otherConnection.release(); }
+  assert.deepEqual(await notificationsApi.markRead({ client, user: alpha, body: { id: target.id } }), read);
+  assert.equal((await listFor(bravo)).unreadCount, 2);
+  const { rows: [privateChallenge] } = await client.query(
+    "INSERT INTO challenges (from_user_id, to_user_id, status) VALUES ($1, $2, 'pending') RETURNING id", [bravo.id, alpha.id]);
+  await listFor(alpha);
+  await assert.rejects(() => notificationsApi.markRead({ client, user: bravo, body: { id: `game_challenge:${privateChallenge.id}` } }), error => error.status === 404);
+  await assert.rejects(() => notificationsApi.markRead({ client, user: alpha, body: { id: "bad-id" } }), error => error.status === 400);
+  await client.query("UPDATE games SET status = 'completed' WHERE id = $1", [game.id]);
+  const history = await listFor(alpha);
+  assert.equal(history.items.find(item => item.id === target.id).unread, false);
+  assert.equal(history.items.find(item => item.id === target.id).readAt, read.readAt);
+});
+
+test("the inbox keeps exactly the latest five, including read and resolved entries", async () => {
+  const { rows } = await client.query(`INSERT INTO challenges (from_user_id, to_user_id, status, created_at)
+    SELECT $1, $2, 'pending', NOW() - n * INTERVAL '1 minute' FROM generate_series(1, 7) AS n
+    RETURNING id, created_at`, [bravo.id, alpha.id]);
+  const expected = rows.sort((a, b) => b.created_at - a.created_at).slice(0, 5).map(row => `game_challenge:${row.id}`);
+  const inbox = await listFor(alpha);
+  assert.deepEqual(inbox.items.map(item => item.id), expected);
+  assert.equal(inbox.unreadCount, 5);
+  await notificationsApi.markRead({ client, user: alpha, body: { id: expected[0] } });
+  await client.query("UPDATE challenges SET status = 'declined' WHERE to_user_id = $1", [alpha.id]);
+  const history = await listFor(alpha);
+  assert.deepEqual(history.items.map(item => item.id), expected);
+  assert.equal(history.unreadCount, 4);
+  const { rows: [newest] } = await client.query("INSERT INTO challenges (from_user_id, to_user_id, status) VALUES ($1, $2, 'pending') RETURNING id", [bravo.id, alpha.id]);
+  assert.deepEqual((await listFor(alpha)).items.map(item => item.id), [`game_challenge:${newest.id}`, ...expected.slice(0, 4)]);
+});
+
+// The worker is loaded with only its transaction provider replaced. SQL, source
+// loops and delivery decisions are the production worker on real DB clients.
+function deliveryWorker(connection, afterQuery = async () => {}) {
+  const fs = require('node:fs'), vm = require('node:vm');
+  const filename = require.resolve('../../src/notifications/worker');
+  const realRequire = require('node:module').createRequire(filename);
+  const module = { exports: {} };
+  const query = async (...args) => {
+    const result = await connection.query(...args);
+    await afterQuery(args[0], result);
+    return result;
+  };
+  vm.runInThisContext(`(function(require,module,exports){${fs.readFileSync(filename, 'utf8')}\n})`, { filename })(
+    name => name === '../db/pool' ? { withTransaction: async callback => {
+      await connection.query('BEGIN');
+      try { const result = await callback({ query }); await connection.query('COMMIT'); return result; }
+      catch (error) { await connection.query('ROLLBACK'); throw error; }
+    } } : realRequire(name), module, module.exports);
+  return module.exports;
+}
+
+function gate() {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve };
+}
+
+async function completesOrBlocks(operation, pid, blocker) {
+  let completed = false;
+  operation.finally(() => { completed = true; }).catch(() => {});
+  const deadline = Date.now() + 5000;
+  while (!completed && Date.now() < deadline) {
+    const { rows: [row] } = await client.query('SELECT $2::int = ANY(pg_blocking_pids($1)) AS blocked', [pid, blocker]);
+    if (row.blocked) return;
+  }
+  assert.ok(completed, 'the concurrent request must either complete or block on the other transaction');
+}
+
+for (const initialState of [false, true]) test(`read-through includes an uncommitted delivery (existing state: ${initialState})`, async () => {
+  for (const source of require('../../src/notifications/publish').SOURCES) await client.query(`TRUNCATE ${source}.notification_outbox`);
+  if (initialState) await client.query("INSERT INTO notification_inbox_state(user_id,last_seen_at) VALUES($1,NOW()-interval '1 day')", [alpha.id]);
+  const { rows: [clock] } = await client.query("SELECT NOW() - interval '1 minute' AS occurred, NOW() AS through");
+  const payload = { id: 'faq_submission:watermark', type: 'faq_submission', createdAt: clock.occurred.toISOString() };
+  await require('../../src/notifications/publish').publish(client, 'faq', alpha.id, payload);
+  const writer = await pool.connect(), reader = await pool.connect();
+  const inserted = gate(), release = gate();
+  let delivery, read;
+  try {
+    const worker = deliveryWorker(writer, async sql => {
+      if (/INSERT INTO notifications\.notification_inbox_items/i.test(sql)) { inserted.resolve(); await release.promise; }
+    });
+    delivery = worker.tick(); delivery.catch(() => {});
+    await Promise.race([inserted.promise, delivery.then(() => { throw Error('worker completed without reaching the gated inbox insert'); })]);
+    await reader.query('BEGIN');
+    read = (async () => {
+      await notificationsApi.markRead({ client: reader, user: alpha, body: { through: clock.through.toISOString() } });
+      await reader.query('COMMIT');
+    })();
+    await completesOrBlocks(read, reader.processID, writer.processID);
+    release.resolve();
+    await Promise.all([delivery, read]);
+    const inbox = await notificationsApi.list({ client, user: alpha });
+    assert.equal(inbox.items.find(item => item.id === payload.id).unread, false,
+      'an occurrence at or before the committed watermark must not remain unread');
+  } finally {
+    release.resolve();
+    await Promise.allSettled([delivery, read].filter(Boolean));
+    await reader.query('ROLLBACK');
+    writer.release(); reader.release();
+  }
+});
+
+test('concurrent source batches serialize recipients in the same order', async () => {
+  for (const source of require('../../src/notifications/publish').SOURCES) await client.query(`TRUNCATE ${source}.notification_outbox`);
+  const occurred = new Date(Date.now() - 60000).toISOString();
+  // Real source-specific events arrive in opposite recipient order. Acquiring
+  // recipient locks event-by-event would introduce a cycle between these batches.
+  for (const [source, users] of [['tournaments', [alpha, bravo]], ['studio', [bravo, alpha]]]) {
+    const type = source === 'studio' ? 'studio_comment' : 'tournament_started';
+    for (const user of users) await require('../../src/notifications/publish').publish(client, source, user.id,
+      { id: type + ':batch-' + user.id, type, createdAt: occurred });
+  }
+  const first = await pool.connect(), second = await pool.connect();
+  const firstInserted = gate(), secondInserted = gate(), releaseFirst = gate(), releaseSecond = gate();
+  let firstRun, secondRun;
+  try {
+    let firstCount = 0, secondCount = 0;
+    firstRun = deliveryWorker(first, async sql => {
+      if (/INSERT INTO notifications\.notification_inbox_items/i.test(sql) && ++firstCount === 1) {
+        firstInserted.resolve(); await releaseFirst.promise;
+      }
+    }).tick(); firstRun.catch(() => {});
+    await Promise.race([firstInserted.promise, firstRun.then(() => { throw Error('first source did not deliver'); })]);
+    secondRun = deliveryWorker(second, async sql => {
+      if (/INSERT INTO notifications\.notification_inbox_items/i.test(sql) && ++secondCount === 1) {
+        secondInserted.resolve(); await releaseSecond.promise;
+      }
+    }).tick(); secondRun.catch(() => {});
+    let reachedInsert = false;
+    secondInserted.promise.then(() => { reachedInsert = true; });
+    let blocked = false, completed = false;
+    secondRun.finally(() => { completed = true; }).catch(() => {});
+    const deadline = Date.now() + 5000;
+    while (!reachedInsert && !blocked && !completed && Date.now() < deadline) {
+      blocked = (await client.query('SELECT $2::int = ANY(pg_blocking_pids($1)) AS blocked', [second.processID, first.processID])).rows[0].blocked;
+    }
+    assert.ok(reachedInsert || blocked || completed, 'second worker must reach the recipient boundary');
+    releaseFirst.resolve(); releaseSecond.resolve();
+    const outcomes = await Promise.allSettled([firstRun, secondRun]);
+    assert.deepEqual(outcomes.map(outcome => outcome.status), ['fulfilled', 'fulfilled'],
+      outcomes.filter(outcome => outcome.reason).map(outcome => outcome.reason.message).join('; '));
+    assert.equal((await notificationsApi.list({ client, user: alpha })).items.length, 2);
+    assert.equal((await notificationsApi.list({ client, user: bravo })).items.length, 2);
+  } finally {
+    releaseFirst.resolve(); releaseSecond.resolve();
+    await Promise.allSettled([firstRun, secondRun].filter(Boolean));
+    first.release(); second.release();
+  }
+});
+
+test('delivery waits for an initially absent inbox watermark transaction', async () => {
+  for (const source of require('../../src/notifications/publish').SOURCES) await client.query(`TRUNCATE ${source}.notification_outbox`);
+  const { rows: [clock] } = await client.query("SELECT NOW() - interval '1 minute' AS occurred, NOW() AS through");
+  const payload = { id: 'faq_submission:watermark-first', type: 'faq_submission', createdAt: clock.occurred.toISOString() };
+  await require('../../src/notifications/publish').publish(client, 'faq', alpha.id, payload);
+  const reader = await pool.connect(), writer = await pool.connect();
+  let delivery;
+  try {
+    await reader.query('BEGIN');
+    await notificationsApi.markRead({ client: reader, user: alpha, body: { through: clock.through.toISOString() } });
+    delivery = deliveryWorker(writer).tick(); delivery.catch(() => {});
+    await completesOrBlocks(delivery, writer.processID, reader.processID);
+    await reader.query('COMMIT');
+    await delivery;
+    const inbox = await notificationsApi.list({ client, user: alpha });
+    assert.equal(inbox.items.find(item => item.id === payload.id).unread, false);
+  } finally {
+    await reader.query('ROLLBACK');
+    await Promise.allSettled(delivery ? [delivery] : []);
+    reader.release(); writer.release();
+  }
+});

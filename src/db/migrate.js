@@ -10,7 +10,90 @@ const MIGRATIONS = [
   require("./migrations/007_tournament_venue_tables"),
   require("./migrations/010_canonical_tournament_games"),
   require("./migrations/011_tournament_round_draft"),
-  require("./migrations/012_venue_ratings")
+  require("./migrations/012_venue_ratings"),
+  require("./migrations/013_player_teams"),
+  require("./migrations/014_tournament_default_season"),
+  require("./migrations/015_combined_rating"),
+  require("./migrations/016_notification_inbox"),
+  require("./migrations/017_team_pairing_rules"),
+  require("./migrations/018_documentation"),
+  require("./migrations/019_tournament_logo"),
+  require("./migrations/020_team_roster_withdrawal"),
+  require("./migrations/021_avatar_version"),
+  require("./migrations/022_team_pairing_history"),
+  require("./migrations/023_achievements"),
+  require("./migrations/024_legacy_achievements"),
+  require("./migrations/025_tournament_table_images"),
+  require("./migrations/026_achievement_titles"),
+  require("./migrations/027_achievement_text_edits"),
+  require("./migrations/028_tournament_registration"),
+  require("./migrations/029_notification_history"),
+  require("./migrations/030_tournament_live"),
+  require("./migrations/031_guest_rating_docs"),
+  require("./migrations/032_studio_projects"),
+  require("./migrations/033_studio_project_deletion"),
+  require("./migrations/034_tournament_winner_identity"),
+  require("./migrations/035_tournament_identity_guards"),
+  require("./migrations/036_studio_tts_exports"),
+  require("./migrations/037_access_roles"),
+  require("./migrations/038_journey_platform_owner"),
+  require("./migrations/039_studio_reviews"),
+  require("./migrations/040_studio_review_versions"),
+  require("./migrations/041_studio_comments"),
+  require("./migrations/042_email_accounts"),
+  require("./migrations/043_sword_shield_classic"),
+  require("./migrations/044_solo_replacements"),
+  require("./migrations/045_classic_three_points"),
+  require("./migrations/046_team_roster_proxies"),
+  require("./migrations/047_classic_player_points"),
+  require("./migrations/048_community_faq"),
+  require("./migrations/049_faq_info"),
+  require("./migrations/050_faq_comment_edits"),
+  require("./migrations/051_team_killzone_docs"),
+  require("./migrations/052_doubles_irl"),
+  require("./migrations/053_tournament_factions"),
+  require("./migrations/054_user_bcp_email"),
+  require("./migrations/055_tournament_venue_address"),
+  require("./migrations/056_training_progress"),
+  require("./migrations/057_telegram_bot"),
+  require("./migrations/058_service_schemas"),
+  require("./migrations/059_notification_events"),
+  require("./migrations/060_account_session_contracts"),
+  require("./migrations/061_training_service_contracts"),
+  require("./migrations/062_training_moderation"),
+  require("./migrations/063_studio_approval"),
+  require("./migrations/064_training_retained_ranks"),
+  require("./migrations/066_training_approved_ops_scope"),
+  require("./migrations/067_resource_quotas"),
+  require("./migrations/068_training_notification_once"),
+  require("./migrations/069_map_catalog"),
+  require("./migrations/070_tournament_round_cascade"),
+  require("./migrations/071_documentation_handouts"),
+  require("./migrations/072_training_team_courses"),
+  require("./migrations/073_training_archon_questions"),
+  require("./migrations/074_documentation_handouts_refresh"),
+  require("./migrations/075_documentation_combined_octarius"),
+  require("./migrations/076_documentation_octarius_a4"),
+  require("./migrations/077_documentation_handouts_layout"),
+  require("./migrations/078_tournament_index_cleanup"),
+  require("./migrations/079_tournament_relations"),
+  require("./migrations/080_canonical_match_results"),
+  require("./migrations/081_documentation_changelog"),
+  require("./migrations/082_training_first_correct_ranks"),
+  require("./migrations/083_faq_october_errata"),
+  require("./migrations/084_pairing_instructions"),
+  require("./migrations/085_faq_community_v2"),
+  require("./migrations/086_public_changelog_backfill"),
+  require("./migrations/087_tierlists"),
+  require("./migrations/088_tierlist_release_notes"),
+  require("./migrations/089_tournament_pairing_mode"),
+  require("./migrations/090_review_fixes_release_notes"),
+  require("./migrations/091_knowthykt_release_notes"),
+  require("./migrations/092_miniapp_account_link"),
+  require("./migrations/093_statistics_release_notes"),
+  require("./migrations/094_statistics_scope_release_notes"),
+  require("./migrations/095_telegram_game_drafts"),
+  require("./migrations/096_telegram_interactive_delivery")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
@@ -34,9 +117,21 @@ async function appliedVersions(client) {
 async function migrate(pool) {
   const guard = await pool.connect();
   try {
+    await guard.query("SET statement_timeout=0; SET lock_timeout=0; SET idle_in_transaction_session_timeout=0");
     await guard.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_ID]);
     await guard.query(JOURNAL);
     const done = await appliedVersions(guard);
+    const needsNormalization = MIGRATIONS.some(m => (m.version === 79 || m.version === 80) && !done.has(m.version));
+    // Tests already reset a dedicated disposable database before migration.
+    const disposableTest = process.env.NODE_TEST_CONTEXT && process.env.TEST_DATABASE_URL &&
+      pool.options.connectionString === process.env.TEST_DATABASE_URL;
+    if (needsNormalization && !disposableTest) {
+      const { rows } = await guard.query("SELECT COALESCE(to_regclass('accounts.users'),to_regclass('public.users')) IS NOT NULL AS existing");
+      if (rows[0].existing) {
+        const backup = await require('./backup').backupDatabase(pool.options.connectionString, { ssl: pool.options.ssl });
+        console.log(JSON.stringify({ level: 'info', msg: 'verified database backup', ...backup }));
+      }
+    }
     const applied = [];
     for (const migration of MIGRATIONS) {
       if (done.has(migration.version)) continue;
@@ -69,6 +164,7 @@ async function migrate(pool) {
     try {
       await guard.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_ID]);
     } finally {
+      await guard.query("RESET statement_timeout; RESET lock_timeout; RESET idle_in_transaction_session_timeout").catch(() => {});
       guard.release();
     }
   }

@@ -1,0 +1,78 @@
+const { HttpError } = require("../http/io");
+const { configuration } = require("../telegram/config");
+const { csrfToken } = require("../telegram/security");
+const miniAuth = require("../telegram/miniapp-auth");
+const telegramAccess = require('../telegram/access');
+const miniappLink = require('../telegram/miniapp-link');
+const auth = require("./auth");
+const { gameDetail, changeResult } = require('./game-results');
+const tournaments = require("./tournaments");
+const { publicUser } = require("./views");
+const { DEFAULTS } = require("../telegram/messages");
+const noStore = body => ({ body, headers: { "Cache-Control": "private, no-store", Vary: "Authorization, Cookie" } });
+
+async function session(ctx) {
+  miniAuth.checkOrigin(ctx.req);
+  if (!ctx.body || typeof ctx.body !== "object" || Array.isArray(ctx.body)) throw new HttpError(400, "Invalid request body");
+  const config = configuration();
+  if (ctx.body.initData !== undefined) {
+    if (!config.enabled || !config.token) throw new HttpError(503, "Вход через Telegram пока не настроен.");
+    const person = miniAuth.validateInitData(ctx.body.initData, config.token);
+    const linked = await miniAuth.linkedUser(ctx.client, person.id);
+    if (!linked) return noStore({ authenticated: false, reason: "not_linked", locale: person.language_code?.startsWith("en") ? "en" : "ru",
+      link: await miniappLink.createChallenge(ctx, person) });
+    return noStore({ authenticated: true, locale: linked.link.locale, adminOnly: config.adminOnly, user: publicUser(linked.user), accessToken: miniAuth.issueToken(linked.link, config.token), expiresIn: miniAuth.SESSION_SECONDS });
+  }
+  const user = await auth.loadUserFromRequest(ctx.client, ctx.req);
+  if (user) await telegramAccess.assertAllowed(ctx.client, user.id);
+  const link = user ? (await ctx.client.query("SELECT locale FROM telegram_links WHERE user_id=$1", [user.id])).rows[0] : null;
+  return noStore({ authenticated: Boolean(user), locale: user ? link?.locale || "ru" : null, adminOnly: config.adminOnly, reason: user ? null : "sign_in", user: publicUser(user), csrfToken: user ? csrfToken(ctx.req) : null });
+}
+
+async function summary(ctx) {
+  const me = await auth.me(ctx);
+  const { tournaments: available } = await tournaments.listPublic(ctx);
+  const { rows } = await ctx.client.query(`SELECT tournament_id FROM tournament_participants WHERE user_id=$1 AND status NOT IN ('removed','withdrawn')
+    UNION SELECT r.tournament_id FROM tournament_team_rosters r WHERE r.status <> 'withdrawn' AND
+      (r.captain_user_id=$1 OR EXISTS (SELECT 1 FROM tournament_team_roster_members m WHERE m.roster_id=r.id AND m.user_id=$1 AND m.ended_at IS NULL))`, [ctx.user.id]);
+  const active = await require("../telegram/data").activeGames(ctx.client, ctx.user.id);
+  const byId = new Map(me.games.map(game => [game.id, game]));
+  for (const game of active) byId.set(game.id, game);
+  const profile = await require("./users").profile({ ...ctx, params: { id: String(ctx.user.id) } });
+  const { rows: [link] } = await ctx.client.query("SELECT enabled,blocked,preferences,locale FROM telegram_links WHERE user_id=$1", [ctx.user.id]);
+  return noStore({ user: me.user, locale: link?.locale || "ru", games: [...byId.values()], teamPairings: me.teamPairings,
+    tournaments: available, myTournamentIds: rows.map(row => row.tournament_id),
+    profile: { stats: profile.stats, recentGames: profile.recentGames, teams: profile.playerTeams },
+    notifications: link || null, reference: require("../../public/game-data") });
+}
+
+async function preferences(ctx) {
+  if (typeof ctx.body.enabled !== "boolean" || !ctx.body.preferences || typeof ctx.body.preferences !== "object" || Array.isArray(ctx.body.preferences)) throw new HttpError(400, "Invalid notification settings");
+  const { rows: [link] } = await ctx.client.query("SELECT id,preferences FROM telegram_links WHERE user_id=$1 FOR UPDATE", [ctx.user.id]);
+  if (!link) throw new HttpError(409, "Сначала подключите Telegram в профиле сайта.");
+  const next = { ...DEFAULTS, ...link.preferences };
+  for (const [key, value] of Object.entries(ctx.body.preferences)) {
+    if (!Object.hasOwn(DEFAULTS, key) || typeof value !== "boolean") throw new HttpError(400, "Invalid notification settings");
+    next[key] = value;
+  }
+  await ctx.client.query("UPDATE telegram_links SET enabled=$2,preferences=$3 WHERE id=$1", [link.id, ctx.body.enabled, JSON.stringify(next)]);
+  return noStore({ ok: true });
+}
+
+function route(method, path, handler, write = false) {
+  return { method, path: "/api/miniapp" + path, tx: write, maxBodyBytes: 24576,
+    ratingMutation: write && path.startsWith("/games/"),
+    handler: async ctx => handler(await miniAuth.authenticate(ctx, write)) };
+}
+
+module.exports = { routes: [
+  { method: "POST", path: "/api/miniapp/session", handler: session, tx: true, rateLimit: "auth", maxBodyBytes: 24576,
+    miniappLinkLimit: 'challenge', miniappLinkPreflight: miniappLink.preflight },
+  { method:'POST', path:'/api/miniapp/link/confirm', handler:miniappLink.confirm, tx:true, miniappLinkLimit:'confirm', maxBodyBytes:24576 },
+  { method:'POST', path:'/api/miniapp/link/cancel', handler:miniappLink.cancel, tx:true, miniappLinkLimit:'cancel', maxBodyBytes:24576 },
+  route("GET", "/summary", summary),
+  route("GET", "/tournaments/:slug", async ctx => noStore(await tournaments.getPublic(ctx))),
+  route("GET", "/games/:id", async ctx => noStore(await gameDetail(ctx))),
+  ...["result", "confirm-result", "reject-result"].map(action => route("POST", `/games/:id/${action}`, async ctx => noStore(await changeResult({ ...ctx, params: { ...ctx.params, action } })), true)),
+  route("PATCH", "/preferences", preferences, true)
+] };

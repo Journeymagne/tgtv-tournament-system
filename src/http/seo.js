@@ -2,13 +2,18 @@ const crypto = require("node:crypto");
 
 const tournamentsRepo = require("../db/repositories/tournaments");
 const { SECURITY_HEADERS } = require("./io");
+const { siteOrigin } = require("./sites");
+const { SERVICE_PATHS } = require("../domain/sites");
 
-const SITE_NAME = "TGTV Ranking Tournament System";
+const SITE_NAME = "KT Companion";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "20260808-seo";
+const ASSET_VERSION = "1.5.24-results1";
+const { version: SHARED_ASSET_VERSION } = require("./shared-assets.json");
 
 function requestOrigin(req) {
+  const serviceOrigin = siteOrigin(req);
+  if (serviceOrigin) return serviceOrigin;
   const configured = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
   if (/^https?:\/\/[^/]+$/i.test(configured)) return configured;
   const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
@@ -75,23 +80,32 @@ function formatLabel(format) {
   return format === "single_elimination" ? "Single elimination" : format === "swiss" ? "Swiss" : format || "";
 }
 
+function tournamentFormatLabel(tournament) {
+  return tournament?.participantMode === "team" ? "Teams" : formatLabel(tournament?.format);
+}
+
+function tournamentFormatSummary(tournament) {
+  return tournament?.participantMode === "team"
+    ? "Teams · Teams Of Three · WTC"
+    : formatLabel(tournament?.format);
+}
+
 function eventStatusUrl(status) {
   if (status === "cancelled") return "https://schema.org/EventCancelled";
-  if (status === "completed") return "https://schema.org/EventCompleted";
   return "https://schema.org/EventScheduled";
 }
 
 function jsonLdForTournament(origin, tournament) {
   const event = {
     "@context": "https://schema.org",
-    "@type": "Event",
+    "@type": "SportsEvent",
     name: tournament.name || "Kill Team tournament",
     description: metaDescription(tournament.description || tournament.rulesSummary),
     url: tournamentPublicUrl(origin, tournament),
     eventStatus: eventStatusUrl(tournament.status),
     organizer: {
       "@type": "Organization",
-      name: "TGTV Ranking"
+      name: "KT Companion"
     },
     sport: "Warhammer 40k Kill Team"
   };
@@ -155,12 +169,14 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
   return `
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="/theme-boot.js?v=${SHARED_ASSET_VERSION}"></script>
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}">
     <meta name="robots" content="${escapeHtml(robots)}">
     <link rel="canonical" href="${escapeHtml(canonical)}">
-    <link rel="icon" type="image/png" href="/logo.png?v=20260808-favicon">
-    <link rel="apple-touch-icon" href="/logo.png?v=20260808-favicon">
+    <link rel="icon" type="image/x-icon" href="/brand/kt-companion/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/kt-companion/icon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/kt-companion/apple-touch-icon.png">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="${escapeHtml(SITE_NAME)}">
     <meta property="og:title" content="${escapeHtml(title)}">
@@ -171,11 +187,22 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <meta name="twitter:title" content="${escapeHtml(title)}">
     <meta name="twitter:description" content="${escapeHtml(description)}">
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
-    <link rel="stylesheet" href="/styles.css?v=${ASSET_VERSION}">`;
+    <link rel="stylesheet" href="/companion-tokens.css?v=${SHARED_ASSET_VERSION}">
+    <link rel="stylesheet" href="/styles.css?v=${SHARED_ASSET_VERSION}">
+    <link rel="stylesheet" href="/map-catalog-ui.css?v=${ASSET_VERSION}">
+    <link rel="stylesheet" href="/tournament-results.css?v=${SHARED_ASSET_VERSION}">
+    <link rel="stylesheet" href="/training/journey-shared.css?v=${SHARED_ASSET_VERSION}">
+    <link rel="stylesheet" href="/companion-shell.css?v=${SHARED_ASSET_VERSION}">
+    <script src="/companion-sites.js?v=${SHARED_ASSET_VERSION}" defer></script>
+    <script src="/companion-i18n.js?v=${SHARED_ASSET_VERSION}" defer></script>
+    <script src="/companion-shell.js?v=${SHARED_ASSET_VERSION}" defer></script>`;
 }
 
+// No locale dictionaries here: theme-boot.js in baseHead() writes a tag for the
+// one the visitor is in, and app.js fetches the other only if they switch.
 function appScript() {
-  return `<script src="/app.js?v=${ASSET_VERSION}" defer></script>`;
+  return ["maps/catalog-data.js", "map-catalog.js", "map-catalog-ui.js", "game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "tournament-results.js", "training/journey-ui.js", "resource-quotas.js", "pairing-instructions.js", "app.js"]
+    .map((file) => `<script src="/${file}?v=${file === 'tournament-results.js' ? SHARED_ASSET_VERSION : ASSET_VERSION}" defer></script>`).join("\n");
 }
 
 function tournamentHtml(origin, tournament) {
@@ -183,27 +210,37 @@ function tournamentHtml(origin, tournament) {
   const url = tournamentPublicUrl(origin, tournament);
   const title = `${tournament.name || "Kill Team tournament"} | ${SITE_NAME}`;
   const description = metaDescription(tournament.description || tournament.rulesSummary);
-  const imageUrl = `${origin}/logo.png`;
+  const imageUrl = `${origin}/brand/kt-companion/social.png`;
   const facts = [
-    ["Format", formatLabel(tournament.format)],
+    ["Format", tournamentFormatLabel(tournament)],
     ["Status", tournamentStatusLabel(tournament.status)],
     ["Game system", tournament.gameSystem || "Warhammer 40k Kill Team"],
     ["Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked"]
   ];
   if (tournament.startsAt) facts.splice(2, 0, ["Starts", new Date(tournament.startsAt).toISOString()]);
+  if (tournament.registrationLimit) facts.push([tournament.participantMode === "team" ? "Roster limit" : "Player limit", tournament.registrationLimit]);
   return `<!doctype html>
 <html lang="en">
   <head>
     ${baseHead({ title, description, canonical: url, imageUrl })}
     <script type="application/ld+json" nonce="${escapeHtml(nonce)}">${jsonLdForTournament(origin, tournament)}</script>
   </head>
-  <body>
+  <body data-companion-section="tournament">
+    <div data-companion-nav></div>
+        <nav style="width:min(1180px, calc(100% - 36px)); margin:18px auto" aria-label="Breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+          <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><a itemprop="item" href="${escapeHtml(origin)}/"><span itemprop="name">KT Companion</span></a><meta itemprop="position" content="1"></span>
+          <span aria-hidden="true"> › </span>
+          <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><a itemprop="item" href="${escapeHtml(origin)}/tournament"><span itemprop="name">Kill Team tournaments</span></a><meta itemprop="position" content="2"></span>
+          <span aria-hidden="true"> › </span>
+          <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><span itemprop="name">${escapeHtml(tournament.name || "Kill Team tournament")}</span><meta itemprop="position" content="3"></span>
+        </nav>
     <div id="app" class="app-shell">
       <main class="public-tournament-layout">
+
         <section class="card panel public-tournament-shell">
           <div class="panel-header public-tournament-header">
             <div>
-              <p class="profile-label">${escapeHtml(formatLabel(tournament.format))}</p>
+              <p class="profile-label">${escapeHtml(tournamentFormatSummary(tournament))}</p>
               <h1>${escapeHtml(tournament.name || "Kill Team tournament")}</h1>
               <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}</p>
             </div>
@@ -236,11 +273,12 @@ function notFoundHtml(origin, slug) {
       title,
       description,
       canonical,
-      imageUrl: `${origin}/logo.png`,
+      imageUrl: `${origin}/brand/kt-companion/social.png`,
       robots: "noindex, follow"
     })}
   </head>
-  <body>
+  <body data-companion-section="tournament">
+    <div data-companion-nav></div>
     <div id="app" class="app-shell">
       <main class="public-tournament-layout">
         <section class="card panel public-tournament-shell">
@@ -266,7 +304,7 @@ function robotsTxt(origin) {
 
 function sitemapXml(origin, tournaments) {
   const urls = [
-    { loc: `${origin}/`, lastmod: null },
+    ...Object.values(SERVICE_PATHS).map((pathname) => ({ loc: `${origin}${pathname}`, lastmod: null })),
     ...tournaments.map((tournament) => ({
       loc: tournamentPublicUrl(origin, tournament),
       lastmod: tournament.completedAt || tournament.publishedAt || tournament.createdAt || null

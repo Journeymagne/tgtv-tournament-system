@@ -14,8 +14,8 @@ let alpha;
 let bravo;
 
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
   await migrate(pool);
 });
 
@@ -54,8 +54,21 @@ test("лидерборды независимо сортируются по TTS 
 
   assert.deepEqual(tts.users.map((user) => user.name), ["Alpha", "Bravo"]);
   assert.deepEqual(irl.users.map((user) => user.name), ["Bravo", "Alpha"]);
-  assert.deepEqual(irl.users[0].ratings, { tts: 900, irl: 1300 });
+  assert.deepEqual(irl.users[0].ratings, { tts: 900, irl: 1300, combined: 900 });
   assert.equal(irl.users[0].rating, 1300);
+});
+
+test("Combined MMR сортируется независимо и используется по умолчанию", async () => {
+  await usersRepo.setRating(client, alpha.id, 750, "combined");
+  await usersRepo.setRating(client, bravo.id, 1400, "combined");
+
+  const combined = await api.list({ client, query: new URLSearchParams("venue=combined") });
+  const defaultList = await api.list({ client });
+
+  assert.deepEqual(combined.users.map((user) => user.name), ["Bravo", "Alpha"]);
+  assert.deepEqual(defaultList.users.map((user) => user.name), ["Bravo", "Alpha"]);
+  assert.equal(combined.users[0].rating, 1400);
+  assert.equal(combined.users[0].ratings.combined, 1400);
 });
 
 test("РЕГРЕСС B1: список не содержит контактов", async () => {
@@ -66,7 +79,7 @@ test("РЕГРЕСС B1: список не содержит контактов",
   assert.ok(!serialized.includes("AlphaNick"), "ник не должен уезжать анониму");
   assert.deepEqual(
     Object.keys(result.users[0]).sort(),
-    ["avatarData", "id", "isAdmin", "name", "rating", "ratings"]
+    ["avatarUrl", "id", "isAdmin", "name", "publicId", "rank", "rating", "ratings"]
   );
 });
 
@@ -162,6 +175,33 @@ test("профиль отражает прогресс по challenge-треку
   assert.equal(result.challengeProgress.teams[0].status, "completed");
 });
 
+test("страница челленджа и профиль считают только победы в порядке All Kill Team", async () => {
+  async function win(faction, at) {
+    const game = await gamesRepo.insert(client, { challengeId: null, playerIds: [alpha.id, bravo.id] });
+    await gamesRepo.saveFinalResult(client, game.id, {
+      result: { winnerId: alpha.id, scores: { [alpha.id]: { faction } } }, elo: {}
+    });
+    await client.query("UPDATE games SET submitted_at = $2 WHERE id = $1", [game.id, at]);
+    return game.id;
+  }
+  await win("Elucidian Starstriders", "2026-01-01T00:00:00.000Z");
+  await win("Novitiates", "2026-01-02T00:00:00.000Z");
+  const query = new URLSearchParams("");
+  const first = await api.challengeProgress({ client, user: alpha, query });
+  const track = first.users[0].tracks.allKillTeam;
+  assert.equal(track.completedCount, 1);
+  assert.equal(track.nextTeam, "Elucidian Starstriders");
+  assert.equal(track.teams[1].credit, null);
+  const profile = await api.profile({ client, user: alpha, params: { id: String(alpha.id) } });
+  assert.deepEqual(profile.challengeProgress.tracks.allKillTeam, track);
+
+  const secondGameId = await win("Elucidian Starstriders", "2026-01-03T00:00:00.000Z");
+  const next = await api.challengeProgress({ client, user: alpha, query });
+  assert.equal(next.users[0].tracks.allKillTeam.completedCount, 2);
+  assert.equal(next.users[0].tracks.allKillTeam.teams[1].credit.gameId, secondGameId);
+  assert.equal(next.users[0].tracks.allKillTeam.nextTeam, "Hunter Clade");
+});
+
 test("несуществующий профиль отдаёт 404", async () => {
   await assert.rejects(
     () => api.profile({ client, user: alpha, params: { id: "9999" } }),
@@ -218,5 +258,61 @@ test("нечисловой userId в challengeProgress отдаёт 404, а не
   await assert.rejects(
     () => api.challengeProgress({ client, user: alpha, query: new URLSearchParams("userId=abc") }),
     (err) => err.status === 404
+  );
+});
+
+// A 1x1 PNG. Small, but the shape is what matters: a stored data URL comes back
+// out as bytes, and nothing but this route ever ships it.
+const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=";
+
+test("аватар отдаётся отдельным ресурсом, а не встраивается в JSON", async () => {
+  const stored = await usersRepo.updateProfile(client, alpha.id, { avatarData: PIXEL });
+  assert.match(stored.avatarUrl, /^\/api\/users\/\d+\/avatar\?v=[0-9a-f]{16}$/);
+
+  const listed = await api.list({ client });
+  const row = listed.users.find((item) => item.id === alpha.id);
+  assert.equal(row.avatarUrl, stored.avatarUrl);
+  // The point of the whole change: no response that mentions a player may carry
+  // the picture. It used to repeat once per mention.
+  assert.doesNotMatch(JSON.stringify(listed), /data:image/);
+
+  const version = new URL(stored.avatarUrl, "http://x").searchParams.get("v");
+  const served = await api.avatar({ client, params: { id: String(alpha.id) }, req: { url: stored.avatarUrl, headers: {} } });
+  assert.equal(served.contentType, "image/png");
+  assert.ok(served.buffer.equals(Buffer.from(PIXEL.split(",")[1], "base64")));
+  assert.equal(served.headers.ETag, `"${version}"`);
+  assert.equal(served.headers["Cache-Control"], "public, max-age=604800, immutable");
+
+  const revalidated = await api.avatar({
+    client,
+    params: { id: String(alpha.id) },
+    req: { url: stored.avatarUrl, headers: { "if-none-match": served.headers.ETag } }
+  });
+  assert.equal(revalidated.status, 304);
+  assert.equal(revalidated.buffer, null);
+});
+
+test("ссылка на аватар меняется при замене картинки и исчезает при удалении", async () => {
+  const first = (await usersRepo.updateProfile(client, alpha.id, { avatarData: PIXEL })).avatarUrl;
+  const other = `data:image/png;base64,${Buffer.from("second").toString("base64")}`;
+  const second = (await usersRepo.updateProfile(client, alpha.id, { avatarData: other })).avatarUrl;
+  assert.notEqual(second, first);
+
+  const cleared = await usersRepo.updateProfile(client, alpha.id, { avatarData: null });
+  assert.equal(cleared.avatarUrl, null);
+  await assert.rejects(
+    api.avatar({ client, params: { id: String(alpha.id) }, req: { url: "", headers: {} } }),
+    /no avatar/
+  );
+});
+
+test("аватар неизвестного игрока даёт 404, а не пустой ответ", async () => {
+  await assert.rejects(
+    api.avatar({ client, params: { id: "999999" }, req: { url: "", headers: {} } }),
+    /no avatar/
+  );
+  await assert.rejects(
+    api.avatar({ client, params: { id: "0" }, req: { url: "", headers: {} } }),
+    /not found/i
   );
 });

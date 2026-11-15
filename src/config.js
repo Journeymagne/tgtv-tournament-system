@@ -1,11 +1,12 @@
 const path = require("node:path");
 const fs = require("node:fs");
+const { buildSites } = require("./domain/sites");
 
 const ROOT = path.join(__dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 
 const ENV_PATH = path.join(ROOT, ".env");
-if (fs.existsSync(ENV_PATH)) {
+if (process.env.TGTV_ENV_LOADED !== "1" && fs.existsSync(ENV_PATH)) {
   process.loadEnvFile(ENV_PATH);
 }
 
@@ -32,17 +33,28 @@ function requireDatabaseUrl(value = process.env.DATABASE_URL) {
   return value;
 }
 
+const COMPANION_SITES = buildSites(process.env.COMPANION_ORIGIN, process.env.COMPANION_ALIASES);
+
 module.exports = {
   ROOT,
   PUBLIC_DIR,
+  COMPANION_SITES,
   PORT: positiveIntegerEnv("PORT", 3000),
   HOST: process.env.HOST || "127.0.0.1",
   DATABASE_URL: process.env.DATABASE_URL || "",
   PGSSL: booleanEnv("PGSSL", false) || booleanEnv("DATABASE_SSL", false),
   COOKIE_SECURE: booleanEnv("COOKIE_SECURE", process.env.NODE_ENV === "production"),
   SESSION_TTL_MS: 1000 * 60 * 60 * 24 * 14,
+  // Sessions slide: an authenticated request pushes expires_at back out to a
+  // full SESSION_TTL_MS, so someone who keeps using the site is never signed
+  // out mid-use. Renewal is skipped while a session still has more than
+  // SESSION_TTL_MS - SESSION_RENEW_AFTER_MS left, which caps the extra write
+  // at one per session per day instead of one on every request.
+  SESSION_RENEW_AFTER_MS: 1000 * 60 * 60 * 24,
   INITIAL_RATING: 1000,
   MAX_REQUEST_BYTES: 2 * 1024 * 1024,
+  // Base64 expands a 2 MiB PDF + 1 MiB logo to ~4 MiB, plus tournament JSON.
+  MAX_TOURNAMENT_REQUEST_BYTES: 5 * 1024 * 1024,
   MAX_AVATAR_DATA_URL_LENGTH: 1024 * 1024,
   // max: 10 was one shared bucket for the whole site once every request
   // reports the same address (see TRUST_PROXY below) -- a tournament venue

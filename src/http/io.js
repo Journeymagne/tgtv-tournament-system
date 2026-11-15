@@ -1,4 +1,5 @@
 const { MAX_REQUEST_BYTES } = require("../config");
+const { MIN_COMPRESS_BYTES, negotiateEncoding, compress } = require("./compression");
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -30,29 +31,60 @@ const SECURITY_HEADERS = {
   ].join("; ")
 };
 
-function readBody(req, maxBytes = MAX_REQUEST_BYTES) {
+function readBody(req, maxBytes = MAX_REQUEST_BYTES, raw = false) {
   return new Promise((resolve, reject) => {
+    const announced = req.headers?.['content-length'];
+    if (announced !== undefined && (!/^\d+$/.test(announced) || Number(announced) > maxBytes)) {
+      reject(new HttpError(413, 'Request body is too large')); return;
+    }
     const chunks = [];
     let totalBytes = 0;
-    req.on("data", (chunk) => {
+    let tooLarge = false;
+    let settled = false;
+    const finish = (error, body) => {
+      if (settled) return; settled = true; clearTimeout(timer);
+      req.removeListener('data', onData); req.removeListener('end', onEnd);
+      req.removeListener('error', onError); req.removeListener('aborted', onAborted);
+      chunks.length = 0;
+      error ? reject(error) : resolve(body);
+    };
+    const onError = error => finish(error);
+    const onAborted = () => finish(new HttpError(400, 'Request aborted'));
+    const timer = setTimeout(() => finish(new HttpError(408, 'Request body timed out')), maxBytes > MAX_REQUEST_BYTES ? 90000 : 30000);
+    timer.unref?.();
+    const onData = (chunk) => {
+      if (tooLarge) return;
       totalBytes += chunk.length;
       if (totalBytes > maxBytes) {
-        reject(new HttpError(413, "Request body is too large"));
-        req.destroy();
+        tooLarge = true;
+        chunks.length = 0;
+        finish(new HttpError(413, "Request body is too large"));
+        // Discard remaining bytes without destroying the response socket:
+        // the router must still be able to deliver the JSON 413 error.
         return;
       }
       chunks.push(chunk);
-    });
-    req.on("end", () => {
-      const body = Buffer.concat(chunks).toString("utf8");
-      if (!body) return resolve({});
-      try {
-        resolve(JSON.parse(body));
-      } catch {
-        reject(new ValidationError("Could not parse JSON"));
+    };
+    const onEnd = async () => {
+      if (tooLarge) return;
+      const bytes = Buffer.concat(chunks);
+      if (raw) return finish(null, bytes);
+      req.bodyBytes = bytes.length;
+      if (bytes.length > 256 * 1024) {
+        try { finish(null, await require('../resources/workers').run('parse', bytes)); }
+        catch (error) { finish(error); }
+        return;
       }
-    });
-    req.on("error", reject);
+      const body = bytes.toString("utf8");
+      if (!body) return finish(null, {});
+      try {
+        finish(null, JSON.parse(body));
+      } catch {
+        finish(new ValidationError("Could not parse JSON"));
+      }
+    };
+    req.on('data', onData); req.on('end', onEnd);
+    req.on('error', onError); req.on('aborted', onAborted);
   });
 }
 
@@ -94,16 +126,75 @@ function parseCookies(req) {
   );
 }
 
+// Marks a response whose body is being compressed. writeHead has not run yet at
+// that point, so headersSent alone cannot stop a second handler from also
+// writing to this response.
+const jsonBodyPending = new WeakSet();
+
 function sendJson(res, status, body, headers = {}) {
-  if (res.headersSent) return;
+  if (res.headersSent || jsonBodyPending.has(res)) return;
   const payload = JSON.stringify(body);
-  res.writeHead(status, {
+  const length = Buffer.byteLength(payload);
+  const base = {
     "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(payload),
+    "Cache-Control": "no-store",
+    // Set whether or not this particular response ended up compressed: the same
+    // URL answers differently per Accept-Encoding, and a shared cache must not
+    // hand a brotli body to a client that never asked for one.
+    Vary: "Accept-Encoding",
     ...SECURITY_HEADERS,
     ...headers
+  };
+
+  // res.req is the request Node itself attached. Reading it here keeps every
+  // existing call site unchanged, and a hand-built response object in a test
+  // simply has none and takes the uncompressed path.
+  const acceptEncoding = res.req?.headers?.["accept-encoding"];
+  const encoding = length >= MIN_COMPRESS_BYTES ? negotiateEncoding(acceptEncoding) : null;
+  if (!encoding) {
+    res.writeHead(status, { ...base, "Content-Length": length });
+    res.end(payload);
+    return;
+  }
+
+  jsonBodyPending.add(res);
+  compress(Buffer.from(payload), encoding, (err, encoded) => {
+    jsonBodyPending.delete(res);
+    if (res.headersSent) return;
+    // A failed or counter-productive compression still owes the client a body.
+    if (err || encoded.length >= length) {
+      res.writeHead(status, { ...base, "Content-Length": length });
+      res.end(payload);
+      return;
+    }
+    res.writeHead(status, {
+      ...base,
+      "Content-Length": encoded.length,
+      "Content-Encoding": encoding
+    });
+    res.end(encoded);
   });
-  res.end(payload);
+}
+
+// Stored files served from the database: never scripts, never framed, and not
+// worth re-compressing (PDF and JPEG payloads are already compressed).
+const ATTACHMENT_SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+  "Content-Security-Policy": "default-src 'none'"
+};
+
+function sendBinary(res, status, buffer, contentType, headers = {}) {
+  if (res.headersSent) return;
+  // 304 carries no body, and repeating Content-Type/Length on it is wrong.
+  const body = status === 304 ? null : buffer;
+  res.writeHead(status, {
+    ...(body ? { "Content-Type": contentType, "Content-Length": body.length } : {}),
+    ...ATTACHMENT_SECURITY_HEADERS,
+    ...headers
+  });
+  res.end(body ?? undefined);
 }
 
 function sendText(res, status, text, headers = {}) {
@@ -115,6 +206,10 @@ function sendText(res, status, text, headers = {}) {
     ...headers
   });
   res.end(text);
+}
+
+function sessionToken(req) {
+  return parseCookies(req).sid;
 }
 
 function buildSessionCookie(value, maxAgeSeconds, secure) {
@@ -135,9 +230,12 @@ module.exports = {
   HttpError,
   ValidationError,
   SECURITY_HEADERS,
+  ATTACHMENT_SECURITY_HEADERS,
+  sendBinary,
   readBody,
   clientKey,
   parseCookies,
+  sessionToken,
   sendJson,
   sendText,
   sessionCookie,

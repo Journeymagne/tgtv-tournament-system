@@ -42,7 +42,7 @@ function fakeRequest(body, headers = {}) {
   } else {
     chunks = body ? [Buffer.from(body)] : [];
   }
-  const stream = Readable.from(chunks);
+  const stream = Readable.from(chunks, { autoDestroy: false });
   stream.headers = headers;
   stream.destroyed = false;
   stream.destroy = () => {
@@ -77,10 +77,10 @@ test("readBody отвергает некорректный JSON как Validatio
   await assert.rejects(() => readBody(fakeRequest("{oops"), 1000), ValidationError);
 });
 
-test("readBody отвергает слишком большое тело и останавливает поток", async () => {
+test("readBody rejects oversized input without destroying the response socket", async () => {
   const stream = fakeRequest("x".repeat(50));
   await assert.rejects(() => readBody(stream, 10), HttpError);
-  assert.equal(stream.destroyed, true);
+  assert.equal(stream.destroyed, false);
 });
 
 test("readBody собирает многобайтовый символ, разбитый между чанками, без повреждения", async () => {
@@ -109,7 +109,7 @@ test("readBody отвергает тело, чей байтовый размер
 
   const stream = fakeRequest(body);
   await assert.rejects(() => readBody(stream, 10), HttpError);
-  assert.equal(stream.destroyed, true);
+  assert.equal(stream.destroyed, false);
 });
 
 test("clientKey игнорирует X-Forwarded-For, когда trustProxy выключен (Blocker 1)", () => {
@@ -201,4 +201,100 @@ test("SECURITY_HEADERS разрешает data: и blob: только для к�
   assert.ok(csp.includes("img-src 'self' data: blob:"));
   assert.ok(!csp.includes("script-src 'self' data:"));
   assert.ok(!csp.includes("script-src 'self' blob:"));
+});
+
+// A response Node built itself carries `res.req`; sendJson reads Accept-Encoding
+// from there, so a compression test needs one too. `end` keeps the raw chunk
+// instead of concatenating it into a string: a compressed body is binary.
+function fakeCompressibleResponse(acceptEncoding) {
+  return {
+    statusCode: null,
+    headers: null,
+    chunk: null,
+    headersSent: false,
+    req: { headers: acceptEncoding ? { "accept-encoding": acceptEncoding } : {} },
+    writeHead(status, headers) {
+      this.statusCode = status;
+      this.headers = headers;
+      this.headersSent = true;
+    },
+    end(chunk = "") {
+      this.chunk = chunk;
+    }
+  };
+}
+
+// Big enough to clear the 1 KB floor, repetitive enough that compressing it
+// actually wins -- which is what a real API list response looks like.
+function bigBody() {
+  return { rows: Array.from({ length: 400 }, (_, index) => ({ id: index, name: `Player ${index}`, rating: 1000 })) };
+}
+
+function settled(res) {
+  return new Promise((resolve) => {
+    const poll = () => (res.headersSent ? resolve(res) : setImmediate(poll));
+    poll();
+  });
+}
+
+test("sendJson сжимает крупный ответ в brotli, когда клиент это принимает", async () => {
+  const zlib = require("node:zlib");
+  const body = bigBody();
+  const res = fakeCompressibleResponse("br, gzip");
+  sendJson(res, 200, body);
+  await settled(res);
+
+  assert.equal(res.headers["Content-Encoding"], "br");
+  assert.equal(res.headers.Vary, "Accept-Encoding");
+  assert.ok(Buffer.isBuffer(res.chunk));
+  assert.equal(res.headers["Content-Length"], res.chunk.length);
+  assert.ok(res.chunk.length < Buffer.byteLength(JSON.stringify(body)));
+  assert.deepEqual(JSON.parse(zlib.brotliDecompressSync(res.chunk).toString("utf8")), body);
+});
+
+test("sendJson отдаёт gzip, если brotli не предложен", async () => {
+  const zlib = require("node:zlib");
+  const body = bigBody();
+  const res = fakeCompressibleResponse("gzip");
+  sendJson(res, 200, body);
+  await settled(res);
+
+  assert.equal(res.headers["Content-Encoding"], "gzip");
+  assert.deepEqual(JSON.parse(zlib.gunzipSync(res.chunk).toString("utf8")), body);
+});
+
+test("sendJson не сжимает, если клиент не просил кодировку", () => {
+  const res = fakeCompressibleResponse("");
+  sendJson(res, 200, bigBody());
+
+  assert.equal(res.headers["Content-Encoding"], undefined);
+  assert.equal(res.headers.Vary, "Accept-Encoding");
+  assert.equal(typeof res.chunk, "string");
+});
+
+test("sendJson не сжимает ответ мельче порога", () => {
+  const res = fakeCompressibleResponse("br");
+  sendJson(res, 200, { ok: true });
+
+  assert.equal(res.headers["Content-Encoding"], undefined);
+  assert.equal(res.chunk, '{"ok":true}');
+});
+
+test("sendJson с q=0 уважает отказ клиента от кодировки", () => {
+  const res = fakeCompressibleResponse("br;q=0, gzip;q=0");
+  sendJson(res, 200, bigBody());
+
+  assert.equal(res.headers["Content-Encoding"], undefined);
+});
+
+test("пока тело сжимается, второй sendJson по тому же ответу ничего не пишет", async () => {
+  const zlib = require("node:zlib");
+  const first = bigBody();
+  const res = fakeCompressibleResponse("br");
+  sendJson(res, 200, first);
+  sendJson(res, 500, { error: "second" });
+  await settled(res);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(JSON.parse(zlib.brotliDecompressSync(res.chunk).toString("utf8")), first);
 });

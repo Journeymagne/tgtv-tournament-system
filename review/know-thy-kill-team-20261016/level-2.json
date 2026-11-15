@@ -1,0 +1,952 @@
+[
+  {
+    "id": "kt-151",
+    "difficulty": 2,
+    "topic": "Действия",
+    "question": "Kommando Boy начинает активацию с приказом Conceal. Все остальные условия Charge выполнены. Позволяет ли Throat Slittas выполнить Charge, сохранив этот приказ?",
+    "options": [
+      "Нет: перед любым Charge обязательно менять приказ на Engage",
+      "Да, но только при трате дополнительного AP",
+      "Да: для Kommando Boy действует разрешение Throat Slittas",
+      "Да, но только в первом Turning Point"
+    ],
+    "answer": 2,
+    "explanation": "Throat Slittas разрешает дружественным Kommandos выполнять Charge с Conceal. Из этого разрешения исключён Bomb Squig, а Kommando Boy им пользуется.",
+    "source": {
+      "title": "Warhammer Community — Kommandos, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_kommandos_online_rules-ova8v1kjds-ds3ouz4k04.pdf",
+      "section": "PDF с. 4: Faction Rule — Throat Slittas"
+    }
+  },
+  {
+    "id": "kt-152",
+    "difficulty": 2,
+    "topic": "Взаимодействия",
+    "question": "Kommando Boy получает 6 Critical Dmg от одного критического успеха врага. Есть 1 CP, а Just a Scratch в этом Turning Point ещё не использовали. Можно ли этим ploy отменить указанный урон?",
+    "options": [
+      "Да: он отменяет урон любого одного кубика",
+      "Нет: Just a Scratch применяется только к Normal Dmg",
+      "Да, но сначала надо сменить приказ на Conceal",
+      "Да: если у Boy осталось не больше 6 ран"
+    ],
+    "answer": 1,
+    "explanation": "Just a Scratch срабатывает, когда кубик атаки наносит Normal Dmg подходящему Kommando. Нанесение Critical Dmg не выполняет это условие.",
+    "source": {
+      "title": "Warhammer Community — Kommandos, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_team_rules_kommandos_online_rules-ova8v1kjds-ds3ouz4k04.pdf",
+      "section": "PDF с. 5: Firefight Ploy — Just a Scratch"
+    }
+  },
+  {
+    "id": "kt-153",
+    "difficulty": 2,
+    "topic": "Взаимодействия",
+    "question": "У врага три ваших Markerlight tokens из правил Pathfinders. Во время своей активации он последовательно выполняет Reposition и Dash; других изменений жетонов нет. Сколько жетонов останется после этих действий?",
+    "options": [
+      "Два",
+      "Один",
+      "Три",
+      "Ни одного"
+    ],
+    "answer": 0,
+    "explanation": "Снятие жетона за перечисленные действия движения происходит только один раз за активацию этого врага. Поэтому Reposition и следующий Dash вместе снимают один жетон.",
+    "source": {
+      "title": "Warhammer Community — Pathfinders: Online Rules",
+      "url": "https://assets.warhammer-community.com/eng_pathfinders_online_rules-dj9snutji1-zk16jiuxxe.pdf",
+      "section": "PDF с. 6: Faction Rule — Markerlights, removing tokens"
+    }
+  },
+  {
+    "id": "kt-154",
+    "difficulty": 2,
+    "topic": "Ближний бой",
+    "question": "Hit бойца — 4+. Один союзник помогает ему в Fight: стоит в control range выбранного врага и не связан другим врагом. Иных модификаторов нет. Какой Hit у бойца?",
+    "options": [
+      "4+",
+      "5+",
+      "2+",
+      "3+"
+    ],
+    "answer": 3,
+    "explanation": "Каждый подходящий помощник улучшает Hit ближнего оружия на 1. Один помощник меняет 4+ на 3+.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3rd edition: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Fight — Roll Attack Dice: assisting"
+    }
+  },
+  {
+    "id": "kt-155",
+    "difficulty": 2,
+    "topic": "Основы",
+    "question": "В этом Turning Point вы уже использовали Command Re-roll на другом броске. В новом Shoot только что выпал новый кубик атаки, который ещё не перебрасывали; CP хватает. Можно ли вновь использовать Command Re-roll?",
+    "options": [
+      "Нет: каждый firefight ploy строго одноразовый за Turning Point",
+      "Только если теперь перебрасывать кубик защиты",
+      "Да: этот ploy исключён из общего лимита «один раз за Turning Point»",
+      "Да, но второй Command Re-roll стоит 2 CP"
+    ],
+    "answer": 2,
+    "explanation": "Command Re-roll — исключение из общего ограничения на повторное использование ploy в одном Turning Point. Его обычная стоимость остаётся 1 CP.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (сверено с Core Rules)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Firefight Phase; Command Re-roll"
+    }
+  },
+  {
+    "id": "kt-156",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "MV1 Gun Drone команды Pathfinders с APL 2 оспаривает objective marker. Изменений APL и других специальных эффектов нет. Какое значение APL этого дрона учитывается при определении контроля маркера?",
+    "options": [
+      "0: дроны вообще не участвуют в контроле",
+      "1",
+      "2",
+      "3"
+    ],
+    "answer": 1,
+    "explanation": "Правило Drone требует считать APL на 1 ниже именно при определении контроля objective marker. Это не изменение самого APL, поэтому характеристика на карточке остаётся 2.",
+    "source": {
+      "title": "Warhammer Community — Pathfinders: Online Rules",
+      "url": "https://assets.warhammer-community.com/eng_pathfinders_online_rules-dj9snutji1-zk16jiuxxe.pdf",
+      "section": "PDF с. 4: MV1 Gun Drone — Drone"
+    }
+  },
+  {
+    "id": "kt-157",
+    "difficulty": 2,
+    "topic": "Стрельба",
+    "question": "Voidscarred Warrior начал активацию с Shoot из shuriken rifle и получил Accurate 1 от Rifles. После выстрела остался 1 AP; все обычные условия Reposition соблюдены. Можно ли теперь выполнить Reposition в этой же активации?",
+    "options": [
+      "Да: Rifles не запрещает движение после этого выстрела",
+      "Нет: получение Accurate 1 запрещает движение до конца активации",
+      "Да, но сначала нужно отменить уже применённый Accurate 1",
+      "Нет: после Rifle Shoot разрешён только Dash"
+    ],
+    "answer": 0,
+    "explanation": "Rifles проверяет, выполнялись ли Charge, Fall Back или Reposition до стрельбы. В тексте отдельно разрешено выполнять эти действия после выстрела; само правило Rifles не создаёт запрета на Reposition.",
+    "source": {
+      "title": "Warhammer Community — Corsair Voidscarred, January 2026",
+      "url": "https://assets.warhammer-community.com/eng_28-01_kill_team_team_rules_corsair_voidscarred-3war9i1i61-vjohvdpcb9.pdf",
+      "section": "PDF с. 5: Faction Rule — Rifles"
+    }
+  },
+  {
+    "id": "kt-158",
+    "difficulty": 2,
+    "topic": "Действия",
+    "question": "Во время Charge боец вошёл в control range врага A, с которым не связан ни один ваш другой оперативник. Можно ли продолжить путь и выйти из control range A, чтобы закончить только у врага B?",
+    "options": [
+      "Да: Charge позволяет свободно проходить через любую зону контроля",
+      "Да: если у B меньше ран",
+      "Да: если в конце останется хотя бы 1″ неиспользованного движения",
+      "Нет: после такого сближения нельзя покинуть control range A"
+    ],
+    "answer": 3,
+    "explanation": "Charge не разрешает покинуть control range врага, в которую боец вошёл, если этого врага не удерживал другой союзник. Нужно закончить движение с соблюдением этого ограничения.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (сверено с Core Rules)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 1: Charge"
+    }
+  },
+  {
+    "id": "kt-159",
+    "difficulty": 2,
+    "topic": "Действия",
+    "question": "Reposition начинается вне вражеской control range. Враг на пути уже связан вашим союзником. Можно ли пройти через его control range и закончить за её пределами, не проходя через вражескую базу?",
+    "options": [
+      "Нет: Reposition никогда не допускает входа во вражескую control range",
+      "Да, но действие становится Charge",
+      "Да",
+      "Только с приказом Conceal"
+    ],
+    "answer": 2,
+    "explanation": "Полные Core Rules разрешают такой проход, если враг уже в control range другого союзника. Заканчивать Reposition в его control range нельзя; в Lite Rules это исключение опущено.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3rd edition: Core Rules",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/core-rules/",
+      "section": "Reposition — exception for an enemy already engaged by a friendly operative"
+    }
+  },
+  {
+    "id": "kt-160",
+    "difficulty": 2,
+    "topic": "Оружие",
+    "question": "Для Torrent 2″ есть основная цель и две полностью допустимые вторичные. Можно ли выбрать только одну из двух вторичных целей?",
+    "options": [
+      "Нет: обязательно атаковать обе вторичные цели",
+      "Да: можно выбрать любое количество подходящих вторичных целей",
+      "Нет: Torrent всегда поражает ровно одну цель суммарно",
+      "Только если пропустить атаку по основной цели"
+    ],
+    "answer": 1,
+    "explanation": "Torrent позволяет выбирать количество подходящих вторичных целей. Это не обязательное поражение всех моделей вокруг основной цели.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (сверено с Core Rules)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Torrent"
+    }
+  },
+  {
+    "id": "kt-161",
+    "difficulty": 2,
+    "topic": "Оружие",
+    "question": "При разрешённом Shoot оружие с 1″ Devastating 2 сохранило один критический успех. Другой враг виден основной цели и находится в 0,5″ от неё, но в 7″ от стрелка. Нет эффектов защиты. Получает ли этот соседний враг урон от Devastating?",
+    "options": [
+      "Да, 2 урона: область проверяют от цели",
+      "Нет: Devastating всегда действует только на основную цель",
+      "Нет: область проверяют от стрелка",
+      "Да, но только 1 урон"
+    ],
+    "answer": 0,
+    "explanation": "Дистанционное Devastating проверяет соседних оперативников от цели, против которой применено оружие. Этот враг виден цели и находится в пределах 1″ от неё, поэтому получает 2 урона за сохранённый критический успех.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (сверено с Core Rules)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Devastating x"
+    }
+  },
+  {
+    "id": "kt-162",
+    "difficulty": 2,
+    "topic": "Оружие",
+    "question": "У оружия Range 6″. До видимой допустимой цели ровно 6″, измеренных между ближайшими точками баз. Других ограничений нет. Допускает ли Range такую атаку?",
+    "options": [
+      "Нет: требуется строго меньше 6″",
+      "Да, но Hit ухудшается на 1",
+      "Только если цель с Conceal",
+      "Да: ровно 6″ входит в предел Range 6″"
+    ],
+    "answer": 3,
+    "explanation": "Range ограничивает цели расстоянием «в пределах» указанного значения. Граница 6″ включается в этот предел.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (сверено с Core Rules)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Weapon Rules — Range x"
+    }
+  },
+  {
+    "id": "kt-163",
+    "difficulty": 2,
+    "topic": "Действия",
+    "question": "Во втором Turning Point Voidscarred Warrior выполнил бесплатный Dash благодаря Plunderers в Strategy phase. Затем началась его обычная активация. Доступен ли ему ещё один бесплатный Dash от Aeldari Raiders в этом Turning Point?",
+    "options": [
+      "Да: между Dash прошла граница фаз",
+      "Да, если вместо бесплатного Dash потратить 1 AP",
+      "Нет: Plunderers запрещает ему Dash во время этой активации",
+      "Да, но его максимальная дистанция будет 1″"
+    ],
+    "answer": 2,
+    "explanation": "Оперативник, сделавший Dash через Plunderers, не может выполнять Dash во время своей активации в том же Turning Point. Бесплатность от Aeldari Raiders не отменяет этот прямой запрет.",
+    "source": {
+      "title": "Warhammer Community — Corsair Voidscarred, January 2026",
+      "url": "https://assets.warhammer-community.com/eng_28-01_kill_team_team_rules_corsair_voidscarred-3war9i1i61-vjohvdpcb9.pdf",
+      "section": "PDF с. 6: Strategy Ploy — Plunderers; с. 5: Aeldari Raiders"
+    }
+  },
+  {
+    "id": "kt-164",
+    "difficulty": 2,
+    "topic": "Оружие",
+    "question": "Оружие получает Accurate 1 сразу из трёх независимых правил. Какое единое значение Accurate разрешено использовать по специальному правилу суммирования Accurate?",
+    "options": [
+      "Accurate 3",
+      "Accurate 2",
+      "Accurate 4",
+      "Accurate нельзя использовать при нескольких источниках"
+    ],
+    "answer": 1,
+    "explanation": "Для нескольких экземпляров Accurate предусмотрено особое объединение в Accurate 2. Это не обычное сложение всех значений.",
+    "source": {
+      "title": "Warhammer Community — Kill Team Lite Rules (сверено с Core Rules)",
+      "url": "https://assets.warhammer-community.com/eng_jul25_kt_lite_rules-jmjv4hdamy-qlsqxdf83p.pdf",
+      "section": "PDF с. 3: Accurate x"
+    }
+  },
+  {
+    "id": "kt-165",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "Krak grenade из Universal Equipment поразила основную цель. Рядом, в 1″, стоит другой враг. Других правил нет. Нужно ли также провести атаку гранатой по соседу?",
+    "options": [
+      "Нет: у krak grenade нет Blast",
+      "Да: у всех гранат автоматически есть Blast 2″",
+      "Да: если по основной цели сохранён критический успех",
+      "Да, но только одним кубиком"
+    ],
+    "answer": 0,
+    "explanation": "Профиль krak grenade содержит Range 6″, Piercing 1 и Saturate. Правило Blast есть у frag grenade, а не у krak.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 2: Explosive Grenades — krak grenade profile"
+    }
+  },
+  {
+    "id": "kt-166",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "Оперативник с Conceal хочет применить Stun Grenade из Universal Equipment. Видимый враг в 5″, рядом с бросающим врагов нет, AP и применение гранаты доступны. Разрешено ли действие?",
+    "options": [
+      "Нет: все гранаты требуют Engage",
+      "Да, но нужно сразу сменить приказ на Engage",
+      "Нет: Stun Grenade разрешена только при Counteract",
+      "Да: это отдельное действие, не Shoot"
+    ],
+    "answer": 3,
+    "explanation": "У действия Stun Grenade нет запрета на Conceal. Ограничение Conceal на Shoot не переносится автоматически на это уникальное действие.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 2: Utility Grenades — Stun Grenade"
+    }
+  },
+  {
+    "id": "kt-167",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "Оперативник видит элемент террейна, но не саму точку на его верхней Vantage-площадке. Эта точка в пределах 6″. Можно ли туда положить Smoke Grenade marker, если остальные условия выполнены?",
+    "options": [
+      "Нет: точка всегда должна быть видима непосредственно",
+      "Да, но только на пол killzone",
+      "Да: разрешена точка на Vantage видимого элемента террейна",
+      "Только если сам оперативник тоже на Vantage"
+    ],
+    "answer": 2,
+    "explanation": "Smoke Grenade допускает либо непосредственно видимую точку, либо точку на Vantage того элемента террейна, который виден оперативнику.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 4: Smoke Grenade — placing the marker"
+    }
+  },
+  {
+    "id": "kt-168",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "Боец законно выполнил Ammo Resupply, затем отошёл от Ammo Cache и стреляет оружием с датакарты в том же Turning Point. Сохраняется ли полученный переброс?",
+    "options": [
+      "Нет: необходимо всё время контролировать Ammo Cache",
+      "Да: эффект действует до начала следующего Turning Point",
+      "Только если боец не дальше 1″ от тайника",
+      "Только если он вернётся к тайнику до броска"
+    ],
+    "answer": 1,
+    "explanation": "Контроль тайника нужен при выполнении Ammo Resupply. Уже полученный эффект имеет указанную длительность и не требует оставаться рядом.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 1: Ammo Cache — Ammo Resupply duration"
+    }
+  },
+  {
+    "id": "kt-169",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "Ваш боец контролирует ещё не использованный Ammo Cache, но находится в control range врага. Можно ли выполнить Ammo Resupply за 0 AP?",
+    "options": [
+      "Нет: близость врага прямо запрещает это действие",
+      "Да: бесплатные действия игнорируют врагов",
+      "Да: если у бойца Engage",
+      "Да: если вначале не стрелять"
+    ],
+    "answer": 0,
+    "explanation": "Нулевая стоимость не отменяет условия действия. Ammo Resupply запрещён в control range вражеского оперативника.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 1: Ammo Cache — Ammo Resupply conditions"
+    }
+  },
+  {
+    "id": "kt-170",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "На обычной карте без исключений для оборудования Razor Wire хотят поставить в 1,5″ от Accessible terrain. Остальные условия расстановки выполнены. Законно ли это?",
+    "options": [
+      "Да: достаточно расстояния больше 1″",
+      "Да: ограничение касается только маркеров целей",
+      "Да: Razor Wire можно ставить вплотную к любой двери",
+      "Нет: требуется больше 2″ от Accessible terrain"
+    ],
+    "answer": 3,
+    "explanation": "Для Razor Wire требуется отступ больше 2″ от Accessible terrain, точек доступа и других элементов террейна-оборудования.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 1: Razor Wire — setup restrictions"
+    }
+  },
+  {
+    "id": "kt-171",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "В одном Reposition боец уже использовал льготу лестницы для первого подъёма. Позже в том же действии он поднимается по второй лестнице. Можно ли снова считать её вертикальную дистанцию равной 1″?",
+    "options": [
+      "Да: каждый новый объект даёт новую льготу",
+      "Да: если лестницы принадлежат разным игрокам",
+      "Нет: льгота лестницы применяется только один раз за действие",
+      "Только при Conceal"
+    ],
+    "answer": 2,
+    "explanation": "Обновлённое правило лестниц ограничивает льготный подсчёт одним подъёмом за действие. Продолжение подъёма по другому элементу террейна считается обычным образом.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 6: Ladders — amended second paragraph"
+    }
+  },
+  {
+    "id": "kt-172",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "Лестницу устанавливают в 1,5″ от точки доступа, полностью в своей территории, у террейна высотой 3″ и дальше 2″ от другого оборудования. Мешает ли расстояние до точки доступа?",
+    "options": [
+      "Да: требуется больше 2″, как для обычной баррикады",
+      "Нет: для лестницы здесь требуется больше 1″",
+      "Да: лестницы вообще нельзя ставить возле точек доступа",
+      "Да: требуется не меньше 3″"
+    ],
+    "answer": 1,
+    "explanation": "У лестниц собственное ограничение: больше 1″ от дверей и точек доступа. Его нельзя заменять двухдюймовым ограничением других предметов.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 2: Ladders — setup"
+    }
+  },
+  {
+    "id": "kt-173",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "Мину из Universal Equipment хотят поставить ровно в 2″ от objective marker, без исключений killzone. Все прочие требования выполнены. Можно ли?",
+    "options": [
+      "Нет: от других маркеров требуется больше 2″",
+      "Да: ровно 2″ достаточно",
+      "Да: objective markers не учитываются",
+      "Только если маркер сейчас никто не контролирует"
+    ],
+    "answer": 0,
+    "explanation": "Правило Mines требует расстояния строго больше 2″ от других маркеров. Ровно 2″ этому условию не соответствует.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 1: Mines — setup"
+    }
+  },
+  {
+    "id": "kt-174",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "Оперативник хочет выполнить Move With Barricade, сохраняя щит при себе. Выбранный путь включает короткий спуск с уступа. Дистанции движения хватает. Разрешён ли этот путь?",
+    "options": [
+      "Да: если спуск меньше 2″ и не расходует движение",
+      "Да: если у бойца APL 3",
+      "Да: переносная баррикада игнорирует террейн",
+      "Нет: Move With Barricade запрещает drop"
+    ],
+    "answer": 3,
+    "explanation": "Для Move With Barricade отдельно запрещены climb, drop и jump. Даже спуск, который обычно не расходует дистанцию, остаётся drop.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 3: Portable Barricade — Move With Barricade"
+    }
+  },
+  {
+    "id": "kt-175",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "Оперативник соединён с внешней стороной Portable Barricade и находится вне control range врагов. Может ли он выполнить Move With Barricade?",
+    "options": [
+      "Да: любая сторона щита подходит",
+      "Да: если сначала выполнить Shoot",
+      "Нет: действие доступно только со внутренней стороны",
+      "Только если противник владеет баррикадой"
+    ],
+    "answer": 2,
+    "explanation": "Разрешение на Move With Barricade получают оперативники, соединённые с внутренней стороной щита. Контакт снаружи такого разрешения не даёт.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 3: Portable Barricade — Portable"
+    }
+  },
+  {
+    "id": "kt-176",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "На карте без специальных исключений по установке оборудования Light Barricade хотят поставить на верхнюю Vantage-площадку. Территория и дистанции подходят. Можно ли?",
+    "options": [
+      "Да: любой Vantage считается killzone floor",
+      "Нет: обычная установка требует killzone floor",
+      "Да: если баррикада полностью помещается",
+      "Да: если площадка ниже 3″"
+    ],
+    "answer": 1,
+    "explanation": "Обычные условия установки Light Barricade требуют пола killzone. Специальные исключения конкретных killzone нужно применять отдельно.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 2: Light Barricades — setup"
+    }
+  },
+  {
+    "id": "kt-177",
+    "difficulty": 2,
+    "topic": "Снаряжение",
+    "question": "Tomb World: боец впервые применяет Breaching Charge из Universal Equipment к Breach стоимостью 2 AP. В этой активации он не выполнял Charge или Shoot; прочие условия выполнены. Какова стоимость Breach?",
+    "options": [
+      "1 AP",
+      "0 AP",
+      "2 AP",
+      "3 AP"
+    ],
+    "answer": 0,
+    "explanation": "Breaching Charge уменьшает стоимость Breach на 1 AP, но не ниже 1 AP. Указанное условие об отсутствии Charge и Shoot исключает отдельный запрет на удешевлённый Breach.",
+    "source": {
+      "title": "Warhammer Community — Universal Equipment, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_universal_equipment-prsd0j8pih-ikfmigl0za.pdf",
+      "section": "PDF с. 3: Breaching Charge; контекст: Killzone Tomb World, Breach"
+    }
+  },
+  {
+    "id": "kt-178",
+    "difficulty": 2,
+    "topic": "Террейн",
+    "question": "За одно действие боец непрерывно поднялся сначала на 2,3″, затем ещё на 1,2″ по частям одного террейна. Какую суммарную вертикальную дистанцию учитывать после округления? Горизонтальное движение считаем отдельно.",
+    "options": [
+      "5″",
+      "3″",
+      "6″",
+      "4″"
+    ],
+    "answer": 3,
+    "explanation": "Сначала складывают вертикальное перемещение за действие: 2,3 + 1,2 = 3,5″. Затем эту сумму округляют вверх до 4″.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 7: climbing across different parts of terrain"
+    }
+  },
+  {
+    "id": "kt-179",
+    "difficulty": 2,
+    "topic": "Террейн",
+    "question": "Боец прыгает с Vantage выше 2″ от пола. Парапета нет, запаса движения хватает. Какое наибольшее горизонтальное расстояние от края допускает обычное правило Jumping?",
+    "options": [
+      "2″",
+      "3″",
+      "4″",
+      "Значение Move без дополнительного предела"
+    ],
+    "answer": 2,
+    "explanation": "Для прыжка от края Vantage установлен отдельный максимум 4″ по горизонтали. После него боец должен законно завершить подъём или спуск.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 2: Terrain and Movement — Jumping"
+    }
+  },
+  {
+    "id": "kt-180",
+    "difficulty": 2,
+    "topic": "Действия",
+    "question": "При Counteract путь через Accessible terrain требует 2″ обычного движения и ещё 1″ за проход. Есть ли достаточный лимит движения без иных исключений?",
+    "options": [
+      "Да: дополнительный дюйм за Accessible не считается",
+      "Нет: учитываемые 3″ превышают предел Counteract",
+      "Да: если Move оперативника не меньше 6″",
+      "Да: если действие Reposition, а не Dash"
+    ],
+    "answer": 1,
+    "explanation": "Дополнительные затраты движения учитываются в ограничении Counteract. Физическая близость конечной точки не отменяет стоимость прохода.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 6: Counteract — terrain and additional movement costs"
+    }
+  },
+  {
+    "id": "kt-181",
+    "difficulty": 2,
+    "topic": "Террейн",
+    "question": "Volkus: цель полностью внутри stronghold, но стоит на верхней площадке, а не на полу и не на fire step. Получает ли стрельба с Blast Lethal 5+ только от Condensed Stronghold?",
+    "options": [
+      "Нет: для этого эффекта цель должна быть на полу или fire step",
+      "Да: достаточно находиться где угодно внутри stronghold",
+      "Да: Blast всегда имеет Lethal 5+ на Volkus",
+      "Только если основная цель с Conceal"
+    ],
+    "answer": 0,
+    "explanation": "Condensed Stronghold проверяет и нахождение внутри stronghold, и конкретный уровень цели. Верхняя площадка не удовлетворяет указанному условию.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 2: Volkus — Condensed Stronghold"
+    }
+  },
+  {
+    "id": "kt-182",
+    "difficulty": 2,
+    "topic": "Террейн",
+    "question": "Bheta-Decima: Light Barricade хотят установить на Vantage и ближе 2″ к Accessible terrain. Остальные условия оборудования выполнены. Разрешает ли killzone эти два отклонения?",
+    "options": [
+      "Нет: разрешена только установка на полу",
+      "Разрешает Vantage, но не расстояние до Accessible",
+      "Разрешает близость Accessible, но не Vantage",
+      "Да: Bheta-Decima прямо разрешает оба"
+    ],
+    "answer": 3,
+    "explanation": "В Bheta-Decima действует специальное разрешение устанавливать оборудование на Vantage и в пределах 2″ от Accessible terrain. Оно имеет приоритет над обычными ограничениями.",
+    "source": {
+      "title": "Warhammer Community — Core Rules: Update Log, June 2026",
+      "url": "https://assets.warhammer-community.com/eng_17-06_kill_team_key_downloads_core_rules_update_log-9dzdz0ewle-wutcyhpgzf.pdf",
+      "section": "PDF с. 2: Bheta-Decima — Equipment"
+    }
+  },
+  {
+    "id": "kt-183",
+    "difficulty": 2,
+    "topic": "Террейн",
+    "question": "Killzone: Octarius по Approved Ops 2025: к какому типу относится верхний парапет Ramshackle Wall после обновления августа 2026?",
+    "options": [
+      "Heavy",
+      "Exposed без cover",
+      "Light",
+      "Только Ceiling"
+    ],
+    "answer": 2,
+    "explanation": "В обновление добавлено прямое указание Light для верхнего парапета. Тип остальной стены не переносится автоматически на эту часть.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025 Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 1: August ’26 — Octarius, Ramshackle Wall"
+    }
+  },
+  {
+    "id": "kt-184",
+    "difficulty": 2,
+    "topic": "Террейн",
+    "question": "Tomb World: боец уже выполнил Shoot в активации. У него остался AP, но нет разрешения на повторный Shoot. Может ли он теперь выполнить Guard?",
+    "options": [
+      "Да: Guard всегда отдельное действие без общих ограничений",
+      "Нет: Guard считается действием Shoot",
+      "Да: если выбрать для Guard другое оружие",
+      "Да: если сменить цель"
+    ],
+    "answer": 1,
+    "explanation": "Guard рассматривается как Shoot. Поэтому обычное ограничение повторения действия не позволяет после Shoot выполнить Guard без специального разрешения.",
+    "source": {
+      "title": "Warhammer Community — Killzone: Tomb World, Close Quarters",
+      "url": "https://assets.warhammer-community.com/eng_29-04_kt_mission_pack_killzone_tomb_world-jgm5ebvcoy-fu3lfpskgq.pdf",
+      "section": "PDF с. 8: Close Quarters — Guard"
+    }
+  },
+  {
+    "id": "kt-185",
+    "difficulty": 2,
+    "topic": "Террейн",
+    "question": "Gallowdark: вы прерываете завершённое действие врага A через On Guard. Враг B — другая законная цель выстрела. Можно ли стрелять по B?",
+    "options": [
+      "Да",
+      "Нет: обязательная цель — A",
+      "Только если A не виден",
+      "Только при Torrent"
+    ],
+    "answer": 0,
+    "explanation": "Цель Guard-выстрела выбирается обычно. Она не обязана совпадать с оперативником, чья активация прервана.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3rd edition: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Close Quarters — On Guard, target selection"
+    }
+  },
+  {
+    "id": "kt-186",
+    "difficulty": 2,
+    "topic": "Террейн",
+    "question": "Tomb World: On Guard выполнил point-blank shot по врагу, который пережил выстрел и затем выполняет Fight в той же активации. Может ли стрелявший отвечать в этом Fight?",
+    "options": [
+      "Да: после любого Shoot можно отвечать в Fight",
+      "Да: если у него остался критический успех от выстрела",
+      "Нет только при приказе Conceal",
+      "Нет: после point-blank shot он не retaliate до конца этой вражеской активации"
+    ],
+    "answer": 3,
+    "explanation": "Это отдельное последствие point-blank shot. Запрет на retaliate сохраняется до завершения прерванной активации врага.",
+    "source": {
+      "title": "Warhammer Community — Killzone: Tomb World, Close Quarters",
+      "url": "https://assets.warhammer-community.com/eng_29-04_kt_mission_pack_killzone_tomb_world-jgm5ebvcoy-fu3lfpskgq.pdf",
+      "section": "PDF с. 8: On Guard — point-blank shot"
+    }
+  },
+  {
+    "id": "kt-187",
+    "difficulty": 2,
+    "topic": "Террейн",
+    "question": "Стрелок на Vantage атакует цель с Engage на 2,5″ ниже него. Других источников Accurate нет. Какое Accurate даёт высота?",
+    "options": [
+      "Accurate 2",
+      "Accurate 3",
+      "Accurate 1",
+      "Никакого"
+    ],
+    "answer": 2,
+    "explanation": "Порог 2″ достигнут, а порог 4″ для Accurate 2 — нет.",
+    "source": {
+      "title": "Wahapedia — Kill Team 3rd edition: Killzones",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/killzones/",
+      "section": "Terrain Types — Vantage, Accurate thresholds"
+    }
+  },
+  {
+    "id": "kt-188",
+    "difficulty": 2,
+    "topic": "Ближний бой",
+    "question": "Враг выполняет Fight против ready Voidscarred Kurnite Hunter. Это первая retaliation Охотника в текущем Turning Point, обе стороны сохранили успехи, других правил очерёдности нет. Кто разрешает первый кубик атаки?",
+    "options": [
+      "Атакующий враг: он начал Fight",
+      "Игрок с инициативой",
+      "Игрок, выигравший новый roll-off",
+      "Kurnite Hunter благодаря Faolchú’s Bond"
+    ],
+    "answer": 3,
+    "explanation": "При первой retaliation в Turning Point Faolchú’s Bond передаёт первый кубик защищающемуся Kurnite Hunter, если он ready. После этого бой продолжается по обычной очерёдности.",
+    "source": {
+      "title": "Warhammer Community — Corsair Voidscarred, January 2026",
+      "url": "https://assets.warhammer-community.com/eng_28-01_kill_team_team_rules_corsair_voidscarred-3war9i1i61-vjohvdpcb9.pdf",
+      "section": "PDF с. 2: Voidscarred Kurnite Hunter — Faolchú’s Bond"
+    }
+  },
+  {
+    "id": "kt-189",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Stake Claim: во втором Turning Point вы выбрали центральный маркер для заявки. Можно ли в третьем снова выбрать его, но указать другое условие заявки?",
+    "options": [
+      "Нет: каждый маркер можно выбрать только один раз за битву",
+      "Да: новая формулировка заявки снимает ограничение",
+      "Да: если предыдущая заявка не выполнена",
+      "Да: если противник тоже выбрал этот маркер"
+    ],
+    "answer": 0,
+    "explanation": "Ограничение связано с самим objective marker. Смена условия заявки не делает повторный выбор законным.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025 Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 2: Stake Claim — Reveal"
+    }
+  },
+  {
+    "id": "kt-190",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Stake Claim: ваша заявка — враги не будут оспаривать выбранный маркер. В конце Turning Point возле него нет ни одного оперативника. Выполнена ли именно заявка?",
+    "options": [
+      "Нет: необходимо самому контролировать этот маркер",
+      "Нет: у маркера должен стоять минимум один союзник",
+      "Только если выбран центральный маркер",
+      "Да: отсутствие врагов выполняет выбранное условие"
+    ],
+    "answer": 3,
+    "explanation": "Заявка об отсутствии вражеского contest не требует вашего контроля. Бонус за контроль большего числа маркеров проверяется отдельно.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025 Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 2: Stake Claim — claims and Victory Points"
+    }
+  },
+  {
+    "id": "kt-191",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Retrieval: в конце битвы два ваших живых оперативника несут по одному вашему Retrieval mission marker. Сколько дополнительных VP даёт именно этот итоговый подсчёт?",
+    "options": [
+      "0 VP: очки бывают только за поиск",
+      "1 VP независимо от числа маркеров",
+      "2 VP",
+      "4 VP"
+    ],
+    "answer": 2,
+    "explanation": "В конце битвы начисляется по 1 VP за каждый ваш Retrieval mission marker, который несёт дружественный оперативник. Очки за предыдущие поиски здесь не пересчитываются.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025 Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Retrieval — end-of-battle scoring"
+    }
+  },
+  {
+    "id": "kt-192",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Retrieval: противник уже обыскал objective marker. Ваши бойцы его ещё не обыскивали. Со второго Turning Point ваш боец контролирует его и выполняет все условия Retrieve. Можно ли выполнить Retrieve?",
+    "options": [
+      "Нет: каждый маркер обыскивается только один раз на обе стороны",
+      "Да: проверяется, обыскивали ли маркер именно ваши оперативники",
+      "Только после incapacitation обыскавшего врага",
+      "Только в четвёртом Turning Point"
+    ],
+    "answer": 1,
+    "explanation": "Состояние searched в Retrieval отслеживается относительно дружественных оперативников каждой стороны. Поиск противника не расходует ваш первый поиск.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025 Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Retrieval — Retrieve action"
+    }
+  },
+  {
+    "id": "kt-193",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Flank: боец полностью на территории врага, но его база пересекает линию между левым и правым флангом. Оспаривает ли он какой-либо фланг?",
+    "options": [
+      "Нет: для этого нужно целиком находиться внутри одного фланга",
+      "Да: оба фланга сразу",
+      "Да: фланг, в котором находится большая часть базы",
+      "Да: фланг выбирает владелец оперативника"
+    ],
+    "answer": 0,
+    "explanation": "Flank требует wholly within как в территории врага, так и в конкретном фланге. Пересечение разделительной линии мешает второму условию.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025 Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Flank — Additional Rules"
+    }
+  },
+  {
+    "id": "kt-194",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Flank: вы раскрыли tac op и контролировали левый фланг в конце третьего и четвёртого Turning Point. Правый не контролировали. Сколько VP за Flank именно в четвёртом Turning Point?",
+    "options": [
+      "1 VP",
+      "3 VP",
+      "4 VP",
+      "2 VP"
+    ],
+    "answer": 3,
+    "explanation": "Удержание того же фланга на обоих этих рубежах повышает награду за него в четвёртом Turning Point до 2 VP.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025 Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Flank — Victory Points"
+    }
+  },
+  {
+    "id": "kt-195",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Envoy: оперативник был посланником во втором Turning Point и выжил; в третьем выбирали другого. Можно ли снова назначить первого оперативника в четвёртом?",
+    "options": [
+      "Да: между назначениями прошёл один Turning Point",
+      "Да: если в первый раз он не заработал VP",
+      "Нет: запрещено повторно выбирать посланника из любого предыдущего Turning Point",
+      "Да: при трате 1 CP"
+    ],
+    "answer": 2,
+    "explanation": "Envoy запрещает выбирать оперативника, уже назначенного в любом предыдущем Turning Point этой битвы. Пропуск одного Turning Point не снимает запрет; результат прошлого задания также неважен.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025 Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Envoy — selection restrictions"
+    }
+  },
+  {
+    "id": "kt-196",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, Martyrs: в конце второго Turning Point вы оспариваете маркер с одним вашим Martyr token, но не контролируете его. Снимаете этот жетон. Сколько VP получаете?",
+    "options": [
+      "0 VP",
+      "1 VP",
+      "2 VP",
+      "3 VP"
+    ],
+    "answer": 1,
+    "explanation": "Для базового 1 VP достаточно contest. Увеличение до 2 VP требует ещё и контроля маркера.",
+    "source": {
+      "title": "Warhammer Community — Approved Ops 2025 Update Log, August 2026",
+      "url": "https://assets.warhammer-community.com/eng_kt_approved_ops_update_log-c46bfdlsms-senqgrexsi.pdf",
+      "section": "PDF с. 3: Martyrs — Victory Points"
+    }
+  },
+  {
+    "id": "kt-197",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025: выбранный primary op принёс 5 VP. Сколько дополнительных VP он даёт в конце битвы?",
+    "options": [
+      "3 VP",
+      "2 VP",
+      "5 VP",
+      "1 VP"
+    ],
+    "answer": 0,
+    "explanation": "Бонус равен половине заработанных в этом op очков с округлением вверх: 5 ÷ 2 становится 3.",
+    "source": {
+      "title": "Wahapedia — Approved Ops 2025",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+      "section": "End the Battle — Primary Op bonus"
+    }
+  },
+  {
+    "id": "kt-198",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025, второй Turning Point: Анна выиграла итоговый roll-off и отдала инициативу Борису. Кто получает карту +2/−2?",
+    "options": [
+      "Анна: она осталась без инициативы",
+      "Оба игрока",
+      "Никто",
+      "Борис: он проиграл roll-off"
+    ],
+    "answer": 3,
+    "explanation": "Карту получает проигравший roll-off. Передача ему инициативы не меняет результат roll-off.",
+    "source": {
+      "title": "Wahapedia — Approved Ops 2025",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+      "section": "Play the Battle — initiative cards"
+    }
+  },
+  {
+    "id": "kt-199",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025: команда из восьми оперативников расставляется обычным порядком. Сколько моделей игрок выставляет в свою первую очередь расстановки?",
+    "options": [
+      "Две",
+      "Четыре",
+      "Три",
+      "Все восемь"
+    ],
+    "answer": 2,
+    "explanation": "За очередь выставляют треть команды с округлением вверх: 8 ÷ 3 даёт 3 модели.",
+    "source": {
+      "title": "Wahapedia — Approved Ops 2025",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+      "section": "Set Up Operatives — one third, rounding up"
+    }
+  },
+  {
+    "id": "kt-200",
+    "difficulty": 2,
+    "topic": "Миссии",
+    "question": "Approved Ops 2025: вы выбрали набор из двух лестниц. Противник ещё выставляет оборудование. Можно ли в свою одну очередь сразу выставить обе лестницы как одну выбранную опцию?",
+    "options": [
+      "Да: опция всегда выставляется целиком",
+      "Нет: очередность идёт по отдельным предметам",
+      "Да: только если лестницы касаются друг друга",
+      "Только если противник выбрал баррикаду"
+    ],
+    "answer": 1,
+    "explanation": "Предметы выставляют по одному. Две лестницы одной опции остаются двумя отдельными предметами.",
+    "source": {
+      "title": "Wahapedia — Approved Ops 2025",
+      "url": "https://wahapedia.ru/kill-team3/the-rules/approved-ops-2025/",
+      "section": "Set Up Operatives — item by item"
+    }
+  }
+]

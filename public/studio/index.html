@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head><script src="/theme-boot.js?v=shared-3ae153b05d46" data-companion-only></script><base href="/studio/"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Редактор команд Kill Team — KT Companion</title>
+  <meta name="description" content="Создавайте команды и карточки оперативников Kill Team, сохраняйте черновики и публикуйте команды в библиотеке KT Studio.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://ktcompanion.ru/studio">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="KT Companion">
+  <meta property="og:title" content="Редактор команд Kill Team — KT Companion">
+  <meta property="og:description" content="Создавайте команды и карточки оперативников Kill Team, сохраняйте черновики и публикуйте команды в библиотеке KT Studio.">
+  <meta property="og:url" content="https://ktcompanion.ru/studio">
+  <meta property="og:image" content="https://ktcompanion.ru/brand/kt-companion/social.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Редактор команд Kill Team — KT Companion">
+  <meta name="twitter:description" content="Создавайте команды и карточки оперативников Kill Team, сохраняйте черновики и публикуйте команды в библиотеке KT Studio.">
+  <meta name="twitter:image" content="https://ktcompanion.ru/brand/kt-companion/social.png"><link rel="icon" type="image/x-icon" href="/brand/kt-companion/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/kt-companion/icon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/kt-companion/apple-touch-icon.png"><link rel="stylesheet" href="/companion-tokens.css?v=shared-3ae153b05d46">
+<link rel="stylesheet" href="/studio/style.css?v=shared-3ae153b05d46"><link rel="stylesheet" href="/companion-shell.css?v=shared-3ae153b05d46"><script src="/companion-sites.js?v=shared-3ae153b05d46" defer></script>
+<script src="/companion-i18n.js?v=shared-3ae153b05d46" defer></script>
+<script src="/companion-auth.js?v=shared-3ae153b05d46" defer></script><script src="/companion-shell.js?v=shared-3ae153b05d46" defer></script><script src="/studio/account.js?v=shared-3ae153b05d46" defer></script><link rel="stylesheet" href="/studio/reviews.css?v=1.4.15"><link rel="stylesheet" href="/studio/discussion.css?v=1.4.15"><link rel="stylesheet" href="/studio/lore-layout.css?v=1.4.15"><link rel="stylesheet" href="/studio/dice-editor.css?v=1.4.15"></head>
+<body data-companion-section="studio"><div data-companion-nav></div><section class="companion-gate" id="studio-gate" aria-live="polite">Открываем Студию…</section><div id="studio-workspace" hidden>
+<header><a class="brand" data-companion-service="studio" href="/studio">◈ <span>KILL TEAM <b>STUDIO</b></span></a><div class="project-picker"><button id="new-project" type="button" disabled>+ Создать команду</button></div><span class="project-name">KASRKIN</span><div class="header-actions"><button id="publish-team" class="primary" disabled>Опубликовать</button><button id="save-json">Сохранить команду</button><details class="studio-export-menu"><summary>Экспорт</summary><div class="studio-export-options"><button id="export-rosz" type="button" disabled>Сохранить ростер в .rosz</button><button id="open-tts">↓ Tabletop Simulator</button><button id="export">↓ PDF для печати</button></div></details></div></header>
+<div class="studio-bar"><nav class="studio-tabs" aria-label="Разделы студии"><button data-studio-view="editor" class="active" aria-pressed="true">Редактор</button><button data-studio-view="drafts" aria-pressed="false">Мои черновики</button><button data-studio-view="library" aria-pressed="false">Библиотека</button></nav><div class="cloud-indicator" hidden><span id="cloud-status" role="status" aria-live="polite" hidden></span><button id="retry-cloud" hidden>Повторить</button></div></div>
+<section id="community-panel" hidden aria-labelledby="community-title"><div class="community-heading"><div><div class="eyebrow">KILL TEAM STUDIO</div><h1 id="community-title"></h1><p id="community-description"></p></div><button id="community-new" class="primary">+ Создать команду</button></div><label id="library-search-label">Поиск по названию и описанию<input id="library-search" type="search" placeholder="Найти команду…" maxlength="200"></label><div id="community-list" class="team-grid" aria-live="polite"></div><div id="library-pages"></div></section>
+<div class="workspace">
+ <aside><div class="eyebrow">КОЛОДА КОМАНДЫ</div><nav id="navigation"></nav><div class="sidebar-bottom"><span class="edition">ШАБЛОН BLADES OF KHAINE</span><p>Карточки для печати<br>70 × 121 мм</p></div></aside>
+ <main><div class="section-heading"><div><div class="eyebrow" id="breadcrumb"></div><h1 id="section-title"></h1></div><div class="section-actions"><button id="add-item">+ Карточка</button><button id="add-reference-page" hidden>+ Референсы моделей</button></div></div><p id="section-note" class="section-note"></p><div id="record-list"></div><button id="view-toggle">Показать карточку</button><div id="editor">Открываю проект…</div></main>
+ <section id="preview-panel"><div class="preview-toolbar"><span class="eyebrow">КАРТОЧКА В ПЕЧАТИ</span><span class="badge" id="card-size"></span></div><div id="preview"></div><div class="side-controls"><button id="prev-side" aria-label="Предыдущая сторона">←</button><span id="side-label"></span><button id="next-side" aria-label="Следующая сторона">→</button></div><p id="preview-note"></p><div class="print-hint"><b>A4 / 100%</b><span>Четыре стороны на листе · метки реза</span></div></section>
+</div>
+<div id="toast" role="status"></div>
+<dialog id="rename-project-dialog" class="project-dialog" aria-labelledby="rename-project-title" aria-describedby="rename-project-description">
+ <h2 id="rename-project-title">Переименовать киллтиму</h2><p id="rename-project-description"></p>
+ <form id="rename-project-form"><label for="rename-project-name">Название<input id="rename-project-name" name="name" maxlength="200" required autocomplete="off"></label>
+ <p id="rename-project-error" class="project-dialog-error" role="alert"></p><button id="review-rename-project" type="button" hidden>Обновить список</button>
+ <div class="project-dialog-actions"><button id="cancel-rename-project" type="button">Отмена</button><button id="confirm-rename-project" class="primary" type="submit">Сохранить название</button></div></form>
+</dialog>
+<dialog id="studio-login-dialog" class="project-dialog studio-login-dialog" aria-labelledby="studio-login-title" aria-describedby="studio-login-description">
+ <div class="project-dialog-heading"><h2 id="studio-login-title">Аккаунт KT Companion</h2><button id="close-studio-login" type="button" aria-label="Закрыть окно входа">✕</button></div>
+ <p id="studio-login-description"></p>
+ <div class="studio-login-tabs" aria-label="Вход или регистрация"><button type="button" data-studio-auth-mode="login" class="active" aria-pressed="true">Вход</button><button type="button" data-studio-auth-mode="register" aria-pressed="false">Регистрация</button></div>
+ <form id="studio-login-form">
+<!-- shared-auth-fields:start -->
+<label for="studio-login-name"><span id="studio-login-name-label">Никнейм или почта</span><input id="studio-login-name" name="name" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="1" maxlength="254" required></label>
+<label for="studio-login-password">Пароль<input id="studio-login-password" name="password" type="password" autocomplete="current-password" minlength="1" maxlength="256" required></label>
+<div id="studio-register-fields" hidden>
+<label for="studio-register-email" data-studio-email>Email<input id="studio-register-email" name="email" type="email" autocomplete="email" maxlength="254" disabled></label>
+<label for="studio-register-confirm">Повторите пароль<input id="studio-register-confirm" name="confirmPassword" type="password" autocomplete="new-password" minlength="6" maxlength="256" required disabled></label>
+<label for="studio-register-telegram">Telegram<input id="studio-register-telegram" name="telegramContact" autocomplete="off" placeholder="@username" maxlength="80" required disabled></label>
+</div>
+<!-- shared-auth-fields:end -->
+  <p id="studio-login-error" class="project-dialog-error" role="alert"></p>
+  <button id="studio-login-submit" class="primary" type="submit">Войти</button>
+ </form>
+ <p class="studio-login-note">Единый аккаунт для Студии и турнирной системы. <a href="/account-email.html#forgot" target="_blank" rel="noopener">Забыли пароль?</a></p>
+</dialog>
+<dialog id="create-project-dialog" class="project-dialog" aria-labelledby="create-project-title"><div class="project-dialog-heading"><h2 id="create-project-title">Создать команду</h2><button id="close-create-project" aria-label="Закрыть">✕</button></div><p>Начните с пустой команды или создайте свою копию готового шаблона.</p><div id="project-templates" class="project-templates"></div><p id="create-project-error" class="project-dialog-error" role="alert"></p></dialog>
+<dialog id="delete-project-dialog" class="project-dialog" aria-labelledby="delete-project-title" aria-describedby="delete-project-description"><h2 id="delete-project-title">Удалить команду?</h2><p id="delete-project-description"></p><p id="delete-project-error" class="project-dialog-error" role="alert"></p><button id="review-delete-project" hidden>Обновить список</button><div class="project-dialog-actions"><button id="cancel-delete-project" autofocus>Отмена</button><button id="confirm-delete-project" class="danger">Удалить команду</button></div></dialog>
+<dialog id="publication-dialog" aria-labelledby="publication-title"><div class="publication-heading"><div><div class="eyebrow">КОМАНДА ИЗ БИБЛИОТЕКИ</div><h2 id="publication-title"></h2><p id="publication-info"></p><p id="publication-author" class="team-author"></p></div><button id="close-publication" aria-label="Закрыть просмотр команды">✕</button></div><div class="publication-actions" aria-label="Экспорт опубликованной команды"><button data-publication-export="rosz">Сохранить ростер в .rosz</button><button data-publication-export="tts">↓ Tabletop Simulator</button><button data-publication-export="pdf" class="primary">↓ PDF для печати</button></div><p id="publication-export-status" role="status" aria-live="polite"></p><nav id="publication-nav" aria-label="Карточки опубликованной команды"></nav><div id="publication-cards"></div></dialog>
+<dialog id="tts-dialog" aria-labelledby="tts-title">
+ <div class="tts-heading"><div><div class="eyebrow">ЭКСПОРТ КОМАНДЫ</div><h2 id="tts-title">Tabletop Simulator</h2></div><button id="close-tts" aria-label="Закрыть экспорт">✕</button></div>
+ <p id="tts-summary"></p>
+ <section class="tts-share">
+  <h3>Карты, жетоны и кубики по одной ссылке</h3>
+  <p>Создайте снимок команды для TTS: колода карточек, мешочки с жетонами и кубики, включённые во вкладке «Кубики D6». Набор будет доступен каждому, у кого есть ссылка. Черновик не появится в библиотеке.</p>
+  <p class="hint">Ссылка сохраняет текущую версию. После правок создайте новую; старые наборы останутся прежними. Удаление команды удаляет и её ссылки TTS.</p>
+  <p id="tts-share-local" class="hint" hidden>Локальная копия: ссылка работает в TTS на этом компьютере. Для игры с друзьями создайте ссылку на развёрнутом сайте.</p>
+  <button id="tts-share-create" class="primary">Создать ссылку для TTS</button>
+  <p id="tts-share-status" role="status" aria-live="polite"></p>
+  <div id="tts-share-result" hidden><label>Ссылка на набор<input id="tts-share-url" readonly data-ui-skip></label><button id="tts-share-copy">Копировать ссылку</button></div>
+  <details class="nested"><summary data-ui-label>Как установить импортёр — один раз</summary>
+   <ol><li>В TTS создайте обычный блок через Objects → Components → Blocks.</li><li>Нажмите «Копировать код импортёра» ниже.</li><li>На блоке выберите ПКМ → Scripting → Scripting Editor. Вставьте код в скрипт этого блока и нажмите Save &amp; Play.</li><li>На блоке появится кнопка IMPORT TEAM. Нажмите её и вставьте ссылку на набор.</li><li>На мешочке команды нажмите PLACE. В мешочке Tokens ещё раз нажмите PLACE, затем вытаскивайте копии из нужных мешочков. PACK собирает выложенные мешочки обратно.</li></ol>
+   <button id="tts-copy-importer">Копировать код импортёра</button>
+   <textarea id="tts-importer-code" readonly hidden rows="8" aria-label="Код импортёра TTS" data-ui-skip></textarea>
+   <p class="hint">Сохраните блок через ПКМ → Save Object. На другом столе он будет доступен в Objects → Saved Objects.</p>
+   <p><a href="/api/studio/tts/importer" download="KT-Studio-Importer.json">Скачать готовый объект импортёра</a></p>
+   <p class="hint">Альтернативная установка: поместите этот файл в Documents/My Games/Tabletop Simulator/Saves/Saved Objects и откройте его через Objects → Saved Objects.</p>
+  </details>
+  <details class="nested"><summary data-ui-label>Мои ссылки на эту команду</summary><div id="tts-share-list"></div></details>
+ </section>
+ <details class="nested"><summary data-ui-label>Скачать изображения колоды для ручного импорта</summary>
+ <p>Все карты команды в одной колоде: PNG лиц и PNG оборотов. Продолжения правил находятся на оборотах.</p>
+ <p class="hint">Если кубики включены в набор, ZIP также содержит team-dice.png. Загрузите его в Custom Dice → Image и выберите D6.</p>
+ <p id="tts-limit" class="hint" hidden>В TTS один лист вмещает до 69 карт. Набор разделён только по этому лимиту: импортируйте каждую пару PNG и сложите колоды вместе на столе.</p>
+ <button id="build-tts" class="primary">Собрать ZIP с картами</button>
+ <p id="tts-status" role="status" aria-live="polite"></p>
+ <div id="tts-result" hidden><a id="tts-download" class="download-button">↓ Скачать ZIP</a></div>
+ <h3>Как загрузить колоду</h3>
+ <ol class="tts-instructions"><li>Распакуйте ZIP. В TTS откройте Objects → Components → Custom → Deck.</li><li>Выберите PNG лиц в Face, PNG оборотов в Back. Для игры с друзьями выберите Cloud при загрузке обоих изображений.</li><li>Выставьте параметры ниже и нажмите Import.</li></ol>
+ <div id="tts-sheets"></div>
+ <p data-ui-skip><b>Unique Backs:</b> ON · <b>Back is Hidden:</b> OFF · <b>Sideways:</b> OFF</p>
+ <p class="hint">Оперативники повёрнуты на 90°, чтобы поместиться в ту же колоду без искажения. На столе поверните их для чтения.</p>
+ <p class="hint">Для колоды TTS принимает изображения PNG/JPG, а не многостраничный PDF.</p>
+ </details>
+</dialog>
+
+</div></body></html>

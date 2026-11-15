@@ -5,59 +5,9 @@ async function findById(client, id) {
   return mapFeedback(rows[0]);
 }
 
-async function listAll(client) {
-  const { rows } = await client.query(
-    `SELECT ${COLUMNS} FROM feedback ORDER BY created_at DESC, id DESC`
-  );
-  return rows.map(mapFeedback);
-}
-
-async function listPage(
-  client,
-  {
-    page = 1,
-    limit = 5
-  } = {}
-) {
-  const safePage =
-    Number.isInteger(page) && page > 0
-      ? page
-      : 1;
-
-  const safeLimit =
-    Number.isInteger(limit) && limit > 0
-      ? Math.min(limit, 100)
-      : 5;
-
-  const offset =
-    (safePage - 1) * safeLimit;
-
-  const { rows } = await client.query(
-    `SELECT ${COLUMNS}
-     FROM feedback
-     ORDER BY created_at DESC, id DESC
-     LIMIT $1
-     OFFSET $2`,
-    [safeLimit, offset]
-  );
-
-  const countResult = await client.query(
-    `SELECT COUNT(*)::int AS total
-     FROM feedback`
-  );
-
-  const total =
-    Number(countResult.rows[0]?.total || 0);
-
-  return {
-    feedback: rows.map(mapFeedback),
-    page: safePage,
-    limit: safeLimit,
-    total,
-    totalPages: Math.ceil(total / safeLimit),
-    hasMore:
-      offset + rows.length < total
-  };
+async function listAll(client, query) {
+  const result = await require('../../resources/pages').select(client, `SELECT ${COLUMNS} FROM feedback ORDER BY created_at DESC,id DESC`, [], query);
+  return Object.assign(result.rows.map(mapFeedback), {pagination:result.pagination});
 }
 
 async function insert(client, { userId, screen, description }) {
@@ -87,11 +37,4 @@ async function remove(client, id) {
   await client.query("DELETE FROM feedback WHERE id = $1", [id]);
 }
 
-module.exports = {
-  findById,
-  listAll,
-  listPage,
-  insert,
-  setStatus,
-  remove
-};
+module.exports = { findById, listAll, insert, setStatus, remove };

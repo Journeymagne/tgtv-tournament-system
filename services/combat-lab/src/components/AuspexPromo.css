@@ -1,0 +1,70 @@
+/* Oxblood and bone: borrows Auspex Fatalis's own palette so the strip reads
+   as a different product, not a KT Calc warning. */
+.AuspexPromo {
+  background-color: #4a1117;
+  color: #efe6d2;
+  font-size: 14px;
+  border-bottom: 1px solid #2a080b;
+}
+
+.AuspexPromo-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+}
+
+.AuspexPromo-badge {
+  flex: none;
+  background-color: #efe6d2;
+  color: #4a1117;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 3px;
+}
+
+.AuspexPromo-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.AuspexPromo-link {
+  flex: none;
+  color: #efe6d2;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.AuspexPromo-link:hover,
+.AuspexPromo-link:focus {
+  color: white;
+}
+
+.AuspexPromo-close {
+  flex: none;
+  border: none;
+  background: none;
+  color: #efe6d2;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 4px;
+  opacity: 0.75;
+}
+
+.AuspexPromo-close:hover,
+.AuspexPromo-close:focus {
+  opacity: 1;
+}
+
+/* Phones: drop the feature list; "Start a league" carries the pitch so name +
+   link fit on one line. */
+@media (max-width: 575px) {
+  .AuspexPromo-pitch {
+    display: none;
+  }
+}

@@ -12,8 +12,8 @@ let pool;
 let client;
 
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
   await migrate(pool);
 });
 
@@ -67,7 +67,7 @@ test("регистрация возвращает 201 и ставит cookie", a
 
   assert.equal(result.status, 201);
   assert.equal(result.body.user.name, "Alpha");
-  assert.equal(result.body.user.isAdmin, true);
+  assert.equal(result.body.user.isAdmin, false);
   assert.ok(result.headers["Set-Cookie"].startsWith("sid="));
   assert.ok(result.headers["Set-Cookie"].includes("HttpOnly"));
   assert.ok(result.headers["Set-Cookie"].includes("SameSite=Lax"));
@@ -110,31 +110,83 @@ test("Telegram обязателен", async () => {
   );
 });
 
-test("setup-admin требует пароль от 8 символов и работает только пока админов нет", async () => {
-  await assert.rejects(
-    () => auth.setupAdmin({ client, body: body("Root", { password: "1234567", confirmPassword: "1234567" }) }),
-    (err) => err.status === 400
-  );
-
-  const created = await auth.setupAdmin({
-    client,
-    body: body("Root", { password: "password1234", confirmPassword: "password1234" })
-  });
-  assert.equal(created.body.user.isAdmin, true);
-
-  await assert.rejects(
-    () => auth.setupAdmin({ client, body: body("Second", { password: "password1234", confirmPassword: "password1234" }) }),
-    (err) => err.status === 409
-  );
+test("setup-admin отключён: владелец назначается локальной командой", async () => {
+  await assert.rejects(() => auth.setupAdmin({client,body:body("Root")}), err=>err.status===410);
+  assert.equal(await users.hasAdmin(client), false);
 });
 
-test("вход по верному паролю выдаёт сессию", async () => {
+test("вход по никнейму без учёта регистра и пробелов выдаёт сессию", async () => {
   await auth.register({ client, body: body("Alpha") });
-  const result = await auth.login({ client, body: { name: "alpha", password: "password123" } });
+  const result = await auth.login({ client, body: { name: "  aLpHa  ", password: "password123" } });
 
   assert.equal(result.status, 200);
   assert.equal(result.body.user.name, "Alpha");
   assert.ok(result.headers["Set-Cookie"].startsWith("sid="));
+});
+
+test("вход по подтверждённой почте выдаёт сессию того же аккаунта", async () => {
+  const registered = await auth.register({ client, body: body("Alpha") });
+  await client.query(
+    "INSERT INTO user_email_accounts(user_id,email,verified_at) VALUES($1,$2,NOW())",
+    [registered.body.user.id, "long.nickname.contact@example.com"]
+  );
+
+  const result = await auth.login({ client, body: {
+    name: "  Long.Nickname.Contact@EXAMPLE.COM  ", password: "password123"
+  } });
+  assert.equal(result.status, 200);
+  assert.equal(result.body.user.id, registered.body.user.id);
+  const token = /sid=([^;]+)/.exec(result.headers["Set-Cookie"])[1];
+  const user = await auth.loadUserFromRequest(client, requestWithCookie(token));
+  assert.equal(user.id, registered.body.user.id);
+});
+
+test("неподтверждённый чужой адрес не меняет владельца входа по почте", async () => {
+  const alpha = await auth.register({ client, body: body("Alpha") });
+  const bravo = await auth.register({ client, body: body("Bravo", {
+    password: "otherPassword123", confirmPassword: "otherPassword123"
+  }) });
+  await client.query(
+    "INSERT INTO user_email_accounts(user_id,email,verified_at) VALUES($1,$2,NOW())",
+    [alpha.body.user.id, "shared@example.com"]
+  );
+  await client.query(
+    "INSERT INTO user_email_accounts(user_id,pending_email) VALUES($1,$2)",
+    [bravo.body.user.id, "shared@example.com"]
+  );
+
+  const result = await auth.login({ client, body: {
+    name: "shared@example.com", password: "password123"
+  } });
+  assert.equal(result.body.user.id, alpha.body.user.id);
+  await assert.rejects(() => auth.login({ client, body: {
+    name: "shared@example.com", password: "otherPassword123"
+  } }), err => err.status === 401);
+});
+
+test("ожидающая смена почты сохраняет старый адрес, подтверждение заменяет его", async () => {
+  const registered = await auth.register({ client, body: body("Alpha") });
+  await client.query(
+    "INSERT INTO user_email_accounts(user_id,email,verified_at,pending_email) VALUES($1,$2,NOW(),$3)",
+    [registered.body.user.id, "old@example.com", "new@example.com"]
+  );
+  const login = name => auth.login({ client, body: { name, password: "password123" } });
+  assert.equal((await login("old@example.com")).body.user.id, registered.body.user.id);
+  const pendingError = await login("new@example.com").catch(err => err);
+  const missingError = await login("missing@example.com").catch(err => err);
+  const malformedError = await login("invalid@").catch(err => err);
+  for (const error of [pendingError, missingError, malformedError]) {
+    assert.equal(error.status, 401);
+    assert.equal(error.message, "Invalid name or password");
+  }
+
+  await client.query(
+    "UPDATE user_email_accounts SET email=pending_email,pending_email=NULL WHERE user_id=$1",
+    [registered.body.user.id]
+  );
+  await assert.rejects(() => login("old@example.com"), err => err.status === 401);
+  assert.equal((await login("new@example.com")).body.user.id, registered.body.user.id);
+  assert.equal((await login("Alpha")).body.user.id, registered.body.user.id);
 });
 
 test("неверный пароль и неизвестное имя дают один и тот же 401", async () => {
@@ -180,7 +232,10 @@ test("me без сессии сообщает только о наличии а�
 
   await auth.register({ client, body: body("Alpha") });
   const withAdmin = await auth.me({ client, user: null });
-  assert.equal(withAdmin.hasAdmin, true);
+  assert.equal(withAdmin.hasAdmin, false);
+  const first = await users.findByNameKey(client, "alpha");
+  await require("../../src/db/repositories/access").initializeOwner(client, first.id);
+  assert.equal((await auth.me({client,user:null})).hasAdmin, true);
 });
 
 test("updateMe меняет профиль и требует текущий пароль для смены пароля", async () => {
@@ -234,7 +289,7 @@ test("конкурентная первая регистрация не созд
     ]);
 
     const admins = [alpha.body.user.isAdmin, bravo.body.user.isAdmin].filter(Boolean);
-    assert.equal(admins.length, 1);
+    assert.equal(admins.length, 0);
   } finally {
     clientA.release();
     clientB.release();
@@ -250,6 +305,59 @@ test("updateMe отклоняет занятое имя", async () => {
     () => auth.updateMe({ client, user: alpha, body: { name: "Bravo" } }),
     (err) => err.status === 409
   );
+});
+
+test("concurrent registration of the same normalized name returns 201 and 409", async () => {
+  const connections = await Promise.all([pool.connect(), pool.connect()]);
+  let checked = 0;
+  let releaseChecks;
+  const bothChecked = new Promise(resolve => { releaseChecks = resolve; });
+  const seen = [];
+  // Gate real SELECT replies, after both transactions observed the name absent.
+  // Neither transaction can insert before the other has completed its check.
+  const clients = connections.map(connection => ({
+    async query(sql, params) {
+      const result = await connection.query(sql, params);
+      if (/SELECT 1 FROM users WHERE name_key/.test(sql)) {
+        seen.push(result.rows.length);
+        if (++checked === 2) releaseChecks();
+        await bothChecked;
+      }
+      return result;
+    }
+  }));
+  try {
+    const outcomes = await Promise.allSettled(clients.map((connection, index) =>
+      withTx(connection, () => auth.register({ client: connection,
+        body: body(index ? "  rAcEr  " : "Racer") }))));
+    assert.deepEqual(seen, [0, 0], "both checks must precede either insertion");
+    const winners = outcomes.filter(result => result.status === "fulfilled");
+    const losers = outcomes.filter(result => result.status === "rejected");
+    assert.equal(winners.length, 1);
+    assert.equal(winners[0].value.status, 201);
+    assert.equal(losers.length, 1);
+    assert.equal(losers[0].reason.status, 409);
+    assert.equal(losers[0].reason.message, "This name is already taken");
+    const { rows } = await client.query("SELECT name_key FROM users");
+    assert.deepEqual(rows, [{ name_key: "racer" }]);
+    assert.equal((await client.query("SELECT count(*)::int AS count FROM sessions")).rows[0].count, 1);
+  } finally {
+    for (const connection of connections) connection.release();
+  }
+});
+
+test("registration propagates uniqueness violations unrelated to the username", async () => {
+  await auth.register({ client, body: body("First", { telegramContact: "@shared" }) });
+  await client.query("CREATE UNIQUE INDEX auth_test_telegram_unique ON users(telegram_contact)");
+  try {
+    await assert.rejects(
+      () => withTx(client, () => auth.register({ client,
+        body: body("Second", { telegramContact: "@shared" }) })),
+      error => error.code === "23505" && error.constraint === "auth_test_telegram_unique" && !error.status
+    );
+  } finally {
+    await client.query("DROP INDEX auth_test_telegram_unique");
+  }
 });
 
 test("MEDIUM 1: гонка при записи имени (23505) отображается как 409, а не 500", async () => {
@@ -275,12 +383,10 @@ test("MEDIUM 1: гонка при записи имени (23505) отображ
     // uncommitted unique-index entry until clientA resolves.
     const promiseB = auth.applyProfilePatch(clientB, bob.id, { name: "Charlie" });
 
+    const rejected = assert.rejects(promiseB,
+      (err) => err.status === 409 && err.message === "This name is already taken");
     await clientA.query("COMMIT");
-
-    await assert.rejects(
-      promiseB,
-      (err) => err.status === 409 && err.message === "This name is already taken"
-    );
+    await rejected;
   } finally {
     await clientA.query("ROLLBACK").catch(() => {});
     await clientB.query("ROLLBACK").catch(() => {});

@@ -1,0 +1,258 @@
+# KT Companion
+
+One tournament server serves one hostname. The home page selects a service;
+each service has its own page and internal navigation. The header logo links to
+the service selector. The service name opens its start page: Studio's library,
+tournament My Games, or a reset calculator. Theme buttons select light or dark.
+There is no cross-service tab bar or sidebar.
+
+Language and theme are shared browser preferences across all service pages.
+The parser-blocking `theme-boot.js` applies them before the first paint;
+Tournament System reads this same `KTAppearance` state. Existing `tgtv-theme`
+and `tgtv-locale` localStorage choices migrate automatically to persistent
+preference cookies with `Path=/`, `SameSite=Lax` and `Secure` on HTTPS.
+Preference cookies span `ktcompanion.ru` and its legacy service hosts; on other
+hosts they are host-only, including local previews on different ports.
+Cookies take precedence over a service's older localStorage choice. Same-origin
+tabs synchronize through storage events; returning, focusing or restoring a
+page refreshes it from shared preferences without requiring a reload. If
+localStorage is blocked, cookies retain the choice between pages. These cookies
+contain only theme/language labels and do not change the host-only login cookie.
+
+| URL | Section | Access |
+| --- | --- | --- |
+| `ktcompanion.ru` | Companion home | Public |
+| `ktcompanion.ru/tournament` | Tournament system | Existing tournament account |
+| `ktcompanion.ru/combat` | Combat calculator and operative duel simulator | Public |
+| `ktcompanion.ru/initiative` | Initiative calculator | Public |
+| `ktcompanion.ru/tracker` | Activation tracker | Public |
+| `ktcompanion.ru/studio` | KT Studio editor and published library | Public; saving and publishing require the tournament account |
+| `ktcompanion.ru/dice` | D6 dice generator with published team logos | Public editor and PNG export; saved TTS links require the tournament account |
+| `ktcompanion.ru/faq` | TTS Community FAQ, official GW answers, Info and Code of Conduct | Public reading; questions and submissions require the Companion account; moderation requires FAQ Moderator or platform administrator |
+| `ktcompanion.ru/training` | Know Thy Kill Team: 100 rules questions, four difficulties, 20-question sessions | Public bank; sessions and progress require the Companion account |
+
+Existing `/tournaments/:slug` and `/teams/:slug` pages keep their public access
+on the same hostname. Legacy calculator HTML URLs, `/tournament/`, `/studio/`
+and `/index.html` redirect to the corresponding service path without a trailing slash.
+Old root hash links (`/#/mygames`, `/#team-match/...`, etc.) forward to the
+tournament section without losing their query or hash. `/index.html` also remains
+an alias for the tournament application.
+
+## Running and deployment
+
+The existing `npm start` command, PostgreSQL connection, session store and user
+accounts serve all eight sections. No second server, account database or frontend
+build is needed. Migration `032_studio_projects` creates account-owned drafts and
+published snapshots in the existing database on startup. It does not alter
+tournament data or copy drafts from a standalone Studio installation.
+
+Set `COMPANION_ORIGIN=https://ktcompanion.ru` and
+`SITE_URL=https://ktcompanion.ru`. Keep the existing DNS record and HTTPS
+certificate for `ktcompanion.ru`. Replace its old static-site Nginx configuration
+with a reverse proxy to the existing tournament Node process. The proxy must
+preserve `Host` and send every path to Node, including `/`, `/api/` and assets:
+Node chooses the service entry page from the URL path. A single `location /`
+is sufficient because all sections run in the same application. See
+[`deploy/nginx-companion.conf.example`](../deploy/nginx-companion.conf.example).
+The deployment script does not change proxy rules. Update the external environment
+file used by that script (normally `/app/tgtv-ts.env`), deploy the new code and
+restart the app with those settings. Check `nginx -t` before reloading Nginx.
+Verify `/`, all eight service URLs and `/api/session` over public HTTPS. Updating
+Git alone leaves the old root website in place until its proxy is switched.
+
+Keep `rating.ktcompanion.ru` as a redirect for existing links, using its existing
+certificate: `/` redirects to `https://ktcompanion.ru/tournament`, and other paths
+redirect to the same path on `https://ktcompanion.ru`. The example includes an
+optional redirect block. No new service subdomains are needed.
+
+The `sid` session cookie is host-only, with `Path=/`, HttpOnly, SameSite=Lax and
+Secure in production. Login, renewal and logout use the same cookie across all
+service paths. Existing accounts remain unchanged; moving from the rating
+hostname or the old shared `kt_sid` cookie requires one new login. Existing `sid`
+sessions on the canonical hostname remain valid. All API calls and login return
+URLs use the same origin; no CORS or authentication tokens in URLs are needed.
+
+Locally, open `http://127.0.0.1:3000` and use `COOKIE_SECURE=false`. Leave
+`COMPANION_ORIGIN` and `SITE_URL` empty or set both to that origin, with the actual
+`PORT`. Service paths work with either configuration. `/companion-sites.js`
+supplies the URLs to all pages and is not cached.
+
+FAQ is linked from the home service selector and uses `/faq`, `/faq/info` and
+`/faq/conduct` on the same origin. Its header opens the common profile and login;
+login returns to the requested FAQ page or entry. Open FAQ tabs reload when the
+account or FAQ access changes, including cross-tab login and logout. Its
+authenticated API calls carry `X-FAQ-Account` from `/api/session`; the server
+rejects a stale account id before reading private submissions or writing content.
+See [FAQ sources, permissions and moderation](community-faq.md).
+
+Know Thy Kill Team is linked from the same selector at `/training`. It reuses
+the common account header, theme tokens, controls and login return flow.
+Migration `056_training_progress` stores per-account sessions and cumulative
+statistics in PostgreSQL. Answers are checked on the server; revision checks
+and idempotent writes protect progress when multiple devices are open.
+See [training storage, routes and maintenance](know-thy-kill-team.md).
+
+Studio projects may include image albums, so `/api/studio/drafts/` accepts up to
+100 MiB of JSON. TTS snapshots at `POST /api/studio/tts/exports` accept up to
+96 MiB of JSON containing PNG images. Raise the reverse proxy body allowance to `100m` for these paths,
+or for its existing API proxy block. The application still enforces the existing
+2 MiB default and 5 MiB tournament limits on other routes. The deployment script
+does not modify the host's reverse proxy configuration.
+
+The TTS importer uses public manifest, PNG and token OBJ URLs backed by migration 036.
+See [Studio TTS import](studio-tts-import.md) for link ownership, immutable
+snapshots, deletion, asset storage and importer installation.
+The [D6 generator](dice-generator.md) shares this export storage and importer.
+Its team-logo catalog always reads the published library of the current site.
+
+## Studio identity and saving
+
+`GET /api/session` supplies only the current account's id, name and admin flag to
+the account controls. Studio session, private draft and write routes use the
+existing tournament authentication middleware. Library listing and published
+team viewing are public. Private drafts use `users.id` as their owner, never an
+owner supplied in the project. Writes require a session-bound CSRF token and a
+matching site Origin when present. The fixed `X-Studio-Account` header rejects requests
+from an editor whose account changed in another tab, even during reconnect.
+
+PostgreSQL is the primary store for signed-in editors. Opening Studio loads the
+active saved draft, or the most recent account draft on a new device. Edits are
+uploaded after an 800 ms pause; Save team waits for the server response. Browser
+storage is an optional recovery cache, so a full or unavailable browser store
+does not prevent database saves. Each tab uploads its own in-memory snapshot.
+The status reports unsaved edits on network errors and retries on reconnect.
+
+Writes retain revision checks. The editor supplies a new `recoveryId` on saves:
+if another tab has changed the draft, the server saves these edits as a separate
+private PostgreSQL draft and the editor continues on that copy. The original
+draft and its publication remain unchanged. A conflicting Publish also saves a
+private copy and requires a separate Publish action. Requests without a
+`recoveryId` still return 409 on conflicts. Deleted projects cannot be recovered
+through delayed saves. This uses the existing `studio_projects` table and needs
+no migration. Guest editing retains its tab-isolated browser recovery store.
+
+Projects are selected in **My drafts**. The header shows the active project's
+name, and **Create team** opens a choice of an empty team or an independent copy
+of a bundled template. Existing local account projects remain accessible there.
+
+**Delete** on a draft requires confirmation and removes both the private project
+and its publication, if any. The confirmation names the team and explicitly
+mentions removal from the library. The API checks ownership, CSRF, account and
+the confirmed revision; concurrent changes require refreshing and confirming
+again. Local project data is removed from localStorage and IndexedDB; other tabs
+and devices learn about deletion through storage events or reconnect/refresh.
+
+Migration `033_studio_project_deletion` adds `deleted_at`. Deletion clears project
+and publication payloads and retains an owner/project identity record so delayed
+saves cannot recreate the team. A new copy uses a new project id. After deletion
+has been used, rollback must retain the deletion-aware repository queries; older
+code expects every row to contain a project payload.
+
+Guests can create, import and edit teams without logging in. Guest recovery
+copies are isolated by browser tab; no anonymous draft is uploaded. The
+Save team / Publish buttons, My drafts and project JSON download open the Studio
+login dialog over the current page. Login and registration use the existing
+shared account endpoints and session cookie. Cancellation keeps guest edits in
+the editor. The selected action resumes after login or registration without
+visiting the tournament login page. A single-use token in the Studio reload URL
+matches a tab-local transfer record, and large projects are restored from the
+guest IndexedDB store. The transferred project gets a new id to avoid overwriting
+an existing account draft with the same id. Signing in from another tab alone
+does not adopt guest projects. PDF, TTS and roster exports remain available to
+guests.
+
+Anonymous drafts from standalone Studio are not automatically assigned to the
+first person who logs in. Export a project as JSON in the old Studio and import
+it in the new one under the intended account if it should be transferred.
+
+## Imported sources
+
+- Home page, initiative calculator, activation tracker and their assets:
+  [legendaryvasily/tts_companion](https://github.com/legendaryvasily/tts_companion),
+  commit `a70d843b5e623b56240a4887752b1c3ba9f1e944`.
+  Files are vendored under `public/companion/`, with entry pages in `public/`.
+  Changes include service-specific URLs, home links, Russian home copy,
+  responsive four-card layout and corrected calculator script paths.
+- Studio: the local `custom teams/kill-team-studio/dist` working copy as of
+  2026-09-21, including its existing drafts/library work. Vendored into
+  `public/studio/`; shared account bootstrap and namespaced browser storage added.
+  The server implementation is adapted to the tournament router, PostgreSQL pool
+  and migration system. The standalone source repository is unchanged.
+- Bundled third-party library/font notices remain in `public/studio/vendor/`.
+
+## Verification
+
+Owners can rename a team from My drafts or its library tile. The revision-checked
+`PATCH /api/studio/drafts/:id/name` changes only `team.name` in the draft and any
+existing published snapshot. It does not create a publication, change its URL,
+or publish private card edits. Public library responses expose rename controls
+only to the matching Studio account. Names must contain 1–200 characters on one
+line. Local unsaved edits remain local; stale editors cannot overwrite a newer
+revision after renaming.
+
+Run the existing `npm test` against an explicitly isolated `TEST_DATABASE_URL`.
+`test/integration/api-studio.test.js` exercises public pages/library, common sessions,
+account isolation, stale editors, CSRF, logout, concurrent draft revisions and
+published snapshots over HTTP with PostgreSQL.
+`test/unit/companion-sites.test.js` checks path routing, legacy redirects,
+host-only cookie creation/clearing and the login-return allowlist. Browser checks
+cover all service roots, mobile calculator results, shared login/logout and
+guest draft recovery after registration.
+
+## Combat Lab
+
+The home menu links to `/combat` on the same origin. The Companion server serves
+the nested React build and its `/combat/api/health`, `/combat/api/catalog` and
+optional `/combat/library/<team>.pdf` endpoints without a second server process.
+The calculator, fight, simulation, rules, share links and saved scenarios retain
+the `/combat` prefix. Its logo returns to the Companion home menu.
+
+Installing Companion with `npm ci` (including `--omit=dev`) runs the root
+`postinstall` hook. It compares a content fingerprint of Combat Lab's sources,
+public assets/catalogue, rules, scripts, package/lockfile, TypeScript/environment
+configuration and Node runtime with the last successful build. An unchanged,
+intact build skips both the nested dependency install and compilation; Studio,
+tournament and release-number-only package/lockfile changes do not invalidate it. Missing or
+damaged outputs trigger a rebuild. Dependencies have a separate fingerprint:
+source-only changes reuse the installed packages; changes to package/lockfile,
+Node/npm runtime or npm configuration trigger `npm ci` with build tools included.
+The calculator is then built at `/combat`. Install/build
+failures stop the npm command and never record a successful fingerprint.
+
+`update_tgtv-ts.sh` copies `services/combat-lab/build-companion/` and its
+`.companion-build.json` stamp into a new, isolated release. A separate dependency
+cache restores calculator packages into that release when compilation is needed.
+The current server remains running throughout preparation. See
+[deployment and recovery](deployment.md). Custom/older deploy scripts must also
+preserve the build directory, or the missing build will be recreated each time.
+This first upgrade rebuilds existing unstamped builds once. Root installers that
+only install the main package still get the postinstall check automatically.
+`npm run build:combat` forces a rebuild and refreshes the stamp after success.
+The compiled `services/combat-lab/build-companion` directory is ignored by Git.
+The health endpoint returns 503 with `buildReady: false` while its HTML/manifest
+are absent, and returns 200 only when those build files exist.
+
+For an already running server missing its build, run from the deployed app root:
+
+```sh
+npm ci --prefix services/combat-lab --include=dev --ignore-scripts
+npm run build:combat
+```
+
+The server serves new build files immediately; no database changes or restart
+are needed for this repair. Custom installers using root `--ignore-scripts`
+must run `npm run postinstall` explicitly.
+Set optional `COMBAT_REFERENCE_DIR` to the existing official PDF snapshot for
+source links; the bundled JSON catalogue works without PDFs. Standalone builds
+with `npm run build:demo` keep their original root routes.
+
+Menu integration verification used the production `/combat` build and real
+calculator workers. Shooting with four/five attacks produced 3.29/5.04 average
+damage while the other profile stayed at 3.29. In the Vespid duel, adding Neutron
+Charge enabled it immediately and changed damage from 3.25 to 4.29. Melee,
+scenario reloads, rules pages, RU/EN menu labels and mobile layout were checked.
+Public HTML and health/catalog endpoints returned 200; missing assets returned
+404 and an encoded traversal was rejected with 403. TypeScript and syntax checks
+passed. These checks used a temporary public-UI harness with no PostgreSQL;
+account flows were not exercised. Evidence is in the ignored nested
+`verify-artifacts/combat-menu` directory.

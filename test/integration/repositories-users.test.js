@@ -11,8 +11,8 @@ let pool;
 let client;
 
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
   await migrate(pool);
 });
 
@@ -47,6 +47,7 @@ test("insert выдаёт идентификатор через RETURNING", asyn
   assert.ok(Number.isInteger(created.id));
   assert.equal(created.name, "Alpha");
   assert.equal(created.rating, 1000);
+  assert.deepEqual(created.ratings, { tts: 1000, irl: 1000, combined: 1000 });
   assert.deepEqual(created.challengeCredits, []);
 });
 

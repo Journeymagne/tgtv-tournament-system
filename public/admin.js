@@ -1,0 +1,2675 @@
+// Administration UI, loaded on demand.
+// Event organizers and judges also load this UI; the API enforces resource scope.
+//
+// Nothing here runs for a player who is not an administrator, and it was a
+// fifth of the client bundle -- so app.js fetches this file only after /api/me
+// says the visitor is one. It is a classic script loaded after app.js and shares
+// that file's global scope, which is where state, api, t, escapeHtml and the
+// render helpers come from. The export at the bottom is the surface app.js calls
+// back into.
+
+function adminTournamentSettingsContent(data, creating = false) {
+  const tournament = data.tournament || {};
+  const canApplyTiebreakers = tournament.status === "in_progress" && !tournament.finalResults?.length;
+  const hasTables = !creating && (tournament.venueMode === "irl" || tournament.participantMode === "team");
+  const tabs = [
+    ["tournament", t("admin.tournament.setup.tournament")],
+    ["format", t("admin.tournament.setup.format")],
+    ["rules", t("admin.tournament.setup.rules")],
+    ["tiebreakers", t("admin.tournament.setup.tiebreakers")]
+  ];
+  if (hasTables) tabs.push(["tables", t("tournaments.tab.tables")]);
+  const active = tabs.some(([id]) => id === state.tournamentSetupTab) ? state.tournamentSetupTab : "tournament";
+
+  return `
+    <div class="tournament-setup" data-tournament-setup>
+      <div class="tabs tournament-setup-tabs" role="tablist" aria-label="${t("tournaments.tab.settings")}">
+        ${tabs.map(([id, label]) => `
+          <button type="button" class="tab ${id === active ? "active" : ""}" role="tab"
+            id="tournament-setup-tab-${id}" aria-controls="tournament-setup-panel-${id}" aria-selected="${id === active}"
+            tabindex="${id === active ? "0" : "-1"}" data-tournament-setup-tab="${id}">${label}</button>
+        `).join("")}
+      </div>
+      ${adminTournamentSetupForm(data, { active, creating, canApplyTiebreakers })}
+      ${canApplyTiebreakers ? adminTournamentSetupPanel("tiebreakers", active, adminLiveTiebreakersForm(tournament)) : ""}
+      ${hasTables ? adminTournamentSetupPanel("tables", active, adminTournamentTablesContent(data)) : ""}
+    </div>
+  `;
+}
+
+function adminTournamentSetupPanel(id, active, content) {
+  return `<section class="tournament-setup-panel" role="tabpanel" id="tournament-setup-panel-${id}"
+    aria-labelledby="tournament-setup-tab-${id}" data-tournament-setup-panel="${id}" ${active === id ? "" : "hidden"}>
+    ${content}
+  </section>`;
+}
+
+function wireFeedbackAdminActions() {
+  document.querySelectorAll("[data-feedback-status]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        await api(`/api/admin/feedback/${button.dataset.feedbackStatus}`, {
+          method: "PATCH",
+          body: { status: button.dataset.status }
+        });
+        await loadFeedback();
+        renderFeedback();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
+  });
+  document.querySelectorAll("[data-feedback-delete]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!await confirmDelete(t("dialog.feedback.delete"))) return;
+      try {
+        await api(`/api/admin/feedback/${button.dataset.feedbackDelete}`, { method: "DELETE" });
+        await loadFeedback();
+        renderFeedback();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
+  });
+}
+
+function adminPlayerToolsCard(user) {
+  const reset = state.adminPasswordReset?.userId === user.id ? state.adminPasswordReset : null;
+  return `
+    <div class="card panel">
+      <div class="panel-header">
+        <div>
+          <h3>${t("profile.admin.toolsTitle")}</h3>
+          <p class="muted">${t("profile.admin.toolsSubtitle")}</p>
+        </div>
+      </div>
+      <div class="row-actions">
+        <button class="danger-button" data-admin-reset-password="${user.id}">${t("profile.admin.resetPassword")}</button>
+      </div>
+      ${reset?.delivery === 'email' ? '<p class="muted">' + adminLabel('Запрос на восстановление принят. Письмо будет отправлено на подтверждённую почту; повторная отправка ограничена одной в минуту.', 'Recovery requested. An email will be sent to the confirmed address; resends are limited to once per minute.') + '</p>' : ''}
+      ${reset?.password ? `
+        <div class="row-card admin-password-card">
+          <div class="row-main">
+            <div class="row-title">${t("profile.admin.tempPasswordTitle")}</div>
+            <div class="row-meta">${t("profile.admin.tempPasswordHint")}</div>
+          </div>
+          <div class="row-actions">
+            <code class="admin-password-value">${escapeHtml(reset.password)}</code>
+            <button class="small-button" data-admin-copy-password="${escapeHtml(reset.password)}">${t("profile.admin.copy")}</button>
+          </div>
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function wireAdminPlayerTools(profileUserId) {
+  document.querySelector("[data-admin-reset-password]")?.addEventListener("click", async () => {
+    const confirmed = await confirmAction({ message: t("dialog.admin.resetPassword"), confirmLabel: t("profile.admin.resetPassword") });
+    if (!confirmed) return;
+    try {
+      const data = await api(`/api/admin/users/${profileUserId}/reset-password`, { method: "POST" });
+      state.adminPasswordReset = { userId: profileUserId, password: data.password, delivery: data.delivery };
+      renderShell();
+    } catch (err) {
+      setPlayerProfileMessage(err.message, true);
+    }
+  });
+  document.querySelector("[data-admin-copy-password]")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const originalText = button.textContent;
+    try {
+      await copyText(button.dataset.adminCopyPassword);
+      button.textContent = t("profile.admin.copied");
+      button.disabled = true;
+      window.setTimeout(() => {
+        button.textContent = originalText;
+        button.disabled = false;
+      }, 1400);
+    } catch (err) {
+      setPlayerProfileMessage(err.message, true);
+    }
+  });
+}
+
+function adminPendingGamesCard(profile) {
+  const games = profile.pendingGames || [];
+  return `
+    <div class="card panel">
+      <div class="panel-header">
+        <div>
+          <h3>${t("profile.admin.pendingGamesTitle")}</h3>
+          <p class="muted">${t("profile.admin.pendingGamesSubtitle")}</p>
+        </div>
+      </div>
+      <div class="list">
+        ${games.length ? games.map((game) => `
+          <div class="row-card">
+            <div class="row-main">
+              <div class="row-title">${escapeHtml(gameTitle(game))}</div>
+              <div class="row-meta">${escapeHtml(pendingResultSummary(game))}</div>
+            </div>
+            <div class="row-actions">
+              <a href="/tournament#/administration/games/game/${game.id}" data-app-link class="small-button" data-admin-pending-open="${game.id}">${t("tournaments.card.open")}</a>
+              <button class="small-button" data-admin-pending-confirm="${game.id}">${t("games.detail.forceConfirm")}</button>
+              <button class="danger-button" data-admin-pending-delete="${game.id}">${t("common.delete")}</button>
+            </div>
+          </div>
+        `).join("") : `<div class="empty">${t("profile.admin.pendingGamesEmpty")}</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function wireAdminPendingGameButtons(profileUserId) {
+  document.querySelectorAll("[data-admin-pending-open]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await openGameDetail(Number(button.dataset.adminPendingOpen));
+    });
+  });
+  document.querySelectorAll("[data-admin-pending-delete]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await adminDeleteGame(Number(button.dataset.adminPendingDelete), profileUserId);
+    });
+  });
+  document.querySelectorAll("[data-admin-pending-confirm]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await adminForceConfirmGame(Number(button.dataset.adminPendingConfirm), profileUserId);
+    });
+  });
+}
+
+function adminChallengeActions(progress) {
+  const current = progress.teams.find((item) => item.status === "current");
+  return `
+    <div class="row-actions">
+      ${current ? `<button class="primary-button" data-credit-user="${progress.user.id}" data-credit-team="${escapeHtml(current.team)}">${t("challenge.admin.creditNext")}</button>` : ""}
+      ${progress.wildcards.filter((item) => item.status !== "completed").map((item) => `
+        <button class="small-button" data-credit-user="${progress.user.id}" data-credit-team="${escapeHtml(item.team)}">${t("challenge.admin.creditTeam", { team: escapeHtml(item.team) })}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
+// The stems are the Kill Team names; only the spellings that differ from the
+// file on disk are listed. WebP at the same 256x256 is visually identical to
+// the PNG it replaced and 42% of the bytes -- which matters because the stats
+// and challenge screens render all 48 of these at once.
+
+async function adminChallengeCredit(userId, team, action) {
+  if (action === "remove" && !await confirmAction({
+    message: t("challenge.admin.confirmSubtract", { team }),
+    confirmLabel: t("challenge.card.subtract")
+  })) return;
+  try {
+    const data = await api(`/api/admin/users/${userId}/challenge-credit`, { method: "POST", body: { team, action, track: state.challengeTab } });
+    upsertChallengeProgress(data.progress);
+    state.selectedChallengeUserId = userId;
+    renderChallenge();
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function adminDeleteGame(gameId, profileUserId = null) {
+  const game = getKnownGame(gameId);
+  const confirmed = await confirmDelete(
+    game?.status === "pending_confirmation" ? t("dialog.games.deletePendingGame") : t("dialog.games.deleteActiveGame")
+  );
+  if (!confirmed) return;
+  try {
+    await api(`/api/admin/games/${gameId}`, { method: "DELETE" });
+    await refresh();
+    if (state.me?.isAdmin) await loadAdminGames();
+    await loadGames();
+    if (profileUserId) {
+      await loadPlayerProfile(profileUserId);
+      renderShell();
+      setPlayerProfileMessage(t("message.games.deleted"));
+      return;
+    }
+    state.view = "games";
+    state.gamesTab = state.me?.isAdmin ? "sessions" : "history";
+    state.selectedGameId = null;
+    syncAppHash();
+    renderShell();
+  } catch (err) {
+    setMessage(err.message, true);
+    setPlayerProfileMessage(err.message, true);
+  }
+}
+
+async function adminRecalculateGameRating(gameId, button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  const isCurrent = () => state.view === "gameDetail" && Number(state.selectedGameId) === Number(gameId);
+  try {
+    if (!await confirmAction({ message: t("dialog.games.recalculateRating"), confirmLabel: t("games.detail.recalculateRating"), danger: false })) return;
+    await api(`/api/admin/games/${gameId}/recalculate-rating`, { method: "POST" });
+    await refresh();
+    await Promise.all([loadTop(), loadGames()]);
+    await loadGame(gameId);
+    if (isCurrent()) {
+      renderShell();
+      setMessage(t("message.games.ratingRecalculated"));
+    }
+  } catch (err) {
+    if (isCurrent()) setMessage(err.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function adminForceConfirmGame(gameId, profileUserId = null) {
+  const confirmed = await confirmAction({ message: t("dialog.games.forceConfirmResult"), confirmLabel: t("games.detail.forceConfirm"), danger: false });
+  if (!confirmed) return;
+  try {
+    await api(`/api/admin/games/${gameId}/confirm-result`, { method: "POST" });
+    await refresh();
+    if (state.me?.isAdmin) await loadAdminGames();
+    await loadTop();
+    await loadGames();
+    if (profileUserId) {
+      await loadPlayerProfile(profileUserId);
+      renderShell();
+      setPlayerProfileMessage(t("message.games.forceConfirmed"));
+      return;
+    }
+    if (state.view === "gameDetail") {
+      state.selectedGameId = gameId;
+      await loadGame(gameId);
+    }
+    renderShell();
+  } catch (err) {
+    setMessage(err.message, true);
+    setPlayerProfileMessage(err.message, true);
+  }
+}
+
+async function loadAdminTeams() {
+  const sequence=loadAdminTeams.sequence=(loadAdminTeams.sequence||0)+1;
+  const data = await api(`/api/admin/teams?page=${state.adminTeamsPage || 1}&q=${encodeURIComponent(state.adminTeamsQuery || "")}`);
+  if(sequence!==loadAdminTeams.sequence)return;
+  state.adminTeams = data.teams || []; state.adminTeamsPagination = data.pagination;
+}
+
+function filterAdminTeams(teams, query) {
+  const search = String(query || "").trim().toLocaleLowerCase();
+  return search ? teams.filter((team) => team.name.toLocaleLowerCase().includes(search)) : teams;
+}
+
+function adminTeamsPanel() {
+  return `<section class="card panel">
+    <div class="panel-header"><div><h2>${t("teams.admin.title")}</h2><p class="muted">${t("teams.admin.hint")}</p></div></div>
+    <div class="filter-row"><div class="field compact-field"><label for="admin-teams-search">${t("teams.search.label")}</label><input id="admin-teams-search" type="search" value="${escapeHtml(state.adminTeamsQuery)}" placeholder="${t("teams.search.placeholder")}" data-admin-teams-search></div></div>
+    <div data-admin-teams-results>${teamsTable(state.adminTeams, { admin: true })}</div>
+    <div class="message" data-message></div>
+  </section>`;
+}
+
+function wireAdminTeams() {
+  wireTeamLinks(); wirePaginationControls();
+  wireRemoteAdminSearch('[data-admin-teams-search]','adminTeamsQuery','adminTeamsPage',loadAdminTeams,() => {
+    document.querySelector('[data-admin-teams-results]').innerHTML=teamsTable(state.adminTeams,{admin:true});
+    wireTeamLinks(); wirePaginationControls();
+  });
+}
+function wireRemoteAdminSearch(selector,key,pageKey,load,render) {
+  const input=document.querySelector(selector); if(!input)return;
+  let timer,sequence=0;
+  input.oninput=()=>{
+    clearTimeout(timer); const current=++sequence;
+    state[key]=input.value; state[pageKey]=1;
+    timer=setTimeout(async()=>{try{
+      await load(); if(current!==sequence || !input.isConnected)return; render();
+    }catch(error){if(current===sequence)setMessage(error.message,true);}},220);
+  };
+}
+
+async function loadAdminUsers() {
+  const sequence=loadAdminUsers.sequence=(loadAdminUsers.sequence||0)+1;
+  const data = await api(`${state.me?.isAdmin ? "/api/admin/users" : "/api/users"}?page=${state.adminUsersPage || 1}&q=${encodeURIComponent(state.adminUsersQuery || "")}`);
+  if(sequence!==loadAdminUsers.sequence)return;
+  state.adminUsers = data.users || []; state.adminUsersPagination = data.pagination;
+}
+
+async function loadAdminGames() {
+  const data = await api("/api/admin/games");
+  state.adminGames = data.games || [];
+}
+
+async function loadAdminTournaments() {
+  const data = await api(`/api/admin/tournaments?page=${state.adminTournamentsPage || 1}`);
+  state.adminTournaments = data.tournaments || []; state.adminTournamentsPagination = data.pagination;
+}
+
+async function openAdminTournamentList() {
+  await loadAdminTournaments();
+  state.adminTournamentMode = "list";
+  state.selectedTournamentId = null;
+  state.adminTournamentDetail = null;
+  syncAppHash();
+  renderTournaments();
+}
+
+async function loadTournamentAdmin() {
+  if (state.selectedTournamentId) {
+    await loadAdminTournamentDetail(state.selectedTournamentId);
+    return;
+  }
+  if (state.adminTournamentMode !== "create") await loadAdminTournaments();
+}
+
+async function loadAdminTournamentDetail(id) {
+  state.selectedTournamentId = Number(id);
+  state.adminTournamentDetail = await api(`/api/admin/tournaments/${state.selectedTournamentId}`);
+  await loadAdminUsers();
+}
+
+function adminTournamentAdminView() {
+  if (state.adminTournamentDetail) return adminTournamentDetailPanel(state.adminTournamentDetail);
+  if (state.adminTournamentMode === "create") return adminTournamentCreatePanel();
+  return adminTournamentsPanel();
+}
+
+function adminTournamentsPanel() {
+  const tournaments = state.adminTournaments || [];
+  return `
+    <section class="card panel admin-tournaments-panel">
+      <div class="panel-header">
+        <div>
+          <h2>${t("tournaments.tab.adminList")}</h2>
+          <p class="muted">${t("admin.tournament.list.hint")}</p>
+        </div>
+        ${state.me?.capabilities?.canCreateTournaments ? `<button class="primary-button" data-admin-tournament-new>${t("admin.tournament.list.create")}</button>` : ""}
+      </div>
+      ${tournamentListSections(tournaments, { admin: true, renderCard: adminTournamentRow })}
+      ${state.adminTournamentsPagination ? paginationMarkup("admin-tournaments",state.adminTournamentsPagination,"tournaments.pagination.items") : ""}
+      <div class="message" data-message></div>
+    </section>
+  `;
+}
+
+function adminRegistrationLimitField(tournament = {}, disabled = "") {
+  return `<div class="field">
+    <label for="tournament-registration-limit">${t("tournaments.registration.limit")}</label>
+    <input id="tournament-registration-limit" name="registrationLimit" type="number" min="1" step="1" value="${tournament.registrationLimit || ""}" placeholder="${t("tournaments.registration.optional")}" ${disabled}>
+    <span class="field-help">${t("tournaments.registration.limitHint")}</span>
+  </div>`;
+}
+
+function adminFactionCountField(tournament = {}, disabled = "") {
+  return `<div class="field"><label for="tournament-faction-count">${t("tournaments.factions.count")}</label>
+    <select id="tournament-faction-count" name="factionCount" ${disabled}>
+      ${[1, 2, 3].map(count => `<option value="${count}" ${(tournament.factionCount || 1) === count ? "selected" : ""}>${count}</option>`).join("")}
+    </select><span class="field-help">${t("tournaments.factions.countHint")}</span></div>`;
+}
+
+function registrationPaymentCheckbox(entry, kind) {
+  return `<div class="registration-payment">
+    <label><input type="checkbox" data-registration-paid="${entry.id}" data-registration-kind="${kind}" ${entry.paid ? "checked" : ""}><span>${t("tournaments.registration.paid")}</span></label>
+    <span class="field-help" data-payment-status role="status"></span>
+  </div>`;
+}
+
+function wireRegistrationPayments(data) {
+  if (!data?.tournament) return;
+  document.querySelectorAll("[data-registration-paid]").forEach((input) => {
+    if (input.dataset.paymentWired) return;
+    input.dataset.paymentWired = "1";
+    input.addEventListener("change", async () => {
+      const paid = input.checked;
+      const kind = input.dataset.registrationKind;
+      const status = input.closest(".registration-payment").querySelector("[data-payment-status]");
+      input.disabled = true;
+      status.textContent = t("admin.tournament.autosave.saving");
+      try {
+        const result = await api(`/api/admin/tournaments/${data.tournament.id}/${kind}/${input.dataset.registrationPaid}/payment`, {
+          method: "PATCH", body: { paid }
+        });
+        const entry = (data[kind] || []).find((item) => item.id === Number(input.dataset.registrationPaid));
+        if (entry) entry.paid = result.paid;
+        input.checked = result.paid;
+        status.textContent = t("admin.tournament.autosave.saved");
+      } catch (err) {
+        input.checked = !paid;
+        status.textContent = err.message;
+      } finally {
+        input.disabled = false;
+      }
+    });
+  });
+}
+
+function adminTournamentCreatePanel() {
+  return `
+    <section class="card panel">
+      <div class="panel-header">
+        <div>
+          <h2>${t("admin.tournament.create.title")}</h2>
+          <p class="muted">${t("admin.tournament.create.hint")}</p>
+        </div>
+        <button type="button" class="ghost-button" data-admin-tournament-create-cancel>${t("common.back")}</button>
+      </div>
+      ${adminTournamentSettingsContent({}, true)}
+      <div class="message" data-message></div>
+    </section>
+  `;
+}
+
+function adminTournamentRow(tournament) {
+  return `
+    <div class="row-card tournament-card">
+      <div class="row-main tournament-card-heading">
+        ${tournament.logoData ? tournamentLogoMarkup(tournament) : ""}
+        <div>
+        <a href="/tournament#/administration/tournaments/admin/${tournament.id}" data-app-link class="text-button row-title" data-admin-tournament-open="${tournament.id}">${escapeHtml(tournament.name || t("tournaments.list.untitled"))}</a>
+        <div class="row-meta">${escapeHtml(tournamentFormatLabel(tournament))} / ${escapeHtml(tournament.slug)} / ${tournament.startsAt ? fmtDate(tournament.startsAt) : t("tournaments.date.none")}</div>
+        </div>
+      </div>
+      <div class="tournament-card-actions">
+        <span class="status ${tournamentStatusClass(tournament.status)}">${escapeHtml(tournamentStatusLabel(tournament.status))}</span>
+        <div class="tournament-card-buttons">
+          <a href="/tournament#/administration/tournaments/admin/${tournament.id}" data-app-link class="small-button" data-admin-tournament-open="${tournament.id}">${t("admin.action.open")}</a>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function adminTournamentDetailPanel(data) {
+  return `
+    <section class="card panel admin-tournament-detail" data-live-view="adminTournament">
+      ${tournamentInfoPanel(data, {
+        admin: true,
+        actions: `<button type="button" class="ghost-button" data-admin-tournament-close>${t("common.back")}</button>
+          ${state.tournamentInfoTab === "settings" ? "" : `<button type="button" class="small-button" data-tournament-info-tab="settings">${t("common.edit")}</button>`}
+          ${adminTournamentMoreMenu(data)}`,
+        tabActions: (tab) => adminTournamentActionButtons(data, tab)
+      })}
+      <div class="message" data-message></div>
+    </section>
+  `;
+}
+
+function adminTournamentMoreMenu(data) {
+  const tournament = data.tournament || {};
+  const slug = escapeHtml(tournament.slug);
+  const exportButton = tournament.id && tournament.participantMode !== "team"
+    ? `<button type="button" class="small-button" data-admin-tournament-action="export-excel">${t("admin.tournament.action.exportExcel")}</button>`
+    : "";
+  return `
+    <details class="tournament-admin-more" data-admin-tournament-more>
+      <summary class="small-button">${t("admin.tournament.detail.more")}</summary>
+      <div class="tournament-admin-menu">
+        <a href="/tournaments/${slug}" data-app-link class="small-button" data-admin-tournament-public="${slug}">${t("admin.tournament.detail.viewPublic")}</a>
+        <button type="button" class="small-button" data-admin-tournament-copy="${escapeHtml(tournamentPublicUrl(tournament))}">${t("admin.tournament.detail.copyLink")}</button>
+        <button type="button" class="small-button" data-tournament-history>${t("admin.tournament.detail.history")}</button>
+        <details class="tournament-admin-maintenance">
+          <summary class="small-button">${t("admin.tournament.detail.management")}</summary>
+          <div class="tournament-admin-menu-group">
+            ${exportButton}
+            ${adminTournamentActionButtons(data, "maintenance")}
+            <button type="button" class="danger-button" data-admin-tournament-action="delete">${t("admin.tournament.detail.delete")}</button>
+          </div>
+        </details>
+      </div>
+    </details>
+  `;
+}
+
+function adminTournamentActionButtons(data, tab) {
+  const tournament = data.tournament || {};
+  const buttons = [];
+  if ((!tab || tab === "preview") && tournament.status === "draft") {
+    buttons.push(`<button class="primary-button" data-admin-tournament-action="publish-open">${t("admin.tournament.action.publishOpen")}</button>`);
+    buttons.push(`<button class="small-button" data-admin-tournament-action="publish-closed">${t("admin.tournament.action.publishClosed")}</button>`);
+  }
+  if ((!tab || tab === "participants") && tournament.status === "registration_open") {
+    buttons.push(`<button class="small-button" data-admin-tournament-action="close-registration">${t("admin.tournament.action.closeRegistration")}</button>`);
+  }
+  if ((!tab || tab === "participants") && tournament.status === "registration_closed") {
+    buttons.push(`<button class="small-button" data-admin-tournament-action="reopen-registration">${t("admin.tournament.action.reopenRegistration")}</button>`);
+  }
+  if ((!tab || tab === "matches") && tournament.status === "registration_closed") {
+    const prepared = (data.rounds || []).some((round) => round.roundNumber === 1 && round.status === "not_ready");
+    buttons.push(`<button class="${prepared ? "small-button" : "primary-button"}" data-admin-tournament-action="generate-next-round">${t(prepared ? "admin.tournament.action.editFirst" : tournament.roundDraft ? "admin.round.resumeDraft" : "admin.tournament.action.generateFirst")}</button>`);
+    if (prepared && tournament.participantMode === "team") buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round">${t("admin.tournament.action.rollbackLatestRound")}</button>`);
+    if (prepared) buttons.push(`<button class="primary-button" data-admin-tournament-action="start">${t("admin.tournament.action.start")}</button>`);
+  }
+  if ((!tab || tab === "matches") && tournament.status === "in_progress") {
+    const rollbackState = rollbackRoundActionState(data);
+    if (tournament.participantMode !== "team" && tournament.format === "swiss" &&
+        data.rounds?.at(-1)?.status === "active" && !tournament.roundDraft) {
+      buttons.push(`<button class="small-button" data-admin-tournament-action="edit-active-pairings">${t("admin.round.editPairings")}</button>`);
+    }
+    if (tournament.participantMode === "team" && (data.rounds || []).length && !tournament.roundDraft) {
+      buttons.push(`<button class="small-button" data-admin-tournament-action="edit-round-tables">${t("admin.round.editTables")}</button>`);
+    }
+    if (rollbackState.roundNumber) {
+      buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round" ${rollbackState.canRollback ? "" : "disabled"}>${t("admin.tournament.action.rollbackLatestRound")}</button>`);
+      if (!rollbackState.canRollback) buttons.push(`<span class="field-help">${t("admin.round.resultsLocked")}</span>`);
+    }
+    if (tournamentFinalStandingsReady(data) && canFinishTournamentUi(data)) {
+      buttons.push(`<button class="primary-button" data-admin-tournament-action="close-tournament">${t("admin.tournament.action.closeTournament")}</button>`);
+    } else {
+      const nextRoundState = nextRoundActionState(data);
+      if (nextRoundState.canGenerate) {
+        const label = tournament.roundDraft ? t("admin.round.resumeDraft") : (data.rounds || []).length ? t("admin.tournament.action.generateNext") : t("admin.tournament.action.generateFirst");
+        buttons.push(`<button class="primary-button" data-admin-tournament-action="generate-next-round">${label}</button>`);
+      } else if (nextRoundState.message) {
+        buttons.push(`<span class="muted">${escapeHtml(nextRoundState.message)}</span>`);
+      }
+    }
+  }
+  if ((!tab || tab === "maintenance") && tournament.participantMode !== "team" && ["in_progress", "completed"].includes(tournament.status)) {
+    buttons.push(`<button class="small-button" data-admin-tournament-action="recalculate-standings">${t("admin.tournament.action.recalculateStandings")}</button>`);
+  }
+  return buttons.join("");
+}
+
+function adminTournamentVenueAddressField(tournament = {}, disabledAttrs = "") {
+  const id = `tournament-venue-address-${tournament.id || "new"}`;
+  return `
+    <div class="field wide-panel" data-tournament-venue-address-field ${tournament.venueMode === "irl" ? "" : "hidden"}>
+      <label for="${id}">${t("admin.tournament.field.venueAddress")}</label>
+      <input id="${id}" name="venueAddress" type="text" maxlength="500"
+        value="${escapeHtml(tournament.venueAddress || "")}"
+        placeholder="${t("admin.tournament.field.venueAddressPlaceholder")}" ${disabledAttrs}>
+    </div>
+  `;
+}
+
+function updateTournamentVenueAddressField(form) {
+  const field = form.querySelector("[data-tournament-venue-address-field]");
+  const input = form.elements.venueAddress;
+  if (!field || !input) return;
+  if (input.dataset.venueBaseDisabled === undefined) {
+    input.dataset.venueBaseDisabled = input.disabled ? "1" : "0";
+  }
+  const isIrl = form.elements.venueMode?.value === "irl";
+  field.hidden = !isIrl;
+  input.disabled = !isIrl || input.dataset.venueBaseDisabled === "1";
+}
+
+function adminTournamentSetupForm(data, { active, creating, canApplyTiebreakers }) {
+  const tournament = data.tournament || {};
+  const readOnly = ["completed", "cancelled"].includes(tournament.status);
+  const lockAttrs = tournament.status === "in_progress" || readOnly ? "disabled" : "";
+  const textLockAttrs = readOnly ? "disabled" : "";
+  const canChangeSeason = creating || Boolean(state.me?.isSuperAdmin);
+  const existingRulesLinkType = tournament.rulesLinkType || "";
+  const rulesLinkValue = existingRulesLinkType === "url" ? tournament.rulesLink : "";
+  const isTeam = tournament.participantMode === "team";
+  const doubles = tournament.pairingType === "doubles";
+  const externalPanel = active === "tables" || (canApplyTiebreakers && active === "tiebreakers");
+  return `
+    <form class="admin-tournament-form tournament-settings-form" ${creating ? "data-admin-tournament-create" : "data-admin-tournament-update"}
+      data-existing-rules-link-type="${existingRulesLinkType}" ${externalPanel ? "hidden" : ""}>
+      ${adminTournamentSetupPanel("tournament", active, `
+        <div class="grid-2 tournament-setup-grid">
+          <div class="field">
+            <label for="tournament-setup-name">${t("admin.tournament.field.name")}</label>
+            <input id="tournament-setup-name" name="name" maxlength="120" value="${escapeHtml(tournament.name || "")}"
+              ${creating ? `required placeholder="${t("admin.tournament.field.namePlaceholder")}"` : lockAttrs}>
+          </div>
+          <div class="field">
+            <label for="tournament-setup-start">${t("admin.tournament.field.startsAt")}</label>
+            <input id="tournament-setup-start" name="startsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(tournament.startsAt))}" ${textLockAttrs}>
+          </div>
+          <div class="field">
+            <label for="tournament-setup-season">${t("tournaments.field.season")}</label>
+            <select id="tournament-setup-season" name="seasonId" ${canChangeSeason ? "" : "disabled"}>
+              ${seasons.map((season) => `<option value="${escapeHtml(season.id)}" ${(tournament.seasonId || newTournamentDefaultSeason().id) === season.id ? "selected" : ""}>${escapeHtml(season.name)}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label for="tournament-setup-venue">${t("tournaments.field.venue")}</label>
+            <select id="tournament-setup-venue" name="venueMode" ${lockAttrs}>
+              ${venueModeOptions.map((option) => `<option value="${escapeHtml(option.key)}" ${(tournament.venueMode || "tts") === option.key ? "selected" : ""}>${escapeHtml(t(option.labelKey))}</option>`).join("")}
+            </select>
+          </div>
+          ${adminTournamentVenueAddressField(tournament, textLockAttrs)}
+        </div>
+        <details class="admin-settings-section">
+          <summary>${t("admin.tournament.setup.extra")}</summary>
+          ${creating ? `<div class="field">
+            <label for="tournament-setup-slug">${t("admin.tournament.field.slug")}</label>
+            <input id="tournament-setup-slug" name="slug" maxlength="120" placeholder="${t("admin.tournament.optionalPlaceholder")}">
+          </div>` : ""}
+          ${tournamentLogoField(tournament, textLockAttrs)}
+        </details>
+        ${adminTournamentStaffContent(data)}
+      `)}
+      ${adminTournamentSetupPanel("format", active, `
+        <div class="grid-2 tournament-setup-grid">
+          <div class="field">
+            <label for="tournament-setup-participants">${t("admin.tournament.field.participantMode")}</label>
+            <select id="tournament-setup-participants" name="participantMode" data-admin-tournament-participant-mode ${lockAttrs}>
+              <option value="individual" ${isTeam ? "" : "selected"}>${t("tournaments.participantMode.individual")}</option>
+              <option value="team" ${isTeam ? "selected" : ""}>${t("tournaments.participantMode.team")}</option>
+            </select>
+          </div>
+          <div class="field" data-individual-mode-field>
+            <label for="tournament-setup-format">${t("admin.tournament.field.format")}</label>
+            <select id="tournament-setup-format" name="format" data-admin-tournament-format ${lockAttrs}>
+              <option value="single_elimination" ${tournament.format === "single_elimination" ? "selected" : ""}>${t("tournaments.format.singleElimination")}</option>
+              <option value="swiss" ${tournament.format === "swiss" ? "selected" : ""}>${t("tournaments.format.swiss")}</option>
+            </select>
+          </div>
+          <div class="field" data-format-field="single_elimination">
+            <label for="tournament-setup-bracket">${t("admin.tournament.field.bracketSize")}</label>
+            <select id="tournament-setup-bracket" name="singleEliminationSize" ${lockAttrs}>
+              ${singleEliminationSizes.map((size) => `<option value="${size}" ${!creating && Number(tournament.singleEliminationSize || 8) === size ? "selected" : ""}>${plural("admin.tournament.playerCount", size)}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field" data-format-field="swiss">
+            <label for="tournament-setup-rounds">${t("admin.tournament.field.swissRounds")}</label>
+            <input id="tournament-setup-rounds" name="swissRoundCount" type="number" min="1" value="${tournament.swissRoundCount || 3}" ${lockAttrs}>
+          </div>
+          <div class="field" data-format-field="swiss">
+            <label for="tournament-setup-pairing-mode">${t("admin.tournament.field.pairingMode")}</label>
+            <select id="tournament-setup-pairing-mode" name="pairingMode" ${textLockAttrs}><option value="backet_random">Backet Random</option><option value="by_tp" ${tournament.pairingMode === "by_tp" ? "selected" : ""}>By TP</option></select>
+          </div>
+          <div class="field" data-team-mode-field ${isTeam ? "" : "hidden"}>
+            <label for="tournament-setup-team-size">${t("admin.tournament.field.teamSize")}</label>
+            <input id="tournament-setup-team-size" data-team-size-label value="${t(doubles ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree")}" readonly ${lockAttrs}>
+          </div>
+          <div class="field" data-team-mode-field ${isTeam ? "" : "hidden"}>
+            <label for="tournament-setup-pairing-type">${t("admin.tournament.field.pairingType")}</label>
+            <select id="tournament-setup-pairing-type" name="pairingType" ${lockAttrs}>
+              <option value="shield_sword" ${tournament.pairingType === "shield_sword" ? "selected" : ""}>${t("tournaments.pairingType.shieldSword")}</option>
+              <option value="sword_shield_classic" ${tournament.pairingType === "sword_shield_classic" ? "selected" : ""}>${t("classic.name")}</option>
+              <option value="doubles" ${doubles ? "selected" : ""}>${t("doubles.name")}</option>
+            </select>
+          </div>
+          ${adminRegistrationLimitField(tournament, lockAttrs)}
+          ${adminFactionCountField(tournament, lockAttrs)}
+          <div class="field">
+            <label for="tournament-setup-rating">${t("admin.tournament.field.ratingPolicy")}</label>
+            <select id="tournament-setup-rating" name="ratingPolicy" ${lockAttrs}>
+              <option value="ranked" ${tournament.ratingPolicy === "ranked" ? "selected" : ""}>${t("tournaments.card.ranked")}</option>
+              <option value="unranked" ${tournament.ratingPolicy === "unranked" ? "selected" : ""}>${t("tournaments.card.unranked")}</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="tournament-setup-challenge">${t("nav.challenge")}</label>
+            <select id="tournament-setup-challenge" name="challengeCreditPolicy" ${lockAttrs}>
+              <option value="count" ${tournament.challengeCreditPolicy === "count" ? "selected" : ""}>${t("admin.tournament.field.enabled")}</option>
+              <option value="none" ${tournament.challengeCreditPolicy === "none" ? "selected" : ""}>${t("admin.tournament.field.disabled")}</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="tournament-setup-game">${t("admin.tournament.field.gameSystem")}</label>
+            <select id="tournament-setup-game" name="gameSystem" ${lockAttrs}>
+              ${gameSystemOptions.map((option) => `<option value="${escapeHtml(option)}" ${(tournament.gameSystem || gameSystemOptions[0]) === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        ${teamTournamentSettingsFields(tournament, textLockAttrs)}
+      `)}
+      ${adminTournamentSetupPanel("rules", active, `
+        ${markdownEditorField({
+          name: "tournamentRules",
+          label: t("admin.tournament.field.rules"),
+          placeholder: t("admin.tournament.field.rulesPlaceholder"),
+          value: tournamentRulesValue(tournament),
+          disabledAttrs: textLockAttrs
+        })}
+        <div class="field tournament-rules-upload">
+          <label for="tournament-setup-rules-link">${t("admin.tournament.field.rulesLink")}</label>
+          <input id="tournament-setup-rules-link" name="rulesLink" maxlength="2048" value="${escapeHtml(rulesLinkValue)}"
+            placeholder="${t("admin.tournament.field.rulesLinkPlaceholder")}" ${textLockAttrs}>
+          <div class="rules-file-row">
+            <input type="file" accept="application/pdf,.pdf" data-tournament-rules-file ${textLockAttrs}>
+            <input type="hidden" name="rulesFileData">
+            <span class="field-help" data-tournament-rules-file-status>${t(existingRulesLinkType === "pdf" ? "admin.tournament.field.existingPdf" : "admin.tournament.field.noPdfSelected")}</span>
+          </div>
+          ${tournament.rulesLink ? tournamentRulesLinkMarkup(tournament) : ""}
+        </div>
+      `)}
+      ${canApplyTiebreakers ? "" : adminTournamentSetupPanel("tiebreakers", active, `
+        <div class="tournament-tiebreakers" data-individual-mode-field>
+          ${tournamentTiebreakerHeading()}
+          ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], lockAttrs)}
+        </div>
+        <div data-team-mode-field ${isTeam ? "" : "hidden"}>
+          <div data-team-classic-settings ${doubles ? "hidden" : ""}>
+            ${teamTournamentTiebreakerFields(doubles ? { id: tournament.id } : tournament, textLockAttrs)}
+          </div>
+          <p class="muted" data-doubles-settings ${doubles ? "" : "hidden"}>${doublesStandingsHint()}</p>
+        </div>
+      `)}
+      <div class="admin-save-row">
+        ${creating ? `<button class="primary-button" type="submit">${t("admin.tournament.setup.createDraft")}</button>` : `
+          <button class="primary-button admin-save-button" type="submit" data-admin-tournament-save-button ${readOnly && !canChangeSeason ? "disabled" : ""}>${t("admin.tournament.edit.save")}</button>
+          <span class="autosave-status" data-admin-tournament-autosave-status aria-live="polite"></span>
+        `}
+      </div>
+    </form>
+  `;
+}
+
+function adminLiveTiebreakersForm(tournament) {
+  return `
+    <form class="tournament-live-tiebreakers" data-admin-tournament-tiebreakers>
+      ${tournament.participantMode === "team" ? teamTournamentTiebreakerFields(tournament) : `
+        <div class="tournament-tiebreakers">
+          ${tournamentTiebreakerHeading()}
+          ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [])}
+        </div>`}
+      <div class="admin-save-row">
+        <button class="primary-button" type="submit">${t("admin.tournament.setup.recalculate")}</button>
+        <span class="autosave-status" data-tiebreaker-save-status role="status"></span>
+      </div>
+    </form>
+  `;
+}
+
+function adminTournamentParticipantsPanel(data) {
+  return `
+    <section class="admin-subpanel">
+      ${adminTournamentParticipantsContent(data)}
+    </section>
+  `;
+}
+
+const adminSoloTableDrafts = new Map();
+const adminSoloTableSaves = new Set();
+let adminSoloTableWrites = Promise.resolve();
+
+function adminTournamentTablesContent(data) {
+  const tournament = data.tournament || {};
+  const size = teamSizeFor(tournament);
+  const tables = data.tables || [];
+  const readOnly = ["completed", "cancelled"].includes(tournament.status) || tournament.teamTablesLocked;
+  const sharedTables = tournament.participantMode === "team" && tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic";
+  const soloIrl = tournament.venueMode === "irl" && tournament.participantMode !== "team";
+  const cannotAdd = readOnly || (sharedTables && tables.length >= 3);
+  if (tournament.venueMode !== "irl" && tournament.participantMode !== "team") return `<div class="empty">${t("admin.tournament.tables.irlOnly", { venue: t("venue.irl") })}</div>`;
+  return `
+    <div class="tournament-table-admin" ${soloIrl ? "data-admin-solo-tables" : ""}>
+      <p><a href="/maps/index.html" target="_blank" rel="noopener">Каталог расстановок · 67 карт</a></p>
+      <form class="admin-table-form" data-admin-tournament-table-add>
+        <div class="grid-3">
+          <div class="field">
+            <label>${t("admin.tournament.tables.field.number")}</label>
+            <input name="tableNumber" type="number" min="1" placeholder="${t("admin.tournament.tables.field.numberPlaceholder")}" ${readOnly ? "disabled" : ""}>
+          </div>
+          <div class="field">
+            <label>${t("games.result.killzoneLabel")}</label>
+            <select name="killzone" ${readOnly ? "disabled" : ""}>
+              <option value="">${t("games.result.notSelected")}</option>
+              ${optionsHtml(killzoneOptions, "")}
+            </select>
+          </div>
+          <div class="field">
+            <label>${t("admin.tournament.tables.field.deployment")}</label>
+            <select name="deployment" ${readOnly ? "disabled" : ""}>
+              <option value="">${t("games.result.notSelected")}</option>
+              ${mapLayoutNumbers("").map((item) => `<option value="${item}">${item}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <button class="small-button" type="submit" ${cannotAdd ? "disabled" : ""}>${t("admin.tournament.tables.add")}</button>
+      </form>
+      <div class="list">
+        ${tables.length ? tables.map((table, index) => `${tournament.participantMode === "team" && !sharedTables && index % size === 0 ? `<h4>${t("classic.line", { number: index / size + 1 })}</h4>` : ""}${adminTournamentTableRow(table, readOnly, soloIrl)}`).join("") : `<div class="empty">${t("admin.tournament.tables.empty")}</div>`}
+      </div>
+    </div>
+  `;
+}
+
+function adminTournamentTableRow(table, readOnly, soloIrl) {
+  const selection = (soloIrl && !readOnly && adminSoloTableDrafts.get(table.id)) || table;
+  const disabled = readOnly || (soloIrl && adminSoloTableSaves.has(table.id)) ? "disabled" : "";
+  return `
+    <div class="row-card compact-row-card tournament-table-row" data-map-image-id="${Number(table.imageId) || 0}"
+      ${soloIrl ? `data-admin-solo-table="${table.id}" ${readOnly ? "data-table-read-only" : ""}` : ""}>
+      <div class="row-main">
+        <div class="row-title">${t("tournaments.match.table", { number: table.tableNumber })}
+          ${soloIrl ? `<span class="autosave-status" data-admin-table-status role="status"></span>` : ""}
+        </div>
+        ${soloIrl ? "" : `<div class="row-meta">${escapeHtml(table.killzone || t("admin.tournament.tables.noKillzone"))} / ${t("tournaments.mission.deployment", { layout: mapLayoutLabel(table) || "-" })}</div>`}
+        <div class="table-admin-controls">
+          <div class="field">
+            <label for="table-killzone-${table.id}">${t("games.result.killzoneLabel")}</label>
+            <select id="table-killzone-${table.id}" name="table-killzone-${table.id}" ${disabled}>
+              <option value="">${t("games.result.notSelected")}</option>
+              ${optionsHtml(killzoneOptions, selection.killzone || "")}
+            </select>
+          </div>
+          <div class="field">
+            <label for="table-deployment-${table.id}">${t("admin.tournament.tables.field.deployment")}</label>
+            <select id="table-deployment-${table.id}" name="table-deployment-${table.id}" ${disabled}>
+              <option value="">${t("games.result.notSelected")}</option>
+              ${mapLayoutNumbers(selection.killzone).map((item) => `<option value="${item}" ${Number(selection.deployment) === item ? "selected" : ""}>${item}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="row-actions">
+        ${soloIrl ? `<button type="button" class="small-button" data-admin-table-generate aria-describedby="table-generate-hint-${table.id}" disabled>${adminLabel("Сгенерировать", "Generate")}</button>` : ""}
+        <button type="button" class="${soloIrl ? "primary-button" : "small-button"}" data-admin-table-save="${table.id}" ${disabled}>${t("common.save")}</button>
+        <button type="button" class="danger-button" data-admin-table-delete="${table.id}" ${disabled}>${t("common.delete")}</button>
+      </div>
+      ${soloIrl ? `<p class="field-help" id="table-generate-hint-${table.id}" data-admin-table-generate-hint hidden></p>` : ""}
+    </div>
+  `;
+}
+
+function adminTournamentParticipantsContent(data) {
+  const tournament = data.tournament || {};
+  if (tournament.participantMode === "team") return adminTeamRostersContent(data);
+  const participants = data.participants || [];
+  const visibleParticipants = listedTournamentParticipants(participants);
+  const canRemove = !["completed", "cancelled"].includes(tournament.status);
+  const canBulkAdd = !["in_progress", "completed", "cancelled"].includes(tournament.status);
+  const readOnly = ["completed", "cancelled"].includes(tournament.status);
+  const seedLocked = ["in_progress", "completed", "cancelled"].includes(tournament.status);
+  const hasCompetitiveParticipants = participants.some((participant) =>
+    ["joined", "active"].includes(participant.status)
+  );
+  const availableUsers = availableTournamentUsers(participants);
+  return `
+    <div class="tournament-participant-admin">
+      <div class="participant-admin-note muted">
+        ${tournament.format === "swiss" && tournament.status === "in_progress" ? t("admin.tournament.participants.lateAddsNote") : t("admin.tournament.participants.hint")}
+      </div>
+      <form class="admin-participant-form" data-admin-tournament-add-participant>
+        <div class="grid-2">
+          ${comboField(t("admin.tournament.participants.tgtvUserLabel"), "userId", "users", "", t("admin.tournament.participants.unregisteredPlaceholder"), {
+            optional: true,
+            valueMode: "value",
+            items: userComboItems(availableUsers)
+          })}
+          <div class="field">
+            <label>${t("admin.tournament.participants.displayNameLabel")}</label>
+            <input name="displayName" maxlength="80" placeholder="${t("admin.tournament.participants.displayNamePlaceholder")}">
+          </div>
+        </div>
+        ${tournamentFactionFields(tournament, "faction", {}, { optional: true })}
+        <button class="small-button" type="submit">${t("admin.tournament.participants.add")}</button>
+      </form>
+      ${canBulkAdd ? `
+        <form class="admin-participant-form" data-admin-tournament-bulk>
+          <div class="field">
+            <label>${t("admin.tournament.participants.bulkLabel")}</label>
+            <textarea name="names" placeholder="${t("admin.tournament.participants.bulkPlaceholder")}"></textarea>
+          </div>
+          <button class="small-button" type="submit">${t("admin.tournament.participants.bulkAdd")}</button>
+        </form>
+      ` : ""}
+      <div class="list">
+        ${visibleParticipants.length ? visibleParticipants.map((participant) => adminTournamentParticipantAdminRow(participant, data, {
+          canRemove,
+          readOnly,
+          seedLocked
+        })).join("") : `<div class="empty">${t("tournaments.participants.empty")}</div>`}
+      </div>
+      <div class="row-actions">
+        <button class="small-button" data-admin-tournament-regenerate-seeds ${seedLocked || !hasCompetitiveParticipants ? "disabled" : ""}>${t("admin.tournament.participants.regenerateSeeds")}</button>
+        <button class="small-button" data-admin-tournament-save-seeds ${seedLocked ? "disabled" : ""}>${t("admin.tournament.participants.saveSeeds")}</button>
+      </div>
+    </div>
+  `;
+}
+
+function adminTournamentParticipantAdminRow(participant, data, options = {}) {
+  const tournament = data.tournament || {};
+  const participants = data.participants || [];
+  const inactive = ["withdrawn", "removed"].includes(participant.status);
+  const locked = options.readOnly || inactive;
+  const canRemove = options.canRemove && canRemoveTournamentParticipant(data, participant);
+  const replacementUsers = availableTournamentUsers(participants, participant.id)
+    .filter((user) => user.id !== participant.userId);
+  const replaceLabel = participant.userId || participant.isProxy ? t("admin.tournament.participants.replace") : t("admin.tournament.participants.linkUser");
+  const replacePlaceholder = participant.userId || participant.isProxy ? t("admin.tournament.participants.replacePlaceholder") : t("admin.tournament.participants.linkPlaceholder");
+  const replacementLocked = locked || ["eliminated", "finished"].includes(participant.status);
+  const replaceDisabled = replacementLocked;
+  return `
+    <div class="row-card compact-row-card participant-admin-row">
+      <div class="row-main">
+        <div class="row-title">${tournamentParticipantProfileLink(participant)}</div>
+        <div class="row-meta">${t("admin.tournament.participants.seedLabel", { seed: participant.seed || "-" })} / ${escapeHtml(participantUserLabel(participant))} / ${escapeHtml(tournamentFactionsLabel(participant))}</div>
+        <div class="participant-admin-controls">
+          <div class="participant-faction-control">
+            ${tournamentFactionFields(tournament, `participant-faction-${participant.id}`, participant, { optional: true, disabled: locked })}
+            <button class="small-button" data-admin-participant-save-faction="${participant.id}" ${locked ? "disabled" : ""}>${t("admin.tournament.participants.saveFaction")}</button>
+          </div>
+          <div class="participant-replace-control">
+              ${comboField(t("admin.tournament.participants.registeredUserLabel"), `replacement-user-${participant.id}`, "users", "", replacePlaceholder, {
+                optional: true,
+                valueMode: "value",
+                items: userComboItems(replacementUsers),
+                disabled: replaceDisabled,
+                valueAttributes: `data-admin-participant-replace-user="${participant.id}"`
+              })}
+            <div class="participant-replace-row">
+              <button class="small-button" data-admin-participant-replace="${participant.id}" ${replaceDisabled ? "disabled" : ""}>${replaceLabel}</button>
+              <button class="small-button" data-admin-participant-proxy="${participant.id}" ${replacementLocked || participant.isProxy ? "disabled" : ""}>${t("admin.tournament.participants.replaceProxy")}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row-actions">
+        <input class="seed-input" type="number" min="1" value="${participant.seed || 1}" data-participant-seed="${participant.id}" ${options.seedLocked || !["joined", "active"].includes(participant.status) ? "disabled" : ""}>
+        ${registrationPaymentCheckbox(participant, "participants")}
+        <span class="status ${participant.status === "active" || participant.status === "joined" ? "completed" : participant.status === "pending_placement" ? "pending" : ""}">${escapeHtml(tournamentParticipantStatusLabel(participant.status))}</span>
+        ${canRemove ? `<button class="danger-button" data-admin-participant-remove="${participant.id}">${t("admin.tournament.participants.remove")}</button>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function adminTournamentStandingsPanel(data) {
+  return `
+    <section class="admin-subpanel">
+      <div class="panel-header">
+        <div>
+          <h3>${t("tournaments.tab.standings")}</h3>
+          <p class="muted">${standingsSubtitle(data.tournament || {})}</p>
+        </div>
+      </div>
+      ${publicStandingsTable(data)}
+    </section>
+  `;
+}
+
+function adminTournamentRoundsPanel(data) {
+  const rounds = data.rounds || [];
+  if (!rounds.length) {
+    return `<section class="admin-subpanel wide-panel"><div class="empty">${t("tournaments.matches.empty")}</div></section>`;
+  }
+  return `
+    <section class="admin-subpanel wide-panel">
+      <div class="panel-header">
+        <div>
+          <h3>${t("admin.tournament.rounds.title")}</h3>
+          <p class="muted">${t("admin.tournament.rounds.hint")}</p>
+        </div>
+      </div>
+      ${tournamentRoundsTabbedMarkup(rounds, match => adminTournamentMatchMarkup(match, data), data.tournament?.id, data.tournament)}
+    </section>
+  `;
+}
+
+function adminTournamentMatchMarkup(match, data = {}) {
+  const canResult = ["active", "pending_confirmation", "completed"].includes(match.status) && !match.isBye && match.participantA && match.participantB;
+  const canReset = data.tournament?.status === "in_progress" && data.tournament?.format === "swiss" &&
+    data.tournament?.participantMode !== "team" && !data.tournament?.roundDraft &&
+    data.rounds?.at(-1)?.id === match.roundId && !match.isBye &&
+    ["completed", "pending_confirmation"].includes(match.status);
+  const actionLabel = match.status === "completed" ? t("play.action.editResult") : t("play.action.enterResult");
+  const meta = [publicMatchScore(match), matchSetupMeta(match)].filter(Boolean).join(" / ");
+  return `
+    <details class="row-card tournament-match-disclosure" data-match-disclosure="${match.id}" ${state.tournamentMatchViews?.[data.tournament?.id]?.expanded?.[match.id] ? "open" : ""}>
+      <summary>
+      <div class="row-main">
+        <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
+        <div class="row-meta">${escapeHtml(publicMatchScore(match))}</div>
+      </div>
+        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
+      </summary>
+      <div class="tournament-match-content">
+        <div class="row-meta">${escapeHtml(meta)}</div>
+        ${match.isBye ? "" : teamTableImageMarkup(match.table?.imageId ? match.table : match.mission || match.table)}
+        ${pairingWarningsMarkup(individualPairingWarnings(match, data))}
+        <div class="row-actions">
+        ${canResult ? `<button class="small-button" data-admin-tournament-match-result="${match.id}">${actionLabel}</button>` : ""}
+        ${canReset ? `<button class="danger-button" data-admin-tournament-match-reset="${match.id}">${t("admin.round.resetMatch")}</button>` : ""}
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function adminActiveGamesPanel() {
+  const games = state.adminGames || [];
+  return `
+    <section class="card panel" data-live-view="sessions">
+      <div class="panel-header">
+        <div>
+          <h2>${t("games.tabs.sessions")}</h2>
+          <p class="muted">${t("admin.games.hint")}</p>
+        </div>
+      </div>
+      <div class="list">
+        ${games.length ? games.map((game) => {
+          const pending = game.status === "pending_confirmation";
+          return `
+            <div class="row-card">
+              <div class="row-main">
+                <div class="row-title">${escapeHtml(gameTitle(game))}</div>
+                <div class="row-meta">${escapeHtml(pending ? pendingResultSummary(game) : t("admin.games.acceptedMatch", { date: fmtDate(game.createdAt) }))}</div>
+              </div>
+              <div class="row-actions">
+                <span class="status ${pending ? "pending" : "open"}">${pending ? t("play.game.status.pending") : t("admin.games.status.open")}</span>
+                <a href="/tournament#/administration/games/game/${game.id}" data-app-link class="small-button" data-admin-game-open="${game.id}">${t("admin.action.open")}</a>
+                ${pending && game.pendingResult?.result ? `<button class="small-button" data-admin-game-confirm="${game.id}">${t("games.detail.forceConfirm")}</button>` : ""}
+                <button class="danger-button" data-admin-game-delete="${game.id}">${t("common.delete")}</button>
+              </div>
+            </div>
+          `;
+        }).join("") : `<div class="empty">${t("admin.games.empty")}</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function filterAdminUsers(users, query) {
+  const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
+  if (!normalizedQuery) return users;
+  const telegramUsername = (value) => String(value || "").trim().toLocaleLowerCase()
+    .replace(/^(?:https?:\/\/)?(?:t\.me\/)?@?/, "").replace(/\/$/, "");
+  const telegramQuery = telegramUsername(normalizedQuery);
+  return users.filter((user) =>
+    String(user.name || "").toLocaleLowerCase().includes(normalizedQuery) ||
+    (telegramQuery && telegramUsername(user.telegramContact).includes(telegramQuery))
+  );
+}
+
+function adminTeamRostersContent(data) {
+  const tournament = data.tournament || {};
+  const started = Boolean(tournament.startedAt) || ["in_progress", "completed"].includes(tournament.status);
+  const rosters = data.rosters || [];
+  const seedLocked = ["in_progress", "completed", "cancelled"].includes(tournament.status);
+  const canAddRoster = !["in_progress", "completed", "cancelled"].includes(tournament.status);
+  const active = rosters.filter((roster) => roster.status !== "withdrawn");
+  return `<div class="tournament-participant-admin">
+    <div class="panel-header">
+      <p class="participant-admin-note muted">${t("teams.tournament.adminRosterHint")} ${t(started ? "teams.tournament.removeAfterStartHint" : "teams.tournament.deleteHint")}</p>
+      <div class="row-actions"><button class="primary-button" data-admin-team-roster-add ${canAddRoster ? "" : "disabled"}>${t("teams.tournament.add")}</button><button class="small-button" data-admin-team-roster-reserve ${canAddRoster ? "" : "disabled"}>${t("teams.reserve.add")}</button></div>
+    </div>
+    <div class="list">${rosters.length ? rosters.map((roster) => `
+      <div class="row-card team-roster-admin-row ${roster.status === "withdrawn" ? "is-muted" : ""}">
+        <div class="row-main">
+          <div class="roster-heading roster-heading-compact">${rosterTeamLogoMarkup(roster)}<div>
+            <div class="row-title">${teamRosterLabel(roster)}</div>
+            <div class="row-meta">${t("teams.roster.seed", { seed: roster.seed || "-" })} · ${rosterTeamLinkMarkup(roster)} · ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
+          </div></div>
+          <div class="team-roster-members">${activeRosterMembersForUi(roster).map((member) => `<span>${escapeHtml(member.displayNameSnapshot)} · ${escapeHtml(tournamentFactionsLabel(member))}${member.userId && member.userId === roster.captainUserId ? ` · ${t("teams.role.captain")}` : ""}</span>`).join("")}</div>
+        </div>
+        <div class="row-actions">
+          ${roster.status !== "withdrawn" ? `<input class="seed-input" type="number" min="1" max="128" value="${roster.seed || 1}" data-team-roster-seed="${roster.id}" ${seedLocked ? "disabled" : ""}>` : ""}
+          ${registrationPaymentCheckbox(roster, "rosters")}
+          ${canEditTeamRosterDetails(data, roster) ? `<button class="small-button" data-roster-details-edit="${roster.id}">${t("teams.roster.editDetails")}</button>` : ""}
+          ${!["withdrawn", "finished"].includes(roster.status) && !["completed", "cancelled"].includes(tournament.status) ? `<button class="small-button" data-admin-team-roster-edit="${roster.id}">${t(roster.isReserve ? "teams.reserve.fill" : "teams.tournament.edit")}</button>` : ""}
+          ${!seedLocked && roster.status !== "withdrawn" ? `<button class="danger-button" data-admin-team-roster-withdraw="${roster.id}">${t("teams.tournament.withdraw")}</button>` : ""}
+          ${!started || roster.status !== "withdrawn" ? `<button class="danger-button" data-admin-team-roster-delete="${roster.id}">${t("teams.tournament.delete")}</button>` : ""}
+        </div>
+      </div>`).join("") : `<div class="empty">${t("teams.tournament.rostersEmpty")}</div>`}</div>
+    <div class="row-actions"><button class="small-button" data-admin-team-roster-save-seeds ${seedLocked || !active.length ? "disabled" : ""}>${t("admin.tournament.participants.saveSeeds")}</button></div>
+  </div>`;
+}
+
+function openReservedRosterCreator(data) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "tiebreaker-help-dialog";
+  dialog.innerHTML = `<form class="tiebreaker-help-content"><h3>${t("teams.reserve.add")}</h3><p>${t("teams.reserve.hint")}</p>
+    <label>${t("teams.tournament.rosterName")}<input name="name" minlength="2" maxlength="80" required></label>
+    <p class="message" data-reserve-error></p><div class="row-actions"><button type="button" class="small-button" data-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("common.save")}</button></div></form>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
+  dialog.querySelector("[data-cancel]").addEventListener("click", close);
+  dialog.querySelector("form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const submit = event.currentTarget.querySelector('[type="submit"]');
+    submit.disabled = true;
+    try {
+      await api(`/api/admin/tournaments/${data.tournament.id}/rosters`, { method: "POST", body: { reserve: true, name: event.currentTarget.elements.name.value } });
+      close();
+      await refreshTeamTournamentUi(data, { admin: true });
+    } catch (error) { dialog.querySelector("[data-reserve-error]").textContent = error.message; submit.disabled = false; }
+  });
+  wireRemoteUserPickers(dialog);
+  dialog.showModal();
+  dialog.querySelector("input").focus();
+}
+
+async function openAdminTeamRosterCreator(data, reserve = null) {
+  const response = await api("/api/teams");
+  const teams = (response.teams || []).filter((team) => !team.archivedAt);
+  if (!teams.length) {
+    setMessage(t("teams.tournament.adminNoEligibleTeam"), true);
+    return;
+  }
+
+  const dialog = document.createElement("dialog");
+  dialog.className = "tiebreaker-help-dialog team-roster-editor-dialog";
+  dialog.innerHTML = `<form class="tiebreaker-help-content" data-admin-team-roster-creator>
+    <div class="tiebreaker-help-header"><div><h3>${t("teams.tournament.addTitle")}</h3></div><button class="dialog-close-button" type="button" data-team-roster-creator-close aria-label="${t("common.close")}">&times;</button></div>
+    <div class="grid-2">
+      <div class="field"><label>${t("teams.tournament.team")}</label><select name="teamId" required>${teams.map((team) => `<option value="${team.id}">${escapeHtml(team.name)}</option>`).join("")}</select></div>
+      <div class="field"><label>${t("teams.tournament.rosterName")}</label><input name="name" minlength="2" maxlength="80" data-default-name="${escapeHtml(suggestedRosterName(teams[0], data.rosters))}" value="${escapeHtml(suggestedRosterName(teams[0], data.rosters))}"></div>
+    </div>
+    <div data-admin-team-roster-creator-members><div class="empty">${t("teams.loading")}</div></div>
+    <div class="message" data-admin-team-roster-creator-message></div>
+    <div class="row-actions"><button class="small-button" type="button" data-team-roster-creator-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit" data-team-roster-creator-submit disabled>${t("teams.tournament.add")}</button></div>
+  </form>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("[data-team-roster-creator-close]")?.addEventListener("click", close);
+  dialog.querySelector("[data-team-roster-creator-cancel]")?.addEventListener("click", close);
+  const form = dialog.querySelector("[data-admin-team-roster-creator]");
+  if (reserve) form.elements.name.value = reserve.name;
+  const fields = form.querySelector("[data-admin-team-roster-creator-members]");
+  const submit = form.querySelector("[data-team-roster-creator-submit]");
+  const message = form.querySelector("[data-admin-team-roster-creator-message]");
+  let loadedTeamId = null;
+  let loadVersion = 0;
+  const showError = (value = "") => {
+    message.textContent = value;
+    message.classList.toggle("error", Boolean(value));
+  };
+  const loadSelectedTeam = async () => {
+    const version = ++loadVersion;
+    const team = teams.find((item) => item.id === Number(form.elements.teamId.value));
+    loadedTeamId = null;
+    submit.disabled = true;
+    showError();
+    fields.innerHTML = `<div class="empty">${t("teams.loading")}</div>`;
+    if (!reserve) updateRosterNameDefault(form, team, data.rosters);
+    try {
+      const profile = await api(`/api/teams/${team.id}/members`);
+      if (version !== loadVersion) return;
+      const selectedTeam = { ...profile.team, members: profile.currentMembers || [] };
+      fields.innerHTML = teamRosterMemberFields(selectedTeam, null, { allowProxies: true, teamSize: teamSizeFor(data.tournament), tournament: data.tournament });
+      wireTeamRosterMemberSelection(form);
+      loadedTeamId = selectedTeam.id;
+      submit.disabled = false;
+    } catch (err) {
+      if (version !== loadVersion) return;
+      fields.innerHTML = "";
+      showError(err.message);
+    }
+  };
+  form.elements.teamId.addEventListener("change", loadSelectedTeam);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const teamId = Number(form.elements.teamId.value);
+    if (!loadedTeamId || loadedTeamId !== teamId) return;
+    const selected = teamRosterMembersFromForm(form);
+    if (!teamRosterPlayersAreUnique(selected)) {
+      showError(t("teams.tournament.uniquePlayersRequired"));
+      return;
+    }
+    submit.disabled = true;
+    showError();
+    try {
+      await api(reserve ? `/api/tournaments/${data.tournament.id}/rosters/${reserve.id}` : `/api/admin/tournaments/${data.tournament.id}/rosters`, { method: reserve ? "PATCH" : "POST", body: {
+        teamId,
+        name: rosterNameFromForm(form),
+        captainUserId: form.elements.captainUserId.value ? Number(form.elements.captainUserId.value) : null,
+        members: selected
+      } });
+      close();
+      await refreshTeamTournamentUi(data, { admin: true });
+    } catch (err) {
+      showError(err.message);
+      submit.disabled = false;
+    }
+  });
+  wireRemoteUserPickers(dialog);
+  dialog.showModal();
+  await loadSelectedTeam();
+}
+
+async function openAdminTeamRosterEditor(data, roster) {
+  if (roster.isReserve) return openAdminTeamRosterCreator(data, roster);
+  const profile = await api(`/api/teams/${roster.teamId}/members`);
+  const members = profile.currentMembers || [];
+  const dialog = document.createElement("dialog");
+  dialog.className = "tiebreaker-help-dialog team-roster-editor-dialog";
+  dialog.innerHTML = `<form class="tiebreaker-help-content" data-admin-team-roster-editor>
+    <div class="tiebreaker-help-header"><div><h3>${t("teams.tournament.editTitle")}</h3><p>${escapeHtml(roster.teamNameSnapshot || "")}</p></div><button class="dialog-close-button" type="button" data-team-roster-editor-close aria-label="${t("common.close")}">&times;</button></div>
+    <div class="field"><label>${t("teams.tournament.rosterName")}</label><input name="name" minlength="2" maxlength="80" value="${escapeHtml(roster.name || "")}" required></div>
+    ${teamRosterMemberFields({ members }, roster, { allowProxies: true, teamSize: teamSizeFor(data.tournament), tournament: data.tournament })}
+    <div class="row-actions"><button class="small-button" type="button" data-team-roster-editor-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("common.save")}</button></div>
+  </form>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("[data-team-roster-editor-close]")?.addEventListener("click", close);
+  dialog.querySelector("[data-team-roster-editor-cancel]")?.addEventListener("click", close);
+  const form = dialog.querySelector("[data-admin-team-roster-editor]");
+  wireTeamRosterMemberSelection(form);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const selected = teamRosterMembersFromForm(form);
+    if (!teamRosterPlayersAreUnique(selected)) {
+      setMessage(t("teams.tournament.uniquePlayersRequired"), true);
+      return;
+    }
+    try {
+      await api(`/api/tournaments/${data.tournament.id}/rosters/${roster.id}`, { method: "PATCH", body: {
+        name: form.elements.name.value,
+        captainUserId: form.elements.captainUserId.value ? Number(form.elements.captainUserId.value) : null,
+        members: selected
+      } });
+      close();
+      await refreshTeamTournamentUi(data, { admin: true });
+    } catch (err) { setMessage(err.message, true); }
+  });
+  wireRemoteUserPickers(dialog);
+  dialog.showModal();
+}
+
+function adminUsersPanel() {
+  const filteredUsers = state.adminUsers;
+  return `
+    <section class="card panel">
+      <div class="panel-header">
+        <div>
+          <h2>${t("leaderboard.tab.users")}</h2>
+          <p class="muted">${t("leaderboard.users.hint")}</p>
+        </div>
+      </div>
+      <div class="filter-row">
+        <div class="field compact-field">
+          <label for="admin-users-search">${t("leaderboard.users.searchLabel")}</label>
+          <input id="admin-users-search" type="search" value="${escapeHtml(state.adminUsersQuery)}" placeholder="${t("leaderboard.users.searchPlaceholderTelegram")}" autocomplete="off" data-admin-users-search>
+          <span class="field-help">${t("leaderboard.users.searchHint")}</span>
+        </div>
+      </div>
+      <div data-admin-users-results>
+        ${adminUsersResultsMarkup(filteredUsers)}
+      </div>
+      <div class="message" data-message></div>
+    </section>
+  `;
+}
+
+function adminTeamPairingOverrideForm(match) {
+  if (match.phase !== "environment_selection" || (match.games || []).length || !(match.pairings || []).length) return "";
+  const membersA = activeRosterMembersForUi(match.rosterA);
+  const membersB = activeRosterMembersForUi(match.rosterB);
+  const options = (members, selectedId) => members.map((member) => `<option value="${member.id}" ${member.id === Number(selectedId) ? "selected" : ""}>${escapeHtml(teamPairingMemberLabel(member))}</option>`).join("");
+  return `<form class="team-pairing-override" data-team-pairings-override="${match.id}" data-pairing-phase="${escapeHtml(match.phase)}">
+    <strong>${t("teams.pairing.override")}</strong>
+    ${(match.pairings || []).map((pairing, index) => `<div class="team-pairing-override-row"><span>${index + 1}</span><select name="pair-a-${index + 1}" data-user-search data-user-search-label="${t("admin.roundSetup.playerA")}" required>${options(membersA, pairing.rosterAMemberId)}</select><span>vs</span><select name="pair-b-${index + 1}" data-user-search data-user-search-label="${t("admin.roundSetup.playerB")}" required>${options(membersB, pairing.rosterBMemberId)}</select></div>`).join("")}
+    <button class="small-button" type="submit">${t("teams.pairing.saveOverride")}</button>
+  </form>`;
+}
+
+function adminUsersResultsMarkup(users) {
+  const pageData = remotePage(users,state.adminUsersPagination,state.adminUsersPage);
+  state.adminUsersPage = pageData.currentPage;
+  return '<div class="list">' + pageData.items.map(user => `<div class="row-card"><div class="row-main"><a href="/tournament#/administration/players/${user.id}" data-app-link class="text-link-button" data-profile-user="${user.id}">${escapeHtml(user.name)}</a><div class="row-meta">${user.isSuperAdmin ? adminLabel("Супер-администратор", "Super administrator") : user.isAdmin ? adminLabel("Администратор · судья всех турниров", "Administrator · judge of all tournaments") : user.canCreateTournaments ? adminLabel("Игрок · может создавать турниры", "Player · can create tournaments") : adminLabel("Игрок", "Player")}${user.suspendedUntil && new Date(user.suspendedUntil) > new Date() ? ' · ' + adminLabel("Заблокирован", "Suspended") : ''}</div></div><button class="small-button" data-role-user="${user.id}">${adminLabel("Управление", "Manage")}</button></div>`).join('') + '</div>' + paginationMarkup("admin-users", pageData, "leaderboard.users.pagination.users");
+}
+
+function renderAdmin() {
+  state.administrationContext = true;
+  state.view = "tournaments";
+  state.tournamentsTab = "admin";
+  renderTournaments();
+}
+
+function wireAdminUserControls() {
+  wireRemoteAdminSearch('[data-admin-users-search]','adminUsersQuery','adminUsersPage',loadAdminUsers,()=>{
+    document.querySelector('[data-admin-users-results]').innerHTML=adminUsersResultsMarkup(state.adminUsers);
+    wirePaginationControls(); wireAdminUserRowControls();
+  });
+  wireAdminUserRowControls();
+}
+
+function wireAdminUserRowControls() {
+  wireRoleUserButtons();
+  document.querySelectorAll("[data-save-rating]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const id = button.dataset.saveRating;
+      const ratingCombined = Number(document.querySelector(`[data-rating-combined="${id}"]`).value);
+      const ratingTts = Number(document.querySelector(`[data-rating-tts="${id}"]`).value);
+      const ratingIrl = Number(document.querySelector(`[data-rating-irl="${id}"]`).value);
+      await adminPatch(id, { ratingCombined, ratingTts, ratingIrl });
+    });
+  });
+  document.querySelectorAll("[data-admin-toggle]").forEach((checkbox) => {
+    checkbox.addEventListener("change", async () => {
+      await adminPatch(checkbox.dataset.adminToggle, { isAdmin: checkbox.checked });
+    });
+  });
+  document.querySelectorAll("[data-delete-user]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const user = state.adminUsers.find((item) => item.id === Number(button.dataset.deleteUser));
+      if (!await confirmDelete(t("dialog.admin.deleteUser", { name: user?.name || "" }))) return;
+      try {
+        await api(`/api/admin/users/${button.dataset.deleteUser}`, { method: "DELETE" });
+        await refresh();
+        await loadAdminUsers();
+        await loadTop();
+        renderShell();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
+  });
+  wireLeaderboardProfiles();
+}
+
+function wireAdminGameButtons() {
+  document.querySelectorAll("[data-admin-game-open]").forEach((button) => {
+    onLive(button, "click", async () => {
+      await openGameDetail(Number(button.dataset.adminGameOpen));
+    });
+  });
+  document.querySelectorAll("[data-admin-game-confirm]").forEach((button) => {
+    onLive(button, "click", async () => {
+      await adminForceConfirmGame(Number(button.dataset.adminGameConfirm));
+    });
+  });
+  document.querySelectorAll("[data-admin-game-delete]").forEach((button) => {
+    onLive(button, "click", async () => {
+      await adminDeleteGame(Number(button.dataset.adminGameDelete));
+    });
+  });
+}
+
+function wireAdminTournamentSetupTabs() {
+  const setup = document.querySelector("[data-tournament-setup]");
+  if (!setup) return;
+  const form = setup.querySelector(".tournament-settings-form");
+  const tabs = [...setup.querySelectorAll("[data-tournament-setup-tab]")];
+  const panels = [...setup.querySelectorAll("[data-tournament-setup-panel]")];
+  const selectTab = (tab) => {
+    const id = tab.dataset.tournamentSetupTab;
+    tabs.forEach((button) => {
+      const selected = button === tab;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-selected", String(selected));
+      button.tabIndex = selected ? 0 : -1;
+    });
+    panels.forEach((panel) => { panel.hidden = panel.dataset.tournamentSetupPanel !== id; });
+    form.hidden = !form.contains(document.getElementById(tab.getAttribute("aria-controls")));
+    state.tournamentSetupTab = id;
+    rememberNavigationContext();
+  };
+  tabs.forEach((tab, index) => {
+    onLive(tab, "click", () => selectTab(tab));
+    onLive(tab, "keydown", (event) => {
+      const keys = { ArrowLeft: (index + tabs.length - 1) % tabs.length, ArrowRight: (index + 1) % tabs.length, Home: 0, End: tabs.length - 1 };
+      if (!Object.hasOwn(keys, event.key)) return;
+      event.preventDefault();
+      const next = tabs[keys[event.key]];
+      selectTab(next);
+      next.focus();
+    });
+  });
+  // Reveal the first invalid field before the browser focuses it on submit.
+  form.addEventListener("invalid", (event) => {
+    if (event.target !== form.querySelector(":invalid")) return;
+    const panel = event.target.closest("[data-tournament-setup-panel]");
+    if (panel?.hidden) selectTab(tabs.find((tab) => tab.getAttribute("aria-controls") === panel.id));
+  }, true);
+}
+
+function wireAdminTournamentFormBehavior() {
+  wireAdminTournamentSetupTabs();
+  document.querySelectorAll(".admin-tournament-form").forEach((form) => {
+    wireTournamentLogo(form);
+    const formatSelect = form.querySelector("[data-admin-tournament-format]");
+    if (formatSelect && formatSelect.dataset.modeBaseDisabled === undefined) {
+      formatSelect.dataset.modeBaseDisabled = formatSelect.disabled ? "1" : "0";
+    }
+    if (formatSelect) {
+      const updateFormatFields = () => updateTournamentParticipantModeFields(form);
+      formatSelect.addEventListener("change", updateFormatFields);
+    }
+    form.querySelector("[data-admin-tournament-participant-mode]")?.addEventListener("change", () => {
+      updateTournamentParticipantModeFields(form);
+    });
+    form.querySelector('[name="singleEliminationSize"]')?.addEventListener("change", () => updateTournamentParticipantModeFields(form));
+    updateTournamentParticipantModeFields(form);
+    form.elements.venueMode?.addEventListener("change", () => updateTournamentVenueAddressField(form));
+    updateTournamentVenueAddressField(form);
+
+    const rulesFile = form.querySelector("[data-tournament-rules-file]");
+    if (rulesFile) {
+      rulesFile.addEventListener("change", () => handleTournamentRulesFile(rulesFile));
+    }
+
+    const rulesLink = form.elements.rulesLink;
+    if (rulesLink) {
+      rulesLink.addEventListener("input", () => {
+        if (!rulesLink.value) return;
+        if (form.elements.rulesFileData) form.elements.rulesFileData.value = "";
+        if (rulesFile) rulesFile.value = "";
+        const status = form.querySelector("[data-tournament-rules-file-status]");
+        if (status) status.textContent = t("admin.tournament.field.noPdfSelected");
+      });
+    }
+
+    form.querySelectorAll("[data-tournament-tiebreaker-select]").forEach((select) => {
+      select.addEventListener("change", () => updateTournamentTiebreakerSelects(form));
+    });
+    wireTournamentTiebreakerHelp(form);
+    updateTournamentTiebreakerSelects(form);
+    wireMarkdownEditors(form);
+    wireAdminTournamentAutosave(form);
+  });
+  wireAdminTournamentTiebreakers();
+}
+
+function wireTournamentTiebreakerHelp(form) {
+  const help = form.querySelector("[data-tournament-tiebreaker-help]");
+  onLive(form.querySelector("[data-tournament-tiebreaker-help-open]"), "click", () => help?.showModal?.());
+  onLive(form.querySelector("[data-tournament-tiebreaker-help-close]"), "click", () => help?.close());
+  onLive(help, "click", event => {
+    if (event.target === help) help.close();
+  });
+}
+
+function wireAdminTournamentTiebreakers() {
+  const form = document.querySelector("[data-admin-tournament-tiebreakers]");
+  if (!form) return;
+  wireTournamentTiebreakerHelp(form);
+  const selects = Array.from(form.querySelectorAll("select"));
+  const custom = form.elements.customTeamTiebreakers;
+  const button = form.querySelector("button[type='submit']");
+  const status = form.querySelector("[data-tiebreaker-save-status]");
+  let values = selects.map(select => select.value);
+  const setStatus = (text, kind) => {
+    status.textContent = text;
+    status.dataset.status = kind;
+  };
+  const syncControls = () => {
+    if (custom) {
+      custom.disabled = button.disabled;
+      form.querySelector(".team-tiebreaker-rank-list").hidden = !custom.checked;
+    }
+    selects.forEach(select => { select.disabled = button.disabled || custom?.checked === false; });
+  };
+  syncControls();
+
+  onLive(form, "change", event => {
+    const index = selects.indexOf(event.target);
+    if (index !== -1) {
+      const value = selects[index].value;
+      const other = value ? selects.findIndex((select, slot) => slot !== index && select.value === value) : -1;
+      if (other !== -1) selects[other].value = values[index];
+      values = selects.map(select => select.value);
+    }
+    syncControls();
+    setStatus(t("admin.tournament.autosave.unsaved"), "pending");
+  });
+  onLive(form, "submit", async event => {
+    event.preventDefault();
+    const tournament = state.adminTournamentDetail?.tournament;
+    if (!tournament || state.adminStandingsRecalculating) return;
+    const tiebreakerOrder = custom?.checked === false ? null : values.filter(Boolean);
+    state.adminStandingsRecalculating = button.disabled = true;
+    syncControls();
+    setStatus(t("admin.tournament.autosave.saving"), "saving");
+    try {
+      const data = await api(`/api/admin/tournaments/${tournament.id}/standings/recalculate`, {
+        method: "POST", body: { tiebreakerOrder, expectedUpdatedAt: tournament.updatedAt }
+      });
+      if (state.adminTournamentDetail?.tournament?.id === tournament.id) {
+        state.adminTournamentDetail = data;
+        state.adminTournamentPreview = null;
+        if (!form.isConnected && state.view === "tournaments" && state.tournamentsTab === "admin") renderTournaments();
+      }
+      if (tiebreakerOrder) {
+        selects.forEach((select, index) => { select.value = tiebreakerOrder[index] || ""; });
+        values = selects.map(select => select.value);
+      }
+      delete form.dataset.liveDirty;
+      setStatus(adminLabel("Таблица пересчитана", "Standings recalculated"), "saved");
+    } catch (err) {
+      setStatus(err.message, "error");
+    } finally {
+      state.adminStandingsRecalculating = button.disabled = false;
+      syncControls();
+    }
+  });
+}
+
+function wireAdminTournamentAutosave(form) {
+  if (!form.matches("[data-admin-tournament-update]") || form.dataset.autosaveWired === "1") return;
+  form.dataset.autosaveWired = "1";
+
+  let timer = null;
+  let saving = false;
+  let pending = false;
+  let lastSnapshot = adminTournamentAutosaveSnapshot(form);
+  const status = form.querySelector("[data-admin-tournament-autosave-status]");
+
+  const setStatus = (text, kind = "") => {
+    if (!status) return;
+    status.textContent = text;
+    status.dataset.status = kind;
+  };
+
+  const runSave = async () => {
+    timer = null;
+    if (!form.isConnected) return;
+    if (saving) {
+      pending = true;
+      return;
+    }
+    const snapshot = adminTournamentAutosaveSnapshot(form);
+    if (!snapshot) {
+      setStatus(t("admin.tournament.autosave.notSaved"), "error");
+      return;
+    }
+    if (snapshot === lastSnapshot) {
+      delete form.dataset.liveDirty;
+      setStatus("", "");
+      return;
+    }
+
+    saving = true;
+    setStatus(t("admin.tournament.autosave.saving"), "saving");
+    try {
+      await saveAdminTournamentUpdate(form, { renderAfterSave: false });
+      lastSnapshot = snapshot;
+      if (adminTournamentAutosaveSnapshot(form) === snapshot) delete form.dataset.liveDirty;
+      setStatus(t("admin.tournament.autosave.saved"), "saved");
+    } catch (err) {
+      setStatus(t("admin.tournament.autosave.saveFailed"), "error");
+      setMessage(err.message, true);
+    } finally {
+      saving = false;
+      if (pending) {
+        pending = false;
+        schedule(TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS);
+      }
+    }
+  };
+
+  const schedule = (delay) => {
+    if (!adminTournamentCanAutosave(form)) {
+      setStatus(t("admin.tournament.autosave.notSaved"), "error");
+      return;
+    }
+    setStatus(t("admin.tournament.autosave.unsaved"), "pending");
+    window.clearTimeout(timer);
+    timer = window.setTimeout(runSave, delay);
+  };
+
+  form.addEventListener("tournament-autosave-request", () => schedule(TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS));
+  form.querySelectorAll("input, select, textarea").forEach((control) => {
+    if (control.type === "hidden" || control.type === "submit") return;
+    const isTextControl = control.tagName === "TEXTAREA" || ["text", "datetime-local", "number"].includes(control.type);
+    control.addEventListener("input", () => schedule(isTextControl ? TOURNAMENT_AUTOSAVE_TEXT_DELAY_MS : TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS));
+    control.addEventListener("change", () => schedule(TOURNAMENT_AUTOSAVE_CHANGE_DELAY_MS));
+  });
+}
+
+function adminTournamentCanAutosave(form) {
+  if (!state.adminTournamentDetail?.tournament?.id) return false;
+  if (form.dataset.rulesFileLoading === "1") return false;
+  if (form.dataset.logoLoading === "1") return false;
+  if (form.querySelector(":invalid")) return false;
+  const rulesLink = form.elements.rulesLink;
+  const rulesFileData = form.elements.rulesFileData?.value || "";
+  const rulesLinkValue = String(rulesLink?.value || "").trim();
+  if (rulesLink && !rulesLink.disabled && rulesLinkValue && !rulesFileData && !/^https?:\/\/\S+$/i.test(rulesLinkValue)) {
+    return false;
+  }
+  return true;
+}
+
+function adminTournamentAutosaveSnapshot(form) {
+  if (!adminTournamentCanAutosave(form)) return "";
+  try {
+    return JSON.stringify(adminTournamentBodyFromForm(form));
+  } catch (err) {
+    return "";
+  }
+}
+
+function wireTournamentTableAdminControls() {
+  onLive(document.querySelector("[data-admin-tournament-table-add]"), "submit", async (event) => {
+    event.preventDefault();
+    await submitAdminTournamentTable(event.currentTarget);
+  });
+
+  document.querySelectorAll("[data-admin-table-save]").forEach((button) => {
+    onLive(button, "click", async () => {
+      await saveAdminTournamentTable(Number(button.dataset.adminTableSave));
+    });
+  });
+
+  document.querySelectorAll("[data-admin-table-delete]").forEach((button) => {
+    onLive(button, "click", async () => {
+      await deleteAdminTournamentTable(Number(button.dataset.adminTableDelete));
+    });
+  });
+
+  document.querySelectorAll("[data-admin-solo-table]").forEach(wireAdminSoloTableRow);
+}
+
+function wireAdminSoloTableRow(row) {
+  const killzone = row.querySelector("select[name^='table-killzone-']");
+  const deployment = row.querySelector("select[name^='table-deployment-']");
+  TGTVBindMapLayoutControls(killzone, deployment);
+
+  onLive(killzone, "change", () => {
+    deployment.value = "";
+    deployment.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  onLive(deployment, "change", () => syncAdminSoloTableRow(row));
+  onLive(row.querySelector("[data-admin-table-generate]"), "click", () => {
+    const choices = TGTVMapCatalog.mapsFor(killzone.value).filter(map => String(map.slot) !== deployment.value);
+    if (!choices.length) return;
+    deployment.value = String(choices[Math.floor(Math.random() * choices.length)].slot);
+    deployment.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  syncAdminSoloTableRow(row);
+}
+
+function syncAdminSoloTableRow(row) {
+  if (!row) return;
+  const id = Number(row.dataset.adminSoloTable);
+  const table = state.adminTournamentDetail?.tables?.find(item => item.id === id);
+  if (!table) return;
+
+  const killzone = row.querySelector("select[name^='table-killzone-']");
+  const deployment = row.querySelector("select[name^='table-deployment-']");
+  const readOnly = row.hasAttribute("data-table-read-only");
+  const saving = adminSoloTableSaves.has(id);
+  const locked = readOnly || saving;
+  const dirty = !readOnly && (killzone.value !== (table.killzone || "") || deployment.value !== String(table.deployment ?? ""));
+  if (dirty) adminSoloTableDrafts.set(id, { killzone: killzone.value, deployment: deployment.value });
+  else adminSoloTableDrafts.delete(id);
+
+  const maps = TGTVMapCatalog.mapsFor(killzone.value);
+  const currentMap = maps.some(map => String(map.slot) === deployment.value);
+  const canGenerate = maps.some(map => String(map.slot) !== deployment.value);
+  const generate = row.querySelector("[data-admin-table-generate]");
+  generate.textContent = currentMap ? adminLabel("Перегенерировать", "Regenerate") : adminLabel("Сгенерировать", "Generate");
+  generate.disabled = locked || !canGenerate;
+  const hint = row.querySelector("[data-admin-table-generate-hint]");
+  hint.hidden = locked || canGenerate;
+  if (!hint.hidden) {
+    hint.textContent = !killzone.value ? adminLabel("Выберите Killzone для генерации.", "Choose a Killzone to generate a layout.")
+      : !maps.length ? adminLabel("Для этого Killzone в каталоге пока нет раскладок.", "This Killzone has no layouts in the catalog.")
+      : adminLabel("В наборе одна раскладка.", "This set has one layout.");
+  }
+
+  const status = row.querySelector("[data-admin-table-status]");
+  status.dataset.status = saving ? "saving" : dirty ? "pending" : table.deployment ? "saved" : "";
+  status.textContent = saving ? t("admin.tournament.autosave.saving") : dirty ? t("tournaments.status.draft")
+    : table.deployment ? t("admin.tournament.autosave.saved") : adminLabel("Без раскладки", "No layout");
+  killzone.disabled = deployment.disabled = locked;
+  row.querySelector("[data-admin-table-save]").disabled = locked || !dirty;
+  row.querySelector("[data-admin-table-delete]").disabled = locked;
+}
+
+function wireTournamentParticipantAdminControls() {
+  wireRemoteAccountCombos(document.querySelector("[data-admin-tournament-add-participant]"));
+  document.querySelectorAll('.participant-replace-control').forEach(wireRemoteAccountCombos);
+  wireRegistrationPayments(state.adminTournamentDetail);
+  document.querySelector("[data-admin-tournament-add-participant]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitAdminTournamentParticipant(event.currentTarget);
+  });
+
+  document.querySelector("[data-admin-tournament-bulk]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitAdminTournamentBulk(event.currentTarget);
+  });
+
+  document.querySelector("[data-admin-tournament-save-seeds]")?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await saveAdminTournamentSeeds();
+  });
+
+  document.querySelector("[data-admin-tournament-regenerate-seeds]")?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await regenerateAdminTournamentSeeds();
+  });
+
+  document.querySelectorAll("[data-admin-participant-remove]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await removeAdminTournamentParticipant(Number(button.dataset.adminParticipantRemove));
+    });
+  });
+
+  document.querySelectorAll("[data-admin-participant-save-faction]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await saveAdminTournamentParticipantFaction(Number(button.dataset.adminParticipantSaveFaction));
+    });
+  });
+
+  document.querySelectorAll("[data-admin-participant-proxy]").forEach((button) => {
+    button.addEventListener("click", () => replaceAdminTournamentParticipant(Number(button.dataset.adminParticipantProxy), true));
+  });
+  document.querySelectorAll("[data-admin-participant-replace]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await replaceAdminTournamentParticipant(Number(button.dataset.adminParticipantReplace));
+    });
+  });
+
+  document.querySelectorAll("[data-admin-participant-link]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await linkAdminTournamentParticipant(Number(button.dataset.adminParticipantLink));
+    });
+  });
+}
+
+function wireAdminTournamentControls() {
+  wireTournamentListSections();
+  wireAdminTournamentStaff();
+  const more = document.querySelector("[data-admin-tournament-more]");
+  const closeMore = () => {
+    if (!more?.open) return;
+    more.open = false;
+    more.querySelector("summary").focus();
+  };
+  onLive(more, "keydown", (event) => {
+    if (event.key !== "Escape" || !more.open) return;
+    event.preventDefault();
+    closeMore();
+  });
+  onLive(more, "focusout", (event) => {
+    if (event.relatedTarget && !more.contains(event.relatedTarget)) more.open = false;
+  });
+  onLive(document.querySelector("[data-tournament-history]"), "click", async () => {
+    closeMore();
+    try {
+      const endpoint = `/api/admin/tournaments/${state.selectedTournamentId}/audit`;
+      const data = await api(endpoint);
+      showAuditEvents(data.events || [], data.pagination, endpoint);
+    } catch (err) { setMessage(err.message, true); }
+  });
+  wireAdminTournamentFormBehavior();
+  wireTournamentInfoControls(state.adminTournamentDetail, { admin: true });
+
+  onLive(document.querySelector("[data-admin-tournament-new]"), "click", () => {
+    state.view = "tournaments";
+    state.tournamentsTab = "admin";
+    state.adminTournamentMode = "create";
+    state.tournamentSetupTab = "tournament";
+    state.selectedTournamentId = null;
+    state.adminTournamentDetail = null;
+    syncAppHash();
+    renderTournaments();
+  });
+
+  onLive(document.querySelector("[data-admin-tournament-create-cancel]"), "click", async () => {
+    try {
+      await navigateBack("/tournament#/administration/tournaments");
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+
+  onLive(document.querySelector("[data-admin-tournament-create]"), "submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector("button[type='submit']");
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      const body = adminTournamentBodyFromForm(form, { includeSlug: true });
+      const data = await api("/api/admin/tournaments", { method: "POST", body });
+      state.selectedTournamentId = data.tournament.id;
+      state.adminTournamentMode = "detail";
+      state.tournamentInfoTab = "settings";
+      state.tournamentSetupTab = "tournament";
+      await loadTournamentAdmin();
+      syncAppHash();
+      renderShell();
+    } catch (err) {
+      setMessage(err.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  document.querySelectorAll("[data-admin-tournament-open]").forEach((button) => {
+    onLive(button, "click", async () => {
+      try {
+        state.view = "tournaments";
+        state.tournamentsTab = "admin";
+        state.adminTournamentMode = "detail";
+        state.tournamentInfoTab = "standings";
+        state.tournamentSetupTab = "tournament";
+        await loadAdminTournamentDetail(Number(button.dataset.adminTournamentOpen));
+        syncAppHash();
+        renderTournaments();
+      } catch (err) {
+        setMessage(err.message, true);
+      }
+    });
+  });
+
+  onLive(document.querySelector("[data-admin-tournament-close]"), "click", async () => {
+    try {
+      await navigateBack("/tournament#/administration/tournaments");
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+
+  onLive(document.querySelector("[data-admin-tournament-update]"), "submit", async (event) => {
+    event.preventDefault();
+    try {
+      await saveAdminTournamentUpdate(event.currentTarget);
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+
+  document.querySelectorAll("[data-admin-tournament-action]").forEach((button) => {
+    onLive(button, "click", async () => {
+      const action = button.dataset.adminTournamentAction;
+      if (action !== "export-excel" && more?.contains(button)) closeMore();
+      await runAdminTournamentAction(action);
+    });
+  });
+
+  onLive(document.querySelector("[data-admin-tournament-public]"), "click", () => {
+    const slug = document.querySelector("[data-admin-tournament-public]")?.dataset.adminTournamentPublic;
+    if (!slug) return;
+    navigateToPublicTournament(slug);
+  });
+
+  onLive(document.querySelector("[data-admin-tournament-copy]"), "click", async (event) => {
+    const button = event.currentTarget;
+    try {
+      await copyText(button.dataset.adminTournamentCopy);
+      button.textContent = t("admin.tournament.detail.copied");
+      window.setTimeout(() => {
+        button.textContent = t("admin.tournament.detail.copyLink");
+      }, 1400);
+    } catch (err) {
+      setMessage(err.message, true);
+    }
+  });
+
+  document.querySelectorAll("[data-admin-tournament-match-result]").forEach((button) => {
+    onLive(button, "click", () => {
+      const detail = state.adminTournamentDetail;
+      const match = findTournamentMatch(detail, Number(button.dataset.adminTournamentMatchResult));
+      if (match) renderTournamentResultForm(detail, match, { admin: true });
+    });
+  });
+  document.querySelectorAll("[data-admin-tournament-match-reset]").forEach((button) => {
+    onLive(button, "click", async () => {
+      const tournament = state.adminTournamentDetail?.tournament;
+      if (!tournament || button.disabled) return;
+      button.disabled = true;
+      try {
+        const endpoint = `/api/admin/tournaments/${tournament.id}/matches/${button.dataset.adminTournamentMatchReset}/reset`;
+        const preview = await api(endpoint);
+        if (!await confirmAction({ message: t("dialog.admin.resetMatch", {
+          playerA: preview.match.participantA?.displayName || t("tournaments.participant.fallback"),
+          playerB: preview.match.participantB?.displayName || t("tournaments.participant.fallback")
+        }), confirmLabel: t("admin.round.resetMatch"), danger: true })) return;
+        await api(endpoint, { method: "POST", body: { expectedRevision: preview.revision, confirmResultsReset: true } });
+        await loadTournamentAdmin();
+        state.tournamentInfoTab = "matches";
+        renderTournaments();
+        setMessage(t("admin.round.matchReset"));
+        const pairings = await api(`/api/admin/tournaments/${tournament.id}/rounds/${preview.roundId}/pairings`);
+        renderRoundSetupModal(pairings);
+      } catch (err) { setMessage(err.message, true); }
+      finally { button.disabled = false; }
+    });
+  });
+}
+
+async function saveAdminTournamentUpdate(form, options = {}) {
+  const { renderAfterSave = true } = options;
+  const id = state.adminTournamentDetail?.tournament?.id;
+  const data = await api(`/api/admin/tournaments/${id}`, {
+    method: "PATCH",
+    body: { ...adminTournamentBodyFromForm(form), expectedUpdatedAt: state.adminTournamentDetail?.tournament?.updatedAt }
+  });
+  if (data?.tournament && state.adminTournamentDetail?.tournament?.id === data.tournament.id) {
+    state.adminTournamentDetail.tournament = {
+      ...state.adminTournamentDetail.tournament,
+      ...data.tournament
+    };
+  }
+  if (data?.tournament) {
+    state.adminTournaments = (state.adminTournaments || []).map((tournament) =>
+      tournament.id === data.tournament.id ? { ...tournament, ...data.tournament } : tournament
+    );
+    for (const collection of ["statisticsGames", "games"]) {
+      state[collection] = (state[collection] || []).map(game => game.tournament?.id === data.tournament.id
+        ? { ...game, tournament: { ...game.tournament, seasonId: data.tournament.seasonId } } : game);
+    }
+  }
+  if (renderAfterSave) {
+    await loadTournamentAdmin();
+    renderTournaments();
+  }
+  return data;
+}
+
+function adminTournamentBodyFromForm(form, options = {}) {
+  const { includeSlug = false } = options;
+  if (form.dataset.logoLoading === "1") throw new Error(t("tournaments.logo.loading"));
+  if (form.dataset.rulesFileLoading === "1") {
+    throw new Error(t("admin.tournament.rulesFile.stillLoading"));
+  }
+  const body = {};
+  if (form.elements.logoData?.dataset.changed === "1") body.logoData = form.elements.logoData.value || null;
+  setFormValue(body, form, "name");
+  setFormValue(body, form, "gameSystem");
+  setFormValue(body, form, "startsAt");
+  if (form.elements.factionCount && !form.elements.factionCount.disabled) body.factionCount = Number(form.elements.factionCount.value);
+  if (form.elements.registrationLimit && !form.elements.registrationLimit.disabled) {
+    body.registrationLimit = form.elements.registrationLimit.value.trim() === "" ? null : Number(form.elements.registrationLimit.value);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "startsAt")) {
+    // datetime-local has no timezone; convert in the browser before the API sees it.
+    body.startsAt = datetimeLocalToIso(body.startsAt);
+  }
+  const participantMode = form.elements.participantMode?.value === "team" ? "team" : "individual";
+  if (!form.elements.participantMode?.disabled) {
+    body.participantMode = participantMode;
+    if (participantMode === "team") {
+      body.format = "swiss";
+      body.pairingType = form.elements.pairingType?.value || "shield_sword";
+      body.teamSize = body.pairingType === "doubles" ? 2 : 3;
+    } else {
+      setFormValue(body, form, "format");
+    }
+  }
+  setFormValue(body, form, "ratingPolicy");
+  setFormValue(body, form, "challengeCreditPolicy");
+  setFormValue(body, form, "seasonId");
+  setFormValue(body, form, "pairingMode");
+  setFormValue(body, form, "venueMode");
+  setFormValue(body, form, "venueAddress");
+  if (includeSlug) setFormValue(body, form, "slug");
+
+  const tournamentRulesField = form.elements.tournamentRules;
+  if (tournamentRulesField && !tournamentRulesField.disabled) {
+    body.tournamentRules = tournamentRulesField.value;
+  } else {
+    setFormValue(body, form, "description");
+    setFormValue(body, form, "rulesSummary");
+  }
+
+  const swissRoundField = form.elements.swissRoundCount;
+  if (swissRoundField && !swissRoundField.disabled && body.format === "swiss") {
+    body.swissRoundCount = Number(swissRoundField.value || 0);
+  }
+  const singleEliminationSizeField = form.elements.singleEliminationSize;
+  if (singleEliminationSizeField && !singleEliminationSizeField.disabled && body.format === "single_elimination") {
+    body.singleEliminationSize = Number(singleEliminationSizeField.value || 0);
+  }
+
+  const rulesFileData = form.elements.rulesFileData?.value || "";
+  const rulesLinkField = form.elements.rulesLink;
+  if (rulesFileData) {
+    body.rulesLink = rulesFileData;
+  } else if (rulesLinkField && !rulesLinkField.disabled) {
+    const rulesLink = String(rulesLinkField.value || "").trim();
+    if (rulesLink || form.dataset.existingRulesLinkType !== "pdf") {
+      body.rulesLink = rulesLink;
+    }
+  }
+
+  const tiebreakerSelects = Array.from(form.querySelectorAll("[data-tournament-tiebreaker-select]"))
+    .filter((select) => !select.disabled);
+  if (participantMode !== "team" && tiebreakerSelects.length) {
+    const selected = [];
+    const seen = new Set();
+    for (const select of tiebreakerSelects) {
+      const value = select.value;
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      selected.push(value);
+    }
+    body.tiebreakerOrder = selected.slice(0, 4);
+  }
+  if (participantMode === "team" && form.elements.pairingType?.value === "doubles") {
+    body.captainPairingEnabled = false;
+  } else if (participantMode === "team" && form.elements.captainPairingEnabled && !form.elements.captainPairingEnabled.disabled) {
+    body.captainPairingEnabled = form.elements.captainPairingEnabled.checked;
+    if (form.elements.customTeamTiebreakers) {
+      body.teamTiebreakerOrder = form.elements.customTeamTiebreakers.checked
+        ? [0,1,2].map(index => form.elements[`teamTiebreaker-${index}`].value).filter(Boolean) : null;
+    }
+  }
+  return body;
+}
+
+async function runAdminTournamentAction(action) {
+  const tournament = state.adminTournamentDetail?.tournament;
+  if (!tournament) return;
+  try {
+    if (action === "export-excel") {
+      await downloadTournamentExcel(tournament);
+      return;
+    } else if (action === "publish-open") {
+      await api(`/api/admin/tournaments/${tournament.id}/publish`, {
+        method: "POST",
+        body: { status: "registration_open" }
+      });
+    } else if (action === "publish-closed") {
+      await api(`/api/admin/tournaments/${tournament.id}/publish`, {
+        method: "POST",
+        body: { status: "registration_closed" }
+      });
+    } else if (action === "close-registration") {
+      await api(`/api/admin/tournaments/${tournament.id}/registration/close`, { method: "POST" });
+    } else if (action === "reopen-registration") {
+      await api(`/api/admin/tournaments/${tournament.id}/registration/reopen`, { method: "POST" });
+    } else if (action === "start") {
+      if (!await confirmAction({ message: t("dialog.admin.startTournament"), confirmLabel: t("admin.tournament.action.start"), danger: false })) return;
+      await api(`/api/admin/tournaments/${tournament.id}/start`, { method: "POST" });
+      state.tournamentInfoTab = "matches";
+    } else if (action === "generate-next-round") {
+      await openNextRoundSetupModal(tournament.id);
+      return;
+    } else if (action === "recalculate-standings") {
+      if (state.adminStandingsRecalculating) return;
+      state.adminStandingsRecalculating = true;
+      try {
+        const replacePublished = tournament.status === "completed" || Boolean(tournament.finalResults?.length);
+        if (!await confirmAction({
+          message: t(replacePublished ? "dialog.admin.recalculatePublishedStandings" : "dialog.admin.recalculateStandings"),
+          confirmLabel: t("admin.tournament.action.recalculateStandings"), danger: replacePublished
+        })) return;
+        const data = await api(`/api/admin/tournaments/${tournament.id}/standings/recalculate`, {
+          method: "POST", body: { replacePublished }
+        });
+        state.adminTournamentDetail = data;
+        state.tournamentInfoTab = "standings";
+        renderTournaments();
+        setMessage(t("admin.tournament.standingsRecalculated", { count: data.recalculation.repairedMatches }));
+      } finally {
+        state.adminStandingsRecalculating = false;
+      }
+      return;
+    } else if (action === "close-tournament") {
+      if (state.adminTournamentClosing) return;
+      state.adminTournamentClosing = true;
+      try {
+        if (!await confirmAction({ message: t("dialog.admin.closeTournament"), confirmLabel: t("admin.tournament.action.closeTournament"), danger: false })) return;
+        const participantIds = (state.adminTournamentDetail?.standings || []).map((row) => row.participantId);
+        await api(`/api/admin/tournaments/${tournament.id}/standings/publish`, { method: "POST", body: { participantIds } });
+        state.tournamentInfoTab = "results";
+        await loadTournamentAdmin();
+        renderTournaments();
+      } finally {
+        state.adminTournamentClosing = false;
+      }
+      return;
+    } else if (action === "edit-active-pairings") {
+      const round = state.adminTournamentDetail?.rounds?.at(-1);
+      if (!round) return;
+      const preview = await api(`/api/admin/tournaments/${tournament.id}/rounds/${round.id}/pairings`);
+      renderRoundSetupModal(preview);
+      return;
+    } else if (action === "edit-round-tables") {
+      const round = state.adminTournamentDetail?.rounds?.at(-1);
+      if (!round) return;
+      const preview = await api(`/api/admin/tournaments/${tournament.id}/rounds/${round.id}/tables`);
+      renderRoundSetupModal({ ...preview, teamRound: true, tableOnly: true });
+      return;
+    } else if (action === "rollback-latest-round") {
+      const rollbackState = rollbackRoundActionState(state.adminTournamentDetail || {});
+      if (!await confirmAction({ message: t("dialog.admin.rollbackLatestRound", { number: rollbackState.roundNumber || "" }), confirmLabel: t("admin.tournament.action.rollbackLatestRound") })) return;
+      await api(`/api/admin/tournaments/${tournament.id}/rounds/latest`, { method: "DELETE", body: { roundId: rollbackState.roundId } });
+      await loadTournamentAdmin();
+      renderTournaments();
+      await openNextRoundSetupModal(tournament.id);
+      return;
+    } else if (action === "delete") {
+      if (!await confirmDelete(t("dialog.admin.deleteTournament", { name: tournament.name || t("tournaments.list.untitled") }))) return;
+      await api(`/api/admin/tournaments/${tournament.id}`, { method: "DELETE" });
+      await openAdminTournamentList();
+      return;
+    }
+    await loadTournamentAdmin();
+    renderTournaments();
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function downloadTournamentExcel(tournament) {
+  const button = document.querySelector('[data-admin-tournament-action="export-excel"]');
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch(`/api/admin/tournaments/${tournament.id}/export.xlsx`, { credentials: "same-origin" });
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      throw new Error(error?.error || t("admin.tournament.exportFailed"));
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${tournament.name || "tournament"}-results.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } finally {
+    if (button?.isConnected) button.disabled = false;
+  }
+}
+
+async function refreshAdminTournamentDetailView() {
+  await loadTournamentAdmin();
+  renderTournaments();
+}
+
+async function mutateAdminTournamentTable(tournament, mutate, { keepTablePanel = false } = {}) {
+  if (tournament.venueMode !== "irl" || tournament.participantMode === "team") {
+    await mutate();
+    return refreshAdminTournamentDetailView();
+  }
+
+  // Apply each mutation and its detail refresh in order.
+  const write = adminSoloTableWrites.then(async () => {
+    await mutate();
+    const isCurrent = () => state.view === "tournaments" && state.tournamentsTab === "admin" &&
+      state.adminTournamentDetail?.tournament?.id === tournament.id;
+    if (!isCurrent()) return;
+    const detail = await api(`/api/admin/tournaments/${tournament.id}`);
+    if (!isCurrent()) return;
+    const statusChanged = state.adminTournamentDetail.tournament.status !== detail.tournament.status;
+    state.adminTournamentDetail = detail;
+    const panel = document.querySelector("[data-admin-solo-tables]");
+    if (!panel) renderTournaments();
+    else if (!keepTablePanel || statusChanged) {
+      panel.outerHTML = adminTournamentTablesContent(detail);
+      wireTournamentTableAdminControls();
+    }
+  });
+  adminSoloTableWrites = write.catch(() => {});
+  await write;
+}
+
+async function submitAdminTournamentTable(form) {
+  const tournament = state.adminTournamentDetail?.tournament;
+  if (!tournament) return;
+  const body = tablePayloadFromForm(form);
+  try {
+    await mutateAdminTournamentTable(tournament, async () => {
+      await api(`/api/admin/tournaments/${tournament.id}/tables`, { method: "POST", body });
+      form.reset();
+    });
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function saveAdminTournamentTable(tableId) {
+  const tournament = state.adminTournamentDetail?.tournament;
+  if (!tournament) return;
+  const killzone = document.querySelector(`[name="table-killzone-${tableId}"]`)?.value || "";
+  const deployment = document.querySelector(`[name="table-deployment-${tableId}"]`)?.value || "";
+  const rowSelector = `[data-admin-solo-table="${tableId}"]`;
+  const row = document.querySelector(rowSelector);
+  if (row) {
+    if (!adminSoloTableDrafts.has(tableId) || adminSoloTableSaves.has(tableId)) return;
+    adminSoloTableSaves.add(tableId);
+    syncAdminSoloTableRow(row);
+  }
+  try {
+    await mutateAdminTournamentTable(tournament, async () => {
+      const { table } = await api(`/api/admin/tournaments/${tournament.id}/tables/${tableId}`, {
+        method: "PATCH",
+        body: { killzone, deployment }
+      });
+      if (!row) return;
+      adminSoloTableDrafts.delete(tableId);
+      const detail = state.adminTournamentDetail;
+      if (detail?.tournament?.id === tournament.id) {
+        detail.tables = detail.tables.map(item => item.id === tableId ? table : item);
+      }
+    }, { keepTablePanel: true });
+  } catch (err) {
+    setMessage(err.message, true);
+  } finally {
+    if (row) {
+      adminSoloTableSaves.delete(tableId);
+      syncAdminSoloTableRow(document.querySelector(rowSelector));
+    }
+  }
+}
+
+async function deleteAdminTournamentTable(tableId) {
+  const tournament = state.adminTournamentDetail?.tournament;
+  if (!tournament) return;
+  const table = (state.adminTournamentDetail?.tables || []).find((item) => item.id === tableId);
+  if (!await confirmDelete(t("dialog.admin.deleteTable", { number: table?.tableNumber || "" }))) return;
+  try {
+    await mutateAdminTournamentTable(tournament, async () => {
+      await api(`/api/admin/tournaments/${tournament.id}/tables/${tableId}`, { method: "DELETE" });
+      adminSoloTableDrafts.delete(tableId);
+    });
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function submitAdminTournamentParticipant(form) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const formData = new FormData(form);
+  const body = {
+    displayName: formData.get("displayName") || "",
+    faction: formData.get("faction") || "",
+    factions: factionsFromForm(form, "faction")
+  };
+  const userId = Number(formData.get("userId") || 0);
+  if (userId) body.userId = userId;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants`, { method: "POST", body });
+    form.reset();
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function submitAdminTournamentBulk(form) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const names = new FormData(form).get("names") || "";
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants/bulk`, {
+      method: "POST",
+      body: { names }
+    });
+    form.reset();
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function saveAdminTournamentSeeds() {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const participantIds = (detail.participants || [])
+    .filter((participant) => ["joined", "active"].includes(participant.status))
+    .map((participant) => ({
+      id: participant.id,
+      seed: Number(document.querySelector(`[data-participant-seed="${participant.id}"]`)?.value || participant.seed || 9999)
+    }))
+    .sort((a, b) => a.seed - b.seed || a.id - b.id)
+    .map((participant) => participant.id);
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/seeds`, {
+      method: "POST",
+      body: { participantIds }
+    });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function regenerateAdminTournamentSeeds() {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  if (!await confirmAction({ message: t("dialog.admin.regenerateSeeds"), danger: false })) return;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/seeds/regenerate`, { method: "POST" });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function removeAdminTournamentParticipant(participantId) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const participant = (detail.participants || []).find((item) => item.id === participantId);
+  if (!await confirmDelete(t(tournament.status === "in_progress" ? "dialog.admin.removeStartedParticipant" : "dialog.admin.removeParticipant", { name: participant?.displayName || t("dialog.admin.participantFallback") }), t("admin.tournament.participants.remove"))) return;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, { method: "DELETE", body: {
+      expectedIdentity: { userId: participant.userId, displayName: participant.displayName, isProxy: Boolean(participant.isProxy) }
+    } });
+    await refreshTournamentParticipantView(tournament);
+    if (tournament.status === "in_progress") setMessage(t("admin.round.participantRemoved"));
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function linkAdminTournamentParticipant(participantId) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const select = document.querySelector(`[data-admin-participant-link-user="${participantId}"]`);
+  const userId = Number(select?.value || 0);
+  if (!userId) {
+    setMessage(t("admin.tournament.participants.chooseUser"), true);
+    return;
+  }
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, {
+      method: "PATCH",
+      body: { userId }
+    });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function saveAdminTournamentParticipantFaction(participantId) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const input = document.querySelector(`[name="participant-faction-${participantId}"]`);
+  if (input && !input.reportValidity()) return;
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, {
+      method: "PATCH",
+      body: { factions: factionsFromForm(input.closest(".participant-faction-control"), `participant-faction-${participantId}`) }
+    });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+async function replaceAdminTournamentParticipant(participantId, proxy = false) {
+  const detail = currentTournamentDetail();
+  const tournament = detail?.tournament;
+  if (!tournament) return;
+  const participant = (detail.participants || []).find((item) => item.id === participantId);
+  if (!participant) return;
+  const select = document.querySelector(`[data-admin-participant-replace-user="${participantId}"]`);
+  const userId = Number(select?.value || 0);
+  if (!proxy && !userId) {
+    setMessage(t("admin.tournament.participants.chooseRegisteredUser"), true);
+    return;
+  }
+  if (!await confirmAction({ message: t(proxy ? "admin.tournament.participants.proxyConfirm" : "admin.tournament.participants.replaceConfirm"), confirmLabel: t("admin.tournament.participants.replace") })) return;
+  const body = { ...(proxy ? { proxy: true } : { userId }), expectedIdentity: {
+    userId: participant.userId, displayName: participant.displayName, isProxy: Boolean(participant.isProxy)
+  } };
+  try {
+    await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, { method: "PATCH", body });
+    await refreshTournamentParticipantView(tournament);
+  } catch (err) { setMessage(err.message, true); }
+}
+
+async function adminPatch(id, body) {
+  try {
+    await api(`/api/admin/users/${id}`, { method: "PATCH", body });
+    await refresh();
+    await loadAdminUsers();
+    await loadTop();
+    renderShell();
+  } catch (err) {
+    setMessage(err.message, true);
+  }
+}
+
+function wireAdminTeamRosterControls(data) {
+  document.querySelector("[data-admin-team-roster-reserve]")?.addEventListener("click", () => openReservedRosterCreator(data));
+  wireRegistrationPayments(data);
+  document.querySelector("[data-admin-team-roster-add]")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await openAdminTeamRosterCreator(data);
+    } catch (err) {
+      setMessage(err.message, true);
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
+  });
+  document.querySelectorAll("[data-admin-team-roster-edit]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const roster = (data.rosters || []).find((item) => item.id === Number(button.dataset.adminTeamRosterEdit));
+      try { if (roster) await openAdminTeamRosterEditor(data, roster); } catch (error) { setMessage(error.message, true); }
+    });
+  });
+  document.querySelector("[data-admin-team-roster-save-seeds]")?.addEventListener("click", async () => {
+    const inputs = Array.from(document.querySelectorAll("[data-team-roster-seed]"));
+    const rosterIds = inputs
+      .map((input) => ({ id: Number(input.dataset.teamRosterSeed), seed: Number(input.value) }))
+      .sort((a, b) => a.seed - b.seed || a.id - b.id)
+      .map((item) => item.id);
+    try {
+      await api(`/api/admin/tournaments/${data.tournament.id}/rosters/seeds`, { method: "POST", body: { rosterIds } });
+      await refreshTeamTournamentUi(data, { admin: true });
+    } catch (err) { setMessage(err.message, true); }
+  });
+  document.querySelectorAll("[data-admin-team-roster-withdraw]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!await confirmAction({ message: t("teams.tournament.withdrawConfirm"), confirmLabel: t("teams.tournament.withdraw") })) return;
+      try {
+        await api(`/api/tournaments/${data.tournament.id}/rosters/${button.dataset.adminTeamRosterWithdraw}/withdraw`, { method: "POST" });
+        await refreshTeamTournamentUi(data, { admin: true });
+      } catch (err) { setMessage(err.message, true); }
+    });
+  });
+  document.querySelectorAll("[data-admin-team-roster-delete]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const roster = (data.rosters || []).find((item) => item.id === Number(button.dataset.adminTeamRosterDelete));
+      const started = Boolean(data.tournament.startedAt) || ["in_progress", "completed"].includes(data.tournament.status);
+      if (!await confirmDelete(t(started ? (data.tournament.pairingType === "doubles" ? "doubles.removeAfterStartConfirm" : data.tournament.pairingType === "sword_shield_classic" ? "classic.removeAfterStartConfirm" : "teams.tournament.removeAfterStartConfirm") : "teams.tournament.deleteConfirm", { name: roster?.name || roster?.teamNameSnapshot || "" }))) return;
+      try {
+        await api(`/api/tournaments/${data.tournament.id}/rosters/${button.dataset.adminTeamRosterDelete}`, { method: "DELETE" });
+        await refreshTeamTournamentUi(data, { admin: true });
+      } catch (err) { setMessage(err.message, true); }
+    });
+  });
+}
+
+window.TGTV_ADMIN = {
+  adminTournamentActionButtons,
+  runAdminTournamentAction,
+  adminActiveGamesPanel,
+  adminChallengeActions,
+  adminChallengeCredit,
+  adminDeleteGame,
+  adminForceConfirmGame,
+  adminRecalculateGameRating,
+  adminPendingGamesCard,
+  adminPlayerToolsCard,
+  adminTeamPairingOverrideForm,
+  adminTeamsPanel,
+  adminTournamentAdminView,
+  adminTournamentParticipantsContent,
+  adminTournamentRoundsPanel,
+  adminTournamentSettingsContent,
+  adminTournamentTablesContent,
+  adminUsersPanel,
+  loadAdminGames,
+  loadAdminTeams,
+  loadAdminTournamentDetail,
+  loadAdminTournaments,
+  loadAdminUsers,
+  loadTournamentAdmin,
+  refreshAdminTournamentDetailView,
+  wireAdminGameButtons,
+  wireAdminPendingGameButtons,
+  wireAdminPlayerTools,
+  wireAdminTeamRosterControls,
+  wireAdminTeams,
+  wireAdminTournamentControls,
+  wireAdminUserControls,
+  wireFeedbackAdminActions,
+  wireTournamentParticipantAdminControls,
+  wireTournamentTableAdminControls
+};
+
+async function loadAdministration() {
+  if (!canOpenAdministration()) return;
+  const allowed = state.me.isAdmin ? ["overview", "tournaments", "people", "content"] : ["overview", "tournaments"];
+  if (!allowed.includes(state.adminHubTab)) state.adminHubTab = "overview";
+  await loadAdminTournaments();
+  if (state.adminHubTab === "people") {
+    await loadAdminUsers();
+    await loadAdminTeams();
+  }
+}
+
+function adminAnalyticsPanel() {
+  if (!state.me?.isAdmin) return '';
+  const dashboards = [
+    ['f8143cad-241f-414c-9ddb-0d9835add073', adminLabel('Куда заходят посетители', 'Where visitors go'), adminLabel('Популярность разделов и динамика посещаемости', 'Section popularity and traffic trends')],
+    ['c3e8344e-46b4-4ada-a66b-23315355538a', adminLabel('Разделы подробно', 'Section details'), adminLabel('Популярные страницы каждого сервиса', 'Popular pages within each service')],
+    ['7d3e2b05-7e8b-4ab8-94af-50a8e20a4465', adminLabel('Источники и устройства', 'Sources and devices'), adminLabel('Откуда приходят посетители и какие устройства используют', 'Where visitors come from and which devices they use')]
+  ];
+  return `<section class="card panel" data-admin-analytics><h3>${adminLabel('Посещаемость сайта', 'Website analytics')}</h3><p class="muted">${adminLabel('Панели Umami открываются в новой вкладке. Для просмотра войдите в Umami.', 'Umami dashboards open in a new tab. Sign in to Umami to view reports.')}</p><div class="administration-tiles">${dashboards.map(([id, title, hint]) => `<a href="https://stats.ktcompanion.ru/boards/${id}" target="_blank" rel="noopener noreferrer" class="card panel administration-tile"><h3>${title}</h3><p class="muted">${hint}</p></a>`).join('')}</div></section>`;
+}
+
+function renderAdministration() {
+  const content = document.querySelector('[data-content]');
+  if (!content || !canOpenAdministration()) return;
+  const tab = state.adminHubTab || 'overview';
+  const tabs = [['overview', adminLabel('Обзор', 'Overview')], ['tournaments', t('nav.tournaments')],
+    ...(state.me.isAdmin ? [['people', adminLabel('Игроки и команды', 'Players and teams')], ['content', adminLabel('Контент', 'Content')]] : [])];
+  const tile = (href, title, hint) => `<a href="/tournament#/${href}" data-app-link data-app-route class="card panel administration-tile"><h3>${title}</h3><p class="muted">${hint}</p></a>`;
+  let body = '';
+  if (tab === 'tournaments') body = adminTournamentsPanel();
+  else if (tab === 'people' && state.me.isAdmin) body = `<nav class="tabs administration-people-tabs" aria-label="${adminLabel('Игроки и команды', 'Players and teams')}"><button type="button" class="tab ${state.adminPeopleTab !== 'teams' ? 'active' : ''}" aria-pressed="${state.adminPeopleTab !== 'teams'}" data-admin-people="players">${adminLabel('Игроки', 'Players')}</button><button type="button" class="tab ${state.adminPeopleTab === 'teams' ? 'active' : ''}" aria-pressed="${state.adminPeopleTab === 'teams'}" data-admin-people="teams">${t('nav.playerTeams')}</button></nav>${state.adminPeopleTab === 'teams' ? adminTeamsPanel() : adminUsersPanel()}`;
+  else if (tab === 'content' && state.me.isAdmin) body = `<div class="administration-tiles">${tile('administration/documentation', adminLabel('Документация', 'Documentation'), adminLabel('Редактирование инструкций и страниц помощи', 'Edit instructions and help pages'))}${tile('administration/achievements', t('achievements.title'), adminLabel('Достижения, награды и зал славы', 'Achievements, awards and hall of fame'))}${tile('administration/people', adminLabel('Kill Team Challenge', 'Kill Team Challenge'), adminLabel('Выберите игрока и откройте его прогресс Challenge', 'Choose a player and open their Challenge progress'))}</div>`;
+  else {
+    const events = state.adminTournaments || [];
+    body = `<div class="administration-tiles">${tile('administration/tournaments', `${state.adminTournamentsPagination?.total ?? events.length} · ${t('nav.tournaments')}`, adminLabel('Доступные турниры, участники, раунды и судьи', 'Available tournaments, participants, rounds and judges'))}${state.me.isAdmin ? tile('administration/people', adminLabel('Игроки и команды', 'Players and teams'), adminLabel('Аккаунты, доступы, блокировки и команды', 'Accounts, permissions, suspensions and teams')) + tile('administration/feedback', adminLabel('Обращения', 'Feedback'), adminLabel('Сообщения игроков и статусы обработки', 'Player messages and resolution status')) + tile('administration/games/sessions', adminLabel('Игровые сессии', 'Game sessions'), adminLabel('Подтверждение результатов и разбор спорных игр', 'Review results and disputed games')) : ''}</div><section class="card panel"><h3>${adminLabel('Ваш доступ', 'Your access')}</h3><p>${state.me.isSuperAdmin ? adminLabel('Супер-администратор платформы. Управление глобальными ролями и всеми турнирами.', 'Platform super administrator. Manage global roles and every tournament.') : state.me.isAdmin ? adminLabel('Администратор платформы. Вы автоматически судья каждого турнира. Назначение судей доступно только в ваших турнирах.', 'Platform administrator. You automatically judge every tournament. You can appoint judges only in tournaments you own.') : adminLabel('Доступ ограничен вашими турнирами и турнирами, где вы назначены судьёй.', 'Access is limited to tournaments you own or judge.')}</p></section>`;
+  }
+  content.innerHTML = `<section class="card panel administration-navigation"><div class="panel-header administration-heading"><div><h2>${adminLabel('Администрирование', 'Administration')}</h2><p class="muted">${adminLabel('Управление турнирной платформой', 'Tournament platform management')}</p></div>${state.me.isAdmin ? `<button type="button" class="small-button" data-admin-audit>${adminLabel('История действий', 'Activity log')}</button>` : ''}</div><nav class="tabs administration-tabs" aria-label="${adminLabel('Разделы администрирования', 'Administration sections')}">${tabs.map(([id,label]) => `<button type="button" class="tab ${id===tab?'active':''}" aria-pressed="${id===tab}" data-admin-hub="${id}">${label}</button>`).join('')}</nav></section>${body}${tab === 'overview' ? adminAnalyticsPanel() : ''}<div class="message" data-message></div>`;
+  document.querySelectorAll('[data-admin-hub]').forEach(button => button.onclick = async () => {
+    try { state.adminHubTab=button.dataset.adminHub; await loadAdministration(); syncAppHash(); renderAdministration(); } catch(err) {setMessage(err.message,true);}
+  });
+  document.querySelectorAll('[data-admin-people]').forEach(button => button.onclick = () => {state.adminPeopleTab=button.dataset.adminPeople; renderAdministration();});
+  document.querySelector('[data-admin-audit]')?.addEventListener('click', showAdministrativeAudit);
+  if(tab==='tournaments') { wireAdminTournamentControls(); wirePaginationControls(); }
+  if(tab==='people') {wireAdminUserControls(); wireAdminTeams(); wirePaginationControls();}
+}
+
+function administrationDialog(title, body) {
+  document.querySelector('[data-administration-dialog]')?.remove();
+  const dialog = document.createElement('dialog');
+  dialog.className='administration-dialog'; dialog.dataset.administrationDialog='';
+  dialog.setAttribute('aria-labelledby', 'administration-dialog-title');
+  dialog.innerHTML=`<header class="administration-dialog-heading"><h3 id="administration-dialog-title">${escapeHtml(title)}</h3></header><div class="administration-dialog-body">${body}</div><p data-dialog-error role="alert"></p><div class="row-actions administration-dialog-actions" data-dialog-actions><button type="button" class="small-button" data-dialog-close>${adminLabel('Закрыть', 'Close')}</button></div>`;
+  document.body.appendChild(dialog);
+  dialog.querySelector('[data-dialog-close]').onclick=()=>dialog.close();
+  dialog.addEventListener('close',()=>dialog.remove());
+  wireRemoteUserPickers(dialog);
+  dialog.showModal();
+  return dialog;
+}
+
+function adminTournamentStaffContent(data) {
+  const roster = data.staff;
+  if(!roster) return '';
+  return `<details class="admin-settings-section"><summary>${adminLabel('Организатор и судьи', 'Organizer and judges')}</summary><p class="muted">${adminLabel('Организатор назначает судей. Судьи управляют проведением турнира, но не назначают других судей. Администраторы платформы получают судейский доступ автоматически.', 'The organizer appoints judges. Judges manage the tournament but cannot appoint other judges. Platform administrators receive judge access automatically.')}</p><div class="list">${roster.staff.filter(person=>person.active).map(person=>`<div class="row-card"><div class="row-main"><strong>${escapeHtml(person.name)}</strong><div class="row-meta">${person.role==='organizer'?adminLabel('Организатор', 'Organizer'):person.role==='super_admin'?adminLabel('Супер-администратор', 'Super administrator'):adminLabel('Судья', 'Judge')}${person.automatic?' · '+adminLabel('Доступ через роль платформы', 'Platform role access'):''}${person.expiresAt?' · '+fmtDate(person.expiresAt):''}</div></div>${person.canRevoke&&!person.automatic?`<button class="danger-button" data-judge-revoke="${person.userId}">${adminLabel('Снять судью', 'Remove judge')}</button>`:''}</div>`).join('')}</div>${roster.canManageJudges?`<button type="button" class="small-button" data-judge-assign>${adminLabel('Назначить судью', 'Assign judge')}</button>`:''}${state.me.isSuperAdmin?`<button type="button" class="small-button" data-transfer-owner>${adminLabel('Передать организатору', 'Transfer ownership')}</button>`:''}</details>`;
+}
+
+function wireAdminTournamentStaff() {
+  const data=state.adminTournamentDetail; if(!data?.tournament) return;
+  document.querySelector('[data-judge-assign]')?.addEventListener('click',async()=> {
+    try { await loadAdminUsers(); } catch (err) { setMessage(err.message,true); return; }
+    const assigned=new Set(data.staff.staff.filter(person=>person.active).map(person=>person.userId));
+    const candidates=state.adminUsers.filter(user=>!assigned.has(user.id));
+    const dialog=administrationDialog(adminLabel('Назначить судью', 'Assign judge'), `<form data-judge-form><label>${adminLabel("Поиск игрока", "Find player")}<input type="search" data-judge-search></label><p class="muted">${adminLabel("Судья получит все права проведения турнира, кроме назначения судей.", "The judge receives full tournament management rights except appointing judges.")}</p><label>${adminLabel('Игрок', 'Player')}<select name="userId" data-remote-users required><option value="">${adminLabel('Выберите игрока', 'Choose a player')}</option>${candidates.map(user=>`<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}</select></label><label>${adminLabel('Доступ до (необязательно)', 'Access until (optional)')}<input type="datetime-local" name="expiresAt"></label><button class="primary-button">${adminLabel('Назначить', 'Assign')}</button></form>`);
+
+    dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();try{const form=new FormData(event.currentTarget);await api(`/api/admin/tournaments/${data.tournament.id}/judges`,{method:'POST',body:{userId:Number(form.get('userId')),expiresAt:form.get('expiresAt')?new Date(form.get('expiresAt')).toISOString():null}});await loadAdminTournamentDetail(data.tournament.id);dialog.close();renderTournaments();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
+  });
+  document.querySelectorAll('[data-judge-revoke]').forEach(button=>button.onclick=async()=>{if(!await confirmAction({message:adminLabel('Снять судью? Доступ к управлению турниром будет отозван.', 'Remove this judge? Tournament management access will be revoked.'),confirmLabel:adminLabel('Снять', 'Remove')}))return;try{await api(`/api/admin/tournaments/${data.tournament.id}/judges/${button.dataset.judgeRevoke}`,{method:'DELETE'});await loadAdminTournamentDetail(data.tournament.id);renderTournaments();}catch(err){setMessage(err.message,true);}});
+  document.querySelector('[data-transfer-owner]')?.addEventListener('click',()=> {
+    const dialog=administrationDialog(adminLabel('Передать турнир', 'Transfer tournament'),`<form><p>${adminLabel('Новый организатор получит право назначать судей. Предыдущий потеряет права организатора.', 'The new organizer can appoint judges. The previous owner loses organizer access.')}</p><label>${adminLabel('Новый организатор', 'New organizer')}<select name="userId" data-remote-users>${state.adminUsers.filter(user=>user.id!==data.tournament.ownerUserId).map(user=>`<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}</select></label><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><button class="danger-button">${adminLabel('Подтвердить передачу', 'Confirm transfer')}</button></form>`);
+    dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();try{const form=new FormData(event.currentTarget);await api(`/api/admin/tournaments/${data.tournament.id}/owner`,{method:'PATCH',body:{userId:Number(form.get('userId')),reason:form.get('reason')}});await loadAdminTournamentDetail(data.tournament.id);dialog.close();renderTournaments();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
+  });
+}
+
+function wireRoleUserButtons() {
+  document.querySelectorAll('[data-role-user]').forEach(button=>button.onclick=()=>showRoleUser(Number(button.dataset.roleUser)));
+}
+
+function showRoleUser(id) {
+  const user=state.adminUsers.find(item=>item.id===id); if(!user)return;
+  const canManage=state.me.isSuperAdmin || (!user.isAdmin&&!user.isSuperAdmin);
+  const roleForm = state.me.isSuperAdmin ? `<section class="card panel admin-user-section admin-user-permissions" aria-labelledby="admin-user-permissions-title"><header class="admin-user-section-heading"><h4 id="admin-user-permissions-title">${adminLabel('Доступы', 'Permissions')}</h4><p class="muted">${adminLabel('Роли и права пользователя на платформе', 'User roles and platform permissions')}</p></header><form class="admin-dialog-form" data-user-permissions>
+    <div class="admin-permission-options">
+      <label class="checkbox-line admin-permission-option"><input type="checkbox" name="isAdmin" ${user.isAdmin ? 'checked' : ''} ${user.isSuperAdmin ? 'disabled' : ''}><span><strong>${adminLabel('Администратор платформы', 'Platform administrator')}</strong><small>${adminLabel('Судейский доступ ко всем турнирам', 'Judge access to every tournament')}</small></span></label>
+      <label class="checkbox-line admin-permission-option"><input type="checkbox" name="canCreateTournaments" ${user.canCreateTournaments ? 'checked' : ''}><span><strong>${adminLabel('Создание турниров', 'Create tournaments')}</strong><small>${adminLabel('Может создавать турниры и управлять ими', 'Can create and manage tournaments')}</small></span></label>
+    </div>
+    <label>${adminLabel('Причина изменения', 'Reason for change')}<input name="reason" required maxlength="1000"></label>
+    <div class="row-actions"><button type="submit" class="primary-button">${t('common.save')}</button></div>
+  </form></section>` : '';
+  const contacts = [user.telegramContact, user.registerNickname].filter(Boolean).map(escapeHtml).join(' · ');
+  const dialog = administrationDialog(user.name, `${contacts ? `<p class="admin-user-meta">${contacts}</p>` : ''}${user.isSuperAdmin ? `<p class="admin-user-notice">${adminLabel('Владелец платформы. Супер-администратора нельзя удалить или понизить.', 'Platform owner. The super administrator cannot be deleted or demoted.')}</p>` : ''}<div class="admin-user-sections">${roleForm}
+    ${canManage && id !== state.me.id ? `<section class="card panel admin-user-section" aria-labelledby="admin-user-security-title"><header class="admin-user-section-heading"><h4 id="admin-user-security-title">${adminLabel('Безопасность аккаунта', 'Account security')}</h4><p class="muted">${adminLabel('Восстановление доступа и блокировка аккаунта', 'Account recovery and suspension')}</p></header>
+      <div class="admin-dialog-form"><div class="row-actions"><button type="button" class="small-button" data-role-reset>${t('profile.admin.resetPassword')}</button></div><p class="admin-user-notice" data-role-password></p>
+      <form class="admin-dialog-form" data-user-suspension><label>${adminLabel('Заблокировать до', 'Suspend until')}<input name="until" type="datetime-local" required></label><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><div class="row-actions"><button type="button" class="small-button" data-role-restore>${adminLabel('Снять блокировку', 'Restore account')}</button><button type="submit" class="danger-button">${adminLabel('Заблокировать', 'Suspend')}</button></div></form></div>
+    </section>` : ''}
+    ${state.me.isSuperAdmin ? `<section class="card panel admin-user-section" aria-labelledby="admin-user-rating-title"><header class="admin-user-section-heading"><h4 id="admin-user-rating-title">${adminLabel('Коррекция рейтинга', 'Rating correction')}</h4><p class="muted">${adminLabel('Общий рейтинг и рейтинги по формату игры', 'Combined rating and ratings by game format')}</p></header><form class="admin-dialog-form" data-user-rating><div class="admin-rating-fields">${['Combined', 'Tts', 'Irl'].map(mode => `<label>${mode === 'Combined' ? t('venue.combined') : mode.toUpperCase()}<input type="number" min="0" max="5000" name="rating${mode}" value="${playerRating(user, mode.toLowerCase())}" required></label>`).join('')}</div><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><div class="row-actions"><button type="submit" class="danger-button">${adminLabel('Подтвердить коррекцию', 'Confirm correction')}</button></div></form></section>` : ''}</div>`);
+  dialog.classList.add('admin-user-dialog');
+  if (state.me.isSuperAdmin) {
+    const quotas = document.createElement('button');
+    quotas.type = 'button'; quotas.className = 'small-button';
+    quotas.textContent = adminLabel('Квоты', 'Quotas');
+    quotas.onclick = () => { dialog.close(); showResourceQuotas(id); };
+    dialog.querySelector('[data-dialog-actions]').prepend(quotas);
+  }
+  const run=async action=>{try{await action();await loadAdminUsers();renderShell();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
+  if (state.me.isSuperAdmin && !user.isSuperAdmin && id !== state.me.id) {
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.className = 'danger-button';
+    remove.textContent = adminLabel('Удалить аккаунт', 'Delete account');
+    dialog.querySelector('[data-dialog-actions]').prepend(remove);
+    remove.onclick = async () => {
+      if (!await confirmDelete(t('dialog.admin.deleteUser', { name: user.name }))) return;
+      await run(async () => { await api(`/api/admin/users/${id}`, { method: 'DELETE' }); dialog.close(); });
+    };
+  }
+  dialog.querySelector('[data-user-permissions]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}/permissions`,{method:'PATCH',body:{isAdmin:user.isSuperAdmin||form.has('isAdmin'),canCreateTournaments:form.has('canCreateTournaments'),reason:form.get('reason')}});dialog.close();});});
+  dialog.querySelector('[data-role-reset]')?.addEventListener('click',async()=>{if(!await confirmAction({message:t('dialog.admin.resetPassword'),confirmLabel:t('profile.admin.resetPassword')}))return;run(async()=>{const result=await api(`/api/admin/users/${id}/reset-password`,{method:'POST'});dialog.querySelector('[data-role-password]').textContent=result.password || adminLabel('Запрос на восстановление принят. Проверьте подтверждённую почту.', 'Recovery requested. Check the confirmed email.');});});
+  dialog.querySelector('[data-user-suspension]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}/suspension`,{method:'PATCH',body:{until:new Date(form.get('until')).toISOString(),reason:form.get('reason')}});dialog.close();});});
+  dialog.querySelector('[data-role-restore]')?.addEventListener('click',()=>run(async()=>{await api(`/api/admin/users/${id}/suspension`,{method:'PATCH',body:{until:null,reason:'Restored by administrator'}});dialog.close();}));
+  dialog.querySelector('[data-user-rating]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}`,{method:'PATCH',body:{ratingCombined:Number(form.get('ratingCombined')),ratingTts:Number(form.get('ratingTts')),ratingIrl:Number(form.get('ratingIrl')),reason:form.get('reason')}});dialog.close();});});
+}
+
+async function showAdministrativeAudit() {
+  try {
+    const {events}=await api('/api/admin/audit');
+    showAuditEvents(events);
+  } catch(err){setMessage(err.message,true);}
+}
+
+function showAuditEvents(events,pagination=null,endpoint=null) {
+  const normalize = events => events.map(event => ({
+    actor: event.actor_name || event.metadata?.actorName || `#${event.actorUserId || '—'}`,
+    type: event.event_type || event.eventType,
+    entity: event.entity_id || event.entityId,
+    date: event.created_at || event.createdAt,
+    before: event.before, after: event.after,
+    reason: event.reason || event.metadata?.reason || ''
+  }));
+  let normalized=normalize(events);
+  const dialog = administrationDialog(adminLabel('История действий', 'Activity log'), `
+    <label>${adminLabel('Поиск по сотруднику, действию или объекту', 'Search actor, action or entity')}
+      <input type="search" data-audit-search>
+    </label><div class="list" data-audit-entries></div>`);
+  const render = () => {
+    const query = dialog.querySelector('[data-audit-search]').value.trim().toLowerCase();
+    dialog.querySelector('[data-audit-entries]').innerHTML = normalized
+      .filter(event => `${event.actor} ${event.type} ${event.entity} ${event.reason}`.toLowerCase().includes(query))
+      .map(event => `<div class="row-card"><div class="row-main">
+        <strong>${escapeHtml(event.actor)}</strong><div>${escapeHtml(event.type)} · #${event.entity || '—'}</div>
+        <p class="muted">${fmtDate(event.date)} · ${escapeHtml(event.reason)}</p>
+        <details><summary>${adminLabel('Изменения', 'Changes')}</summary>
+          <pre>${escapeHtml(JSON.stringify({before:event.before, after:event.after}, null, 2))}</pre>
+        </details></div></div>`).join('') || adminLabel('Нет записей', 'No entries');
+  };
+  dialog.querySelector('[data-audit-search]').addEventListener('input', render);
+  render();
+  if(endpoint)inlinePages(dialog.querySelector('.administration-dialog-body'),pagination,async page=>{
+    const data=await api(endpoint+'?page='+page);normalized=normalize(data.events);render();return data.pagination;
+  });
+}
+
+Object.assign(window.TGTV_ADMIN, {loadAdministration,renderAdministration});

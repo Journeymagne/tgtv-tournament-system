@@ -1,0 +1,318 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const appSource = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf8");
+function sourceOf(name) {
+  const source = appSource.match(new RegExp(`(?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`, "m"))?.[0];
+  assert.ok(source, `could not find ${name} in public/app.js`);
+  return require("../helpers/client-map-source") + "\n" + require("../helpers/client-access-source") + "\n" + source;
+}
+
+function captainControls(user, overrides = {}, administrationContext = true) {
+  const roster = (id, captainUserId) => ({ id, name: `Roster ${id}`, captainUserId,
+    members: [1, 2, 3].map((n) => ({ id: id * 10 + n, displayNameSnapshot: `Player ${id}-${n}`, factionSnapshot: "Kasrkin" })) });
+  const match = { id: 7, tournamentId: 4, pairingVersion: 2, phase: "awaiting_roll", rollRound: 1,
+    rosterA: roster(1, 101), rosterB: roster(2, 202), rollHistory: [], missions: [{ critOp: "Orb" }, { critOp: "Loot" }],
+    missionBans: [], tableIds: [1, 2, 3], ...overrides };
+  const render = new Function("state", "t", "escapeHtml", "teamEnvironmentStep", "tableLabel", "teamTournamentTables",
+    ["teamCaptainPairingControl", "teamPairingControlForSide", "teamMemberChoiceForm", "teamEnvironmentChoiceForm", "teamPairingMemberLabel", "teamRosterMemberLabel", "teamPairingMatchupLabel"].map(sourceOf).join("\n") + "; return teamCaptainPairingControl;"
+  )({ me: user, administrationContext }, (key, values) => values?.name || key, String, (m) => m.nextAction, (table) => `Table ${table.tableNumber}`, () => []);
+  return render(match, { status: "in_progress" });
+}
+
+test("public pairing permits an admin to act only as their team's captain", () => {
+  assert.equal(captainControls({ id: 999, isAdmin: true }, {}, false), "");
+  const ownSide = captainControls({ id: 101, isAdmin: true }, {}, false);
+  assert.match(ownSide, /data-team-pair-action="roll"/);
+  assert.doesNotMatch(ownSide, /data-admin-captain-side|data-side="b"/);
+});
+
+test("non-captain admin sees both sides; captains and spectators cannot act for the other side", () => {
+  const admin = captainControls({ id: 999, isAdmin: true });
+  assert.match(admin, /data-admin-captain-side="a"/);
+  assert.match(admin, /data-admin-captain-side="b"/);
+  assert.equal((admin.match(/data-team-pair-action="roll"/g) || []).length, 2);
+  const captain = captainControls({ id: 101, isAdmin: false });
+  assert.match(captain, /data-side="a"/);
+  assert.doesNotMatch(captain, /data-side="b"|data-admin-captain-side/);
+  assert.equal(captainControls({ id: 999, isAdmin: false }), "");
+  assert.equal(captainControls(null), "");
+});
+
+test("admin captains retain only their own controls in administration and cannot replace confirmed choices", () => {
+  for (const [id, side, opponent] of [[101, "a", "b"], [202, "b", "a"]]) {
+    for (const kind of ["shield", "sword"]) {
+      const match = { phase: kind + "_selection", shieldAMemberId: 11, shieldBMemberId: 21 };
+      const user = { id, isAdmin: true };
+      const controls = captainControls(user, match);
+      assert.match(controls, new RegExp(`data-side="${side}"`));
+      assert.doesNotMatch(controls, new RegExp(`data-admin-captain-side|data-side="${opponent}"`));
+      const waiting = captainControls(user, { ...match, [kind + side.toUpperCase() + "Confirmed"]: true });
+      assert.match(waiting, /teams.pairing.waitingOpponent/);
+      assert.doesNotMatch(waiting, /data-team-pairing-form/);
+    }
+  }
+});
+
+test("admin controls carry the chosen side through every phase and keep turn order", () => {
+  const user = { id: 999, isAdmin: true };
+  const rolled = captainControls(user, { rollHistory: [{ a: 4, b: null }] });
+  assert.equal((rolled.match(/data-team-pair-action="roll"/g) || []).length, 1);
+  assert.match(rolled, /data-side="b"/);
+  const ban = captainControls(user, { phase: "mission_ban", nextAction: { kind: "ban", side: "b" } });
+  assert.match(ban, /data-team-pairing-form="ban"[^>]*data-side="b"/);
+  assert.doesNotMatch(ban, /data-team-pairing-form="ban"[^>]*data-side="a"/);
+  const shield = captainControls(user, { phase: "shield_selection", shieldAMemberId: 12, shieldAConfirmed: true });
+  assert.equal((shield.match(/data-team-pairing-form="shield"/g) || []).length, 2);
+  assert.match(shield, /value="12" selected/);
+  const sword = captainControls(user, { phase: "sword_selection", shieldAMemberId: 11, shieldBMemberId: 21 });
+  assert.equal((sword.match(/data-team-pairing-form="sword"/g) || []).length, 2);
+  assert.doesNotMatch(sword, /option value="(11|21)"/);
+  for (const kind of ["table", "mission"]) {
+    const html = captainControls(user, { phase: "environment_selection", environment: { step: 2, assignments: [] }, nextAction: { kind, side: "a", slot: 1 } });
+    assert.match(html, /data-team-pairing-form="environment"[^>]*data-side="a"[^>]*data-step="2"/);
+    assert.doesNotMatch(html, /data-team-pairing-form="environment"[^>]*data-side="b"/);
+  }
+});
+
+test("admin polling preserves independent Shield drafts for both sides", () => {
+  const make = (side, value) => {
+    const select = { name: "memberId", value, options: ["11", "12", "21", "22"].map(value => ({ value })) };
+    return { dataset: { teamMatchId: "7", teamPairingForm: "shield", side }, select,
+      querySelectorAll: () => [select], elements: { namedItem: () => select } };
+  };
+  let forms = [make("a", "12"), make("b", "22")];
+  const synced = [];
+  const preserve = new Function("document", "syncUserSelect", `${sourceOf("preserveTeamPairingDrafts")}; return preserveTeamPairingDrafts;`)({ querySelectorAll: (selector) => selector.includes("[data-team-pairing-form]") ? forms : [] }, (select) => synced.push(select.value));
+  const restore = preserve();
+  forms = [make("a", "11"), make("b", "21")];
+  restore();
+  assert.deepEqual(synced, ["12", "22"]);
+  assert.deepEqual(forms.map(form => form.select.value), ["12", "22"]);
+});
+
+test("anonymous pairing shows submitted VP while only confirmed results count toward GP", () => {
+  const render = new Function("state", "t", "escapeHtml", "teamMissionLabel", "teamRosterMemberLabel",
+    require("../helpers/statistics-client-source") + "\n" + ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
+  )({ me: null }, (key, values) => key === "teams.results.progress"
+    ? `${values.count}/${values.total}: ${values.a}:${values.b}` : key, String, () => "Volkus", () => "Player");
+  const match = { progress: { completed: 1, total: 3, gpA: 14, gpB: 6 }, games: [
+    { slot: 1, gamePointsA: 14, gamePointsB: 6, game: { status: "completed", playerIds: [11, 21], result: { scores: { 11: { total: 18 }, 21: { total: 14 } } } } },
+    { slot: 2, game: { status: "pending_confirmation", playerIds: [12, 22], pendingResult: { result: { scores: { 12: { total: 21 }, 22: { total: 0 } } } } } },
+    { slot: 3, game: { status: "open", playerIds: [13, 23] } }
+  ] };
+  const html = render(match);
+  assert.match(html, /1\/3: 14:6/);
+  assert.match(html, /18:14 VP · 14:6 GP/);
+  for (const status of ["completed", "pending_confirmation", "open"]) assert.match(html, new RegExp(`data-team-game-status="${status}"`));
+  assert.equal((html.match(/teams.results.notCounted/g) || []).length, 2);
+  assert.match(html, /teams.results.pending · 21:0 VP · teams.results.notCounted/);
+  assert.doesNotMatch(html, /data-team-tournament-game/);
+  const pendingGame = match.games[1].game;
+  pendingGame.resultPlayerIds = [-12, -22];
+  pendingGame.pendingResult.result.scores = { "-12": { total: 0 }, "-22": { total: 21 } };
+  assert.match(render(match), /teams.results.pending · 0:21 VP · teams.results.notCounted/);
+  pendingGame.pendingResult = null;
+  assert.doesNotMatch(render(match), /0:0 VP|0:21 VP|21:0 VP/);
+  assert.equal(render({ games: [] }), "");
+});
+
+test("each game keeps one card as pairings, partial environment choices and results arrive", () => {
+  const messages = require("../../public/i18n/en.js");
+  const render = new Function("state", "t", "escapeHtml", "teamTournamentTables",
+    require("../helpers/statistics-client-source") + "\n" + ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "teamMissionLabel", "tableLabel", "teamRosterMemberLabel", "teamPairingMemberLabel"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
+  )({ me: { id: 1 } }, (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name]), String,
+    () => assert.fail("use the match's table snapshot"));
+  const match = {
+    rosterA: { members: [{ id: 11, displayNameSnapshot: "Alice", factionSnapshot: "Novitiates" }, { id: 12, displayNameSnapshot: "Bob", factionSnapshot: "Kasrkin" }] },
+    rosterB: { members: [{ id: 21, displayNameSnapshot: "Carol", factionSnapshot: "Sanctifiers" }, { id: 22, displayNameSnapshot: "Dave", factionSnapshot: "Kommandos" }] },
+    pairings: [{ slot: 2, rosterAMemberId: 12, rosterBMemberId: 22 }, { slot: 1, rosterAMemberId: 11, rosterBMemberId: 21, shieldOwner: "a" }],
+    tables: [{ id: 7, tableNumber: 2, killzone: "Volkus", deployment: 6 }],
+    environment: { assignments: [{ slot: "1", tableId: 7 }] }
+  };
+  let html = render(match);
+  assert.equal((html.match(/class="team-match-game"/g) || []).length, 2);
+  assert.match(html, /Game 1 · Alice \(Novitiates\) vs Carol \(Sanctifiers\)/);
+  assert.match(html, /shield A · Table 2 \/ Volkus \/ Deployment 6/);
+  assert.match(html, /Game 2 · Bob \(Kasrkin\) vs Dave \(Kommandos\)/);
+  assert.doesNotMatch(html, /data-team-tournament-game|team-match-progress|data-team-game-status/);
+
+  match.environment.assignments.unshift({ slot: 2, mission: { critOp: "Loot", killzone: "Gallowdark", layout: 4 } });
+  match.environment.assignments[1].mission = { critOp: "Orb", killzone: "Volkus", layout: 6 };
+  match.games = [
+    { slot: 2, rosterAMemberId: 12, rosterBMemberId: 22, mission: match.environment.assignments[0].mission, game: { id: 102, status: "open" } },
+    { slot: 1, rosterAMemberId: 11, rosterBMemberId: 21, mission: match.environment.assignments[1].mission, tableId: 7,
+      gamePointsA: 20, gamePointsB: 0, game: { id: 101, status: "completed", playerIds: [1, 2], result: { scores: { 1: { total: 20 }, 2: { total: 6 } } } } }
+  ];
+  html = render(match);
+  const cards = html.split('<div class="team-match-game"').slice(1);
+  assert.equal(cards.length, 2);
+  assert.match(cards[0], /data-team-game-slot="1"/);
+  assert.match(cards[0], /shield A · Orb · Volkus · Layout 6 · Table 2/);
+  assert.match(cards[0], /20:6 VP · 20:0 GP/);
+  assert.match(cards[0], /data-team-tournament-game="101"/);
+  assert.doesNotMatch(cards[0], /Loot|Dave/);
+  assert.match(cards[1], /Loot · Gallowdark · Layout 4/);
+  assert.match(cards[1], /data-team-tournament-game="102"/);
+  assert.doesNotMatch(cards[1], /shield A|Orb|20:6 VP/);
+  for (const phase of ["in_progress", "completed"]) {
+    const finished = render({ ...match, phase });
+    assert.doesNotMatch(finished, /shield A/);
+    assert.match(finished, /Orb · Volkus · Layout 6 · Table 2/);
+    assert.match(finished, /20:6 VP · 20:0 GP/);
+  }
+});
+
+test("pairing choices collapse only after pairing ends, while games and undo remain visible", () => {
+  const render = new Function("state", "t", "escapeHtml", `
+    const teamRosterLabel = roster => roster.name;
+    const teamMatchPhaseLabel = phase => phase;
+    const teamRollHistoryMarkup = () => 'ROLL HISTORY';
+    const teamPairingSideMarkup = (_match, side) => 'SHIELD AND SWORD ' + side;
+    const teamPairingTablesPreviewMarkup = () => 'TABLE PREVIEW';
+    const teamMissionPoolMarkup = () => 'CRIT OPS POOL';
+    const teamMatchGamesMarkup = () => 'PERSONAL GAMES';
+    const teamCaptainPairingControl = () => '';
+    ${sourceOf("teamMatchProgressMarkup")}
+    ${sourceOf("teamPairingSelectionsMarkup")}
+    ${sourceOf("teamMatchScoreLabel")}
+    ${sourceOf("teamPairingPhaseLabel")}
+    ${sourceOf("teamMatchResultMarkup")}
+    ${sourceOf("teamTournamentMatchMarkup")}
+    return teamTournamentMatchMarkup;
+  `)({ me: null }, key => key, String);
+  const match = { id: 7, rosterA: { name: 'A' }, rosterB: { name: 'B' }, canUndo: true, pairingRevision: 10 };
+  for (const phase of ["awaiting_roll", "mission_ban", "shield_selection", "sword_selection", "environment_selection"]) {
+    const html = render({ ...match, phase }, { status: "in_progress" });
+    assert.doesNotMatch(html, /<details/);
+    assert.match(html, /ROLL HISTORY/);
+    assert.match(html, /TABLE PREVIEW/);
+    assert.match(html, /CRIT OPS POOL/);
+  }
+  for (const phase of ["in_progress", "completed"]) {
+    const html = render({ ...match, phase }, { status: "in_progress" });
+    assert.match(html, /<details class="team-pairing-details" data-team-pairing-details="7">/);
+    assert.match(html, /<summary>teams.pairing.details<\/summary>ROLL HISTORY/);
+    assert.match(html, /CRIT OPS POOL<\/details>PERSONAL GAMES/);
+    assert.ok(html.indexOf('TABLE PREVIEW') < html.indexOf('</details>'));
+    assert.match(html.slice(html.indexOf('</details>')), /data-team-match-undo="7"/);
+    assert.doesNotMatch(html, new RegExp(`<div class="row-meta">${phase}`));
+  }
+});
+
+test("team result banners use awarded TTP, including draws with unequal GP, and wait for completion", () => {
+  const messages = require("../../public/i18n/en.js");
+  const render = new Function("t", "escapeHtml", `${sourceOf("teamMatchScoreLabel")}; ${sourceOf("teamMatchResultMarkup")}; return teamMatchResultMarkup;`)(
+    (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name]),
+    value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+  );
+  const match = { phase: "completed", rosterA: { name: "Ash <1>" }, rosterB: { name: "Silent 1" },
+    teamTournamentPointsA: 2, teamTournamentPointsB: 0, teamGamePointsA: 40, teamGamePointsB: 20 };
+  assert.match(render(match), /Winner: Ash &lt;1&gt;/);
+  assert.match(render(match), /2:0 TTP · 40:20 GP/);
+  assert.match(render({ ...match, teamTournamentPointsA: 0, teamTournamentPointsB: 2, teamGamePointsA: 20, teamGamePointsB: 40 }), /Winner: Silent 1/);
+  for (const gpA of [28, 30, 32]) {
+    const draw = render({ ...match, teamTournamentPointsA: 1, teamTournamentPointsB: 1, teamGamePointsA: gpA, teamGamePointsB: 60 - gpA });
+    assert.match(draw, />Draw<\/div>/);
+    assert.doesNotMatch(draw, /Winner:/);
+  }
+  assert.match(render({ ...match, resolution: "forfeit" }), /Winner: Ash &lt;1&gt;/);
+  assert.match(render({ ...match, resolution: "bye", rosterB: null }), /Winner: Ash &lt;1&gt;/);
+  assert.equal(render({ ...match, phase: "in_progress" }), "");
+  assert.equal(render({ ...match, teamTournamentPointsA: null, teamTournamentPointsB: null }), "");
+});
+
+test("My Games previews show confirmed game count and GP in the captain's displayed roster order", () => {
+  const messages = require("../../public/i18n/en.js");
+  const render = new Function("t", "escapeHtml", `${sourceOf("teamMatchPhaseLabel")}\n${sourceOf("teamPairingPhaseLabel")}\n${sourceOf("teamPairingCard")}; return teamPairingCard;`)(
+    (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name]), String
+  );
+  const match = { id: 3, phase: "in_progress", roundNumber: 1, rosterA: { name: "Crimson" }, rosterB: { name: "Solar" },
+    tournament: { name: "Cup" }, progress: { completed: 1, total: 3, gpA: 4, gpB: 16 } };
+  for (const [captainSide, title, score] of [["a", "Crimson vs Solar", "4:16"], ["b", "Solar vs Crimson", "16:4"]]) {
+    const html = render({ ...match, captainSide });
+    assert.match(html, new RegExp(title));
+    assert.match(html, new RegExp(`Completed 1/3 games · Current GP: ${score}`));
+    assert.doesNotMatch(html, /Three games in progress/);
+  }
+  const preparing = render({ ...match, captainSide: "a", phase: "shield_selection" });
+  assert.match(preparing, /Captains choose shields/);
+  assert.doesNotMatch(preparing, /Current GP/);
+});
+
+test("My Games refreshes pairing progress once and ignores results after navigating away", async () => {
+  const { liveHarness } = require("../helpers/live-refresh");
+  const state = { teamPairings: [{ id: 3, progress: { completed: 0 } }] };
+  let response = { teamPairings: [{ id: 3, progress: { completed: 1, gpA: 4, gpB: 16 } }] };
+  const h = liveHarness({ fetch: () => response, apply: (_target, data) => { state.teamPairings = data.teamPairings; } });
+  h.current = { ...h.current, key: "play:10", interval: 15000, url: "/api/me", snapshot: { ...state } };
+  await h.controller.run();
+  assert.equal(state.teamPairings[0].progress.completed, 1);
+  assert.equal(state.teamPairings[0].progress.gpB, 16);
+  await h.controller.run();
+  assert.equal(h.renders.length, 1);
+  let resolve;
+  response = new Promise(done => { resolve = done; });
+  const pending = h.controller.run();
+  h.current = null;
+  resolve({ teamPairings: [] });
+  await pending;
+  assert.equal(state.teamPairings.length, 1);
+  assert.equal(h.renders.length, 1);
+});
+
+test("polling retains expanded pairing details by match and leaves newly finished pairings collapsed", () => {
+  let details = [{ dataset: { teamPairingDetails: "7" }, open: true }, { dataset: { teamPairingDetails: "8" }, open: false }];
+  const document = { querySelectorAll: (selector) => selector.includes("[data-team-pairing-form]") ? []
+    : selector.includes("data-team-pairing-details") ? (selector.endsWith("[open]") ? details.filter(item => item.open) : details) : [] };
+  const preserve = new Function("document", `${sourceOf("preserveTeamPairingDrafts")};return preserveTeamPairingDrafts;`)(document);
+  const restore = preserve();
+  details = ["8", "7", "9"].map(id => ({ dataset: { teamPairingDetails: id }, open: false }));
+  restore();
+  assert.deepEqual(details.map(item => item.open), [false, true, false]);
+});
+
+test("standalone live-result polling works anonymously and stops after leaving the pairing URL", async () => {
+  const { liveHarness } = require("../helpers/live-refresh");
+  const state = { me: null, view: "teamPairing", selectedTeamMatchId: 7 };
+  let segments = ["team-matches", "7"];
+  const currentRoute = new Function("state", "hashSegments", `${sourceOf("isCurrentTeamPairingRoute")}; return isCurrentTeamPairingRoute;`)(state, () => segments);
+  const h = liveHarness();
+  assert.equal(currentRoute(7), true);
+  await h.controller.run();
+  assert.deepEqual(h.renders, [2]);
+  segments = ["tournaments"];
+  assert.equal(currentRoute(7), false);
+  h.current = null;
+  await h.controller.run();
+  assert.equal(h.requests.length, 1);
+});
+
+test("a saved captain action invalidates an older poll and refreshes before enabling another action", async () => {
+  const state = { teamPairingDetail: { teamMatch: { id: 7, phase: "awaiting_roll" } } };
+  const requests = [];
+  let refreshes = 0;
+  let stopped = 0;
+  const run = new Function("state", "api", "stopTeamPairingPoll",
+    `let teamPairingMutationPending = false, teamPairingRequestId = 0, publicTournamentRequestId = 0;
+     const liveRefresh = { schedule() {} };
+     ${sourceOf("loadTeamPairing")}
+     async function refreshTeamTournamentUi() { await loadTeamPairing(7, { force: true }); }
+     ${sourceOf("submitTeamPairingAction")}
+     return { loadTeamPairing, submitTeamPairingAction, pending: () => teamPairingMutationPending };`
+  )(state, (path) => path === "/action" ? Promise.resolve({}) : new Promise((resolve) => { requests.push(resolve); refreshes += 1; }), () => { stopped += 1; });
+  const oldPoll = run.loadTeamPairing(7, { force: true });
+  const action = run.submitTeamPairingAction({}, {}, "/action", {});
+  assert.equal(run.pending(), true);
+  await new Promise(resolve => setImmediate(resolve));
+  requests[1]({ teamMatch: { id: 7, phase: "mission_ban" } });
+  await action;
+  requests[0]({ teamMatch: { id: 7, phase: "awaiting_roll" } });
+  assert.equal(await oldPoll, null);
+  assert.equal(state.teamPairingDetail.teamMatch.phase, "mission_ban");
+  assert.equal(run.pending(), false);
+  assert.equal(refreshes, 2);
+  assert.equal(stopped, 1);
+});

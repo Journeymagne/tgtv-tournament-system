@@ -1,0 +1,59 @@
+# Replace the old root website's server blocks; avoid duplicate server_name entries.
+# Update the external env file used by the deployment script.
+# App .env: COMPANION_ORIGIN=https://ktcompanion.ru
+#           SITE_URL=https://ktcompanion.ru
+#           NODE_ENV=production
+#           TRUST_PROXY=true  (exactly one trusted proxy)
+# Reuse existing DNS and certificates. Adjust certificate paths and the app port.
+server {
+    listen 80;
+    server_name ktcompanion.ru www.ktcompanion.ru;
+    return 301 https://ktcompanion.ru$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name www.ktcompanion.ru;
+    ssl_certificate /etc/letsencrypt/live/ktcompanion.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ktcompanion.ru/privkey.pem;
+    return 301 https://ktcompanion.ru$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ktcompanion.ru;
+    ssl_certificate /etc/letsencrypt/live/ktcompanion.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ktcompanion.ru/privkey.pem;
+
+    # Studio albums and TTS image exports; Node enforces per-route limits.
+    client_max_body_size 100m;
+
+    # /, /tournament, /initiative, /tracker, /studio, /dice, API and assets use Node.
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_read_timeout 120s;
+        # Let Node select the entry page. Do not use try_files /index.html here.
+    }
+}
+
+# Optional: replace the rating hostname's proxy with these redirects.
+# Keep its existing certificate so old tournament bookmarks continue to work.
+server {
+    listen 80;
+    server_name rating.ktcompanion.ru;
+    location = / { return 301 https://ktcompanion.ru/tournament$is_args$args; }
+    location / { return 301 https://ktcompanion.ru$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    server_name rating.ktcompanion.ru;
+    ssl_certificate /etc/letsencrypt/live/rating.ktcompanion.ru/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/rating.ktcompanion.ru/privkey.pem;
+    location = / { return 301 https://ktcompanion.ru/tournament$is_args$args; }
+    location / { return 301 https://ktcompanion.ru$request_uri; }
+}

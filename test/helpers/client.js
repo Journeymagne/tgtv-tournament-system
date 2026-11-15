@@ -18,11 +18,11 @@ async function startApiServer(handler) {
   };
 }
 
-function createClient(baseUrl) {
+function createClient(baseUrl, clientHeaders = {}) {
   let cookie = "";
 
   async function request(method, path, body) {
-    const headers = {};
+    const headers = { ...clientHeaders };
     if (cookie) headers.cookie = cookie;
     if (body !== undefined) headers["content-type"] = "application/json";
     const res = await fetch(`${baseUrl}${path}`, {
@@ -49,6 +49,7 @@ function createClient(baseUrl) {
     get: (path) => request("GET", path),
     post: (path, body) => request("POST", path, body ?? {}),
     patch: (path, body) => request("PATCH", path, body ?? {}),
+    put: (path, body) => request("PUT", path, body ?? {}),
     del: (path) => request("DELETE", path),
     clearCookie: () => {
       cookie = "";

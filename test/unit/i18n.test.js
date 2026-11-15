@@ -200,6 +200,7 @@ test("glossary covers every protected category", () => {
     "Stake Claim",
     "Bheta-Decima",
     "2026 Q2 Dataslate",
+    "2026 Q3 Dataslate",
     "Angels of Death",
     "XV26 Stealth Battlesuits"
   ]) {

@@ -1,6 +1,706 @@
-# TGTV Ranking Tournament System
+# KT Companion / TGTV Ranking Tournament System
+
+A standalone [UI kit reference](docs/ui-kit.md) is saved in `design/ui-kit/`.
+Open `design/ui-kit/index.html` directly to explore components for future
+services. It is not connected to the running application.
+
+Independent service processes are available with one PostgreSQL database and
+separate schemas. Gateway preserves the menu, shared login and existing URLs;
+notifications from tournaments, Studio, FAQ and KnowThyKT use a durable inbox.
+See [service separation, migration and deployment](docs/service-separation.md).
+The separate [tierlist service](docs/tierlist-service.md) saves private, season-tagged
+rankings to the same Companion account.
+The first schema migration requires a backup and a coordinated cutover; `npm start`
+remains the compatible single-process mode.
+
+Account email verification and password recovery are available behind EMAIL_PROVIDER.
+See [Email setup and local capture](docs/email-service.md) before enabling Resend.
+
+The Tournament System has an optional [Telegram bot](docs/telegram-bot.md):
+account linking, active games, tournament links and background notifications.
+It is disabled by default; migration **057_telegram_bot** stores links, events
+and delivery jobs. Run `npm run telegram:setup` after configuring a BotFather token.
+
+The [Telegram Mini App](docs/telegram-miniapp.md) at `/miniapp` provides four
+mobile screens: My Tournament, My Match, Standings and Profile. It reuses the
+website's scoring and permissions, supports Telegram account sign-in and the
+normal website session, and needs no additional migration or dependency.
+Set `TELEGRAM_MINI_APP_URL` only after publishing its HTTPS page, then run
+`npm run telegram:setup` to enable the bot's app menu and contextual buttons.
+
+Players can save an optional Best Coast Pairings email in their profile settings
+for future tournament transfers. It is independent of the account sign-in email,
+is returned only in the player's own profile, and can be cleared. Startup migration
+**054_user_bcp_email** adds the nullable `users.bcp_email` column.
+
+The site opens on the Companion home page with nine sections: Combat Lab, initiative
+calculator, activation tracker, tournament system, KT Studio, the D6 dice generator
+and [TTS Community FAQ](docs/community-faq.md), plus
+[Know Thy Kill Team](docs/know-thy-kill-team.md) and [Tierlists](docs/tierlist-service.md). The calculators,
+Studio editor, published team library and dice editor are public. Saving or publishing a team
+requires the same account and session as the tournament system. Existing
+public tournament pages, leaderboards, statistics, player profiles and match history
+are available without signing in. See [Companion integration](docs/companion-integration.md)
+for routes, imported sources, account-owned drafts and deployment settings.
+The home page is a service selector. Each service opens on its own page under
+the same hostname: `/tournament`, `/initiative`, `/tracker`, `/studio`, `/dice`, `/faq`, `/combat`, `/training` and `/tierlist`,
+with a shared account. The header logo opens the service selector; the service
+name opens its start page (Studio library or tournament My Games).
+Sun and moon buttons select a shared light or dark theme.
+FAQ browsing is public. Questions, submissions and moderation use the same
+Companion account and session; FAQ Moderator is a separate role on that account.
+
+Know Thy Kill Team offers 300 Russian rules questions (75 per difficulty) and
+20-question sessions. Browsing and training are public; guests keep progress in
+their browser, while Companion accounts enable cross-device progress.
+Migration **056_training_progress** stores account answers, active sessions and
+statistics in PostgreSQL so players can continue on another device.
+Migration **061_training_service_contracts** installs the trainer's schema,
+public progress view and notification outbox when upgrading a 1.4.x database
+that already applied migrations 058-060 without training. Service deployments
+must provision roles again after setting `KNOWTHYKT_DB_PASSWORD`.
+The trainer opens with a personal journey through six ranks, from Нубик to
+Судья. XP rewards the first two correct answers to each question; a shared
+evolving achievement updates on the journey and in the player's Companion
+profile. With all 300 questions active, rank thresholds are
+0 / 600 / 2,400 / 5,400 / 9,600 / 15,000 course XP. Slop and deleted questions
+leave the course requirements, while earned XP and answer history remain.
+Migration **064_training_retained_ranks** retains the highest earned title,
+restores legacy titles from dated answers and notifies affected accounts about
+recertification. A new Judge title requires two correct answers to every active
+question; further repetitions award no XP. Earlier answers and guest progress remain valid.
+See [bank provenance and version compatibility](src/training-data/README.md).
+Migration **062_training_moderation** adds persistent Slop reports and the admin
+moderation tab. A report immediately withdraws the question; administrators can
+edit it, comment, restore it to the pool or archive it. Active sessions replace
+unanswered withdrawn questions while checked answers retain their original wording.
+See [moderation and versioned sessions](docs/know-thy-kill-team.md#slop-reports-and-moderation).
+
+Published teams also have [reviews and ratings](docs/studio-reviews.md): Theme,
+Balance and Lore scores, library averages, editable reviews and administrator
+moderation. Startup migrations **039_studio_reviews** and
+**040_studio_review_versions** store reviews and ratings by team version.
+The adjacent [Discussion tab](docs/studio-discussion.md) supports questions and
+threaded replies without ratings, author notifications and moderation. Startup
+migration **041_studio_comments** stores comments, reports and audit history.
+Lore pages also support [free A4 layouts](docs/studio-free-lore.md) with independent
+text and image frames, cropping, layers, text backgrounds and PDF overflow checks.
 
 A website for Kill Team matchmaking, Approved Ops results, ratings, statistics, and challenge tracking.
+
+IRL tournaments can include an optional venue address of up to 500 characters.
+Organizers can edit or clear it before or after the event starts. Public tournament
+cards show the venue and address and list newer events first within each category.
+Migration **055_tournament_venue_address** adds an empty address to existing events
+without changing Studio migration 032. See [venue addresses](docs/tournament-venue-address.md).
+
+Tournament organizers can allow up to three [factions per player](docs/tournament-factions.md).
+Additional factions are optional in solo, WTC, Classic and Doubles events; match reports
+select one registered faction. Startup migration **053_tournament_factions**
+preserves the single-faction default for existing tournaments.
+
+Tournament pages open on **Tournament Preview**, with the event logo, description,
+rules and the current round's maps, mission and optional deadline. Each round has
+a nickname, team and public Telegram contact search; match details start collapsed.
+TTS organizers can set a deadline while generating or editing a prepared round.
+Times are entered and displayed in the viewer's local timezone and stored as UTC
+in round metadata, including rollback drafts. No database migration is required.
+
+Tournament administrators can register team rosters with empty proxies, including
+teams with fewer than three accounts. Proxies can later be replaced by team
+members. Migration **046_team_roster_proxies** stores their identity; see
+[Team roster proxies](docs/team-roster-proxies.md) for pairing and rating rules.
+
+[IRL Doubles](docs/doubles-irl.md) adds two-player rosters, manual captain
+pairings, a four-mission pool and 2/1/0 TP plus the combined-VP bonus. Standings
+use TP, SOS and VP. Migration **052_doubles_irl** enables the new format.
+
+New individual and team events default to the latest active
+[season](docs/tournament-seasons.md). A super administrator can change an event's
+season in its settings, including after completion. Existing results then count
+toward statistics for the selected season while scores and ratings are retained.
+
+## Release 1.4.0
+
+Telegram bot and Mini App, Studio D6 dice and TTS packs, FAQ card deletion,
+public guest browsing, shared account pages and a durable notification inbox
+are included. Seven optional service processes share one PostgreSQL database.
+Know Thy Kill Team is excluded from this release.
+
+Migrations 057–060 add Telegram storage, move tables into service schemas and
+add notification/session contracts. Version 056 remains reserved. Back up the
+database and stop the old application before applying 058; older application
+versions cannot use the migrated schema. See [service deployment](docs/service-separation.md)
+and [release validation](docs/release-1.4.0-validation.md).
+
+## Release 1.3.0
+
+Tournament standings and statistics support search, filters and sortable columns.
+Pairing previews and match cards warn about repeated opponents and IRL tables;
+starting affected games requires two confirmations. Swiss pairing searches across
+score brackets to reduce avoidable rematches and retains the preview's eligible bye.
+
+This release also includes the venue-address, KT2024 melee and Linux deployment
+updates merged after the original 1.2.0 tag. Migration 055 adds the venue address;
+no migration beyond 055, new dependencies or environment variables are introduced.
+See [release validation](docs/release-1.3.0-validation.md).
+
+## Release 1.2.0
+
+Players can save a separate, private BCP email for future tournament transfers.
+The leaderboard searches current and registration nicknames and Telegram handles
+while preserving overall ranks. Tournament administrators can edit roster
+captains and factions without discarding prepared pairings; active team members
+use their current account names.
+
+Combat Lab now uses the shared Companion account, language and theme controls.
+All modules share the updated header branding and service navigation. Profile
+game cards have an improved layout.
+
+The October 15 update adds KT2024 melee abilities, configurable follow-up strikes
+and blocks, tactical decisions for the new effects and shared scenario links.
+Named obsolete 2021 effects are removed or renamed to generic effects; the
+short ability list is in [the changelog](CHANGELOG.md). IRL tournaments also
+support optional venue addresses through migration **055_tournament_venue_address**.
+
+Linux deployments through `bash update_tgtv-ts.sh production` now prepare an
+isolated release while the current site keeps running. Calculator dependencies
+have a separate cache, so changed calculator sources can rebuild without another
+nested `npm ci`. The script switches only after preparation, checks pages/API,
+and restores the previous release on failure when migrations are unchanged.
+Use `bash update_tgtv-ts.sh staging --prepare-only` to prepare without switching.
+See [deployment and recovery](docs/deployment.md) for layout and limitations.
+
+Migration **054_user_bcp_email** adds a nullable profile field. Application,
+Combat Lab, both lockfiles and client asset markers use **1.2.0**. No new
+dependencies or environment variables are required. See
+[release validation](docs/release-1.2.0-validation.md).
+
+## Release 1.1.1 — Multiple factions
+
+Tournament organizers can allow one, two or three factions per player in solo,
+WTC, Classic and IRL Doubles. Only one faction is required; additional slots
+are optional. Multi-faction match reports select a player's registered faction.
+See [faction settings](docs/tournament-factions.md) and
+[release validation](docs/release-1.1.1-validation.md).
+
+Migration **053_tournament_factions** runs after **052_doubles_irl** and keeps
+existing events at one faction. Application, Combat Lab, both lockfiles and
+client assets use version 1.1.1. No dependency or environment changes are needed.
+
+## Release 1.1.0 — IRL Doubles
+
+[IRL Doubles](docs/doubles-irl.md) uses two roster slots and two manual captain
+pairings, with four missions per round. Individual games award 2/1/0 TP, plus
+one team bonus for higher combined VP. Standings compare TP, SOS, then VP.
+Roster replacement, reserves and deletion reuse the existing team interfaces.
+
+Migration **052_doubles_irl** enables the format and snapshots match roster size
+and scoring version. New dependencies and environment variables are not required.
+Application, Combat Lab and both lockfiles use version 1.1.0. Browser assets use
+the unique 1.1.0-doubles marker to refresh caches from the earlier 1.1.0 release.
+See [release validation](docs/release-1.1.0-doubles-validation.md).
+
+## Release 1.0.3
+
+Combat Lab is prepared automatically during root installation, including
+production installs. Its completed build is preserved and reused when the
+calculator's inputs are unchanged. Changes to any other Companion module,
+including Studio, the dice generator and tournaments, and release-number-only
+bumps skip both its dependency installation and compilation. Missing or damaged
+builds are rebuilt; `/combat/api/health` reports unavailable when the build is
+missing. Calculator and simulation browser tabs use the KT Companion icon.
+
+Application, both package/lockfile pairs and client asset versions are 1.0.3.
+There are no new dependencies, database migrations or required environment
+variables. See [release validation and deployment](docs/release-1.0.3-validation.md).
+
+## Release 1.0.2
+
+The home menu now includes **КТ Калькулятор / KT Calculator** at `/combat`,
+with the calculator and operative duel simulator on the Companion host.
+The deployment script installs and builds Combat Lab before starting the app.
+Player/team leaderboard ranks and numeric values stay on one line, including
+on mobile screens. Application, lockfile and asset versions are 1.0.2.
+See [release validation and deployment](docs/release-1.0.2-validation.md).
+
+## Earlier release 1.1.0 — 11 October 2026
+
+The profile uses a compact two-column dashboard with equal-sized cards. New
+individual and team tournaments default to the latest active season; a super
+administrator can move an existing tournament and its game statistics to another
+season while retaining scores, pairings and ratings.
+
+[Companion Combat Lab](services/combat-lab/README.md) is included as a separate
+service in `services/combat-lab`: the ktcalc calculator, operative duels for
+shooting and melee, and an official catalogue snapshot of 48 Kill Teams.
+Both tabs share controls; newly added rules are enabled immediately. Build and
+start it from its own directory for standalone use. Installing the main app with
+`npm ci` or `npm ci --omit=dev` prepares Combat Lab at `/combat` when its build
+is missing or its inputs have changed. An unchanged, intact build is reused
+without installing the nested dependencies or running the compiler. The deploy
+script preserves this build between releases, so Studio or tournament changes
+do not rebuild the calculator. Its build tools are included even in production
+when needed; no second process is required. Use `npm run build:combat` to force
+a rebuild. Existing builds without a fingerprint are rebuilt once on upgrade.
+
+Application, lockfile and client asset versions are 1.1.0. The main Companion
+service has no new dependencies, database migrations or required environment
+variables. Combat Lab has its own package and optional PDF library configuration.
+See [the changelog](CHANGELOG.md) and
+[release validation](docs/release-1.1.0-validation.md).
+
+## Release 1.0.1
+
+Administrators can reset a single submitted or completed match in the latest
+round of a running individual Swiss tournament, then replace its participants
+in the active pairings editor. Resetting removes that result and its points,
+recalculates ratings and reopens the round while retaining other results.
+Confirmation checks reject stale edits and matches with a later generated round.
+
+Removed players and proxies retain their names and scores in historical matches
+without returning to the current roster or exposing hidden factions.
+
+Application, lockfile and client asset versions are 1.0.1. No new dependencies,
+database migrations or environment variables are required. See
+[the changelog](CHANGELOG.md), [administrator workflow](docs/solo-player-replacements.md)
+and [release validation](docs/release-1.0.1-validation.md).
+
+## Release 1.0.0
+
+KT Companion starts a new version sequence at 1.0.0; earlier release history is
+preserved below.
+
+Individual Swiss tournaments support removing players and proxies after the start
+and repairing unplayed pairings in the latest active round. Completed games,
+ratings and pending results remain protected; revision checks reject stale edits.
+
+Tables share consistent numeric columns and mobile scrolling. Active team pairing
+pages show both three-player rosters with faction visibility respected. Back from
+a result form immediately restores My Games and recovers from duplicate history
+entries. The new KT Companion book-and-blade branding covers the home page,
+shared headers, sign-in, browser icons, email and link previews in both themes.
+
+Application, lockfile and client asset versions are 1.0.0. No new dependencies,
+database migrations or environment variables are required. See
+[the changelog](CHANGELOG.md) and [release validation](docs/release-1.0.0-validation.md).
+
+## Release 5.4.5
+
+Team tournaments allow repeated Killzones on any tables, in WTC and Classic,
+TTS and IRL. Migration **051_team_killzone_docs** corrects untouched seeded WTC
+help pages while preserving administrator edits.
+
+Application and client asset versions are 5.4.5. No new dependencies or environment
+variables are required. Repeated Killzones and updated help pages were verified
+locally through the interface and API. See [the changelog](CHANGELOG.md).
+
+## Release 5.4.4
+
+TTS WTC team rounds use exactly three virtual tables shared by every team matchup.
+Round setup has no line selector, and the server rejects additional tables.
+Classic Sword Shield and IRL retain separate lines of three tables. Existing
+round assignments and results are preserved; table edits apply to their round.
+
+Administration navigation and account controls use consistent panels and
+responsive permission, security and rating blocks. Application and client asset
+versions are 5.4.4. No new dependencies, migrations or environment variables are
+required. See [WTC pairing rules](docs/team-pairing-rules.md),
+[Classic setup](docs/sword-shield-classic.md) and [the changelog](CHANGELOG.md).
+
+## Release 5.4.3
+
+Administration has consistent account-permission dialogs and working Players/Teams
+tabs. Pending team results identify the confirming captain's team in RU/EN;
+completed pairing results use readable theme colours on desktop and mobile.
+
+Studio superadmins can delete published teams, reviews and discussion messages,
+including hidden reviews and messages. Publication deletion verifies account,
+CSRF and revision, reuses draft/publication cleanup and records the administrator.
+Review deletion removes ratings; comment deletion preserves other authors' replies.
+See [Studio reviews](docs/studio-reviews.md), [discussion](docs/studio-discussion.md)
+and [the changelog](CHANGELOG.md). Application and client asset versions are 5.4.3.
+No new dependencies, database migrations or environment variables are required.
+
+## Release 5.4.2
+
+FAQ team selection returns only team-specific cards, with matching counts and
+an empty result for teams without entries. Discussions have Companion avatars,
+editable author comments and scoped moderator deletion/reply controls. Migration
+**050_faq_comment_edits** adds revisions and edit timestamps while preserving
+existing comments. FAQ uses the shared RU/EN interface; source text stays in its
+original language. Language and theme persist across services and open tabs.
+The conduct header and submission/moderation layouts match the reference page.
+Client assets are versioned at 5.4.2. No new dependencies or environment variables
+are required. See [Community FAQ](docs/community-faq.md) and [the changelog](CHANGELOG.md).
+
+## Release 5.4.1
+
+TTS Community FAQ joins the Companion menu with the shared account and session.
+The catalogue contains 34 community rulings and 97 official GW answers, with
+team and ruling tags, search, sorting, sources, images and account bookmarks.
+Code of Conduct and FAQ principles have separate document tabs and URLs.
+Players can ask questions and submit rulings or corrections. The new FAQ
+Moderator role reviews submissions and edits formatted text and images with
+revision checks and audit history; only the platform owner assigns the role.
+Startup migrations **048_community_faq** and **049_faq_info** add FAQ storage and
+preserve existing principles when moving them to Info. Client assets are
+versioned at 5.4.1. No new dependencies or environment variables are required.
+See [Community FAQ](docs/community-faq.md) and [the changelog](CHANGELOG.md).
+
+## Release 5.4.0
+
+Primary Op selection uses Crit / Tac / Kill radio buttons in result forms, including
+mobile browsers. Studio abilities use one editable text field; existing headings
+are folded into the text, and New Recruit exports retain their ability names.
+Shared CSS rules are consolidated across Companion and Tournament System, and
+Studio styling is maintained in one stylesheet. Client assets are versioned at 5.4.0.
+Obsolete email and statistics planning notes are removed. No new dependencies,
+database migrations or environment variables are required.
+See [the CSS audit](docs/css-refactor-2026-10-05.md) and [the changelog](CHANGELOG.md).
+
+## Release 5.3.3
+
+Classic standings use the sum of individual player TP: win 3, draw 1, loss 0.
+Separate points for winning or drawing a team match are removed. All standings
+metrics remain visible: player wins, VP difference, total VP and Tac Op points,
+with the configured tiebreaker order retained. Byes and forfeits award 9 TP.
+
+Startup migration **047_classic_player_points** recalculates saved Classic scores,
+published tables, roster places and podium awards. Individual game results and
+Elo are preserved. No new dependencies or environment variables are required.
+See [Classic scoring](docs/sword-shield-classic.md) and [the changelog](CHANGELOG.md).
+
+## Release 5.3.1
+
+Classic rounds default to all nine missions without organizer selection. Captains
+assign three distinct missions; in step-by-step pairing, the captain without
+initial initiative chooses the third game's mission. Existing rounds retain
+their saved mission pool. Studio operative images support a 960-pixel longest
+edge and approximately 400 KB of encoded image bytes before Base64 overhead.
+No new dependencies, database migrations or environment variables are required.
+See [Classic pairing](docs/sword-shield-classic.md) and [the changelog](CHANGELOG.md).
+
+## Release 5.3.0
+
+Studio adds a free A4 layout editor for lore and narrative pages: independent text
+and image frames, cropping, layers, snapping, undo/redo, and transparent text
+backgrounds. Start from a blank sheet or three templates, or convert an automatic
+page into editable copies while keeping the original. Editor, library and PDF
+share the same renderer; text overflow blocks saving and PDF export.
+Controls follow Studio themes and adapt to mobile screens. No new dependencies,
+database migrations or environment variables are required.
+See [free layout controls](docs/studio-free-lore.md) and [the changelog](CHANGELOG.md).
+
+## Release 5.2.0
+
+Tournament System and KT Studio accept a nickname or verified email for sign-in.
+Registration uses Nickname and leaves the optional player nickname in the profile.
+Tournament administrators can fill team rosters with empty proxies, replace them
+with team members, and run Classic/WTC pairings while preserving saved game identities.
+Migration **046_team_roster_proxies** applies automatically at startup. Proxy games
+do not affect personal Elo, and team matches containing proxies do not affect team Elo.
+Studio and dice team catalogs use 32 publications per page. The Challenge sidebar
+label is corrected, and client assets are versioned at 5.2.0.
+See [the changelog](CHANGELOG.md) for the complete release notes.
+
+## Release 5.0.2
+
+Team tournament creation and settings use the standard tournament controls for
+captain pairing and tiebreakers. Priority fields share consistent labels and
+spacing, with a single-column layout on narrow screens. Client assets are
+versioned at 5.0.2. Classic awards 3/1/0 team points, including three points for
+byes and forfeits. Migration **045_classic_three_points** updates unfinished
+Classic tournaments; published completed results retain their original points.
+
+IRL table Killzones are optional; new table images can only be uploaded for TTS.
+Saved lines are reused in later rounds, with an optional line editor. Classic
+hides irrelevant GP captions. Organizers and judges can open the administrative
+result form directly from public pairings.
+
+## Release 5.0.1
+
+Organizers and assigned judges can open tournament administration through Edit
+on public tournament pages. Solo participants can be replaced after the start
+while preserving the tournament seat, points and tiebreakers. Completed matches
+and personal history remain with the original player. Multiple proxy placeholders
+are supported without accounts or personal history; games involving a proxy do
+not affect either player's rating. Participant controls are aligned on desktop
+and mobile. Startup migration **044_solo_replacements** stores proxy flags and
+match participant identities. See [Solo player replacements](docs/solo-player-replacements.md).
+
+## Release 5.0.0
+
+Team tournaments support SWORD SHIELD CLASSIC: three players per team, no GP,
+match wins decided by individual wins and team points awarded as 2/1/0.
+Captains choose shields and opposing swords, then assign tables and missions.
+Organizers can disable the captain wizard and enter all three pairings manually.
+Round previews generate and assign lines of three tables; Classic uses three
+shared missions across all lines. Ordered team tiebreakers include individual
+wins, VP difference and total VP. Startup migration **043_sword_shield_classic**
+adds the required settings and match snapshots. Existing WTC matches retain
+their rules. See [Classic rules and round setup](docs/sword-shield-classic.md).
+
+## Release 4.9.6-3
+
+Studio publications have a Discussion tab beside Reviews for questions and
+threaded replies without ratings. Team authors have a badge and receive in-app
+notifications; reply recipients can open the exact message from their inbox.
+Comments support editing, deletion, reports and administrator moderation, with
+a counter in the library. Startup migration **041_studio_comments** adds comments,
+reports and audit history. No new environment variables are required.
+
+## Release 4.9.6-2
+
+Administrators who captain a roster cannot inspect the opponent's pending shield
+or sword choices in their own match, including pairing logs and raw audit
+snapshots. They act only for their own side and cannot overwrite a confirmed
+choice by submitting it again. Administrative access to other matches is retained.
+Client asset versions are refreshed. No additional database migrations are required.
+
+### Included from 4.9.6
+
+Tournament administration groups ongoing, future and ended tournaments, including
+drafts under future events. Studio publications support reviews, Theme/Balance/Lore
+ratings, author notifications and administrator moderation. Reviews retain their
+publication revision when teams are updated, with current-version and all-version
+rating summaries. Startup migrations **039_studio_reviews** and
+**040_studio_review_versions** add reviews and rating history; no additional
+environment variables are required. See [Studio reviews](docs/studio-reviews.md)
+and [the changelog](CHANGELOG.md) for details.
+
+## Release 4.9.5
+
+Game history loads 25 games per page, with player and faction filters applied
+across the entire history. Tournament Kill Team Stats includes participant pick
+counts, including factions without completed games. Captain pairing previews
+show table images and missions before the D6 roll. Team Swiss pairings randomize
+opponents within equal-TP groups and preserve the selected preview when saved.
+See [the changelog](CHANGELOG.md) for details.
+
+## Release 4.9.3
+
+Startup migration **038_journey_platform_owner** assigns the existing Journey
+account as the sole platform owner. It checks user ID `2`, normalized name
+`journey` and Telegram `@Journeymagne` before replacing any previous ownership.
+The change is transactional, audited and visible in existing sessions.
+Other accounts retain their ordinary administrator permissions.
+
+If the account is missing or does not match, the migration logs a warning and
+records completion without assigning anyone. Later registrations cannot claim
+ownership by choosing this name. Successful ownership stays attached to the
+account ID after renaming; restarts do not repeat the assignment.
+Deploy and restart 4.9.3 to apply it. Pushing the Git tag alone does not update
+the running production database.
+
+## Release 4.9.2
+
+Tournament administration has four destinations: Overview, Tournaments,
+Players and teams, and Content. Administrative sessions, accounts, team tools
+and content editors open from this area; normal pages retain player, captain
+and own-team management actions. Studio keeps its own administration.
+
+The platform owner manages global roles. Tournament organizers appoint judges;
+judges run their assigned events without appointing other judges. Platform
+administrators automatically act as judges in all events. Server permissions
+honour revoked and expired assignments. Tournament statistics also include
+faction picks, with hidden selections protected before round one.
+
+Back up PostgreSQL before deployment. Migration **037_access_roles** applies on
+startup and preserves existing users, tournaments and global administrators.
+After verifying the intended owner's account ID, run from the deployed app:
+
+```sh
+node scripts/set-platform-owner.js <user-id>
+```
+
+Registration never grants administrative privileges. The command refuses to
+replace an existing owner with another account. Local preview sessions and
+test data are excluded from the release. See [role implementation](docs/access-roles-implementation.md)
+and [the full changelog](CHANGELOG.md).
+
+## Release 4.9.0
+
+Studio exports cards and playable tokens through immutable TTS links. Install
+KT Studio Importer once, paste an export link, then use PLACE/PACK on the bags.
+Infinite token containers match each token's shape and artwork. Token presets
+provide range auras without attachment, KTUI effects, or effects with counters.
+
+The separate `/dice` tool creates a single native D6 with an interactive preview,
+colors, pips or numbers, and a logo on any face. Logos come from the current
+site's published teams or an uploaded image. Number/pip and logo sizes are
+adjustable up to 200%. Export a PNG texture, a Saved Object, or an importer link.
+Studio startup loads core scripts together and defers PDF libraries until needed.
+
+Migration **036_studio_tts_exports** runs automatically at startup and stores
+export manifests and images. Back up both new tables. Keep the proxy upload
+allowance at `100m` and configure the public HTTPS origin for shared asset URLs.
+See [TTS import](docs/studio-tts-import.md), [D6 generator](docs/dice-generator.md)
+and [the full changelog](CHANGELOG.md).
+
+## Release 4.8.1
+
+Tokens have individual fill colours and a searchable gallery of 100 vector
+symbols in ten categories. Uploaded images replace only the central symbol;
+the token shape, colour and physical size stay intact. Symbol scaling applies
+to built-in and uploaded artwork. Old whole-token images become central symbols
+on circles when a project opens, retaining the artwork and physical size.
+Preview, library, PDF and TTS share the same rendering. No new database migration
+is required. TTS export remains the existing PNG deck ZIP; the separate importer
+and export of individual playing tokens are deferred.
+See [token guide documentation](docs/studio-token-guides.md) and
+[the full changelog](CHANGELOG.md).
+
+## Release 4.8.0
+
+Studio adds token guide cards with 20 mm circles by default, adjustable printed
+diameters and symbol sizes, custom artwork, numeric variants and drag ordering.
+Team names and accents come from the project. Token guides share the preview,
+library, PDF and TTS renderer. Print PDFs at 100% to preserve physical sizes.
+Project schema 5 migrates older projects with an empty token section; opening
+schema 5 saves requires Studio 4.8.0 or newer.
+TTS export remains a ZIP of deck face/back PNG sheets. No new database migration is required.
+See [token guide documentation](docs/studio-token-guides.md) and
+[the full changelog](CHANGELOG.md) for this release.
+
+## Release 4.7.5
+
+Operative stat columns retain the reference card widths even with a portrait.
+Standard values use a consistent font size, and icons share the same visible
+height in Studio, PDF and TTS. No new database migrations are required.
+
+## Release 4.7.4
+
+Studio deletion uses one confirmation dialog for teams, cards, weapons,
+abilities, images and other elements. Cancellation and deletion conflict
+handling are preserved. No new database migrations are required.
+
+## Release 4.7.2
+
+Studio portrait framing supports vertical shifts beyond the top of the card and
+zooming out to 10%. The preview shows the actual card header; saved projects,
+PDF and TTS retain the framing. Player names in game cards and result forms
+link to their profiles. No new database migrations are required.
+
+## Release 4.7.1
+
+Individual tournament settings now export statistics to Excel, including
+published places, configured tiebreakers and per-round scores. The Challenge
+column has unchecked boxes for manual marking in the downloaded file.
+Export is available to administrators after completion too. No new migrations
+are required. See [Excel export](#excel-export) for details.
+
+## Release 4.6.1
+
+Published team cards are larger in Studio. Operatives appear one per row with
+vertical scrolling, and portrait cards have more room for readable text.
+The viewer fits desktop and mobile screens. No new migrations are required.
+
+## Release 4.6
+
+The Equipment editor no longer shows the Restrictions controls. Existing saved
+equipment data is preserved. Package and client asset versions are updated to 4.6;
+the tournament ID safeguards from 4.5 are retained, with no new migrations.
+
+## Release 4.5
+
+The tournament profile, MMR and navigation now share the portal header. Winner
+banners work in both themes, and tournament outcomes use explicit participant
+identities to prevent user/participant ID collisions. Studio adds full formatting
+to operative keywords, fixes selection-list spacing and removes the inner white
+border from ploy title bands while preserving their background.
+
+Migration **035** adds tournament identity guards after the winner repair in 034.
+Tournament winners are read only from `winnerParticipantId`; database checks reject
+out-of-match/cross-tournament identities and incorrect game-to-participant mappings.
+Public ID namespaces are additive; existing numeric URLs and API fields remain.
+See [ID contract, compatibility and upgrade limits](docs/id-namespaces.md).
+Administrators can now use **Recalculate standings** in an individual tournament
+to rebuild results, points, tiebreakers and places. Replacing published places and
+podium awards requires confirmation. See [standings recalculation](docs/standings-recalculation.md).
+
+Release 4.5 applies migration **034** automatically on startup. It repairs
+individual tournament winners and match points when a user's ID was mistaken
+for the opposing tournament participant's ID. Published result statistics and
+opponents' tiebreakers are recalculated; canonical games, Elo, manually published
+places and awards stay intact. Each repair records its before/after values in
+the tournament audit log. Organizers should review published places for affected
+events and downstream pairings for affected elimination brackets.
+
+## Previous Companion releases
+
+All services share light/dark themes, RU/EN language controls and consistent
+navigation. Studio adds team logos, saved weapon profiles, richer rule editing,
+base sizes on operative cards and smaller uploaded images. Published teams
+include author links and PDF, TTS and ROSZ exports; portrait cropping is isolated
+per card in the library. Existing projects retain their content when opened.
+
+Studio uses PostgreSQL as the primary store for signed-in accounts. Edits save
+after an 800 ms pause, and opening Studio loads the saved account draft. Browser
+storage is an optional recovery cache; a full browser store does not block saves.
+Concurrent edits are preserved as a separate private database draft without
+overwriting the original team or its publication. No new migrations are needed.
+
+All services use paths on `ktcompanion.ru`. One host-only session cookie
+works across all sections; new DNS records and subdomain certificates are not
+needed. Existing calculator HTML links and tournament hash links redirect to the
+new addresses.
+
+Studio team selection lives in **My drafts**. **Create team** offers an empty
+team or a separate copy of a template. Login and registration open in a dialog
+over Studio and share the tournament account; guest edits and the requested
+action resume after login. Owners can delete their teams with
+confirmation; deletion also removes the publication. Migration 033 runs on
+startup and records deleted project identities without retaining their content,
+so delayed saves cannot recreate them. See the integration guide for rollback
+requirements after deletion has been used.
+
+Team game result confirmation:
+
+A player reporting their own TTS game, including a captain playing that game,
+needs confirmation from either their actual opponent or the opposing roster's
+captain. The same people can reject the result. A captain reporting a teammate's
+game still needs the opposing captain in both TTS and IRL. Reporting one's own
+IRL game saves it immediately. These rules also apply to existing pending results
+that marked a playing captain as a captain submitter; no migration or resubmission
+is required. Administrative result controls remain available.
+
+Companion services use a shared tournament account.
+Studio supports guest editing and account-owned drafts/publications. Migration
+032 adds only Studio storage; all tournament features from 3.1.4 are retained.
+Configure `COMPANION_ORIGIN` and the root hostname's proxy as described below.
+
+### Previous tournament releases
+
+See [CHANGELOG.md](CHANGELOG.md) for the release history and upgrade notes.
+**Edit round tables** changes a generated team round's killzones, table numbers,
+layouts and images while preserving pairings, captain choices, games and results.
+The separate **Undo round** action requires confirmation and restores the latest
+round's pairs and tables as an editable, resumable draft. Submitted results block
+Undo; captain choices restart after regeneration.
+
+Team pairing screens now include a live event log of captain choices, dice rolls,
+mission bans, table assignments, game creation, result actions and undo/reset.
+Entries identify the actor and selected player/Kill Team, preserve history across
+undo, and keep unrevealed choices private. This patch adds no database migrations.
+
+The Google Search Console ownership verification file added in 3.1.1 remains at
+`/googlef86243166b01dc47.html`. After deployment, complete verification in Search
+Console and inspect the Security Issues report. Keep the file deployed to retain
+verification.
+
+Version 3.1.0 added reserved rosters, tournament live updates, lighter tournament
+payloads and images, round editing for all site administrators, and native browser
+navigation. Games against opponents without accounts now use normal Elo against
+1000 MMR. Administrators can recalculate individual rating history from a completed
+game without changing its result.
+
+Migrations 030 and 031 apply on startup. They add roster reservations and update
+untouched rating documentation; they do not import local demo data or reset ratings.
+After upgrading, use **Recalculate rating** on a completed ranked game to repair
+historical guest-game awards and dependent later ratings. A regular rating replay
+also uses the corrected rule. Existing achievements and awards remain intact.
+See [tournament workflow and live-update notes](docs/tournament-live-updates.md).
 
 ## Run
 
@@ -12,7 +712,8 @@ npm install
 npm start
 ```
 
-After the server starts, open `http://127.0.0.1:3000`.
+Open `http://127.0.0.1:3000`. All services use paths under this address.
+Leave `COMPANION_ORIGIN` empty locally, or set it to the same origin and port.
 
 ## Configuration
 
@@ -23,7 +724,8 @@ DB_PASSWORD=your_password
 DB_PORT=5432
 DATABASE_URL=postgres://tgtv:your_password@localhost:5432/tgtv_tournament
 PORT=3000
-SITE_URL=https://rating.ktcompanion.ru
+COMPANION_ORIGIN=https://ktcompanion.ru
+SITE_URL=https://ktcompanion.ru
 ```
 
 Set `DB_PORT` to something else if port 5432 is already taken on your machine,
@@ -33,6 +735,9 @@ For managed PostgreSQL services that require SSL, set `PGSSL=true`.
 
 `SITE_URL` is optional locally, but production should set it to the public
 HTTPS origin so canonical URLs, `robots.txt`, and `sitemap.xml` are stable.
+Point the existing root hostname's Nginx proxy at the Node application; see
+[the Nginx example](deploy/nginx-companion.conf.example). A Git update alone
+does not replace an old static site served by that hostname.
 
 The schema is created and upgraded automatically by versioned migrations on
 startup. Applied versions are recorded in the `schema_migrations` table.
@@ -62,6 +767,81 @@ rollback does not require a down migration. Restore the pre-deploy backup only
 if the integrity checks report damaged data; keep all writers stopped while
 doing so.
 
+## Stored files are served as files, not JSON
+
+Avatars, and an uploaded tournament rules PDF, are kept in PostgreSQL as base64
+`data:` URLs but are **not** sent inside API responses. They are served by
+`GET /api/users/:id/avatar` and `GET /api/tournaments/:slug/rules`, and the URL
+in the JSON carries a `?v=` fingerprint of the stored bytes. A request that
+includes that marker is answered with `Cache-Control: public, max-age=604800,
+immutable`; the bare URL stays revalidatable through its `ETag`.
+
+A proxy in front of the app must therefore not strip `ETag` or rewrite
+`Cache-Control` on `/api/`, or every avatar will be refetched on every page.
+
+JSON responses are compressed by the app itself (brotli, falling back to gzip)
+and carry `Content-Encoding` and `Vary: Accept-Encoding`. Nginx passes an
+already-encoded upstream response through untouched, so no extra configuration
+is needed -- but do not enable a module that re-compresses proxied responses.
+
+## Client bundles loaded on demand
+
+`public/live-refresh.js` loads before `public/app.js` in both HTML shells. It
+provides polling, interaction guards, and updates that retain unchanged DOM
+nodes. The following bundles are fetched on demand and must also be deployed:
+
+- `admin.js` -- the administration UI, requested once `/api/me` reports
+  `isAdmin`. It is roughly a fifth of the client and nobody else downloads it.
+- `documentation.js` and `documentation.css` -- fetched when a reader opens
+  Documentation.
+- `i18n/en.js` / `i18n/ru.js` -- only the visitor's locale is loaded; the other
+  arrives if they use the language toggle.
+
+Application bundles such as `app.js` and `admin.js` retain their release marker
+in `public/index.html` and `ASSET_VERSION` in `src/http/seo.js`. Bump those
+together when releasing changed application bundles.
+
+Shared CSS, appearance, dictionaries, documentation and account helpers use a
+content version generated by `npm run assets:sync`. Run it after editing shared
+assets or account fields, and commit the resulting HTML and
+`src/http/shared-assets.json`. It updates static pages, CSS imports and dynamic
+notification dependencies together; SEO and Combat Lab read the same manifest.
+Line endings do not affect the hash. `npm run assets:check` checks for drift in CI.
+
+The account page and Studio dialog generate their marked field regions from
+`scripts/lib/auth-form.js`. Edit that definition instead of either generated
+region, then run `npm run assets:sync`. Their existing wrappers, field order,
+IDs and CSS remain separate; `public/companion-auth.js` shares mode constraints.
+The standalone Combat Lab bundle retains its own reset and palette so it can
+also run without the Companion shell.
+
+### Live updates
+
+Only the visible live screen polls. During a tournament, Matches refreshes
+every 5 seconds, Standings every 15 seconds, and Statistics every 45 seconds,
+for both individual and team events, including gaps before/between rounds.
+The same intervals apply to the administrator's corresponding tournament tabs.
+Standalone WTC pairings refresh every 5 seconds during choices and every 10
+seconds while games are running. Completed/cancelled events stop polling.
+My Games and administrator active games refresh every 15 seconds; an open game
+or a game awaiting confirmation refreshes every 10 seconds. Other screens and
+tournament editing tabs do not poll. Notifications retain their 30-second cycle.
+
+Polling pauses in hidden tabs and checks immediately on return. Unchanged data
+does not redraw the view. Text selection, focused fields, open combo menus and
+dialogs defer applying updates; the newest response is applied after interaction
+ends. Result-entry forms never get replaced by polling. Pairing drafts, search
+input, unchanged DOM nodes, and an explicitly selected round are retained.
+Navigation and writes invalidate old responses so they cannot restore stale data.
+
+User pickers use the shared live nickname search, with the same case-insensitive
+substring matching as User administration. For new player selects, add
+`data-user-search` and call `wireComboFields(container)` after rendering. The
+native select keeps its name and submitted ID; after changing its value or
+options in code, call `syncUserSelect(select, true)`. Use `data-user-name` on
+options whose displayed labels also include a faction. ID-based combo fields
+can use `userComboItems(users)` with the `users` options key.
+
 ## Deploying to production
 
 **`NODE_ENV=production` must be set on the running process.** `src/config.js`
@@ -90,16 +870,75 @@ repo at the path it names (`ENV_FILE`, `/app/tgtv-ts.env` by default) and
 copies it into place on every deploy -- create it once from `.env.example`
 and update it there, not in the repo checkout.
 
-## Tests
+## Tournament rules uploads behind Nginx
 
-Tests need a separate database:
+Tournament rules PDFs can be up to 2 MiB and logos up to 1 MiB. The browser
+encodes attachments as Base64 inside JSON, so a combined upload can exceed
+4 MiB. Tournament creation and editing accept up to 5 MiB; Studio draft uploads
+accept 100 MiB for image albums. Other application routes retain a 2 MiB limit.
+See [Companion integration](docs/companion-integration.md) for the Studio proxy allowance.
 
-```powershell
-docker compose exec postgres createdb -U tgtv tgtv_tournament_test
-npm test
+In the Nginx `server` block serving `ktcompanion.ru` over
+HTTPS, set the following (remove or update any smaller override in its
+API `location` block):
+
+```nginx
+client_max_body_size 100m;
 ```
 
-`npm run test:unit` runs the tests that need no database.
+Validate the configuration and reload Nginx:
+
+```sh
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+This is a host configuration change: deploying the app with
+`update_tgtv-ts.sh` does not apply it. An HTML `413 Request Entity Too Large`
+response from Nginx means the request was rejected before reaching Node.
+After deployment, verify saving and reopening a tournament with a PDF near
+the 2 MiB file limit, through the public HTTPS site.
+
+## Editing documentation
+
+Sign in as an administrator, open **Documentation**, choose a page and click
+**Edit**. The editor supports Markdown headings, lists, links, tables and fenced
+code/formulas, with a live preview. Russian and English are edited separately.
+**Save** publishes the selected language immediately. **Open .md** imports text
+into the draft; **Download .md** exports the current text. Drafts are kept in the
+current browser tab across reloads. A conflicting edit in another tab cannot
+silently overwrite a saved revision.
+
+Migration `018_documentation` seeds all ten existing translations from
+`docs/documentation/{ru,en}/*.md` and `docs/documentation/pages.json`. Thereafter,
+published content lives in PostgreSQL's `documentation_pages` table; deploying
+new source files or rerunning the seed does not overwrite administrator edits.
+To publish changes to a local Markdown file, import it in the editor and save.
+Include this table in regular database backups. Raw HTML is displayed as text;
+preview and public pages use the same Markdown renderer.
+
+## Excel export
+
+Individual tournament **Settings** include **Export statistics to Excel** (also
+available after completion). The `.xlsx` contains published places, or current
+standings before publication, factions, TP, configured tiebreakers and one group
+of score columns per generated round. `Prim` is the primary-op bonus; pending
+results stay blank and byes carry 3 TP. Published manual placement is retained.
+The **Challenge** column contains unchecked in-cell Excel checkboxes for manual
+marking in the downloaded file. These marks are not saved to the site. Viewers
+without support for Excel's in-cell checkboxes show editable FALSE/TRUE values.
+
+## Tests
+
+The full automated test suite runs in
+[GitHub Actions CI](https://github.com/Journeymagne/tgtv-tournament-system/actions/workflows/ci.yml)
+on pushes and pull requests to `main`. The workflow runs `npm test` on Node.js 22
+with a dedicated PostgreSQL 16 test database. Both `TEST_DATABASE_URL` and
+`DATABASE_URL` point to that test database.
+
+Use the CI result for the commit being reviewed; diagnose failures from the
+failed job's logs. Do not repeat automated tests locally, including before a
+merge, unless the user explicitly requests it. Visual inspection and local
+page/API availability checks remain part of preparing a local preview.
 
 ## Migrating from JSON storage
 
@@ -110,7 +949,41 @@ existing JSON data into PostgreSQL, run once:
 node scripts/import-json-db.js
 ```
 
+## Achievements
+
+The **Achievements** page has **Achievements** and **Hall Of Fame** tabs. The
+first shows the latest additions first; Hall Of Fame contains winner titles
+sorted by tournament edition (descending, including Roman numerals), then by
+date added. Administrators choose the category and personal/team type on creation.
+Administrators
+can create an achievement with a name, description and either one emoji or a
+PNG/JPEG/WebP image (up to 1 MiB), open its page, and award it to a registered player or team.
+The creation dialog defaults to Emoji, supports paste and previews the selected
+symbol. On Windows, Win + . opens the system emoji panel.
+Player selection supports nickname search. Each recipient can receive a given
+achievement once; the detail page lists recipients. Awards appear in player
+profiles (including your own) and in the main tab of team profiles. Team awards
+can include an optional selection of current or former team members; the names
+are saved as a snapshot on the award and shown on its detail page.
+Administrators can delete achievements from the detail page after confirmation.
+Deletion hides the catalog entry and all profile awards while preserving the
+stored history and preventing automatic medals from being recreated on re-publication.
+
+Publishing an event's final standings completes the event and automatically
+creates its first-, second- and third-place medals (🥇, 🥈, 🥉). Individual events
+award player accounts; team events award the roster's parent team. A guest
+without an account retains their placing but receives no profile award; their
+medal is not reassigned to the next player. Event medals cannot be manually
+awarded. Repeated team standings publication reconciles recipients without
+duplicates. Existing completed events are not retroactively awarded on upgrade.
+
+Migration `023_achievements` adds the catalog and award tables. Include both in
+database backups. Images are served separately from catalog JSON.
+
 ## Features
+
+Account quotas and resource safeguards, including superadministrator overrides:
+[resource limits](docs/resource-limits.md). Split services require database migration 065.
 
 - registration and sign-in with name and password;
 - the first registered user automatically becomes an administrator;
@@ -119,4 +992,8 @@ node scripts/import-json-db.js
 - Approved Ops result entry: `Crit Op`, `Kill Op`, `Tac Op`, `Primary Op`;
 - automatic total and Elo calculation with `K=32`;
 - leaderboard;
+- team leaderboard with TTS, IRL, and combined ratings (TTS + IRL - 1000);
+- team leaders and administrators can permanently delete teams without tournament matches from the team profile, including archived teams. Scheduled matches and active tournament rosters block deletion. Deletion removes the team's rosters, memberships, and invitations, while preserving player accounts and personal games;
+- Teams Administration: search all teams, edit names, descriptions and logos,
+  remove members, transfer leadership, archive and restore teams;
 - admin panel: view users, delete users, edit ratings, assign administrators.

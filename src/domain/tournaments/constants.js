@@ -12,6 +12,17 @@ const TOURNAMENT_FORMATS = {
   SWISS: "swiss"
 };
 
+const PARTICIPANT_MODES = {
+  INDIVIDUAL: "individual",
+  TEAM: "team"
+};
+
+const TEAM_PAIRING_TYPES = {
+  SHIELD_SWORD: "shield_sword",
+  SWORD_SHIELD_CLASSIC: "sword_shield_classic",
+  DOUBLES: "doubles"
+};
+
 const PARTICIPANT_STATUSES = {
   JOINED: "joined",
   ACTIVE: "active",
@@ -46,10 +57,14 @@ const STANDINGS_TIEBREAKERS = [
   "total_vp",
   "vp_diff"
 ];
+const TEAM_STANDINGS_TIEBREAKERS = ["individual_wins", "vp_diff", "total_vp"];
+const DOUBLES_STANDINGS_TIEBREAKERS = ["strength_of_schedule", "total_vp"];
 
 module.exports = {
   TOURNAMENT_STATUSES,
   TOURNAMENT_FORMATS,
+  PARTICIPANT_MODES,
+  TEAM_PAIRING_TYPES,
   PARTICIPANT_STATUSES,
   ROUND_STATUSES,
   MATCH_STATUSES,
@@ -57,5 +72,7 @@ module.exports = {
   CHALLENGE_CREDIT_POLICIES,
   VENUE_MODES,
   SINGLE_ELIMINATION_SIZES,
-  STANDINGS_TIEBREAKERS
+  STANDINGS_TIEBREAKERS,
+  TEAM_STANDINGS_TIEBREAKERS,
+  DOUBLES_STANDINGS_TIEBREAKERS
 };

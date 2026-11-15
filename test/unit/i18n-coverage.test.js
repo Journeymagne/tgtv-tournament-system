@@ -18,7 +18,8 @@ const ALLOWED = new Set([
   // Non-breaking spaces and separators used as layout, not copy.
   " - ",
   " / ",
-  " vs " // settled decision: kept untranslated in both languages
+  " vs ", // settled decision: kept untranslated in both languages
+  "Best Coast Pairings" // Product name; identical in both locales.
 ]);
 
 const BOOTSTRAP_ALLOWED = new Set([

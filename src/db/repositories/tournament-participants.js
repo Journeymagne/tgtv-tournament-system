@@ -3,17 +3,19 @@ const {
   mapTournamentParticipant
 } = require("../rows");
 
-const COMPETITIVE_STATUSES = ["joined", "active"];
 const ACTIVE_NAME_STATUSES = ["joined", "active", "pending_placement", "eliminated", "finished"];
 
 const FIELD_COLUMNS = {
   userId: "user_id",
+  isProxy: "is_proxy",
   displayName: "display_name",
   displayNameKey: "display_name_key",
   faction: "faction",
+  factions: "factions",
   factionRules: "faction_rules",
   seed: "seed",
   status: "status",
+  paid: "paid",
   source: "source",
   withdrawnAt: "withdrawn_at",
   removedAt: "removed_at",
@@ -36,8 +38,8 @@ async function insert(client, participant) {
   const { rows } = await client.query(
     `INSERT INTO tournament_participants
        (tournament_id, user_id, display_name, display_name_key, faction,
-        faction_rules, seed, status, source)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        faction_rules, seed, status, source, factions)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text[])
      RETURNING ${COLUMNS}`,
     [
       participant.tournamentId,
@@ -48,7 +50,8 @@ async function insert(client, participant) {
       participant.factionRules || null,
       seed,
       participant.status,
-      participant.source
+      participant.source,
+      participant.factions || (participant.faction ? [participant.faction] : [])
     ]
   );
   return mapTournamentParticipant(rows[0]);
@@ -60,16 +63,6 @@ async function listByTournament(client, tournamentId) {
      WHERE tournament_id = $1
      ORDER BY COALESCE(seed, 2147483647), id`,
     [tournamentId]
-  );
-  return rows.map(mapTournamentParticipant);
-}
-
-async function listCompetitive(client, tournamentId) {
-  const { rows } = await client.query(
-    `SELECT ${COLUMNS} FROM tournament_participants
-     WHERE tournament_id = $1 AND status = ANY($2::text[])
-     ORDER BY seed, id`,
-    [tournamentId, COMPETITIVE_STATUSES]
   );
   return rows.map(mapTournamentParticipant);
 }
@@ -142,11 +135,9 @@ async function setAllCompetitiveStatus(client, tournamentId, status) {
 }
 
 module.exports = {
-  COMPETITIVE_STATUSES,
   ACTIVE_NAME_STATUSES,
   insert,
   listByTournament,
-  listCompetitive,
   findByTournamentUser,
   lockById,
   lockByTournament,

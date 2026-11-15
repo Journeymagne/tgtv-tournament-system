@@ -1,4 +1,5 @@
 const { HttpError, ValidationError } = require("../http/io");
+const { canManageTournament, canCreateTournament, canFinishTournament, tournamentPermissions } = require("../domain/access");
 const tournamentsRepo = require("../db/repositories/tournaments");
 const participantsRepo = require("../db/repositories/tournament-participants");
 const roundsRepo = require("../db/repositories/tournament-rounds");
@@ -8,6 +9,7 @@ const auditRepo = require("../db/repositories/tournament-audit-events");
 const usersRepo = require("../db/repositories/users");
 const gamesRepo = require("../db/repositories/games");
 const { requirePositiveIntId } = require("./params");
+const { clearPreparedRounds, requirePreparedFirstRound } = require("./tournament-preparation");
 const {
   tournamentDetailView,
   tournamentSummaryView,
@@ -16,18 +18,26 @@ const {
 } = require("./views");
 const { attachTournamentGameDetails } = require("./tournament-game-details");
 const { buildTournamentPreview } = require("../domain/tournaments/preview");
+const { normalizeRoundDeadline } = require("../domain/tournaments/round-deadline");
 const { buildStandings } = require("../domain/tournaments/standings");
-const { calculateSubmittedResult, matchScoreFor, parseKillzone } = require("../domain/scoring");
-const { calculateElo, ELO_K } = require("../domain/elo");
-const { requireKillTeam } = require("../domain/kill-teams");
+const { matchParticipant, participantResultKey, winnerParticipantIdFromResult, assertMatchWinner, tournamentResultSnapshot } = require("../domain/tournaments/results");
+const { calculateSubmittedResult, parseKillzone } = require("../domain/scoring");
+const { calculateParticipantElo } = require("../domain/elo");
+const { normalizeFactions, registeredFactions, validateResultFactions } = require("../domain/tournaments/factions");
+const { usesSharedTeamTables } = require("../domain/team-tournaments");
 const { uniqueSlug } = require("../domain/tournaments/slug");
+const { decodeDataUrl, contentVersion } = require("../domain/data-url");
 const { buildSwissNextRound } = require("../domain/tournaments/swiss");
+const pairingWarnings = require("./pairing-warnings");
 const { recalculateCompletedGameRatings } = require("./rating-replay");
 const {
   normalizeNewTournament,
   normalizeTournamentPatch,
+  normalizeTiebreakerOrder,
+  normalizeTeamTiebreakerOrder,
   validatePublishable,
   normalizeParticipantName,
+  normalizeSeasonId,
   participantNameKey,
   normalizeFactionRules
 } = require("../domain/tournaments/input");
@@ -39,7 +49,6 @@ const {
   MATCH_STATUSES
 } = require("../domain/tournaments/constants");
 
-const UNREGISTERED_OPPONENT_RATING_BONUS = 15;
 
 function nowIso() {
   return new Date().toISOString();
@@ -59,6 +68,13 @@ async function revertGameEloDeltas(client, games) {
       if (!Number.isInteger(id) || !delta) continue;
       const key = `${venue}:${id}`;
       deltas.set(key, { id, venue, delta: (deltas.get(key)?.delta || 0) - delta });
+    }
+    for (const [userId, entry] of Object.entries(game.elo?.combined || {})) {
+      const id = Number(userId);
+      const delta = Number(entry?.delta || 0);
+      if (!Number.isInteger(id) || !delta) continue;
+      const key = `combined:${id}`;
+      deltas.set(key, { id, venue: "combined", delta: (deltas.get(key)?.delta || 0) - delta });
     }
   }
   for (const { id, venue, delta } of deltas.values()) {
@@ -92,8 +108,7 @@ function viewerFor(tournament, participants, user) {
   if (!user) return { role: "spectator", canAdmin: false, participantId: null };
   const participant = participants.find((item) => item.userId === user.id && isListedParticipant(item)) || null;
   return {
-    role: user.isAdmin ? "admin" : participant ? "participant" : "spectator",
-    canAdmin: Boolean(user.isAdmin),
+    ...tournamentPermissions(user, tournament),
     participantId: participant?.id || null
   };
 }
@@ -110,8 +125,8 @@ function participantHasGeneratedMatch(participantId, matches) {
 function normalizeOptionalDeployment(value) {
   if (value === undefined || value === null || value === "") return null;
   const deployment = Number(value);
-  if (!Number.isSafeInteger(deployment) || deployment < 1 || deployment > 6) {
-    throw new ValidationError("Deployment must be between 1 and 6");
+  if (!Number.isSafeInteger(deployment) || deployment < 1 || deployment > 13) {
+    throw new ValidationError("Deployment must be between 1 and 13");
   }
   return deployment;
 }
@@ -234,6 +249,11 @@ function applyRoundSetupBody(roundBlueprint, participants, body = {}) {
       sourceB: null
     });
   }
+  for (const match of baseMatches.filter(match => match.isBye)) {
+    if (!participantIds.has(match.participantAId)) throw new ValidationError("Round setup uses a player outside this tournament");
+    if (seen.has(match.participantAId)) throw new ValidationError("Each player can appear only once in a generated round");
+    seen.add(match.participantAId);
+  }
   const matches = baseMatches.map((match, index) => {
     const setup = setupMatches[index] || {};
     if (match.isBye) return { ...match, mission: roundMission };
@@ -274,6 +294,7 @@ function applyRoundSetupBody(roundBlueprint, participants, body = {}) {
   });
   return {
     ...roundBlueprint,
+    endsAt: normalizeRoundDeadline(body.endsAt),
     mission: roundMission,
     matches
   };
@@ -297,12 +318,7 @@ function finalResultFromStanding(row, rank) {
 }
 
 function finalStandingsReady(tournament, rounds, matches) {
-  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) return false;
-  if (!matches.length || matches.some((match) => match.status !== MATCH_STATUSES.COMPLETED)) return false;
-  if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
-    return rounds.length >= Number(tournament.swissRoundCount || 0);
-  }
-  return true;
+  return require('../../public/tournament-results').isReady({ tournament, rounds, matches });
 }
 
 function finalStandingsOrderFromBody(body, standings) {
@@ -322,10 +338,16 @@ function finalStandingsOrderFromBody(body, standings) {
   return ids;
 }
 
+const { resolveTournamentResultSides, assertTournamentResultContext, attachRecordedMatchIdentities } = require("./tournament-result-context");
+
 async function fullView(client, tournament, user, { includeAudit = false } = {}) {
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").tournamentData(client, tournament, user, { includeAudit });
+  }
   const participants = await participantsRepo.listByTournament(client, tournament.id);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
-  const matches = await matchesRepo.listByTournament(client, tournament.id);
+  const matches = await attachRecordedMatchIdentities(client,
+    await matchesRepo.listByTournament(client, tournament.id), participants);
   const tables = await tablesRepo.listByTournament(client, tournament.id);
   const people = await peopleForParticipants(client, participants);
   const standings = buildStandings(participants, matches, tournament.tiebreakerOrder);
@@ -341,6 +363,7 @@ async function fullView(client, tournament, user, { includeAudit = false } = {})
   return tournamentDetailView({
     tournament,
     participants: visibleParticipants,
+    matchParticipants: participants,
     people,
     rounds,
     matches,
@@ -352,28 +375,62 @@ async function fullView(client, tournament, user, { includeAudit = false } = {})
   });
 }
 
-async function listPublic({ client }) {
-  const tournaments = await tournamentsRepo.listPublished(client);
-  return { tournaments: tournaments.map(tournamentSummaryView) };
+async function listPublic({ client, user, query }) {
+  const mine = query?.get("scope") === "mine";
+  if (mine && !user) throw new HttpError(401, "You need to sign in");
+  const result = await tournamentsRepo.listPage(client, query, mine ? user : null, { mine });
+  return { pagination: result.pagination, tournaments: result.tournaments.map(tournament => ({
+    ...tournamentSummaryView(tournament),
+    ...(mine ? { viewer: tournamentPermissions(user, tournament) } : {})
+  })) };
 }
 
-async function getPublic({ client, user, params }) {
+async function getPublic({ client, user, params, query }) {
   const tournament = await tournamentsRepo.findBySlug(client, params.slug);
-  if (!tournament || !publicStatuses(tournament)) throw new HttpError(404, "Tournament not found");
-  return fullView(client, tournament, user);
+  if (!tournament || (!publicStatuses(tournament) && !canManageTournament(user, tournament))) throw new HttpError(404, "Tournament not found");
+  return require("./tournament-payload").tournamentPayload(await fullView(client, tournament, user), query);
 }
 
-async function listAdmin({ client }) {
-  const tournaments = await tournamentsRepo.listAdmin(client);
-  return { tournaments: tournaments.map(tournamentSummaryView) };
+// The uploaded rules PDF, served as a file. It used to travel inside every
+// JSON response that mentioned the tournament; now it is fetched once, on the
+// click that actually wants it, and cached by content hash.
+async function getRules({ client, user, params, req }) {
+  const tournament = await tournamentsRepo.findBySlug(client, params.slug);
+  if (!tournament || (!publicStatuses(tournament) && !canManageTournament(user, tournament))) throw new HttpError(404, "Tournament not found");
+  const file = decodeDataUrl(tournament.rulesLink);
+  if (!file) throw new HttpError(404, "This tournament has no rules file");
+  const etag = `"${contentVersion(tournament.rulesLink)}"`;
+  const headers = {
+    ETag: etag,
+    // Immutable only when the caller asked for this exact version: the
+    // unversioned URL must stay revalidatable so a replaced file is picked up.
+    "Cache-Control": publicStatuses(tournament) ? (req?.url?.includes("v=") ? "public, max-age=604800, immutable" : "public, max-age=0, must-revalidate") : "private, no-store",
+    "Content-Disposition": `attachment; filename="${tournament.slug}-rules.pdf"`
+  };
+  if (req?.headers?.["if-none-match"] === etag) return { status: 304, buffer: null, headers };
+  return { buffer: file.bytes, contentType: file.contentType, headers };
 }
 
-async function getAdmin({ client, user, params }) {
+async function listAdmin({ client, user, query }) {
+  const result=await tournamentsRepo.listPage(client,query,user);
+  return {pagination:result.pagination,tournaments:result.tournaments.map(tournament=>({...tournamentSummaryView(tournament),viewer:tournamentPermissions(user,tournament)}))};
+}
+
+async function getAdmin({ client, user, params, query }) {
   const tournament = await requireTournament(client, params.id);
-  return fullView(client, tournament, user, { includeAudit: true });
+  if (!canManageTournament(user, tournament)) throw new HttpError(403, "Tournament access required");
+  const result = require("./tournament-payload").tournamentPayload(await fullView(client, tournament, user, { includeAudit: query?.get("audit") === "1" }), query);
+  result.staff = await require("./access-management").staff({client,user,params});
+  return result;
+}
+
+async function auditPage({client,params,query}) {
+  const events = await auditRepo.listByTournament(client, Number(params.id), query);
+  return {events, pagination:events.pagination};
 }
 
 async function createAdmin({ client, user, body }) {
+  if (!canCreateTournament(user)) throw new HttpError(403, "Tournament creation permission required");
   const slug = await uniqueSlug(body.slug || body.name, (candidate) =>
     tournamentsRepo.isSlugTaken(client, candidate)
   );
@@ -392,23 +449,85 @@ function assertEditableSetup(tournament) {
 }
 
 async function updateAdmin({ client, user, params, body }) {
+  if (Object.hasOwn(body, "ownerUserId") || Object.hasOwn(body, "owner_user_id")) throw new HttpError(403, "Tournament ownership cannot be changed here");
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
-  assertEditableSetup(tournament);
+  if (!canManageTournament(user, tournament)) throw new HttpError(403, "Tournament access required");
+  if (body.expectedUpdatedAt && body.expectedUpdatedAt !== tournament.updatedAt) throw new HttpError(409, "Tournament was changed by another administrator. Reload its settings before saving.");
+  const { expectedUpdatedAt, ...changes } = body;
+  body = changes;
+  const seasonChanged = Object.hasOwn(body, "seasonId") && normalizeSeasonId(body.seasonId) !== tournament.seasonId;
+  if (seasonChanged && !user.isSuperAdmin) throw new HttpError(403, "Only the super administrator can change a tournament season");
+  if (seasonChanged && !expectedUpdatedAt) throw new HttpError(409, "Reload the tournament before changing its season");
+  const seasonOnly = user.isSuperAdmin && Object.keys(body).length > 0 && Object.keys(body).every(key => key === "seasonId");
+  if (!seasonOnly) assertEditableSetup(tournament);
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
-    const allowed = new Set(["description", "rulesSummary", "rulesLink", "startsAt", "tournamentRules"]);
+    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules", "venueAddress", "pairingMode", ...(user.isSuperAdmin ? ["seasonId"] : []), ...(tournament.participantMode === "team" ? ["captainPairingEnabled", "teamTiebreakerOrder"] : [])]);
     for (const key of Object.keys(body || {})) {
       if (!allowed.has(key)) throw new HttpError(409, "Tournament setup is locked after start");
     }
   }
-  const patch = normalizeTournamentPatch(body);
+  const patch = normalizeTournamentPatch(body, tournament);
+  const resourceLimits = await require('../resources/quotas').limits(client, tournament.ownerUserId);
+  require('../resources/quotas').check('tournamentRounds', resourceLimits.tournamentRounds, tournament.swissRoundCount || 0, patch.swissRoundCount || 0);
+  if (require('../resources/audit').unchanged(tournament, patch)) return { tournament: tournamentSummaryView(tournament) };
+  if (tournament.participantMode === "team" && patch.teamSize && patch.teamSize !== tournament.teamSize) {
+    const rosters = await require("../db/repositories/team-rosters").listByTournament(client, tournament.id);
+    if (rosters.some(roster => !roster.isReserve && roster.status !== "withdrawn")) throw new HttpError(409, "Remove registered rosters before changing the roster size");
+  }
+  if (patch.factionCount && patch.factionCount < (tournament.factionCount || 1)) {
+    const entries = tournament.participantMode === "team"
+      ? (await require("../db/repositories/team-rosters").listByTournament(client, tournament.id, { includeWithdrawn: false }))
+        .flatMap(roster => roster.members.filter(member => !member.endedAt))
+      : (await participantsRepo.listByTournament(client, tournament.id)).filter(isListedParticipant);
+    if (entries.some(entry => registeredFactions(entry).length > patch.factionCount)) {
+      throw new HttpError(409, "Faction count cannot be lower than the number already registered by a player");
+    }
+  }
+  if (patch.registrationLimit) {
+    const entries = tournament.participantMode === "team"
+      ? await require("../db/repositories/team-rosters").listByTournament(client, tournament.id)
+      : await participantsRepo.listByTournament(client, tournament.id);
+    const count = entries.filter((entry) => !["withdrawn", "removed"].includes(entry.status)).length;
+    if (patch.registrationLimit < count) throw new HttpError(409, "Registration limit cannot be lower than the number already registered");
+  }
+  const preparationFields = ["pairingMode", "format", "participantMode", "teamSize", "pairingType", "swissRoundCount", "singleEliminationSize", "venueMode"];
+  if (preparationFields.some((key) => Object.hasOwn(patch, key) && patch[key] !== tournament[key])) {
+    await clearPreparedRounds(client, tournament);
+  }
   const updated = await tournamentsRepo.update(client, tournament.id, patch);
+  if (tournament.participantMode === "team" && Object.hasOwn(patch, "captainPairingEnabled")) {
+    await client.query(`UPDATE tournament_team_matches SET captain_pairing_enabled = $2,
+      phase = CASE WHEN $2 THEN 'awaiting_roll' ELSE 'environment_selection' END, updated_at = NOW()
+      WHERE tournament_id = $1 AND phase IN ('awaiting_roll', 'environment_selection')
+      AND attacker_roster_id IS NULL AND pairings IS NULL AND roll_history = '[]'::jsonb
+      AND pairing_history = '[]'::jsonb AND resolution IS NULL`, [tournament.id, patch.captainPairingEnabled]);
+  }
   await audit(client, updated, user, "update", { before: tournament, after: updated });
+  if (seasonChanged) {
+    // Statistics join each game to its tournament, so changing this reference
+    // moves every existing result without rewriting scores, dates or ratings.
+    await audit(client, updated, user, "season_changed", {
+      before: { seasonId: tournament.seasonId }, after: { seasonId: updated.seasonId }
+    });
+  }
   return { tournament: tournamentSummaryView(updated) };
 }
 
 async function deleteAdmin({ client, params }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
+  if (tournament.participantMode === "team") {
+    const teamTournaments = require("./team-tournaments");
+    const deletedGames = await teamTournaments.deleteTournamentGames(client, tournament.id);
+    await revertGameEloDeltas(client, deletedGames);
+    const removed = await tournamentsRepo.remove(client, tournament.id);
+    await recalculateCompletedGameRatings(client);
+    await teamTournaments.recalculateTeamRatings(client);
+    return { ok: true, tournament: tournamentSummaryView(removed), deletedGames: deletedGames.length };
+  }
   const matches = await matchesRepo.listByTournament(client, tournament.id);
+  // Remove metadata before its canonical games. Otherwise ON DELETE SET NULL
+  // temporarily leaves a completed match without a result and violates its guard.
+  await client.query('DELETE FROM tournament_matches WHERE tournament_id=$1', [tournament.id]);
   const deletedGames = await gamesRepo.removeBySourceIds(
     client,
     "tournament_match",
@@ -441,7 +560,11 @@ async function publishAdmin({ client, user, params, body }) {
   });
   await audit(client, updated, user, "publish", { before: tournament, after: updated });
   if (status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED) {
-    await regenerateTournamentSeeds(client, updated, user, "seeds_regenerate_on_registration_close");
+    if (updated.participantMode === "team") {
+      await require("./team-tournaments").reseedRosters(client, updated, user, "roster_seeds_regenerate_on_registration_close");
+    } else {
+      await regenerateTournamentSeeds(client, updated, user, "seeds_regenerate_on_registration_close");
+    }
   }
   return { tournament: tournamentSummaryView(updated) };
 }
@@ -455,13 +578,18 @@ async function setRegistration({ client, user, params, status }) {
   ) {
     throw new HttpError(409, "Registration can be changed only before tournament start");
   }
+  if (status === TOURNAMENT_STATUSES.REGISTRATION_OPEN) await clearPreparedRounds(client, tournament);
   const updated = await tournamentsRepo.update(client, tournament.id, { status });
   await audit(client, updated, user, `registration_${status}`, { before: tournament, after: updated });
   if (
     status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED &&
     tournament.status !== TOURNAMENT_STATUSES.REGISTRATION_CLOSED
   ) {
-    await regenerateTournamentSeeds(client, updated, user, "seeds_regenerate_on_registration_close");
+    if (updated.participantMode === "team") {
+      await require("./team-tournaments").reseedRosters(client, updated, user, "roster_seeds_regenerate_on_registration_close");
+    } else {
+      await regenerateTournamentSeeds(client, updated, user, "seeds_regenerate_on_registration_close");
+    }
   }
   return { tournament: tournamentSummaryView(updated) };
 }
@@ -471,6 +599,9 @@ function withRegistrationStatus(handlerStatus) {
 }
 
 async function assertParticipantAddAllowed(client, tournament, source) {
+  if (tournament.participantMode === "team") {
+    throw new HttpError(409, "Register a roster for this team tournament");
+  }
   if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) return;
   if (source === "self_join") throw new HttpError(409, "Registration is closed after tournament start");
   if (tournament.format !== TOURNAMENT_FORMATS.SWISS) {
@@ -485,10 +616,20 @@ async function assertParticipantAddAllowed(client, tournament, source) {
 }
 
 async function assertParticipantCapacityAllowed(client, tournament, additionalCount = 1) {
+  const participants = await participantsRepo.listByTournament(client, tournament.id);
+  const registeredCount = participants.filter((participant) => !["withdrawn", "removed"].includes(participant.status)).length;
+  if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
+    const quotas = require('../resources/quotas'), limits = await quotas.limits(client, tournament.ownerUserId);
+    // Withdrawn/removed entries retain history and still consume storage.
+    // Repeated removal must not make unlimited fresh participant rows possible.
+    quotas.check('tournamentParticipants', limits.tournamentParticipants, participants.length, participants.length + additionalCount);
+  }
+  if (tournament.registrationLimit && registeredCount + additionalCount > tournament.registrationLimit) {
+    throw new HttpError(409, "Registration limit reached");
+  }
   if (tournament.format !== TOURNAMENT_FORMATS.SINGLE_ELIMINATION) return;
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) return;
   const bracketSize = Number(tournament.singleEliminationSize || 8);
-  const participants = await participantsRepo.listByTournament(client, tournament.id);
   const competitiveCount = participants.filter((participant) =>
     [PARTICIPANT_STATUSES.JOINED, PARTICIPANT_STATUSES.ACTIVE].includes(participant.status)
   ).length;
@@ -500,10 +641,11 @@ async function assertParticipantCapacityAllowed(client, tournament, additionalCo
   }
 }
 
-async function createParticipant(client, tournament, user, body, source) {
+async function createParticipant(client, tournament, user, body, source, capacityChecked = false) {
   await assertParticipantAddAllowed(client, tournament, source);
-  await assertParticipantCapacityAllowed(client, tournament);
+  if (!capacityChecked) await assertParticipantCapacityAllowed(client, tournament);
   const linkedUser = await participantLinkedUser(client, user, body, source);
+  const factions = normalizeFactions(body, tournament, { allowEmpty: source !== "self_join" });
   const displayName = normalizeParticipantName(body.displayName || body.name || linkedUser?.name);
   const status =
     tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS
@@ -511,17 +653,20 @@ async function createParticipant(client, tournament, user, body, source) {
       : PARTICIPANT_STATUSES.JOINED;
   const seed = (await participantsRepo.maxSeed(client, tournament.id)) + 1;
   try {
-    return await participantsRepo.insert(client, {
+    const participant = await participantsRepo.insert(client, {
       tournamentId: tournament.id,
       userId: linkedUser?.id || null,
       displayName,
       displayNameKey: participantNameKey(displayName),
-      faction: body.faction || "",
+      faction: factions[0] || "",
+      factions,
       factionRules: normalizeFactionRules(body.factionRules),
       status,
       source,
       seed
     });
+    await clearPreparedRounds(client, tournament);
+    return participant;
   } catch (err) {
     if (err.code === "23505") throw new HttpError(409, "Participant already exists");
     throw err;
@@ -546,7 +691,7 @@ async function join({ client, user, params, body }) {
     client,
     tournament,
     user,
-    { ...body, faction: requireKillTeam(body.faction) },
+    body,
     "self_join"
   );
   await audit(client, tournament, user, "participant_join", {
@@ -570,6 +715,7 @@ async function withdraw({ client, user, params }) {
     forUpdate: true
   });
   if (!participant) throw new HttpError(404, "Participant not found");
+  await clearPreparedRounds(client, tournament);
   const updated = await participantsRepo.update(client, participant.id, {
     status: PARTICIPANT_STATUSES.WITHDRAWN,
     withdrawnAt: nowIso()
@@ -606,6 +752,8 @@ async function bulkParticipants({ client, user, params, body }) {
     .map((line) => line.trim())
     .filter(Boolean);
   if (!names.length) throw new ValidationError("Paste at least one participant name");
+  const quotaLimits = await require('../resources/quotas').limits(client, tournament.ownerUserId);
+  require('../resources/quotas').check('tournamentBulk', quotaLimits.tournamentBulk, 0, names.length);
   await assertParticipantCapacityAllowed(client, tournament, names.length);
 
   const participants = [];
@@ -616,7 +764,7 @@ async function bulkParticipants({ client, user, params, body }) {
     if (seen.has(key)) throw new HttpError(409, "Duplicate participant name in bulk list");
     seen.add(key);
     participants.push(
-      await createParticipant(client, tournament, null, { displayName }, "admin_bulk")
+      await createParticipant(client, tournament, null, { displayName }, "admin_bulk", true)
     );
   }
   await audit(client, tournament, user, "participant_bulk_add", { after: participants });
@@ -632,20 +780,15 @@ async function updateParticipant({ client, user, params, body }) {
     throw new HttpError(404, "Participant not found");
   }
   const patch = {};
-  if (Object.prototype.hasOwnProperty.call(body, "userId")) {
-    if (["withdrawn", "removed"].includes(participant.status)) {
-      throw new HttpError(409, "Withdrawn or removed participants cannot be linked");
-    }
-    const userId = requirePositiveIntId(body.userId, 400, "Invalid participant user");
-    const linkedUser = await usersRepo.findById(client, userId);
-    if (!linkedUser) throw new HttpError(404, "Participant user not found");
-    const existing = await participantsRepo.findByTournamentUser(client, tournament.id, userId, {
-      forUpdate: true
+  if (Object.hasOwn(body, "userId") || Object.hasOwn(body, "proxy")) {
+    const updated = await require("./tournament-participant-replacement").replaceParticipant(
+      client, tournament, participant, user, body);
+    await clearPreparedRounds(client, tournament);
+    await audit(client, tournament, user, "participant_replace", {
+      entityType: "participant", entityId: participant.id, before: participant, after: updated,
+      metadata: { tournamentPointsPreserved: true, personalHistoryPreserved: true }
     });
-    if (existing && existing.id !== participant.id) {
-      throw new HttpError(409, "Participant user already exists in this tournament");
-    }
-    patch.userId = linkedUser.id;
+    return { participant: updated };
   }
   if (Object.prototype.hasOwnProperty.call(body, "displayName")) {
     if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
@@ -655,11 +798,15 @@ async function updateParticipant({ client, user, params, body }) {
     patch.displayName = displayName;
     patch.displayNameKey = participantNameKey(displayName);
   }
-  if (Object.prototype.hasOwnProperty.call(body, "faction")) patch.faction = String(body.faction || "");
+  if (Object.hasOwn(body, "faction") || Object.hasOwn(body, "factions")) {
+    patch.factions = normalizeFactions(body, tournament, { allowEmpty: true });
+    patch.faction = patch.factions[0] || "";
+  }
   if (Object.prototype.hasOwnProperty.call(body, "factionRules")) {
     patch.factionRules = normalizeFactionRules(body.factionRules);
   }
   const updated = await participantsRepo.update(client, participant.id, patch);
+  await clearPreparedRounds(client, tournament);
   await audit(client, tournament, user, "participant_update", {
     entityType: "participant",
     entityId: participant.id,
@@ -669,7 +816,105 @@ async function updateParticipant({ client, user, params, body }) {
   return { participant: updated };
 }
 
-async function removeParticipant({ client, user, params }) {
+function pairingIsEditable(match) {
+  return !match.isBye && [MATCH_STATUSES.ACTIVE, MATCH_STATUSES.NOT_READY].includes(match.status) &&
+    !match.pendingResult && !match.result && !match.elo && !match.completedAt && !match.submittedByUserId &&
+    !match.winnerParticipantId && !match.matchPoints;
+}
+
+async function matchResetContext(client, user, params, forUpdate = false) {
+  const tournament = await requireTournament(client, params.id, { forUpdate });
+  if (!canManageTournament(user, tournament)) throw new HttpError(403, "Tournament access required");
+  if (tournament.participantMode === "team" || tournament.format !== TOURNAMENT_FORMATS.SWISS ||
+      tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS || tournament.roundDraft) {
+    throw new HttpError(409, "Only results in a running individual Swiss tournament can be reset");
+  }
+  const matchId = requirePositiveIntId(params.matchId, 404, "Tournament match not found");
+  const match = forUpdate ? await matchesRepo.lockById(client, matchId) : await matchesRepo.findById(client, matchId);
+  if (!match || match.tournamentId !== tournament.id) throw new HttpError(404, "Tournament match not found");
+  const rounds = await roundsRepo.listByTournament(client, tournament.id);
+  const round = rounds.at(-1);
+  if (match.roundId !== round?.id || round.status === ROUND_STATUSES.NOT_READY) {
+    throw new HttpError(409, "A result cannot be reset after a later round has been generated");
+  }
+  if (match.isBye || ![MATCH_STATUSES.COMPLETED, MATCH_STATUSES.PENDING_CONFIRMATION].includes(match.status)) {
+    throw new HttpError(409, "This match has no submitted result to reset");
+  }
+  const participants = forUpdate ? await participantsRepo.lockByTournament(client, tournament.id)
+    : await participantsRepo.listByTournament(client, tournament.id);
+  const { rows } = await client.query(`SELECT id FROM games WHERE source_type = 'tournament_match'
+    AND source_id = $1 ORDER BY id${forUpdate ? " FOR UPDATE" : ""}`, [match.id]);
+  const games = await gamesRepo.listByIds(client, rows.map(row => row.id));
+  if (match.gameId && !games.some(game => game.id === match.gameId)) {
+    throw new HttpError(409, "Tournament game link changed. Refresh the match before resetting it");
+  }
+  const revision = require("node:crypto").createHash("sha256")
+    .update(JSON.stringify({ tournament: [tournament.id, tournament.updatedAt], round, match, participants, games })).digest("hex");
+  return { tournament, round, match, participants, games, revision };
+}
+
+async function previewMatchResetAdmin({ client, user, params }) {
+  const { round, match, participants, revision } = await matchResetContext(client, user, params);
+  return { revision, roundId: round.id,
+    match: roundSetupView({ ...round, matches: [match] }, [], participants).matches[0] };
+}
+
+async function resetMatchResultAdmin({ client, user, params, body = {} }) {
+  const { tournament, round, match, participants, games, revision } = await matchResetContext(client, user, params, true);
+  if (body.expectedRevision !== revision) throw new HttpError(409, "Match changed. Reopen the reset confirmation and try again");
+  if (body.confirmResultsReset !== true || Object.keys(body).some(key => !["expectedRevision", "confirmResultsReset"].includes(key))) {
+    throw new ValidationError("Confirm removal of this match result before resetting it");
+  }
+  const available = new Set(participants.filter(isListedParticipant).map(participant => participant.id));
+  const participantAId = available.has(match.participantAId) ? match.participantAId : null;
+  const participantBId = available.has(match.participantBId) ? match.participantBId : null;
+  // Clear the outcome before removing its game: historical identities can differ
+  // from the current seat, and FK updates must not reinterpret the old winner.
+  let updated = await matchesRepo.update(client, match.id, {
+    participantAId, participantBId, participantSnapshots: {},
+    status: participantAId && participantBId ? MATCH_STATUSES.ACTIVE : MATCH_STATUSES.NOT_READY,
+    winnerParticipantId: null, pendingResult: null, result: null, matchPoints: null,
+    elo: null, gameId: null, submittedByUserId: null, completedAt: null
+  });
+  await gamesRepo.removeBySourceIds(client, "tournament_match", [match.id]);
+  await revertGameEloDeltas(client, games.length ? games : [match]);
+  await recalculateCompletedGameRatings(client);
+  if (updated.status === MATCH_STATUSES.ACTIVE) {
+    const { participantA, participantB } = requireMatchParticipants(updated, participants);
+    await ensureTournamentGame(client, tournament, updated, participantA, participantB);
+    updated = await matchesRepo.findById(client, match.id);
+  }
+  await roundsRepo.update(client, round.id, { status: ROUND_STATUSES.ACTIVE, completedAt: null });
+  await audit(client, tournament, user, "match_result_reset", {
+    entityType: "match", entityId: match.id, before: { match, games }, after: updated,
+    metadata: { roundId: round.id, roundNumber: round.roundNumber }
+  });
+  return fullView(client, tournament, user, { includeAudit: true });
+}
+
+async function requireUnplayedGames(client, matches) {
+  if (!matches.length) return;
+  // Legacy data can contain more than one game for a source. Protect every
+  // linked result before deleting unplayed games, not just the current game_id.
+  const { rows } = await client.query(`SELECT status, pending_result, result, elo FROM games
+    WHERE source_type = 'tournament_match' AND source_id = ANY($1::int[]) ORDER BY id FOR UPDATE`,
+  [matches.map(match => match.id)]);
+  if (rows.some(game => game.status !== "open" || game.pending_result || game.result || game.elo)) {
+    throw new HttpError(409, "A linked game has changed. Refresh the round before editing pairings");
+  }
+  for (const match of matches) {
+    if (!pairingIsEditable(match)) throw new HttpError(409, "A submitted result must be resolved before changing its pairing");
+    if (!match.gameId) continue;
+    const game = await gamesRepo.lockById(client, match.gameId);
+    if (!game || game.sourceType !== "tournament_match" || Number(game.sourceId) !== match.id ||
+        game.status !== "open" || game.pendingResult || game.result || game.elo) {
+      throw new HttpError(409, "A linked game has changed. Refresh the round before editing pairings");
+    }
+  }
+}
+
+async function removeParticipant({ client, user, params, body = {} }) {
+  if (!canManageTournament(user, params.id)) throw new HttpError(403, "Tournament access required");
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   assertEditableSetup(tournament);
   const participantId = requirePositiveIntId(params.participantId, 404, "Participant not found");
@@ -677,26 +922,177 @@ async function removeParticipant({ client, user, params }) {
   if (!participant || participant.tournamentId !== tournament.id) {
     throw new HttpError(404, "Participant not found");
   }
+  if (!isListedParticipant(participant)) throw new HttpError(409, "Participant has already left the tournament");
+  const changedMatches = [];
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
     const matches = await matchesRepo.listByTournament(client, tournament.id);
-    if (
+    if (tournament.participantMode === "team" || (tournament.format !== TOURNAMENT_FORMATS.SWISS && (
       participant.status !== PARTICIPANT_STATUSES.PENDING_PLACEMENT ||
       participantHasGeneratedMatch(participant.id, matches)
-    ) {
+    ))) {
       throw new HttpError(409, "Participants with generated matches cannot be removed after start");
     }
+    const identity = body.expectedIdentity;
+    if ((identity || participantHasGeneratedMatch(participant.id, matches)) &&
+        (!identity || identity.userId !== participant.userId || identity.displayName !== participant.displayName ||
+         identity.isProxy !== Boolean(participant.isProxy))) {
+      throw new HttpError(409, "Participant changed. Refresh the participant list before removing them");
+    }
+    const related = matches.filter(match => matchParticipantIds(match).includes(participant.id) &&
+      match.status !== MATCH_STATUSES.COMPLETED);
+    const latest = (await roundsRepo.listByTournament(client, tournament.id)).at(-1);
+    if (related.some(match => match.roundId !== latest?.id)) {
+      throw new HttpError(409, "Only pairings in the latest round can be changed");
+    }
+    await requireUnplayedGames(client, related);
+    await gamesRepo.removeBySourceIds(client, "tournament_match", related.map(match => match.id));
+    for (const match of related) {
+      // Keep an unfinished slot until the administrator repairs the pairing.
+      // Removing somebody must never award an automatic win or finish the round.
+      const updated = await matchesRepo.update(client, match.id, {
+        participantAId: match.participantAId === participant.id ? null : match.participantAId,
+        participantBId: match.participantBId === participant.id ? null : match.participantBId,
+        participantSnapshots: {}, gameId: null, status: MATCH_STATUSES.NOT_READY
+      });
+      changedMatches.push({ before: match, after: updated });
+    }
+    if (related.length) await roundsRepo.update(client, latest.id, { status: ROUND_STATUSES.ACTIVE, completedAt: null });
   }
   const updated = await participantsRepo.update(client, participant.id, {
     status: PARTICIPANT_STATUSES.REMOVED,
     removedAt: nowIso()
   });
+  await clearPreparedRounds(client, tournament);
   await audit(client, tournament, user, "participant_remove", {
     entityType: "participant",
     entityId: participant.id,
     before: participant,
-    after: updated
+    after: updated,
+    metadata: { changedMatches }
   });
   return { participant: updated };
+}
+
+async function activePairingsContext(client, user, params, forUpdate = false) {
+  if (!canManageTournament(user, params.id)) throw new HttpError(403, "Tournament access required");
+  const tournament = await requireTournament(client, params.id, { forUpdate });
+  if (tournament.participantMode === "team" || tournament.format !== TOURNAMENT_FORMATS.SWISS) {
+    throw new HttpError(409, "Active round editing is available for individual Swiss tournaments");
+  }
+  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS || tournament.roundDraft) {
+    throw new HttpError(409, "Tournament has no active round to edit");
+  }
+  const roundId = requirePositiveIntId(params.roundId, 404, "Round not found");
+  const rounds = await roundsRepo.listByTournament(client, tournament.id);
+  const round = rounds.find(item => item.id === roundId);
+  if (!round) throw new HttpError(404, "Round not found");
+  if (round.id !== rounds.at(-1)?.id || round.status !== ROUND_STATUSES.ACTIVE) {
+    throw new HttpError(409, "Only the latest active round can be edited");
+  }
+  const participants = forUpdate
+    ? await participantsRepo.lockByTournament(client, tournament.id)
+    : await participantsRepo.listByTournament(client, tournament.id);
+  const matches = await matchesRepo.listByRound(client, round.id);
+  const tables = await tablesRepo.listByTournament(client, tournament.id);
+  const revision = require("node:crypto").createHash("sha256")
+    .update(JSON.stringify({ round, participants, matches })).digest("hex");
+  return { tournament, round, participants, matches, tables, revision };
+}
+
+async function getActivePairingsAdmin({ client, user, params }) {
+  const { round, participants, matches, tables, revision } = await activePairingsContext(client, user, params);
+  const editable = matches.filter(pairingIsEditable);
+  const locked = matches.filter(match => !pairingIsEditable(match));
+  const occupied = new Set(locked.flatMap(matchParticipantIds));
+  return {
+    activePairings: true, revision,
+    round: roundSetupView({ ...round, mission: round.metadata?.mission, matches: editable }, tables, participants),
+    lockedMatches: roundSetupView({ ...round, matches: locked }, tables, participants).matches,
+    participants: participants.filter(p => isListedParticipant(p) && !occupied.has(p.id) &&
+      ([PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.JOINED].includes(p.status) ||
+       editable.some(match => matchParticipantIds(match).includes(p.id)))),
+    tables: tables.map(tournamentTableView)
+  };
+}
+
+async function updateActivePairingsAdmin({ client, user, params, body = {} }) {
+  const { tournament, round, participants, matches, tables, revision } = await activePairingsContext(client, user, params, true);
+  if (body.expectedRevision !== revision) throw new HttpError(409, "Round changed. Reopen the pairing editor and try again");
+  if (!Array.isArray(body.matchups) || body.matchups.length > 128 ||
+      Object.keys(body).some(key => !["matchups", "expectedRevision"].includes(key))) {
+    throw new ValidationError("Provide the editable round pairings");
+  }
+  const editable = matches.filter(pairingIsEditable);
+  const locked = matches.filter(match => !pairingIsEditable(match));
+  const occupied = new Set(locked.flatMap(matchParticipantIds));
+  const eligible = new Set(participants.filter(p => isListedParticipant(p) &&
+    ([PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.JOINED].includes(p.status) ||
+     editable.some(match => matchParticipantIds(match).includes(p.id)))).map(p => p.id));
+  const seen = new Set(occupied);
+  const seenMatches = new Set();
+  const plans = body.matchups.map(input => {
+    if (!input || typeof input !== "object" || Object.keys(input).some(key =>
+      !["matchId", "participantAId", "participantBId", "tableId"].includes(key))) {
+      throw new ValidationError("Invalid pairing fields");
+    }
+    const optionalId = value => value === "" || value === null || value === undefined
+      ? null : requirePositiveIntId(value, 400, "Invalid pairing identifier");
+    const matchId = optionalId(input.matchId);
+    const previous = matchId ? editable.find(match => match.id === matchId) : null;
+    if (matchId && (!previous || seenMatches.has(matchId))) throw new ValidationError("Include each editable match exactly once");
+    if (matchId) seenMatches.add(matchId);
+    const participantAId = optionalId(input.participantAId);
+    const participantBId = optionalId(input.participantBId);
+    for (const id of [participantAId, participantBId].filter(Boolean)) {
+      if (!eligible.has(id)) throw new ValidationError("Pairing uses an unavailable tournament participant");
+      if (seen.has(id)) throw new ValidationError("Each player can appear only once in the round");
+      seen.add(id);
+    }
+    const tableId = tournament.venueMode === "irl" ? optionalId(input.tableId) : null;
+    if (tableId && !tables.some(table => table.id === tableId)) throw new ValidationError("Pairing uses an unknown table");
+    return { previous, participantAId, participantBId, tableId };
+  });
+  if (seenMatches.size !== editable.length) throw new ValidationError("Include each editable match exactly once");
+  if ([...eligible].some(id => !seen.has(id))) throw new ValidationError("Assign every active player to a pairing or remove them from the tournament first");
+  if (!locked.length && !plans.some(plan => plan.participantAId || plan.participantBId)) {
+    throw new ValidationError("The round must contain at least one pairing");
+  }
+  const changed = plans.filter(plan => !plan.previous ||
+    plan.previous.participantAId !== plan.participantAId || plan.previous.participantBId !== plan.participantBId ||
+    plan.previous.tableId !== plan.tableId || (!plan.participantAId && !plan.participantBId));
+  await requireUnplayedGames(client, changed.map(plan => plan.previous).filter(Boolean));
+  await gamesRepo.removeBySourceIds(client, "tournament_match", changed.map(plan => plan.previous?.id).filter(Boolean));
+  let position = Math.max(0, ...matches.map(match => match.bracketPosition || 0));
+  for (const plan of changed) {
+    const { previous, participantAId, participantBId, tableId } = plan;
+    if (!participantAId && !participantBId) {
+      if (previous) await matchesRepo.remove(client, previous.id);
+      continue;
+    }
+    const table = tables.find(item => item.id === tableId);
+    const mission = previous?.tableId === tableId ? previous.mission :
+      missionForMatch(tournament, table, round.metadata?.mission || {});
+    const patch = { participantAId, participantBId, tableId, mission, participantSnapshots: {},
+      gameId: null, status: participantAId && participantBId ? MATCH_STATUSES.ACTIVE : MATCH_STATUSES.NOT_READY };
+    const match = previous ? await matchesRepo.update(client, previous.id, patch) : await matchesRepo.insert(client, {
+      ...patch, tournamentId: tournament.id, roundId: round.id, roundNumber: round.roundNumber,
+      bracketPosition: ++position, isBye: false
+    });
+    if (match.status === MATCH_STATUSES.ACTIVE) {
+      const { participantA, participantB } = requireMatchParticipants(match, participants);
+      await ensureTournamentGame(client, tournament, match, participantA, participantB);
+    }
+  }
+  const after = await matchesRepo.listByRound(client, round.id);
+  const completed = after.length > 0 && after.every(match => match.status === MATCH_STATUSES.COMPLETED);
+  await roundsRepo.update(client, round.id, {
+    status: completed ? ROUND_STATUSES.COMPLETED : ROUND_STATUSES.ACTIVE,
+    completedAt: completed ? nowIso() : null
+  });
+  await audit(client, tournament, user, "round_pairings_edit", {
+    entityType: "round", entityId: round.id, before: { matches }, after: { matches: after }
+  });
+  return fullView(client, tournament, user, { includeAudit: true, includePrivate: true });
 }
 
 function competitiveSeedParticipants(participants) {
@@ -721,6 +1117,7 @@ async function persistSeedOrder(client, tournament, user, active, ids, eventType
         : await participantsRepo.update(client, participant.id, { seed: index + 1 })
     );
   }
+  await clearPreparedRounds(client, tournament);
   await audit(client, tournament, user, eventType, {
     before: active.map((participant) => ({ id: participant.id, seed: participant.seed })),
     after: updated.map((participant) => ({ id: participant.id, seed: participant.seed }))
@@ -767,8 +1164,11 @@ async function regenerateSeeds({ client, user, params }) {
 }
 
 function assertTablesAvailable(tournament) {
-  if (tournament.venueMode !== "irl") {
+  if (tournament.venueMode !== "irl" && tournament.participantMode !== "team") {
     throw new HttpError(409, "Tables are available only for In Real Life tournaments");
+  }
+  if (tournament.participantMode === "team" && tournament.teamTablesLocked) {
+    throw new HttpError(409, "Team tables are locked for this tournament");
   }
 }
 
@@ -783,6 +1183,12 @@ async function addTableAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   assertEditableSetup(tournament);
   assertTablesAvailable(tournament);
+  const tableCount = Number((await client.query('SELECT count(*) AS count FROM tournament_tables WHERE tournament_id=$1', [tournament.id])).rows[0].count);
+  const quotaLimits = await require('../resources/quotas').limits(client, tournament.ownerUserId);
+  require('../resources/quotas').check('tournamentTables', quotaLimits.tournamentTables, tableCount, tableCount + 1);
+  if (usesSharedTeamTables(tournament) && tableCount >= 3) {
+    throw new ValidationError("TTS WTC tournaments use exactly three shared tables");
+  }
   const payload = normalizeTablePayload(body);
   try {
     const table = await tablesRepo.insert(client, {
@@ -807,6 +1213,11 @@ async function updateTableAdmin({ client, user, params, body }) {
   assertTablesAvailable(tournament);
   const table = await requireTournamentTable(client, tournament, params.tableId);
   const updated = await tablesRepo.update(client, table.id, normalizeTablePayload(body));
+  if (tournament.participantMode === "team") {
+    await clearPreparedRounds(client, tournament);
+  } else {
+    await updatePreparedTableMissions(client, tournament.id, updated);
+  }
   await audit(client, tournament, user, "table_update", {
     entityType: "table",
     entityId: table.id,
@@ -814,6 +1225,22 @@ async function updateTableAdmin({ client, user, params, body }) {
     after: updated
   });
   return { table: tournamentTableView(updated) };
+}
+
+async function updatePreparedTableMissions(client, tournamentId, table) {
+  const rounds = await roundsRepo.listByTournament(client, tournamentId);
+  for (const round of rounds) {
+    if (round.status !== ROUND_STATUSES.NOT_READY || round.startedAt) continue;
+    const matches = await matchesRepo.listByRound(client, round.id);
+    for (const match of matches) {
+      if (match.tableId !== table.id || match.status !== MATCH_STATUSES.NOT_READY || match.isBye || match.gameId) continue;
+      const critOp = match.mission?.critOp ?? round.metadata?.mission?.critOp ?? "";
+      const mission = table.killzone || table.deployment || critOp
+        ? { ...match.mission, killzone: table.killzone, layout: table.deployment, critOp }
+        : null;
+      await matchesRepo.update(client, match.id, { mission });
+    }
+  }
 }
 
 async function deleteTableAdmin({ client, user, params }) {
@@ -835,19 +1262,13 @@ async function deleteTableAdmin({ client, user, params }) {
   return { table: tournamentTableView(removed) };
 }
 
-async function previewAdmin({ client, params }) {
-  const tournament = await requireTournament(client, params.id);
-  const participants = await participantsRepo.listCompetitive(client, tournament.id);
-  return { preview: buildTournamentPreview(tournament, participants) };
-}
-
 function roundSetupParticipantPool(participants) {
   return participants.filter((participant) => isListedParticipant(participant));
 }
 
 function firstRoundParticipantPool(participants) {
   return participants.filter((participant) =>
-    [PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.PENDING_PLACEMENT].includes(participant.status)
+    [PARTICIPANT_STATUSES.JOINED, PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.PENDING_PLACEMENT].includes(participant.status)
   );
 }
 
@@ -858,6 +1279,7 @@ function roundSetupView(roundBlueprint, tables, participants) {
     id: roundBlueprint.id || null,
     roundNumber: roundBlueprint.roundNumber,
     status: roundBlueprint.status,
+    endsAt: roundBlueprint.endsAt ?? roundBlueprint.metadata?.endsAt ?? null,
     mission: roundBlueprint.mission || null,
     matches: (roundBlueprint.matches || []).map((match, index) => ({
       id: match.id || null,
@@ -867,8 +1289,8 @@ function roundSetupView(roundBlueprint, tables, participants) {
       isBye: Boolean(match.isBye),
       participantAId: match.participantAId || null,
       participantBId: match.participantBId || null,
-      participantA: participantsById.get(match.participantAId) || null,
-      participantB: participantsById.get(match.participantBId) || null,
+      participantA: matchParticipant(match, participantsById.get(match.participantAId)),
+      participantB: matchParticipant(match, participantsById.get(match.participantBId)),
       tableId: match.tableId || null,
       table: tablesById.get(match.tableId) || null,
       mission: match.mission || null
@@ -884,6 +1306,8 @@ function pairingsCountForTables(roundBlueprint) {
 
 function roundDraftSetupBody(draft, body = {}) {
   return {
+    byeParticipantId: Object.hasOwn(body, "byeParticipantId") ? body.byeParticipantId : draft.byeParticipantId,
+    endsAt: Object.hasOwn(body, "endsAt") ? body.endsAt : draft.endsAt,
     mission: Object.prototype.hasOwnProperty.call(body, "mission")
       ? body.mission
       : draft.mission || {},
@@ -902,6 +1326,26 @@ async function prepareRolledBackRoundSetup(
 ) {
   const draft = tournament.roundDraft;
   const setupBody = roundDraftSetupBody(draft, body);
+  if (tournament.format === TOURNAMENT_FORMATS.SWISS && !Object.hasOwn(draft, "byeParticipantId") &&
+      setupBody.byeParticipantId == null) {
+    const eligible = participants.filter(participant => (rounds.length
+      ? [PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.PENDING_PLACEMENT]
+      : [PARTICIPANT_STATUSES.JOINED, PARTICIPANT_STATUSES.ACTIVE, PARTICIPANT_STATUSES.PENDING_PLACEMENT]).includes(participant.status));
+    if (eligible.length % 2 === 1 && setupBody.matchups.length === (eligible.length - 1) / 2) {
+      const assigned = setupBody.matchups.flatMap(match => [match.participantAId, match.participantBId])
+        .filter(id => id != null && id !== "").map(Number);
+      const assignedIds = new Set(assigned);
+      const missing = eligible.filter(participant => !assignedIds.has(participant.id));
+      if (assigned.length !== eligible.length - 1 || assignedIds.size !== assigned.length || missing.length !== 1) {
+        throw new HttpError(409, "The saved bye is ambiguous. Provide its recipient and complete pairings");
+      }
+      setupBody.byeParticipantId = missing[0].id;
+    }
+  }
+  if (setupBody.byeParticipantId != null &&
+      !roundSetupParticipantPool(participants).some(participant => participant.id === Number(setupBody.byeParticipantId))) {
+    throw new HttpError(409, "The saved bye recipient is no longer available");
+  }
   let roundBlueprint;
 
   if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
@@ -910,7 +1354,7 @@ async function prepareRolledBackRoundSetup(
       roundBlueprint = preview.rounds[0];
     } else {
       const nextRoundNumber = assertNextSwissRoundAllowed(tournament, rounds, matches);
-      roundBlueprint = buildSwissNextRound(tournament, participants, matches, nextRoundNumber);
+      roundBlueprint = await require('../resources/workers').run('swiss', { tournament, participants, matches, round: nextRoundNumber, bye: setupBody.byeParticipantId });
       roundBlueprint.generatedBy = `admin:${user.id}`;
     }
   } else {
@@ -936,6 +1380,18 @@ async function prepareRolledBackRoundSetup(
 
   if (Number(roundBlueprint?.roundNumber) !== Number(draft.roundNumber)) {
     throw new HttpError(409, "The tournament has moved past the rolled-back round");
+  }
+  const byeIndex = roundBlueprint.matches.findIndex(match => match.isBye);
+  if (byeIndex !== -1) {
+    if (setupBody.byeParticipantId != null) {
+      const byeId = Number(setupBody.byeParticipantId);
+      roundBlueprint.matches[byeIndex] = { ...roundBlueprint.matches[byeIndex], participantAId: byeId, winnerParticipantId: byeId };
+    }
+    // Drafts created before bye slots were preserved have a compact array.
+    if (setupBody.matchups.length === roundBlueprint.matches.length - 1) {
+      setupBody.matchups = [...setupBody.matchups];
+      setupBody.matchups.splice(byeIndex, 0, {});
+    }
   }
   const setupRound = applyRoundSetupBody(
     roundBlueprint,
@@ -1027,7 +1483,7 @@ async function prepareNextRoundSetup(client, tournament, user, rounds, matches, 
   let roundBlueprint = null;
   if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
     const nextRoundNumber = assertNextSwissRoundAllowed(tournament, rounds, matches);
-    roundBlueprint = buildSwissNextRound(tournament, participants, matches, nextRoundNumber);
+    roundBlueprint = await require('../resources/workers').run('swiss', { tournament, participants, matches, round: nextRoundNumber, bye: body.byeParticipantId });
     roundBlueprint.generatedBy = `admin:${user.id}`;
   } else {
     const { nextRound, nextMatches } = assertNextSingleEliminationRoundAllowed(rounds, matches);
@@ -1064,12 +1520,24 @@ async function prepareNextRoundSetup(client, tournament, user, rounds, matches, 
 
 async function previewNextRoundAdmin({ client, user, params }) {
   const tournament = await requireTournament(client, params.id);
-  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) {
-    throw new HttpError(409, "Tournament is not in progress");
+  if (![TOURNAMENT_STATUSES.REGISTRATION_CLOSED, TOURNAMENT_STATUSES.IN_PROGRESS].includes(tournament.status)) {
+    throw new HttpError(409, "Close registration before preparing the first round");
+  }
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").previewNextRound(client, tournament, user);
   }
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await matchesRepo.listByTournament(client, tournament.id);
   const participants = await participantsRepo.listByTournament(client, tournament.id);
+  if (tournament.status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED && rounds.length) {
+    const first = requirePreparedFirstRound(rounds);
+    const tables = await tablesRepo.listByTournament(client, tournament.id);
+    return {
+      round: roundSetupView({ ...first, mission: first.metadata?.mission || null, matches: matchesForRound(matches, first) }, tables, participants),
+      tables: tables.map(tournamentTableView),
+      prepared: true
+    };
+  }
   const { round, tables, restoredDraft = false } = await prepareNextRoundSetup(
     client,
     tournament,
@@ -1081,7 +1549,9 @@ async function previewNextRoundAdmin({ client, user, params }) {
   return {
     round: roundSetupView(round, tables, participants),
     tables: tables.map(tournamentTableView),
-    restoredDraft
+    pairingHistory: { players: matches.map(match => pairingWarnings.individual(match, participants, tables)), teams: [] },
+    restoredDraft,
+    prepared: tournament.status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED
   };
 }
 
@@ -1105,7 +1575,7 @@ async function persistPreview(client, tournament, preview) {
       tournamentId: tournament.id,
       roundNumber: setupRound.roundNumber,
       status: setupRound.status,
-      metadata: { format: preview.format, mission: setupRound.mission || null },
+      metadata: { format: preview.format, mission: setupRound.mission || null, endsAt: setupRound.endsAt || null },
       startedAt: setupRound.status === ROUND_STATUSES.ACTIVE ? nowIso() : null
     });
     createdRounds.push(round);
@@ -1129,24 +1599,50 @@ async function persistPreview(client, tournament, preview) {
   return { rounds: createdRounds, matches: createdMatches };
 }
 
-async function startAdmin({ client, user, params }) {
+async function startAdmin({ client, user, params, body = {} }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   if (tournament.status !== TOURNAMENT_STATUSES.REGISTRATION_CLOSED) {
     throw new HttpError(409, "Registration must be closed before start");
   }
   validatePublishable(tournament);
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").startTournament(client, tournament, user, body);
+  }
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
   const competitive = participants.filter((item) => item.status === PARTICIPANT_STATUSES.JOINED);
   buildTournamentPreview(tournament, competitive);
+  const first = requirePreparedFirstRound(await roundsRepo.listByTournament(client, tournament.id));
+  const matches = await matchesRepo.listByRound(client, first.id);
+  const eligibleIds = new Set(competitive.map((participant) => participant.id));
+  if (!matches.length || matches.some((match) => matchParticipantIds(match).some((id) => !eligibleIds.has(id)))) {
+    throw new HttpError(409, "Participants changed; generate the first round again");
+  }
   await participantsRepo.setAllCompetitiveStatus(client, tournament.id, PARTICIPANT_STATUSES.ACTIVE);
   const updated = await tournamentsRepo.update(client, tournament.id, {
     status: TOURNAMENT_STATUSES.IN_PROGRESS,
     startedAt: nowIso()
   });
+  await roundsRepo.update(client, first.id, {
+    status: ROUND_STATUSES.ACTIVE,
+    startedAt: updated.startedAt,
+    metadata: { ...first.metadata, activatedParticipantIds: [] }
+  });
+  for (const match of matches) {
+    const status = match.isBye ? MATCH_STATUSES.COMPLETED
+      : match.participantAId && match.participantBId ? MATCH_STATUSES.ACTIVE : MATCH_STATUSES.NOT_READY;
+    const activated = await matchesRepo.update(client, match.id, {
+      status, completedAt: match.isBye ? updated.startedAt : null,
+      ...(match.isBye ? { matchPoints: matchPointsFor(match, match.winnerParticipantId) } : {})
+    });
+    if (status === MATCH_STATUSES.ACTIVE) {
+      const { participantA, participantB } = requireMatchParticipants(activated, participants);
+      await ensureTournamentGame(client, updated, activated, participantA, participantB);
+    }
+  }
   await audit(client, updated, user, "start", {
     before: tournament,
     after: updated,
-    metadata: { firstRoundPending: true, participantCount: competitive.length }
+    metadata: { firstRoundId: first.id, participantCount: competitive.length }
   });
   return fullView(client, updated, user, { includeAudit: true, includePrivate: true });
 }
@@ -1165,14 +1661,10 @@ function participantById(participants, id) {
 }
 
 function requireMatchParticipants(match, participants) {
-  const participantA = participantById(participants, match.participantAId);
-  const participantB = participantById(participants, match.participantBId);
+  const participantA = matchParticipant(match, participantById(participants, match.participantAId));
+  const participantB = matchParticipant(match, participantById(participants, match.participantBId));
   if (!participantA || !participantB) throw new HttpError(409, "Both match participants are required");
   return { participantA, participantB };
-}
-
-function participantResultKey(participant) {
-  return participant.userId || -participant.id;
 }
 
 function assertMatchParticipantUser(match, participantA, participantB, user, action) {
@@ -1181,27 +1673,8 @@ function assertMatchParticipantUser(match, participantA, participantB, user, act
   }
 }
 
-function winnerParticipantIdFromResult(result, participantA, participantB) {
-  if (!result.winnerId) return null;
-  const winnerId = Number(result.winnerId);
-  if (
-    winnerId === Number(participantA.userId) ||
-    winnerId === participantA.id ||
-    winnerId === participantResultKey(participantA)
-  ) {
-    return participantA.id;
-  }
-  if (
-    winnerId === Number(participantB.userId) ||
-    winnerId === participantB.id ||
-    winnerId === participantResultKey(participantB)
-  ) {
-    return participantB.id;
-  }
-  throw new ValidationError("Result winner does not match tournament participants");
-}
-
 function matchPointsFor(match, winnerParticipantId) {
+  assertMatchWinner({ ...match, winnerParticipantId });
   if (match.isBye && winnerParticipantId) return { [winnerParticipantId]: 3 };
   const points = {};
   if (!winnerParticipantId) {
@@ -1245,7 +1718,8 @@ async function ensureTournamentGame(client, tournament, match, participantA, par
       tournamentParticipantId: participant.id,
       resultKey: participantResultKey(participant),
       displayNameSnapshot: participant.displayName || "Player",
-      factionSnapshot: participant.faction || ""
+      factionSnapshot: participant.faction || "",
+      isProxy: Boolean(participant.isProxy)
     }))
   });
   await matchesRepo.update(client, match.id, { gameId: game.id });
@@ -1254,51 +1728,134 @@ async function ensureTournamentGame(client, tournament, match, participantA, par
 }
 
 async function applyTournamentElo(client, tournament, participantA, participantB, result) {
-  if (tournament.ratingPolicy !== "ranked") return null;
-  const userIds = [...new Set([participantA.userId, participantB.userId].filter(Number.isInteger))];
+  if (tournament.ratingPolicy !== "ranked" || participantA.isProxy || participantB.isProxy) return null;
+  const participants = [participantA, participantB].map((participant) => ({
+    userId: participant.userId || null, resultKey: participantResultKey(participant)
+  }));
+  const userIds = [...new Set(participants.map((p) => p.userId).filter(Number.isInteger))];
   if (!userIds.length) return null;
-
-  if (userIds.length === 1) {
-    const [player] = await usersRepo.lockByIds(client, userIds);
-    if (!player) throw new HttpError(409, "The registered tournament player has been deleted");
-    const before = usersRepo.ratingForVenue(player, tournament.venueMode);
-    const updated = await usersRepo.addRating(
-      client,
-      player.id,
-      UNREGISTERED_OPPONENT_RATING_BONUS,
-      tournament.venueMode
-    );
-    return {
-      flat: UNREGISTERED_OPPONENT_RATING_BONUS,
-      [player.id]: {
-        before,
-        after: usersRepo.ratingForVenue(updated, tournament.venueMode),
-        delta: UNREGISTERED_OPPONENT_RATING_BONUS
-      }
-    };
-  }
-
   const players = await usersRepo.lockByIds(client, userIds);
-  const playerA = players.find((player) => player.id === participantA.userId);
-  const playerB = players.find((player) => player.id === participantB.userId);
-  if (!playerA || !playerB) throw new HttpError(409, "One of the tournament players has been deleted");
+  if (players.length !== userIds.length) throw new HttpError(409, "One of the tournament players has been deleted");
+  const calculate = (mode) => calculateParticipantElo(participants,
+    new Map(players.map((player) => [player.id, usersRepo.ratingForVenue(player, mode)])), result);
+  const venueElo = calculate(tournament.venueMode);
+  const combined = calculate("combined");
+  for (const p of participants) {
+    if (!p.userId) continue;
+    await usersRepo.addRating(client, p.userId, venueElo[p.resultKey].delta, tournament.venueMode);
+    await usersRepo.addRating(client, p.userId, combined[p.resultKey].delta, "combined");
+  }
+  return { ...venueElo, combined };
+}
 
-  const ratingA = usersRepo.ratingForVenue(playerA, tournament.venueMode);
-  const ratingB = usersRepo.ratingForVenue(playerB, tournament.venueMode);
-  const matchScoreA = matchScoreFor(result, playerA.id, playerB.id);
-  const { deltaA, deltaB } = calculateElo(ratingA, ratingB, matchScoreA);
-  const updatedA = await usersRepo.addRating(client, playerA.id, deltaA, tournament.venueMode);
-  const updatedB = await usersRepo.addRating(client, playerB.id, deltaB, tournament.venueMode);
+async function recalculateStandingsAdmin({ client, user, params, body = {} }) {
+  if (!canManageTournament(user, params.id)) throw new HttpError(403, "Tournament access required");
+  const tournament = await requireTournament(client, params.id, { forUpdate: true });
+  if (Object.hasOwn(body, "tiebreakerOrder")) {
+    return applyStandingsTiebreakerOrder(client, tournament, user, body);
+  }
+  if (tournament.participantMode === "team") throw new HttpError(409, "This action is for individual tournaments");
+  if (!["in_progress", "completed"].includes(tournament.status)) {
+    throw new HttpError(409, "Start the tournament before recalculating standings");
+  }
+  const published = tournament.status === "completed" || Boolean(tournament.finalResults?.length);
+  if (published && body.replacePublished !== true) {
+    throw new HttpError(409, "Confirm replacing published places and podium awards");
+  }
+  const participants = await participantsRepo.lockByTournament(client, tournament.id);
+  await client.query("SELECT id FROM tournament_matches WHERE tournament_id=$1 ORDER BY id FOR UPDATE", [tournament.id]);
+  const matches = await matchesRepo.listByTournament(client, tournament.id);
+  const completed = matches.filter(match => match.status === "completed");
+  if (!completed.length) throw new HttpError(409, "No completed matches to recalculate");
+  const gameIds = completed.map(match => match.gameId).filter(Number.isInteger);
+  const games = new Map((await gamesRepo.listByIds(client, gameIds)).map(game => [game.id, game]));
+  const gameParticipants = await require("../db/repositories/game-participants").listByGameIds(client, gameIds);
+  const { recalculateMatch } = require("../domain/tournaments/recalculate");
+  const { isDeepStrictEqual } = require("node:util");
+  // Build and validate the whole plan before changing any match. The route also
+  // runs in one transaction under the same tournament lock as result submission.
+  const repairs = completed.map(match => ({ match, patch: recalculateMatch(match, participants,
+    games.get(match.gameId), gameParticipants.filter(p => p.gameId === match.gameId)) }))
+    .filter(({ match, patch }) => Object.entries(patch).some(([key, value]) => !isDeepStrictEqual(match[key], value)));
+  for (const { match, patch } of repairs) {
+    if (tournament.format === "single_elimination" && patch.winnerParticipantId !== match.winnerParticipantId &&
+        matches.some(child => (child.sourceMatchAId === match.id && child.participantAId !== patch.winnerParticipantId) ||
+          (child.sourceMatchBId === match.id && child.participantBId !== patch.winnerParticipantId))) {
+      throw new HttpError(409, `Match ${match.id}: correct the downstream elimination bracket before recalculating`);
+    }
+  }
+  const before = { finalResults: tournament.finalResults, matches: repairs.map(({ match, patch }) =>
+    ({ id: match.id, ...Object.fromEntries(Object.keys(patch).map(key => [key, match[key]])) })) };
+  for (const { match, patch } of repairs) {
+    await matchesRepo.update(client, match.id, patch);
+    Object.assign(match, patch);
+  }
+  const standings = buildStandings(participants, matches, tournament.tiebreakerOrder);
+  const previous = new Map((tournament.finalResults || []).map(row => [row.participantId, row]));
+  const finalResults = published ? standings.map(row => ({
+    ...previous.get(row.participant.id), ...finalResultFromStanding(row, row.rank)
+  })) : tournament.finalResults;
+  const updated = await tournamentsRepo.update(client, tournament.id, { finalResults });
+  if (published) await require("../db/repositories/achievements").syncPodium(client, updated, user.id);
+  await audit(client, updated, user, "standings_recalculated", {
+    entityType: "tournament", entityId: tournament.id, before,
+    after: { finalResults, matches: repairs.map(({ match, patch }) => ({ id: match.id, ...patch })) },
+    metadata: { repairedMatches: repairs.length, publishedPlacesReplaced: published }
+  });
+  return { ...await fullView(client, updated, user, { includeAudit: true }),
+    recalculation: { repairedMatches: repairs.length, publishedPlacesReplaced: published } };
+}
 
+async function applyStandingsTiebreakerOrder(client, tournament, user, body) {
+  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS || tournament.finalResults?.length) {
+    throw new HttpError(409, "Tiebreakers can be recalculated while the tournament is in progress");
+  }
+  if (body.expectedUpdatedAt && body.expectedUpdatedAt !== tournament.updatedAt) {
+    throw new HttpError(409, "Tournament was changed by another administrator. Reload its settings before saving.");
+  }
+  const team = tournament.participantMode === "team";
+  const field = team ? "teamTiebreakerOrder" : "tiebreakerOrder";
+  if (!team && !Array.isArray(body.tiebreakerOrder)) {
+    throw new ValidationError("Choose valid standings tiebreakers");
+  }
+  const order = team ? normalizeTeamTiebreakerOrder(body.tiebreakerOrder, tournament.pairingType)
+    : normalizeTiebreakerOrder(body.tiebreakerOrder);
+  const patch = { [field]: order };
+  if (require("../resources/audit").unchanged(tournament, patch)) {
+    return fullView(client, tournament, user, { includeAudit: true });
+  }
+  const updated = await tournamentsRepo.update(client, tournament.id, patch);
+  await audit(client, updated, user, "update", { before: { [field]: tournament[field] }, after: patch });
+  return fullView(client, updated, user, { includeAudit: true });
+}
+
+async function exportAdmin({ client, params }) {
+  const tournament = await requireTournament(client, params.id);
+  if (tournament.participantMode === "team") throw new ValidationError("Excel export is available for individual tournaments only");
+  const participants = await participantsRepo.listByTournament(client, tournament.id);
+  const rounds = await roundsRepo.listByTournament(client, tournament.id);
+  const matches = await matchesRepo.listByTournament(client, tournament.id);
+  const tables = await tablesRepo.listByTournament(client, tournament.id);
+  const people = await peopleForParticipants(client, participants);
+  const { tournamentExportXlsx } = require("../domain/tournaments/export");
+  const filename = `${tournament.name || "tournament"}-results.xlsx`;
   return {
-    k: ELO_K,
-    [playerA.id]: { before: ratingA, after: usersRepo.ratingForVenue(updatedA, tournament.venueMode), delta: deltaA },
-    [playerB.id]: { before: ratingB, after: usersRepo.ratingForVenue(updatedB, tournament.venueMode), delta: deltaB }
+    buffer: tournamentExportXlsx({ tournament, participants, rounds, matches, tables, people }),
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    headers: {
+      "Cache-Control": "private, no-store",
+      "Content-Disposition": `attachment; filename="tournament-${tournament.id}-results.xlsx"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    }
   };
 }
 
 async function publishFinalStandingsAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
+  if (!canFinishTournament(user, tournament)) throw new HttpError(403, "Only the organizer can finish this tournament");
+  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) throw new HttpError(409, "Tournament is not in progress");
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").publishFinalStandings(client, tournament, user, body);
+  }
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await matchesRepo.listByTournament(client, tournament.id);
@@ -1326,6 +1883,7 @@ async function publishFinalStandingsAdmin({ client, user, params, body }) {
     completedAt: nowIso(),
     finalResults
   });
+  await require("../db/repositories/achievements").syncPodium(client, updated, user.id);
   await audit(client, updated, user, "standings_publish", { after: updated, metadata: { finalResults } });
   return fullView(client, updated, user, { includeAudit: true });
 }
@@ -1408,6 +1966,7 @@ async function persistSwissRound(client, tournament, roundBlueprint) {
     metadata: {
       ...(roundBlueprint.metadata || {}),
       format: "swiss",
+      endsAt: roundBlueprint.endsAt || null,
       mission: roundBlueprint.mission || null
     },
     startedAt: nowIso()
@@ -1485,7 +2044,7 @@ async function generateSwissNextRound(client, tournament, user, rounds, matches,
   const pending = participants.filter(
     (participant) => participant.status === PARTICIPANT_STATUSES.PENDING_PLACEMENT
   );
-  const { round: nextRound } = await prepareNextRoundSetup(
+  const { round: nextRound, tables } = await prepareNextRoundSetup(
     client,
     tournament,
     user,
@@ -1494,6 +2053,9 @@ async function generateSwissNextRound(client, tournament, user, rounds, matches,
     participants,
     body
   );
+  pairingWarnings.reviewPairingWarnings(body,
+    nextRound.matches.map(match => pairingWarnings.individual(match, participants, tables)),
+    matches.map(match => pairingWarnings.individual(match, participants, tables)), tournament.venueMode);
   nextRound.metadata = {
     ...(nextRound.metadata || {}),
     activatedParticipantIds: pending.map((participant) => participant.id)
@@ -1520,6 +2082,10 @@ async function generateSingleEliminationNextRound(client, tournament, user, roun
   );
   const nextRound = setup.round;
 
+  pairingWarnings.reviewPairingWarnings(body,
+    nextRound.matches.map(match => pairingWarnings.individual(match, participants, setup.tables)),
+    matches.map(match => pairingWarnings.individual(match, participants, setup.tables)), tournament.venueMode);
+
   if (setup.isFirstRound) {
     await persistPreview(client, tournament, setup.preview);
     await audit(client, tournament, user, "round_generate", {
@@ -1530,7 +2096,7 @@ async function generateSingleEliminationNextRound(client, tournament, user, roun
 
   await roundsRepo.update(client, nextRound.id, {
     status: ROUND_STATUSES.ACTIVE,
-    metadata: { format: "single_elimination", mission: nextRound.mission || null },
+    metadata: { format: "single_elimination", mission: nextRound.mission || null, endsAt: nextRound.endsAt || null },
     startedAt: nowIso()
   });
   for (const match of nextRound.matches) {
@@ -1550,13 +2116,29 @@ async function generateSingleEliminationNextRound(client, tournament, user, roun
 
 async function generateNextRoundAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
-  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) {
-    throw new HttpError(409, "Tournament is not in progress");
+  if (![TOURNAMENT_STATUSES.REGISTRATION_CLOSED, TOURNAMENT_STATUSES.IN_PROGRESS].includes(tournament.status)) {
+    throw new HttpError(409, "Close registration before preparing the first round");
+  }
+  validatePublishable(tournament);
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").generateRound(client, tournament, user, body);
   }
 
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await matchesRepo.listByTournament(client, tournament.id);
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
+
+  if (tournament.status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED) {
+    const setup = await prepareFirstRoundSetup(client, tournament, [], [], participants, body);
+    const prepared = { ...setup.preview, rounds: setup.preview.rounds.map((round) => ({
+      ...round, status: ROUND_STATUSES.NOT_READY,
+      matches: round.matches.map((match) => ({ ...match, status: MATCH_STATUSES.NOT_READY, completedAt: null }))
+    })) };
+    await clearPreparedRounds(client, tournament);
+    await persistPreview(client, tournament, prepared);
+    await audit(client, tournament, user, "first_round_prepare", { metadata: setup.round });
+    return fullView(client, tournament, user, { includeAudit: true });
+  }
 
   if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
     await generateSwissNextRound(client, tournament, user, rounds, matches, participants, body);
@@ -1576,10 +2158,11 @@ function rollbackRoundDraft(round, matches) {
   return {
     roundId: round.id,
     roundNumber: round.roundNumber,
+    endsAt: round.metadata?.endsAt || null,
     mission: round.metadata?.mission || {},
+    byeParticipantId: matches.find(match => match.isBye)?.participantAId || null,
     matchups: matches
-      .filter((match) => !match.isBye)
-      .map((match) => ({
+      .map((match) => match.isBye ? {} : ({
         participantAId: match.participantAId || null,
         participantBId: match.participantBId || null,
         tableId: match.tableId || null
@@ -1619,10 +2202,19 @@ function activatedParticipantIdsForRound(round, participants) {
     .map((participant) => participant.id);
 }
 
-async function rollbackLatestRoundAdmin({ client, user, params }) {
+async function rollbackLatestRoundAdmin({ client, user, params, body = {} }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
-  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) {
+  if (body.roundId !== undefined) {
+    const latest = (await roundsRepo.listByTournament(client, tournament.id))
+      .filter(round => tournament.participantMode === "team" || round.status !== ROUND_STATUSES.NOT_READY).at(-1);
+    if (!latest || latest.id !== Number(body.roundId)) throw new HttpError(409, "Round changed. Refresh and try again");
+  }
+  const preparedTeamRound = tournament.participantMode === "team" && tournament.status === TOURNAMENT_STATUSES.REGISTRATION_CLOSED;
+  if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS && !preparedTeamRound) {
     throw new HttpError(409, "Tournament is not in progress");
+  }
+  if (tournament.participantMode === "team") {
+    return require("./team-tournaments").rollbackLatestRound(client, tournament, user);
   }
   if (tournament.roundDraft) {
     throw new HttpError(409, "The latest round has already been rolled back");
@@ -1696,6 +2288,13 @@ async function reverseMatchElo(client, tournament, match) {
       await usersRepo.addRating(client, id, -delta, tournament.venueMode);
     }
   }
+  for (const [playerId, entry] of Object.entries(match.elo.combined || {})) {
+    const id = Number(playerId);
+    const delta = Number(entry?.delta || 0);
+    if (Number.isInteger(id) && delta) {
+      await usersRepo.addRating(client, id, -delta, "combined");
+    }
+  }
 }
 
 async function completeMatch(
@@ -1709,8 +2308,10 @@ async function completeMatch(
   options = {}
 ) {
   const { replaceCompleted = false } = options;
-  const { participantA, participantB } = requireMatchParticipants(match, participants);
+  const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
+  assertTournamentResultContext({ scores: result.scores }, match, { participantA, participantB });
   const winnerParticipantId = winnerParticipantIdFromResult(result, participantA, participantB);
+  assertMatchWinner({ ...match, winnerParticipantId }, [participantA, participantB]);
   assertCompletableResult(tournament, result, winnerParticipantId);
 
   const finalResult = resultForTournament(tournament, result, user?.id || null);
@@ -1728,7 +2329,7 @@ async function completeMatch(
   const completed = await matchesRepo.update(client, match.id, {
     status: MATCH_STATUSES.COMPLETED,
     pendingResult: null,
-    result: finalResult,
+    result: tournamentResultSnapshot(finalResult, [participantA, participantB]),
     matchPoints: matchPointsFor(match, winnerParticipantId),
     elo,
     gameId,
@@ -1758,13 +2359,15 @@ async function submitResult({ client, user, params, body }) {
   }
 
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
-  const { participantA, participantB } = requireMatchParticipants(match, participants);
+  const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
   assertMatchParticipantUser(match, participantA, participantB, user, "submit the result");
+  assertTournamentResultContext(body, match, { participantA, participantB });
   const result = calculateSubmittedResult(
     body,
     participantResultKey(participantA),
     participantResultKey(participantB)
   );
+  validateResultFactions(tournament, result, [participantA, participantB]);
   const winnerParticipantId = winnerParticipantIdFromResult(result, participantA, participantB);
   assertCompletableResult(tournament, result, winnerParticipantId);
   const completed = await completeMatch(
@@ -1801,7 +2404,7 @@ async function confirmResult({ client, user, params }) {
   }
 
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
-  const { participantA, participantB } = requireMatchParticipants(match, participants);
+  const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
   assertMatchParticipantUser(match, participantA, participantB, user, "confirm the result");
   const completed = await completeMatch(
     client,
@@ -1833,7 +2436,7 @@ async function rejectResult({ client, user, params }) {
   }
 
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
-  const { participantA, participantB } = requireMatchParticipants(match, participants);
+  const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
   assertMatchParticipantUser(match, participantA, participantB, user, "reject the result");
   if (match.gameId) await gamesRepo.clearResult(client, match.gameId);
   const updated = await matchesRepo.update(client, match.id, {
@@ -1862,10 +2465,12 @@ async function saveMatchResultAdmin({ client, user, params, body }) {
   const replaceCompleted = await assertCompletedMatchEditable(client, tournament, match);
 
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
-  const { participantA, participantB } = requireMatchParticipants(match, participants);
+  const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
+  assertTournamentResultContext(body, match, { participantA, participantB });
   const playerAId = participantResultKey(participantA);
   const playerBId = participantResultKey(participantB);
   const result = calculateSubmittedResult(body, playerAId, playerBId);
+  validateResultFactions(tournament, result, [participantA, participantB]);
   const completed = await completeMatch(client, tournament, match, participants, user, result, user.id, {
     replaceCompleted
   });
@@ -1880,10 +2485,13 @@ async function saveMatchResultAdmin({ client, user, params, body }) {
 }
 
 module.exports = {
+  auditPage,
   listPublic,
   getPublic,
+  getRules,
   listAdmin,
   getAdmin,
+  exportAdmin,
   createAdmin,
   updateAdmin,
   deleteAdmin,
@@ -1896,9 +2504,12 @@ module.exports = {
   bulkParticipants,
   updateParticipant,
   removeParticipant,
+  getActivePairingsAdmin,
+  updateActivePairingsAdmin,
+  previewMatchResetAdmin,
+  resetMatchResultAdmin,
   updateSeeds,
   regenerateSeeds,
-  previewAdmin,
   previewNextRoundAdmin,
   startAdmin,
   generateNextRoundAdmin,
@@ -1907,8 +2518,14 @@ module.exports = {
   updateTableAdmin,
   deleteTableAdmin,
   publishFinalStandingsAdmin,
+  recalculateStandingsAdmin,
   submitResult,
   confirmResult,
   rejectResult,
   saveMatchResultAdmin
 };
+
+for (const name of ["deleteAdmin", "resetMatchResultAdmin", "submitResult", "confirmResult", "rejectResult", "saveMatchResultAdmin",
+  "updateParticipant", "removeParticipant", "updateActivePairingsAdmin", "recalculateStandingsAdmin", "rollbackLatestRoundAdmin"]) {
+  module.exports[name] = require("../db/rating-write-lock").withRatingWriteLock(module.exports[name]);
+}

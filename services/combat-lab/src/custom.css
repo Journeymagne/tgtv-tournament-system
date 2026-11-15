@@ -1,0 +1,31 @@
+/* Custom button color overrides */
+.btn-danger {
+  background-color: rgb(37, 43, 50);
+  border-color: rgb(37, 43, 50);
+}
+
+.btn-danger:hover {
+  background-color: rgb(52, 58, 64);
+  border-color: rgb(52, 58, 64);
+}
+
+.btn-danger:active,
+.btn-danger:focus {
+  background-color: rgb(23, 27, 31);
+  border-color: rgb(23, 27, 31);
+}
+
+.btn-danger:disabled {
+  background-color: rgb(37, 43, 50);
+  border-color: rgb(37, 43, 50);
+  opacity: 0.65;
+}
+
+/* Link color: darker blue than Bootstrap's default, AA on white. */
+a {
+  color: #0b63c4;
+}
+
+a:hover {
+  color: #084a93;
+}

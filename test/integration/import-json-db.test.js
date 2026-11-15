@@ -22,8 +22,8 @@ let client;
 let scratchDir;
 
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
   scratchDir = fs.mkdtempSync(path.join(os.tmpdir(), "import-json-db-test-"));
 });
 
@@ -33,7 +33,7 @@ test.after(async () => {
 });
 
 test.beforeEach(async () => {
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  await require("../helpers/schema").resetSchemas(pool);
   client = await pool.connect();
 });
 

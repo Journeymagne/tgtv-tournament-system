@@ -1,6 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { randomUUID } = require("node:crypto");
 const { Pool } = require("pg");
+const { SCHEMAS, SEARCH_PATH } = require("../../src/db/schemas");
 
 const { TEST_DATABASE_URL } = require("../helpers/db");
 
@@ -9,7 +11,7 @@ const { migrate, MIGRATIONS } = require("../../src/db/migrate");
 let pool;
 
 test.before(() => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
+  pool = new Pool(require("../helpers/schema").poolOptions);
 });
 
 test.after(async () => {
@@ -17,7 +19,7 @@ test.after(async () => {
 });
 
 test.beforeEach(async () => {
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  await require("../helpers/schema").resetSchemas(pool);
 });
 
 test("версии миграций уникальны и идут по возрастанию", () => {
@@ -31,7 +33,7 @@ test("migrate на пустой базе создаёт схему", async () =>
   assert.ok(applied.includes(1));
 
   const { rows } = await pool.query(
-    `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`
+    `SELECT tablename FROM pg_tables WHERE schemaname = ANY($1) ORDER BY tablename`, [['public', ...SCHEMAS]]
   );
   const tables = rows.map((row) => row.tablename);
   for (const table of [
@@ -39,6 +41,8 @@ test("migrate на пустой базе создаёт схему", async () =>
     "feedback",
     "game_participants",
     "games",
+    "notification_inbox_state",
+    "notification_inbox_items",
     "schema_migrations",
     "sessions",
     "tournament_audit_events",
@@ -58,24 +62,396 @@ test("повторный migrate ничего не применяет", async ()
   assert.deepEqual(applied, []);
 });
 
-test("migrate на живой базе не ломает данные", async () => {
+test("index cleanup upgrades existing tournaments while retaining uniqueness", async () => {
   await migrate(pool);
-  await pool.query(
+  // Restore the released indexes and replay only the cleanup, with saved data.
+  await pool.query(`
+    CREATE INDEX idx_tournament_rounds_tournament_id ON tournaments.tournament_rounds(tournament_id);
+    CREATE INDEX idx_tournament_tables_tournament_id ON tournaments.tournament_tables(tournament_id);
+    CREATE INDEX idx_tournament_team_matches_round ON tournaments.tournament_team_matches(round_id);
+    CREATE INDEX idx_tournament_team_match_games_match ON tournaments.tournament_team_match_games(team_match_id, slot);
+    DELETE FROM schema_migrations WHERE version = 78;
+  `);
+  const cup = (await pool.query(`INSERT INTO tournaments(slug,status,format)
+    VALUES ('index-cleanup','draft','swiss') RETURNING id`)).rows[0];
+  const round = (await pool.query(`INSERT INTO tournament_rounds(tournament_id,round_number,status)
+    VALUES ($1,1,'not_ready') RETURNING *`, [cup.id])).rows[0];
+  const table = (await pool.query(`INSERT INTO tournament_tables(tournament_id,table_number)
+    VALUES ($1,1) RETURNING *`, [cup.id])).rows[0];
+
+  assert.deepEqual(await migrate(pool), [78]);
+  assert.deepEqual((await pool.query("SELECT * FROM tournament_rounds WHERE id=$1", [round.id])).rows, [round]);
+  assert.deepEqual((await pool.query("SELECT * FROM tournament_tables WHERE id=$1", [table.id])).rows, [table]);
+  const { rows } = await pool.query(`SELECT indexname FROM pg_indexes WHERE schemaname='tournaments'
+    AND indexname = ANY($1::text[])`, [[
+    'idx_tournament_rounds_tournament_id', 'idx_tournament_tables_tournament_id',
+    'idx_tournament_team_matches_round', 'idx_tournament_team_match_games_match'
+  ]]);
+  assert.deepEqual(rows, []);
+  // All four retained indexes must still belong to valid UNIQUE constraints.
+  const unique = await pool.query(`SELECT c.conrelid::regclass::text AS table_name
+    FROM pg_constraint c JOIN pg_index i ON i.indexrelid=c.conindid
+    WHERE c.contype='u' AND i.indisunique AND i.indisvalid
+      AND pg_get_constraintdef(c.oid) = ANY($1::text[])
+      AND c.conrelid = ANY($2::regclass[])`, [[
+    'UNIQUE (tournament_id, round_number)', 'UNIQUE (tournament_id, table_number)',
+    'UNIQUE (round_id, bracket_position)', 'UNIQUE (team_match_id, slot)'
+  ], ['tournaments.tournament_rounds', 'tournaments.tournament_tables',
+    'tournaments.tournament_team_matches', 'tournaments.tournament_team_match_games']]);
+  assert.equal(unique.rowCount, 4);
+  await assert.rejects(pool.query(`INSERT INTO tournament_rounds(tournament_id,round_number,status)
+    VALUES ($1,1,'not_ready')`, [cup.id]), err => err.code === '23505');
+  await assert.rejects(pool.query(`INSERT INTO tournament_tables(tournament_id,table_number)
+    VALUES ($1,1)`, [cup.id]), err => err.code === '23505');
+  assert.deepEqual(await migrate(pool), []);
+});
+
+test("round cascade upgrade repairs restored FK order without changing saved rounds or weakening scope", async () => {
+  await migrate(pool);
+  // Recreate the pre-070 schema in dump/restore order: scope FK before the
+  // legacy round_id cascade. Fresh databases normally hide the conflict.
+  await pool.query(`
+    ALTER TABLE tournaments.tournament_matches
+      DROP CONSTRAINT tournament_match_round_scope,
+      DROP CONSTRAINT tournament_matches_round_id_fkey;
+    ALTER TABLE tournaments.tournament_matches ADD CONSTRAINT tournament_match_round_scope
+      FOREIGN KEY (round_id, tournament_id) REFERENCES tournaments.tournament_rounds(id, tournament_id) NOT VALID;
+    ALTER TABLE tournaments.tournament_matches ADD CONSTRAINT tournament_matches_round_id_fkey
+      FOREIGN KEY (round_id) REFERENCES tournaments.tournament_rounds(id) ON DELETE CASCADE;
+    DELETE FROM schema_migrations WHERE version = 70;
+  `);
+  const cups = (await pool.query(`INSERT INTO tournaments(slug, status, format)
+    VALUES ('cascade-cup', 'registration_closed', 'swiss'), ('other-cup', 'registration_closed', 'swiss')
+    RETURNING id`)).rows;
+  const round = (await pool.query(`INSERT INTO tournament_rounds(tournament_id, round_number, status)
+    VALUES ($1, 1, 'not_ready') RETURNING *`, [cups[0].id])).rows[0];
+  const match = (await pool.query(`INSERT INTO tournament_matches(tournament_id, round_id, round_number, status)
+    VALUES ($1, $2, 1, 'not_ready') RETURNING *`, [cups[0].id, round.id])).rows[0];
+  await assert.rejects(pool.query("DELETE FROM tournament_rounds WHERE id=$1", [round.id]),
+    err => err.code === "23503" && err.constraint === "tournament_match_round_scope");
+
+  assert.deepEqual(await migrate(pool), [70]);
+  assert.deepEqual((await pool.query("SELECT * FROM tournament_rounds WHERE id=$1", [round.id])).rows, [round]);
+  assert.deepEqual((await pool.query("SELECT * FROM tournament_matches WHERE id=$1", [match.id])).rows, [match]);
+  await assert.rejects(pool.query(`INSERT INTO tournament_matches(tournament_id, round_id, round_number, status)
+    VALUES ($1, $2, 1, 'not_ready')`, [cups[1].id, round.id]),
+    err => err.code === "23503" && err.constraint === "tournament_match_round_scope");
+
+  // Reorder the legacy cascade again, so success cannot depend on it firing first.
+  await pool.query(`ALTER TABLE tournaments.tournament_matches DROP CONSTRAINT tournament_matches_round_id_fkey;
+    ALTER TABLE tournaments.tournament_matches ADD CONSTRAINT tournament_matches_round_id_fkey
+      FOREIGN KEY (round_id) REFERENCES tournaments.tournament_rounds(id) ON DELETE CASCADE`);
+  await pool.query("DELETE FROM tournament_rounds WHERE id=$1", [round.id]);
+  assert.equal((await pool.query("SELECT id FROM tournament_matches WHERE id=$1", [match.id])).rowCount, 0);
+  assert.equal((await pool.query("SELECT id FROM tournaments WHERE id=ANY($1::int[])", [cups.map(cup => cup.id)])).rowCount, 2);
+  assert.deepEqual(await migrate(pool), []);
+});
+
+test("training upgrades a released 1.4.x database without replaying service migrations", async () => {
+  const client = await pool.connect();
+  let user;
+  try {
+    await client.query("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+    for (const migration of MIGRATIONS.filter(item => item.version <= 60)) {
+      await migration.up(client);
+      await client.query("INSERT INTO schema_migrations(version,name) VALUES($1,$2)", [migration.version, migration.name]);
+    }
+    // Match the shipped 1.4.x schema: 058-060 applied, no trainer or 056 entry.
+    await client.query("DROP SCHEMA knowthykt CASCADE");
+    await client.query("DELETE FROM schema_migrations WHERE version=56");
+    user = (await client.query("INSERT INTO users(name,name_key,password_hash,rating) VALUES('Existing','existing','salt:hash',1234) RETURNING *")).rows[0];
+    await client.query("INSERT INTO sessions(token,user_id,expires_at) VALUES('existing-session',$1,NOW()+INTERVAL '1 day')", [user.id]);
+  } finally {
+    client.release();
+  }
+
+  assert.deepEqual(await migrate(pool), [56, ...MIGRATIONS.filter(item => item.version > 60).map(item => item.version)]);
+  assert.deepEqual((await pool.query("SELECT * FROM users WHERE id=$1", [user.id])).rows[0], user);
+  assert.equal((await pool.query("SELECT user_id FROM sessions WHERE token='existing-session'")).rows[0].user_id, user.id);
+  assert.equal((await pool.query("SELECT to_regclass('public.training_profiles') AS name")).rows[0].name, null);
+  assert.ok((await pool.query("SELECT to_regclass('knowthykt.training_sessions') AS name")).rows[0].name);
+  const stats = { question: { correct: 2 } };
+  await pool.query("INSERT INTO training_profiles(user_id,stats) VALUES($1,$2)", [user.id, stats]);
+  assert.deepEqual((await pool.query("SELECT stats FROM knowthykt.public_progress WHERE user_id=$1", [user.id])).rows[0].stats, stats);
+  await pool.query("INSERT INTO knowthykt.notification_messages(user_id,notification_id,payload) VALUES($1,'training:upgrade',$2)", [user.id, { type: 'knowthykt_session' }]);
+  await pool.query("DELETE FROM knowthykt.notification_messages WHERE user_id=$1", [user.id]);
+  assert.deepEqual((await pool.query("SELECT operation FROM knowthykt.notification_outbox ORDER BY id")).rows.map(row => row.operation), ['upsert', 'delete']);
+  assert.deepEqual(await migrate(pool), []);
+});
+
+test('retained ranks migration restores legacy titles from dated history without promoting new players', async () => {
+  await pool.query('CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
+  for (const migration of MIGRATIONS.filter(m => m.version < 64)) {
+    await migration.up(pool);
+    await pool.query('INSERT INTO schema_migrations(version,name) VALUES($1,$2)', [migration.version, migration.name]);
+  }
+  await pool.query("UPDATE schema_migrations SET applied_at='2026-10-22T20:46:00Z' WHERE version=62");
+  const questions = require('../../src/domain/training').questions.slice(0, 100);
+  const stats = Object.fromEntries(questions.map(q => [q.id, { attempts: 3, correct: 2, lastAt: '2026-10-24T00:00:00Z' }]));
+  const ids = [];
+  for (const [name, answeredAt] of [['Legacy', '2026-10-21T00:00:00Z'], ['Modern', '2026-10-23T00:00:00Z']]) {
+    const id = (await pool.query('INSERT INTO users(name,name_key,password_hash,rating) VALUES($1,$1,$2,1000) RETURNING id', [name, 'test:hash'])).rows[0].id;
+    ids.push(id);
+    await pool.query('INSERT INTO training_profiles(user_id,stats,completed_count) VALUES($1,$2,10)', [id, JSON.stringify(stats)]);
+    const items = [...questions, ...questions].map(q => ({ questionId: q.id, question: q, optionOrder: [0, 1, 2, 3], selected: q.answer, correct: true, answeredAt }));
+    for (let i = 0; i < items.length; i += 20) await pool.query(`INSERT INTO training_sessions(id,user_id,bank_version,mode,status,cursor,items,started_at,finished_at)
+      VALUES($1,$2,'2026-10-15.1','mixed','completed',19,$3,$4,$4)`, [randomUUID(), id, JSON.stringify(items.slice(i, i + 20)), answeredAt]);
+  }
+  assert.deepEqual(await migrate(pool), MIGRATIONS.filter(m => m.version >= 64).map(m => m.version));
+  const { rows } = await pool.query('SELECT * FROM training_profiles ORDER BY user_id');
+  assert.equal(rows[0].rank_tier, 6);
+  assert.equal(rows[1].rank_tier, 3);
+  for (const profile of rows) {
+    assert.equal(Object.values(profile.stats).reduce((n, s) => n + s.xp, 0), 5000);
+    assert.equal(profile.completed_count, 10);
+    assert.equal(profile.revision, 0);
+  }
+  const notices = await pool.query("SELECT user_id FROM knowthykt.notification_messages WHERE payload->>'type'='knowthykt_recertification'");
+  assert.deepEqual([...new Set(notices.rows.map(n => n.user_id))], [ids[0]]);
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS count FROM training_sessions')).rows[0].count, 20);
+  assert.deepEqual(await migrate(pool), []);
+});
+
+test('training scope withdraws excluded killzones while preserving earned progress and checked answers', async () => {
+  const bank = require('../../src/domain/training');
+  const catalogStore = require('../../src/db/repositories/training-catalog');
+  const training = require('../../src/db/repositories/training');
+  const scope = require('../../src/training-data/approved-ops-scope.json');
+  const excludedIds = scope.excluded.map(q => q.id);
+  await pool.query('CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
+  for (const migration of MIGRATIONS.filter(m => m.version < 66)) {
+    await migration.up(pool);
+    await pool.query('INSERT INTO schema_migrations(version,name) VALUES($1,$2)', [migration.version, migration.name]);
+  }
+  // A reported expansion question and an unrelated moderator edit both predate the release.
+  await pool.query("UPDATE knowthykt.training_questions SET status='review' WHERE id='kt-226'");
+  await pool.query("UPDATE knowthykt.training_questions SET content=jsonb_set(content,'{question}','\"Moderator wording\"'),version=2,revision=3 WHERE id='kt-001'");
+  const user = (await pool.query("INSERT INTO users(name,name_key,password_hash,rating) VALUES('Veteran','veteran','test:hash',1000) RETURNING id,name")).rows[0];
+  const stats = { 'kt-224': { attempts: 3, correct: 2, xp: 60 }, 'kt-001': { attempts: 2, correct: 2, xp: 20 } };
+  await pool.query('INSERT INTO training_profiles(user_id,stats,rank_tier,revision,completed_count) VALUES($1,$2,6,12,7)', [user.id, stats]);
+  const items = ['kt-224', 'kt-245', ...bank.questions.slice(0, 18).map(q => q.id)].map(id => bank.sessionItem(bank.byId.get(id)));
+  items[0] = { ...items[0], selected: items[0].question.answer, correct: true, answeredAt: '2026-10-26T12:00:00Z' };
+  for (const status of ['active', 'completed']) {
+    await pool.query(`INSERT INTO training_sessions(id,user_id,bank_version,mode,status,cursor,items,finished_at)
+      VALUES($1,$2,$3,'mixed',$4,0,$5,CASE WHEN $4='completed' THEN NOW() ELSE NULL END)`,
+    [randomUUID(), user.id, bank.BANK_VERSION, status, JSON.stringify(items)]);
+  }
+  const beforeQuestions = (await pool.query('SELECT * FROM knowthykt.training_questions ORDER BY id')).rows;
+  const beforeSessions = (await pool.query('SELECT * FROM training_sessions ORDER BY id')).rows;
+  const beforeRevision = (await catalogStore.load(pool)).revision;
+
+  assert.deepEqual(await migrate(pool), MIGRATIONS.filter(m => m.version >= 66).map(m => m.version));
+  const catalog = await catalogStore.load(pool);
+  assert.equal(catalog.revision, beforeRevision + 2, 'scope withdrawal and team-bank import each publish a revision');
+  assert.equal(catalog.questions.filter(q => !q.team).length, 300, 'archived core IDs remain available for historical answers');
+  assert.equal(catalog.active.filter(q => !q.team).length, 284);
+  assert.deepEqual(catalog.active.filter(q => q.team === 'hand-of-the-archon').map(q => q.id), bank.teamQuestions.map(q => q.id));
+  assert.deepEqual(catalog.questions.filter(q => q.status === 'deleted').map(q => q.id), excludedIds);
+  const afterQuestions = (await pool.query('SELECT * FROM knowthykt.training_questions ORDER BY id')).rows;
+  for (const question of beforeQuestions) {
+    const after = afterQuestions.find(q => q.id === question.id);
+    if (!excludedIds.includes(question.id)) assert.deepEqual(after, question, 'unrelated moderation remains intact');
+    assert.deepEqual(after.content, question.content);
+    assert.equal(after.version, question.version);
+  }
+  const events = (await pool.query("SELECT question_id,actor_id,comment FROM knowthykt.training_question_events WHERE action='delete' ORDER BY question_id")).rows;
+  assert.deepEqual(events.map(e => e.question_id), excludedIds);
+  assert.ok(events.every(e => e.actor_id === null && e.comment === scope.reason));
+  const profile = (await pool.query('SELECT stats,rank_tier,revision,completed_count FROM training_profiles WHERE user_id=$1', [user.id])).rows[0];
+  assert.deepEqual(profile, { stats, rank_tier: 6, revision: 12, completed_count: 7 });
+  assert.deepEqual((await pool.query('SELECT * FROM training_sessions ORDER BY id')).rows, beforeSessions.map(session => ({ ...session, team: 'core' })));
+
+  // Replaying the data migration cannot duplicate editorial events or course revisions.
+  await pool.query('DELETE FROM schema_migrations WHERE version=66');
+  assert.deepEqual(await migrate(pool), [66]);
+  assert.equal((await catalogStore.load(pool)).revision, catalog.revision);
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM knowthykt.training_question_events WHERE action='delete'")).rows[0].n, 14);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const currentCatalog = await catalogStore.load(client);
+    const locked = await training.lockProfile(client, user.id);
+    const state = await training.state(client, user, locked, bank.BANK_VERSION, currentCatalog);
+    assert.deepEqual(state.active.items[0], items[0], 'checked expansion answer retains its snapshot and score');
+    assert.ok(state.active.items.slice(1).every(item => !excludedIds.includes(item.questionId)), 'unanswered expansion questions are replaced');
+    assert.equal(state.active.items.length, 20);
+    assert.equal(state.journey.xp, 80);
+    assert.equal(state.journey.courseXp, 10);
+    assert.equal(state.journey.rank.tier, 6);
+    assert.deepEqual(state.stats, stats);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+});
+
+test('one-time recertification migration keeps the first notice and read state, removing only repeats', async () => {
+  await migrate(pool);
+  const user = (await pool.query("INSERT INTO users(name,name_key,password_hash,rating) VALUES('Notified','notified','test:hash',1000) RETURNING id")).rows[0];
+  await pool.query('INSERT INTO training_profiles(user_id,stats,rank_tier) VALUES($1,$2,3)', [user.id, { 'kt-001': { correct: 2, xp: 20 } }]);
+  for (const [id, type, date] of [
+    ['first', 'knowthykt_recertification', '2026-10-26T01:00:00Z'],
+    ['repeat', 'knowthykt_recertification', '2026-10-27T01:00:00Z'],
+    ['session', 'knowthykt_session', '2026-10-27T02:00:00Z']
+  ]) await pool.query('INSERT INTO knowthykt.notification_messages(user_id,notification_id,payload,created_at,read_at) VALUES($1,$2,$3,$4,$4)', [user.id, id, { id, type }, date]);
+  const before = (await pool.query('SELECT * FROM knowthykt.notification_messages ORDER BY notification_id')).rows;
+  const migration = MIGRATIONS.find(m => m.version === 68);
+  await migration.up(pool);
+  const remaining = (await pool.query('SELECT * FROM knowthykt.notification_messages ORDER BY notification_id')).rows;
+  assert.deepEqual(remaining, before.filter(n => n.notification_id !== 'repeat'));
+  assert.equal((await pool.query('SELECT recertification_key FROM training_profiles WHERE user_id=$1', [user.id])).rows[0].recertification_key, 'once');
+  const deleted = (await pool.query("SELECT notification_id FROM knowthykt.notification_outbox WHERE operation='delete'")).rows;
+  assert.deepEqual(deleted, [{ notification_id: 'repeat' }]);
+  await migration.up(pool);
+  assert.deepEqual((await pool.query('SELECT * FROM knowthykt.notification_messages ORDER BY notification_id')).rows, remaining);
+  assert.deepEqual((await pool.query("SELECT notification_id FROM knowthykt.notification_outbox WHERE operation='delete'")).rows, deleted);
+});
+
+test("training service migration preserves existing preview progress and queued notifications", async () => {
+  await migrate(pool);
+  const user = (await pool.query("INSERT INTO users(name,name_key,password_hash,rating) VALUES('Preview','preview','salt:hash',1000) RETURNING id")).rows[0];
+  await pool.query("INSERT INTO training_profiles(user_id,revision,stats) VALUES($1,7,$2)", [user.id, { question: { correct: 2 } }]);
+  await pool.query("INSERT INTO knowthykt.notification_messages(user_id,notification_id,payload,read_at) VALUES($1,'training:preview',$2,NOW())", [user.id, { type: 'knowthykt_session' }]);
+  const progress = (await pool.query("SELECT * FROM training_profiles")).rows;
+  const messages = (await pool.query("SELECT * FROM knowthykt.notification_messages")).rows;
+  const outbox = (await pool.query("SELECT * FROM knowthykt.notification_outbox ORDER BY id")).rows;
+  await pool.query("DELETE FROM schema_migrations WHERE version=61");
+
+  assert.deepEqual(await migrate(pool), [61]);
+  assert.deepEqual((await pool.query("SELECT * FROM training_profiles")).rows, progress);
+  assert.deepEqual((await pool.query("SELECT * FROM knowthykt.notification_messages")).rows, messages);
+  assert.deepEqual((await pool.query("SELECT * FROM knowthykt.notification_outbox ORDER BY id")).rows, outbox);
+  await pool.query("UPDATE knowthykt.notification_messages SET payload=$1", [{ type: 'knowthykt_session', excerpt: 'Updated' }]);
+  assert.equal((await pool.query("SELECT COUNT(*)::integer AS count FROM knowthykt.notification_outbox")).rows[0].count, outbox.length + 1);
+});
+
+test("venue address upgrade follows 1.2.0 without replacing Studio migration 32 or existing data", async () => {
+  const client = await pool.connect();
+  try {
+    await client.query("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+    for (const migration of MIGRATIONS.filter(item => item.version <= 54)) {
+      await migration.up(client);
+      await client.query("INSERT INTO schema_migrations(version,name) VALUES($1,$2)", [migration.version, migration.name]);
+    }
+    await client.query("INSERT INTO tournaments(slug,name,status,format,venue_mode,faction_count) VALUES('existing-irl','Existing IRL','draft','swiss','irl',3)");
+  } finally {
+    client.release();
+  }
+  assert.deepEqual(await migrate(pool), MIGRATIONS.filter(item => item.version > 54).map(item => item.version));
+  const { rows: [event] } = await pool.query("SELECT name, venue_address, faction_count FROM tournaments WHERE slug='existing-irl'");
+  assert.deepEqual(event, { name: "Existing IRL", venue_address: "", faction_count: 3 });
+  const { rows: migrations } = await pool.query("SELECT version,name FROM schema_migrations WHERE version IN (32,55) ORDER BY version");
+  assert.deepEqual(migrations, [{version:32,name:"studio_projects"}, {version:55,name:"tournament_venue_address"}]);
+  assert.ok((await pool.query("SELECT to_regclass('studio_projects') AS name")).rows[0].name);
+  await assert.rejects(pool.query("UPDATE tournaments SET venue_address=$1", ["x".repeat(501)]), { code: "23514" });
+  await pool.query("UPDATE tournaments SET venue_address=$1", ["x".repeat(500)]);
+  assert.deepEqual(await migrate(pool), []);
+});
+
+test("team Killzone help migration corrects seeded rules and preserves administrator revisions", async () => {
+  await migrate(pool);
+  const migration = MIGRATIONS.find(item => item.version === 51);
+  const { rows: [editor] } = await pool.query(
+    "INSERT INTO users(name,name_key,password_hash,rating,is_admin) VALUES('Docs Editor','docs editor','salt:hash',1000,true) RETURNING id"
+  );
+  await pool.query("UPDATE documentation_pages SET markdown='три разные Killzones', version=1, updated_by=NULL WHERE page_id='wtc-pairings' AND locale='ru'");
+  for (const [version, author] of [[2, null], [1, editor.id]]) {
+    await pool.query("UPDATE documentation_pages SET markdown='Administrator text: three different Killzones', version=$1, updated_by=$2 WHERE page_id='wtc-pairings' AND locale='en'", [version, author]);
+    await migration.up(pool);
+    const { rows } = await pool.query("SELECT locale, markdown, version, updated_by FROM documentation_pages WHERE page_id='wtc-pairings' ORDER BY locale");
+    const ru = rows.find(row => row.locale === "ru");
+    const en = rows.find(row => row.locale === "en");
+    assert.match(ru.markdown, /Killzones могут повторяться/);
+    assert.equal(ru.version, 2);
+    assert.equal(en.markdown, "Administrator text: three different Killzones");
+    assert.equal(en.version, version);
+    assert.equal(en.updated_by, author);
+    await migration.up(pool);
+    assert.deepEqual((await pool.query("SELECT locale, markdown, version, updated_by FROM documentation_pages WHERE page_id='wtc-pairings' ORDER BY locale")).rows, rows);
+  }
+});
+
+test("migrate на живой базе не ломает данные", async () => {
+  await pool.query("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+  for (const migration of MIGRATIONS.filter(item => item.version <= 55)) {
+    await migration.up(pool);
+    await pool.query("INSERT INTO schema_migrations(version,name) VALUES($1,$2)", [migration.version,migration.name]);
+  }
+  const { rows: [user] } = await pool.query(
     `INSERT INTO users (name, name_key, password_hash, rating, is_admin)
-     VALUES ('Alpha', 'alpha', 'salt:hash', 1000, true)`
+     VALUES ('Alpha', 'alpha', 'salt:hash', 1000, true) RETURNING id`
+  );
+  const { rows: [tournament] } = await pool.query(
+    `INSERT INTO tournaments (owner_user_id, slug, status, format, swiss_round_count)
+     VALUES ($1, 'preserve-table-images', 'draft', 'swiss', 1) RETURNING id`, [user.id]
+  );
+  const { rows: [image] } = await pool.query(
+    `INSERT INTO tournament_table_images (tournament_id, image_data, content_hash)
+     VALUES ($1, 'saved-image-data', 'saved-image-hash') RETURNING *`, [tournament.id]
   );
 
-  await pool.query("DELETE FROM schema_migrations");
+  // Historical replayable migrations; newer migrations are ledger-driven.
+  await pool.query("DELETE FROM schema_migrations WHERE version <= 35");
   const applied = await migrate(pool);
   assert.ok(applied.includes(1));
 
   const { rows } = await pool.query("SELECT name FROM users");
   assert.equal(rows.length, 1);
   assert.equal(rows[0].name, "Alpha");
+  const images = await pool.query("SELECT * FROM tournament_table_images");
+  assert.deepEqual(images.rows, [image], "повторная миграция сохраняет изображения и их ID");
+});
+
+test("Studio review migrations preserve publications and backfill the latest rating for each version", async () => {
+  const client = await pool.connect();
+  const publicationId = randomUUID(), reviewId = randomUUID();
+  const project = { team: { id: "existing-team", name: "Existing team", version: "2.0" } };
+  try {
+    await client.query("BEGIN");
+    await client.query(`CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    for (const migration of MIGRATIONS.filter(item => item.version <= 38)) {
+      await migration.up(client);
+      await client.query("INSERT INTO schema_migrations(version,name) VALUES($1,$2)", [migration.version,migration.name]);
+    }
+    const { rows: [owner, reviewer] } = await client.query(`INSERT INTO users(name,name_key,password_hash,rating,is_admin)
+      VALUES('Owner','owner','salt:hash',1000,false),('Reviewer','reviewer','salt:hash',1000,false) RETURNING id`);
+    await client.query(`INSERT INTO studio_projects(owner_id,project_id,project,revision,publication_id,published)
+      VALUES($1,'published',$2,7,$3,$2),($1,'draft',$2,3,NULL,NULL)`, [owner.id,project,publicationId]);
+    const reviews = MIGRATIONS.find(item => item.version === 39);
+    await reviews.up(client);
+    await client.query("INSERT INTO schema_migrations(version,name) VALUES($1,$2)", [reviews.version,reviews.name]);
+    const migrated = (await client.query("SELECT project_id,project,published,published_revision FROM studio_projects ORDER BY project_id")).rows;
+    assert.equal(migrated[0].published_revision, 0);
+    assert.equal(migrated[0].published, null);
+    assert.equal(migrated[1].published_revision, 1);
+    assert.deepEqual(migrated[1].project, project);
+    assert.deepEqual(migrated[1].published, project);
+    const { rows: [review] } = await client.query(`INSERT INTO studio_reviews
+      (id,publication_id,author_id,body,theme_score,balance_score,lore_score,publication_revision,version_label,request_id)
+      VALUES($1,$2,$3,'Preserved review',5,5,5,2,'2.0',$4) RETURNING *`, [reviewId,publicationId,reviewer.id,randomUUID()]);
+    for (const score of [3,4]) {
+      await client.query(`INSERT INTO studio_review_audit(review_id,actor_id,action,snapshot) VALUES($1,$2,'update',$3)`,
+        [reviewId,reviewer.id,{...review,version_label:'1.0',publication_revision:1,theme_score:score,balance_score:score,lore_score:score}]);
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally { client.release(); }
+  assert.deepEqual(await migrate(pool), MIGRATIONS.filter(item => item.version > 39).map(item => item.version));
+  const ratings = (await pool.query(`SELECT version_label,theme_score,balance_score,lore_score
+    FROM studio_review_ratings WHERE review_id=$1 ORDER BY version_label`, [reviewId])).rows;
+  assert.deepEqual(ratings, [
+    { version_label: '1.0', theme_score: 4, balance_score: 4, lore_score: 4 },
+    { version_label: '2.0', theme_score: 5, balance_score: 5, lore_score: 5 }
+  ]);
+  assert.deepEqual(await migrate(pool), []);
 });
 
 test("migration 010 creates a canonical Game for a tournament match with a guest", async () => {
-  await migrate(pool);
+  await require("../helpers/migrate-through").migrateThrough(pool, 7);
   const user = await pool.query(
     `INSERT INTO users (name, name_key, password_hash, rating, is_admin)
      VALUES ('Alpha', 'alpha', 'salt:hash', 1000, true)
@@ -106,8 +482,8 @@ test("migration 010 creates a canonical Game for a tournament match with a guest
   const match = await pool.query(
     `INSERT INTO tournament_matches
        (tournament_id, round_id, round_number, status, is_bye,
-        participant_a_id, participant_b_id, result, completed_at)
-     VALUES ($1, $2, 1, 'completed', FALSE, $3, $4, $5::jsonb, NOW())
+        participant_a_id, participant_b_id, result, completed_at, winner_participant_id)
+     VALUES ($1, $2, 1, 'completed', FALSE, $3, $4, $5::jsonb, NOW(), $3)
      RETURNING id`,
     [
       tournament.rows[0].id,
@@ -118,9 +494,7 @@ test("migration 010 creates a canonical Game for a tournament match with a guest
     ]
   );
 
-  await pool.query("DELETE FROM schema_migrations WHERE version = 10");
-  const applied = await migrate(pool);
-  assert.ok(applied.includes(10));
+  await require('../../src/db/migrations/010_canonical_tournament_games').up(pool);
 
   const games = await pool.query(
     `SELECT g.id, g.player_ids, g.source_id, tm.game_id
@@ -153,6 +527,7 @@ test("схема users содержит ожидаемые колонки", asyn
   const columns = rows.map((row) => row.column_name);
   for (const column of [
     "avatar_data",
+    "avatar_version",
     "challenge_credits",
     "created_at",
     "id",
@@ -161,6 +536,7 @@ test("схема users содержит ожидаемые колонки", asyn
     "name_key",
     "password_hash",
     "rating",
+    "rating_combined",
     "rating_irl",
     "rating_tts",
     "register_nickname",

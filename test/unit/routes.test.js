@@ -5,11 +5,22 @@ const routes = require("../../src/api/routes");
 
 const MUTATING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 
-test("MEDIUM 3: каждый маршрут /api/admin/* требует auth: admin", () => {
+test("team pairing is public read-only, while captain actions still require authentication", () => {
+  const read = routes.find((route) => route.method === "GET" && route.path === "/api/team-matches/:matchId");
+  assert.equal(read.auth, "none");
+  assert.equal(read.loadUser, true);
+  for (const action of ["roll", "ban", "shield", "sword", "environment"]) {
+    const write = routes.find((route) => route.method === "POST" && route.path === `/api/tournaments/:id/team-matches/:matchId/${action}`);
+    assert.equal(write.auth, "user");
+    assert.equal(write.tx, true);
+  }
+});
+
+test("MEDIUM 3: каждый маршрут /api/admin/* требует глобальных или явных объектных прав", () => {
   const adminRoutes = routes.filter((route) => route.path.startsWith("/api/admin/"));
   assert.ok(adminRoutes.length > 0, "sanity: there should be admin routes to check");
   for (const route of adminRoutes) {
-    assert.equal(route.auth, "admin", `${route.method} ${route.path} must carry auth: "admin"`);
+    assert.ok(route.auth === "admin" || (route.auth === "user" && ["super", "administration", "tournaments.create", "tournament.manage", "judges.manage", "game.manage"].includes(route.permission)), `${route.method} ${route.path} requires an explicit privilege boundary`);
   }
 });
 
@@ -29,9 +40,8 @@ test("MEDIUM 3: каждый мутирующий маршрут открыва�
 const REQUIRES_AUTHENTICATED_USER = [
   ["PATCH", "/api/me"],
   ["GET", "/api/users/search"],
-  ["GET", "/api/users/:id"],
-  ["GET", "/api/challenge-progress"],
-  ["GET", "/api/games"],
+  ["GET", "/api/notifications"],
+  ["POST", "/api/notifications/read"],
   ["POST", "/api/games/:id/result"],
   ["POST", "/api/games/:id/exit"],
   ["POST", "/api/games/:id/confirm-result"],
@@ -55,5 +65,24 @@ test("MEDIUM 3: маршруты, чей обработчик разыменов
     const route = routes.find((entry) => entry.method === method && entry.path === path);
     assert.ok(route, `expected a route table entry for ${method} ${path}`);
     assert.equal(route.auth, "user", `${method} ${path} dereferences ctx.user but declares auth: ${route.auth}`);
+  }
+});
+
+test("a team roster can be permanently deleted through an authenticated transaction", () => {
+  const remove = routes.find((route) =>
+    route.method === "DELETE" && route.path === "/api/tournaments/:id/rosters/:rosterId");
+  assert.ok(remove, "expected a DELETE route for a tournament team roster");
+  assert.equal(remove.auth, "user");
+  assert.equal(remove.tx, true);
+  // Deleting is the escape hatch withdrawing does not provide, so both stay.
+  const withdraw = routes.find((route) =>
+    route.method === "POST" && route.path === "/api/tournaments/:id/rosters/:rosterId/withdraw");
+  assert.ok(withdraw, "withdrawing a roster must remain available alongside deletion");
+});
+
+test("public profile and match reads allow guests; mutations remain protected", () => {
+  for (const path of ["/api/users/:id","/api/challenge-progress","/api/games","/api/games/tournament-match/:matchId","/api/games/:id"]) {
+    const route = routes.find(route => route.method === "GET" && route.path === path);
+    assert.equal(route.auth, "none", path);
   }
 });

@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>Рыгаю</title>
+<style>
+  :root{
+    --bg-0:#e6f3e4;
+    --bg-1:#c4e3c6;
+    --bg-glow:rgba(255,255,255,.7);
+    --ink:#3d2b45;
+    --paper:#ffffff;
+    --text:#2b3f31;
+    --muted:rgba(43,63,49,.6);
+    --puff-a:rgba(110,190,90,.95);
+    --puff-b:rgba(110,190,90,0);
+    --burst:#f7d94c;
+    --shadow:rgba(30,60,35,.32);
+    --firefly:rgba(110,190,110,.55);
+    --bubble:#ffffff;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg-0:#0d1b14;
+      --bg-1:#1a3326;
+      --bg-glow:rgba(120,205,125,.18);
+      --text:#e8f3e8;
+      --muted:rgba(232,243,232,.55);
+      --puff-a:rgba(150,232,110,.95);
+      --puff-b:rgba(150,232,110,0);
+      --shadow:rgba(0,0,0,.6);
+      --firefly:rgba(214,255,170,.85);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg-0:#0d1b14;
+    --bg-1:#1a3326;
+    --bg-glow:rgba(120,205,125,.18);
+    --text:#e8f3e8;
+    --muted:rgba(232,243,232,.55);
+    --puff-a:rgba(150,232,110,.95);
+    --puff-b:rgba(150,232,110,0);
+    --shadow:rgba(0,0,0,.6);
+    --firefly:rgba(214,255,170,.85);
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--bg-0);
+    color:var(--text);
+    font-family:"Arial Rounded MT Bold","Nunito","Varela Round","Segoe UI",system-ui,sans-serif;
+    font-weight:900;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
+  }
+
+  /* sticker outline: a ring of white shadows so joins stay round in any font */
+  .outlined{
+    color:var(--ink);
+    text-shadow:
+      0.075em 0.000em 0 var(--paper), 0.069em 0.029em 0 var(--paper), 0.053em 0.053em 0 var(--paper), 0.029em 0.069em 0 var(--paper),
+      0.000em 0.075em 0 var(--paper), -0.029em 0.069em 0 var(--paper), -0.053em 0.053em 0 var(--paper), -0.069em 0.029em 0 var(--paper),
+      -0.075em 0.000em 0 var(--paper), -0.069em -0.029em 0 var(--paper), -0.053em -0.053em 0 var(--paper), -0.029em -0.069em 0 var(--paper),
+      0.000em -0.075em 0 var(--paper), 0.029em -0.069em 0 var(--paper), 0.053em -0.053em 0 var(--paper), 0.069em -0.029em 0 var(--paper),
+      0.040em 0.000em 0 var(--paper), 0.028em 0.028em 0 var(--paper), 0.000em 0.040em 0 var(--paper), -0.028em 0.028em 0 var(--paper),
+      -0.040em 0.000em 0 var(--paper), -0.028em -0.028em 0 var(--paper), 0.000em -0.040em 0 var(--paper), 0.028em -0.028em 0 var(--paper),
+      0 0.12em 0.02em var(--shadow);
+  }
+
+  .scene{
+    position:relative;
+    min-height:100vh;
+    min-height:100svh;
+    overflow:hidden;
+    display:grid;
+    place-items:center;
+    padding:max(16px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+    background:
+      radial-gradient(70% 48% at 50% 64%, var(--bg-glow), transparent 72%),
+      radial-gradient(130% 90% at 50% 105%, var(--bg-1), var(--bg-0) 70%);
+  }
+
+  /* drifting fireflies — the forest from the original sticker */
+  .fireflies{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .fireflies i{
+    position:absolute;left:var(--x);top:var(--y);
+    width:6px;height:6px;border-radius:50%;
+    background:var(--firefly);
+    box-shadow:0 0 10px 3px var(--firefly);
+    opacity:0;
+    animation:drift var(--t) ease-in-out var(--d) infinite;
+  }
+  @keyframes drift{
+    0%{transform:translate(0,0) scale(.5);opacity:0}
+    25%{opacity:.9}
+    50%{transform:translate(22px,-46px) scale(1)}
+    75%{opacity:.5}
+    100%{transform:translate(-16px,-100px) scale(.4);opacity:0}
+  }
+
+  .world{
+    position:relative;
+    display:grid;
+    justify-items:center;
+    gap:clamp(10px, 2.5vh, 26px);
+    --pow:0;
+  }
+  .world.shaking{animation:shake .5s linear}
+  @keyframes shake{
+    0%,100%{transform:none}
+    12%{transform:translate(calc(-7px * var(--pow)), calc(4px * var(--pow)))}
+    24%{transform:translate(calc(6px * var(--pow)), calc(-5px * var(--pow)))}
+    36%{transform:translate(calc(-5px * var(--pow)), calc(2px * var(--pow)))}
+    48%{transform:translate(calc(4px * var(--pow)), calc(4px * var(--pow)))}
+    60%{transform:translate(calc(-3px * var(--pow)), calc(-2px * var(--pow)))}
+    75%{transform:translate(calc(2px * var(--pow)), calc(1px * var(--pow)))}
+  }
+
+  .caption{
+    margin:0;
+    font-size:clamp(46px, 16vw, 104px);
+    line-height:1;
+    display:flex;
+    gap:.03em;
+    transform:rotate(-2.5deg);
+    padding:.2em .3em 0;
+  }
+  .caption span{display:inline-block;transform-origin:50% 100%}
+  .caption span.wave{animation:wave .6s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes wave{
+    0%{transform:none}
+    35%{transform:translateY(-.24em) rotate(-9deg) scale(1.1)}
+    70%{transform:translateY(.06em) rotate(5deg) scale(.96)}
+    100%{transform:none}
+  }
+
+  .stage{
+    position:relative;
+    width:min(82vw, 46vh, 480px);
+    width:min(82vw, 46svh, 480px);
+    aspect-ratio:720/645;
+    --mx:47%;
+    --my:57%;
+  }
+  .shadow{
+    position:absolute;left:20%;right:20%;bottom:-7%;height:10%;
+    border-radius:50%;
+    background:radial-gradient(ellipse at center, var(--shadow), transparent 70%);
+    animation:shadowIdle 3.4s ease-in-out infinite;
+  }
+  @keyframes shadowIdle{
+    0%,100%{transform:scaleX(1);opacity:1}
+    50%{transform:scaleX(.82);opacity:.55}
+  }
+  .floaty{position:absolute;inset:0;animation:float 3.4s ease-in-out infinite}
+  @keyframes float{
+    0%,100%{transform:translateY(0) rotate(-1.3deg)}
+    50%{transform:translateY(-3.5%) rotate(1.3deg)}
+  }
+
+  .cat{
+    position:absolute;inset:0;
+    margin:0;padding:0;border:0;background:none;
+    cursor:pointer;
+    touch-action:none;
+    transform-origin:50% 88%;
+    transform:scale(calc(1 + var(--charge, 0) * .24)) rotate(calc(var(--charge, 0) * -5deg));
+    transition:transform .24s cubic-bezier(.2,1.8,.4,1);
+    border-radius:40%;
+  }
+  .cat.charging{transition:transform .07s linear}
+  .cat:focus-visible{outline:4px solid var(--paper);outline-offset:6px}
+  .cat-inner{width:100%;height:100%;transform-origin:50% 90%}
+  .cat-inner.burping{animation:burp .62s cubic-bezier(.2,.8,.3,1)}
+  @keyframes burp{
+    0%{transform:none}
+    10%{transform:scale(calc(1 + .1 * var(--pow)), calc(1 - .2 * var(--pow))) translateY(calc(4% * var(--pow)))}
+    26%{transform:scale(calc(1 - .07 * var(--pow)), calc(1 + .14 * var(--pow))) translateY(calc(-4% * var(--pow))) rotate(calc(3deg * var(--pow)))}
+    40%{transform:rotate(calc(-5deg * var(--pow))) translateX(calc(-2% * var(--pow)))}
+    54%{transform:rotate(calc(5deg * var(--pow))) translateX(calc(2% * var(--pow)))}
+    68%{transform:rotate(calc(-2.5deg * var(--pow)))}
+    84%{transform:rotate(calc(1deg * var(--pow))) scale(1.02,.98)}
+    100%{transform:none}
+  }
+  .cat img{
+    display:block;width:100%;height:100%;
+    pointer-events:none;
+    -webkit-user-drag:none;
+  }
+
+  /* burp puffs */
+  .fx{position:absolute;inset:0;pointer-events:none}
+  .puff{
+    position:absolute;left:var(--mx);top:var(--my);
+    width:var(--sz);height:var(--sz);
+    margin:calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+    border-radius:50%;
+    background:
+      radial-gradient(circle at 35% 32%, rgba(255,255,255,.6), transparent 42%),
+      radial-gradient(circle, var(--puff-a), var(--puff-b) 70%);
+    animation:puff var(--t) cubic-bezier(.1,.7,.3,1) forwards;
+    will-change:transform,opacity;
+  }
+  @keyframes puff{
+    0%{transform:translate(0,0) scale(.2);opacity:0}
+    12%{opacity:.95}
+    100%{transform:translate(var(--dx), var(--dy)) scale(var(--s));opacity:0}
+  }
+
+  /* comic onomatopoeia at the mouth */
+  .burst{
+    position:absolute;left:var(--mx);top:var(--my);
+    z-index:0;
+    transform:translate(-50%,-50%);
+    font-size:calc(var(--sz, 1) * clamp(22px, 7vw, 42px));
+    line-height:1;
+    white-space:nowrap;
+    padding:.3em .45em;
+    opacity:0;
+    pointer-events:none;
+  }
+  .burst::before{
+    content:"";
+    position:absolute;inset:-.55em -.75em;
+    z-index:-1;
+    background:var(--burst);
+    clip-path:polygon(50.0% 0.0%, 57.8% 10.8%, 69.1% 3.8%, 72.2% 16.7%, 85.4% 14.6%, 83.3% 27.8%, 96.2% 30.9%, 89.2% 42.2%, 100.0% 50.0%, 89.2% 57.8%, 96.2% 69.1%, 83.3% 72.2%, 85.4% 85.4%, 72.2% 83.3%, 69.1% 96.2%, 57.8% 89.2%, 50.0% 100.0%, 42.2% 89.2%, 30.9% 96.2%, 27.8% 83.3%, 14.6% 85.4%, 16.7% 72.2%, 3.8% 69.1%, 10.8% 57.8%, 0.0% 50.0%, 10.8% 42.2%, 3.8% 30.9%, 16.7% 27.8%, 14.6% 14.6%, 27.8% 16.7%, 30.9% 3.8%, 42.2% 10.8%);
+  }
+  .burst.show{animation:pop .95s cubic-bezier(.2,1.4,.4,1) forwards}
+  @keyframes pop{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.2) rotate(-16deg)}
+    18%{opacity:1;transform:translate(-50%,-72%) scale(1.18) rotate(-6deg)}
+    36%{transform:translate(-50%,-84%) scale(1) rotate(-9deg)}
+    78%{opacity:1;transform:translate(-50%,-112%) scale(1) rotate(-9deg)}
+    100%{opacity:0;transform:translate(-50%,-136%) scale(.9) rotate(-9deg)}
+  }
+
+  /* what she says afterwards */
+  .say{
+    position:absolute;right:-5%;bottom:5%;
+    max-width:64%;
+    background:var(--bubble);
+    color:var(--ink);
+    font-size:clamp(14px, 3.8vw, 18px);
+    line-height:1.2;
+    padding:.5em .85em;
+    border-radius:1.3em;
+    border-bottom-left-radius:.35em;
+    box-shadow:0 4px 14px rgba(0,0,0,.2);
+    opacity:0;
+    transform:translateY(8px) scale(.9);
+    transition:opacity .25s, transform .25s;
+    pointer-events:none;
+  }
+  .say.on{opacity:1;transform:none}
+
+  .hud{display:grid;justify-items:center;gap:8px;text-align:center}
+  .count{font-size:clamp(20px, 5vw, 26px);line-height:1.2}
+  .count b{display:inline-block;font-weight:900}
+  .count.pop b{animation:countPop .35s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes countPop{0%{transform:scale(1)}40%{transform:scale(1.5) rotate(-6deg)}100%{transform:scale(1)}}
+  .hint{
+    font-weight:500;
+    font-size:clamp(13px, 3.4vw, 15px);
+    color:var(--muted);
+    transition:opacity .7s;
+    max-width:32ch;
+  }
+  .hint.gone{opacity:0}
+
+  @media (prefers-reduced-motion: reduce){
+    .floaty,.shadow,.fireflies i{animation:none}
+    .world.shaking{animation:none}
+  }
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="fireflies" aria-hidden="true">
+    <i style="--x:8%;--y:78%;--t:9s;--d:-1s"></i>
+    <i style="--x:22%;--y:30%;--t:11s;--d:-5s"></i>
+    <i style="--x:70%;--y:22%;--t:10s;--d:-3s"></i>
+    <i style="--x:86%;--y:66%;--t:12s;--d:-7s"></i>
+    <i style="--x:55%;--y:88%;--t:8s;--d:-2s"></i>
+    <i style="--x:38%;--y:12%;--t:13s;--d:-9s"></i>
+    <i style="--x:92%;--y:40%;--t:9.5s;--d:-4s"></i>
+  </div>
+
+  <div class="world" id="world">
+    <h1 class="caption outlined" id="caption" aria-label="Рыгаю"><span>Р</span><span>Ы</span><span>Г</span><span>А</span><span>Ю</span></h1>
+
+    <div class="stage" id="stage">
+      <div class="shadow" aria-hidden="true"></div>
+      <div class="floaty">
+        <button class="cat" id="cat" type="button" aria-label="Ткнуть кошку — она рыгнёт. Подержать — рыгнёт мощнее">
+          <div class="cat-inner" id="inner">
+            <img src="/rygayu-cat.webp" alt="">
+          </div>
+        </button>
+        <div class="fx" id="fx" aria-hidden="true"></div>
+        <div class="burst outlined" id="burst" aria-hidden="true"></div>
+      </div>
+      <div class="say" id="say" aria-live="polite"></div>
+    </div>
+
+    <div class="hud">
+      <div class="count outlined" id="count">Отрыжек: <b id="countNum">0</b></div>
+      <div class="hint" id="hint">Ткни — рыгнёт. Подержи — рыгнёт мощнее.</div>
+    </div>
+  </div>
+</div>
+
+<script src="/rygayu.js"></script>
+</body>
+</html>

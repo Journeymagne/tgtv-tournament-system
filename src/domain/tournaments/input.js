@@ -1,17 +1,25 @@
 const { ValidationError } = require("../../http/io");
+const { seasons, currentSeason } = require("../../../public/game-data");
+const { normalizeTeamLogo } = require("../player-teams");
+const { normalizeFactionCount } = require("./factions");
 const {
   normalizeName,
   profileText,
   requiredProfileText,
+  markdownText,
   requireInteger
 } = require("../validation");
 const {
   TOURNAMENT_FORMATS,
+  PARTICIPANT_MODES,
+  TEAM_PAIRING_TYPES,
   RATING_POLICIES,
   CHALLENGE_CREDIT_POLICIES,
   VENUE_MODES,
   SINGLE_ELIMINATION_SIZES,
-  STANDINGS_TIEBREAKERS
+  STANDINGS_TIEBREAKERS,
+  TEAM_STANDINGS_TIEBREAKERS,
+  DOUBLES_STANDINGS_TIEBREAKERS
 } = require("./constants");
 
 const NAME_MAX = 120;
@@ -19,6 +27,7 @@ const DESCRIPTION_MAX = 6000;
 const RULES_MAX = 6000;
 const GAME_SYSTEM_MAX = 80;
 const SEASON_ID_MAX = 80;
+const VENUE_ADDRESS_MAX = 500;
 const FACTION_RULES_MAX = 1000;
 const RULES_LINK_MAX = 2_800_000;
 const GAME_SYSTEMS = ["Warhammer 40k Kill Team"];
@@ -29,6 +38,11 @@ function optionalTournamentText(value, label, maxLength) {
 
 function requiredTournamentText(value, label, maxLength) {
   return requiredProfileText(value, label, maxLength);
+}
+
+// Description and rules are authored as markdown, so their line breaks must survive.
+function optionalTournamentMarkdown(value, label, maxLength) {
+  return markdownText(value, label, maxLength);
 }
 
 function normalizeFormat(value) {
@@ -84,6 +98,17 @@ function normalizeTiebreakerOrder(value) {
   return result;
 }
 
+function normalizeTeamTiebreakerOrder(order, pairingType) {
+  const doubles = pairingType === TEAM_PAIRING_TYPES.DOUBLES;
+  const allowed = doubles ? DOUBLES_STANDINGS_TIEBREAKERS : TEAM_STANDINGS_TIEBREAKERS;
+  if (order !== null && (!Array.isArray(order) || new Set(order).size !== order.length ||
+      order.some(key => !allowed.includes(key)))) {
+    throw new ValidationError(doubles ? "Choose unique Doubles tiebreakers: SOS, total VP"
+      : "Choose unique team tiebreakers: individual wins, VP difference, total VP");
+  }
+  return order;
+}
+
 function normalizeStartsAt(value) {
   if (!value) return null;
   const date = new Date(value);
@@ -99,9 +124,26 @@ function normalizeGameSystem(value) {
   return gameSystem;
 }
 
+function normalizeParticipantMode(value) {
+  const mode = String(value || PARTICIPANT_MODES.INDIVIDUAL);
+  if (!Object.values(PARTICIPANT_MODES).includes(mode)) {
+    throw new ValidationError("Choose individual or team participants");
+  }
+  return mode;
+}
+
+function normalizeTeamPairingType(value, participantMode) {
+  if (participantMode !== PARTICIPANT_MODES.TEAM) return null;
+  const pairingType = String(value || TEAM_PAIRING_TYPES.SHIELD_SWORD);
+  if (!Object.values(TEAM_PAIRING_TYPES).includes(pairingType)) {
+    throw new ValidationError("Choose WTC, SWORD SHIELD CLASSIC or Doubles");
+  }
+  return pairingType;
+}
+
 function normalizeSeasonId(value) {
-  const seasonId = optionalTournamentText(value, "Season", SEASON_ID_MAX) || "2026-q2-dataslate";
-  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(seasonId)) {
+  const seasonId = optionalTournamentText(value, "Season", SEASON_ID_MAX) || currentSeason().id;
+  if (!seasons.some(season => season.id === seasonId)) {
     throw new ValidationError("Choose a valid season");
   }
   return seasonId;
@@ -118,10 +160,18 @@ function normalizeRulesLink(value) {
   throw new ValidationError("Tournament rules link must be an http(s) URL or a PDF file");
 }
 
-function normalizeTournamentPatch(body = {}) {
+function normalizeTournamentPatch(body = {}, current = {}) {
   const patch = {};
+  if (Object.hasOwn(body, "factionCount")) patch.factionCount = normalizeFactionCount(body.factionCount);
+  if (Object.hasOwn(body, "captainPairingEnabled")) {
+    if (typeof body.captainPairingEnabled !== "boolean") throw new ValidationError("Captain pairing must be enabled or disabled");
+    patch.captainPairingEnabled = body.captainPairingEnabled;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "participantMode")) {
+    patch.participantMode = normalizeParticipantMode(body.participantMode);
+  }
   if (Object.prototype.hasOwnProperty.call(body, "tournamentRules")) {
-    const tournamentRules = optionalTournamentText(body.tournamentRules, "Tournament rules", RULES_MAX);
+    const tournamentRules = optionalTournamentMarkdown(body.tournamentRules, "Tournament rules", RULES_MAX);
     patch.description = tournamentRules;
     patch.rulesSummary = tournamentRules;
   }
@@ -129,7 +179,7 @@ function normalizeTournamentPatch(body = {}) {
     patch.name = optionalTournamentText(body.name, "Tournament name", NAME_MAX);
   }
   if (Object.prototype.hasOwnProperty.call(body, "description")) {
-    patch.description = optionalTournamentText(body.description, "Description", DESCRIPTION_MAX);
+    patch.description = optionalTournamentMarkdown(body.description, "Description", DESCRIPTION_MAX);
   }
   if (Object.prototype.hasOwnProperty.call(body, "gameSystem")) {
     patch.gameSystem = normalizeGameSystem(body.gameSystem);
@@ -137,14 +187,41 @@ function normalizeTournamentPatch(body = {}) {
   if (Object.prototype.hasOwnProperty.call(body, "startsAt")) {
     patch.startsAt = normalizeStartsAt(body.startsAt);
   }
+  if (Object.prototype.hasOwnProperty.call(body, "registrationLimit")) {
+    const value = body.registrationLimit;
+    if (value === null || value === "") patch.registrationLimit = null;
+    else {
+      if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 2147483647) {
+        throw new ValidationError("Registration limit must be a positive whole number");
+      }
+      patch.registrationLimit = value;
+    }
+  }
   if (Object.prototype.hasOwnProperty.call(body, "rulesSummary")) {
-    patch.rulesSummary = optionalTournamentText(body.rulesSummary, "Rules summary", RULES_MAX);
+    patch.rulesSummary = optionalTournamentMarkdown(body.rulesSummary, "Rules summary", RULES_MAX);
   }
   if (Object.prototype.hasOwnProperty.call(body, "format")) {
     patch.format = normalizeFormat(body.format);
   }
 
-  const format = patch.format || body.format;
+  const participantMode = patch.participantMode || current.participantMode || PARTICIPANT_MODES.INDIVIDUAL;
+  const selectedFormat = patch.format || current.format || body.format || TOURNAMENT_FORMATS.SINGLE_ELIMINATION;
+  if (participantMode === PARTICIPANT_MODES.TEAM && selectedFormat !== TOURNAMENT_FORMATS.SWISS) {
+    throw new ValidationError("Team tournaments support Swiss only");
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(body, "pairingType") ||
+    Object.prototype.hasOwnProperty.call(body, "teamSize") ||
+    Object.prototype.hasOwnProperty.call(body, "participantMode")
+  ) {
+    patch.pairingType = normalizeTeamPairingType(body.pairingType ?? current.pairingType, participantMode);
+    patch.teamSize = participantMode === PARTICIPANT_MODES.TEAM ? (patch.pairingType === "doubles" ? 2 : 3) : null;
+    if (Object.hasOwn(body, "teamSize") && Number(body.teamSize) !== patch.teamSize) {
+      throw new ValidationError("Roster size must match the selected team format");
+    }
+  }
+
+  const format = selectedFormat;
   if (Object.prototype.hasOwnProperty.call(body, "swissRoundCount")) {
     patch.swissRoundCount = normalizeSwissRoundCount(body.swissRoundCount, normalizeFormat(format));
   } else if (patch.format && patch.format !== TOURNAMENT_FORMATS.SWISS) {
@@ -161,11 +238,18 @@ function normalizeTournamentPatch(body = {}) {
     patch.singleEliminationSize = null;
   }
 
+  if (Object.hasOwn(body, "pairingMode")) {
+    if (!["backet_random", "by_tp"].includes(body.pairingMode)) throw new ValidationError("Choose Backet Random or By TP");
+    patch.pairingMode = body.pairingMode;
+  }
   if (Object.prototype.hasOwnProperty.call(body, "tiebreakerOrder")) {
     patch.tiebreakerOrder = normalizeTiebreakerOrder(body.tiebreakerOrder);
   }
   if (Object.prototype.hasOwnProperty.call(body, "rulesLink")) {
     patch.rulesLink = normalizeRulesLink(body.rulesLink);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "logoData")) {
+    patch.logoData = normalizeTeamLogo(body.logoData, "Tournament logo");
   }
   if (Object.prototype.hasOwnProperty.call(body, "ratingPolicy")) {
     patch.ratingPolicy = normalizePolicy(body.ratingPolicy, RATING_POLICIES, "ranked", "rating policy");
@@ -184,6 +268,33 @@ function normalizeTournamentPatch(body = {}) {
   if (Object.prototype.hasOwnProperty.call(body, "venueMode")) {
     patch.venueMode = normalizePolicy(body.venueMode, VENUE_MODES, "tts", "venue");
   }
+  if (Object.hasOwn(body, "venueAddress")) {
+    patch.venueAddress = optionalTournamentText(body.venueAddress, "Venue address", VENUE_ADDRESS_MAX);
+  }
+  if ((patch.venueMode || current.venueMode || "tts") !== "irl" &&
+      (Object.hasOwn(patch, "venueMode") || Object.hasOwn(patch, "venueAddress"))) {
+    patch.venueAddress = "";
+  }
+  const pairingType = Object.hasOwn(patch, "pairingType") ? patch.pairingType : current.pairingType;
+  const doubles = pairingType === TEAM_PAIRING_TYPES.DOUBLES;
+  if (Object.hasOwn(body, "teamTiebreakerOrder")) {
+    patch.teamTiebreakerOrder = normalizeTeamTiebreakerOrder(body.teamTiebreakerOrder, pairingType);
+  } else if (doubles !== (current.pairingType === TEAM_PAIRING_TYPES.DOUBLES)) {
+    patch.teamTiebreakerOrder = null;
+  }
+  if (doubles) {
+    if ((patch.venueMode || current.venueMode || "irl") !== "irl") throw new ValidationError("Doubles is available only for IRL");
+    if (body.captainPairingEnabled === true) throw new ValidationError("Doubles uses manual captain pairings");
+    patch.captainPairingEnabled = false;
+    if (!Object.hasOwn(body, "swissRoundCount") && !current.swissRoundCount) patch.swissRoundCount = 4;
+  }
+  const limit = Object.hasOwn(patch, "registrationLimit") ? patch.registrationLimit : current.registrationLimit;
+  const capacity = participantMode === PARTICIPANT_MODES.TEAM ? 128
+    : selectedFormat === TOURNAMENT_FORMATS.SINGLE_ELIMINATION
+      ? (patch.singleEliminationSize || current.singleEliminationSize || 8) : null;
+  if (limit && capacity && limit > capacity) {
+    throw new ValidationError(`Registration limit cannot exceed ${capacity}`);
+  }
   return patch;
 }
 
@@ -191,11 +302,12 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
   const patch = normalizeTournamentPatch({
     format: TOURNAMENT_FORMATS.SINGLE_ELIMINATION,
     gameSystem: "Warhammer 40k Kill Team",
-    seasonId: "2026-q2-dataslate",
-    venueMode: "tts",
+    seasonId: currentSeason().id,
+    venueMode: body.pairingType === "doubles" ? "irl" : "tts",
     singleEliminationSize: 8,
     ratingPolicy: "ranked",
     challengeCreditPolicy: "count",
+    participantMode: PARTICIPANT_MODES.INDIVIDUAL,
     ...body
   });
   return {
@@ -205,16 +317,28 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     description: patch.description || "",
     gameSystem: patch.gameSystem || "Warhammer 40k Kill Team",
     startsAt: patch.startsAt || null,
+    registrationLimit: patch.registrationLimit || null,
+    factionCount: patch.factionCount || 1,
     rulesSummary: patch.rulesSummary || "",
     rulesLink: patch.rulesLink || "",
+    logoData: patch.logoData || null,
     format: patch.format || TOURNAMENT_FORMATS.SINGLE_ELIMINATION,
+    participantMode: patch.participantMode || PARTICIPANT_MODES.INDIVIDUAL,
+    teamSize: patch.teamSize,
+    pairingType: patch.participantMode === PARTICIPANT_MODES.TEAM
+      ? patch.pairingType || TEAM_PAIRING_TYPES.SHIELD_SWORD
+      : null,
+    captainPairingEnabled: patch.captainPairingEnabled !== false,
+    teamTiebreakerOrder: patch.teamTiebreakerOrder ?? null,
     swissRoundCount: patch.swissRoundCount || null,
     singleEliminationSize: patch.singleEliminationSize || null,
+    pairingMode: patch.pairingMode || "backet_random",
     tiebreakerOrder: patch.tiebreakerOrder || [],
     ratingPolicy: patch.ratingPolicy || "ranked",
     challengeCreditPolicy: patch.challengeCreditPolicy || "count",
-    seasonId: patch.seasonId || "2026-q2-dataslate",
-    venueMode: patch.venueMode || "tts"
+    seasonId: patch.seasonId || currentSeason().id,
+    venueMode: patch.venueMode || "tts",
+    venueAddress: patch.venueAddress || ""
   };
 }
 
@@ -223,6 +347,14 @@ function validatePublishable(tournament) {
   requiredTournamentText(tournament.gameSystem, "Game system", GAME_SYSTEM_MAX);
   if (!tournament.startsAt) throw new ValidationError("Start date is required");
   normalizeFormat(tournament.format);
+  const participantMode = normalizeParticipantMode(tournament.participantMode);
+  if (participantMode === PARTICIPANT_MODES.TEAM) {
+    if (tournament.format !== TOURNAMENT_FORMATS.SWISS || Number(tournament.teamSize) !== (tournament.pairingType === "doubles" ? 2 : 3)) {
+      throw new ValidationError("Team tournaments require Swiss and the correct roster size");
+    }
+    if (tournament.pairingType === "doubles" && (tournament.venueMode !== "irl" || tournament.captainPairingEnabled !== false)) throw new ValidationError("Doubles requires IRL and manual captain pairings");
+    normalizeTeamPairingType(tournament.pairingType, participantMode);
+  }
   if (tournament.format === TOURNAMENT_FORMATS.SWISS && !tournament.swissRoundCount) {
     throw new ValidationError("Swiss round count is required");
   }
@@ -260,6 +392,10 @@ module.exports = {
   normalizeFactionRules,
   normalizeFormat,
   normalizeTiebreakerOrder,
+  normalizeTeamTiebreakerOrder,
   normalizeSingleEliminationSize,
-  normalizeRulesLink
+  normalizeRulesLink,
+  normalizeSeasonId,
+  normalizeParticipantMode,
+  normalizeTeamPairingType
 };

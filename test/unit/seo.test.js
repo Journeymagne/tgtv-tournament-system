@@ -1,13 +1,43 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const {
+  handleSeoRequest,
   metaDescription,
   robotsTxt,
   sitemapXml,
   tournamentPublicUrl,
   tournamentSlugFromPath
 } = require("../../src/http/seo");
+
+test("direct public tournament pages load data and translations before the app", async () => {
+  let html = "";
+  let status;
+  const handled = await handleSeoRequest(
+    { method: "GET", url: "/tournaments/team-cup", headers: { host: "127.0.0.1:3000" } },
+    { writeHead: (value) => { status = value; }, end: (value) => { html = value; } },
+    { withClient: (fn) => fn({ query: async () => ({ rows: [{ id: 1, slug: "team-cup", status: "in_progress", name: "Team Cup" }] }) }) }
+  );
+  assert.equal(handled, true);
+  assert.equal(status, 200);
+  assert.match(html, /https:\/\/schema\.org\/BreadcrumbList/);
+  assert.ok(html.indexOf('aria-label="Breadcrumb"') < html.indexOf('id="app"'));
+  assert.match(html, /"@type":"SportsEvent"/);
+  const scripts = [...html.matchAll(/<script src="\/([^?]+)\?[^\"]+" defer><\/script>/g)].map((match) => match[1]);
+  assert.deepEqual(scripts, ["companion-sites.js", "companion-i18n.js", "companion-shell.js", "maps/catalog-data.js", "map-catalog.js", "map-catalog-ui.js", "game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "tournament-results.js", "training/journey-ui.js", "resource-quotas.js", "pairing-instructions.js", "app.js"]);
+  assert.match(html, /href="\/tournament-results\.css\?v=[^"]+"/);
+  assert.ok(html.indexOf('tournament-results.js') < html.indexOf('/app.js'));
+  assert.match(html, /<link rel="stylesheet" href="\/training\/journey-shared\.css\?v=[^"]+">/);
+
+  // The dictionaries are no longer in this list: theme-boot.js runs first,
+  // parser-blocking, and writes a tag for the one locale the visitor is in.
+  // Losing it here would mean the app renders raw translation keys.
+  assert.match(html, /<script src="\/theme-boot\.js\?[^"]+"><\/script>/);
+  assert.ok(html.indexOf("theme-boot.js") < html.indexOf("app.js"));
+  assert.doesNotMatch(html, /i18n\/(en|ru)\.js/);
+});
 
 test("tournamentSlugFromPath accepts clean public tournament URLs", () => {
   assert.equal(tournamentSlugFromPath("/tournaments/tgtv-open"), "tgtv-open");
@@ -53,4 +83,46 @@ test("metaDescription strips markdown and truncates long text", () => {
   const text = metaDescription("# Header\n[Link](https://example.com) " + "x".repeat(200));
   assert.equal(text.startsWith("Header Link "), true);
   assert.equal(text.length, 155);
+});
+
+// seo.js builds its own HTML shell for crawlable routes, so it carries a second
+// copy of the application asset version. Shared CSS/chrome use their generated
+// content version instead. When application versions drift, a visitor who lands on a
+// tournament page gets a different app.js than one who lands on "/" -- and a
+// released fix silently fails to reach the first of them.
+test("the server-rendered shell serves the same asset version as index.html", () => {
+  const seoSource = fs.readFileSync(path.join(__dirname, "../../src/http/seo.js"), "utf8");
+  const indexSource = fs.readFileSync(path.join(__dirname, "../../public/index.html"), "utf8");
+  const seoVersion = seoSource.match(/ASSET_VERSION = "([^"]+)"/)?.[1];
+  assert.ok(seoVersion, "seo.js no longer declares ASSET_VERSION");
+  assert.ok(seoSource.includes('"pairing-instructions.js", "app.js"'), "pairing instructions must load before the app on crawlable routes");
+  const indexVersions = [...indexSource.matchAll(/\/(?:app\.js|map-catalog-ui\.css)\?v=([^"]+)/g)]
+    .map((match) => match[1]);
+  assert.ok(indexVersions.length >= 2, "index.html no longer versions its own scripts and stylesheet");
+  assert.deepEqual([...new Set(indexVersions)], [seoVersion]);
+  const { version } = require('../../src/http/shared-assets.json');
+  for (const file of ['theme-boot.js', 'styles.css', 'companion-shell.css', 'companion-shell.js']) {
+    assert.ok(indexSource.includes(`/${file}?v=${version}`), `${file} must use the shared asset version`);
+    assert.ok(seoSource.includes(`/${file}?v=\${SHARED_ASSET_VERSION}`), `${file} must share its version with static pages`);
+  }
+});
+
+// admin.js and documentation.css are deliberately absent from both shells: they
+// are fetched at runtime, by administrators and by documentation readers
+// respectively. Listing either one here would put them back on every visit.
+test("the on-demand bundles are not linked from any first-paint shell", () => {
+  const indexSource = fs.readFileSync(path.join(__dirname, "../../public/index.html"), "utf8");
+  const seoSource = fs.readFileSync(path.join(__dirname, "../../src/http/seo.js"), "utf8");
+  for (const asset of ["admin.js", "documentation.js", "documentation.css"]) {
+    assert.ok(!indexSource.includes(asset), `index.html must not preload ${asset}`);
+    assert.ok(!seoSource.includes(`/${asset}`), `the server-rendered shell must not preload ${asset}`);
+  }
+});
+
+
+test("sitemap lists all Companion sections once using canonical paths", () => {
+  const xml = sitemapXml("https://ktcompanion.ru", []);
+  const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
+  assert.deepEqual(urls, ["/", "/tournament", "/initiative", "/tracker", "/studio", "/dice", "/faq", "/combat", "/knowthykt", "/tierlist"].map(path => "https://ktcompanion.ru" + path));
+  assert.equal(new Set(urls).size, urls.length);
 });

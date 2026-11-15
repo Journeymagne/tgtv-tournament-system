@@ -1,11 +1,16 @@
 const crypto = require("node:crypto");
 
-const { SESSION_TTL_MS, INITIAL_RATING, COOKIE_SECURE } = require("../config");
-const { HttpError, ValidationError, parseCookies, sessionCookie, clearedSessionCookie } = require("../http/io");
+const { SESSION_TTL_MS, SESSION_RENEW_AFTER_MS, INITIAL_RATING, COOKIE_SECURE } = require("../config");
+const { HttpError, ValidationError, sessionToken, sessionCookie, clearedSessionCookie } = require("../http/io");
 const users = require("../db/repositories/users");
 const sessions = require("../db/repositories/sessions");
+const access = require("../db/repositories/access");
+const mail = require("../email/service");
+const emailConfig = require("../email/config");
+const emailSecurity = require("../email/security");
 const challenges = require("../db/repositories/challenges");
 const games = require("../db/repositories/games");
+const teamMatches = require("../db/repositories/team-matches");
 const { hashPassword, verifyPassword } = require("../domain/passwords");
 const { requireName, normalizeName, profileText, requiredProfileText, validateAvatarData } = require("../domain/validation");
 const { userSummary } = require("./views");
@@ -16,24 +21,55 @@ const {
 
 
 async function loadUserFromRequest(client, req) {
-  const token = parseCookies(req).sid;
+  const token = sessionToken(req);
   if (!token) return null;
-  return sessions.findActiveUser(client, token);
+  const session = await sessions.findActiveSession(client, token);
+  if (!session) return null;
+
+  // Sliding expiry. Without it a session dies exactly SESSION_TTL_MS after
+  // sign-in no matter how actively it is used, so a group that signed up
+  // together is signed out together on a fixed date. Renewing only once a
+  // session has burned through SESSION_RENEW_AFTER_MS keeps this off the hot
+  // path: one UPDATE per session per day, not one per request. The cookie is
+  // stashed on the request; the router turns it into a Set-Cookie header on
+  // responses it actually completes, so a rolled-back transaction never ships
+  // a renewal its UPDATE just lost.
+  const remainingMs = new Date(session.expiresAt).getTime() - Date.now();
+  if (remainingMs <= SESSION_TTL_MS - SESSION_RENEW_AFTER_MS) {
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
+    await sessions.extend(client, token, expiresAt);
+    req.renewedSessionCookie = sessionCookie(token, SESSION_TTL_MS, COOKIE_SECURE);
+  }
+
+  const user = await access.hydrate(client, session.user);
+  access.assertActive(user);
+  return user;
 }
 
 async function startSession(client, userId) {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-  await sessions.deleteExpired(client);
+  await require('../resources/quotas').lock(client, userId);
+  const limits = await require('../resources/quotas').limits(client, userId);
+  await client.query('DELETE FROM sessions WHERE user_id=$1 AND expires_at<=NOW()', [userId]);
+  await client.query(`DELETE FROM sessions WHERE token IN (SELECT token FROM sessions WHERE user_id=$1
+    ORDER BY created_at DESC,token DESC OFFSET $2)`, [userId, limits.sessions - 1]);
   await sessions.create(client, { token, userId, expiresAt });
   return token;
 }
 
 async function buildUserSummary(client, user) {
-  const [userChallenges, userGames] = await Promise.all([
-    challenges.listForUser(client, user.id),
-    games.listForUser(client, user.id)
-  ]);
+  user = await access.hydrate(client, user);
+  if (process.env.SERVICE_NAME === 'accounts') {
+    const { passwordHash, ...identity } = user;
+    return { user: { ...identity, emailAccount: await mail.summary(client, user.id) },
+      hasAdmin: await users.hasAdmin(client), challenges: [], games: [], teamPairings: [] };
+  }
+  // A route-scoped pg Client executes one query at a time. Keep these reads
+  // sequential so a busy dashboard refresh never overlaps operations on it.
+  const userChallenges = await challenges.listForUser(client, user.id);
+  const userGames = await games.listForUser(client, user.id);
+  const teamPairings = await teamMatches.listActivePairingsForCaptain(client, user.id);
 
   const detailedGames = await attachTournamentGameDetails(client, userGames);
 
@@ -48,13 +84,16 @@ async function buildUserSummary(client, user) {
 
   const people = await users.findByIds(client, [...peopleIds]);
   const hasAdmin = await users.hasAdmin(client);
-  return userSummary({
+  const result = userSummary({
     user,
     hasAdmin,
     challenges: userChallenges,
     games: sortGameViews(detailedGames),
+    teamPairings,
     people
   });
+  result.user.emailAccount = await mail.summary(client, user.id);
+  return result;
 }
 
 function readCredentials(body, minPasswordLength, tooShortMessage) {
@@ -65,25 +104,39 @@ function readCredentials(body, minPasswordLength, tooShortMessage) {
   const name = requireName(body.name);
 
   if (password.length < minPasswordLength) throw new ValidationError(tooShortMessage);
+  if (password.length > 256) throw new ValidationError("Password must contain 6 to 256 characters");
   if (password !== confirmPassword) throw new ValidationError("Passwords do not match");
 
-  return { name, password, registerNickname, telegramContact };
+  const email = emailConfig.configuration().enabled ? emailSecurity.normalizeEmail(body.email) : null;
+  return { name, password, registerNickname, telegramContact, email, locale: body.locale === "en" ? "en" : "ru" };
 }
 
-async function createAccount(client, credentials, isAdmin) {
+async function createAccount(client, credentials, isAdmin, req) {
   if (await users.isNameTaken(client, credentials.name)) throw new HttpError(409, "This name is already taken");
 
-  const user = await users.insert(client, {
-    name: credentials.name,
-    passwordHash: await hashPassword(credentials.password),
-    avatarData: null,
-    registerNickname: credentials.registerNickname,
-    telegramContact: credentials.telegramContact,
-    challengeCredits: [],
-    rating: INITIAL_RATING,
-    isAdmin
-  });
+  const passwordHash = await hashPassword(credentials.password);
+  let user;
+  try {
+    user = await users.insert(client, {
+      name: credentials.name,
+      passwordHash,
+      avatarData: null,
+      registerNickname: credentials.registerNickname,
+      telegramContact: credentials.telegramContact,
+      challengeCredits: [],
+      rating: INITIAL_RATING,
+      isAdmin
+    });
+  } catch (error) {
+    // Both checks above can observe an unused name. The unique indexes decide
+    // the winner; only the two username constraints are a registration conflict.
+    if (error.code === "23505" && ["users_name_key", "users_name_key_key"].includes(error.constraint)) {
+      throw new HttpError(409, "This name is already taken");
+    }
+    throw error;
+  }
 
+  await mail.beginRegistration(client, user, credentials.email, credentials.locale, req);
   const token = await startSession(client, user.id);
   return {
     status: 201,
@@ -92,12 +145,17 @@ async function createAccount(client, credentials, isAdmin) {
   };
 }
 
+async function myTeamPairings({ client, user }) {
+  return { teamPairings: await teamMatches.listActivePairingsForCaptain(client, user.id) };
+}
+
 async function me({ client, user }) {
   if (!user) return { user: null, hasAdmin: await users.hasAdmin(client) };
   return buildUserSummary(client, user);
 }
 
-async function updateMe({ client, user, body }) {
+async function updateMe({ client, user, body, req }) {
+  user = await require('./email').lockedUser(client, user.id, req);
   const patch = {};
 
   if (Object.prototype.hasOwnProperty.call(body, "name")) {
@@ -114,13 +172,20 @@ async function updateMe({ client, user, body }) {
   if (Object.prototype.hasOwnProperty.call(body, "telegramContact")) {
     patch.telegramContact = requiredProfileText(body.telegramContact, "Telegram Contact", 80);
   }
+  if (Object.prototype.hasOwnProperty.call(body, "bcpEmail")) {
+    if (body.bcpEmail !== null && typeof body.bcpEmail !== "string") {
+      throw new ValidationError("Enter a valid email address");
+    }
+    const email = (body.bcpEmail || "").trim();
+    patch.bcpEmail = email ? emailSecurity.normalizeEmail(email) : null;
+  }
 
   // Validate the password change (if any) before any write happens below,
   // so a wrong currentPassword can never leave a partially-applied patch.
   let newPasswordHash = null;
   if (body.currentPassword || body.newPassword) {
     const currentPassword = String(body.currentPassword || "");
-    const newPassword = String(body.newPassword || "");
+    const newPassword = emailSecurity.password(body.newPassword);
     if (!(await verifyPassword(currentPassword, user.passwordHash))) {
       throw new HttpError(401, "Current password is incorrect");
     }
@@ -129,7 +194,10 @@ async function updateMe({ client, user, body }) {
   }
 
   let updated = Object.keys(patch).length ? await applyProfilePatch(client, user.id, patch) : user;
-  if (newPasswordHash) updated = await users.setPasswordHash(client, user.id, newPasswordHash);
+  if (newPasswordHash) {
+    updated = await users.setPasswordHash(client, user.id, newPasswordHash);
+    await mail.passwordChanged(client, updated, req ? sessionToken(req) : null, req);
+  }
 
   return buildUserSummary(client, updated);
 }
@@ -146,36 +214,51 @@ async function applyProfilePatch(client, id, patch) {
 
 // Serializes the first-admin check-and-insert via a transaction-scoped lock.
 // Must not open its own transaction: callers below are tx: true routes already inside one.
-const FIRST_ADMIN_LOCK_KEY = 847362951;
-
-async function withFirstAdminLock(client, run) {
-  await client.query("SELECT pg_advisory_xact_lock($1)", [FIRST_ADMIN_LOCK_KEY]);
-  return run(await users.hasAdmin(client));
-}
-
-async function register({ client, body }) {
+async function register({ client, body, req }) {
+  if (req) {
+    const key = require('node:crypto').createHash('sha256').update(require('../http/io').clientKey(req, require('../config').TRUST_PROXY) || 'unknown').digest('hex');
+    const budgets = require('../resources/quotas');
+    await budgets.spendKey(client, 'register-hour:' + key, 10, 3600, 'Регистрации с одного IP за час');
+    await budgets.spendKey(client, 'register-day:' + key, 50, 86400, 'Регистрации с одного IP за сутки');
+  }
   const credentials = readCredentials(body, 6, "Password must be at least 6 characters");
-  return withFirstAdminLock(client, (hasAdmin) => createAccount(client, credentials, !hasAdmin));
+  return createAccount(client, credentials, false, req);
 }
 
-async function setupAdmin({ client, body }) {
-  return withFirstAdminLock(client, (hasAdmin) => {
-    if (hasAdmin) throw new HttpError(409, "An administrator already exists");
-    const credentials = readCredentials(body, 8, "Administrator password must be at least 8 characters");
-    return createAccount(client, credentials, true);
-  });
+async function setupAdmin() {
+  throw new HttpError(410, "Register an account, then initialize its owner role using the local setup command");
 }
 
 // Заглушка нужной длины: verifyPassword на ней всё равно считает scrypt, так что время ответа не выдаёт существование учётной записи.
 const ABSENT_USER_HASH = `${"0".repeat(32)}:${"0".repeat(128)}`;
 
-async function login({ client, body }) {
-  const name = normalizeName(body.name);
-  const user = await users.findByNameKey(client, name);
+async function verifyCredentials(client, body) {
+  const identifier = normalizeName(body.name);
+  const email = identifier.includes("@") ? identifier.toLowerCase() : null;
+  let user = email
+    ? await users.findByVerifiedEmail(client, email)
+    : await users.findByNameKey(client, identifier);
+  if (user) user = (await users.lockByIds(client, [user.id]))[0] || null;
+  if (user && email) {
+    // Email changes lock the same user. Recheck after acquiring that lock so
+    // a replaced address cannot start a session using an earlier lookup.
+    const account = await mail.account(client, user.id);
+    if (account?.email !== email || !account.verified_at) user = null;
+  }
   const stored = user ? user.passwordHash : ABSENT_USER_HASH;
   const matches = await verifyPassword(String(body.password || ""), stored);
   if (!user || !matches) throw new HttpError(401, "Invalid name or password");
 
+  access.assertActive(await access.hydrate(client, user));
+
+  return user;
+}
+
+async function login({ client, body }) {
+  const user = await verifyCredentials(client, body);
+
+  await require('../resources/quotas').spend(client, user.id, 'loginMinute', 60);
+  await require('../resources/quotas').spend(client, user.id, 'loginHour', 3600);
   const token = await startSession(client, user.id);
   return {
     status: 200,
@@ -185,7 +268,7 @@ async function login({ client, body }) {
 }
 
 async function logout({ client, req }) {
-  await sessions.deleteByToken(client, parseCookies(req).sid);
+  await sessions.deleteByToken(client, sessionToken(req));
   return {
     status: 200,
     body: { ok: true },
@@ -197,10 +280,12 @@ module.exports = {
   loadUserFromRequest,
   buildUserSummary,
   me,
+  myTeamPairings,
   updateMe,
   applyProfilePatch,
   register,
   setupAdmin,
+  verifyCredentials,
   login,
   logout
 };

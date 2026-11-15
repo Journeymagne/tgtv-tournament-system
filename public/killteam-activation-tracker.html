@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ru">
+<head><script src="/theme-boot.js?v=shared-3ae153b05d46" data-companion-only></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Трекер активаций Kill Team — KT Companion</title>
+  <meta name="description" content="Отслеживайте порядок активаций в Kill Team, контрдействия и ходы оперативников в фазе Firefight.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://ktcompanion.ru/tracker">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="KT Companion">
+  <meta property="og:title" content="Трекер активаций Kill Team — KT Companion">
+  <meta property="og:description" content="Отслеживайте порядок активаций в Kill Team, контрдействия и ходы оперативников в фазе Firefight.">
+  <meta property="og:url" content="https://ktcompanion.ru/tracker">
+  <meta property="og:image" content="https://ktcompanion.ru/brand/kt-companion/social.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Трекер активаций Kill Team — KT Companion">
+  <meta name="twitter:description" content="Отслеживайте порядок активаций в Kill Team, контрдействия и ходы оперативников в фазе Firefight.">
+  <meta name="twitter:image" content="https://ktcompanion.ru/brand/kt-companion/social.png">
+  <link rel="stylesheet" href="/companion-tokens.css?v=shared-3ae153b05d46">
+<link rel="stylesheet" href="/companion/css/common.css?v=shared-3ae153b05d46">
+  <link rel="stylesheet" href="/companion/css/tracker.css?v=1.4.4">
+<link rel="icon" type="image/x-icon" href="/brand/kt-companion/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/kt-companion/icon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/kt-companion/apple-touch-icon.png">
+<link rel="stylesheet" href="/companion-shell.css?v=shared-3ae153b05d46">
+<script src="/companion-sites.js?v=shared-3ae153b05d46" defer></script>
+<script src="/companion-i18n.js?v=shared-3ae153b05d46" defer></script>
+<script src="/companion-shell.js?v=shared-3ae153b05d46" defer></script>
+</head>
+<body data-companion-section="tracker">
+  <div data-companion-nav></div>
+  <div class="page-shell">
+
+    <main>
+    <header class="hero">
+      <h1>Activation Tracker</h1>
+      <p class="subtitle">Задайте число оперативников и инициативу — получите порядок активаций.</p><details class="tool-help"><summary>Как это работает</summary><p class="subtitle">Enter your activations, your opponent's activations, and who has initiative. The tracker builds the Firefight phase order: activations alternate, and once one side runs out, counteract windows appear.</p></details>
+    </header>
+
+    <section class="tracker-layout" aria-label="Kill Team activation tracker">
+      <form class="panel tracker-controls" id="controls">
+        <h2>Settings</h2>
+
+        <div class="field">
+          <label for="myCount">My activations</label>
+          <input id="myCount" name="myCount" type="number" min="0" max="40" value="8" inputmode="numeric">
+        </div>
+
+        <div class="field">
+          <label for="oppCount">Opponent activations</label>
+          <input id="oppCount" name="oppCount" type="number" min="0" max="40" value="10" inputmode="numeric">
+        </div>
+
+        <div class="field">
+          <div class="field-title">Who goes first</div>
+          <div class="segmented" role="radiogroup" aria-label="First player">
+            <label>
+              <input type="radio" name="first" value="me" checked>
+              <span>Me</span>
+            </label>
+            <label>
+              <input type="radio" name="first" value="opponent">
+              <span>Opponent</span>
+            </label>
+          </div>
+        </div>
+
+        <details class="tool-help"><summary>О контрдействиях</summary><p class="hint">Counteract is shown as a separate step for the side that has no ready operatives left. In-game it is optional and only available to an expended operative with an Engage order, once per turning point.</p></details>
+      </form>
+
+      <div class="board-wrap">
+        <section class="panel summary" aria-live="polite">
+          <div class="stat">
+            <span>steps in track</span>
+            <b id="totalSteps">0</b>
+          </div>
+          <div class="stat">
+            <span>counteract windows</span>
+            <b id="counterCount">0</b>
+          </div>
+          <div class="stat">
+            <span>first activation</span>
+            <b id="firstPlayer">Me</b>
+          </div>
+        </section>
+
+        <section class="panel legend" aria-label="Legend">
+          <span class="legend-item me"><i class="dot"></i> My activation</span>
+          <span class="legend-item opponent"><i class="dot"></i> Opponent activation</span>
+          <span class="legend-item counter"><i class="dot"></i> Counteract</span>
+        </section>
+
+        <section class="track" id="track" aria-label="Activation order"></section>
+      </div>
+    </section>
+    </main>
+  </div>
+
+  <script defer src="/companion/js/tracker/activation-tracker.js?v=1.4.4"></script>
+</body>
+</html>

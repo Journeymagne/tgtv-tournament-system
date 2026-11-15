@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head><script src="/theme-boot.js?v=shared-3ae153b05d46" data-companion-only></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Калькулятор инициативы Kill Team — KT Companion</title>
+  <meta name="description" content="Рассчитайте вероятность инициативы в Kill Team с учётом перебросов, модификаторов и способностей команд.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://ktcompanion.ru/initiative">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="KT Companion">
+  <meta property="og:title" content="Калькулятор инициативы Kill Team — KT Companion">
+  <meta property="og:description" content="Рассчитайте вероятность инициативы в Kill Team с учётом перебросов, модификаторов и способностей команд.">
+  <meta property="og:url" content="https://ktcompanion.ru/initiative">
+  <meta property="og:image" content="https://ktcompanion.ru/brand/kt-companion/social.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Калькулятор инициативы Kill Team — KT Companion">
+  <meta name="twitter:description" content="Рассчитайте вероятность инициативы в Kill Team с учётом перебросов, модификаторов и способностей команд.">
+  <meta name="twitter:image" content="https://ktcompanion.ru/brand/kt-companion/social.png">
+  <link rel="stylesheet" href="/companion-tokens.css?v=shared-3ae153b05d46">
+<link rel="stylesheet" href="/companion/css/common.css?v=shared-3ae153b05d46">
+  <link rel="stylesheet" href="/companion/css/initiative.css?v=1.4.4">
+<link rel="icon" type="image/x-icon" href="/brand/kt-companion/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/kt-companion/icon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/brand/kt-companion/apple-touch-icon.png">
+<link rel="stylesheet" href="/companion-shell.css?v=shared-3ae153b05d46">
+<script src="/companion-sites.js?v=shared-3ae153b05d46" defer></script>
+<script src="/companion-i18n.js?v=shared-3ae153b05d46" defer></script>
+<script src="/companion-shell.js?v=shared-3ae153b05d46" defer></script>
+</head>
+<body data-companion-section="initiative">
+  <div data-companion-nav></div>
+  <div class="page-shell">
+
+    <main>
+    <header class="hero">
+      <h1>Initiative Calculator</h1>
+      <p class="subtitle">Рассчитайте шанс получить инициативу с учётом карт и способностей.</p><details class="tool-help"><summary>Как это работает</summary><p class="subtitle">Simulates initiative rolls with Re-roll cards, +1/-1, +2/-2, +3/-3 modifiers, and team abilities. Abilities are applied before Re-roll; +1d3 is revealed before card Re-roll decisions, and card Re-roll results are not known before both players decide.</p></details>
+    </header>
+
+    <div class="layout">
+      <section>
+        <h2>Player Cards</h2>
+        <div class="players">
+          <div class="player">
+            <h3>Player 1</h3>
+            <div class="check-list" data-player="p1">
+              <label><input type="checkbox" value="reroll"> Re-roll</label>
+              <label><input type="checkbox" value="1"> +1/-1</label>
+              <label><input type="checkbox" value="2"> +2/-2</label>
+              <label><input type="checkbox" value="3"> +3/-3</label>
+            </div>
+            <div class="group-title">Abilities</div>
+            <div class="ability-list" data-abilities="p1">
+              <label><input type="checkbox" value="ability-reroll"> Re-roll</label>
+              <label><input type="checkbox" value="ability-d3"> +1d3</label>
+              <label><input type="checkbox" value="ability-plus1"> +1</label>
+            </div>
+            <label class="tie"><input id="p1Tie" type="checkbox"> Win Ties</label>
+          </div>
+
+          <div class="player">
+            <h3>Player 2</h3>
+            <div class="check-list" data-player="p2" aria-label="Player 2 cards">
+              <label><input type="checkbox" value="reroll"> Re-roll</label>
+              <label><input type="checkbox" value="1"> +1/-1</label>
+              <label><input type="checkbox" value="2"> +2/-2</label>
+              <label><input type="checkbox" value="3"> +3/-3</label>
+            </div>
+            <div class="group-title">Abilities</div>
+            <div class="ability-list" data-abilities="p2">
+              <label><input type="checkbox" value="ability-reroll"> Re-roll</label>
+              <label><input type="checkbox" value="ability-d3"> +1d3</label>
+              <label><input type="checkbox" value="ability-plus1"> +1</label>
+            </div>
+            <label class="tie"><input id="p2Tie" type="checkbox"> Win Ties</label>
+          </div>
+        </div>
+
+        <div class="controls initiative-controls">
+          <label class="field">
+            <span>Simulation Count</span>
+            <input id="simCount" type="number" min="1" max="250000" step="1000" value="10000">
+          </label>
+          <button id="run" type="button">Calculate</button>
+        </div>
+        <div id="error" class="error"></div>
+      </section>
+
+      <aside class="result-box">
+        <h2>Result</h2>
+        <div class="score">
+          <div class="metric">
+            <small>Player 1</small>
+            <strong id="p1Chance">—</strong>
+          </div>
+          <div class="metric">
+            <small>Player 2</small>
+            <strong id="p2Chance">—</strong>
+          </div>
+        </div>
+        <p aria-live="polite" id="summary" class="summary">Run the simulation to see each player's win chance.</p>
+        <div class="controls result-actions">
+          <button id="download" class="secondary" type="button">Download log.txt</button>
+        </div>
+        <details class="tool-help"><summary>Журнал расчёта</summary><pre id="logPreview" class="log-preview">The log will appear here.</pre></details>
+      </aside>
+    </div>
+    </main>
+  </div>
+
+  <script defer src="/companion/js/initiative/initiative-calculator.js?v=1.4.4"></script>
+</body>
+</html>

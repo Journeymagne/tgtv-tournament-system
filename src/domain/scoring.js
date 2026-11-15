@@ -1,3 +1,4 @@
+const { validLayout } = require("../../public/map-catalog");
 const { ValidationError } = require("../http/io");
 const { KILLZONES, CRIT_OPS, optionalKillTeam } = require("./kill-teams");
 const {
@@ -40,10 +41,11 @@ function parseKillzone(input) {
   if (layoutText) {
     layout = requireInteger(layoutText, {
       min: 1,
-      max: 6,
-      message: "Killzone layout must be between 1 and 6"
+      max: 13,
+      message: "Choose a valid layout for this map set"
     });
   }
+  if (layout !== null && !validLayout(killzone, layout)) throw new ValidationError("Choose a valid layout for this map set");
   if (killzone && !KILLZONES.includes(killzone)) {
     throw new ValidationError("Choose a valid Killzone");
   }

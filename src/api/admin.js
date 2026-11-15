@@ -1,6 +1,7 @@
 const { HttpError, ValidationError } = require("../http/io");
 const usersRepo = require("../db/repositories/users");
 const sessionsRepo = require("../db/repositories/sessions");
+const access = require("../db/repositories/access");
 const gamesRepo = require("../db/repositories/games");
 const games = require("./games");
 const { publicUser, publicUserSummary, gameView, challengeProgressView } = require("./views");
@@ -41,6 +42,9 @@ async function listActiveGames({ client }) {
 
 async function confirmGameResult({ client, user, params }) {
   const game = await games.lockGame(client, params.id);
+  if (game.sourceType === "team_match_game") {
+    return { game: await require("./team-tournaments").handleGameRequest({ client, user, params }, "confirm") };
+  }
   if (game.sourceType === "tournament_match") {
     throw new HttpError(409, "Use the tournament game result editor to confirm this result");
   }
@@ -51,7 +55,7 @@ async function confirmGameResult({ client, user, params }) {
 
 async function deleteGame({ client, params }) {
   const game = await games.lockGame(client, params.id);
-  if (game.sourceType === "tournament_match") {
+  if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
     throw new HttpError(409, "Tournament games cannot be deleted independently from their tournament");
   }
   if (!["open", "pending_confirmation"].includes(game.status)) {
@@ -75,6 +79,14 @@ async function saveGameResult({ client, user, params, body }) {
       body
     });
     return { game: await games.viewOf(client, await gamesRepo.findById(client, candidate.id)) };
+  }
+  if (candidate.sourceType === "team_match_game") {
+    return {
+      game: await require("./team-tournaments").handleGameRequest(
+        { client, user, params, body },
+        "admin-save"
+      )
+    };
   }
   const game = await games.lockGame(client, params.id);
   if (!EDITABLE_GAME_STATUSES.includes(game.status)) {
@@ -103,15 +115,41 @@ async function saveGameResult({ client, user, params, body }) {
   return { game: gameView(replayed, people) };
 }
 
-async function listUsers({ client }) {
-  const rows = await usersRepo.listWithGameCounts(client);
+async function listUsers({ client, query }) {
+  const rows = await usersRepo.listWithGameCounts(client, query);
+  const owner = await access.ownerId(client);
+  const { rows: roles } = await client.query("SELECT id,can_create_tournaments,suspended_until,suspension_reason FROM users WHERE id=ANY($1::int[])", [rows.map(row => row.id)]);
+  const byId = new Map(roles.map(row => [row.id,row]));
   return {
-    users: rows.map((row) => ({ ...publicUserSummary(row), gamesPlayed: row.gamesPlayed }))
+    pagination: rows.pagination,
+    users: rows.map((row) => ({ ...publicUserSummary(row), gamesPlayed: row.gamesPlayed,
+      isSuperAdmin: row.id === owner, canCreateTournaments: byId.get(row.id)?.can_create_tournaments || false,
+      suspendedUntil: byId.get(row.id)?.suspended_until || null,
+      suspensionReason: byId.get(row.id)?.suspension_reason || "" }))
   };
+}
+
+async function recalculateGameRating({ client, user, params }) {
+  if (!user?.isAdmin) throw new HttpError(403, "Administrator rights required");
+  const game = await games.findGame(client, params.id);
+  // Replay locks users and games in its usual order and validates the target
+  // under those locks. Do not lock a single game first and invert that order.
+  await recalculateCompletedGameRatings(client, { requiredGameId: game.id });
+  const updated = await games.viewOf(client, await gamesRepo.findById(client, game.id));
+  if (updated.tournament?.id) {
+    await require("../db/repositories/tournament-audit-events").insert(client, {
+      tournamentId: updated.tournament.id, actorUserId: user.id,
+      eventType: "game_rating_recalculated", entityType: "game", entityId: game.id,
+      before: { elo: game.elo }, after: { elo: updated.elo },
+      metadata: { scope: "individual_rating_history" }
+    });
+  }
+  return { game: updated };
 }
 
 async function updateUser({ client, user, params, body }) {
   const target = await requireTarget(client, params.id);
+  await access.assertTarget(client, user, target, { ownerOnly: true });
 
   // D2 fix: server.js:1958 wrote isAdmin before rejecting self-demotion, dropping
   // a bundled rating change. Validate the whole patch before writing anything.
@@ -132,10 +170,19 @@ async function updateUser({ client, user, params, body }) {
       message: "IRL rating must be an integer between 0 and 5000"
     });
   }
+  let ratingCombined = null;
+  if (body.ratingCombined !== undefined) {
+    ratingCombined = requireInteger(body.ratingCombined, {
+      min: 0,
+      max: 5000,
+      message: "Combined rating must be an integer between 0 and 5000"
+    });
+  }
 
   let isAdmin = null;
   if (body.isAdmin !== undefined) {
-    isAdmin = Boolean(body.isAdmin);
+    if (typeof body.isAdmin !== "boolean") throw new ValidationError("Invalid administrator value");
+    isAdmin = body.isAdmin;
     if (target.id === user.id && !isAdmin) {
       throw new ValidationError("You cannot remove administrator rights from yourself");
     }
@@ -144,33 +191,54 @@ async function updateUser({ client, user, params, body }) {
   let updated = target;
   if (ratingTts !== null) updated = await usersRepo.setRating(client, target.id, ratingTts, "tts");
   if (ratingIrl !== null) updated = await usersRepo.setRating(client, target.id, ratingIrl, "irl");
+  if (ratingCombined !== null) updated = await usersRepo.setRating(client, target.id, ratingCombined, "combined");
   if (isAdmin !== null) updated = await usersRepo.setAdmin(client, target.id, isAdmin);
+
+  await access.audit(client,user,"user_updated","user",target.id,
+    { ratings: target.ratings, isAdmin: target.isAdmin },
+    { ratings: updated.ratings, isAdmin: updated.isAdmin },body.reason);
 
   return { user: publicUser(updated) };
 }
 
 async function deleteUser({ client, user, params }) {
   const target = await requireTarget(client, params.id);
+  const owner = await access.assertTarget(client, user, target, { ownerOnly: true });
+  if (target.id === owner) throw new ValidationError("The platform owner cannot be deleted");
   if (target.id === user.id) throw new ValidationError("You cannot delete yourself");
+  await access.audit(client,user,"user_deleted","user",target.id,{ name:target.name },null);
   await usersRepo.remove(client, target.id);
   return { ok: true };
 }
 
-async function resetPassword({ client, user, params }) {
-  const target = await requireTarget(client, params.id);
+async function resetPassword({ client, user, params, req }) {
+  const found = await requireTarget(client, params.id);
+  const target = (await usersRepo.lockByIds(client, [found.id]))[0];
+  if (!target) throw new HttpError(404, 'User not found');
+  await access.assertTarget(client, user, target);
   if (target.id === user.id) {
     throw new ValidationError("You cannot reset your own password here");
   }
 
+  const mail = require("../email/service");
+  const email = await mail.account(client, target.id);
+  if (require("../email/config").configuration().enabled && email?.email) {
+    await mail.issue(client, target, email.email, "reset", email.locale, req);
+    await access.audit(client,user,"password_reset_requested","user",target.id,null,{ delivery:"email" });
+    return { user: publicUser(target), delivery: "email" };
+  }
   const password = generateTemporaryPassword();
   const updated = await usersRepo.setPasswordHash(client, target.id, await hashPassword(password));
-  await sessionsRepo.deleteByUserId(client, target.id);
+  await mail.passwordChanged(client, updated, null, req);
+  await access.audit(client,user,"password_reset","user",target.id,null,{ sessionsRevoked:true });
 
   return { user: publicUser(updated), password };
 }
 
 async function challengeCredit({ client, user, params, body }) {
-  const target = await requireTarget(client, params.id);
+  const targetId = requirePositiveIntId(params.id, 404, "Route not found");
+  const [target] = await usersRepo.lockByIds(client, [targetId]);
+  if (!target) throw new HttpError(404, "User not found");
   const team = requireKillTeam(body.team);
   const trackKey = body.track === "allKillTeam" ? "allKillTeam" : "classified";
   const trackTeams = trackKey === "allKillTeam" ? ALL_KILL_TEAM_TRACK : CLASSIFIED_TRACK;
@@ -202,6 +270,10 @@ async function challengeCredit({ client, user, params, body }) {
 
   if (alreadyDone) return { progress: current };
 
+  if (!WILDCARDS.includes(team) && team !== track.nextTeam) {
+    throw new ValidationError(`Complete the previous Kill Teams first. Next: ${track.nextTeam}`);
+  }
+
   const updated = await usersRepo.appendChallengeCredit(client, target.id, {
     team,
     action: "credit",
@@ -216,9 +288,14 @@ module.exports = {
   confirmGameResult,
   deleteGame,
   saveGameResult,
+  recalculateGameRating,
   listUsers,
   updateUser,
   deleteUser,
   resetPassword,
   challengeCredit
 };
+
+for (const name of ["confirmGameResult", "saveGameResult", "deleteGame", "recalculateGameRating", "updateUser", "deleteUser"]) {
+  module.exports[name] = require("../db/rating-write-lock").withRatingWriteLock(module.exports[name]);
+}

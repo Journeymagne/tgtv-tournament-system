@@ -1,0 +1,395 @@
+(function(root){
+'use strict';
+const $=selector=>document.querySelector(selector),esc=value=>KTCards.esc(String(value??''));
+const labels={selectionCards:'Состав',teamCards:'Правила команды',strategicPloys:'Strategic Ploys',firefightPloys:'Firefight Ploys',equipment:'Equipment',tokenCards:'Жетоны и маркеры',operatives:'Оперативники',lorePages:'Картинки и лор'};
+let cloud,adapter,view='editor',requestVersion=0,query='',offset=0,publication,publicationSection='selectionCards',busy=false,busyAction='',deleteTarget=null,renameTarget=null,libraryTeams=[];
+const date=value=>value?new Date(value).toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+function canLeavePublication(){return root.KTReviews.canLeave()&&root.KTDiscussion.canLeave()}
+function resetPublicationPanels(){root.KTReviews.reset();root.KTDiscussion.reset()}
+function statusText(element,value){
+ const text=root.KTUI?.text(value)||value;
+ if(element.textContent!==text)element.textContent=text;
+}
+function status(){
+ if(!adapter)return;
+ const entry=cloud?.state(adapter.getData().team.id),guest=!root.KTAccount.id;
+ if(entry?.approval)adapter.setApproval?.(entry.approval.granted);
+ const message=guest?'Гостевой режим · войдите, чтобы сохранить или опубликовать команду':entry?.error?'Правки ещё не сохранены в аккаунте · повторите попытку':'';
+ statusText($('#cloud-status'),message);
+ $('#cloud-status').hidden=!message;
+ $('#cloud-status').dataset.state=entry?.error?'error':'';
+ $('#cloud-status').title=entry?.error||'';
+ $('#publish-team').disabled=busy;
+ statusText($('#publish-team'),busy&&busyAction==='publish'?'Публикую…':entry?.publicationId?'Обновить публикацию':'Опубликовать');
+ $('#save-json').disabled=busy;
+ statusText($('#save-json'),busy&&busyAction==='save'?'Сохраняю…':'Сохранить команду');
+ $('#retry-cloud').hidden=!entry?.error&&!!cloud?.isReady()||guest;
+ $('.cloud-indicator').hidden=!message&&$('#retry-cloud').hidden;
+ if(view==='drafts'&&cloud)renderDrafts();
+ for(const button of document.querySelectorAll('[data-rename-draft],[data-rename-publication],[data-delete-draft],[data-delete-publication]'))button.disabled=busy;
+}
+function track(project){if(cloud)cloud.track(project);status()}
+function authorLink(team){
+ if(!team.author)return '';
+ const href=(root.KTCompanion?.serviceUrl('tournament')||'/tournament')+'#/players/'+encodeURIComponent(team.author.id);
+ return 'Автор: <a href="'+esc(href)+'">'+esc(team.author.name)+'</a>';
+}
+function approvalBadge(team){
+ return team.approval?.granted?'<img class="team-approval-seal" src="/studio/'+KTCards.APPROVAL_ASSET+'" alt="Seal Of Approval" title="Seal Of Approval" width="64" height="64" loading="lazy">':'';
+}
+function approvalText(approved){return root.KTUI?.locale()==='en'?(approved?'Revoke Seal Of Approval':'Grant Seal Of Approval'):(approved?'Отозвать Seal Of Approval':'Выдать Seal Of Approval')}
+function card(team,draft=false){
+ const logo=KTModel.isLogo(team.logo)?'<img class="team-tile-logo" src="'+esc(team.logo)+'" alt="" width="96" height="96" loading="lazy">':'';
+ const rename=draft||team.canRename?'<button data-rename-'+(draft?'draft':'publication')+'="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Переименовать</button>':'';
+ return '<article class="team-tile"><div class="team-tile-top"><span class="team-state">'+(draft?'ЧЕРНОВИК':'ОПУБЛИКОВАНО')+'</span><span>v. '+esc(team.version||'1.0')+'</span></div>'+(logo||team.approval?.granted?'<div class="team-tile-brand">'+logo+approvalBadge(team)+'</div>':'')+'<h2>'+esc(team.name||'Без названия')+'</h2><p>'+esc(team.subtitle||'Авторская команда Kill Team')+'</p>'+(!draft?'<p class="team-author">'+authorLink(team)+'</p>'+root.KTReviews.summary(team.ratingSummary,team.id)+root.KTDiscussion.countButton(team.commentCount,team.id):'')+'<div class="team-tile-meta"><span>'+esc(date(team.updatedAt))+'</span></div>'+(draft?'<p class="draft-note">'+(team.error?'Правки ещё не сохранены в аккаунте. Повторите попытку.':team.publishedAt?'Есть публикация · '+esc(date(team.publishedAt)):'Доступен только вам')+'</p>':'')+'<div class="team-tile-actions"><button class="'+(draft?'':'primary')+'" data-'+(draft?'open-draft':'open-publication')+'="'+esc(team.id)+'">'+(draft?'Продолжить редактирование':'Смотреть команду')+'</button>'+rename+(!draft&&team.canDeletePublication?'<button class="danger" data-delete-publication="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить команду</button>':'')+(draft?'<button class="danger" data-delete-draft="'+esc(team.id)+'" '+(busy?'disabled':'')+'>Удалить</button>':'')+'</div></article>';
+}
+function syncViewLocation(){
+ const hash='#/'+view;
+ if(root.location.hash!==hash)root.history.replaceState(root.history.state,'',root.location.pathname+root.location.search+hash);
+}
+function showEditor(){++requestVersion;view='editor';$('.workspace').hidden=false;$('#community-panel').hidden=true;updateTabs();syncViewLocation()}
+function renderDrafts(){
+ const teams=cloud.list().sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
+ $('#community-list').innerHTML=teams.length?teams.map(team=>card(team,true)).join(''):'<p class="community-empty">Пока нет черновиков. Создайте пустую команду и начните её заполнять — сохранение включится автоматически.</p>';
+}
+function updateTabs(){for(const tab of document.querySelectorAll('[data-studio-view]')){const active=tab.dataset.studioView===view;tab.classList.toggle('active',active);tab.setAttribute('aria-pressed',String(active))}}
+async function show(next){
+ if(next==='editor'){showEditor();return}
+ if(next==='drafts'&&!root.KTAccount.id){
+  // Startup reveals the workspace after init resolves. Do not make it wait
+  // for a login dialog inside that still-hidden workspace.
+  void (async()=>{try{await root.KTAccount.requireLogin('drafts')}catch(error){adapter.toast(error.message)}finally{syncViewLocation()}})();
+  return;
+ }
+ view=next;$('.workspace').hidden=true;$('#community-panel').hidden=false;updateTabs();
+ syncViewLocation();
+ $('#community-title').textContent=next==='drafts'?'Мои черновики':'Библиотека команд';
+ $('#community-description').textContent=next==='drafts'?'Личные команды вашего аккаунта. Продолжайте редактирование с любого устройства.':'Все команды, опубликованные на сайте. Откройте команду, чтобы посмотреть состав, правила и карточки.';
+ $('#library-search-label').hidden=next!=='library';$('#community-new').hidden=next!=='drafts';
+ const version=++requestVersion;
+ $('#community-list').innerHTML='<p class="community-empty">Загружаю команды…</p>';$('#library-pages').innerHTML='';
+ try{
+  if(next==='drafts'){
+   let error;try{await cloud.connect(true)}catch(e){error=e}
+   if(version!==requestVersion)return;
+   renderDrafts();
+   if(error)$('#community-list').insertAdjacentHTML('afterbegin','<p class="community-empty">Хранилище недоступно. Показываю ранее загруженный список черновиков.</p>');
+  }else{
+   const result=await api('/api/library?q='+encodeURIComponent(query)+'&offset='+offset);
+   if(version!==requestVersion)return;
+   libraryTeams=result.teams;
+   $('#community-list').innerHTML=result.teams.length?result.teams.map(team=>card(team)).join(''):'<p class="community-empty">'+(query?'По вашему запросу команд не найдено.':'Пока никто не опубликовал команду. Ваша может стать первой.')+'</p>';
+   $('#library-pages').innerHTML=(offset?'<button id="library-prev">← Назад</button>':'')+'<span>Команд: '+result.total+'</span>'+(offset+result.teams.length<result.total?'<button id="library-next">Дальше →</button>':'');
+  }
+ }catch(error){if(version===requestVersion)$('#community-list').innerHTML='<div class="community-empty"><p>'+esc(error.message)+'</p><button id="reload-community">Повторить</button></div>'}
+}
+async function openDraft(id){
+ try{
+  const entry=cloud.state(id);
+  if(entry?.dirty){if(cloud.pendingProject(id)){await hydratePending(id)}else await adapter.openLocal(id);showEditor();return}
+  const remote=await cloud.api('/api/drafts/'+encodeURIComponent(id));
+  if(await adapter.openData(remote.project)){cloud.accept(remote);showEditor();status()}
+ }catch(error){adapter.toast('Не удалось открыть черновик: '+error.message)}
+}
+async function hydratePending(id){
+ const pending=cloud.pendingProject(id);if(!pending)return true;
+ const expected=JSON.stringify(adapter.getData());
+ if(!await adapter.openData(pending.project,expected))return false;
+ // openData guards edits while its storage awaits. A new cloud generation can
+ // also appear during that await; never attach its lineage to this older copy.
+ if(cloud.pendingProject(id)?.key!==pending.key)return false;
+ cloud.adoptPending(id,pending.key);return true;
+}
+async function beginRename(id,draft){
+ if(busy||!cloud)return;
+ busy=true;busyAction='rename';status();
+ try{
+  let team=draft?cloud.state(id):libraryTeams.find(team=>team.id===id);
+  if(!team||(!draft&&!team.canRename))return;
+  if(draft&&!team.revision){await cloud.save(id);team=cloud.state(id)}
+  if(!team?.revision)throw Error('Сначала сохраните команду в аккаунте.');
+  renameTarget={id:draft?team.id:team.projectId,revision:team.remoteRevision??team.revision,publicationId:draft?team.publicationId:team.id};
+  $('#rename-project-name').value=team.name||'';
+  $('#rename-project-description').textContent=renameTarget.publicationId?'Новое название появится в черновике и опубликованной команде. Остальные правки черновика останутся личными.':'Новое название появится в ваших черновиках и редакторе.';
+  $('#rename-project-error').textContent='';$('#review-rename-project').hidden=true;
+  $('#rename-project-dialog').showModal();$('#rename-project-name').focus();$('#rename-project-name').select();
+ }catch(error){adapter.toast(error.message)}finally{busy=false;busyAction='';status()}
+}
+async function renameProject(event){
+ event.preventDefault();if(busy||!renameTarget)return;
+ const name=$('#rename-project-name').value.trim();
+ if(!name){$('#rename-project-error').textContent='Введите название команды.';return}
+ busy=true;busyAction='rename';status();
+ for(const field of $('#rename-project-dialog').querySelectorAll('input,button'))field.disabled=true;
+ $('#rename-project-error').textContent='';
+ try{
+  const result=await cloud.rename(renameTarget.id,name,renameTarget.revision);
+  if(publication?.id===renameTarget.publicationId){publication.project.team.name=result.name;publication.name=result.name;renderPublication()}
+  $('#rename-project-dialog').close();renameTarget=null;adapter.toast('Название команды изменено.');await show(view);
+ }catch(error){$('#rename-project-error').textContent=error.message;$('#review-rename-project').hidden=error.status!==409}
+ finally{busy=false;busyAction='';for(const field of $('#rename-project-dialog').querySelectorAll('input,button'))field.disabled=false;status()}
+}
+function confirmDelete(id){
+ if(busy)return;
+ const team=cloud?.state(id);if(!team)return;
+ deleteTarget={id,name:team.name||'Без названия',revision:team.remoteRevision??team.revision??0};
+ $('#delete-project-description').textContent='Команда «'+(team.name||'Без названия')+'» будет удалена из ваших черновиков'+(team.publicationId?' и из публичной библиотеки':'')+'. Локальные копии этой команды будут удалены при подключении к аккаунту. Отменить удаление нельзя.';
+ $('#delete-project-error').textContent='';$('#review-delete-project').hidden=true;$('#delete-project-dialog').showModal();
+}
+function confirmDeletePublication(id){
+ if(busy||!cloud)return;
+ const team=publication?.id===id&&$('#publication-dialog').open?publication:libraryTeams.find(item=>item.id===id);
+ if(!team?.canDeletePublication||!canLeavePublication())return;
+ deleteTarget={id,revision:team.revision,publication:true};
+ $('#delete-project-description').textContent='Команда «'+(team.name||'Без названия')+'» автора '+(team.author?.name||'')+' будет удалена из библиотеки и черновиков автора вместе с TTS-ссылками, обзорами и обсуждениями. Отменить удаление нельзя.';
+ $('#delete-project-error').textContent='';$('#review-delete-project').hidden=true;$('#delete-project-dialog').showModal();
+}
+async function deleteProject(){
+ if(busy||!deleteTarget||!$('#delete-project-dialog').open)return;
+ const {id,revision,publication:moderation}=deleteTarget;busy=true;busyAction='delete';
+ $('#confirm-delete-project').disabled=true;$('#cancel-delete-project').disabled=true;$('#delete-project-error').textContent='';status();
+ try{
+  if(moderation){
+   await cloud.connect();
+   await cloud.api('/api/admin/library/'+encodeURIComponent(id),{method:'DELETE',body:JSON.stringify({revision})});
+   if(publication?.id===id){resetPublicationPanels();$('#publication-dialog').close();publication=null}
+   // Refresh tombstones if the superadmin removed their own publication.
+   void cloud.connect(true).catch(error=>adapter.toast(error.message));
+   offset=0;
+  }else await cloud.remove(id,revision);
+  deleteTarget=null;$('#delete-project-dialog').close();
+  adapter.toast('Команда удалена.');await show(moderation?'library':'drafts');
+ }catch(error){$('#delete-project-error').textContent=error.message;$('#review-delete-project').hidden=error.status!==409}
+ finally{busy=false;busyAction='';$('#confirm-delete-project').disabled=false;$('#cancel-delete-project').disabled=false;status()}
+}
+function renderPublication(){
+ const project=publication.project;
+ let diceButton=$('#publication-dice');
+ if(!diceButton){diceButton=document.createElement('button');diceButton.id='publication-dice';diceButton.textContent='Кубик с логотипом';$('.publication-actions').append(diceButton)}
+ diceButton.disabled=!KTModel.isLogo(project.team.logo);
+ let deleteButton=$('#publication-delete');
+ if(!deleteButton){deleteButton=document.createElement('button');deleteButton.id='publication-delete';deleteButton.className='danger';deleteButton.textContent='Удалить команду';$('.publication-actions').append(deleteButton)}
+ deleteButton.hidden=!publication.canDeletePublication;deleteButton.dataset.deletePublication=publication.id;deleteButton.disabled=busy;
+ let approvalButton=$('#publication-approval');
+ if(!approvalButton){approvalButton=document.createElement('button');approvalButton.id='publication-approval';approvalButton.dataset.uiSkip='';$('.publication-actions').append(approvalButton)}
+ approvalButton.hidden=!publication.canManageApproval;approvalButton.disabled=busy;approvalButton.textContent=approvalText(publication.approval?.granted);
+ approvalButton.classList.toggle('danger',!!publication.approval?.granted);
+ $('#publication-title').textContent=project.team.name;
+ $('#publication-info').textContent='Версия '+(project.team.version||'1.0')+' · опубликовано '+date(publication.updatedAt);
+ $('#publication-author').innerHTML=authorLink(publication);
+ $('#publication-nav').innerHTML=Object.entries({...labels,reviews:(root.KTUI?.text('Обзоры')||'Обзоры')+' · '+(publication.ratingSummary?.count||0),discussion:(root.KTUI?.text('Обсуждение')||'Обсуждение')+' · '+(publication.commentCount||0)}).map(([key,label])=>'<button data-publication-section="'+key+'" class="'+(key===publicationSection?'active':'')+'">'+label+'</button>').join('');
+ let reviewPanel=$('#publication-reviews');
+ if(!reviewPanel){reviewPanel=document.createElement('section');reviewPanel.id='publication-reviews';$('#publication-cards').after(reviewPanel)}
+ let discussionPanel=$('#publication-discussion');
+ if(!discussionPanel){discussionPanel=document.createElement('section');discussionPanel.id='publication-discussion';reviewPanel.after(discussionPanel)}
+ reviewPanel.hidden=publicationSection!=='reviews';discussionPanel.hidden=publicationSection!=='discussion';$('#publication-cards').hidden=['reviews','discussion'].includes(publicationSection);
+ if(['reviews','discussion'].includes(publicationSection))return;
+ const cards=project[publicationSection]||[],assets={...KTPageBackground.previewAssets(),'assets/paper.jpg':'assets/paper.jpg'};
+ for(const card of [...project.operatives,...project.teamCards,...(project.lorePages||[]).flatMap(page=>page.images)])if(card.image)assets[card.image]=card.image;
+ $('#publication-cards').dataset.section=publicationSection;
+ $('#publication-cards').innerHTML=cards.length?cards.map((item,index)=>{
+  const rendered=publicationSection==='lorePages'?KTLore.renderPage(item,project,assets):KTCards.renderCard(item,project,assets,index);
+  return '<section class="published-card"><h3>'+esc(item.name||'Пустая карточка')+'</h3>'+rendered.map((side,sideIndex)=>'<div class="physical-card '+(publicationSection==='lorePages'?'lore-page':item.kind==='operative'?'landscape':'portrait')+'">'+KTCards.inlineSVG(side.svg,'publication-'+publicationSection+'-'+index+'-'+sideIndex)+'</div>').join('')+'</section>';
+ }).join(''):'<p class="community-empty">В этом разделе нет карточек.</p>';
+}
+async function openPublication(id,section='selectionCards',focusId=null){
+ if(!canLeavePublication())return;
+ resetPublicationPanels();
+ try{const result=await api('/api/library/'+encodeURIComponent(id));publication={...result,project:KTModel.validate(KTModel.migrate(result.project))};publicationSection=section;$('#publication-export-status').textContent='';renderPublication();if(!$('#publication-dialog').open)$('#publication-dialog').showModal();if(section==='reviews')openReviews(focusId);if(section==='discussion')openDiscussion(focusId)}
+ catch(error){adapter.toast('Не удалось открыть команду: '+error.message)}
+}
+async function changeApproval(){
+ if(busy||!cloud||!publication?.canManageApproval)return;
+ const current=publication,approved=!current.approval?.granted,english=root.KTUI?.locale()==='en';
+ const message=approved?(english?'Grant Seal Of Approval? It will remain after team updates until you revoke it.':'Выдать Seal Of Approval? Печать сохранится после обновлений команды, пока вы её не отзовёте.'):(english?'Revoke Seal Of Approval for this team?':'Отозвать Seal Of Approval у этой команды?');
+ if(!confirm(message))return;
+ busy=true;busyAction='approval';status();$('#publication-approval').disabled=true;
+ try{
+  await cloud.connect();
+  const result=await cloud.api('/api/admin/library/'+encodeURIComponent(current.id)+'/approval',{method:'PATCH',body:JSON.stringify({approved,revision:current.approval.revision,publicationRevision:current.publishedRevision})});
+  current.approval=result.approval;current.project.team.sealOfApproval=result.approval.granted;
+  const tileTeam=libraryTeams.find(team=>team.id===current.id);
+  if(tileTeam){tileTeam.approval=result.approval;const tile=$('[data-open-publication="'+current.id+'"]')?.closest('.team-tile');if(tile)tile.outerHTML=card(tileTeam)}
+  if(publication===current)renderPublication();
+  void cloud.connect(true).catch(error=>adapter.toast(error.message));
+  adapter.toast(english?(approved?'Seal Of Approval granted.':'Seal Of Approval revoked.'):(approved?'Seal Of Approval выдан.':'Seal Of Approval отозван.'));
+ }catch(error){adapter.toast(error.message)}
+ finally{busy=false;busyAction='';status();if(publication===current)$('#publication-approval').disabled=false}
+}
+function openDiscussion(focusId=null){
+ const id=publication.id;
+ const hash='#/library/'+id+'/discussion'+(focusId?'?comment='+encodeURIComponent(focusId):'');
+ if(location.hash!==hash)history.pushState(history.state,'',location.pathname+location.search+hash);
+ void root.KTDiscussion.open($('#publication-discussion'),publication,count=>{
+  if(publication?.id!==id)return;publication.commentCount=count;
+  const button=$('[data-publication-section="discussion"]');if(button)button.textContent=(root.KTUI?.text('Обсуждение')||'Обсуждение')+' · '+count;
+  const team=libraryTeams.find(item=>item.id===id);if(team)team.commentCount=count;
+  const tile=$('#community-list [data-open-discussion="'+id+'"]');if(tile)tile.outerHTML=root.KTDiscussion.countButton(count,id);
+ },focusId);
+}
+function openReviews(focusId=null){
+ const id=publication.id;
+ const hash='#/library/'+id+'/reviews'+(focusId?'?review='+encodeURIComponent(focusId):'');
+ history.replaceState(history.state,'',location.pathname+location.search+hash);
+ void root.KTReviews.open($('#publication-reviews'),publication,value=>{
+  if(publication?.id!==id)return;
+  publication.ratingSummary=value;
+  const button=$('[data-publication-section="reviews"]');if(button)button.textContent=(root.KTUI?.text('Обзоры')||'Обзоры')+' · '+value.count;
+  const team=libraryTeams.find(item=>item.id===id);if(team)team.ratingSummary=value;
+  const tile=$('#community-list [data-open-reviews="'+id+'"]');if(tile)tile.outerHTML=root.KTReviews.summary(value,id);
+ },focusId);
+}
+async function exportPublication(button){
+ if(!publication)return;
+ const current=publication,snapshot=structuredClone(current.project),format=button.dataset.publicationExport;
+ $('#publication-export-status').textContent=format==='pdf'?'Собираю PDF…':'';
+ try{
+  if(format==='rosz')root.ktStudio.exportROSZ(snapshot);
+  if(format==='pdf')await root.ktStudio.exportPDF(null,snapshot,button);
+  if(format==='tts'){root.ktStudio.openTTS(snapshot);return}
+  if(publication===current)$('#publication-export-status').textContent='Файл опубликованной команды готов.';
+ }catch(error){if(publication===current)$('#publication-export-status').textContent='Не удалось экспортировать: '+error.message}
+}
+async function publish(){
+ if(busy)return;
+ busy=true;busyAction='publish';status();
+ try{
+  if(!await root.KTAccount.requireLogin('publish'))return;
+  const snapshot=adapter.getData();if(!snapshot.team.name.trim())throw Error('Укажите название команды перед публикацией.');
+  const updating=!!cloud.state(snapshot.team.id)?.publicationId;
+  if(!await adapter.persist())throw Error('Не удалось подготовить команду к сохранению.');
+  const result=await cloud.save(snapshot.team.id,true);
+  if(result.recoveredFrom){adapter.toast('Команда изменена в другой вкладке. Правки сохранены отдельным черновиком в аккаунте; при необходимости опубликуйте его.');return}
+  adapter.toast('Команда «'+result.name+'» опубликована в библиотеке.');
+  if(!updating){offset=0;query='';$('#library-search').value='';await show('library')}
+ }catch(error){adapter.toast('Не удалось опубликовать: '+error.message)}finally{busy=false;status()}
+}
+async function api(url){
+ if(cloud)return cloud.api(url);
+ const response=await root.KTAccount.request(url),value=await response.json();
+ if(!response.ok)throw Error(value.error||'Не удалось загрузить команды.');
+ return value;
+}
+async function save(){
+ if(busy)return;
+ busy=true;busyAction='save';status();
+ try{
+  if(!await root.KTAccount.requireLogin('save'))return;
+  if(!await adapter.persist())throw Error('Не удалось подготовить команду к сохранению.');
+  const result=await cloud.save(adapter.getData().team.id);
+  adapter.toast(result?.recoveredFrom?'Команда изменена в другой вкладке. Ваши правки сохранены отдельным черновиком в аккаунте.':'Команда сохранена в вашем аккаунте.');
+ }catch(error){adapter.toast('Не удалось сохранить: '+error.message)}finally{busy=false;status()}
+}
+async function resume(){
+ try{
+  const pending=await root.KTAccount.transfer();
+  if(!pending)return;
+  if(!await adapter.openData(pending.project))throw Error('Не удалось перенести гостевую команду в аккаунт.');
+  if(!await adapter.persist())throw Error('Не удалось подготовить перенесённую команду.');
+  await cloud.save(adapter.getData().team.id);
+  root.KTAccount.finishTransfer();
+  if(pending.action==='publish')await publish();
+  else if(pending.action==='save')await save();
+  else if(pending.action==='download')await adapter.downloadJSON();
+  else if(pending.action==='drafts')await show('drafts');
+  else adapter.toast('Вход выполнен. Ваши правки перенесены в аккаунт.');
+ }catch(error){adapter.toast(error.message)}
+}
+async function init(options){
+ adapter=options;
+ if(root.KTAccount.id&&/^https?:$/.test(root.location?.protocol||'')){
+  cloud=KTCloud.create({request:root.KTAccount.request,storage:root.KTAccount.storage,journal:KTStorage.create({...root.KTAccount,databaseName:root.KTAccount.databaseName+'-pending',memoryFallback:false,journal:true}),loadProject:id=>KTStorage.load('kt-studio-cards-v6:'+id),beforeSave:async(id,key,needsAdoption)=>!needsAdoption||adapter.getData().team.id!==id||await hydratePending(id),onChange:status,onRemove:id=>adapter.removeProject(id),onRename:(id,name)=>adapter.renameProject(id,name),onRecover:async(id,project,options)=>{await adapter.recoverProject(options?.activate===false?null:id,project);adapter.toast('Команда изменена в другой вкладке. Ваши правки сохранены отдельным черновиком в аккаунте.')}});
+  try{
+   await cloud.connect();
+   const localProjects=[];
+   for(const id of adapter.localIds()){
+    try{
+     const saved=await KTStorage.load('kt-studio-cards-v6:'+id);if(!saved)continue;
+     const project=KTModel.validate(KTModel.migrate(JSON.parse(saved))),example=root.KT_EXAMPLES?.[id];
+     if(example&&JSON.stringify(project)===JSON.stringify(KTModel.validate(KTModel.migrate(example))))continue;
+     localProjects.push(project);
+    }catch{}
+   }
+   const active=adapter.getData().team.id,local=localProjects.find(project=>project.team.id===active);
+   const selected=cloud.state(active)||(!local?cloud.list().find(team=>team.revision):null);
+   let adopted=true;
+   if(selected?.dirty)adopted=await hydratePending(selected.id);
+   if(selected&&!selected.dirty){
+    const remote=await cloud.api('/api/drafts/'+encodeURIComponent(selected.id));
+    if(await adapter.openData(remote.project))cloud.accept(remote);
+   }
+   // Preserve access to local projects created before the header picker was removed.
+   for(const project of localProjects)if(!cloud.state(project.team.id)&&!cloud.isDeleted(project.team.id))cloud.track(project);
+   if(adopted)await cloud.flush();
+  }catch(error){adapter.toast('Не удалось подключиться к хранилищу аккаунта: '+error.message);status()}
+  const refresh=()=>void cloud.connect(true).then(async()=>{
+   const snapshot=adapter.getData(),entry=cloud.state(snapshot.team.id);
+   if(entry&&!entry.dirty&&entry.remoteRevision!==entry.revision){
+    const remote=await cloud.api('/api/drafts/'+encodeURIComponent(snapshot.team.id));
+    if(!cloud.state(snapshot.team.id)?.dirty&&await adapter.openData(remote.project,JSON.stringify(snapshot)))cloud.accept(remote);
+   }
+   await cloud.flush();
+  }).catch(()=>status());
+  root.addEventListener('online',refresh);root.addEventListener('focus',refresh);
+  root.addEventListener('storage',()=>void cloud.syncRemoved().catch(error=>adapter.toast(error.message)));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();else void cloud.flush()});
+  root.addEventListener('beforeunload',event=>{if(cloud.list().some(team=>team.dirty||team.saving)){event.preventDefault();event.returnValue=''}});
+ }
+ status();
+ document.addEventListener('click',async event=>{
+  if(event.target.closest('.companion-service-link')&&event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){
+   event.preventDefault();query='';offset=0;$('#library-search').value='';void show('library');return;
+  }
+  const button=event.target.closest('button');if(!button)return;
+  if(button.dataset.studioView){offset=0;void show(button.dataset.studioView)}
+  if(button.id==='publish-team')void publish();
+  if(button.id==='retry-cloud')void cloud.connect(true).then(()=>cloud.flush()).catch(error=>adapter.toast(error.message));
+  if(button.id==='community-new')adapter.showCreateProject();
+  if(button.id==='reload-community')void show(view);
+  if(button.dataset.openDraft)void openDraft(button.dataset.openDraft);
+  if(button.dataset.deleteDraft)confirmDelete(button.dataset.deleteDraft);
+  if(button.dataset.deletePublication)confirmDeletePublication(button.dataset.deletePublication);
+  if(button.dataset.renameDraft)void beginRename(button.dataset.renameDraft,true);
+  if(button.dataset.renamePublication)void beginRename(button.dataset.renamePublication,false);
+  if(button.id==='cancel-rename-project')$('#rename-project-dialog').close();
+  if(button.id==='review-rename-project'){$('#rename-project-dialog').close();void show(view)}
+  if(button.id==='confirm-delete-project')void deleteProject();
+  if(button.id==='cancel-delete-project')$('#delete-project-dialog').close();
+  if(button.id==='review-delete-project'){
+   const moderation=deleteTarget?.publication;
+   $('#delete-project-dialog').close();
+   if(moderation&&publication?.id===deleteTarget.id){resetPublicationPanels();$('#publication-dialog').close();publication=null}
+   void show(moderation?'library':'drafts');
+  }
+  if(button.dataset.openPublication)void openPublication(button.dataset.openPublication);
+  if(button.dataset.openReviews){if(publication?.id===button.dataset.openReviews&&$('#publication-dialog').open&&publicationSection==='reviews')return;void openPublication(button.dataset.openReviews,'reviews')}
+  if(button.dataset.openDiscussion)void openPublication(button.dataset.openDiscussion,'discussion');
+  if(button.dataset.publicationExport)void exportPublication(button);
+  if(button.id==='publication-approval')void changeApproval();
+  if(button.id==='publication-dice'&&publication)root.location.href=(root.KTCompanion?.serviceUrl('dice')||'/dice')+'?team='+encodeURIComponent(publication.id);
+  if(button.id==='close-publication'&&canLeavePublication())$('#publication-dialog').close();
+  if(button.dataset.publicationSection&&canLeavePublication()){resetPublicationPanels();publicationSection=button.dataset.publicationSection;renderPublication();if(publicationSection==='reviews')openReviews();else if(publicationSection==='discussion')openDiscussion();else syncViewLocation()}
+  if(button.id==='library-prev'||button.id==='library-next'){offset=Math.max(0,offset+(button.id==='library-next'?32:-32));void show('library')}
+ });
+ let searchTimer;
+ $('#library-search').addEventListener('input',event=>{query=event.target.value;offset=0;++requestVersion;clearTimeout(searchTimer);searchTimer=setTimeout(()=>show('library'),250)});
+ $('#delete-project-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault()});
+ $('#rename-project-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault()});
+ $('#rename-project-form').addEventListener('submit',renameProject);
+ $('#publication-dialog').addEventListener('cancel',event=>{if(!canLeavePublication())event.preventDefault()});
+ $('#publication-dialog').addEventListener('close',()=>{resetPublicationPanels();if(/^#\/library\//.test(location.hash))syncViewLocation()});
+ const openLocation=async()=>{
+  const requestedHash=location.hash;
+  const match=/^#\/library\/([0-9a-f-]{36})\/(reviews|discussion)(?:\?(.*))?$/.exec(location.hash);
+  if(!canLeavePublication()){if(publication)history.replaceState(history.state,'',location.pathname+location.search+'#/library/'+publication.id+'/'+publicationSection);return}
+  resetPublicationPanels();if($('#publication-dialog').open)$('#publication-dialog').close();
+  await show(match?'library':/^#\/?(editor|drafts|library)$/.exec(root.location.hash)?.[1]||'library');
+  if(match){history.replaceState(history.state,'',location.pathname+location.search+requestedHash);await openPublication(match[1],match[2],new URLSearchParams(match[3]||'').get(match[2]==='reviews'?'review':'comment'))}
+ };
+ root.addEventListener('kt:locale',()=>{if(view==='library')for(const team of libraryTeams){const tile=$('#community-list [data-open-reviews="'+team.id+'"]');if(tile)tile.outerHTML=root.KTReviews.summary(team.ratingSummary,team.id)}});
+ root.addEventListener('hashchange',()=>void openLocation());
+ if(!new URLSearchParams(root.location.search).has('resume'))await openLocation();
+ await resume();
+}
+root.KTCommunity={init,track,status,save,showEditor,flush:()=>cloud?.flush()};
+})(typeof window!=='undefined'?window:globalThis);

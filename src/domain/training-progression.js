@@ -1,0 +1,20 @@
+const { questions } = require('./training');
+const maxXp = questions.filter(question => !question.team).reduce((total, question) => total + question.difficulty * 10, 0);
+
+// Rank credit comes from the first correct answer to each active core question.
+// Derive it from existing saved answers so earlier training counts immediately.
+const ranks = [
+  { id: 'noob', name: 'Нубик', en: 'Noob', xp: 0, tier: 1, note: 'Первый шаг в киллзону' },
+  { id: 'freshblood', name: 'Фрешблад', en: 'Freshblood', xp: Math.round(maxXp * 0.04), tier: 2, note: 'Правила начинают складываться' },
+  { id: 'regular', name: 'Середняк', en: 'Regular', xp: Math.round(maxXp * 0.16), tier: 3, note: 'Уже есть на что опереться' },
+  { id: 'expert', name: 'Знаток киллтима', en: 'Kill Team expert', xp: Math.round(maxXp * 0.36), tier: 4, note: 'Уверенно разбираете ситуации' },
+  { id: 'tryhard', name: 'Потнич', en: 'Tryhard', xp: Math.round(maxXp * 0.64), tier: 5, note: 'Знаете, где решают детали' },
+  { id: 'judge', name: 'Судья', en: 'Judge', xp: maxXp, tier: 6, note: 'Все вопросы текущего курса решены' }
+];
+
+const calculateProgression = require('../../public/training/progression');
+function progression(stats = {}, catalog = questions, retainedTier = 1) {
+  return calculateProgression(catalog, ranks, stats, retainedTier);
+}
+
+module.exports = { ranks, progression };

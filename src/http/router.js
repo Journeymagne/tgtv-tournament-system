@@ -1,4 +1,4 @@
-const { HttpError, readBody, clientKey, sendJson } = require("./io");
+const { HttpError, readBody, clientKey, sendJson, sendBinary } = require("./io");
 const { logRequest, logError } = require("./logger");
 const { createRateLimiter } = require("./rate-limit");
 const { LOGIN_RATE_LIMIT, TRUST_PROXY } = require("../config");
@@ -83,18 +83,61 @@ function matchRoute(routes, method, pathname) {
   return null;
 }
 
-const METHODS_WITH_BODY = new Set(["POST", "PATCH", "PUT"]);
+const METHODS_WITH_BODY = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+
+// A session renewal rides along on whatever the route already returns, but the
+// handler's own Set-Cookie always wins: sign-in, sign-up and sign-out set that
+// header deliberately, and a renewal must never overwrite a fresh or cleared
+// session cookie.
+function withRenewedSession(headers, cookie) {
+  if (!cookie || headers["Set-Cookie"]) return headers;
+  return { ...headers, "Set-Cookie": cookie };
+}
 
 function createRouter(routes, deps) {
   const {
     withClient,
     withTransaction,
     loadUser,
+    enforceResources = require('../resources/enforce').before,
     authLimiter = defaultAuthLimiter,
     trustProxy = TRUST_PROXY
   } = deps;
 
   async function runRoute(route, params, req, url) {
+    const { admission } = require('../resources/admission');
+    const { MAX_REQUEST_BYTES } = require('../config');
+    const hasBody = METHODS_WITH_BODY.has(route.method);
+    admission.rate('ip:' + clientKey(req, trustProxy), 1200, 60);
+    const maximum = route.maxBodyBytes || MAX_REQUEST_BYTES;
+    const declared = req.headers['content-length'];
+    // HTTP framing enforces Content-Length. Unknown/chunked uploads reserve the
+    // full route allowance; small autosaves can run concurrently within the pool.
+    const weight = declared !== undefined && /^\d+$/.test(declared) && Number(declared) <= maximum
+      ? Number(declared) : maximum;
+    const release = admission.enter(hasBody ? weight : 0);
+    try {
+      if (hasBody && route.auth && route.auth !== 'none') {
+        const identity = await withClient(client => loadUser(client, req));
+        if (!identity) throw new HttpError(401, 'You need to sign in');
+        if (route.auth === 'admin' && !identity.isAdmin || route.permission === 'super' && !identity.isSuperAdmin) throw new HttpError(403, 'Administrator rights required');
+        admission.rate('writes:' + identity.id, 120, 60);
+      }
+      return await executeRoute(route, params, req, url);
+    } finally {
+      if (req.readableEnded || req.complete || req.destroyed) release();
+      else {
+        // A rejected upload still occupies a slot while its remaining bytes drain.
+        // Keep the socket long enough for the client to receive the JSON error.
+        const timer = setTimeout(() => { req.destroy(); release(); }, 30000);
+        timer.unref();
+        const drained = () => { clearTimeout(timer); release(); };
+        req.once('end', drained); req.once('close', drained);
+      }
+    }
+  }
+
+  async function executeRoute(route, params, req, url) {
     // Checked before any connection is acquired, and check() alone never
     // spends budget - only recordFailure does, in the catch below - so a
     // burst of successful sign-ins behind one shared address can't exhaust
@@ -111,11 +154,31 @@ function createRouter(routes, deps) {
     // stalled every other request, including plain GETs. readBody needs no
     // client, so it now runs first. Side effect: an unauthenticated caller
     // who also sends malformed JSON now sees 400 before 401 (was: reverse).
-    const body = METHODS_WITH_BODY.has(route.method) ? await readBody(req) : {};
+    const body = METHODS_WITH_BODY.has(route.method) ? await readBody(req, route.maxBodyBytes, route.rawBody) : {};
 
+    // Persist linking budgets independently of the transaction that may reject a
+    // password/proof. Cookie-based bootstrap retains its existing request rules.
+    if (route.miniappLinkLimit && (route.miniappLinkLimit !== 'challenge' || body?.initData !== undefined)) {
+      try {
+        await withClient(async client => {
+          if (route.miniappLinkPreflight) await route.miniappLinkPreflight(client, req, body);
+          else await require('../domain/miniapp-link-security').checkRequest(client, req, body, route.miniappLinkLimit);
+        });
+      } catch (error) {
+        if (limiterKey) authLimiter.recordFailure(limiterKey);
+        throw error;
+      }
+    }
+
+    if (route.emailLimit && (route.emailLimit !== "when-enabled" || require("../email/config").configuration().enabled)) {
+      if (!/^application\/json(?:\s*;|$)/i.test(String(req.headers["content-type"] || ""))) throw new HttpError(415, "Use application/json");
+      if (!body || typeof body !== "object" || Array.isArray(body)) throw new HttpError(400, "Invalid request body");
+      await withClient(client => require("../email/security").checkRequest(client, req));
+    }
     const runner = route.tx ? withTransaction : withClient;
     const execute = () =>
       runner(async (client) => {
+        if (route.ratingMutation) await require("../db/rating-write-lock").acquireRatingWriteLock(client);
         const auth = route.auth || "none";
         let user = null;
 
@@ -129,7 +192,10 @@ function createRouter(routes, deps) {
           user = await loadUser(client, req);
         }
 
-        return route.handler({ params, query: url.searchParams, body, user, client, req });
+        if (route.permission) user = await require("../api/authorization").authorize({ client, user, params, route });
+        const context = { params, query: url.searchParams, body, user, client, req };
+        await enforceResources(route, context);
+        return route.handler(context);
       });
 
     if (!limiterKey) return execute();
@@ -147,7 +213,8 @@ function createRouter(routes, deps) {
 
   return async function router(req, res) {
     const startedAt = Date.now();
-    const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+    let url;
+    try { url = new URL(req.url, "http://localhost"); } catch { sendJson(res, 400, { error: "Invalid URL" }); return; }
     const pathname = normalizeApiPath(url.pathname);
     const method = req.method || "GET";
     let status = 500;
@@ -161,27 +228,49 @@ function createRouter(routes, deps) {
       }
 
       const result = await runRoute(match.route, match.params, req, url);
+      if (match.route.minResponseMs) {
+        const remaining = match.route.minResponseMs - (Date.now() - startedAt);
+        if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+      }
+      // Only read once the route has completed: a handler that threw took its
+      // transaction - and any session extension inside it - down with it.
+      const renewal = req.renewedSessionCookie;
 
       if (result === undefined) {
         status = 204;
-        sendJson(res, 204, {});
+        sendJson(res, 204, {}, withRenewedSession({}, renewal));
+        return;
+      }
+      // Binary escape hatch: routes that serve a stored file (avatars,
+      // tournament rules PDFs) return bytes instead of a JSON body.
+      if (result && typeof result === "object" && "buffer" in result) {
+        status = result.status || 200;
+        sendBinary(res, status, result.buffer, result.contentType,
+          withRenewedSession(result.headers || {}, renewal));
         return;
       }
       if (result && typeof result === "object" && "body" in result) {
         status = result.status || 200;
-        sendJson(res, status, result.body, result.headers || {});
+        sendJson(res, status, result.body, withRenewedSession(result.headers || {}, renewal));
         return;
       }
       status = 200;
-      sendJson(res, 200, result);
+      sendJson(res, 200, result, withRenewedSession({}, renewal));
     } catch (err) {
+      if (['57014','55P03','40P01'].includes(err.code)) {
+        err = new HttpError(503, 'Операция заняла слишком много времени. Повторите попытку.');
+        err.headers = { 'Retry-After': '5' };
+      }
+      if (!req.readableEnded && METHODS_WITH_BODY.has(method)) req.resume();
       if (err instanceof HttpError) {
         status = err.status;
-        sendJson(res, err.status, { error: err.message });
+        sendJson(res, err.status, { error: err.message, ...(err.quota ? { quota: err.quota } : {}),
+          ...(err.pairingWarningReview ? { pairingWarningReview: err.pairingWarningReview } : {})
+        }, { ...(matchLinkingPath(pathname) ? { 'Cache-Control': 'private, no-store' } : {}), ...err.headers });
       } else {
         status = 500;
         logError(`unhandled error on ${method} ${pathname}`, err);
-        sendJson(res, 500, { error: "Server error" });
+        sendJson(res, 500, { error: "Server error" }, matchLinkingPath(pathname) ? { 'Cache-Control': 'private, no-store' } : {});
       }
     } finally {
       logRequest({ method, path: pathname, status, durationMs: Date.now() - startedAt });
@@ -190,3 +279,7 @@ function createRouter(routes, deps) {
 }
 
 module.exports = { matchRoute, normalizeApiPath, createRouter };
+
+function matchLinkingPath(pathname) {
+  return pathname === '/api/auth/telegram-link' || pathname === '/api/miniapp/session' || pathname.startsWith('/api/miniapp/link/');
+}

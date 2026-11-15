@@ -1,0 +1,112 @@
+{
+  "ru": [
+    {
+      "id": "changelog",
+      "category": "Обновления",
+      "title": "Changelog",
+      "summary": "История обновлений KT Companion: новые возможности и исправления."
+    },
+    {
+      "id": "pairing-instructions",
+      "category": "Паринги",
+      "title": "Как проходит паринг",
+      "summary": "Пошаговые инструкции: WTC 3×3, Sword Shield Classic, Doubles и ручное назначение."
+    },
+    {
+      "id": "wtc-pairings",
+      "category": "Паринги",
+      "title": "Паринги WTC · 3×3",
+      "summary": "От генерации раунда до трёх игр: столы, D6, баны, Shield и Sword.",
+      "archived": true
+    },
+    {
+      "id": "swiss-tiebreakers",
+      "category": "Тайбрейки",
+      "title": "Индивидуальная швейцарка",
+      "summary": "Пять критериев таблицы, их приоритет, ничьи и личные тайбрейки.",
+      "archived": true
+    },
+    {
+      "id": "elimination-tiebreakers",
+      "category": "Тайбрейки",
+      "title": "Single Elimination",
+      "summary": "Победитель при равных VP, продвижение по сетке и сводная таблица.",
+      "archived": true
+    },
+    {
+      "id": "team-tiebreakers",
+      "category": "Тайбрейки",
+      "title": "Командный WTC · очки и тайбрейки",
+      "summary": "GP каждой игры, ничья 28–32 и фиксированный порядок команд.",
+      "archived": true
+    },
+    {
+      "id": "mmr",
+      "category": "Рейтинг",
+      "title": "Формула MMR",
+      "summary": "Elo с K = 32, примеры, TTS / IRL / общий рейтинг и исключения.",
+      "archived": true
+    },
+    {
+      "id": "handouts",
+      "category": "Материалы",
+      "title": "Раскладки",
+      "summary": "Печатные памятки по террейну: WTC Open, Volkus, Tomb World и WTC Into the Dark."
+    }
+  ],
+  "en": [
+    {
+      "id": "changelog",
+      "category": "Updates",
+      "title": "Changelog",
+      "summary": "KT Companion release history: new features and fixes."
+    },
+    {
+      "id": "pairing-instructions",
+      "category": "Pairings",
+      "title": "How pairing works",
+      "summary": "Step-by-step instructions for WTC 3×3, Sword Shield Classic, Doubles and manual assignments."
+    },
+    {
+      "id": "wtc-pairings",
+      "category": "Pairings",
+      "title": "WTC pairings · 3×3",
+      "summary": "From round generation to three games: tables, D6, bans, Shield and Sword.",
+      "archived": true
+    },
+    {
+      "id": "swiss-tiebreakers",
+      "category": "Tiebreakers",
+      "title": "Individual Swiss",
+      "summary": "Five standings criteria, priority, draws and game tiebreakers.",
+      "archived": true
+    },
+    {
+      "id": "elimination-tiebreakers",
+      "category": "Tiebreakers",
+      "title": "Single Elimination",
+      "summary": "Equal-VP winners, bracket progression and the standings table.",
+      "archived": true
+    },
+    {
+      "id": "team-tiebreakers",
+      "category": "Tiebreakers",
+      "title": "Team WTC · points and tiebreakers",
+      "summary": "Game GP, the 28–32 draw band and fixed team ranking order.",
+      "archived": true
+    },
+    {
+      "id": "mmr",
+      "category": "Rating",
+      "title": "MMR formula",
+      "summary": "Elo with K = 32, examples, TTS / IRL / combined ratings and exceptions.",
+      "archived": true
+    },
+    {
+      "id": "handouts",
+      "category": "Resources",
+      "title": "Handouts",
+      "summary": "Printable terrain references: WTC Open, Volkus, Tomb World and WTC Into the Dark."
+    }
+  ]
+}

@@ -10,7 +10,7 @@ function buildTournamentPreview(tournament, participants) {
     return buildSingleElimination(active, tournament.singleEliminationSize);
   }
   if (tournament.format === TOURNAMENT_FORMATS.SWISS) {
-    return buildSwissRoundOne(active, tournament.swissRoundCount);
+    return buildSwissRoundOne(active, tournament.swissRoundCount, tournament.pairingMode);
   }
   throw new ValidationError("Choose single elimination or Swiss");
 }

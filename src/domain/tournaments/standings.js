@@ -1,3 +1,5 @@
+const { matchWinnerParticipantId, participantScore } = require("./results");
+
 function scoreFor(match, participant, participantsById) {
   if (match.isBye && match.winnerParticipantId === participant.id) {
     return { points: 3, win: 1, draw: 0, loss: 0, totalVp: 0, vpDiff: 0, opponentId: null };
@@ -7,24 +9,16 @@ function scoreFor(match, participant, participantsById) {
 
   const opponentId = match.participantAId === participant.id ? match.participantBId : match.participantAId;
   const opponent = participantsById.get(opponentId);
-  const ownScore =
-    match.result.scores?.[participant.userId] ||
-    match.result.scores?.[-participant.id] ||
-    match.result.scores?.[participant.id] ||
-    {};
-  const oppScore =
-    match.result.scores?.[opponent?.userId] ||
-    match.result.scores?.[-opponentId] ||
-    match.result.scores?.[opponentId] ||
-    {};
+  const ownScore = participantScore(match.result, participant);
+  const oppScore = participantScore(match.result, opponent);
   const ownTotal = Number(ownScore.total || 0);
   const oppTotal = Number(oppScore.total || 0);
 
-  if (!match.result.winnerId) {
+  const winnerParticipantId = matchWinnerParticipantId(match);
+  if (winnerParticipantId === null) {
     return { points: 1, win: 0, draw: 1, loss: 0, totalVp: ownTotal, vpDiff: ownTotal - oppTotal, opponentId };
   }
-  const winnerIsParticipant =
-    match.winnerParticipantId === participant.id || Number(match.result.winnerId) === Number(participant.userId);
+  const winnerIsParticipant = winnerParticipantId === participant.id;
   return {
     points: winnerIsParticipant ? 3 : 0,
     win: winnerIsParticipant ? 1 : 0,
@@ -37,19 +31,19 @@ function scoreFor(match, participant, participantsById) {
 }
 
 function assignHeadToHeadWins(rows, matches) {
-  const participantIds = new Set(rows.map((row) => row.participant.id));
+  const participantsById = new Map(rows.map((row) => [row.participant.id, row.participant]));
   const wins = new Map(rows.map((row) => [row.participant.id, 0]));
   for (const match of matches) {
     if (
       match.status !== "completed" ||
       match.isBye ||
-      !participantIds.has(match.participantAId) ||
-      !participantIds.has(match.participantBId) ||
-      !participantIds.has(match.winnerParticipantId)
+      !participantsById.has(match.participantAId) ||
+      !participantsById.has(match.participantBId)
     ) {
       continue;
     }
-    wins.set(match.winnerParticipantId, wins.get(match.winnerParticipantId) + 1);
+    const winnerParticipantId = matchWinnerParticipantId(match);
+    if (wins.has(winnerParticipantId)) wins.set(winnerParticipantId, wins.get(winnerParticipantId) + 1);
   }
   for (const row of rows) {
     row.headToHeadWins = wins.get(row.participant.id) || 0;
@@ -102,9 +96,9 @@ function trimmedBuchholz(opponentMatchPoints) {
 }
 
 function buildStandings(participants, matches, tiebreakerOrder = []) {
-  const active = participants.filter((participant) => !["withdrawn", "removed"].includes(participant.status));
-  const participantsById = new Map(active.map((participant) => [participant.id, participant]));
-  const rows = active.map((participant) => {
+  const participantsById = new Map(participants.map((participant) => [participant.id, participant]));
+  // Withdrawn players still contribute earned points to their opponents' SoS.
+  const allRows = participants.map((participant) => {
     const row = {
       participant,
       wins: 0,
@@ -132,7 +126,8 @@ function buildStandings(participants, matches, tiebreakerOrder = []) {
     return row;
   });
 
-  const byParticipantId = new Map(rows.map((row) => [row.participant.id, row]));
+  const byParticipantId = new Map(allRows.map((row) => [row.participant.id, row]));
+  const rows = allRows.filter(row => !["withdrawn", "removed"].includes(row.participant.status));
   for (const row of rows) {
     const opponentMatchPoints = row.opponents.map((opponentId) =>
       Number(byParticipantId.get(opponentId)?.matchPoints || 0)

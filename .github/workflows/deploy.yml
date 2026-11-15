@@ -1,0 +1,126 @@
+name: Deploy production
+
+on:
+  push:
+    tags:
+      # Glob filter; strict vMAJOR.MINOR.PATCH is enforced in the job below.
+      - "v*.*.*"
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    name: Deploy tag to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+
+    env:
+      DEPLOY_SHA: ${{ github.sha }}
+      DEPLOY_TAG: ${{ github.ref_name }}
+      HEALTH_URL: ${{ vars.DEPLOY_HEALTH_URL }}
+
+    steps:
+      - name: Validate tag shape
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "Refusing tag '$DEPLOY_TAG' (expected vMAJOR.MINOR.PATCH)" >&2
+            exit 1
+          }
+
+      - name: Wait for green CI on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "Waiting for CI success on $DEPLOY_SHA (tag $DEPLOY_TAG)"
+          for _ in $(seq 1 90); do
+            JSON="$(gh run list --repo "${{ github.repository }}" --workflow ci.yml \
+              --commit "$DEPLOY_SHA" --limit 10 \
+              --json status,conclusion)"
+            SUCCESS="$(jq '[.[] | select(.conclusion == "success")] | length' <<<"$JSON")"
+            PENDING="$(jq '[.[] | select(.status == "in_progress" or .status == "queued" or .status == "pending" or .status == "waiting" or .status == "requested")] | length' <<<"$JSON")"
+            FAILED="$(jq '[.[] | select(.status == "completed" and .conclusion != "success" and .conclusion != null)] | length' <<<"$JSON")"
+
+            if [[ "$SUCCESS" -gt 0 ]]; then
+              echo "CI succeeded for $DEPLOY_SHA"
+              exit 0
+            fi
+            if [[ "$PENDING" -eq 0 && "$FAILED" -gt 0 ]]; then
+              echo "CI completed without success for $DEPLOY_SHA:" >&2
+              echo "$JSON" | jq . >&2
+              exit 1
+            fi
+            echo "CI not ready yet (success=$SUCCESS pending=$PENDING failed=$FAILED); sleeping 20s"
+            sleep 20
+          done
+          echo "Timed out waiting for CI on $DEPLOY_SHA" >&2
+          exit 1
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "DEPLOY_SHA=$(printf %q "$DEPLOY_SHA") DEPLOY_TAG=$(printf %q "$DEPLOY_TAG") bash -s" <<'REMOTE'
+          set -euo pipefail
+          REPO_DIR=/app/Repos/tgtv-tournament-system
+          cd "$REPO_DIR"
+          [[ -z "$(git status --porcelain)" ]] || {
+            echo "Repository has uncommitted changes" >&2
+            exit 1
+          }
+          export SSH_ASKPASS=/root/.ssh/askpass.sh
+          export SSH_ASKPASS_REQUIRE=force
+          export DISPLAY=:0
+          export GIT_TERMINAL_PROMPT=0
+          export GIT_SSH_COMMAND="setsid -w ssh -o StrictHostKeyChecking=accept-new"
+          git fetch origin --tags --prune
+          git fetch origin "$DEPLOY_SHA"
+          # Use the tagged commit's wrapper so --ref works even before the
+          # on-disk script has been updated by a previous release.
+          SCRIPT="$(mktemp)"
+          git show "${DEPLOY_SHA}:update_tgtv-ts.sh" > "$SCRIPT"
+          bash "$SCRIPT" production --ref "$DEPLOY_SHA"
+          rm -f "$SCRIPT"
+          echo "Deployed $DEPLOY_TAG ($DEPLOY_SHA)"
+          REMOTE
+
+      - name: Health check (public homepage)
+        run: |
+          set -euo pipefail
+          URL="${HEALTH_URL:-https://ktcompanion.ru/}"
+          echo "Checking $URL"
+          for i in 1 2 3 4 5 6; do
+            CODE="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 30 "$URL" || true)"
+            if [[ "$CODE" == "200" ]]; then
+              echo "Homepage OK ($CODE)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP ${CODE:-curl-failed}; retrying in 10s"
+            sleep 10
+          done
+          echo "Homepage health check failed for $URL" >&2
+          exit 1

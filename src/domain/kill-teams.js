@@ -64,11 +64,19 @@ const WILDCARDS = ["Navy Breachers", "XV26 Stealth Battlesuits"];
 const KILL_TEAMS = [...ALL_KILL_TEAM_TRACK, ...WILDCARDS];
 
 const KILLZONES = [
-  "Volkus",
+  "Volkus 2024",
+  "Volkus 2025",
   "Gallowdark",
+  "Tomb World",
+  "Bheta-Decima 2025",
+  "Non-Specific Killzone",
+  "Octarius 2025",
+  "WTC Open 2025",
+  "WTC ITD 2026",
+  "Squad-Games Gallowdark+",
+  "Volkus",
   "Bheta-Decima",
   "Octarius",
-  "Tomb World",
   "WTC ITD",
   "WTC Open",
   "Non-specific"
@@ -154,6 +162,11 @@ function requireKillTeam(value) {
   return team;
 }
 
+function killTeamSearchKeys(value) {
+  const team = requireKillTeam(value);
+  return [...BY_KEY].filter(([, canonical]) => canonical === team).map(([key]) => key);
+}
+
 // HIGH 1: restores the pre-refactor tolerance (server.js's
 // resultKillTeamInput returned "" for blank input instead of throwing). A
 // game result's faction may be left blank -- a legacy pending_result stored
@@ -176,5 +189,6 @@ module.exports = {
   teamKey,
   canonicalKillTeam,
   requireKillTeam,
+  killTeamSearchKeys,
   optionalKillTeam
 };

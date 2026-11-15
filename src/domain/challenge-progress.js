@@ -44,10 +44,12 @@ function buildChallengeEvents(games, user) {
 // below pins the contract rather than leaving it to accidental string
 // comparison. Do not "fix" this by restoring nowIso().
 function compareByAt(a, b) {
-  if (a.at == null && b.at == null) return 0;
-  if (a.at == null) return -1;
-  if (b.at == null) return 1;
-  return String(a.at).localeCompare(String(b.at));
+  if (a.at == null && b.at != null) return -1;
+  if (b.at == null && a.at != null) return 1;
+  const byTime = String(a.at).localeCompare(String(b.at));
+  // Queries return newest games first. Equal timestamps must not reverse
+  // their sequence; manual events keep their append order.
+  return byTime || (a.source === "game" && b.source === "game" ? a.gameId - b.gameId : 0);
 }
 
 function buildTrackProgress(events, teams, wildcards) {
@@ -70,17 +72,20 @@ function buildTrackProgress(events, teams, wildcards) {
 
     const completedIndex = completed.findIndex((item) => item.team === event.team);
     if (event.action === "deduct") {
-      if (completedIndex !== -1) completed.splice(completedIndex, 1);
+      // Progress is always a prefix of the track. Removing an earlier step
+      // also invalidates the steps that depended on it.
+      if (completedIndex !== -1) completed.splice(completedIndex);
       continue;
     }
-    if (completedIndex === -1) {
+    // Only the current target can advance the track. An early win is not
+    // saved for later: the team must win again after its predecessors.
+    if (teamIndex === completed.length) {
       completed.push({ ...event, order: teamIndex + 1 });
     }
   }
 
   const completedTeams = new Set(completed.map((item) => item.team));
-  const nextIndex = teams.findIndex((team) => !completedTeams.has(team));
-  const currentIndex = nextIndex === -1 ? teams.length : nextIndex;
+  const currentIndex = completed.length;
 
   return {
     total: teams.length,

@@ -1,0 +1,211 @@
+/* Styling for the rules doc page (see RuleDocPage.tsx). Scoped to .RuleDoc /
+   .RuleDoc-body so it doesn't leak into the calculator UI. */
+
+.RuleDoc {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 20px 16px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px 40px;
+  color: var(--rule-doc-ink);
+}
+
+.RuleDoc-article {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 720px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.RuleDoc-breadcrumb {
+  display: flex;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--rule-doc-text-muted);
+  margin-bottom: 14px;
+}
+
+.RuleDoc-titleBlock {
+  border-bottom: 1px solid var(--rule-doc-hairline);
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.RuleDoc-meta {
+  font-size: 13px;
+  color: var(--rule-doc-text-muted);
+}
+
+.RuleDoc-bottomNav {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule-doc-hairline);
+  font-size: 14px;
+}
+
+.RuleDoc-next {
+  font-weight: 600;
+}
+
+.RuleDoc-error {
+  color: var(--rule-doc-error);
+}
+
+/* Sticky "On this page" + rules-doc list. On narrow screens it wraps below
+   the article, keeping DOM order. */
+.RuleDoc-sidebar {
+  flex: 0 0 220px;
+  position: sticky;
+  top: 16px;
+  font-size: 13px;
+}
+
+.RuleDoc-sideHeading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--rule-doc-text-muted);
+  margin: 20px 0 8px;
+}
+
+/* Lines up with the first H2 on wide screens. */
+.RuleDoc-sideHeading--first {
+  margin-top: 52px;
+}
+
+.RuleDoc-toc {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--rule-doc-hairline);
+}
+
+.RuleDoc-toc a {
+  padding: 4px 0 4px 12px;
+  color: var(--rule-doc-text-body);
+  text-decoration: none;
+}
+
+.RuleDoc-toc a:hover {
+  color: var(--rule-doc-accent-ink);
+  text-decoration: none;
+}
+
+.RuleDoc-docList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.RuleDoc-docList > * {
+  padding: 3px 0;
+}
+
+.RuleDoc-current {
+  font-weight: 600;
+  color: var(--rule-doc-ink);
+}
+
+.RuleDoc-body h1 {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 0 0 4px;
+}
+
+.RuleDoc-body h2 {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 32px 0 10px;
+}
+
+.RuleDoc-body h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 22px 0 6px;
+}
+
+.RuleDoc-body p {
+  margin: 0 0 12px;
+}
+
+.RuleDoc-body ul,
+.RuleDoc-body ol {
+  padding-left: 24px;
+  margin: 0 0 14px;
+}
+
+.RuleDoc-body li {
+  margin-bottom: 4px;
+}
+
+.RuleDoc-body li ul,
+.RuleDoc-body li ol {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--rule-doc-text-body);
+}
+
+.RuleDoc-body li ul {
+  list-style-type: circle;
+}
+
+.RuleDoc-body table {
+  border-collapse: collapse;
+  margin: 12px 0 20px;
+  width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+
+.RuleDoc-body th,
+.RuleDoc-body td {
+  border: 1px solid #ccc;
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.RuleDoc-body th {
+  background-color: var(--rule-doc-zebra-odd);
+}
+
+.RuleDoc-body code {
+  background-color: #f2f4f7;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.88em;
+  color: var(--rule-doc-ink);
+}
+
+.RuleDoc-body pre {
+  background-color: #f2f4f7;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.RuleDoc-body pre code {
+  background: none;
+  padding: 0;
+}
+
+.RuleDoc-body blockquote {
+  border-left: 3px solid var(--rule-doc-accent);
+  margin: 12px 0;
+  padding: 4px 0 4px 14px;
+  color: var(--rule-doc-text-muted);
+}
+
+/* H2 spacing does the separating. */
+.RuleDoc-body hr {
+  display: none;
+}

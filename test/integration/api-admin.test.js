@@ -10,6 +10,7 @@ const gamesApi = require("../../src/api/games");
 const usersRepo = require("../../src/db/repositories/users");
 const gamesRepo = require("../../src/db/repositories/games");
 const { verifyPassword } = require("../../src/domain/passwords");
+const { CLASSIFIED_TRACK } = require("../../src/domain/kill-teams");
 
 let pool;
 let client;
@@ -17,8 +18,8 @@ let root;
 let player;
 
 test.before(async () => {
-  pool = new Pool({ connectionString: TEST_DATABASE_URL });
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  pool = new Pool(require("../helpers/schema").poolOptions);
+  await require("../helpers/schema").resetSchemas(pool);
   await migrate(pool);
 });
 
@@ -33,6 +34,7 @@ test.beforeEach(async () => {
     name: "Root", passwordHash: "s:h", registerNickname: "", telegramContact: "@root",
     rating: 1000, isAdmin: true
   });
+  await require("../helpers/access").grantOwner(client, root);
   player = await usersRepo.insert(client, {
     name: "Player", passwordHash: "s:h", registerNickname: "", telegramContact: "@player",
     rating: 1000, isAdmin: false
@@ -210,6 +212,12 @@ test("админ начисляет и списывает Kill Team в трек�
 });
 
 test("начисление принимает историческое написание и отвергает мусор", async () => {
+  for (const team of CLASSIFIED_TRACK.slice(0, CLASSIFIED_TRACK.indexOf("Tempestus Aquilons"))) {
+    await admin.challengeCredit({
+      client, user: root, params: { id: String(player.id) },
+      body: { team, action: "credit", track: "classified" }
+    });
+  }
   const credited = await admin.challengeCredit({
     client, user: root, params: { id: String(player.id) },
     body: { team: "Tempestus Aquillons", action: "credit", track: "classified" }
@@ -224,6 +232,35 @@ test("начисление принимает историческое напи�
     }),
     (err) => err.status === 400
   );
+});
+
+test("ручной зачёт блокирует пропуск шага и не сохраняет отклонённое начисление", async () => {
+  const credit = (team, track = "allKillTeam") => admin.challengeCredit({
+    client, user: root, params: { id: String(player.id) }, body: { team, track }
+  });
+  await assert.rejects(() => credit("Elucidian Starstriders"),
+    (err) => err.status === 400 && err.message.includes("Novitiates"));
+  await assert.rejects(() => credit("Inquisitorial Agents", "classified"),
+    (err) => err.status === 400 && err.message.includes("Kasrkin"));
+  assert.equal((await usersRepo.findById(client, player.id)).challengeCredits.length, 0);
+
+  const first = await credit("Novitiates");
+  assert.equal(first.progress.tracks.allKillTeam.completedCount, 1);
+  assert.equal(first.progress.tracks.allKillTeam.nextTeam, "Elucidian Starstriders");
+  assert.equal(first.progress.completedCount, 0);
+  const second = await credit("Elucidian Starstriders");
+  assert.equal(second.progress.tracks.allKillTeam.completedCount, 2);
+  const wildcard = await credit("Navy Breachers");
+  assert.equal(wildcard.progress.tracks.allKillTeam.completedCount, 2);
+  assert.equal(wildcard.progress.tracks.allKillTeam.wildcardCompleted.length, 1);
+
+  const removed = await admin.challengeCredit({
+    client, user: root, params: { id: String(player.id) },
+    body: { team: "Novitiates", track: "allKillTeam", action: "remove" }
+  });
+  assert.equal(removed.progress.tracks.allKillTeam.completedCount, 0);
+  assert.equal(removed.progress.tracks.allKillTeam.nextTeam, "Novitiates");
+  assert.equal(removed.progress.tracks.allKillTeam.wildcardCompleted.length, 1);
 });
 
 test("список активных игр показывает открытые и ожидающие", async () => {

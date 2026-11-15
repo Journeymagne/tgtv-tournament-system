@@ -1,0 +1,2231 @@
+{
+  "schemaVersion": 4,
+  "team": {
+    "id": "murdasport",
+    "name": "MURDASPORT",
+    "subtitle": "ORK KILL TEAM",
+    "version": "1.1",
+    "source": "Murdasport_Kill_Team_v.1.1.pdf",
+    "templateSource": "Blades of Khaine",
+    "profileSystem": "M / APL / GA / DF / SV / W"
+  },
+  "teamCards": [
+    {
+      "id": "team-recruitment",
+      "kind": "recruitment",
+      "name": "KILL TEAM SELECTION",
+      "body": "Your kill team can only include up to five NOB operatives.\nYour kill team can only include up to five FLASH GIT operatives.\nNOB FIGHTA operative can be selected up to five times, FLASH GIT BOOMLAD operative can be selected up to two times, FLASH GIT BULLIT'EAD operative can be selected up to five times and each other option above can be selected once.",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "groupCaps": [
+        {
+          "keyword": "NOB",
+          "max": 5
+        },
+        {
+          "keyword": "FLASH GIT",
+          "max": 5
+        }
+      ],
+      "sourcePage": 1
+    },
+    {
+      "id": "murdasport",
+      "kind": "faction",
+      "name": "MURDASPORT",
+      "body": "In the Select a Kill Team step of the mission sequence, you must select one friendly MURDASPORT operative to gain the LEADER keyword for the battle as well as gain a Murdapoint.\nEach time MURDASPORT operative incapacitates an enemy operative or performs mission action (other than Operate Hatch) it gains a Murdapoint. At the start of the first turning point, as well as after the end of each individual action, MURDASPORT operatives gain and/or lose specific keywords depending on a current number of Murdapoints each friendly operative has. Note MURDASPORT operatives may gain and lose such keywords in the same activation, thus gaining/losing the corresponding abilities available with such keywords. If a MURDASPORT operative is incapacitated, it loses all of its Murdapoints and all specific keywords associated with this unique rule.\nNote that you cannot have more than one friendly NUMBA ONE operative, more than one friendly RUNNA UP operative and more than one friendly DARK SQUIG operative concurrently.",
+      "lore": "Besides fighting, orks may like all manner of different things. Fast vehicles, squig herding, getting rich with teef. But for every ork sooner or later all of such hobbies transform into a way to murder. This of course includes sports and games. And with orks' fight-loving nature such games usually take a bloody turn.",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 3
+    },
+    {
+      "id": "numba-one",
+      "kind": "faction",
+      "name": "NUMBA ONE",
+      "body": "A friendly MURDASPORT operative, who currently has more Murdapoints than all other friendly MURDASPORT operatives.",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 3
+    },
+    {
+      "id": "runna-up",
+      "kind": "faction",
+      "name": "RUNNA UP",
+      "body": "A friendly MURDASPORT operative, who currently has more Murdapoints than all other friendly MURDASPORT operatives, except friendly NUMBA ONE operative.\nFor the purpose of bonuses listed below RUNNA UP operative is always considered to have a KOMPETITOR keyword.\nOnce per Turning point, during friendly RUNNA UP operative activation it may perform one Shoot or Fight action for one less action point (to a minimum of 0AP).",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 3
+    },
+    {
+      "id": "dark-squig",
+      "kind": "faction",
+      "name": "DARK SQUIG",
+      "body": "A friendly MURDASPORT operative, who currently has less Murdapoints than all other friendly MURDASPORT operatives.\nFor the purpose of bonuses listed above and below DARK SQUIG operative is always considered to have RUNNA UP and KOMPETITOR keywords.\nOnce per Turning point, during friendly DARK SQUIG operative activation it may perform one specific action twice.",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 3
+    },
+    {
+      "id": "kompetitor",
+      "kind": "faction",
+      "name": "KOMPETITOR",
+      "body": "A friendly MURDASPORT operative, who currently doesn't have a NUMBA ONE, RUNNA UP or DARK SQUIG keywords.\nEach friendly KOMPETITOR operative once per Turning point may do one of the following during its activation:\n• If it performed a Charge action during this activation it may re-roll one of its attack dice in the Roll Attack Dice step of a combat.\n• If it either spends its last action point for Shoot action or performs a 0AP Shoot action after spending all of its action points in the Roll Attack Dice step of this shooting attack, you can re-roll one of your attack dice.",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 3
+    }
+  ],
+  "strategicPloys": [
+    {
+      "id": "waaagh",
+      "kind": "strategic",
+      "name": "BIG WAAAGH!",
+      "body": "Until the end of the Turning point, each time a friendly MURDASPORT operative fights in combat or makes a shooting attack in the roll attack dice step of that combat or shooting attack, if you retained any critical hits, you can select one of your failed hits to be retained as a successful normal hit, if you didn't retain any critical hits, you can select one of your normal hits to be retained as a critical hit instead. You can only use this Strategic Ploy once.",
+      "lore": "",
+      "cost": "1CP",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 4,
+      "category": "Strategic",
+      "escalating": false
+    },
+    {
+      "id": "green-envy",
+      "kind": "strategic",
+      "name": "GREEN ENVY",
+      "body": "Select one friendly MURDASPORT operative currently controlling an objective marker or within Engagement Range of an enemy operative. If this MURDASPORT operative is Visible to any other friendly MURDASPORT operatives, these other friendly MURDASPORT operatives may immediately perform a free Dash action, but must finish that move closer to the originally chosen MURDASPORT operative.",
+      "lore": "",
+      "cost": "1+CP",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 4,
+      "category": "Strategic",
+      "escalating": true
+    },
+    {
+      "id": "team-up",
+      "kind": "strategic",
+      "name": "WE 'AVE TO TEAM UP FOR DA WIN",
+      "body": "Count the number of Murdapoints friendly MURDASPORT operatives currently have. Remove all those Murdapoints. Freely reassign the Murdapoints equal to the aforementioned number between friendly MURDASPORT operatives. You cannot use this Strategic ploy during the first or second Turning Points.",
+      "lore": "",
+      "cost": "1CP",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 4,
+      "category": "Strategic",
+      "escalating": false
+    },
+    {
+      "id": "murdafever",
+      "kind": "strategic",
+      "name": "MURDAFEVER",
+      "body": "Until the end of the Turning Point, each time a friendly MURDASPORT operative performs an action in which it moves, it can ignore the first distance of 2″ it travels for climb, drop or traverse. However for each 1″ of ignored movement distance it immediately suffers a mortal wound.",
+      "lore": "",
+      "cost": "1CP",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 4,
+      "category": "Strategic",
+      "escalating": false
+    }
+  ],
+  "firefightPloys": [
+    {
+      "id": "keep-up",
+      "kind": "firefight",
+      "name": "BETTA KEEP UP",
+      "body": "Use this Tactical Ploy when a friendly MURDASPORT operative incapacitates an enemy operative who is within 6″ of your other friendly MURDASPORT operative that is not ready. That second friendly MURDASPORT operative can immediately perform a free Overwatch or free Fight action.",
+      "lore": "",
+      "cost": "0+CP",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 4,
+      "category": "Tactical",
+      "escalating": true
+    },
+    {
+      "id": "did-it",
+      "kind": "firefight",
+      "name": "I DID IT, YOU JUST 'AVEN'T SEEN IT",
+      "body": "Use this Tactical Ploy at the end of MURDASPORT operative's activation. Check other friendly MURDASPORT operatives' Line of Sight to this operative as if it is an enemy to them. If this operative is not within Line of Sight of any other friendly MURDASPORT operatives it gains a Murdapoint.",
+      "lore": "",
+      "cost": "1CP",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 4,
+      "category": "Tactical",
+      "escalating": false
+    },
+    {
+      "id": "cheat",
+      "kind": "firefight",
+      "name": "SHOW OFF OR CHEAT",
+      "body": "Use this Tactical ploy when a friendly MURDASPORT operative performs a Fight or Shoot action. You may declare it is, until the end of this action, either Showing off or Openly cheating. While it is Showing off, subtract one from the Attacks characteristic of ranged and melee weapons this operative is equipped with. If it successfully incapacitates an enemy operative while Showing off it gains one additional Murdapoint. While it is Openly cheating add one to the Attacks characteristic of ranged and melee weapons this operative is equipped with (to a maximum of 6). If it successfully incapacitates an enemy operative while Openly cheating it doesn't gain any Murdapoints.",
+      "lore": "",
+      "cost": "1CP",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "sourcePage": 4,
+      "category": "Tactical",
+      "escalating": false
+    },
+    {
+      "id": "firefight-4",
+      "kind": "firefight",
+      "name": "",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": []
+    }
+  ],
+  "equipment": [
+    {
+      "id": "equipment-1",
+      "kind": "equipment",
+      "name": "",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": []
+    },
+    {
+      "id": "equipment-2",
+      "kind": "equipment",
+      "name": "",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": []
+    },
+    {
+      "id": "equipment-3",
+      "kind": "equipment",
+      "name": "",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": []
+    },
+    {
+      "id": "equipment-4",
+      "kind": "equipment",
+      "name": "",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": []
+    }
+  ],
+  "operatives": [
+    {
+      "id": "nob-basha",
+      "kind": "operative",
+      "name": "NOB BASHA",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [
+        {
+          "id": "killsaw",
+          "name": "Killsaw",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "5/7",
+          "special": "Ceaseless",
+          "critical": "Rending",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "basha-klaw",
+          "name": "Power klaw",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "5/7",
+          "special": "Ceaseless, Brutal",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        }
+      ],
+      "abilities": [
+        {
+          "id": "bersorker",
+          "name": "Bersorker",
+          "body": "Each time this operative would perform a mission action (except Praise Gork! and Praise Mork! actions) or Pick Up action, you must subtract one additional action point to do so.",
+          "sourcePage": 5
+        },
+        {
+          "id": "supa-cybork",
+          "name": "Supa-Cybork body",
+          "body": "This operative is equipped with Cybork body and it does not cost any equipment points. Each time this operative would lose a wound, roll one D6: on a 6, that wound is not lost.",
+          "sourcePage": 5
+        }
+      ],
+      "actions": [],
+      "group": "NOB",
+      "stats": {
+        "M": "6″",
+        "APL": 2,
+        "GA": 1,
+        "DF": 3,
+        "SV": "4+",
+        "W": 13
+      },
+      "keywords": [
+        "MURDASPORT",
+        "ORK",
+        "<CLAN>",
+        "NOB",
+        "NOB BASHA"
+      ],
+      "loadouts": [],
+      "maxSelections": 1,
+      "sourcePage": 5,
+      "image": "assets/nob-basha.png"
+    },
+    {
+      "id": "nob-hunta",
+      "kind": "operative",
+      "name": "NOB HUNTA",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [
+        {
+          "id": "harpoon",
+          "name": "Harpoon arm",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "4/5",
+          "special": "Caught!",
+          "critical": "Stun",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        },
+        {
+          "id": "nob-choppa",
+          "name": "Nob choppa",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "3+",
+          "damage": "4/6",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        }
+      ],
+      "abilities": [
+        {
+          "id": "caught",
+          "name": "Caught!",
+          "body": "Each time a friendly operative makes a shooting attack with this weapon, in the Resolve Successful Hits step of that shooting attack, if the enemy operative suffers any damage, until the end of the Turning Point, subtract 2″ from that enemy operative's Movement characteristic and it cannot perform the Dash action.",
+          "sourcePage": 6
+        },
+        {
+          "id": "not-so-fast",
+          "name": "Not so fast",
+          "body": "Once per Turning Point, when an enemy operative is performing a Normal Move, Dash or Fall Back action and moves within 3″ of this operative, you can interrupt that action to perform a free Shoot action with its Harpon Arm (if this operative has a Conceal order, change it to an Engage order to do so). After the shooting attack is finished the enemy operative may continue its action, but due to the Harpon Arm's Caught! unique rule it may no longer have any movement left.",
+          "sourcePage": 6
+        }
+      ],
+      "actions": [
+        {
+          "id": "got-em",
+          "name": "Got 'em!",
+          "body": "Perform a free Shoot action with this operative's Harpon Arm, then perform a free Charge action with this operative. If this operative performs a Charge action while finishing the move within Engagement Range of the enemy operative it has just made a shooting attack against, add 2″ to this friendly operative's overall Charge distance.",
+          "sourcePage": 6,
+          "cost": "1AP"
+        }
+      ],
+      "group": "NOB",
+      "stats": {
+        "M": "6″",
+        "APL": 2,
+        "GA": 1,
+        "DF": 3,
+        "SV": "5+",
+        "W": 13
+      },
+      "keywords": [
+        "MURDASPORT",
+        "ORK",
+        "<CLAN>",
+        "NOB",
+        "NOB HUNTA"
+      ],
+      "loadouts": [],
+      "maxSelections": 1,
+      "sourcePage": 6,
+      "image": "assets/nob-hunta.png"
+    },
+    {
+      "id": "nob-gunna",
+      "kind": "operative",
+      "name": "NOB GUNNA",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [
+        {
+          "id": "kombi-rokkit",
+          "name": "Kombi-rokkit",
+          "kind": "ranged",
+          "attacks": 5,
+          "hit": "4+",
+          "damage": "4/5",
+          "special": "AP1, Limited",
+          "critical": "Splash 1",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "kombi-skorcha",
+          "name": "Kombi-skorcha",
+          "kind": "ranged",
+          "attacks": 6,
+          "hit": "2+",
+          "damage": "2/2",
+          "special": "Torrent, Rng 6″, Limited",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "sawed-off",
+          "name": "Sawed off",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "3+",
+          "damage": "3/3",
+          "special": "Rng 6″",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "shoota",
+          "name": "Shoota",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "3/4",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "choppa",
+          "name": "Choppa",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "3+",
+          "damage": "4/5",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        }
+      ],
+      "abilities": [
+        {
+          "id": "all-trades",
+          "name": "Nob of all trades",
+          "body": "You can ignore any or all modifiers to the Weapon Skill and Ballistic Skill characteristics of this operative's weapons.",
+          "sourcePage": 5
+        }
+      ],
+      "actions": [],
+      "group": "NOB",
+      "stats": {
+        "M": "6″",
+        "APL": 2,
+        "GA": 1,
+        "DF": 3,
+        "SV": "5+",
+        "W": 13
+      },
+      "keywords": [
+        "MURDASPORT",
+        "ORK",
+        "<CLAN>",
+        "NOB",
+        "NOB GUNNA"
+      ],
+      "loadouts": [
+        {
+          "name": "Kombi-skorcha",
+          "weaponIds": [
+            "choppa",
+            "sawed-off",
+            "shoota",
+            "kombi-skorcha"
+          ]
+        },
+        {
+          "name": "Kombi-rokkit",
+          "weaponIds": [
+            "choppa",
+            "sawed-off",
+            "shoota",
+            "kombi-rokkit"
+          ]
+        }
+      ],
+      "maxSelections": 1,
+      "sourcePage": 5,
+      "image": "assets/nob-gunna.png"
+    },
+    {
+      "id": "nob-fighta",
+      "kind": "operative",
+      "name": "NOB FIGHTA",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [
+        {
+          "id": "slugga",
+          "name": "Slugga",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "3/4",
+          "special": "Rng 6″",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        },
+        {
+          "id": "big-choppa",
+          "name": "Big choppa",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "3+",
+          "damage": "5/6",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        },
+        {
+          "id": "nob-choppa",
+          "name": "Nob choppa",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "3+",
+          "damage": "4/6",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        },
+        {
+          "id": "fighta-klaw",
+          "name": "Power klaw",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "5/7",
+          "special": "Brutal",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        }
+      ],
+      "abilities": [],
+      "actions": [],
+      "group": "NOB",
+      "stats": {
+        "M": "6″",
+        "APL": 2,
+        "GA": 1,
+        "DF": 3,
+        "SV": "5+",
+        "W": 13
+      },
+      "keywords": [
+        "MURDASPORT",
+        "ORK",
+        "<CLAN>",
+        "NOB",
+        "NOB FIGHTA"
+      ],
+      "loadouts": [
+        {
+          "name": "Big choppa",
+          "weaponIds": [
+            "big-choppa"
+          ]
+        },
+        {
+          "name": "Slugga; nob choppa",
+          "weaponIds": [
+            "slugga",
+            "nob-choppa"
+          ]
+        },
+        {
+          "name": "Slugga; power klaw",
+          "weaponIds": [
+            "slugga",
+            "fighta-klaw"
+          ]
+        }
+      ],
+      "maxSelections": 5,
+      "sourcePage": 6,
+      "image": "assets/nob-fighta.png"
+    },
+    {
+      "id": "flash-git-boomlad",
+      "kind": "operative",
+      "name": "FLASH GIT BOOMLAD",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [
+        {
+          "id": "booma-klassik",
+          "name": "Klassik",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "3/5",
+          "special": "Blast 1″",
+          "critical": "",
+          "group": "Booma snazzgun",
+          "mode": "Klassik",
+          "sourcePage": 7
+        },
+        {
+          "id": "booma-frakk",
+          "name": "Frakk",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "2/4",
+          "special": "Blast 2″, Limited",
+          "critical": "",
+          "group": "Booma snazzgun",
+          "mode": "Frakk",
+          "sourcePage": 7
+        },
+        {
+          "id": "booma-krakk",
+          "name": "Krakk",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "4/6",
+          "special": "AP1, Limited",
+          "critical": "Stun",
+          "group": "Booma snazzgun",
+          "mode": "Krakk",
+          "sourcePage": 7
+        },
+        {
+          "id": "massive-gun",
+          "name": "Massive gun",
+          "kind": "melee",
+          "attacks": 3,
+          "hit": "3+",
+          "damage": "3/5",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 7
+        }
+      ],
+      "abilities": [
+        {
+          "id": "blasting",
+          "name": "Blasting speshalist",
+          "body": "Each time a shooting attack is made against this operative, if the ranged weapon has Blast special rule, or makes a shooting attack against each operative within range of a specified point, in the Roll Defence Dice step of that shooting attack, you can re-roll any or all of your defence dice.",
+          "sourcePage": 7
+        },
+        {
+          "id": "show-off",
+          "name": "Gun-crazy show-off",
+          "body": "After this operative makes a shooting attack, if the target didn't lose any wounds as a result of this shooting attack roll a D6. On a roll of 5+ repeat that shooting attack. Such extra shooting attacks cannot themselves generate any further attacks.",
+          "sourcePage": 7
+        }
+      ],
+      "actions": [],
+      "group": "FLASH GIT",
+      "stats": {
+        "M": "6″",
+        "APL": 2,
+        "GA": 1,
+        "DF": 3,
+        "SV": "5+",
+        "W": 12
+      },
+      "keywords": [
+        "MURDASPORT",
+        "ORK",
+        "<CLAN>",
+        "FLASH GIT",
+        "FLASH GIT BOOMLAD"
+      ],
+      "loadouts": [],
+      "maxSelections": 2,
+      "sourcePage": 7,
+      "image": "assets/flash-git-boomlad.png"
+    },
+    {
+      "id": "flash-git-bullitead",
+      "kind": "operative",
+      "name": "FLASH GIT BULLIT'EAD",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [
+        {
+          "id": "bullit-dakka",
+          "name": "Dakka",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "3/5",
+          "special": "",
+          "critical": "",
+          "group": "Bullit snazzgun",
+          "mode": "Dakka",
+          "sourcePage": 7
+        },
+        {
+          "id": "bullit-more",
+          "name": "More Dakka",
+          "kind": "ranged",
+          "attacks": 5,
+          "hit": "4+",
+          "damage": "3/5",
+          "special": "Fusilade, Heavy, Ceaseless",
+          "critical": "",
+          "group": "Bullit snazzgun",
+          "mode": "More Dakka",
+          "sourcePage": 7
+        },
+        {
+          "id": "bullit-all",
+          "name": "All the Dakka",
+          "kind": "ranged",
+          "attacks": 6,
+          "hit": "4+",
+          "damage": "3/5",
+          "special": "Fusilade, Heavy, Unwieldy, Relentless",
+          "critical": "",
+          "group": "Bullit snazzgun",
+          "mode": "All the Dakka",
+          "sourcePage": 7
+        },
+        {
+          "id": "massive-gun",
+          "name": "Massive gun",
+          "kind": "melee",
+          "attacks": 3,
+          "hit": "3+",
+          "damage": "3/5",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 7
+        }
+      ],
+      "abilities": [
+        {
+          "id": "competitive",
+          "name": "Competitive streak",
+          "body": "When using Betta keep up tactical ploy, if this operative is the secondary operative for the purpose of this ploy's rules, do not increase the Command point cost of this ploy for later uses.",
+          "sourcePage": 7
+        },
+        {
+          "id": "show-off",
+          "name": "Gun-crazy show-off",
+          "body": "After this operative makes a shooting attack, if the target didn't lose any wounds as a result of this shooting attack roll a D6. On a roll of 5+ repeat that shooting attack. Such extra shooting attacks cannot themselves generate any further attacks.",
+          "sourcePage": 7
+        }
+      ],
+      "actions": [],
+      "group": "FLASH GIT",
+      "stats": {
+        "M": "6″",
+        "APL": 2,
+        "GA": 1,
+        "DF": 3,
+        "SV": "5+",
+        "W": 12
+      },
+      "keywords": [
+        "MURDASPORT",
+        "ORK",
+        "<CLAN>",
+        "FLASH GIT",
+        "FLASH GIT BULLIT'EAD"
+      ],
+      "loadouts": [],
+      "maxSelections": 5,
+      "sourcePage": 7,
+      "image": "assets/flash-git-bullitead.png"
+    },
+    {
+      "id": "flash-git-madshiner",
+      "kind": "operative",
+      "name": "FLASH GIT MADSHINER",
+      "body": "",
+      "lore": "",
+      "cost": "",
+      "weapons": [
+        {
+          "id": "plaser-safe",
+          "name": "Safe",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "4/6",
+          "special": "AP1, Heavy",
+          "critical": "",
+          "group": "Plaser snazzgun",
+          "mode": "Safe",
+          "sourcePage": 8
+        },
+        {
+          "id": "plaser-crazy",
+          "name": "Crazy",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "4/5",
+          "special": "AP2, Hot",
+          "critical": "Splash 1",
+          "group": "Plaser snazzgun",
+          "mode": "Crazy",
+          "sourcePage": 8
+        },
+        {
+          "id": "plaser-insane",
+          "name": "Insane",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "4/4",
+          "special": "AP2, Lethal 5+, Superhot",
+          "critical": "Splash 2",
+          "group": "Plaser snazzgun",
+          "mode": "Insane",
+          "sourcePage": 8
+        },
+        {
+          "id": "massive-gun",
+          "name": "Massive gun",
+          "kind": "melee",
+          "attacks": 3,
+          "hit": "3+",
+          "damage": "3/5",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 7
+        }
+      ],
+      "abilities": [
+        {
+          "id": "superhot",
+          "name": "Superhot",
+          "body": "Each time a friendly operative makes a shooting attack with this weapon, in the Roll Attack Dice step of that shooting attack, for each attack dice that is discarded, that operative suffers three mortal wounds.",
+          "sourcePage": 8
+        },
+        {
+          "id": "rivalry",
+          "name": "Gun rivalry",
+          "body": "Each time this operative makes a shooting attack against a target equipped with a ranged weapon with APx special rule, its Plaser snazzgun gains Balanced special rule for that shooting attack.",
+          "sourcePage": 8
+        },
+        {
+          "id": "show-off",
+          "name": "Gun-crazy show-off",
+          "body": "After this operative makes a shooting attack, if the target didn't lose any wounds as a result of this shooting attack roll a D6. On a roll of 5+ repeat that shooting attack. Such extra shooting attacks cannot themselves generate any further attacks.",
+          "sourcePage": 7
+        }
+      ],
+      "actions": [],
+      "group": "FLASH GIT",
+      "stats": {
+        "M": "6″",
+        "APL": 2,
+        "GA": 1,
+        "DF": 3,
+        "SV": "5+",
+        "W": 12
+      },
+      "keywords": [
+        "MURDASPORT",
+        "ORK",
+        "<CLAN>",
+        "FLASH GIT",
+        "FLASH GIT MADSHINER"
+      ],
+      "loadouts": [],
+      "maxSelections": 1,
+      "sourcePage": 8,
+      "image": "assets/flash-git-madshiner.png"
+    }
+  ],
+  "ployNote": "Designer's note: any ploy with \"+\" costs 1 additional Command point for each previous time you have used it during the battle.",
+  "equipmentIntro": "MURDASPORT operatives in your kill team can be equipped with equipment from this list, as specified in the mission sequence. Any equipment marked with a 1 can be selected a maximum of once, and each operative can be equipped with no more than one of each item. NOB BASHA operative can only be equipped with equipment marked with a *.",
+  "layout": {
+    "accent": "#ec4b22",
+    "includeCover": false,
+    "includeAssembly": false
+  },
+  "sourceArchive": {
+    "equipment": [
+      {
+        "id": "stikkbomb",
+        "kind": "equipment",
+        "name": "STIKKBOMB",
+        "body": "The operative is equipped with the following ranged weapon for the battle:",
+        "lore": "",
+        "cost": "2EP",
+        "weapons": [
+          {
+            "id": "stikkbomb",
+            "name": "Stikkbomb",
+            "kind": "ranged",
+            "attacks": 4,
+            "hit": "3+",
+            "damage": "2/4",
+            "special": "Rng ⬟, Blast ○, Indirect, Limited",
+            "critical": "",
+            "group": "",
+            "mode": "",
+            "sourcePage": 9
+          }
+        ],
+        "abilities": [],
+        "actions": [],
+        "sourcePage": 9,
+        "unique": false,
+        "bashaAllowed": false,
+        "restriction": ""
+      },
+      {
+        "id": "choppa",
+        "kind": "equipment",
+        "name": "CHOPPA",
+        "body": "The operative is equipped with the following melee weapon for the battle:",
+        "lore": "",
+        "cost": "3EP",
+        "weapons": [
+          {
+            "id": "choppa",
+            "name": "Choppa",
+            "kind": "melee",
+            "attacks": 4,
+            "hit": "3+",
+            "damage": "4/5",
+            "special": "",
+            "critical": "",
+            "group": "",
+            "mode": "",
+            "sourcePage": 5
+          }
+        ],
+        "abilities": [],
+        "actions": [],
+        "sourcePage": 9,
+        "unique": false,
+        "bashaAllowed": false,
+        "restriction": "FLASH GIT operative only."
+      },
+      {
+        "id": "sawed-off",
+        "kind": "equipment",
+        "name": "SAWED OFF",
+        "body": "The operative is equipped with the following ranged weapon for the battle:",
+        "lore": "",
+        "cost": "2EP",
+        "weapons": [
+          {
+            "id": "sawed-off",
+            "name": "Sawed off",
+            "kind": "ranged",
+            "attacks": 4,
+            "hit": "3+",
+            "damage": "3/3",
+            "special": "Rng ⬟",
+            "critical": "",
+            "group": "",
+            "mode": "",
+            "sourcePage": 5
+          }
+        ],
+        "abilities": [],
+        "actions": [],
+        "sourcePage": 9,
+        "unique": false,
+        "bashaAllowed": false,
+        "restriction": "NOB operative only."
+      },
+      {
+        "id": "ammo-runt",
+        "kind": "equipment",
+        "name": "AMMO RUNT",
+        "body": "The operative gains the following ability for the battle:\nAmmo Runt: Once per battle this operative can perform a Shoot action for one less action point (to a minimum of 0AP).",
+        "lore": "",
+        "cost": "4EP",
+        "weapons": [],
+        "abilities": [],
+        "actions": [],
+        "sourcePage": 9,
+        "unique": true,
+        "bashaAllowed": false,
+        "restriction": ""
+      },
+      {
+        "id": "bigboss-pole",
+        "kind": "equipment",
+        "name": "BIGBOSS POLE",
+        "body": "The operative gains the following ability for the battle:\nBigboss Pole: When determining control of an objective marker, treat this operative's APL characteristic as being 1 higher. Note that this is not a modifier. In narrative play, this is cumulative with the Focused Battle Honour (see the Kill Team Core Book).",
+        "lore": "",
+        "cost": "2EP",
+        "weapons": [],
+        "abilities": [],
+        "actions": [],
+        "sourcePage": 9,
+        "unique": true,
+        "bashaAllowed": true,
+        "restriction": ""
+      },
+      {
+        "id": "cybork-body",
+        "kind": "equipment",
+        "name": "CYBORK BODY",
+        "body": "The operative gains the following ability for the battle:\nCybork body: This operative gains a 5+ invulnerable save for the battle.",
+        "lore": "",
+        "cost": "2EP",
+        "weapons": [],
+        "abilities": [],
+        "actions": [],
+        "sourcePage": 9,
+        "unique": false,
+        "bashaAllowed": false,
+        "restriction": ""
+      },
+      {
+        "id": "gitfinda-squig",
+        "kind": "equipment",
+        "name": "GITFINDA SQUIG",
+        "body": "The operative gains the following ability for the battle:\nGitfinda Squig: Each time this operative makes a shooting attack against a target that is not ready, its weapon gains No Cover special rule for that shooting attack.",
+        "lore": "",
+        "cost": "2EP",
+        "weapons": [],
+        "abilities": [],
+        "actions": [],
+        "sourcePage": 9,
+        "unique": true,
+        "bashaAllowed": false,
+        "restriction": ""
+      },
+      {
+        "id": "trophy",
+        "kind": "equipment",
+        "name": "PREVIOUS SEASON TROPHY",
+        "body": "The operative gains the following ability for the battle:\nPrevious season trophy: At the start of the first turning point an operative with Previous season trophy gains a Murdapoint.",
+        "lore": "",
+        "cost": "3EP",
+        "weapons": [],
+        "abilities": [],
+        "actions": [],
+        "sourcePage": 9,
+        "unique": true,
+        "bashaAllowed": true,
+        "restriction": ""
+      }
+    ],
+    "tacOps": [
+      {
+        "id": "instant-klassik",
+        "kind": "tacOp",
+        "name": "INSTANT KLASSIK",
+        "body": "• At the end of any Turning Point, if the last operative to incapacitate an enemy operative during this Turning Point is a friendly MURDASPORT operative, you score 1VP.\n• If you achieve the first condition at the end of any subsequent Turning Points, you score 1VP.",
+        "lore": "",
+        "cost": "",
+        "weapons": [],
+        "abilities": [],
+        "actions": [],
+        "sourcePage": 2,
+        "reveal": "Reveal this Tac Op in the Target Reveal step of any Turning Point.",
+        "number": 1
+      },
+      {
+        "id": "fair-play",
+        "kind": "tacOp",
+        "name": "FAIR PLAY",
+        "body": "• At the end of any Turning Point if you have friendly NUMBA ONE, RUNNA UP, KOMPETITOR and DARK SQUIG operatives in the killzone (these can be different operatives at different time, important part is to have all 4 keywords present), you score 1VP.\n• If you achieve the first condition at the end of any subsequent Turning Points, you score 1VP.",
+        "lore": "",
+        "cost": "",
+        "weapons": [],
+        "abilities": [],
+        "actions": [],
+        "sourcePage": 2,
+        "reveal": "You can reveal this Tac Op when you have friendly NUMBA ONE, RUNNA UP, KOMPETITOR and DARK SQUIG operatives in the killzone.",
+        "number": 2
+      },
+      {
+        "id": "gorkamorka",
+        "kind": "tacOp",
+        "name": "THIS POINT IS FOR YOU, GORKAMORKA!",
+        "body": "• If one friendly operative performed both Praise Gork! and Praise Mork! actions during the battle, you score 1VP.\n• If two or more friendly operatives performed both Praise Gork! and Praise Mork! actions during the battle, you score 1VP.\nFriendly operatives can perform Praise Gork! and Praise Mork! actions (see below).",
+        "lore": "",
+        "cost": "",
+        "weapons": [],
+        "abilities": [],
+        "actions": [
+          {
+            "id": "praise-gork",
+            "name": "PRAISE GORK!",
+            "body": "An operative can perform this action if it incapacitated one or more enemy operatives. An operative cannot perform this action while within Engagement Range of an enemy operative.",
+            "sourcePage": 2,
+            "cost": "1AP"
+          },
+          {
+            "id": "praise-mork",
+            "name": "PRAISE MORK!",
+            "body": "An operative can perform this action while it controls an objective marker and it is the only operative within ○ of this objective marker.",
+            "sourcePage": 2,
+            "cost": "1AP"
+          }
+        ],
+        "sourcePage": 2,
+        "reveal": "You can reveal this Tac Op the first time a friendly operative performs Praise Gork! action or Praise Mork! action (see below). At the end of the battle:",
+        "number": 3
+      }
+    ],
+    "extraPloys": [],
+    "legacyProject": {
+      "schemaVersion": 1,
+      "team": {
+        "id": "murdasport",
+        "name": "MURDASPORT",
+        "subtitle": "ORK KILL TEAM",
+        "version": "1.1",
+        "archetype": "SEEK AND DESTROY",
+        "size": 8,
+        "profileSystem": "M / APL / GA / DF / SV / W",
+        "source": "Murdasport_Kill_Team_v.1.1.pdf",
+        "templateSource": "Blades of Khaine",
+        "intro": "Below you will find a list of operatives that make up a MURDASPORT kill team, including, where relevant, any wargear those operatives must be equipped with.",
+        "quote": "ALL ORKS IS EQUAL, BUT SOME ORKS ARE MORE EQUAL DAN UVVAS.",
+        "quoteAuthor": "Nob Bugrat Skumdreg on being accused of taking more than his fair share of the booty from the latest battle.",
+        "selectionText": "Your kill team can only include up to five NOB operatives.\nYour kill team can only include up to five FLASH GIT operatives.\nNOB FIGHTA operative can be selected up to five times, FLASH GIT BOOMLAD operative can be selected up to two times, FLASH GIT BULLIT'EAD operative can be selected up to five times and each other option above can be selected once.",
+        "groupCaps": [
+          {
+            "keyword": "NOB",
+            "max": 5
+          },
+          {
+            "keyword": "FLASH GIT",
+            "max": 5
+          }
+        ],
+        "equipmentIntro": "MURDASPORT operatives in your kill team can be equipped with equipment from this list, as specified in the mission sequence. Any equipment marked with a 1 can be selected a maximum of once, and each operative can be equipped with no more than one of each item. NOB BASHA operative can only be equipped with equipment marked with a *.",
+        "ployNote": "Designer's note: any ploy with \"+\" costs 1 additional Command point for each previous time you have used it during the battle."
+      },
+      "operatives": [
+        {
+          "id": "nob-basha",
+          "name": "NOB BASHA",
+          "group": "NOB",
+          "stats": {
+            "M": "3○",
+            "APL": 2,
+            "GA": 1,
+            "DF": 3,
+            "SV": "4+",
+            "W": 13
+          },
+          "keywords": [
+            "MURDASPORT",
+            "ORK",
+            "<CLAN>",
+            "NOB",
+            "NOB BASHA"
+          ],
+          "weaponIds": [
+            "killsaw",
+            "basha-klaw"
+          ],
+          "abilityIds": [
+            "bersorker",
+            "supa-cybork"
+          ],
+          "actionIds": [],
+          "loadouts": [],
+          "maxSelections": 1,
+          "sourcePage": 5,
+          "image": "assets/nob-basha.png"
+        },
+        {
+          "id": "nob-hunta",
+          "name": "NOB HUNTA",
+          "group": "NOB",
+          "stats": {
+            "M": "3○",
+            "APL": 2,
+            "GA": 1,
+            "DF": 3,
+            "SV": "5+",
+            "W": 13
+          },
+          "keywords": [
+            "MURDASPORT",
+            "ORK",
+            "<CLAN>",
+            "NOB",
+            "NOB HUNTA"
+          ],
+          "weaponIds": [
+            "harpoon",
+            "nob-choppa"
+          ],
+          "abilityIds": [
+            "caught",
+            "not-so-fast"
+          ],
+          "actionIds": [
+            "got-em"
+          ],
+          "loadouts": [],
+          "maxSelections": 1,
+          "sourcePage": 6,
+          "image": "assets/nob-hunta.png"
+        },
+        {
+          "id": "nob-gunna",
+          "name": "NOB GUNNA",
+          "group": "NOB",
+          "stats": {
+            "M": "3○",
+            "APL": 2,
+            "GA": 1,
+            "DF": 3,
+            "SV": "5+",
+            "W": 13
+          },
+          "keywords": [
+            "MURDASPORT",
+            "ORK",
+            "<CLAN>",
+            "NOB",
+            "NOB GUNNA"
+          ],
+          "weaponIds": [
+            "kombi-rokkit",
+            "kombi-skorcha",
+            "sawed-off",
+            "shoota",
+            "choppa"
+          ],
+          "abilityIds": [
+            "all-trades"
+          ],
+          "actionIds": [],
+          "loadouts": [
+            {
+              "name": "Kombi-skorcha",
+              "weaponIds": [
+                "choppa",
+                "sawed-off",
+                "shoota",
+                "kombi-skorcha"
+              ]
+            },
+            {
+              "name": "Kombi-rokkit",
+              "weaponIds": [
+                "choppa",
+                "sawed-off",
+                "shoota",
+                "kombi-rokkit"
+              ]
+            }
+          ],
+          "maxSelections": 1,
+          "sourcePage": 5,
+          "image": "assets/nob-gunna.png"
+        },
+        {
+          "id": "nob-fighta",
+          "name": "NOB FIGHTA",
+          "group": "NOB",
+          "stats": {
+            "M": "3○",
+            "APL": 2,
+            "GA": 1,
+            "DF": 3,
+            "SV": "5+",
+            "W": 13
+          },
+          "keywords": [
+            "MURDASPORT",
+            "ORK",
+            "<CLAN>",
+            "NOB",
+            "NOB FIGHTA"
+          ],
+          "weaponIds": [
+            "slugga",
+            "big-choppa",
+            "nob-choppa",
+            "fighta-klaw"
+          ],
+          "abilityIds": [],
+          "actionIds": [],
+          "loadouts": [
+            {
+              "name": "Big choppa",
+              "weaponIds": [
+                "big-choppa"
+              ]
+            },
+            {
+              "name": "Slugga; nob choppa",
+              "weaponIds": [
+                "slugga",
+                "nob-choppa"
+              ]
+            },
+            {
+              "name": "Slugga; power klaw",
+              "weaponIds": [
+                "slugga",
+                "fighta-klaw"
+              ]
+            }
+          ],
+          "maxSelections": 5,
+          "sourcePage": 6,
+          "image": "assets/nob-fighta.png"
+        },
+        {
+          "id": "flash-git-boomlad",
+          "name": "FLASH GIT BOOMLAD",
+          "group": "FLASH GIT",
+          "stats": {
+            "M": "3○",
+            "APL": 2,
+            "GA": 1,
+            "DF": 3,
+            "SV": "5+",
+            "W": 12
+          },
+          "keywords": [
+            "MURDASPORT",
+            "ORK",
+            "<CLAN>",
+            "FLASH GIT",
+            "FLASH GIT BOOMLAD"
+          ],
+          "weaponIds": [
+            "booma-klassik",
+            "booma-frakk",
+            "booma-krakk",
+            "massive-gun"
+          ],
+          "abilityIds": [
+            "blasting",
+            "show-off"
+          ],
+          "actionIds": [],
+          "loadouts": [],
+          "maxSelections": 2,
+          "sourcePage": 7,
+          "image": "assets/flash-git-boomlad.png"
+        },
+        {
+          "id": "flash-git-bullitead",
+          "name": "FLASH GIT BULLIT'EAD",
+          "group": "FLASH GIT",
+          "stats": {
+            "M": "3○",
+            "APL": 2,
+            "GA": 1,
+            "DF": 3,
+            "SV": "5+",
+            "W": 12
+          },
+          "keywords": [
+            "MURDASPORT",
+            "ORK",
+            "<CLAN>",
+            "FLASH GIT",
+            "FLASH GIT BULLIT'EAD"
+          ],
+          "weaponIds": [
+            "bullit-dakka",
+            "bullit-more",
+            "bullit-all",
+            "massive-gun"
+          ],
+          "abilityIds": [
+            "competitive",
+            "show-off"
+          ],
+          "actionIds": [],
+          "loadouts": [],
+          "maxSelections": 5,
+          "sourcePage": 7,
+          "image": "assets/flash-git-bullitead.png"
+        },
+        {
+          "id": "flash-git-madshiner",
+          "name": "FLASH GIT MADSHINER",
+          "group": "FLASH GIT",
+          "stats": {
+            "M": "3○",
+            "APL": 2,
+            "GA": 1,
+            "DF": 3,
+            "SV": "5+",
+            "W": 12
+          },
+          "keywords": [
+            "MURDASPORT",
+            "ORK",
+            "<CLAN>",
+            "FLASH GIT",
+            "FLASH GIT MADSHINER"
+          ],
+          "weaponIds": [
+            "plaser-safe",
+            "plaser-crazy",
+            "plaser-insane",
+            "massive-gun"
+          ],
+          "abilityIds": [
+            "superhot",
+            "rivalry",
+            "show-off"
+          ],
+          "actionIds": [],
+          "loadouts": [],
+          "maxSelections": 1,
+          "sourcePage": 8,
+          "image": "assets/flash-git-madshiner.png"
+        }
+      ],
+      "weapons": [
+        {
+          "id": "killsaw",
+          "name": "Killsaw",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "5/7",
+          "special": "Ceaseless",
+          "critical": "Rending",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "basha-klaw",
+          "name": "Power klaw",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "5/7",
+          "special": "Ceaseless, Brutal",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "kombi-rokkit",
+          "name": "Kombi-rokkit",
+          "kind": "ranged",
+          "attacks": 5,
+          "hit": "4+",
+          "damage": "4/5",
+          "special": "AP1, Limited",
+          "critical": "Splash 1",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "kombi-skorcha",
+          "name": "Kombi-skorcha",
+          "kind": "ranged",
+          "attacks": 6,
+          "hit": "2+",
+          "damage": "2/2",
+          "special": "Torrent, Rng ⬟, Limited",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "sawed-off",
+          "name": "Sawed off",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "3+",
+          "damage": "3/3",
+          "special": "Rng ⬟",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "shoota",
+          "name": "Shoota",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "3/4",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "choppa",
+          "name": "Choppa",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "3+",
+          "damage": "4/5",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 5
+        },
+        {
+          "id": "harpoon",
+          "name": "Harpoon arm",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "4/5",
+          "special": "Caught!",
+          "critical": "Stun",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        },
+        {
+          "id": "nob-choppa",
+          "name": "Nob choppa",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "3+",
+          "damage": "4/6",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        },
+        {
+          "id": "slugga",
+          "name": "Slugga",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "3/4",
+          "special": "Rng ⬟",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        },
+        {
+          "id": "big-choppa",
+          "name": "Big choppa",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "3+",
+          "damage": "5/6",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        },
+        {
+          "id": "fighta-klaw",
+          "name": "Power klaw",
+          "kind": "melee",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "5/7",
+          "special": "Brutal",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 6
+        },
+        {
+          "id": "booma-klassik",
+          "name": "Klassik",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "3/5",
+          "special": "Blast ▲",
+          "critical": "",
+          "group": "Booma snazzgun",
+          "mode": "Klassik",
+          "sourcePage": 7
+        },
+        {
+          "id": "booma-frakk",
+          "name": "Frakk",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "2/4",
+          "special": "Blast ○, Limited",
+          "critical": "",
+          "group": "Booma snazzgun",
+          "mode": "Frakk",
+          "sourcePage": 7
+        },
+        {
+          "id": "booma-krakk",
+          "name": "Krakk",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "4/6",
+          "special": "AP1, Limited",
+          "critical": "Stun",
+          "group": "Booma snazzgun",
+          "mode": "Krakk",
+          "sourcePage": 7
+        },
+        {
+          "id": "massive-gun",
+          "name": "Massive gun",
+          "kind": "melee",
+          "attacks": 3,
+          "hit": "3+",
+          "damage": "3/5",
+          "special": "",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 7
+        },
+        {
+          "id": "bullit-dakka",
+          "name": "Dakka",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "3/5",
+          "special": "",
+          "critical": "",
+          "group": "Bullit snazzgun",
+          "mode": "Dakka",
+          "sourcePage": 7
+        },
+        {
+          "id": "bullit-more",
+          "name": "More Dakka",
+          "kind": "ranged",
+          "attacks": 5,
+          "hit": "4+",
+          "damage": "3/5",
+          "special": "Fusilade, Heavy, Ceaseless",
+          "critical": "",
+          "group": "Bullit snazzgun",
+          "mode": "More Dakka",
+          "sourcePage": 7
+        },
+        {
+          "id": "bullit-all",
+          "name": "All the Dakka",
+          "kind": "ranged",
+          "attacks": 6,
+          "hit": "4+",
+          "damage": "3/5",
+          "special": "Fusilade, Heavy, Unwieldy, Relentless",
+          "critical": "",
+          "group": "Bullit snazzgun",
+          "mode": "All the Dakka",
+          "sourcePage": 7
+        },
+        {
+          "id": "plaser-safe",
+          "name": "Safe",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "4/6",
+          "special": "AP1, Heavy",
+          "critical": "",
+          "group": "Plaser snazzgun",
+          "mode": "Safe",
+          "sourcePage": 8
+        },
+        {
+          "id": "plaser-crazy",
+          "name": "Crazy",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "4/5",
+          "special": "AP2, Hot",
+          "critical": "Splash 1",
+          "group": "Plaser snazzgun",
+          "mode": "Crazy",
+          "sourcePage": 8
+        },
+        {
+          "id": "plaser-insane",
+          "name": "Insane",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "4+",
+          "damage": "4/4",
+          "special": "AP2, Lethal 5+, Superhot",
+          "critical": "Splash 2",
+          "group": "Plaser snazzgun",
+          "mode": "Insane",
+          "sourcePage": 8
+        },
+        {
+          "id": "stikkbomb",
+          "name": "Stikkbomb",
+          "kind": "ranged",
+          "attacks": 4,
+          "hit": "3+",
+          "damage": "2/4",
+          "special": "Rng ⬟, Blast ○, Indirect, Limited",
+          "critical": "",
+          "group": "",
+          "mode": "",
+          "sourcePage": 9
+        }
+      ],
+      "abilities": [
+        {
+          "id": "bersorker",
+          "name": "Bersorker",
+          "body": "Each time this operative would perform a mission action (except Praise Gork! and Praise Mork! actions) or Pick Up action, you must subtract one additional action point to do so.",
+          "sourcePage": 5
+        },
+        {
+          "id": "supa-cybork",
+          "name": "Supa-Cybork body",
+          "body": "This operative is equipped with Cybork body and it does not cost any equipment points. Each time this operative would lose a wound, roll one D6: on a 6, that wound is not lost.",
+          "sourcePage": 5
+        },
+        {
+          "id": "all-trades",
+          "name": "Nob of all trades",
+          "body": "You can ignore any or all modifiers to the Weapon Skill and Ballistic Skill characteristics of this operative's weapons.",
+          "sourcePage": 5
+        },
+        {
+          "id": "caught",
+          "name": "Caught!",
+          "body": "Each time a friendly operative makes a shooting attack with this weapon, in the Resolve Successful Hits step of that shooting attack, if the enemy operative suffers any damage, until the end of the Turning Point, subtract ○ from that enemy operative's Movement characteristic and it cannot perform the Dash action.",
+          "sourcePage": 6
+        },
+        {
+          "id": "not-so-fast",
+          "name": "Not so fast",
+          "body": "Once per Turning Point, when an enemy operative is performing a Normal Move, Dash or Fall Back action and moves within ■ of this operative, you can interrupt that action to perform a free Shoot action with its Harpon Arm (if this operative has a Conceal order, change it to an Engage order to do so). After the shooting attack is finished the enemy operative may continue its action, but due to the Harpon Arm's Caught! unique rule it may no longer have any movement left.",
+          "sourcePage": 6
+        },
+        {
+          "id": "blasting",
+          "name": "Blasting speshalist",
+          "body": "Each time a shooting attack is made against this operative, if the ranged weapon has Blast special rule, or makes a shooting attack against each operative within range of a specified point, in the Roll Defence Dice step of that shooting attack, you can re-roll any or all of your defence dice.",
+          "sourcePage": 7
+        },
+        {
+          "id": "show-off",
+          "name": "Gun-crazy show-off",
+          "body": "After this operative makes a shooting attack, if the target didn't lose any wounds as a result of this shooting attack roll a D6. On a roll of 5+ repeat that shooting attack. Such extra shooting attacks cannot themselves generate any further attacks.",
+          "sourcePage": 7
+        },
+        {
+          "id": "competitive",
+          "name": "Competitive streak",
+          "body": "When using Betta keep up tactical ploy, if this operative is the secondary operative for the purpose of this ploy's rules, do not increase the Command point cost of this ploy for later uses.",
+          "sourcePage": 7
+        },
+        {
+          "id": "superhot",
+          "name": "Superhot",
+          "body": "Each time a friendly operative makes a shooting attack with this weapon, in the Roll Attack Dice step of that shooting attack, for each attack dice that is discarded, that operative suffers three mortal wounds.",
+          "sourcePage": 8
+        },
+        {
+          "id": "rivalry",
+          "name": "Gun rivalry",
+          "body": "Each time this operative makes a shooting attack against a target equipped with a ranged weapon with APx special rule, its Plaser snazzgun gains Balanced special rule for that shooting attack.",
+          "sourcePage": 8
+        }
+      ],
+      "actions": [
+        {
+          "id": "got-em",
+          "name": "Got 'em!",
+          "body": "Perform a free Shoot action with this operative's Harpon Arm, then perform a free Charge action with this operative. If this operative performs a Charge action while finishing the move within Engagement Range of the enemy operative it has just made a shooting attack against, add ○ to this friendly operative's overall Charge distance.",
+          "sourcePage": 6,
+          "cost": "1AP"
+        },
+        {
+          "id": "praise-gork",
+          "name": "PRAISE GORK!",
+          "body": "An operative can perform this action if it incapacitated one or more enemy operatives. An operative cannot perform this action while within Engagement Range of an enemy operative.",
+          "sourcePage": 2,
+          "cost": "1AP"
+        },
+        {
+          "id": "praise-mork",
+          "name": "PRAISE MORK!",
+          "body": "An operative can perform this action while it controls an objective marker and it is the only operative within ○ of this objective marker.",
+          "sourcePage": 2,
+          "cost": "1AP"
+        }
+      ],
+      "factionRules": [
+        {
+          "id": "murdasport",
+          "name": "MURDASPORT",
+          "body": "In the Select a Kill Team step of the mission sequence, you must select one friendly MURDASPORT operative to gain the LEADER keyword for the battle as well as gain a Murdapoint.\nEach time MURDASPORT operative incapacitates an enemy operative or performs mission action (other than Operate Hatch) it gains a Murdapoint. At the start of the first turning point, as well as after the end of each individual action, MURDASPORT operatives gain and/or lose specific keywords depending on a current number of Murdapoints each friendly operative has. Note MURDASPORT operatives may gain and lose such keywords in the same activation, thus gaining/losing the corresponding abilities available with such keywords. If a MURDASPORT operative is incapacitated, it loses all of its Murdapoints and all specific keywords associated with this unique rule.\nNote that you cannot have more than one friendly NUMBA ONE operative, more than one friendly RUNNA UP operative and more than one friendly DARK SQUIG operative concurrently.",
+          "sourcePage": 3,
+          "lore": "Besides fighting, orks may like all manner of different things. Fast vehicles, squig herding, getting rich with teef. But for every ork sooner or later all of such hobbies transform into a way to murder. This of course includes sports and games. And with orks' fight-loving nature such games usually take a bloody turn."
+        },
+        {
+          "id": "numba-one",
+          "name": "NUMBA ONE",
+          "body": "A friendly MURDASPORT operative, who currently has more Murdapoints than all other friendly MURDASPORT operatives.",
+          "sourcePage": 3
+        },
+        {
+          "id": "runna-up",
+          "name": "RUNNA UP",
+          "body": "A friendly MURDASPORT operative, who currently has more Murdapoints than all other friendly MURDASPORT operatives, except friendly NUMBA ONE operative.\nFor the purpose of bonuses listed below RUNNA UP operative is always considered to have a KOMPETITOR keyword.\nOnce per Turning point, during friendly RUNNA UP operative activation it may perform one Shoot or Fight action for one less action point (to a minimum of 0AP).",
+          "sourcePage": 3
+        },
+        {
+          "id": "dark-squig",
+          "name": "DARK SQUIG",
+          "body": "A friendly MURDASPORT operative, who currently has less Murdapoints than all other friendly MURDASPORT operatives.\nFor the purpose of bonuses listed above and below DARK SQUIG operative is always considered to have RUNNA UP and KOMPETITOR keywords.\nOnce per Turning point, during friendly DARK SQUIG operative activation it may perform one specific action twice.",
+          "sourcePage": 3
+        },
+        {
+          "id": "kompetitor",
+          "name": "KOMPETITOR",
+          "body": "A friendly MURDASPORT operative, who currently doesn't have a NUMBA ONE, RUNNA UP or DARK SQUIG keywords.\nEach friendly KOMPETITOR operative once per Turning point may do one of the following during its activation:\n• If it performed a Charge action during this activation it may re-roll one of its attack dice in the Roll Attack Dice step of a combat.\n• If it either spends its last action point for Shoot action or performs a 0AP Shoot action after spending all of its action points in the Roll Attack Dice step of this shooting attack, you can re-roll one of your attack dice.",
+          "sourcePage": 3
+        }
+      ],
+      "tacOps": [
+        {
+          "id": "instant-klassik",
+          "name": "INSTANT KLASSIK",
+          "body": "• At the end of any Turning Point, if the last operative to incapacitate an enemy operative during this Turning Point is a friendly MURDASPORT operative, you score 1VP.\n• If you achieve the first condition at the end of any subsequent Turning Points, you score 1VP.",
+          "sourcePage": 2,
+          "reveal": "Reveal this Tac Op in the Target Reveal step of any Turning Point.",
+          "number": 1,
+          "actionIds": []
+        },
+        {
+          "id": "fair-play",
+          "name": "FAIR PLAY",
+          "body": "• At the end of any Turning Point if you have friendly NUMBA ONE, RUNNA UP, KOMPETITOR and DARK SQUIG operatives in the killzone (these can be different operatives at different time, important part is to have all 4 keywords present), you score 1VP.\n• If you achieve the first condition at the end of any subsequent Turning Points, you score 1VP.",
+          "sourcePage": 2,
+          "reveal": "You can reveal this Tac Op when you have friendly NUMBA ONE, RUNNA UP, KOMPETITOR and DARK SQUIG operatives in the killzone.",
+          "number": 2,
+          "actionIds": []
+        },
+        {
+          "id": "gorkamorka",
+          "name": "THIS POINT IS FOR YOU, GORKAMORKA!",
+          "body": "• If one friendly operative performed both Praise Gork! and Praise Mork! actions during the battle, you score 1VP.\n• If two or more friendly operatives performed both Praise Gork! and Praise Mork! actions during the battle, you score 1VP.\nFriendly operatives can perform Praise Gork! and Praise Mork! actions (see below).",
+          "sourcePage": 2,
+          "reveal": "You can reveal this Tac Op the first time a friendly operative performs Praise Gork! action or Praise Mork! action (see below). At the end of the battle:",
+          "number": 3,
+          "actionIds": [
+            "praise-gork",
+            "praise-mork"
+          ]
+        }
+      ],
+      "ploys": [
+        {
+          "id": "waaagh",
+          "name": "BIG WAAAGH!",
+          "body": "Until the end of the Turning point, each time a friendly MURDASPORT operative fights in combat or makes a shooting attack in the roll attack dice step of that combat or shooting attack, if you retained any critical hits, you can select one of your failed hits to be retained as a successful normal hit, if you didn't retain any critical hits, you can select one of your normal hits to be retained as a critical hit instead. You can only use this Strategic Ploy once.",
+          "sourcePage": 4,
+          "category": "Strategic",
+          "cost": "1CP",
+          "escalating": false
+        },
+        {
+          "id": "green-envy",
+          "name": "GREEN ENVY",
+          "body": "Select one friendly MURDASPORT operative currently controlling an objective marker or within Engagement Range of an enemy operative. If this MURDASPORT operative is Visible to any other friendly MURDASPORT operatives, these other friendly MURDASPORT operatives may immediately perform a free Dash action, but must finish that move closer to the originally chosen MURDASPORT operative.",
+          "sourcePage": 4,
+          "category": "Strategic",
+          "cost": "1+CP",
+          "escalating": true
+        },
+        {
+          "id": "team-up",
+          "name": "WE 'AVE TO TEAM UP FOR DA WIN",
+          "body": "Count the number of Murdapoints friendly MURDASPORT operatives currently have. Remove all those Murdapoints. Freely reassign the Murdapoints equal to the aforementioned number between friendly MURDASPORT operatives. You cannot use this Strategic ploy during the first or second Turning Points.",
+          "sourcePage": 4,
+          "category": "Strategic",
+          "cost": "1CP",
+          "escalating": false
+        },
+        {
+          "id": "murdafever",
+          "name": "MURDAFEVER",
+          "body": "Until the end of the Turning Point, each time a friendly MURDASPORT operative performs an action in which it moves, it can ignore the first distance of ○ it travels for climb, drop or traverse. However for each ▲ of ignored movement distance it immediately suffers a mortal wound.",
+          "sourcePage": 4,
+          "category": "Strategic",
+          "cost": "1CP",
+          "escalating": false
+        },
+        {
+          "id": "keep-up",
+          "name": "BETTA KEEP UP",
+          "body": "Use this Tactical Ploy when a friendly MURDASPORT operative incapacitates an enemy operative who is within ⬟ of your other friendly MURDASPORT operative that is not ready. That second friendly MURDASPORT operative can immediately perform a free Overwatch or free Fight action.",
+          "sourcePage": 4,
+          "category": "Tactical",
+          "cost": "0+CP",
+          "escalating": true
+        },
+        {
+          "id": "did-it",
+          "name": "I DID IT, YOU JUST 'AVEN'T SEEN IT",
+          "body": "Use this Tactical Ploy at the end of MURDASPORT operative's activation. Check other friendly MURDASPORT operatives' Line of Sight to this operative as if it is an enemy to them. If this operative is not within Line of Sight of any other friendly MURDASPORT operatives it gains a Murdapoint.",
+          "sourcePage": 4,
+          "category": "Tactical",
+          "cost": "1CP",
+          "escalating": false
+        },
+        {
+          "id": "cheat",
+          "name": "SHOW OFF OR CHEAT",
+          "body": "Use this Tactical ploy when a friendly MURDASPORT operative performs a Fight or Shoot action. You may declare it is, until the end of this action, either Showing off or Openly cheating. While it is Showing off, subtract one from the Attacks characteristic of ranged and melee weapons this operative is equipped with. If it successfully incapacitates an enemy operative while Showing off it gains one additional Murdapoint. While it is Openly cheating add one to the Attacks characteristic of ranged and melee weapons this operative is equipped with (to a maximum of 6). If it successfully incapacitates an enemy operative while Openly cheating it doesn't gain any Murdapoints.",
+          "sourcePage": 4,
+          "category": "Tactical",
+          "cost": "1CP",
+          "escalating": false
+        }
+      ],
+      "equipment": [
+        {
+          "id": "stikkbomb",
+          "name": "STIKKBOMB",
+          "body": "The operative is equipped with the following ranged weapon for the battle:",
+          "sourcePage": 9,
+          "cost": "2EP",
+          "weaponIds": [
+            "stikkbomb"
+          ],
+          "unique": false,
+          "bashaAllowed": false,
+          "restriction": ""
+        },
+        {
+          "id": "choppa",
+          "name": "CHOPPA",
+          "body": "The operative is equipped with the following melee weapon for the battle:",
+          "sourcePage": 9,
+          "cost": "3EP",
+          "weaponIds": [
+            "choppa"
+          ],
+          "unique": false,
+          "bashaAllowed": false,
+          "restriction": "FLASH GIT operative only."
+        },
+        {
+          "id": "sawed-off",
+          "name": "SAWED OFF",
+          "body": "The operative is equipped with the following ranged weapon for the battle:",
+          "sourcePage": 9,
+          "cost": "2EP",
+          "weaponIds": [
+            "sawed-off"
+          ],
+          "unique": false,
+          "bashaAllowed": false,
+          "restriction": "NOB operative only."
+        },
+        {
+          "id": "ammo-runt",
+          "name": "AMMO RUNT",
+          "body": "The operative gains the following ability for the battle:\nAmmo Runt: Once per battle this operative can perform a Shoot action for one less action point (to a minimum of 0AP).",
+          "sourcePage": 9,
+          "cost": "4EP",
+          "weaponIds": [],
+          "unique": true,
+          "bashaAllowed": false,
+          "restriction": ""
+        },
+        {
+          "id": "bigboss-pole",
+          "name": "BIGBOSS POLE",
+          "body": "The operative gains the following ability for the battle:\nBigboss Pole: When determining control of an objective marker, treat this operative's APL characteristic as being 1 higher. Note that this is not a modifier. In narrative play, this is cumulative with the Focused Battle Honour (see the Kill Team Core Book).",
+          "sourcePage": 9,
+          "cost": "2EP",
+          "weaponIds": [],
+          "unique": true,
+          "bashaAllowed": true,
+          "restriction": ""
+        },
+        {
+          "id": "cybork-body",
+          "name": "CYBORK BODY",
+          "body": "The operative gains the following ability for the battle:\nCybork body: This operative gains a 5+ invulnerable save for the battle.",
+          "sourcePage": 9,
+          "cost": "2EP",
+          "weaponIds": [],
+          "unique": false,
+          "bashaAllowed": false,
+          "restriction": ""
+        },
+        {
+          "id": "gitfinda-squig",
+          "name": "GITFINDA SQUIG",
+          "body": "The operative gains the following ability for the battle:\nGitfinda Squig: Each time this operative makes a shooting attack against a target that is not ready, its weapon gains No Cover special rule for that shooting attack.",
+          "sourcePage": 9,
+          "cost": "2EP",
+          "weaponIds": [],
+          "unique": true,
+          "bashaAllowed": false,
+          "restriction": ""
+        },
+        {
+          "id": "trophy",
+          "name": "PREVIOUS SEASON TROPHY",
+          "body": "The operative gains the following ability for the battle:\nPrevious season trophy: At the start of the first turning point an operative with Previous season trophy gains a Murdapoint.",
+          "sourcePage": 9,
+          "cost": "3EP",
+          "weaponIds": [],
+          "unique": true,
+          "bashaAllowed": true,
+          "restriction": ""
+        }
+      ],
+      "appendices": [
+        {
+          "id": "assembly",
+          "name": "Murdasport assembly guide",
+          "image": "assets/assembly.jpg",
+          "sourcePage": 10
+        }
+      ],
+      "layout": {
+        "accent": "#ec4b22",
+        "includeCover": true,
+        "includeAssembly": true
+      },
+      "notes": [
+        {
+          "title": "Source notation",
+          "text": "Distance symbols are preserved from the source: triangle, circle, square and pentagon. No rules conversion has been applied."
+        },
+        {
+          "title": "Murdapoints ties",
+          "text": "The source describes more / less Murdapoints, but does not specify a tie-break procedure. No tie-break rule has been added."
+        },
+        {
+          "title": "Reconstruction",
+          "text": "Rules and profiles have been transcribed from the supplied image-only PDF. Page references refer to that source. Model images and the assembly guide are source artwork."
+        }
+      ]
+    },
+    "selectionBeforeMigration": [
+      {
+        "id": "team-selection",
+        "kind": "selection",
+        "name": "MURDASPORT KILL TEAM",
+        "body": "Below you will find a list of operatives that make up a MURDASPORT kill team, including, where relevant, any wargear those operatives must be equipped with.",
+        "lore": "",
+        "cost": "",
+        "weapons": [],
+        "abilities": [],
+        "actions": [],
+        "size": 8,
+        "archetype": "SEEK AND DESTROY",
+        "quote": "ALL ORKS IS EQUAL, BUT SOME ORKS ARE MORE EQUAL DAN UVVAS.",
+        "quoteAuthor": "Nob Bugrat Skumdreg on being accused of taking more than his fair share of the booty from the latest battle.",
+        "sourcePage": 1
+      }
+    ]
+  },
+  "notes": [
+    {
+      "title": "Source notation",
+      "text": "Distances are expressed in inches: triangle = 1 inch, circle = 2 inches, square = 3 inches, pentagon = 6 inches. Multipliers are applied (3 circles = 6 inches). Other source mechanics are unchanged."
+    },
+    {
+      "title": "Murdapoints ties",
+      "text": "The source describes more / less Murdapoints, but does not specify a tie-break procedure. No tie-break rule has been added."
+    },
+    {
+      "title": "Reconstruction",
+      "text": "Rules and profiles have been transcribed from the supplied image-only PDF. Page references refer to that source. Model images and the assembly guide are source artwork."
+    }
+  ],
+  "selectionCards": [
+    {
+      "id": "team-selection",
+      "kind": "selection",
+      "name": "MURDASPORT KILL TEAM",
+      "body": "Below you will find a list of operatives that make up a MURDASPORT kill team, including, where relevant, any wargear those operatives must be equipped with.",
+      "lore": "",
+      "cost": "",
+      "weapons": [],
+      "abilities": [],
+      "actions": [],
+      "size": 8,
+      "quote": "ALL ORKS IS EQUAL, BUT SOME ORKS ARE MORE EQUAL DAN UVVAS.",
+      "quoteAuthor": "Nob Bugrat Skumdreg on being accused of taking more than his fair share of the booty from the latest battle.",
+      "sourcePage": 1,
+      "archetypes": [
+        "SEEK AND DESTROY",
+        ""
+      ],
+      "excludedOperativeIds": [],
+      "selectionGroups": [
+        {
+          "id": "group-1",
+          "count": 8,
+          "description": "MURDASPORT operatives selected from the following list:",
+          "entries": [
+            {
+              "id": "nob-basha",
+              "operativeId": "nob-basha",
+              "text": "NOB BASHA",
+              "options": []
+            },
+            {
+              "id": "nob-hunta",
+              "operativeId": "nob-hunta",
+              "text": "NOB HUNTA",
+              "options": []
+            },
+            {
+              "id": "nob-gunna",
+              "operativeId": "nob-gunna",
+              "text": "NOB GUNNA",
+              "options": [
+                "Choppa; Sawed off; Shoota; Kombi-skorcha",
+                "Choppa; Sawed off; Shoota; Kombi-rokkit"
+              ]
+            },
+            {
+              "id": "nob-fighta",
+              "operativeId": "nob-fighta",
+              "text": "NOB FIGHTA",
+              "options": [
+                "Big choppa",
+                "Slugga; Nob choppa",
+                "Slugga; Power klaw"
+              ]
+            },
+            {
+              "id": "flash-git-boomlad",
+              "operativeId": "flash-git-boomlad",
+              "text": "FLASH GIT BOOMLAD",
+              "options": []
+            },
+            {
+              "id": "flash-git-bullitead",
+              "operativeId": "flash-git-bullitead",
+              "text": "FLASH GIT BULLIT'EAD",
+              "options": []
+            },
+            {
+              "id": "flash-git-madshiner",
+              "operativeId": "flash-git-madshiner",
+              "text": "FLASH GIT MADSHINER",
+              "options": []
+            }
+          ]
+        }
+      ],
+      "selectionRules": "",
+      "selectionNotes": ""
+    }
+  ]
+}

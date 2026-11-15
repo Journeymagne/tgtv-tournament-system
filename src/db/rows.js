@@ -1,6 +1,10 @@
+const { avatarUrl } = require("../domain/avatars");
+
+// avatar_version, not avatar_data: the image itself is served by
+// GET /api/users/:id/avatar and never selected here.
 const USER_COLUMNS = `
-  id, name, name_key, password_hash, avatar_data, register_nickname,
-  telegram_contact, challenge_credits, rating, rating_tts, rating_irl,
+  id, name, name_key, ${['monolith','accounts'].includes(process.env.SERVICE_NAME || 'monolith') ? 'password_hash,' : ''} avatar_version, register_nickname,
+  telegram_contact, bcp_email, challenge_credits, rating, rating_tts, rating_irl, rating_combined,
   is_admin, created_at, updated_at
 `;
 
@@ -18,17 +22,23 @@ const FEEDBACK_COLUMNS = `
 `;
 
 const TOURNAMENT_COLUMNS = `
-  id, owner_user_id, slug, name, description, game_system, starts_at,
+  id, owner_user_id, slug, name, logo_data, description, game_system, starts_at,
   rules_summary, rules_link, status, format, swiss_round_count,
-  single_elimination_size, tiebreaker_order, rating_policy,
-  challenge_credit_policy, season_id, venue_mode, final_results, round_draft,
-  published_at, started_at,
+  single_elimination_size, tiebreaker_order, pairing_mode, rating_policy,
+  challenge_credit_policy, season_id, venue_mode, venue_address, final_results, round_draft,
+  participant_mode, team_size, pairing_type, team_tables_locked, registration_limit, captain_pairing_enabled, team_tiebreaker_order,
+  faction_count, published_at, started_at,
   completed_at, cancelled_at, created_at, updated_at
 `;
 
+// Text-only game clients need rules/permissions metadata, not embedded uploads,
+// editorial content or tournament-wide result/draft documents over the wire.
+const COMPACT_TOURNAMENT_COLUMNS = TOURNAMENT_COLUMNS.split(',').map(column => column.trim())
+  .filter(column => column && !['logo_data', 'description', 'rules_summary', 'rules_link', 'final_results', 'round_draft'].includes(column)).join(', ');
+
 const TOURNAMENT_PARTICIPANT_COLUMNS = `
-  id, tournament_id, user_id, display_name, display_name_key, faction,
-  faction_rules, seed, status, source, joined_at, withdrawn_at, removed_at,
+  id, tournament_id, user_id, display_name, display_name_key, faction, factions,
+  faction_rules, seed, status, source, paid, is_proxy, joined_at, withdrawn_at, removed_at,
   placed_at, updated_at
 `;
 
@@ -41,7 +51,7 @@ const TOURNAMENT_MATCH_COLUMNS = `
   id, tournament_id, round_id, round_number, bracket_position, status,
   is_bye, participant_a_id, participant_b_id, source_match_a_id,
   source_match_b_id, winner_participant_id, pending_result, result,
-  match_points, elo, game_id, submitted_by_user_id, table_id, mission,
+  match_points, elo, game_id, submitted_by_user_id, table_id, mission, participant_snapshots,
   completed_at, created_at, updated_at
 `;
 
@@ -80,14 +90,16 @@ function mapUser(row) {
     id: row.id,
     name: row.name,
     passwordHash: row.password_hash,
-    avatarData: row.avatar_data || null,
+    avatarUrl: avatarUrl(row.id, row.avatar_version),
     registerNickname: row.register_nickname || "",
     telegramContact: row.telegram_contact || "",
+    bcpEmail: row.bcp_email || "",
     challengeCredits: Array.isArray(row.challenge_credits) ? row.challenge_credits : [],
     rating: row.rating_tts ?? row.rating,
     ratings: {
       tts: row.rating_tts ?? row.rating,
-      irl: row.rating_irl ?? row.rating
+      irl: row.rating_irl ?? row.rating,
+      combined: row.rating_combined ?? row.rating
     },
     isAdmin: row.is_admin,
     createdAt: toIso(row.created_at),
@@ -150,6 +162,7 @@ function mapTournament(row) {
     ownerUserId: row.owner_user_id,
     slug: row.slug,
     name: row.name || "",
+    logoData: row.logo_data || null,
     description: row.description || "",
     gameSystem: row.game_system || "",
     startsAt: toIso(row.starts_at),
@@ -159,13 +172,23 @@ function mapTournament(row) {
     format: row.format,
     swissRoundCount: row.swiss_round_count,
     singleEliminationSize: row.single_elimination_size,
+    pairingMode: row.pairing_mode || "backet_random",
     tiebreakerOrder: row.tiebreaker_order || [],
     ratingPolicy: row.rating_policy || "ranked",
     challengeCreditPolicy: row.challenge_credit_policy || "count",
-    seasonId: row.season_id || "2026-q2-dataslate",
+    seasonId: row.season_id || "2026-q3-dataslate",
     venueMode: row.venue_mode || "tts",
+    venueAddress: row.venue_address || "",
     finalResults: row.final_results || null,
     roundDraft: row.round_draft || null,
+    participantMode: row.participant_mode || "individual",
+    teamSize: row.team_size || null,
+    pairingType: row.pairing_type || null,
+    captainPairingEnabled: row.captain_pairing_enabled !== false,
+    teamTiebreakerOrder: row.team_tiebreaker_order ?? null,
+    teamTablesLocked: Boolean(row.team_tables_locked),
+    registrationLimit: row.registration_limit || null,
+    factionCount: row.faction_count || 1,
     participantCount: row.participant_count === undefined ? undefined : Number(row.participant_count || 0),
     roundCount: row.round_count === undefined ? undefined : Number(row.round_count || 0),
     publishedAt: toIso(row.published_at),
@@ -185,7 +208,10 @@ function mapTournamentParticipant(row) {
     userId: row.user_id,
     displayName: row.display_name,
     displayNameKey: row.display_name_key,
+    isProxy: Boolean(row.is_proxy),
+    paid: Boolean(row.paid),
     faction: row.faction || "",
+    factions: row.factions?.length ? row.factions : row.faction ? [row.faction] : [],
     factionRules: row.faction_rules || "",
     seed: row.seed,
     status: row.status,
@@ -224,6 +250,7 @@ function mapTournamentMatch(row) {
     bracketPosition: row.bracket_position,
     status: row.status,
     isBye: Boolean(row.is_bye),
+    participantSnapshots: row.participant_snapshots || {},
     participantAId: row.participant_a_id,
     participantBId: row.participant_b_id,
     sourceMatchAId: row.source_match_a_id,
@@ -278,6 +305,7 @@ module.exports = {
   GAME_COLUMNS,
   FEEDBACK_COLUMNS,
   TOURNAMENT_COLUMNS,
+  COMPACT_TOURNAMENT_COLUMNS,
   TOURNAMENT_PARTICIPANT_COLUMNS,
   TOURNAMENT_ROUND_COLUMNS,
   TOURNAMENT_MATCH_COLUMNS,

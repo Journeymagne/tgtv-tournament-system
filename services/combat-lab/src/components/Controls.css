@@ -1,0 +1,274 @@
+/* Shared calculator control styles (stepper, checkbox lists, block headers,
+   results list). Hover states live here because inline styles can't express
+   them. Colors match src/theme.ts. */
+
+.IncDec {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.IncDec-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5563;
+  line-height: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.IncDec-row {
+  display: flex;
+  /* min-height, not height, so text zoom can grow the select. */
+  min-height: 30px;
+}
+
+.IncDec-btn {
+  width: 28px;
+  flex: none;
+  border: 0;
+  background-color: #252b32;
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+
+.IncDec-btn:hover {
+  background-color: #343a40;
+}
+
+.IncDec-btn--dec {
+  border-radius: 4px 0 0 4px;
+}
+
+.IncDec-btn--inc {
+  border-radius: 0 4px 4px 0;
+}
+
+.IncDec-select {
+  flex: 1;
+  min-width: 0;
+  min-height: 30px;
+  border: 1px solid #9ca3af;
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+  padding: 0 4px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  background-color: #fff;
+  color: #1f2329;
+}
+
+/* Bootstrap-column layouts (Fight): a long option must not set the column's
+   minimum width, or the row wraps. Zero base width; flex: 1 fills the column. */
+.IncDec--capped .IncDec-select {
+  width: 0;
+}
+
+/* "ATTACKER" / "DEFENDER" block header with the Advanced toggle on the right. */
+.CtlBlock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 4px;
+}
+
+.CtlBlock-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.CtlBlock-header .form-check {
+  font-size: 12px;
+  color: #4b5563;
+  margin: 0;
+}
+
+.CtlBlock-header .form-check-label {
+  cursor: pointer;
+}
+
+/* Fields in a 2-column grid; rows align across both columns. */
+.CtlGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+
+.CtlStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.CheckRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.CheckCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.CheckItem {
+  display: flex;
+  /* baseline keeps the box on the first line when a label wraps */
+  align-items: baseline;
+  gap: 6px;
+  font-size: 14px;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Labels may wrap under text zoom; the box itself keeps its size. */
+.CheckItem input {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* Results: one bordered list of expandable rows. */
+.ResultList {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #fff;
+}
+
+.ResultRow + .ResultRow {
+  border-top: 1px solid #e5e7eb;
+}
+
+.ResultRow-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  background-color: #fff;
+  color: #1f2329;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ResultRow-btn:hover,
+.ResultRow-btn[aria-expanded='true'] {
+  background-color: #fdf1e7;
+}
+
+.ResultRow-name {
+  flex: 1;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.ResultRow-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ResultRow-chevron {
+  flex: none;
+  color: #c2410c;
+  transition: transform 0.2s ease-in-out;
+}
+
+.ResultRow-btn[aria-expanded='true'] .ResultRow-chevron {
+  transform: rotate(-180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ResultRow-chevron {
+    transition: none;
+  }
+}
+
+.ResultRow-body {
+  background-color: #fafbfc;
+  padding: 4px 12px 12px;
+  font-size: 13px;
+  color: #4b5563;
+  /* .ResultList clips overflow; let a wide table scroll instead. */
+  overflow-x: auto;
+}
+
+/* Light data tables inside results. */
+.DataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid #d1d5db;
+  margin-bottom: 8px;
+  background-color: #fff;
+  color: #1f2329;
+}
+
+.DataTable caption {
+  caption-side: top;
+  font-size: 12px;
+  color: #4b5563;
+  padding: 6px 0 4px;
+}
+
+.DataTable th,
+.DataTable td {
+  text-align: right;
+  padding: 3px 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.DataTable th {
+  padding: 4px 8px;
+  font-weight: 600;
+  border-bottom: 2px solid #9ca3af;
+  vertical-align: bottom;
+}
+
+.DataTable tbody tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.SmallBtn {
+  background-color: rgb(52, 58, 64);
+  border: 1px solid #5a6470;
+  color: #fff;
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 4px;
+  font-weight: 400;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.SmallBtn:hover {
+  background-color: #4a525c;
+}
+
+/* CheckItem renders as .form-check; drop Bootstrap's indent and keep our row. */
+.CheckItem.form-check {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-left: 0;
+}
+
+.CheckItem label {
+  margin: 0;
+  cursor: pointer;
+}
