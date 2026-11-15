@@ -48,6 +48,13 @@ async function call(method, body = {}, { signal, timeout = 15000 } = {}) {
     const code = Number(data.error_code) || response.status;
     const err = Error(`telegram_http_${code}`);
     err.code = code; err.retryable = code === 429 || code >= 500;
+    // Telegram descriptions are untrusted. Keep only these exact harmless
+    // classifications; never log arbitrary text (which may echo credentials).
+    if(code===400) {
+      for(const description of ['Bad Request: message is not modified','Bad Request: message to edit not found',"Bad Request: message can't be edited"]) {
+        if(data.description===description || (typeof data.description==='string' && data.description.startsWith(description+':'))) err.description=description;
+      }
+    }
     err.retryAfter = Math.min(86400, Math.max(1, Number(data.parameters?.retry_after) || 1));
     throw err;
   }

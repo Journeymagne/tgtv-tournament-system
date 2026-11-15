@@ -3,6 +3,8 @@ const data = require("./data");
 const msg = require("./messages");
 const access = require('./access');
 const { adminOnly } = require('./config');
+const gameMenu = require('./game-menu');
+const { acquireRatingWriteLock } = require('../db/rating-write-lock');
 
 async function command(client, update, person, chatId, link, action) {
   const locale = link?.locale || (person.language_code?.startsWith("en") ? "en" : "ru");
@@ -32,6 +34,7 @@ async function command(client, update, person, chatId, link, action) {
       reply_markup:{ inline_keyboard: rows.map(row=>[msg.appButton(msg.short(row.name,60),"/tournaments/"+encodeURIComponent(row.slug))]).concat([[msg.appButton(t("Все турниры","All tournaments"),"/tournament#/tournaments")]]) } });
   }
   if (!link) return reply(msg.welcome(locale,false));
+  if (gameMenu.handles(action)) return gameMenu.handle({client,update,person,link,user:{id:link.user_id},action});
   if (action === "stop") {
     await client.query("UPDATE telegram_links SET enabled=FALSE WHERE id=$1",[link.id]);
     await client.query("UPDATE telegram_outbox SET state='cancelled' WHERE link_id=$1 AND notification IS NOT NULL AND state='pending'",[link.id]);
@@ -64,21 +67,6 @@ async function command(client, update, person, chatId, link, action) {
     return reply({text:`${msg.short(user.name)}\n${t("Рейтинг TTS","TTS rating")}: ${user.ratings.tts}\n${t("Рейтинг IRL","IRL rating")}: ${user.ratings.irl}`,
       reply_markup:{inline_keyboard:[[msg.appButton(t("Мой профиль","My profile"),"/tournament#/profile")]]} });
   }
-  if (action === "games") {
-    const games = await data.activeGames(client,link.user_id);
-    const items = await data.activeItems(client,link.user_id);
-    const teams = items.filter(item=>item.type==="team_pairing");
-    await reply({text:games.length || teams.length ? t("Ваши активные игры","Your active games") : t("Активных игр пока нет.","No active games yet."),
-      reply_markup:{inline_keyboard:[[msg.appButton(t("Все мои игры","All my games"),"/tournament#/mygames")]]} });
-    for(const item of teams.slice(0,3)) await reply(msg.notification(item,locale),item.id);
-    for (const game of games.slice(0,5)) {
-      const item = items.find(item=>item.gameId===game.id && item.type!=="result_pending");
-      const payload = item ? msg.notification(item,locale) : {text:game.players.map(p=>msg.short(p.name)).join(" — "),reply_markup:{inline_keyboard:[[msg.appButton(t("Открыть матч","Open match"),`#/games/game/${game.id}`)]]}};
-      if (items.some(item=>item.gameId===game.id && item.type==="result_pending")) payload.text += "\n"+t("Ожидается ваше подтверждение результата.","Awaiting your result confirmation.");
-      await reply(payload,"game:"+game.id);
-    }
-    return;
-  }
   return reply(msg.welcome(locale,true));
 }
 
@@ -94,6 +82,16 @@ async function handleUpdate(client, update) {
   const message = update.message || update.callback_query?.message;
   const person = update.callback_query?.from || update.message?.from;
   if (message?.chat?.type !== "private" || person?.is_bot || !Number.isSafeInteger(person?.id) || person.id<=0 || message.chat.id!==person.id) return;
+  const text = String(message.text || "");
+  let action = typeof update.callback_query?.data === "string" ? update.callback_query.data : "";
+  if (!action) {
+    const match = /^\/(\w+)(?:@[a-zA-Z0-9_]+)?(?:\s+([^\s]+))?/.exec(text);
+    action = match ? match[1]==="start" && match[2] ? match[2] : match[1] : "help";
+  }
+  if (action.startsWith("m:")) action=action.slice(2);
+  // Draft starts insert a game FK, and finals mutate results: both must take
+  // the global rating lock before the existing Telegram/account lock order.
+  if (gameMenu.isResultMutation(action)) await acquireRatingWriteLock(client);
   await client.query("SELECT pg_advisory_xact_lock(91827, $1)",[person.id % 2147483647]);
   let link = await data.linkFor(client,person.id);
   if (link) {
@@ -102,15 +100,10 @@ async function handleUpdate(client, update) {
   }
   if (link) await client.query("UPDATE telegram_links SET blocked=FALSE WHERE id=$1",[link.id]);
   // Limit each Telegram sender independently, including attempts to claim links.
-  const { rows:[rate] } = await client.query(`SELECT COUNT(*)::int AS count FROM telegram_outbox WHERE chat_id=$1 AND created_at>NOW()-INTERVAL '1 minute'`,[person.id]);
-  if (rate.count>=30) return;
-  const text = String(message.text || "");
-  let action = typeof update.callback_query?.data === "string" ? update.callback_query.data : "";
-  if (!action) {
-    const match = /^\/(\w+)(?:@[a-zA-Z0-9_]+)?(?:\s+([^\s]+))?/.exec(text);
-    action = match ? match[1]==="start" && match[2] ? match[2] : match[1] : "help";
+  if (!gameMenu.handles(action) || !link) {
+    const { rows:[rate] } = await client.query(`SELECT COUNT(*)::int AS count FROM telegram_outbox WHERE chat_id=$1 AND created_at>NOW()-INTERVAL '1 minute'`,[person.id]);
+    if (rate.count>=30) return;
   }
-  if (action.startsWith("m:")) action=action.slice(2);
   // Unlinked administrators enter through their one-time website link only.
   if (adminOnly() && !action.startsWith('link_') && !await access.allowed(client, link?.user_id)) return;
   await command(client,update,person,person.id,link,action);
