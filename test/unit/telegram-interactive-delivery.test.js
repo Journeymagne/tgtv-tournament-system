@@ -42,6 +42,20 @@ test('interactive tick does not await event expansion', async t => {
   delete require.cache[require.resolve('../../src/telegram/worker')];
   await require('../../src/telegram/worker').tick(); assert.equal(expanded, false);
 });
+
+test('a slow callback acknowledgement does not hold up durable command processing', async () => {
+  const worker = require('../../src/telegram/worker');
+  let releaseAck, started = false;
+  const ack = new Promise(resolve => { releaseAck = resolve; });
+  const pending = worker.processUpdate({ update_id: 91, callback_query: { id: 'slow-ack' } }, {
+    answer: () => ack,
+    transaction: async () => { started = true; }
+  });
+  try {
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(started, true, 'command starts while the independent spinner acknowledgement is in flight');
+  } finally { releaseAck(); await pending; }
+});
 test('worker keeps serving interactive work during slow expansion and shutdown drains both loops', async t => {
   const pool = require('../../src/db/pool'); const data = require('../../src/telegram/data'); const transport = require('../../src/telegram/client');
   process.env.TELEGRAM_MODE = 'webhook'; process.env.TELEGRAM_WEBHOOK_SECRET = 's'.repeat(40);

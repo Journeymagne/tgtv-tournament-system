@@ -102,6 +102,25 @@ test('captain-only proxy games appear on every eligible menu page without wideni
   assert.ok(!(await menu.listGames(pool, alpha.id, { filter: 'all' })).games.some(row => row.id === proxy.id));
 });
 
+for (const source of ['solo', 'team']) test(`${source} bot game details do not transfer tournament uploads or editorial blobs`, async () => {
+  game = await (source === 'solo' ? soloGame() : captainGame());
+  const api = require('../../src/api/game-results');
+  const ctx = { client: pool, user: alpha, params: { id: String(game.id) } };
+  const original = (await api.gameDetail(ctx)).game;
+  await pool.query('UPDATE tournaments SET logo_data=$2,rules_link=$3,description=$4 WHERE id=$1',
+    [original.tournament.id, 'data:image/png;base64,' + 'A'.repeat(200000), 'data:application/pdf;base64,' + 'B'.repeat(200000), 'C'.repeat(200000)]);
+  let bytes = 0;
+  const client = { query: async (...args) => { const reply = await pool.query(...args); bytes += Buffer.byteLength(JSON.stringify(reply.rows)); return reply; } };
+  const compact = (await api.gameDetail({ ...ctx, client, compactTournament: true })).game;
+  assert.ok(bytes < 30000, `bot detail must stay small even with large tournament assets; received ${bytes} bytes`);
+  assert.deepEqual(compact.resultPermissions, original.resultPermissions);
+  assert.deepEqual(compact.players, original.players);
+  assert.equal(compact.revision, original.revision);
+  assert.equal(compact.tournament.status, 'in_progress');
+  await pool.query("UPDATE tournaments SET status='completed' WHERE id=$1", [original.tournament.id]);
+  assert.equal((await api.gameDetail({ ...ctx, compactTournament: true })).game.resultPermissions.canSubmit, false);
+});
+
 test('six-row keyset paging stays authorized and bounded across hundreds of historical games', async () => {
   available(menu, 'listGames');
   const ids = [];
