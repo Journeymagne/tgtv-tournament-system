@@ -117,6 +117,12 @@ for (const source of ['solo', 'team']) test(`${source} bot game details do not t
   assert.deepEqual(compact.players, original.players);
   assert.equal(compact.revision, original.revision);
   assert.equal(compact.tournament.status, 'in_progress');
+  let draftBytes = 0;
+  await tx(async connection => {
+    const measured = { query: async (...args) => { const reply = await connection.query(...args); draftBytes += Buffer.byteLength(JSON.stringify(reply.rows)); return reply; } };
+    await drafts.startDraft(measured, { user: alpha, link, gameId: game.id, mode: 'submit' });
+  });
+  assert.ok(draftBytes < 30000, `the actual bot draft caller must request compact details; received ${draftBytes} bytes`);
   await pool.query("UPDATE tournaments SET status='completed' WHERE id=$1", [original.tournament.id]);
   assert.equal((await api.gameDetail({ ...ctx, compactTournament: true })).game.resultPermissions.canSubmit, false);
 });

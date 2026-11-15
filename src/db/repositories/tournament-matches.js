@@ -1,5 +1,6 @@
 const {
   TOURNAMENT_COLUMNS,
+  COMPACT_TOURNAMENT_COLUMNS,
   TOURNAMENT_PARTICIPANT_COLUMNS,
   TOURNAMENT_MATCH_COLUMNS: COLUMNS,
   TOURNAMENT_TABLE_COLUMNS,
@@ -132,8 +133,8 @@ function mapMatchLinks(rows) {
   });
 }
 
-function matchLinksQuery(relation) { return `SELECT
-        row_to_json(t) AS tournament,
+function matchLinksQuery(relation, { compactTournament = false } = {}) { return `SELECT
+        ${compactTournament ? `(SELECT row_to_json(summary) FROM (SELECT ${aliasColumns(COMPACT_TOURNAMENT_COLUMNS, 't')}) summary)` : 'row_to_json(t)'} AS tournament,
         row_to_json(tm) AS match,
         row_to_json(pa) AS participant_a,
         row_to_json(pb) AS participant_b,
@@ -144,11 +145,11 @@ function matchLinksQuery(relation) { return `SELECT
      LEFT JOIN tournament_participants pb ON pb.id = tm.participant_b_id
      LEFT JOIN tournament_tables tt ON tt.id = tm.table_id`; }
 
-async function listByGameIds(client, gameIds) {
+async function listByGameIds(client, gameIds, options) {
   const ids = [...new Set(gameIds)].filter((id) => Number.isInteger(id));
   if (!ids.length) return [];
   const { rows } = await client.query(
-    `${matchLinksQuery(await readRelation(client))}
+    `${matchLinksQuery(await readRelation(client), options)}
      WHERE tm.game_id = ANY($1::int[])`,
     [ids]
   );

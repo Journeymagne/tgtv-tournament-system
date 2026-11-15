@@ -88,13 +88,20 @@ async function advanceOffset(client,update) {
   if(!Number.isSafeInteger(update?.update_id) || update.update_id<0) return;
   await client.query("INSERT INTO telegram_state(key,value) VALUES('poll-offset',$1) ON CONFLICT(key) DO UPDATE SET value=GREATEST(telegram_state.value::bigint,EXCLUDED.value::bigint)::text",[String(update.update_id+1)]);
 }
-// Polling ACK is deliberately before the database transaction and carries no
-// result claim. The webhook keeps its router-owned inline response contract.
+// Start the spinner ACK immediately, without waiting on its network roundtrip
+// before processing the command. Drain the bounded call even on failure/shutdown.
+// The webhook keeps its router-owned inline response contract.
 async function processUpdate(update,{answer=call,transaction=withTransaction,signal}={}) {
-  if(typeof update.callback_query?.id==='string' && update.callback_query.id.length<=256) {
-    try { await answer('answerCallbackQuery',{callback_query_id:update.callback_query.id},{timeout:1500,signal}); }
-    catch { /* An expired spinner does not prevent a durable response. */ }
-  }
+  const acknowledgement=(async()=>{
+    if(typeof update.callback_query?.id==='string' && update.callback_query.id.length<=256) {
+      try { await answer('answerCallbackQuery',{callback_query_id:update.callback_query.id},{timeout:1500,signal}); }
+      catch { /* An expired spinner does not prevent a durable response. */ }
+    }
+  })();
+  try { return await processCommand(update,{transaction,signal}); }
+  finally { await acknowledgement; }
+}
+async function processCommand(update,{transaction,signal}) {
   let error;
   for(let attempt=0;attempt<3;attempt++) {
     try { return await transaction(async client=>{await handleUpdate(client,update);await advanceOffset(client,update);}); }

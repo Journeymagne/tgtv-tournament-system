@@ -66,10 +66,10 @@ async function lockPlayers(client, game) {
   return { playerA, playerB, players };
 }
 
-async function viewOf(client, game) {
+async function viewOf(client, game, options) {
   let detailed = game;
   if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
-    [detailed] = await attachTournamentGameDetails(client, [game]);
+    [detailed] = await attachTournamentGameDetails(client, [game], options);
   }
   const people = Array.isArray(detailed.players) && detailed.players.length
     ? []
@@ -195,13 +195,13 @@ async function listCompleted({ client, query = new URLSearchParams() }) {
   };
 }
 
-async function getOne({ client, user, params }) {
+async function getOne({ client, user, params, compactTournament = false }) {
   const game = await findGame(client, params.id);
-  const view = await viewOf(client, game);
+  const view = await viewOf(client, game, { compactTournament });
   let publicTournament = false;
   if (["tournament_match", "team_match_game"].includes(game.sourceType)) {
     const tournaments = require("../db/repositories/tournaments");
-    const tournament = view.tournament?.id ? await tournaments.findById(client, view.tournament.id) : null;
+    const tournament = view.tournament?.id ? await tournaments.findById(client, view.tournament.id, { compactTournament }) : null;
     publicTournament = Boolean(tournament && tournaments.PUBLISHED_STATUSES.includes(tournament.status));
     if (!publicTournament && !require("../domain/access").canManageTournament(user, tournament)) {
       throw new HttpError(404, "Game not found");

@@ -31,6 +31,11 @@ const TOURNAMENT_COLUMNS = `
   completed_at, cancelled_at, created_at, updated_at
 `;
 
+// Text-only game clients need rules/permissions metadata, not embedded uploads,
+// editorial content or tournament-wide result/draft documents over the wire.
+const COMPACT_TOURNAMENT_COLUMNS = TOURNAMENT_COLUMNS.split(',').map(column => column.trim())
+  .filter(column => column && !['logo_data', 'description', 'rules_summary', 'rules_link', 'final_results', 'round_draft'].includes(column)).join(', ');
+
 const TOURNAMENT_PARTICIPANT_COLUMNS = `
   id, tournament_id, user_id, display_name, display_name_key, faction, factions,
   faction_rules, seed, status, source, paid, is_proxy, joined_at, withdrawn_at, removed_at,
@@ -300,6 +305,7 @@ module.exports = {
   GAME_COLUMNS,
   FEEDBACK_COLUMNS,
   TOURNAMENT_COLUMNS,
+  COMPACT_TOURNAMENT_COLUMNS,
   TOURNAMENT_PARTICIPANT_COLUMNS,
   TOURNAMENT_ROUND_COLUMNS,
   TOURNAMENT_MATCH_COLUMNS,

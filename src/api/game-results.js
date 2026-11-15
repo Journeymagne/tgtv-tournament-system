@@ -7,7 +7,7 @@ function revision(game) { return hash(JSON.stringify({ status: game.status, resu
 async function gameDetail(ctx) {
   const { game } = await games.getOne(ctx);
   if (game.tournament?.id && !game.tournament.status) {
-    const tournament = await require('../db/repositories/tournaments').findById(ctx.client, game.tournament.id);
+    const tournament = await require('../db/repositories/tournaments').findById(ctx.client, game.tournament.id, { compactTournament: ctx.compactTournament === true });
     if (tournament) game.tournament = { ...game.tournament, status: tournament.status, format: tournament.format };
   }
   const participant = game.players.some(player => (player.userId ?? player.id) === ctx.user.id && !player.isProxy);
