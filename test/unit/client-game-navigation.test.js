@@ -168,7 +168,8 @@ test("public tournament loader reuses a complete cached aggregate and otherwise 
   const loaded = await loadPublicTournament("winter cup");
 
   assert.deepEqual(requestedPaths, ["/api/tournaments/winter%20cup"]);
-  assert.equal(state.publicTournamentDetail, loaded);
+  assert.equal(loaded.tournament.slug, "winter cup");
+  assert.equal(state.publicTournamentDetail, cached, "only the current route renderer commits a loaded response");
 });
 
 test("team tournament polling cannot redraw a tournament after its route is left", async () => {

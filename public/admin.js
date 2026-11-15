@@ -367,7 +367,10 @@ async function loadTournamentAdmin() {
 
 async function loadAdminTournamentDetail(id) {
   state.selectedTournamentId = Number(id);
-  state.adminTournamentDetail = await api(`/api/admin/tournaments/${state.selectedTournamentId}`);
+  const origin = navigationUrl();
+  const data = await api(`/api/admin/tournaments/${state.selectedTournamentId}`);
+  if (navigationUrl() !== origin || state.selectedTournamentId !== Number(id)) return;
+  state.adminTournamentDetail = data;
   await loadAdminUsers();
 }
 
@@ -508,15 +511,11 @@ function adminTournamentDetailPanel(data) {
 
 function adminTournamentMenu(data) {
   const tournament = data.tournament || {};
-  const slug = escapeHtml(tournament.slug);
   const exportButton = tournament.id && tournament.participantMode !== "team"
     ? `<button type="button" class="small-button" data-admin-tournament-action="export-excel">${t("admin.tournament.action.exportExcel")}</button>`
     : "";
   return `
     <div class="tournament-admin-menu" role="group" aria-label="${t("admin.tournament.detail.management")}">
-      <button type="button" class="ghost-button" data-admin-tournament-close>${t("common.back")}</button>
-      <button type="button" class="small-button" data-tournament-info-tab="settings">${t("common.edit")}</button>
-      <a href="/tournaments/${slug}" data-app-link class="small-button" data-admin-tournament-public="${slug}">${t("admin.tournament.detail.viewPublic")}</a>
       <button type="button" class="small-button" data-admin-tournament-copy="${escapeHtml(tournamentPublicUrl(tournament))}">${t("admin.tournament.detail.copyLink")}</button>
       <button type="button" class="small-button" data-tournament-history>${t("admin.tournament.detail.history")}</button>
       ${exportButton}
@@ -1764,7 +1763,7 @@ function wireTournamentParticipantAdminControls() {
   });
 }
 
-function wireAdminTournamentControls() {
+function wireAdminTournamentControls(options = {}) {
   wireTournamentListSections();
   wireAdminTournamentStaff();
   onLive(document.querySelector("[data-tournament-history]"), "click", async () => {
@@ -1775,7 +1774,7 @@ function wireAdminTournamentControls() {
     } catch (err) { setMessage(err.message, true); }
   });
   wireAdminTournamentFormBehavior();
-  wireTournamentInfoControls(state.adminTournamentDetail, { admin: true });
+  wireTournamentInfoControls(state.adminTournamentDetail, { admin: true, ...options });
 
   onLive(document.querySelector("[data-admin-tournament-new]"), "click", () => {
     clearCalendarTournamentSource();
@@ -1862,12 +1861,6 @@ function wireAdminTournamentControls() {
       const action = button.dataset.adminTournamentAction;
       await runAdminTournamentAction(action);
     });
-  });
-
-  onLive(document.querySelector("[data-admin-tournament-public]"), "click", () => {
-    const slug = document.querySelector("[data-admin-tournament-public]")?.dataset.adminTournamentPublic;
-    if (!slug) return;
-    navigateToPublicTournament(slug);
   });
 
   onLive(document.querySelector("[data-admin-tournament-copy]"), "click", async (event) => {
@@ -2473,6 +2466,7 @@ function wireAdminTeamRosterControls(data) {
 
 window.TGTV_ADMIN = {
   adminTournamentActionButtons,
+  adminTournamentMenu,
   runAdminTournamentAction,
   adminActiveGamesPanel,
   adminChallengeActions,

@@ -1,6 +1,9 @@
 
 function scopeAdministrationLinks(root) {
-  if (!state.administrationContext || !root) return;
+  const tournament = state.publicTournamentDetail;
+  const managingTournament = tournament?.management && state.me && canManageTournamentUi(tournament.tournament) &&
+    tournamentSlugFromLocation() === tournament.tournament.slug;
+  if ((!state.administrationContext && !managingTournament) || !root) return;
   for (const link of root.querySelectorAll('a[href]')) {
     const href = link.getAttribute('href');
     if (/^\/tournament#\/(games|players|challenge|team-matches|rosters|teams|achievements)(?:\/|$)/.test(href)) {
@@ -174,8 +177,12 @@ function liveRefreshTarget() {
     return interval && anchor ? { kind, id, key: `${kind}:${id}:${state.tournamentInfoTab}`, interval, url, snapshot, project, root, anchor } : null;
   };
   const slug = tournamentSlugFromLocation();
-  if (slug) return make("tournament", slug, liveTournamentInterval(state.publicTournamentDetail, state.tournamentInfoTab),
-    `/api/tournaments/${encodeURIComponent(slug)}`, state.publicTournamentDetail);
+  if (slug) {
+    const data = state.publicTournamentDetail;
+    const management = data?.management && state.me && canManageTournamentUi(data.tournament);
+    return make("tournament", slug, liveTournamentInterval(data, state.tournamentInfoTab),
+      management ? `/api/admin/tournaments/${data.tournament.id}` : `/api/tournaments/${encodeURIComponent(slug)}`, data);
+  }
   if (playerTeamSlugFromLocation()) return null;
   if (state.view === "teamPairing") {
     const data = state.teamPairingDetail;
@@ -1682,6 +1689,8 @@ function appHashForState() {
 }
 
 function syncAppHash(options = {}) {
+  if (state.view === "tournaments" && state.adminTournamentMode === "detail" &&
+      tournamentSlugFromPath() === state.adminTournamentDetail?.tournament?.slug) return;
   const hash = appHashForState();
   const pathname = tournamentSlugFromPath() || playerTeamSlugFromPath() ? "/tournament" : window.location.pathname;
   if (!hash || (window.location.hash === hash && window.location.pathname === pathname)) return;
@@ -1901,6 +1910,8 @@ async function loadTeamPairing(matchId, options = {}) {
 async function openTeamPairing(matchId) {
   const id = Number(matchId);
   if (!Number.isSafeInteger(id) || id < 1) return;
+  if (state.publicTournamentDetail?.management && state.me && canManageTournamentUi(state.publicTournamentDetail.tournament) &&
+      tournamentSlugFromLocation() === state.publicTournamentDetail.tournament.slug) state.administrationContext = true;
   state.view = "teamPairing";
   state.selectedTeamMatchId = id;
   state.teamPairingDetail = null;
@@ -1951,9 +1962,9 @@ function clearTournamentRoute() {
 }
 
 function getKnownPublicTournament(slug) {
-  return state.publicTournamentDetail?.tournament?.slug === String(slug || "")
-    ? state.publicTournamentDetail
-    : null;
+  const data = state.publicTournamentDetail;
+  if (data?.tournament?.slug !== String(slug || "")) return null;
+  return Boolean(data.management) === Boolean(state.me && data.tournament.viewer?.canAdmin !== false && canManageTournamentUi(data.tournament)) ? data : null;
 }
 
 async function loadPublicTournament(slug, options = {}) {
@@ -1963,8 +1974,9 @@ async function loadPublicTournament(slug, options = {}) {
     if (cached) return cached;
   }
   const data = await api(`/api/tournaments/${encodeURIComponent(slug)}`);
-  state.publicTournamentDetail = data;
-  return data;
+  if (!state.me || data.tournament?.viewer?.canAdmin === false || !canManageTournamentUi(data.tournament)) return data;
+  if (!await loadAdminUi()) throw new Error(t("common.requestFailed"));
+  return { ...await api(`/api/admin/tournaments/${data.tournament.id}`), management: true };
 }
 
 async function renderPublicTournamentRoute(slug, options = {}) {
@@ -1973,6 +1985,7 @@ async function renderPublicTournamentRoute(slug, options = {}) {
   const requestId = ++publicTournamentRequestId;
   const cached = force ? null : getKnownPublicTournament(slug);
   if (cached) {
+    if (window.location.hash === "#settings" && cached.management) state.tournamentInfoTab = "settings";
     renderPublicTournament(cached);
     return;
   }
@@ -1980,6 +1993,7 @@ async function renderPublicTournamentRoute(slug, options = {}) {
   try {
     const data = await loadPublicTournament(slug, { force });
     if (requestId !== publicTournamentRequestId || !isCurrentPublicTournamentRoute(slug)) return;
+    if (window.location.hash === "#settings" && data.management) state.tournamentInfoTab = "settings";
     renderPublicTournament(data);
   } catch (err) {
     if (requestId !== publicTournamentRequestId || !isCurrentPublicTournamentRoute(slug)) return;
@@ -2005,31 +2019,36 @@ async function renderPublicTournamentRoute(slug, options = {}) {
   }
 }
 
-function publicTournamentContainer() {
+function publicTournamentContainer(data = null) {
+  const admin = Boolean(data?.management && state.me && canManageTournamentUi(data.tournament));
   const shouldRenderShell = state.view !== "tournaments" || !document.querySelector("[data-content]");
   state.view = "tournaments";
-  state.tournamentsTab = "public";
-  state.adminTournamentMode = "list";
-  state.selectedTournamentId = null;
-  state.adminTournamentDetail = null;
+  state.administrationContext = false;
+  state.tournamentsTab = admin ? "admin" : "public";
+  state.adminTournamentMode = admin ? "detail" : "list";
+  state.selectedTournamentId = admin ? data.tournament.id : null;
+  state.adminTournamentDetail = admin ? data : null;
   if (shouldRenderShell) renderShell();
   return document.querySelector("[data-content]");
 }
 
 function renderPublicTournament(data, live = false) {
   const tournament = data.tournament || {};
+  const admin = Boolean(data.management && state.me && canManageTournamentUi(tournament));
   state.publicTournamentDetail = data;
-  setLiveContent(publicTournamentContainer(), `
+  setLiveContent(publicTournamentContainer(data), `
     <div data-live-view="tournament" class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
-      ${tournamentInfoPanel(data, { publicRoute: true,
-        actions: `<button class="ghost-button" data-public-back>${t("common.back")}</button>${state.me ? tournamentEditButton(tournament) : ""}`,
+      ${tournamentInfoPanel(data, { publicRoute: true, admin,
+        actions: `<button class="ghost-button" data-public-back>${t("common.back")}</button>${state.tournamentInfoTab === "settings" ? "" : tournamentEditButton(tournament)}${admin ? adminUi().adminTournamentMenu(data) : ""}`,
+        tabActions: admin ? (tab) => adminUi().adminTournamentActionButtons(data, tab) : null,
         extraActions: state.me ? publicTournamentViewerActions(data) : `
           <button class="small-button" data-public-login>${t("auth.tab.signIn")}</button>
           <button class="primary-button" data-public-register>${t("auth.tab.register")}</button>`
       })}
     </div>
   `, live);
-  wirePublicTournamentNav(data);
+  wirePublicTournamentNav(data, { admin });
+  scopeAdministrationLinks(document.querySelector("[data-content]"));
   liveRefresh.schedule();
 }
 
@@ -2077,28 +2096,32 @@ function publicTournamentViewerActions(data) {
 
 function tournamentEditButton(tournament) {
   const id = Number(tournament?.id);
-  if (!canManageTournamentUi(id) || !Number.isSafeInteger(id) || id < 1) return "";
-  return `<a href="/tournament#/administration/tournaments/admin/${id}" data-app-link class="small-button" data-tournament-edit="${id}">${t("common.edit")}</a>`;
+  if (tournament?.viewer?.canAdmin === false || !canManageTournamentUi(id) || !Number.isSafeInteger(id) || id < 1) return "";
+  const href = tournament.slug ? `${tournamentPublicPath(tournament.slug)}#settings` : `/tournament#/tournaments/admin/${id}`;
+  return `<a href="${href}" data-app-link class="small-button" data-tournament-edit="${id}">${t("common.edit")}</a>`;
 }
 
 async function openTournamentEditor(tournamentId) {
   const id = Number(tournamentId);
   if (!canManageTournamentUi(id) || !Number.isSafeInteger(id) || id < 1) return;
+  const origin = navigationUrl();
   if (!await loadAdminUi()) throw new Error(t("common.requestFailed"));
   const data = await api(`/api/admin/tournaments/${id}`);
+  if (origin !== navigationUrl()) return;
   leavePublicTournamentRoute();
   Object.assign(state, {
     view: "tournaments",
     tournamentsTab: "admin",
     adminTournamentMode: "detail",
-    administrationContext: true,
+    administrationContext: false,
     selectedTournamentId: id,
     adminTournamentDetail: data,
     tournamentInfoTab: "settings",
     tournamentSetupTab: "tournament"
   });
-  syncAppHash();
-  renderShell();
+  if (tournamentSlugFromLocation() !== data.tournament.slug) pushAppLocation(tournamentPublicPath(data.tournament.slug));
+  renderPublicTournament({ ...data, management: true });
+  rememberNavigationContext();
   window.scrollTo(0, 0);
 }
 
@@ -2390,14 +2413,15 @@ function renderTeamRosterRegistration(data, editingRoster = null) {
   });
 }
 
-function wirePublicTournamentNav(data) {
+function wirePublicTournamentNav(data, options = {}) {
   document.querySelectorAll("[data-public-admin-action]").forEach(button => button.addEventListener("click", async () => {
     try { await openTournamentEditor(data.tournament.id); await adminUi().runAdminTournamentAction(button.dataset.publicAdminAction); }
     catch (error) { setMessage(error.message, true); }
   }));
   const tournament = data?.tournament || {};
   wireTournamentEditButtons();
-  wireTournamentInfoControls(data, { publicRoute: true });
+  if (options.admin) adminUi().wireAdminTournamentControls({ publicRoute: true });
+  else wireTournamentInfoControls(data, { publicRoute: true });
   onLive(document.querySelector("[data-public-login]"), "click", () => {
     state.authMode = "login";
     clearTournamentRoute();
@@ -2635,7 +2659,7 @@ function tournamentCompactHeaderMarkup(data, options = {}) {
   ];
   const count = isTeam ? (data.rosters || []).filter(roster => roster.status !== "withdrawn").length
     : listedTournamentParticipants(data.participants || []).length;
-  return `<header class="tournament-compact-header${options.admin ? " is-admin" : ""}">
+  return `<header class="tournament-compact-header">
     ${options.actions ? `<div class="row-actions tournament-corner-actions">${options.actions}</div>` : ""}
     <div class="tournament-preview-hero ${tournament.logoData ? "has-logo" : ""}">
       ${tournament.logoData ? `<div class="tournament-preview-logo">${tournamentLogoMarkup(tournament)}</div>` : ""}
@@ -2703,7 +2727,7 @@ function tournamentInfoPanel(data, options = {}) {
   const canManage = Boolean(options.admin && canManageTournamentParticipants(data));
   const activeTab = tournamentInfoActiveTab(data, options);
   const wrapperTag = options.admin ? "section" : "div";
-  const wrapperClass = options.admin ? "tournament-info-panel wide-panel tournament-compact-page" : "card panel wide-panel tournament-compact-page";
+  const wrapperClass = options.admin && !options.publicRoute ? "tournament-info-panel wide-panel tournament-compact-page" : "card panel wide-panel tournament-compact-page";
   const tabActions = options.tabActions?.(activeTab);
   const titleByTab = {
     results: t("results.title"),
@@ -2744,14 +2768,6 @@ function tournamentInfoPanel(data, options = {}) {
 function tournamentInfoTabDefinitions(data, options = {}) {
   const resultTabs = data?.tournament?.status === "completed" && (data.tournament.finalResults || data.finalResults)?.length
     ? [{ id: "results", label: t("results.tab") }] : [];
-  if (options.admin) return [
-    ...resultTabs,
-    { id: "preview", label: adminLabel("Обзор", "Overview") },
-    { id: "standings", label: t("tournaments.tab.standings") },
-    { id: "participants", label: t(data?.tournament?.participantMode === "team" ? "teams.tournament.rosters" : "tournaments.field.participants") },
-    { id: "matches", label: adminLabel("Раунды", "Rounds") },
-    { id: "settings", label: t("tournaments.tab.settings") }
-  ];
   const tabs = [
     ...resultTabs,
     { id: "preview", label: t("tournaments.tab.preview") },
@@ -2759,13 +2775,13 @@ function tournamentInfoTabDefinitions(data, options = {}) {
     { id: "matches", label: t("tournaments.tab.matches") },
     { id: "stats", label: t("tournaments.tab.stats") }
   ];
-  if (options.admin) tabs.unshift({ id: "settings", label: t("tournaments.tab.settings") });
   if (data?.tournament?.participantMode === "team") {
     tabs.push({ id: "participants", label: t("teams.tournament.rosters") });
   }
   if (options.admin && canManageTournamentParticipants(data)) {
     if (data?.tournament?.participantMode !== "team") tabs.push({ id: "participants", label: t("tournaments.field.participants") });
     if (data?.tournament?.venueMode === "irl" || data?.tournament?.participantMode === "team") tabs.push({ id: "tables", label: t("tournaments.tab.tables") });
+    tabs.push({ id: "settings", label: t("tournaments.tab.settings") });
   }
   return tabs;
 }
@@ -3173,6 +3189,22 @@ function wirePageTabs() {
 }
 
 function renderTournaments(live = false) {
+  if (state.view !== "tournaments") return;
+  const detail = state.adminTournamentDetail;
+  const slug = tournamentSlugFromLocation();
+  if (slug) {
+    const data = detail?.tournament?.slug === slug && state.tournamentsTab === "admin"
+      ? { ...detail, management: true }
+      : state.publicTournamentDetail?.tournament?.slug === slug ? state.publicTournamentDetail : null;
+    if (data) renderPublicTournament(data, live);
+    return;
+  }
+  if (!slug && state.tournamentsTab === "admin" && state.adminTournamentMode === "detail" && detail?.tournament?.slug) {
+    state.administrationContext = false;
+    pushAppLocation(tournamentPublicPath(detail.tournament.slug), { replace: true });
+    renderPublicTournament({ ...detail, management: true }, live);
+    return;
+  }
   const content = document.querySelector("[data-content]");
   const tournaments = state.tournaments || [];
   const activeTab = canOpenAdministration() ? state.tournamentsTab : "public";
@@ -3728,7 +3760,7 @@ function loadAdminUi() {
 // player who never loads it: panels render as nothing, actions do nothing.
 // A non-admin path that reaches one of these can therefore never throw.
 const ADMIN_UI_MARKUP = [
-  "adminTournamentActionButtons", "adminActiveGamesPanel", "adminChallengeActions", "adminPendingGamesCard",
+  "adminTournamentActionButtons", "adminTournamentMenu", "adminActiveGamesPanel", "adminChallengeActions", "adminPendingGamesCard",
   "adminPlayerToolsCard", "adminTeamPairingOverrideForm", "adminTeamsPanel",
   "adminTournamentAdminView", "adminTournamentParticipantsContent",
   "adminTournamentRoundsPanel", "adminTournamentSettingsContent", "adminTournamentTablesContent",
@@ -5447,6 +5479,8 @@ function normalizedGameDetailId(gameId) {
 }
 
 async function openGameDetail(gameId) {
+  if (state.publicTournamentDetail?.management && state.me && canManageTournamentUi(state.publicTournamentDetail.tournament) &&
+      tournamentSlugFromLocation() === state.publicTournamentDetail.tournament.slug) state.administrationContext = true;
   let id = normalizedGameDetailId(gameId);
   if (!getKnownGame(id)) {
     const game = await loadGame(id);
@@ -8970,6 +9004,8 @@ function datetimeLocalToIso(value) {
 let rosterProfileRequestId = 0;
 
 async function openRosterProfile(rosterId, { navigate = true } = {}) {
+  if (navigate && state.publicTournamentDetail?.management && state.me && canManageTournamentUi(state.publicTournamentDetail.tournament) &&
+      tournamentSlugFromLocation() === state.publicTournamentDetail.tournament.slug) state.administrationContext = true;
   const id = Number(rosterId);
   const requestId = ++rosterProfileRequestId;
   stopTeamPairingPoll();
@@ -9984,7 +10020,10 @@ async function fetchLiveRefresh(target) {
       epoch === tournamentFeed.epoch && userId === tournamentFeed.userId && feed.revision === tournamentFeed.revision &&
       JSON.stringify(feed) === tournamentFeed.data?._livePermissionsKey) return tournamentFeed.data;
   if ((feed.isAdmin || feed.capabilities?.canOpenAdministration) && !await loadAdminUi()) throw new Error("Could not load admin controls");
-  const data = { ...await api(target.url), _liveRole: feed.isAdmin, _livePermissions: feed, _livePermissionsKey: JSON.stringify(feed) };
+  const id = target.kind === "tournament" ? state.publicTournamentDetail?.tournament?.id : null;
+  const management = Boolean(id && (feed.isAdmin || feed.managedTournamentIds?.includes(id)));
+  const url = id ? management ? `/api/admin/tournaments/${id}` : `/api/tournaments/${encodeURIComponent(target.id)}` : target.url;
+  const data = { ...await api(url), management, _liveRole: feed.isAdmin, _livePermissions: feed, _livePermissionsKey: JSON.stringify(feed) };
   // Cache the response, not just the revision: a selected text range can defer
   // rendering it for several polling cycles. The controller owns stale-response
   // rejection and applies only after interactions finish.
@@ -10186,11 +10225,17 @@ function wireTournamentInfoControls(data, options = {}) {
   wireTeamTournamentStandingsTabs(data, options);
   document.querySelectorAll("[data-tournament-info-tab]").forEach((button) => {
     onLive(button, "click", async () => {
-      state.tournamentInfoTab = button.dataset.tournamentInfoTab || "preview";
+      const tab = button.dataset.tournamentInfoTab || "preview";
+      state.tournamentInfoTab = tab;
+      if (options.publicRoute && window.location.hash === "#settings" && state.tournamentInfoTab !== "settings") {
+        pushAppLocation(tournamentPublicPath(data.tournament.slug), { replace: true });
+      }
+      const origin = navigationUrl();
       try {
         if (options.admin && state.tournamentInfoTab === "participants" && canManageTournamentParticipants(data)) {
           if (!state.adminUsers.length) await adminUi().loadAdminUsers();
         }
+        if (options.publicRoute && (navigationUrl() !== origin || !isCurrentPublicTournamentRoute(data?.tournament?.slug) || state.tournamentInfoTab !== tab)) return;
         if (options.publicRoute) renderPublicTournament(data);
         else renderTournaments();
         rememberNavigationContext();

@@ -24,7 +24,7 @@ test("public tournament Edit is limited to administrators and assigned tournamen
       for (const status of ["draft", "registration_open", "registration_closed", "in_progress", "completed", "cancelled"]) {
         const html = button({ id: 6, participantMode, status, viewer: { canAdmin: true } });
         const allowed = Boolean(me?.isAdmin || me?.managedTournamentIds?.includes(6));
-        if (allowed) assert.match(html, /href="\/tournament#\/administration\/tournaments\/admin\/6".*data-tournament-edit="6"/);
+        if (allowed) assert.match(html, /data-tournament-edit="6"/);
         else assert.equal(html, "");
       }
     }
@@ -36,9 +36,9 @@ test("public tournament Edit is limited to administrators and assigned tournamen
 
 test("public tournament cards offer Edit only to authorized users", () => {
   for (const isAdmin of [false, true]) {
-    const render = new Function("state", "t", "escapeHtml", "tournamentFormatLabel", "tournamentStatusLabel", "tournamentStatusClass", "tournamentParticipantCountLabel", "tournamentRoundCountLabel", "fmtDate", "venueModeLabel",
+    const render = new Function("state", "t", "escapeHtml", "tournamentFormatLabel", "tournamentStatusLabel", "tournamentStatusClass", "tournamentParticipantCountLabel", "tournamentRoundCountLabel", "fmtDate", "venueModeLabel", "tournamentPublicPath",
       `${sourceOf("tournamentEditButton")}; ${sourceOf("tournamentCardFact")}; ${sourceOf("publicTournamentCard")}; return publicTournamentCard;`
-    )({ me: { isAdmin } }, (key) => key, String, () => "Swiss", String, () => "open", () => "24", () => "4", String, () => "Tabletop Simulator");
+    )({ me: { isAdmin } }, (key) => key, String, () => "Swiss", String, () => "open", () => "24", () => "4", String, () => "Tabletop Simulator", slug => `/tournaments/${slug}`);
     for (const participantMode of ["individual", "team"]) {
       for (const status of ["registration_open", "registration_closed", "in_progress", "completed", "cancelled"]) {
         const html = render({ id: 6, slug: "test-cup", participantMode, status });
@@ -71,27 +71,49 @@ function editorHarness(options = {}) {
     tournamentInfoTab: "matches", ...options.state
   };
   const calls = [];
-  const data = { tournament: { id: 6, name: "Fresh tournament" }, rounds: [] };
-  const open = new Function("state", "api", "leavePublicTournamentRoute", "syncAppHash", "renderShell", "loadAdminUi", "window",
+  const data = { tournament: { id: 6, slug: "cup", name: "Fresh tournament" }, rounds: [] };
+  let currentUrl = "/tournaments/cup";
+  const open = new Function("state", "api", "leavePublicTournamentRoute", "navigationUrl", "renderPublicTournament", "loadAdminUi", "window", "tournamentSlugFromLocation", "tournamentPublicPath", "pushAppLocation", "rememberNavigationContext",
     `${sourceOf("openTournamentEditor")}; return openTournamentEditor;`
   )(state, async (...args) => {
     calls.push(["api", ...args]);
     if (options.error) throw options.error;
     return data;
-  }, () => calls.push(["leave"]), () => calls.push(["hash"]), () => calls.push(["render"]), async () => true, { scrollTo() {} });
-  return { state, calls, data, open };
+  }, () => calls.push(["invalidate"]), () => currentUrl, data => calls.push(["render", data]), async () => true, { scrollTo() {} },
+    () => currentUrl.startsWith("/tournaments/") ? currentUrl.slice(13) : "", slug => `/tournaments/${slug}`,
+    url => { calls.push(["navigate", url]); currentUrl = url; }, () => calls.push(["remember"]));
+  return { state, calls, data, open, navigate: url => { currentUrl = url; } };
 }
 
-test("Edit loads only the selected tournament and opens settings without visiting the admin list", async () => {
+test("Edit opens settings on the current tournament page without administrative navigation", async () => {
   const { state, calls, data, open } = editorHarness();
   await open("6");
-  assert.deepEqual(calls, [["api", "/api/admin/tournaments/6"], ["leave"], ["hash"], ["render"]]);
+  assert.deepEqual(calls, [["api", "/api/admin/tournaments/6"], ["invalidate"], ["render", { ...data, management: true }], ["remember"]]);
   assert.equal(state.view, "tournaments");
   assert.equal(state.tournamentsTab, "admin");
   assert.equal(state.adminTournamentMode, "detail");
   assert.equal(state.selectedTournamentId, 6);
   assert.equal(state.adminTournamentDetail, data);
   assert.equal(state.tournamentInfoTab, "settings");
+  assert.equal(state.administrationContext, false);
+});
+
+test("Edit from a list navigates directly to the canonical tournament page", async () => {
+  const { calls, open, navigate } = editorHarness();
+  navigate("/tournament#/tournaments");
+  await open(6);
+  assert.deepEqual(calls.find(call => call[0] === "navigate"), ["navigate", "/tournaments/cup"]);
+});
+
+test("an Edit response cannot return the user to a tournament after navigation", async () => {
+  const { open, calls, state, navigate } = editorHarness({ error: null });
+  // Delay the administrative module so navigation can overtake the request.
+  const original = structuredClone(state);
+  const pending = open(6);
+  navigate("/tournaments/other");
+  await pending;
+  assert.deepEqual(state, original);
+  assert.deepEqual(calls, [["api", "/api/admin/tournaments/6"]]);
 });
 
 test("Edit does not leave the current page or overwrite state if loading fails", async () => {
@@ -114,8 +136,8 @@ test("non-admins and invalid tournament IDs cannot trigger editor navigation", a
   assert.deepEqual(calls, []);
 });
 
-test("Edit converts the canonical public URL into the exact admin detail URL", () => {
-  const state = { view: "tournaments", tournamentsTab: "admin", adminTournamentMode: "detail", selectedTournamentId: 6, me: { isAdmin: true } };
+test("synchronizing management state keeps the canonical public URL", () => {
+  const state = { view: "tournaments", tournamentsTab: "admin", adminTournamentMode: "detail", selectedTournamentId: 6, adminTournamentDetail: { tournament: { slug: "test-cup" } }, me: { isAdmin: true } };
   const urls = [];
   const sync = new Function("state", "window", "tournamentSlugFromPath", "playerTeamSlugFromPath", "pushAppLocation",
     `${sourceOf("appHashForState")}; ${sourceOf("syncAppHash")}; return syncAppHash;`
@@ -124,7 +146,7 @@ test("Edit converts the canonical public URL into the exact admin detail URL", (
     history: { pushState: (_state, _title, url) => urls.push(url) }
   }, () => "test-cup", () => "", (url) => urls.push(url));
   sync();
-  assert.deepEqual(urls, ["/tournament#/tournaments/admin/6"]);
+  assert.deepEqual(urls, []);
 });
 
 test("Edit click gives error feedback and re-enables the button after a failed request", async () => {

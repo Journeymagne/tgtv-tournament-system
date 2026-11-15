@@ -36,6 +36,20 @@ test("live tournament views download full data only after a revision changes", a
   }
 });
 
+test("canonical tournament refresh retains manager controls and switches to public data after access is revoked", async () => {
+  const state = { me: { id: 2 }, publicTournamentDetail: { tournament: { id: 6, slug: "cup" }, management: true } };
+  let permissions = { revision: "one", isAdmin: false, managedTournamentIds: [6], capabilities: { canOpenAdministration: true } };
+  const calls = [];
+  const fetch = new Function("state", "api", "tournamentFeed", "loadAdminUi",
+    `let tournamentRefreshEpoch = 0; ${extract("fetchLiveRefresh")}; return fetchLiveRefresh;`
+  )(state, async url => { calls.push(url); return url.endsWith("revision") ? permissions : { tournament: { id: 6, slug: "cup" } }; }, {}, async () => true);
+  const target = { kind: "tournament", id: "cup", key: "cup:matches", url: "/api/admin/tournaments/6" };
+  assert.equal((await fetch(target)).management, true);
+  permissions = { revision: "two", isAdmin: false, managedTournamentIds: [], capabilities: {} };
+  assert.equal((await fetch(target)).management, false);
+  assert.deepEqual(calls, ["/api/tournaments/revision", "/api/admin/tournaments/6", "/api/tournaments/revision", "/api/tournaments/cup"]);
+});
+
 test("deferred revision data survives repeated checks and applies once after interaction ends", async () => {
   const h = harness();
   h.block(true); await h.poll(); await h.poll();
