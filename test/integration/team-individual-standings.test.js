@@ -58,6 +58,30 @@ async function personalGame(vpA = 15, vpB = 8, roundNumber = 1) {
 const publicView = () => api.getPublic({ client, user: null, params: { slug: cup.slug }, query: new URLSearchParams() });
 const adminView = () => api.getAdmin({ client, user: { ...owner, isAdmin: true, isSuperAdmin: true }, params: { id: cup.id }, query: new URLSearchParams() });
 
+test('team results remain live until the organizer explicitly finishes; judge, incomplete and repeated completion are rejected', async () => {
+  const params = { id: cup.id };
+  await assert.rejects(api.publishFinalStandingsAdmin({ client, user: owner, params, body: {} }), { status: 409 });
+  const { match } = await personalGame();
+  await matches.update(client, match.id, { phase: 'completed', resolution: 'forfeit', teamTournamentPointsA: 2, teamTournamentPointsB: 0 });
+  await rounds.update(client, round.id, { status: 'completed' });
+  await tournaments.update(client, cup.id, { swissRoundCount: 1 });
+  await rosters.update(client, rosterA.id, { status: 'active' });
+  await rosters.update(client, rosterB.id, { status: 'active' });
+  const live = await publicView();
+  assert.equal(live.tournament.status, 'in_progress');
+  assert.equal(live.tournament.finalResults, null);
+  const judge = { ...b, managedTournamentIds: [cup.id] };
+  await assert.rejects(api.publishFinalStandingsAdmin({ client, user: judge, params, body: {} }), { status: 403 });
+  const completed = await api.publishFinalStandingsAdmin({ client, user: owner, params, body: {} });
+  assert.equal(completed.tournament.status, 'completed');
+  assert.equal(completed.tournament.finalResults.length, 2);
+  assert.equal(completed.tournament.viewer.canFinish, true);
+  assert.equal((await publicView()).tournament.status, 'completed');
+  const completedAt = completed.tournament.completedAt;
+  await assert.rejects(api.publishFinalStandingsAdmin({ client, user: owner, params, body: {} }), { status: 409 });
+  assert.equal((await publicView()).tournament.completedAt, completedAt);
+});
+
 test('public and administrator payloads expose the same solo-style personal GP standings during a live team match', async () => {
   await personalGame();
   const before = await client.query('SELECT final_results FROM tournaments WHERE id=$1', [cup.id]);
