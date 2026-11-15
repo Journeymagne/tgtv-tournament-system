@@ -1,5 +1,5 @@
 {
-  "version": "shared-01b2dfd35532",
+  "version": "shared-06056811bb17",
   "assets": [
     "theme-boot.js",
     "companion-tokens.css",
@@ -28,6 +28,8 @@
     "i18n/en.js",
     "documentation.js",
     "documentation.css",
+    "tournament-results.js",
+    "tournament-results.css",
     "companion-sites.js"
   ]
 }

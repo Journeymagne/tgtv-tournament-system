@@ -1744,7 +1744,7 @@ async function publishFinalStandings(client, tournament, user) {
     .filter((roster) => ["active", "finished"].includes(roster.status));
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const matches = await teamMatchesRepo.listByTournament(client, tournament.id);
-  if (rounds.length < tournament.swissRoundCount || matches.some((match) => match.phase !== "completed")) {
+  if (!require('../../public/tournament-results').isReady({ tournament: { ...tournament, status: 'in_progress' }, rounds, teamMatches: matches })) {
     throw new HttpError(409, "Complete all configured team rounds before publishing standings");
   }
   const historicalRosters = await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: true });
@@ -1764,7 +1764,7 @@ async function publishFinalStandings(client, tournament, user) {
     strengthOfSchedule: row.strengthOfSchedule
   }));
   for (const row of standings) await rostersRepo.update(client, row.roster.id, { status: "finished", finalPlace: row.rank, finishedAt: nowIso() });
-  const updated = await tournamentsRepo.update(client, tournament.id, { status: "completed", completedAt: nowIso(), finalResults });
+  const updated = await tournamentsRepo.update(client, tournament.id, { status: "completed", completedAt: tournament.completedAt || nowIso(), finalResults });
   await require("../db/repositories/achievements").syncPodium(client, updated, user.id);
   await audit(client, updated, user, "team_standings_publish", { after: finalResults });
   return tournamentData(client, updated, user, { includeAudit: true });

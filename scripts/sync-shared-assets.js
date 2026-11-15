@@ -13,7 +13,7 @@ const assets = [
   'exodite-runner.css', 'styles.css', 'dice/dice.css', 'miniapp/app.css',
   'account-email.css', 'faq/faq.css', 'studio/style.css', 'account/account.js',
   'studio/login.js', 'studio/account.js', 'i18n/ru.js', 'i18n/en.js',
-  'documentation.js', 'documentation.css'
+  'documentation.js', 'documentation.css', 'tournament-results.js', 'tournament-results.css'
 ];
 const versioned = [...assets, 'companion-sites.js'];
 const escaped = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
