@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-Object.assign(process.env, { TGTV_ENV_LOADED: '1', TELEGRAM_MODE: 'local', TELEGRAM_ADMIN_ONLY: 'false', SITE_URL: 'https://example.com' });
+Object.assign(process.env, { TGTV_ENV_LOADED: '1', TELEGRAM_MODE: 'polling', TELEGRAM_BOT_USERNAME: 'ExampleBot', TELEGRAM_BOT_TOKEN: '123456:' + 'a'.repeat(32), TELEGRAM_ADMIN_ONLY: 'false', SITE_URL: 'https://example.com' });
 const filename = path.resolve(__dirname, '../../src/telegram/interactive-delivery.js');
 const delivery = fs.existsSync(filename) ? require(filename) : {};
 const menuFile = path.resolve(__dirname, '../../src/telegram/game-menu.js');

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
 process.env.DATABASE_URL = require('../helpers/db').TEST_DATABASE_URL;
-Object.assign(process.env, { SERVICE_NAME: 'tournaments', TGTV_ENV_LOADED: '1', TELEGRAM_MODE: 'local', TELEGRAM_ADMIN_ONLY: 'false', SITE_URL: 'https://example.com', TELEGRAM_MINI_APP_URL: '' });
+Object.assign(process.env, { SERVICE_NAME: 'tournaments', TGTV_ENV_LOADED: '1', TELEGRAM_MODE: 'polling', TELEGRAM_BOT_USERNAME: 'ExampleBot', TELEGRAM_BOT_TOKEN: '123456:' + 'a'.repeat(32), TELEGRAM_ADMIN_ONLY: 'false', SITE_URL: 'https://example.com', TELEGRAM_MINI_APP_URL: '' });
 const { migrate } = require('../../src/db/migrate');
 const users = require('../../src/db/repositories/users');
 const games = require('../../src/db/repositories/games');
