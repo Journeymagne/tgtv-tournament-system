@@ -1944,6 +1944,11 @@ input[type="file"]::file-selector-button {
   margin: 0;
 }
 
+.stats-tabs .tab {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .statistics-toolbar .stats-season-row {
   margin: 0;
 }
