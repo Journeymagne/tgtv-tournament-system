@@ -12,7 +12,7 @@ function parse(action) {
   let match;
   if((match=/^g:l:(active|all):(next|previous):(\d+)$/.exec(action)) && integer(match[3])) return {type:'list',filter:match[1],direction:match[2],cursor:Number(match[3]) || undefined};
   if((match=/^g:v:(\d+)$/.exec(action)) && integer(match[1],1)) return {type:'game',gameId:Number(match[1])};
-  if((match=/^g:s:(\d+):(submit|confirm|reject)$/.exec(action)) && integer(match[1],1)) return {type:'start',gameId:Number(match[1]),mode:match[2]};
+  if((match=/^g:s:(\d+):(submit|confirm|reject)(?::u(\d+))?$/.exec(action)) && integer(match[1],1) && (match[3]===undefined || integer(match[3],0,Number.MAX_SAFE_INTEGER))) return {type:'start',gameId:Number(match[1]),mode:match[2],sourceGeneration:match[3]===undefined?undefined:Number(match[3])};
   if((match=/^g:d:([A-Za-z0-9_-]{16}):(\d+):(back|cancel|extras|submit)$/.exec(action)) && integer(match[2])) return {type:'draft',token:match[1],version:Number(match[2]),event:{type:match[3]}};
   if((match=/^g:d:([A-Za-z0-9_-]{16}):(\d+):(choose|edit):(\d+)$/.exec(action)) && integer(match[2]) && integer(match[4],0,10000)) return {type:'draft',token:match[1],version:Number(match[2]),event:{type:match[3],index:Number(match[4])}};
   if((match=/^g:p:([A-Za-z0-9_-]{16}):(\d+):(\d+)$/.exec(action)) && integer(match[2]) && integer(match[3],0,100)) return {type:'page',token:match[1],version:Number(match[2]),choicePage:Number(match[3])};
@@ -40,11 +40,17 @@ async function handle({client,update,person,link,user,action}) {
     return data.queueReply(client,person.id,messages.renderError(error(429,'GAME_RATE'),locale),`g:limit:${link.id}:${new Date(admission.request_window).getTime()}`,link.id);
   }
   try {
-    if(messageId && admission.target_message_id && String(messageId)!==String(admission.target_message_id)) {
+    // The global menu button can live in a welcome/settings/error message.
+    // It explicitly reopens the current screen; step callbacks stay bound to it.
+    if(action!=='games' && messageId && admission.target_message_id && String(messageId)!==String(admission.target_message_id)) {
       throw error(409,'GAME_DRAFT_STALE');
     }
     const parsed=parse(action);
     if(!parsed) throw error(400,'GAME_DRAFT_INPUT');
+    // A card start has no draft token yet. Bind its issued buttons to the card
+    // generation so a delayed double tap cannot replace a newer draft on the
+    // same edited physical message. Bare starts remain accepted for callers.
+    if(parsed.type==='start' && parsed.sourceGeneration!==undefined && parsed.sourceGeneration!==Number(admission.generation)) throw error(409,'GAME_DRAFT_STALE');
     if(parsed.type==='list') {
       const page=await pages.listGames(client,user.id,parsed);
       const {rows}=await client.query(`SELECT tm.id,t.name FROM tournament_team_matches tm
@@ -63,7 +69,7 @@ async function handle({client,update,person,link,user,action}) {
         OR EXISTS(SELECT 1 FROM tournament_team_match_games l JOIN tournament_team_matches m ON m.id=l.team_match_id
           JOIN tournament_team_rosters r ON r.id IN (m.roster_a_id,m.roster_b_id) WHERE l.game_id=g.id AND r.captain_user_id=$2))`,[game.id,user.id]);
       if(!rows.length) throw error(403,'GAME_DRAFT_PERMISSION');
-      return queue(messages.renderGame(game,locale),game.id);
+      return queue(messages.renderGame({...game,callbackGeneration:update.update_id},locale),game.id);
     }
     const view=parsed.type==='start'?await drafts.startDraft(client,{user,link,gameId:parsed.gameId,mode:parsed.mode}):
       parsed.type==='draft'?await drafts.transitionDraft(client,{user,link,token:parsed.token,version:parsed.version,event:parsed.event}):
@@ -75,7 +81,9 @@ async function handle({client,update,person,link,user,action}) {
     return queue(messages.renderDraft(view,locale),view.game.id);
   } catch(err) {
     if(!Number.isInteger(err.status) || err.status<400 || err.status>=500) throw err;
-    return queue(messages.renderError(err,locale));
+    // A delayed tap must not cancel or overwrite the valid wizard screen.
+    // Keep its generation and answers intact and send recoverable guidance.
+    return data.queueReply(client,person.id,messages.renderError(err,locale),`g:error:${update.update_id}`,link.id);
   }
 }
 module.exports={handles,parse,isResultMutation,handle};

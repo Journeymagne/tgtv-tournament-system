@@ -79,8 +79,9 @@ function renderMenu(page,locale) {
 }
 function renderGame(game,locale) {
   const rows=[]; const permissions=game.resultPermissions || {};
-  if(permissions.canSubmit) rows.push([button(t(locale,'Внести результат','Enter result'),`g:s:${game.id}:submit`)]);
-  if(permissions.canReview) rows.push([button(t(locale,'Подтвердить','Confirm'),`g:s:${game.id}:confirm`),button(t(locale,'Отклонить','Reject'),`g:s:${game.id}:reject`)]);
+  const generation=Number.isSafeInteger(game.callbackGeneration)?`:u${game.callbackGeneration}`:'';
+  if(permissions.canSubmit) rows.push([button(t(locale,'Сдать результат','Enter result'),`g:s:${game.id}:submit${generation}`)]);
+  if(permissions.canReview) rows.push([button(t(locale,'Подтвердить','Confirm'),`g:s:${game.id}:confirm${generation}`),button(t(locale,'Отклонить','Reject'),`g:s:${game.id}:reject${generation}`)]);
   rows.push([button(t(locale,'← Мои игры','← My games'),'g:l:active:next:0')],[msg.appButton(t(locale,'Открыть в Companion','Open in Companion'),`#/games/game/${game.id}`)]);
   return payload([...contextLines(game,locale),'',...resultLines(game,game.result || game.pendingResult?.result,locale)].join('\n'),rows);
 }
@@ -136,6 +137,6 @@ function renderError(error,locale) {
   else if(error.status===404) text=t(locale,'Игра или форма уже недоступна. Открой текущий список игр.','The game or form is no longer available. Open your current games.');
   else if(error.status===400) text=t(locale,'Эта кнопка недействительна. Открой текущий список игр.','This button is invalid. Open your current games.');
   else text=t(locale,'Игра или форма изменилась. Старая кнопка не применена. Открой текущую игру.','The game or form changed. The old button was not applied. Open the current game.');
-  return payload(BRAND+'\n\n'+text,[[button(t(locale,'Мои игры','My games'),'g:l:active:next:0')]]);
+  return payload(BRAND+'\n\n'+text,[[button(t(locale,'Мои игры','My games'),'m:games')]]);
 }
 module.exports={renderMenu,renderGame,renderDraft,renderError};
