@@ -3044,7 +3044,7 @@ function matchSetupMeta(match) {
   if (match.table?.tableNumber) parts.push(t("tournaments.match.table", { number: match.table.tableNumber }));
   if (mission.killzone) parts.push(t("tournaments.mission.killzone", { name: mission.killzone }));
   if (mission.critOp) parts.push(t("tournaments.mission.critOp", { name: mission.critOp }));
-  if (mission.layout) parts.push(t("tournaments.mission.deployment", { layout: mapLayoutLabel(mission) }));
+  if (mission.layout) parts.push(t("tournaments.mission.layout", { layout: mapLayoutLabel(mission) }));
   return parts.join(" / ");
 }
 
@@ -10300,7 +10300,7 @@ function roundMissionFields(tournament, round) {
       </select>
     </div>
     <div class="field">
-      <label>${t("admin.tournament.tables.field.deployment")}</label>
+      <label>${t("games.result.layoutLabel")}</label>
       <select name="roundLayout">
         <option value="">${t("games.result.notSelected")}</option>
         ${mapLayoutNumbers(mission.killzone).map(layout => `<option value="${layout}" ${Number(mission.layout) === layout ? "selected" : ""}>${layout}</option>`).join("")}

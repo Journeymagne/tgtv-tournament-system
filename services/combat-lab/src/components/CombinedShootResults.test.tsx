@@ -14,5 +14,5 @@ it('combines the separately selected saves and uses S1 wounds, excluding kills a
   expect(result.getByText('Средний урон').nextElementSibling?.textContent).toBe('5.00');
   expect(result.getByText('Вероятность убийства').nextElementSibling?.textContent).toBe('25.00%');
   expect(result.getByText('Вероятность ранения').nextElementSibling?.textContent).toBe('25.00%');
-  expect(result.getByText('Раны цели из ситуации 1:').parentElement?.textContent).toContain('8');
+  expect(result.getByText('Wounds цели из ситуации 1:').parentElement?.textContent).toContain('8');
 });

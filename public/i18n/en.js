@@ -56,7 +56,7 @@ const TGTV_I18N_EN = {
   "classic.editLines": "Edit lines",
   "classic.linesHint": "Each line contains three tables and serves one team matchup. Killzones may repeat. Check Killzones and deployments.",
   "classic.missionsHint": "All 9 missions are available by default. Captains assign three different missions to games during pairing, independently of tables.",
-  "classic.mission": "Mission {number}",
+  "classic.mission": "Crit Op {number}",
   "classic.initiative": "Captain with initiative",
   "classic.initiativeHint": "Determine initiative with a roll-off or another method and record the winner.",
   "classic.firstChoice": "Choose a table or mission for your shield",

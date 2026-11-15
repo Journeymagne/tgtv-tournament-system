@@ -12,7 +12,7 @@ const status = (value,locale) => ({open:t(locale,'Ожидает результ�
   completed:t(locale,'Завершена','Completed'),cancelled:t(locale,'Отменена','Cancelled')})[value] || t(locale,'Недоступна','Unavailable');
 const fields = {
   crit:['Crit Op','Crit Op'],kill:['Kill Op','Kill Op'],tac:['Tac Op','Tac Op'],primary:['Primary Op','Primary Op'],
-  faction:['Фракция','Faction'],tacOp:['Тактическая операция','Tac Op selection'],killzone:['Киллзона','Killzone'],critOp:['Миссия','Mission'],layout:['Расстановка','Layout'],
+  faction:['Фракция','Faction'],tacOp:['Tac Op','Tac Op selection'],killzone:['Киллзона','Killzone'],critOp:['Crit Op','Crit Op'],layout:['Раскладка','Layout'],
   tie:['Ничья','Tied score'],aplTens:['APL · десятки','APL · tens'],aplOnes:['APL · единицы','APL · ones'],rollOffWinnerId:['Победитель броска','Roll-off winner']
 };
 function fieldName(field,locale) { return fields[field]?.[locale==='en'?1:0] || field; }
@@ -31,7 +31,7 @@ function contextLines(game,locale) {
   const table=game.tournamentMatch?.table;
   if(table) lines.push(t(locale,'Стол: ','Table: ')+esc(table.name || table.number));
   const mission=game.teamTournamentGame?.mission || game.tournamentMatch?.mission;
-  if(mission) lines.push([mission.killzone,mission.critOp,mission.layout?t(locale,'Расстановка ','Layout ')+mission.layout:null].filter(Boolean).map(esc).join(' · '));
+  if(mission) lines.push([mission.killzone,mission.critOp,mission.layout?t(locale,'Раскладка ','Layout ')+mission.layout:null].filter(Boolean).map(esc).join(' · '));
   return lines.filter(Boolean);
 }
 function resultLines(game,result,locale) {
@@ -54,7 +54,7 @@ function resultLines(game,result,locale) {
   }
   const assigned=game.teamTournamentGame?.mission || game.tournamentMatch?.mission;
   const missionKey=value=>JSON.stringify([value?.killzone || '',value?.critOp || '',value?.layout || null]);
-  if(result.killzone && missionKey(result.killzone)!==missionKey(assigned)) lines.push([result.killzone.killzone,result.killzone.critOp,result.killzone.layout?t(locale,'Расстановка ','Layout ')+result.killzone.layout:null].filter(Boolean).map(esc).join(' · '));
+  if(result.killzone && missionKey(result.killzone)!==missionKey(assigned)) lines.push([result.killzone.killzone,result.killzone.critOp,result.killzone.layout?t(locale,'Раскладка ','Layout ')+result.killzone.layout:null].filter(Boolean).map(esc).join(' · '));
   return lines;
 }
 function renderMenu(page,locale) {

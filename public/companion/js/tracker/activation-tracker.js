@@ -35,7 +35,7 @@ function buildSequence(myCount, opponentCount, first) {
         type: "activation",
         count: used[turn],
         title: `${names[turn]}: ${trackerText("активация", "activation")} ${used[turn]}`,
-        note: ready[turn] === 0 ? trackerText("Все оперативники этой стороны активированы.", "All operatives on this side are expended.") : trackerText(`Готовых осталось: ${ready[turn]}`, `Ready remaining: ${ready[turn]}`)
+        note: ready[turn] === 0 ? trackerText("Все оперативники этой стороны имеют статус Expended.", "All operatives on this side are expended.") : trackerText(`Осталось Ready: ${ready[turn]}`, `Ready remaining: ${ready[turn]}`)
       });
     } else if (ready[enemy] > 0) {
       counters[turn] += 1;
@@ -43,7 +43,7 @@ function buildSequence(myCount, opponentCount, first) {
         side: turn,
         type: "counter",
         count: counters[turn],
-        title: `${names[turn]}: ${trackerText("контрдействие", "counteract")} ${counters[turn]}`,
+        title: `${names[turn]}: ${trackerText("Counteract", "counteract")} ${counters[turn]}`,
         note: trackerText("Вместо активации, затем ход возвращается сопернику.", "Instead of activating, then play alternates back.")
       });
     }

@@ -76,7 +76,7 @@
     ['Сессия сохраняется в аккаунте после каждого проверенного ответа. Продолжить можно на любом устройстве.', 'Your session is saved to your account after every checked answer. Continue on any device.'],
     ['KILL TEAM 2024 · ПОДГОТОВКА К ИГРЕ', 'KILL TEAM 2024 · GET READY TO PLAY'],
     ['Проверьте знание правил, разберите сложные ситуации и подготовьтесь к следующей игре. Ваш прогресс — в аккаунте Компаньона.', 'Check your rules knowledge, review tricky situations and prepare for your next game. Progress is saved to your Companion account.'],
-    ['Приказы, фазы и основные действия', 'Orders, phases and basic actions'], ['Первые шаги в киллзоне', 'First steps in the killzone'],
+    ['Order, фазы и основные действия', 'Orders, phases and basic actions'], ['Первые шаги в киллзоне', 'First steps in the killzone'],
     ['Оружие, стрельба и ближний бой', 'Weapons, shooting and fighting'], ['Уверенное знание правил', 'A solid knowledge of the rules'],
     ['Террейн, миссии и взаимодействия', 'Terrain, missions and interactions'], ['Решения под давлением', 'Decisions under pressure'],
     ['Сложные ситуации и уточнения', 'Tricky situations and clarifications'], ['Каждая деталь имеет значение', 'Every detail matters'],
