@@ -3036,7 +3036,7 @@ function matchSetupMeta(match) {
   if (match.table?.tableNumber) parts.push(t("tournaments.match.table", { number: match.table.tableNumber }));
   if (mission.killzone) parts.push(t("tournaments.mission.killzone", { name: mission.killzone }));
   if (mission.critOp) parts.push(t("tournaments.mission.critOp", { name: mission.critOp }));
-  if (mission.layout) parts.push(t("tournaments.mission.deployment", { layout: mapLayoutLabel(mission) }));
+  if (mission.layout) parts.push(t("tournaments.mission.layout", { layout: mapLayoutLabel(mission) }));
   return parts.join(" / ");
 }
 

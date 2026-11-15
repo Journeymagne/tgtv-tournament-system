@@ -115,7 +115,7 @@ describe('mounted IncDecSelect ids', () => {
     showAdvanced(container);
     assertLabelsPointAtTheirOwnSelect(container);
     assertCheckboxLabelsTickTheirOwnBox(container);
-    expectDistinctControls('s1-atk-Reroll', 's1-def-Reroll');
+    expectDistinctControls('s1-atk-Re-roll', 's1-def-Re-roll');
     expectDistinctControls('s2-atk-FailsToNorms', 's2-def-FailsToNorms');
     expectDistinctControls('fa-FailsToNorms', 'fb-FailsToNorms');
     expectDistinctControls('s1-def-NormsToCrits', 'fa-NormsToCrits');
