@@ -2645,6 +2645,7 @@ function tournamentCompactHeaderMarkup(data, options = {}) {
 }
 
 function tournamentPreviewMarkup(data) {
+  if (data.tournament?.status === "completed" && TGTVTournamentResults.buildModel(data)) return tournamentResultsMarkup(data);
   const tournament = data.tournament || {};
   const isTeam = tournament.participantMode === "team";
   const round = tournamentPreviewRound(data.rounds);
@@ -2686,6 +2687,7 @@ function tournamentInfoPanel(data, options = {}) {
   const wrapperClass = options.admin ? "tournament-info-panel wide-panel tournament-compact-page" : "card panel wide-panel tournament-compact-page";
   const tabActions = options.tabActions?.(activeTab);
   const titleByTab = {
+    results: t("results.title"),
     standings: t("tournaments.tab.standings"),
     matches: t("tournaments.tab.matches"),
     stats: t("tournaments.tab.stats"),
@@ -2706,13 +2708,14 @@ function tournamentInfoPanel(data, options = {}) {
     <${wrapperTag} class="${wrapperClass}">
       ${tournamentCompactHeaderMarkup(data, { ...options, activeTab })}
       ${tournamentInfoTabs(activeTab, data, options)}
-      ${!["preview", "settings"].includes(activeTab) ? `<div class="panel-header tournament-tab-heading">
+      ${!["preview", "settings", "results"].includes(activeTab) ? `<div class="panel-header tournament-tab-heading">
         <div>
           <h3>${titleByTab[activeTab]}</h3>
           <p class="muted">${escapeHtml(subtitleByTab[activeTab])}</p>
         </div>
       </div>` : ""}
       ${tabActions ? `<div class="row-actions tournament-admin-tab-actions">${tabActions}</div>` : ""}
+      ${tournamentCompletionBannerMarkup(data, options)}
       ${tournamentInfoTabContent(activeTab, data, options)}
       ${canManage ? `<div class="message" data-message></div>` : ""}
     </${wrapperTag}>
@@ -2720,8 +2723,11 @@ function tournamentInfoPanel(data, options = {}) {
 }
 
 function tournamentInfoTabDefinitions(data, options = {}) {
+  const resultTabs = data?.tournament?.status === "completed" && (data.tournament.finalResults || data.finalResults)?.length
+    ? [{ id: "results", label: t("results.tab") }] : [];
   if (options.admin) return [
     { id: "preview", label: adminLabel("Обзор", "Overview") },
+    ...resultTabs,
     { id: "standings", label: t("tournaments.tab.standings") },
     { id: "participants", label: t(data?.tournament?.participantMode === "team" ? "teams.tournament.rosters" : "tournaments.field.participants") },
     { id: "matches", label: adminLabel("Раунды", "Rounds") },
@@ -2729,6 +2735,7 @@ function tournamentInfoTabDefinitions(data, options = {}) {
   ];
   const tabs = [
     { id: "preview", label: t("tournaments.tab.preview") },
+    ...resultTabs,
     { id: "standings", label: t("tournaments.tab.standings") },
     { id: "matches", label: t("tournaments.tab.matches") },
     { id: "stats", label: t("tournaments.tab.stats") }
@@ -2764,6 +2771,7 @@ function tournamentInfoTabs(activeTab, data, options = {}) {
 }
 
 function tournamentInfoTabContent(activeTab, data, options = {}) {
+  if (activeTab === "results") return tournamentResultsMarkup(data);
   if (activeTab === "preview") return tournamentPreviewMarkup(data);
   if (activeTab === "settings" && options.admin) return adminUi().adminTournamentSettingsContent(data);
   if (activeTab === "participants") {
@@ -3654,7 +3662,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.5.24`;
+    script.src = `/admin.js?v=1.5.24-results1`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -7583,15 +7591,41 @@ function comboField(label, name, optionsKey, selected = "", placeholder = t("tou
 }
 
 function tournamentFinalStandingsReady(data) {
-  const tournament = data.tournament || {};
-  const rounds = data.rounds || [];
-  const matches = rounds.flatMap((round) => round.matches || []);
-  if (tournament.status !== "in_progress") return false;
-  if (!matches.length || matches.some((match) => tournament.participantMode === "team" ? match.phase !== "completed" : match.status !== "completed")) return false;
-  if (tournament.format === "swiss") {
-    return rounds.length >= Number(tournament.swissRoundCount || 0);
-  }
-  return true;
+  return TGTVTournamentResults.isReady(data);
+}
+
+function canFinishTournamentUi(data) {
+  const tournament = data?.tournament || {};
+  return Boolean(tournament.viewer?.canFinish ?? (state.me?.isAdmin || state.me?.isSuperAdmin || (state.me?.id && Number(tournament.ownerUserId) === state.me.id)));
+}
+
+function tournamentCompletionBannerMarkup(data, options = {}) {
+  if (!tournamentFinalStandingsReady(data) || !canFinishTournamentUi(data)) return "";
+  return `<section class="tournament-completion-banner"><div><h3>${t("results.ready")}</h3><p>${t("results.readyHint")}</p></div>
+    <button type="button" class="primary-button" ${options.admin ? 'data-admin-tournament-action' : 'data-public-admin-action'}="close-tournament">${t("admin.tournament.action.closeTournament")}</button></section>`;
+}
+
+function tournamentResultsMarkup(data) {
+  return TGTVTournamentResults.render(data, { t, locale: i18n.getLocale() });
+}
+
+function wireTournamentResultsControls(data) {
+  document.querySelectorAll("[data-tournament-results-download]").forEach(button => onLive(button, "click", async () => {
+    if (button.disabled) return;
+    button.disabled = true;
+    const error = document.querySelector("[data-tournament-results-error]");
+    if (error) error.textContent = "";
+    try {
+      const style = getComputedStyle(document.documentElement);
+      const colors = Object.fromEntries(["surface", "panel", "ink", "muted", "line", "accent", "good"].map(key => [key, style.getPropertyValue(`--${key === "panel" ? "panel-2" : key}`).trim()]));
+      await TGTVTournamentResults.download(data, { t, locale: i18n.getLocale(), colors });
+    } catch (err) {
+      if (error) error.textContent = t("results.exportFailed");
+      else setMessage(t("results.exportFailed"), true);
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
+  }));
 }
 
 function normalizeComboOptions(options = []) {
@@ -9854,6 +9888,7 @@ async function refreshTournamentParticipantView(tournament) {
 }
 
 function wireTournamentInfoControls(data, options = {}) {
+  wireTournamentResultsControls(data);
   wireLeaderboardProfiles();
   wireTournamentRoundTabs();
   wireTeamRosterDetailsControls(data, options);

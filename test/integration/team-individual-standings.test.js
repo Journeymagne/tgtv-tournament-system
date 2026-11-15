@@ -58,6 +58,52 @@ async function personalGame(vpA = 15, vpB = 8, roundNumber = 1) {
 const publicView = () => api.getPublic({ client, user: null, params: { slug: cup.slug }, query: new URLSearchParams() });
 const adminView = () => api.getAdmin({ client, user: { ...owner, isAdmin: true, isSuperAdmin: true }, params: { id: cup.id }, query: new URLSearchParams() });
 
+test('team results remain live until the organizer explicitly finishes; judge, incomplete and repeated completion are rejected', async () => {
+  const params = { id: cup.id };
+  await assert.rejects(api.publishFinalStandingsAdmin({ client, user: owner, params, body: {} }), { status: 409 });
+  const { match } = await personalGame();
+  await matches.update(client, match.id, { phase: 'completed', resolution: 'forfeit', teamTournamentPointsA: 2, teamTournamentPointsB: 0 });
+  await rounds.update(client, round.id, { status: 'completed' });
+  await tournaments.update(client, cup.id, { swissRoundCount: 1 });
+  await rosters.update(client, rosterA.id, { status: 'active' });
+  await rosters.update(client, rosterB.id, { status: 'active' });
+  const live = await publicView();
+  assert.equal(live.tournament.status, 'in_progress');
+  assert.equal(live.tournament.finalResults, null);
+  const judge = { ...b, managedTournamentIds: [cup.id] };
+  await assert.rejects(api.publishFinalStandingsAdmin({ client, user: judge, params, body: {} }), { status: 403 });
+  const completed = await api.publishFinalStandingsAdmin({ client, user: owner, params, body: {} });
+  assert.equal(completed.tournament.status, 'completed');
+  assert.equal(completed.tournament.finalResults.length, 2);
+  assert.equal(completed.tournament.viewer.canFinish, true);
+  assert.equal((await publicView()).tournament.status, 'completed');
+  const completedAt = completed.tournament.completedAt;
+  await assert.rejects(api.publishFinalStandingsAdmin({ client, user: owner, params, body: {} }), { status: 409 });
+  assert.equal((await publicView()).tournament.completedAt, completedAt);
+});
+
+test('saving the final personal game completes the last team round without publishing tournament results', async () => {
+  await tournaments.update(client, cup.id, { swissRoundCount: 1 });
+  const { match } = await personalGame();
+  await client.query('BEGIN');
+  try {
+    for (const slot of [2, 3]) {
+      const game = await games.insert(client, { playerIds: [a.id, b.id], sourceType: 'team_match_game', sourceId: match.id, sourceSlot: slot,
+        participants: [a, b].map(item => ({ userId: item.id, resultKey: item.id, displayNameSnapshot: item.name, factionSnapshot: 'Kommandos' })) });
+      await matches.insertGameLink(client, { teamMatchId: match.id, gameId: game.id, slot, rosterAMemberId: rosterA.members[0].id, rosterBMemberId: rosterB.members[0].id });
+      await games.saveFinalResult(client, game.id, { result: { winnerId: a.id, scores: { [a.id]: { total: 15 }, [b.id]: { total: 8 } } }, elo: null });
+    }
+    await require('../../src/api/team-tournaments').recomputeTeamMatch(client, match.id);
+    await client.query('COMMIT');
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  const view = await publicView();
+  assert.equal(view.teamMatches[0].phase, 'completed');
+  assert.equal(view.rounds[0].status, 'completed');
+  assert.equal(view.tournament.status, 'in_progress');
+  assert.equal(view.tournament.completedAt, null);
+  assert.equal(view.tournament.finalResults, null);
+});
+
 test('public and administrator payloads expose the same solo-style personal GP standings during a live team match', async () => {
   await personalGame();
   const before = await client.query('SELECT final_results FROM tournaments WHERE id=$1', [cup.id]);
