@@ -10260,7 +10260,7 @@ function roundMissionFields(tournament, round) {
       </select>
     </div>
     <div class="field">
-      <label>${t("admin.tournament.tables.field.deployment")}</label>
+      <label>${t("games.result.layoutLabel")}</label>
       <select name="roundLayout">
         <option value="">${t("games.result.notSelected")}</option>
         ${mapLayoutNumbers(mission.killzone).map(layout => `<option value="${layout}" ${Number(mission.layout) === layout ? "selected" : ""}>${layout}</option>`).join("")}

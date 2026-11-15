@@ -126,7 +126,7 @@ function notification(item, locale) {
       field(t('Команда соперника','Opposing team'),item.opponentTeam?.name);
       field(t('Раунд','Round'),item.roundNumber);
       field(t('Стол','Table'),item.table?.number);
-      field('Killzone',item.table?.killzone);
+      field(t('Киллзона','Killzone'),item.table?.killzone);
       field(t('Миссия','Mission'),mission(item.mission));
       action=t('Мои игры','My games');
   }
