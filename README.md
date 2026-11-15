@@ -1,5 +1,11 @@
 # KT Companion / TGTV Ranking Tournament System
 
+The native Android/iOS tournament app lives in the separate
+[kt-companion-mobile repository](https://github.com/Journeymagne/kt-companion-mobile),
+including its screens, mobile design concepts, UI-kit snapshot and build workflows.
+This repository owns the shared backend API and its integration tests. The Telegram
+Mini App remains part of this website.
+
 A standalone [UI kit reference](docs/ui-kit.md) is saved in `design/ui-kit/`.
 Open `design/ui-kit/index.html` directly to explore components for future
 services. It is not connected to the running application.
