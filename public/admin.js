@@ -1005,11 +1005,12 @@ function adminTournamentRoundsPanel(data) {
 
 function adminTournamentMatchMarkup(match, data = {}) {
   const canResult = ["active", "pending_confirmation", "completed"].includes(match.status) && !match.isBye && match.participantA && match.participantB;
+  const canReview = canResult && data.tournament?.status === "in_progress" && match.status === "pending_confirmation" && match.pendingResult?.result;
   const canReset = data.tournament?.status === "in_progress" && data.tournament?.format === "swiss" &&
     data.tournament?.participantMode !== "team" && !data.tournament?.roundDraft &&
     data.rounds?.at(-1)?.id === match.roundId && !match.isBye &&
     ["completed", "pending_confirmation"].includes(match.status);
-  const actionLabel = match.status === "completed" ? t("play.action.editResult") : t("play.action.enterResult");
+  const actionLabel = match.status === "active" ? t("play.action.enterResult") : t("play.action.editResult");
   const meta = [publicMatchScore(match), matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
     <details class="row-card tournament-match-disclosure" data-match-disclosure="${match.id}" ${state.tournamentMatchViews?.[data.tournament?.id]?.expanded?.[match.id] ? "open" : ""}>
@@ -1025,6 +1026,7 @@ function adminTournamentMatchMarkup(match, data = {}) {
         ${match.isBye ? "" : teamTableImageMarkup(match.table?.imageId ? match.table : match.mission || match.table)}
         ${pairingWarningsMarkup(individualPairingWarnings(match, data))}
         <div class="row-actions">
+        ${canReview ? `<button class="primary-button" data-admin-tournament-match-review="${match.id}">${t("play.action.reviewResult")}</button>` : ""}
         ${canResult ? `<button class="small-button" data-admin-tournament-match-result="${match.id}">${actionLabel}</button>` : ""}
         ${canReset ? `<button class="danger-button" data-admin-tournament-match-reset="${match.id}">${t("admin.round.resetMatch")}</button>` : ""}
         </div>
@@ -1876,6 +1878,13 @@ function wireAdminTournamentControls(options = {}) {
     }
   });
 
+  document.querySelectorAll("[data-admin-tournament-match-review]").forEach((button) => {
+    onLive(button, "click", () => {
+      const detail = state.adminTournamentDetail;
+      const match = findTournamentMatch(detail, Number(button.dataset.adminTournamentMatchReview));
+      if (match) renderTournamentResultReview(detail, match);
+    });
+  });
   document.querySelectorAll("[data-admin-tournament-match-result]").forEach((button) => {
     onLive(button, "click", () => {
       const detail = state.adminTournamentDetail;

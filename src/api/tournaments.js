@@ -2427,6 +2427,7 @@ async function submitResult({ client, user, params, body }) {
 
 async function confirmResult({ client, user, params }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
+  const manager = canManageTournament(user, tournament);
   if (tournament.status !== TOURNAMENT_STATUSES.IN_PROGRESS) {
     throw new HttpError(409, "Tournament is not in progress");
   }
@@ -2434,13 +2435,13 @@ async function confirmResult({ client, user, params }) {
   if (match.status !== MATCH_STATUSES.PENDING_CONFIRMATION || !match.pendingResult?.result) {
     throw new HttpError(409, "There is no submitted result to confirm");
   }
-  if (match.pendingResult.submittedBy === user.id) {
+  if (!manager && match.pendingResult.submittedBy === user.id) {
     throw new HttpError(403, "The other player must confirm this result");
   }
 
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
   const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
-  assertMatchParticipantUser(match, participantA, participantB, user, "confirm the result");
+  if (!manager) assertMatchParticipantUser(match, participantA, participantB, user, "confirm the result");
   const completed = await completeMatch(
     client,
     tournament,
@@ -2462,17 +2463,18 @@ async function confirmResult({ client, user, params }) {
 
 async function rejectResult({ client, user, params }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
+  const manager = canManageTournament(user, tournament);
   const match = await requireMatch(client, tournament, params.matchId);
   if (match.status !== MATCH_STATUSES.PENDING_CONFIRMATION || !match.pendingResult?.result) {
     throw new HttpError(409, "There is no submitted result to reject");
   }
-  if (match.pendingResult.submittedBy === user.id) {
+  if (!manager && match.pendingResult.submittedBy === user.id) {
     throw new HttpError(403, "The other player must reject this result");
   }
 
   const participants = await participantsRepo.lockByTournament(client, tournament.id);
   const { participantA, participantB } = await resolveTournamentResultSides(client, match, participants);
-  assertMatchParticipantUser(match, participantA, participantB, user, "reject the result");
+  if (!manager) assertMatchParticipantUser(match, participantA, participantB, user, "reject the result");
   if (match.gameId) await gamesRepo.clearResult(client, match.gameId);
   const updated = await matchesRepo.update(client, match.id, {
     status: MATCH_STATUSES.ACTIVE,

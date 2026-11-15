@@ -57,3 +57,14 @@
 - [x] Inspect existing local runtime and reuse a safe local database; configure ignored autologin helper if a preview can be started.
 - [x] Visually check desktop/mobile tournament view, Edit/settings, management controls, ordinary access and page/API availability.
 - [x] Report exact validation and any unavailable CI or preview checks; do not claim tests passed without a run for this change.
+
+### Task 4: Review pending results directly from every tournament match list
+
+**Files:** `public/app.js`, `public/admin.js`, `src/api/tournaments.js`, relevant client and tournament API regression files.
+
+**Interfaces:** Team previews expose only authorized pending-result review and reuse `wireTeamGameResultButtons(root)` with the full pairing workspace. Solo administration opens the existing `renderTournamentResultReview(data, match)`; its confirm/reject API recognizes existing tournament management rights.
+
+- [x] Author coverage for all formats, non-managers, non-pending games, direct review navigation and stale requests; preserve player self-review restrictions.
+- [x] Add team preview review buttons and shared handlers; add solo review buttons and management authorization to existing result endpoints.
+- [x] Inspect syntax and obtain static review; do not run automated tests locally.
+- [x] Inspect local administrator/judge/ordinary-user views and direct review in Chrome; confirm local page and `/api/me` readiness.

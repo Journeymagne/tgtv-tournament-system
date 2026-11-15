@@ -195,6 +195,40 @@ test("a legacy rolled-back draft with duplicate tables remains editable but cann
   assert.equal(new Set(repaired.rounds[0].matches.map(match => match.tableId)).size, 2);
 });
 
+for (const format of ["swiss", "single_elimination"]) {
+  for (const role of ["administrator", "assigned judge"]) {
+    test(`${role} can reject and confirm a pending ${format} result while player restrictions remain`, async () => {
+      const { tournament, started, params } = await reviewSoloCup(format === "swiss" ? 4 : 8, { format, singleEliminationSize: 8 });
+      const match = started.rounds[0].matches[0];
+      const submitter = await usersRepo.findById(client, match.participantA.userId);
+      const judge = await createUser(`Review judge ${tournament.id}`);
+      const reviewer = role === "administrator" ? root : { ...judge, managedTournamentIds: [tournament.id] };
+      const unrelated = { ...judge, managedTournamentIds: [tournament.id + 1000] };
+      const matchParams = { ...params, matchId: String(match.id) };
+      const body = { scores: scores(match.participantA.userId, match.participantB.userId) };
+      // Solo submissions now finish immediately; imported/older events can
+      // still contain pending results that administrators need to review.
+      const pending = { submittedBy: submitter.id, result: require("../../src/domain/scoring").calculateSubmittedResult(body, match.participantA.userId, match.participantB.userId) };
+      const seedPending = () => inTransaction(client, async () => {
+        await gamesRepo.savePendingResult(client, match.gameId, { submittedBy: submitter.id, pendingResult: pending });
+        await require("../../src/db/repositories/tournament-matches").update(client, match.id, { status: "pending_confirmation", pendingResult: pending, submittedByUserId: submitter.id });
+      });
+      await seedPending();
+      for (const user of [submitter, unrelated]) {
+        for (const action of ["confirmResult", "rejectResult"]) {
+          await assert.rejects(tournamentsApi[action]({ client, user, params: matchParams }), { status: 403 });
+        }
+      }
+      await tournamentsApi.rejectResult({ client, user: reviewer, params: matchParams });
+      assert.equal((await gamesRepo.findById(client, match.gameId)).status, "open");
+      await seedPending();
+      await tournamentsApi.confirmResult({ client, user: reviewer, params: matchParams });
+      assert.equal((await gamesRepo.findById(client, match.gameId)).status, "completed");
+      await assert.rejects(tournamentsApi.confirmResult({ client, user: reviewer, params: matchParams }), { status: 409 });
+    });
+  }
+}
+
 test("a stale result form cannot score a replacement opponent", async () => {
   const { started, params } = await reviewSoloCup();
   const [first, second] = started.rounds[0].matches;

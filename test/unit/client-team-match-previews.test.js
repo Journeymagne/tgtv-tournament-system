@@ -37,10 +37,10 @@ function matchFixture() {
     })) };
 }
 
-test("tournament previews show confirmed and submitted scores, without pairing or result controls for any viewer", () => {
+test("tournament previews show scores and expose pending result review only to tournament managers", () => {
   for (const me of [null, { id: 1 }, { id: 1, isAdmin: true }]) {
     const render = previewRenderer(me);
-    const html = render(matchFixture(), { status: "in_progress" });
+    const html = render(matchFixture(), { id: 6, status: "in_progress" });
     assert.match(html, /Alpha vs Beta/);
     assert.match(html, /Completed 1\/3 games · Current GP: 14:6/);
     assert.match(html, /18:14 VP · 14:6 GP/);
@@ -53,9 +53,34 @@ test("tournament previews show confirmed and submitted scores, without pairing o
     assert.match(html, /Orb · Volkus · Layout 6/);
     assert.equal((html.match(/class="team-match-game"/g) || []).length, 3);
     assert.match(html, /data-team-pairing-open="7"/);
-    assert.doesNotMatch(html, /<form|data-team-pair-action|data-team-match-undo|data-team-match-reset|data-team-game-result|data-team-game-review|shield A|Three games in progress/);
+    assert.doesNotMatch(html, /<form|data-team-pair-action|data-team-match-undo|data-team-match-reset|data-team-game-result|shield A|Three games in progress/);
+    if (me?.isAdmin) assert.match(html, /data-team-game-review="11"[^>]*>Review result/);
+    else assert.doesNotMatch(html, /data-team-game-review/);
     const completed = render({ ...matchFixture(), phase: "completed", teamTournamentPointsA: 2, teamTournamentPointsB: 0, teamGamePointsA: 40, teamGamePointsB: 20 }, { status: "in_progress" });
     assert.match(completed, /2:0 TTP · 40:20 GP/);
+  }
+});
+
+test("all team formats offer managers review beside Details only for valid pending results", () => {
+  for (const pairingType of ["shield_sword", "sword_shield_classic", "doubles"]) {
+    for (const me of [{ id: 99, isAdmin: true }, { id: 99, managedTournamentIds: [6] }, { id: 99, managedTournamentIds: [7] }, null]) {
+      const render = previewRenderer(me);
+      const match = { ...matchFixture(), pairingType };
+      const html = render(match, { id: 6, status: "in_progress" });
+      const canManage = Boolean(me?.isAdmin || me?.managedTournamentIds?.includes(6));
+      assert.equal((html.match(/data-team-game-review=/g) || []).length, canManage ? 1 : 0);
+      assert.match(html, /data-team-tournament-game="11"/);
+      if (canManage) assert.match(html, /data-team-game-admin-review="1"/);
+      for (const resolution of ["bye", "forfeit"]) {
+        assert.doesNotMatch(render({ ...match, resolution }, { id: 6, status: "in_progress" }), /data-team-game-review/);
+      }
+      for (const status of ["registration_closed", "completed", "cancelled"]) {
+        assert.doesNotMatch(render(match, { id: 6, status }), /data-team-game-review/);
+      }
+      delete match.games[1].game.pendingResult;
+      assert.doesNotMatch(render(match, { id: 6, status: "in_progress" }), /data-team-game-review/);
+      assert.doesNotMatch(render(matchFixture(), { id: 6, status: "in_progress", viewer: { canAdmin: false } }), /data-team-game-review/);
+    }
   }
 });
 

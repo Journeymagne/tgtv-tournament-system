@@ -9625,7 +9625,10 @@ function teamMatchGamesMarkup(match, options = {}) {
       ].filter(Boolean).join(" · ");
       result = `<span class="match-result-state" data-result-state="${resultState}">${[status, score].filter(Boolean).map(escapeHtml).join(" · ")}</span>`;
     }
-    const resultAction = options.readOnly ? "" : link?.permissions?.canSubmit
+    const adminReview = options.adminReview && game?.status === "pending_confirmation" && game.pendingResult?.result;
+    const resultAction = adminReview
+      ? `<button class="primary-button" data-team-game-review="${game.id}" data-team-game-admin-review="1">${t("play.action.reviewResult")}</button>`
+      : options.readOnly ? "" : link?.permissions?.canSubmit
       ? `<button class="primary-button" data-team-game-result="${game?.id}">${t(game?.status === "pending_confirmation" ? "play.action.editResult" : "play.action.enterResult")}</button>`
       : link?.permissions?.canReview ? `<button class="primary-button" data-team-game-review="${game?.id}">${t("play.action.reviewResult")}</button>` : "";
     const awaitingReview = game?.status === "pending_confirmation"
@@ -9963,6 +9966,7 @@ function renderTeamPairing(live = false) {
 }
 
 function teamTournamentMatchPreviewMarkup(match, tournament) {
+  const adminReview = Boolean(state.me && !match.resolution && tournament.status === "in_progress" && tournament.viewer?.canAdmin !== false && canManageTournamentUi(tournament));
   const score = match.phase === "completed" ? teamMatchScoreLabel(match) : "";
   const status = tournament.status === "registration_closed" ? t("admin.roundSetup.awaitingStart")
     : match.resolution === "bye" ? t("teams.pairing.bye")
@@ -9980,7 +9984,7 @@ function teamTournamentMatchPreviewMarkup(match, tournament) {
       </div>
       ${match.resolution === "bye" ? "" : `<a href="/tournament#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</a>`}
     </summary>
-    <div class="tournament-match-content">${teamMatchGamesMarkup(match, { showProgress: false, readOnly: true, preview: true })}</div>
+    <div class="tournament-match-content">${teamMatchGamesMarkup(match, { showProgress: false, readOnly: true, preview: true, adminReview })}</div>
   </details>`;
 }
 
@@ -9996,11 +10000,47 @@ function teamTournamentRoundsMarkup(data) {
 
 function wireTeamMatchPreviews(root) {
   wireRosterLinks(root);
+  wireTeamGameResultButtons(root);
   root.querySelectorAll("[data-team-pairing-open]").forEach((button) => {
     onLive(button, "click", () => openTeamPairing(button.dataset.teamPairingOpen));
   });
   root.querySelectorAll("[data-team-tournament-game]").forEach((button) => {
     onLive(button, "click", () => openGameDetail(Number(button.dataset.teamTournamentGame)));
+  });
+}
+
+function wireTeamGameResultButtons(root = document) {
+  root.querySelectorAll("[data-team-game-result], [data-team-game-review]").forEach((button) => {
+    onLive(button, "click", async () => {
+      const gameId = Number(button.dataset.teamGameResult || button.dataset.teamGameReview);
+      const origin = navigationUrl();
+      const tab = state.tournamentInfoTab;
+      button.disabled = true;
+      try {
+        stopTeamPairingPoll();
+        const game = await loadGame(gameId);
+        if (navigationUrl() !== origin || state.tournamentInfoTab !== tab) return;
+        if (!game) {
+          setMessage(state.gamesError || t("games.detail.notFound"), true);
+          return;
+        }
+        const playerIds = game.playerIds || (game.players || []).map(player => player.userId ?? player.id);
+        const isPlayer = playerIds.includes(state.me?.id);
+        const isCaptain = [game.teamMatch?.rosterA, game.teamMatch?.rosterB]
+          .some(roster => roster?.captainUserId === state.me?.id);
+        const adminEdit = canManageGameUi(game) && !isPlayer && !isCaptain;
+        const adminReview = button.dataset.teamGameAdminReview === "1" && canManageGameUi(game);
+        if (adminEdit || adminReview) state.administrationContext = true;
+        if (button.dataset.teamGameReview) {
+          if (game.status !== "pending_confirmation" || !game.pendingResult?.result || !teamGameResultPermissions(game).canReview) {
+            await openGameDetail(game.id);
+            return;
+          }
+          renderResultReview(game.id);
+        } else renderResultForm(game.id, { adminEdit });
+      } catch (err) { setMessage(err.message, true); }
+      finally { if (button.isConnected) button.disabled = false; }
+    });
   });
 }
 
@@ -11249,27 +11289,7 @@ function wireTeamTournamentControls(data, options = {}) {
   document.querySelectorAll("[data-team-tournament-game]").forEach((button) => {
     onLive(button, "click", () => openGameDetail(Number(button.dataset.teamTournamentGame)));
   });
-  document.querySelectorAll("[data-team-game-result], [data-team-game-review]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const gameId = Number(button.dataset.teamGameResult || button.dataset.teamGameReview);
-      try {
-        stopTeamPairingPoll();
-        const game = await loadGame(gameId);
-        if (!game) {
-          setMessage(state.gamesError || t("games.detail.notFound"), true);
-          return;
-        }
-        const playerIds = game.playerIds || (game.players || []).map(player => player.userId ?? player.id);
-        const isPlayer = playerIds.includes(state.me?.id);
-        const isCaptain = [game.teamMatch?.rosterA, game.teamMatch?.rosterB]
-          .some(roster => roster?.captainUserId === state.me?.id);
-        const adminEdit = canManageGameUi(game) && !isPlayer && !isCaptain;
-        if (adminEdit) state.administrationContext = true;
-        if (button.dataset.teamGameReview) renderResultReview(gameId);
-        else renderResultForm(gameId, { adminEdit });
-      } catch (err) { setMessage(err.message, true); }
-    });
-  });
+  wireTeamGameResultButtons();
   document.querySelectorAll("[data-team-pair-action='roll']").forEach((button) => {
     onLive(button, "click", async () => {
       button.disabled = true;
