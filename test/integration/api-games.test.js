@@ -69,15 +69,19 @@ test('mobile result revision rejects a stale confirmation after waiting for the 
     params: { id: String(game.id) }, body: { scores: scores(alpha.id, bravo.id) } }));
   const writer = await pool.connect();
   let confirmation;
+  let lockWaitTimer;
   try {
     await writer.query('BEGIN');
     const changed = await api.submitResult({ client: writer, user: alpha, params: { id: String(game.id) },
       body: { scores: scores(bravo.id, alpha.id), expectedResultRevision: first.game.resultRevision } });
     let announceLock;
-    const waitingForLock = new Promise(resolve => { announceLock = resolve; });
+    const waitingForLock = new Promise((resolve, reject) => {
+      announceLock = () => { clearTimeout(lockWaitTimer); resolve(); };
+      lockWaitTimer = setTimeout(() => reject(new Error('Timed out waiting for the result writer lock')), 5000);
+    });
     confirmation = withOwnTransaction(own => {
       const observing = { query: (...args) => {
-        if (/FOR UPDATE/i.test(String(args[0]))) announceLock();
+        if (/pg_advisory_xact_lock|FOR UPDATE/i.test(String(args[0]))) announceLock();
         return own.query(...args);
       } };
       return api.respondToResult({ client: observing, user: bravo, params: { id: String(game.id), action: 'confirm-result' },
@@ -96,6 +100,7 @@ test('mobile result revision rejects a stale confirmation after waiting for the 
     assert.equal(confirmed.game.status, 'completed');
     assert.equal(confirmed.game.result.winnerId, bravo.id);
   } finally {
+    clearTimeout(lockWaitTimer);
     await writer.query('ROLLBACK');
     writer.release();
     if (confirmation) await confirmation.catch(() => {});
