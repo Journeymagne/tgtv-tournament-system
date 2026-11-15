@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
 process.env.DATABASE_URL = require('../helpers/db').TEST_DATABASE_URL;
+// Match the dedicated worker's public account projection before rows.js loads.
+process.env.SERVICE_NAME = 'tournaments';
 const { migrate } = require('../../src/db/migrate');
 const users = require('../../src/db/repositories/users');
 const games = require('../../src/db/repositories/games');
@@ -70,10 +72,24 @@ async function captainGame() {
     sides.push({ roster, member });
   }
   const match = (await pool.query("INSERT INTO tournament_team_matches(tournament_id,round_id,round_number,bracket_position,roster_a_id,roster_b_id,phase) VALUES($1,$2,1,1,$3,$4,'in_progress') RETURNING id", [event.id, round.id, sides[0].roster.id, sides[1].roster.id])).rows[0];
-  const proxyGame = await games.insert(pool, { playerIds: [], sourceType: 'team_match_game', sourceId: match.id,
+  const proxyGame = await games.insert(pool, { playerIds: [], sourceType: 'team_match_game', sourceId: match.id, sourceSlot: 1,
     participants: sides.map((side, index) => ({ userId: null, resultKey: -side.member.id, isProxy: true, displayNameSnapshot: 'Proxy ' + index, factionSnapshot: 'Kasrkin' })) });
   await pool.query("INSERT INTO tournament_team_match_games(team_match_id,game_id,slot,roster_a_member_id,roster_b_member_id,mission) VALUES($1,$2,1,$3,$4,'{}')", [match.id, proxyGame.id, sides[0].member.id, sides[1].member.id]);
   return proxyGame;
+}
+
+async function soloGame(format = 'swiss') {
+  const tournament = (await pool.query("INSERT INTO tournaments(slug,name,status,format,swiss_round_count,single_elimination_size) VALUES('draft-solo','Solo event','in_progress',$1,3,$2) RETURNING id", [format, format === 'single_elimination' ? 8 : null])).rows[0];
+  const participants = [];
+  for (const actor of [alpha, bravo]) {
+    participants.push((await pool.query("INSERT INTO tournament_participants(tournament_id,user_id,display_name,display_name_key,faction,status,source) VALUES($1,$2,$3,$4,'Kasrkin','active','admin_manual') RETURNING id", [tournament.id, actor.id, actor.name, actor.name.toLowerCase()])).rows[0]);
+  }
+  const round = (await pool.query("INSERT INTO tournament_rounds(tournament_id,round_number,status) VALUES($1,1,'active') RETURNING id", [tournament.id])).rows[0];
+  const match = (await pool.query("INSERT INTO tournament_matches(tournament_id,round_id,round_number,bracket_position,status,participant_a_id,participant_b_id) VALUES($1,$2,1,1,'active',$3,$4) RETURNING id", [tournament.id, round.id, participants[0].id, participants[1].id])).rows[0];
+  const record = await games.insert(pool, { playerIds: [alpha.id, bravo.id], sourceType: 'tournament_match', sourceId: match.id,
+    participants: [alpha, bravo].map((actor, index) => ({ userId: actor.id, resultKey: actor.id, tournamentParticipantId: participants[index].id, displayNameSnapshot: actor.name, factionSnapshot: 'Kasrkin' })) });
+  await pool.query('UPDATE tournament_matches SET game_id=$2 WHERE id=$1', [match.id, record.id]);
+  return record;
 }
 
 test('captain-only proxy games appear on every eligible menu page without widening other users', async () => {
@@ -186,8 +202,37 @@ test('duplicate final clicks replay an atomic saved receipt and website confirma
   assert.deepEqual(saved.game.result, websiteView.game.result);
 });
 
+test('a simultaneous committed website write wins over an older draft waiting on the shared rating lock', { timeout: 10000 }, async () => {
+  const view = await filled();
+  const writer = await pool.connect();
+  let pending;
+  try {
+    await writer.query('BEGIN');
+    await require('../../src/db/rating-write-lock').acquireRatingWriteLock(writer);
+    await website.submitResult({ client: writer, user: bravo, params: { id: String(game.id) }, body: scoreBody() });
+    let notify;
+    const enteredRatingLock = new Promise(resolve => { notify = resolve; });
+    pending = tx(async client => {
+      const tracked = { query: (...args) => {
+        if (/pg_advisory_xact_lock/.test(String(args[0]))) notify();
+        return client.query(...args);
+      } };
+      return drafts.transitionDraft(tracked, { user: alpha, link, token: view.token, version: view.version, event: { type: 'submit' } });
+    });
+    const rejected = assert.rejects(pending, error => error.status === 409);
+    await enteredRatingLock;
+    await writer.query('COMMIT');
+    await rejected;
+    assert.equal((await games.findById(pool, game.id)).pendingResult.submittedBy, bravo.id);
+  } finally {
+    await writer.query('ROLLBACK'); writer.release();
+    if (pending) await pending.catch(() => {});
+  }
+});
+
 test('final submit declares rating lock acquisition before business row locks for direct and bot callers', async () => {
   available(drafts, 'requiresRatingLock');
+  assert.equal(drafts.requiresRatingLock({ type: 'start' }, 'submit'), true, 'start FK lock also precedes generic bot user locks');
   assert.equal(drafts.requiresRatingLock({ type: 'submit' }, 'submit'), true);
   assert.equal(drafts.requiresRatingLock({ type: 'submit' }, 'confirm'), true);
   assert.equal(drafts.requiresRatingLock({ type: 'submit' }, 'reject'), true);
@@ -202,6 +247,92 @@ test('final submit declares rating lock acquisition before business row locks fo
   const business = queries.findIndex(sql => /FOR\s+(?:NO\s+KEY\s+)?UPDATE|FOR\s+SHARE/i.test(sql));
   assert.ok(rating >= 0, 'shared rating advisory lock is acquired');
   assert.ok(business < 0 || rating < business, 'rating advisory lock precedes every business row lock');
+});
+
+test('ordinary numeric taps have bounded narrow reads and never hydrate website game details', async () => {
+  const initial = await start();
+  const queries = [];
+  await tx(async client => {
+    const tracked = { query: (...args) => { queries.push(String(args[0]?.text || args[0])); return client.query(...args); } };
+    const next = await drafts.transitionDraft(tracked, { user: alpha, link, token: initial.token, version: initial.version, event: { type: 'choose', index: 6 } });
+    assert.equal(next.step.field, 'kill');
+  });
+  assert.ok(queries.length <= 7, `tap has at most seven SQL statements including savepoint: ${queries.length}`);
+  assert.ok(!queries.some(sql => /avatar|logo_data|description|tournament_match_results|password_hash|sessions/i.test(sql)), 'tap reads no heavy game detail or credentials');
+  assert.ok(!queries.some(sql => /FROM games[^]*FOR (?:UPDATE|SHARE)/i.test(sql)), 'tap does not take business game row locks');
+});
+
+test('savepoint rolls back an already-written business result while permitting a durable localized reply', async () => {
+  const view = await filled();
+  await tx(async client => {
+    const injected = { query: (...args) => {
+      const sql = String(args[0]?.text || args[0]);
+      if (/^UPDATE telegram_game_drafts SET state/.test(sql)) throw new (require('../../src/http/io').HttpError)(409, 'Injected receipt conflict');
+      return client.query(...args);
+    } };
+    await assert.rejects(() => drafts.transitionDraft(injected, { user: alpha, link, token: view.token, version: view.version, event: { type: 'submit' } }), error => error.status === 409);
+    assert.equal((await games.findById(client, game.id)).status, 'open', 'pending result was rolled back');
+    await client.query("INSERT INTO telegram_outbox(link_id,chat_id,payload,dedup_key) VALUES($1,$2,'{\"text\":\"Refresh this game\"}','draft-conflict-reply')", [link.id, link.chat_id]);
+  });
+  assert.equal((await games.findById(pool, game.id)).status, 'open');
+  const read = await tx(client => drafts.readDraft(client, { user: alpha, link, token: view.token }));
+  assert.equal(read.version, view.version); assert.equal(read.screen, 'summary');
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM telegram_outbox WHERE dedup_key='draft-conflict-reply'")).rows[0].n, 1);
+});
+
+test('captain draft uses proxy result keys and current opposing-captain review policy', async () => {
+  game = await captainGame();
+  const view = await filled();
+  const saved = await move(view, { type: 'submit' });
+  const keys = saved.game.players.map(player => String(player.id));
+  assert.ok(keys.every(id => Number(id) < 0));
+  assert.deepEqual(Object.keys(saved.summary.result.scores).sort(), keys.sort());
+  const otherLink = (await pool.query('INSERT INTO telegram_links(user_id,telegram_id,chat_id) VALUES($1,850002,850002) RETURNING *', [stranger.id])).rows[0];
+  const review = await start('reject', stranger, otherLink);
+  assert.equal(review.screen, 'review');
+  const rejected = await move(review, { type: 'submit' }, stranger, otherLink);
+  assert.equal(rejected.game.status, 'open'); assert.equal(rejected.summary.outcome, 'rejected');
+});
+
+test('mission edits, captain replacement, tournament closure and game deletion revoke unsaved drafts', async () => {
+  game = await captainGame();
+  let view = await filled();
+  await pool.query('UPDATE tournament_team_match_games SET mission=$2 WHERE game_id=$1', [game.id, { killzone: 'Gallowdark', critOp: 'Secure', layout: 1 }]);
+  await assert.rejects(() => move(view, { type: 'submit' }), error => error.status === 409);
+  view = await filled();
+  await pool.query("UPDATE tournaments SET status='completed' WHERE id=(SELECT tournament_id FROM tournament_team_match_games WHERE game_id=$1)", [game.id]);
+  await assert.rejects(() => move(view, { type: 'submit' }), error => error.status === 409);
+  await pool.query("UPDATE tournaments SET status='in_progress' WHERE id=(SELECT tournament_id FROM tournament_team_match_games WHERE game_id=$1)", [game.id]);
+  view = await filled();
+  await pool.query('UPDATE tournament_team_rosters SET captain_user_id=NULL WHERE captain_user_id=$1', [alpha.id]);
+  await assert.rejects(() => move(view, { type: 'submit' }), error => error.status === 403);
+  await pool.query('DELETE FROM games WHERE id=$1', [game.id]);
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM telegram_game_drafts WHERE token=$1', [view.token])).rows[0].n, 0);
+});
+
+test('Swiss draft submits through canonical website rules and completes without an extra confirmation step', async () => {
+  game = await soloGame();
+  const view = await filled();
+  assert.equal(view.game.confirmationRequired, false);
+  const saved = await move(view, { type: 'submit' });
+  assert.equal(saved.screen, 'saved'); assert.equal(saved.game.status, 'completed');
+  const current = await shared.gameDetail({ client: pool, user: alpha, params: { id: String(game.id) } });
+  assert.deepEqual(saved.game.result, current.game.result);
+  assert.equal(saved.summary.outcome, 'completed');
+});
+
+test('single-elimination draft requires the APL/roll-off branch before it can submit an exact tie', async () => {
+  game = await soloGame('single_elimination');
+  let view = await start();
+  for (const value of [0, 0, 0, 'crit', 0, 0, 0, 'crit']) {
+    view = await move(view, { type: 'choose', index: view.choices.findIndex(choice => choice.value === value) });
+  }
+  assert.equal(view.step.field, 'aplTens');
+  await assert.rejects(() => move(view, { type: 'submit' }), error => error.status === 409);
+  for (const value of [0, 1, 0, 0]) view = await move(view, { type: 'choose', index: view.choices.findIndex(choice => choice.value === value) });
+  assert.equal(view.screen, 'summary'); assert.equal(view.summary.result.tiebreakers.decidedBy, 'apl');
+  assert.equal(view.summary.result.winnerId, alpha.id);
+  assert.equal((await games.findById(pool, game.id)).status, 'open', 'a ready review still has no business effect');
 });
 
 test('actual restricted tournaments role creates and submits drafts without password or session access', async () => {

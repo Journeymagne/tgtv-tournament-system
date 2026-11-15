@@ -117,6 +117,38 @@ test('review modes show the existing pending score and never offer score choices
     assert.equal(view(flow).screen, 'review');
     assert.deepEqual(view(flow).summary.result, context.pendingResult.result);
     assert.deepEqual(view(flow).choices, []);
+    assert.deepEqual(view(flow).editableFields, []);
     assert.throws(() => engine.transition(context, flow.state, { type: 'choose', index: 0 }));
   }
+});
+
+test('Extras uses canonical Tac Op and map dictionaries, preserves unset values and filters valid layouts', () => {
+  const flow = start(); scores(flow);
+  event(flow, { type: 'extras' });
+  assert.equal(view(flow).screen, 'extras');
+  let index = view(flow).editableFields.findIndex(field => field.field === 'tacOp' && field.playerId === 11);
+  event(flow, { type: 'edit', index });
+  assert.deepEqual(view(flow).choices.map(choice => choice.value), ['', ...require('../../public/game-data').tacOpOptions]);
+  choose(flow, 'Plant Devices');
+  index = view(flow).editableFields.findIndex(field => field.field === 'killzone');
+  event(flow, { type: 'edit', index }); choose(flow, 'Gallowdark');
+  index = view(flow).editableFields.findIndex(field => field.field === 'layout');
+  event(flow, { type: 'edit', index });
+  assert.ok(view(flow).choices.filter(choice => choice.value !== null).every(choice => require('../../public/map-catalog').validLayout('Gallowdark', choice.value)));
+  choose(flow, 1); event(flow, { type: 'back' });
+  assert.equal(view(flow).screen, 'summary');
+  const body = engine.resultBody(flow.context, flow.state);
+  assert.equal(body.scores[11].tacOp, 'Plant Devices'); assert.equal(body.killzone.layout, 1);
+  assert.equal(body.scores[22].tacOp, undefined, 'unset optional value remains unset');
+});
+
+test('locked team mission cannot be edited and team ties never enable individual tiebreakers', () => {
+  const mission = { killzone: 'Gallowdark', critOp: 'Secure', layout: 1 };
+  const flow = start(game({ sourceType: 'team_match_game', teamTournamentGame: { missionLocked: true, mission } }));
+  scores(flow, [0, 0, 0, 'crit'], [0, 0, 0, 'crit']);
+  assert.equal(view(flow).screen, 'summary');
+  event(flow, { type: 'extras' });
+  assert.ok(!view(flow).editableFields.some(field => ['killzone', 'critOp', 'layout'].includes(field.field)));
+  const body = engine.resultBody(flow.context, flow.state);
+  assert.deepEqual(body.killzone, mission); assert.equal(body.tiebreakers.enabled, false);
 });
