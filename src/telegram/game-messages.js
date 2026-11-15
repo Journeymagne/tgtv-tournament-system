@@ -11,7 +11,7 @@ const names = game => (game.players || []).map(player=>esc(player.name)).join(' 
 const status = (value,locale) => ({open:t(locale,'Ожидает результата','Awaiting result'),pending_confirmation:t(locale,'Ожидает подтверждения','Awaiting confirmation'),
   completed:t(locale,'Завершена','Completed'),cancelled:t(locale,'Отменена','Cancelled')})[value] || t(locale,'Недоступна','Unavailable');
 const fields = {
-  crit:['Crit Op','Crit Op'],kill:['Kill Op','Kill Op'],tac:['Tac Op','Tac Op'],primary:['Основная операция','Primary operation'],
+  crit:['Crit Op','Crit Op'],kill:['Kill Op','Kill Op'],tac:['Tac Op','Tac Op'],primary:['Primary Op','Primary Op'],
   faction:['Фракция','Faction'],tacOp:['Тактическая операция','Tac Op selection'],killzone:['Киллзона','Killzone'],critOp:['Миссия','Mission'],layout:['Расстановка','Layout'],
   tie:['Ничья','Tied score'],aplTens:['APL · десятки','APL · tens'],aplOnes:['APL · единицы','APL · ones'],rollOffWinnerId:['Победитель броска','Roll-off winner']
 };
@@ -41,14 +41,14 @@ function resultLines(game,result,locale) {
     const score=result.scores[player.id]; if(!score) continue;
     lines.push(`<b>${esc(player.name)}: ${score.total??'—'}</b>`,
       `Crit ${score.crit??'—'} · Kill ${score.kill??'—'} · Tac ${score.tac??'—'}`,
-      t(locale,'Основная: ','Primary: ')+esc(fieldName(score.primary,locale))+` (+${score.primaryBonus??'—'})`);
+      'Primary Op: '+esc(fieldName(score.primary,locale))+` (+${score.primaryBonus??'—'})`);
     if(score.faction) lines.push(esc(score.faction));
     if(score.tacOp) lines.push(t(locale,'Tac Op: ','Tac Op: ')+esc(score.tacOp));
   }
   const winner=game.players.find(player=>player.id===result.winnerId);
   lines.push(winner?t(locale,'Победитель: ','Winner: ')+esc(winner.name):t(locale,'Ничья','Draw'));
   if(result.tiebreakers?.enabled) {
-    const labels={primary:t(locale,'Основная операция','Primary operation'),critTac:'Crit + Tac',apl:'APL',rollOff:t(locale,'Бросок','Roll-off')};
+    const labels={primary:'Primary Op',critTac:'Crit + Tac',apl:'APL',rollOff:t(locale,'Бросок','Roll-off')};
     lines.push(t(locale,'Критерий: ','Decided by: ')+(labels[result.tiebreakers.decidedBy] || 'APL'));
     if(result.tiebreakers.apl) lines.push('APL: '+game.players.map(player=>`${esc(player.name)} ${result.tiebreakers.apl[player.id]??0}`).join(' · '));
   }
@@ -91,7 +91,7 @@ function renderDraft(view,locale) {
   const action=(label,type)=>button(label,`${prefix}:${type}`);
   const editable=(onlyExtras)=>chunks(view.editableFields.map((field,index)=>({field,index})).filter(({field})=>Boolean(field.extra)===onlyExtras)
     .map(({field,index})=>button(`${field.playerId!==null?msg.short(game.players.find(player=>player.id===field.playerId)?.name,10)+' · ':''}${
-      field.field==='primary'?t(locale,'Основная','Primary'):field.field==='crit'?'Crit':field.field==='kill'?'Kill':field.field==='tac'?'Tac':fieldName(field.field,locale)}`,`${prefix}:edit:${index}`)),2);
+      field.field==='primary'?'Primary Op':field.field==='crit'?'Crit':field.field==='kill'?'Kill':field.field==='tac'?'Tac':fieldName(field.field,locale)}`,`${prefix}:edit:${index}`)),2);
   if(view.screen==='choice') {
     const field=view.step.field;
     const player=game.players.find(item=>item.id===view.step.playerId);

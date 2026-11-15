@@ -356,7 +356,7 @@ const TGTV_I18N_RU = {
   "games.result.notSelected": "Не выбрано",
   "games.result.critOp": "Crit Op",
   "games.result.tiebreaker.enable": "Включить тай-брейки",
-  "games.result.tiebreaker.primary": "Основной",
+  "games.result.tiebreaker.primary": "Primary Op",
   "games.result.tiebreaker.tacCrit": "Tac Op + Crit Op",
   "games.result.tiebreaker.apl": "APL на столе",
   "games.result.tiebreaker.rollOff": "Roll-off",
