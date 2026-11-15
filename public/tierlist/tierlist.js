@@ -283,12 +283,13 @@
   function renderStatsRows(target, entries, players = false) {
     const container = $(target); container.replaceChildren();
     const surface = players ? 'players' : 'tacops', view = players ? teamStats.playerSort : teamStats.tacOpSort;
+    container.dataset.statisticsTable = 'tierlist-' + surface;
     const fields = [['name', 'statsName'], ['games', 'statsGames'], ['wins', 'statsWins'], ['winRate', 'statsWinRate']];
     if (!players) fields.push(['avgPoints', 'statsAvgPoints']);
     const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'tl-action tl-stats-reset'; reset.textContent = t('statsReset');
     reset.dataset.statsReset = surface; container.append(reset);
     const scroll = document.createElement('div'); scroll.className = 'tl-stats-scroll';
-    const table = document.createElement('table'); table.className = 'tl-stats-table';
+    const table = document.createElement('table'); table.className = 'tl-stats-table'; table.dataset.statisticsTable = 'tierlist-' + surface;
     table.setAttribute('aria-labelledby', target + '-title');
     const headings = document.createElement('tr'), head = document.createElement('thead'), body = document.createElement('tbody');
     for (const [key, labelKey] of fields) {
@@ -552,7 +553,9 @@
   $('team-stats').addEventListener('click', event => {
     const button = event.target.closest('[data-stats-surface],[data-stats-reset]');
     if (!button) return;
-    changeStatsSort(button.dataset.statsSurface || button.dataset.statsReset, button.dataset.statsReset ? null : button.dataset.statsKey);
+    const surface = button.dataset.statsSurface || button.dataset.statsReset;
+    if (button.closest('[data-statistics-table]')?.dataset.statisticsTable !== 'tierlist-' + surface) return;
+    changeStatsSort(surface, button.dataset.statsReset ? null : button.dataset.statsKey);
   });
   $('team-stats-logo').addEventListener('error', event => { event.currentTarget.hidden = true; });
   let statsPositionFrame = null;

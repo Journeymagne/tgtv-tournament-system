@@ -8,7 +8,6 @@
   let locale = i18n.normalize(tg?.initDataUnsafe?.user?.language_code || navigator.language);
   const ordering = window.KTMiniSorting;
   const sortViews = new Map();
-  let profileSortSequence = 0;
   const tr = (key, values) => i18n.text(key, locale, values);
   const content = document.getElementById("content");
   const nav = document.getElementById("bottom-nav");
@@ -70,7 +69,7 @@
     }
   }
   async function acceptSession(session, newlyLinked = false) {
-    profileSortSequence++;
+
     linking = false; linkFlow.dispose(); tg?.BackButton?.hide?.();
     applyLocale(session.locale);
     state.token = session.accessToken || null; state.csrf = session.csrfToken; state.user = session.user; state.ready = true;
@@ -84,45 +83,26 @@
   }
 
   function sortView(surface) {
-    const scope = surface === "operations" ? state.game?.id : surface === "profileGames" ? state.user?.id : state.slug || "all";
+    const scope = state.slug || "all";
     const key = `${surface}:${scope}`;
     if (!sortViews.has(key)) sortViews.set(key, { key: null, direction: "asc" });
     return sortViews.get(key);
+  }
+  function statisticsSortScope(element, surface) {
+    return surface === "standings" && element?.closest?.("[data-statistics-table]")?.dataset.statisticsTable === surface;
   }
   function sortHeading(surface, key, label) {
     const view = sortView(surface), active = view.key === key;
     return `<th scope="col" aria-sort="${active ? view.direction === "asc" ? "ascending" : "descending" : "none"}"><button type="button" class="sort-button" data-sort-surface="${surface}" data-sort-key="${key}" aria-label="${esc(tr("Сортировать: {column}", { column: label }))}">${esc(label)}<span aria-hidden="true">${active ? view.direction === "asc" ? " ↑" : " ↓" : " ↕"}</span></button></th>`;
   }
   function sortReset(surface) { return `<button type="button" class="secondary sort-reset" data-sort-reset="${surface}">${tr("Сбросить сортировку")}</button>`; }
-  function orderedGames(games, surface) {
-    if (surface === "profileGames") return games.slice(); // Server selected the full-history top five.
-    const rows = games.map(game => ({ ...game, round: roundOf(game), name: (game.players || []).map(p => p.name).join(" — "),
-      status: tr(statuses[game.status] || game.status), score: scores(game)?.[game.players?.find(playerIsMe)?.id]?.total }));
-    return ordering.sortRows(rows, sortView(surface), ordering.columns.games, locale);
-  }
-  function gameOrderControls(surface) {
-    const view = sortView(surface);
-    const fields = surface === "profileGames" ? [["date", tr("Дата")], ["player", tr("Игрок")], ["opponent", tr("Соперник")], ["faction", tr("Команда")], ["score", tr("Счёт")], ["vpDiff", tr("Разница VP")], ["elo", tr("Изменение рейтинга")]]
-      : surface === "pairings" ? [["name", tr("Команда")], ["round", tr("Раунд")]]
-      : [["round", tr("Раунд")], ["name", tr("Игрок")], ["status", tr("Статус")], ["score", tr("Счёт")]];
-    return `<div class="list-sort-tools"><label>${tr("Сортировка")}<select data-list-sort="${surface}"><option value="">${tr("Исходный порядок")}</option>${fields.map(([key, label]) => `<option value="${key}"${view.key === key ? " selected" : ""}>${esc(label)}</option>`).join("")}</select></label><button type="button" class="secondary" data-sort-direction="${surface}" aria-label="${tr("Изменить направление сортировки")}">${view.direction === "asc" ? tr("По возрастанию") : tr("По убыванию")} <span aria-hidden="true">${view.direction === "asc" ? "↑" : "↓"}</span></button>${sortReset(surface)}</div>`;
-  }
+
+
   function updateSortedSurface(surface) {
-    if (surface === "profileGames") { void refreshProfileGames(); return; }
-    // Update only the affected view so unsaved result/preferences forms survive.
+    if (surface !== "standings") return;
     const active = document.activeElement;
-    if (surface === "standings") {
-      document.getElementById("standings-body").innerHTML = tableBody();
-      document.getElementById("standings-head").innerHTML = standingsHead();
-    } else if (surface === "operations") document.getElementById("operation-scores").innerHTML = operationScores(state.game);
-    else if (surface === "pairings") document.querySelector('[data-games-surface="pairings"]').innerHTML = pairingList();
-    else {
-      const target = document.querySelector(`[data-games-surface="${surface}"]`);
-      const current = surface === "otherGames" ? state.game?.id : null;
-      const limit = surface === "tournamentGames" ? 4 : 8;
-      const games = gamesForSelection().filter(g => g.id !== current);
-      if (target) target.innerHTML = gameOrderControls(surface) + orderedGames(games, surface).slice(0, limit).map(matchLink).join("");
-    }
+    document.getElementById("standings-body").innerHTML = tableBody();
+    document.getElementById("standings-head").innerHTML = standingsHead();
     if (active && !active.isConnected) {
       const attrs = Object.entries(active.dataset).filter(([key]) => ["sortSurface", "sortKey", "sortReset", "sortDirection", "listSort"].includes(key));
       const selector = attrs.map(([key, value]) => `[data-${key.replace(/[A-Z]/g, c => "-" + c.toLowerCase())}="${value}"]`).join("");
@@ -130,28 +110,8 @@
     }
   }
 
-  function profileSummaryPath() {
-    const view = sortView("profileGames");
-    return view.key ? "/summary?" + new URLSearchParams({ historySort: view.key, historyDirection: view.direction }) : "/summary";
-  }
-  async function refreshProfileGames() {
-    const sequence = ++profileSortSequence, path = profileSummaryPath();
-    const target = document.querySelector('[data-games-surface="profileGames"]'), active = document.activeElement;
-    target?.setAttribute("aria-busy", "true");
-    try {
-      const data = await api(path);
-      if (sequence !== profileSortSequence || path !== profileSummaryPath()) return;
-      state.data.profile.recentGames = data.profile.recentGames;
-      if (route().screen === "profile" && target?.isConnected) {
-        target.innerHTML = gameOrderControls("profileGames") + (data.profile.recentGames || []).map(matchLink).join("");
-        if (active && !active.isConnected) {
-          const attr = active.dataset.listSort ? "data-list-sort" : active.dataset.sortDirection ? "data-sort-direction" : active.dataset.sortReset ? "data-sort-reset" : null;
-          if (attr) target.querySelector(`[${attr}="profileGames"]`)?.focus({ preventScroll: true });
-        }
-      }
-    } catch (err) { if (sequence === profileSortSequence) showError(err); }
-    finally { if (sequence === profileSortSequence) target?.setAttribute("aria-busy", "false"); }
-  }
+
+
 
   function route() {
     const [screen, id] = location.hash.slice(1).split("/");
@@ -249,7 +209,7 @@
     html += `<div class="stat-grid">${stat(myRow?.rank, tr("Ваше место"), true)}${stat(round?.roundNumber || "—", tr("Текущий раунд"))}${stat(state.detail?.rosters?.filter(r => r.status !== "withdrawn").length ?? state.detail?.participants?.length ?? t.participantCount, t.participantMode === "team" ? tr("Команд") : tr("Участников"))}</div>`;
     if (!isMine) html += `<div class="notice">${tr("Вы смотрите этот турнир как зритель. Подать заявку можно на странице турнира.")}</div>`;
     html += `<div class="section-title"><h2>${active.length ? tr("Следующая игра") : tr("Ваши игры")}</h2><span>${games.length}</span></div>`;
-    html += games.length ? `<div data-games-surface="tournamentGames">${gameOrderControls("tournamentGames")}${orderedGames(games, "tournamentGames").slice(0, 4).map(matchLink).join("")}</div>` : empty(tr("Пары ещё нет"), isMine ? tr("Соперник появится после публикации пары организатором.") : tr("После регистрации здесь появятся ваши турнирные игры."), "", "match");
+    html += games.length ? `<div data-games-surface="tournamentGames">${games.slice(0, 4).map(matchLink).join("")}</div>` : empty(tr("Пары ещё нет"), isMine ? tr("Соперник появится после публикации пары организатором.") : tr("После регистрации здесь появятся ваши турнирные игры."), "", "match");
     const bye = round?.matches?.find(m => m.isBye && [m.participantA, m.participantB].some(p => p?.userId === state.user.id));
     if (bye) html += `<div class="notice">${tr("В этом раунде у вас BYE — игра без соперника. Результат учитывается системой автоматически.")}</div>`;
     html += `<details><summary>${tr("О турнире и правила")}</summary><p class="subtle">${esc(t.description || t.rulesSummary || tr("Подробности доступны на странице турнира."))}</p>${websiteButton(websiteTournament(t.slug), isMine ? tr("Страница турнира") : tr("Регистрация на сайте"))}</details>`;
@@ -276,7 +236,7 @@
   function pairingList() {
     const rows = (state.data.teamPairings || []).filter(p => !state.slug || p.tournament?.slug === state.slug)
       .map(p => ({ ...p, name: `${p.rosterA.name} — ${p.rosterB.name}`, round: p.roundNumber }));
-    return gameOrderControls("pairings") + ordering.sortRows(rows, sortView("pairings"), ordering.columns.pairings, locale)
+    return rows
       .map(p => websiteButton(`/tournament#/team-matches/${p.id}`, p.name)).join("");
   }
   function matchScreen() {
@@ -295,14 +255,14 @@
     else if (game.status === "pending_confirmation" && !game.resultPermissions.canSubmit) html += `<p class="notice">${tr("Ожидаем подтверждение другой стороны. Обновление появится автоматически.")}</p>`;
     if (game.resultPermissions.canSubmit) html += scoreForm(game);
     if (points) html += `<details><summary>${tr("Очки по операциям")}</summary><div id="operation-scores">${operationScores(game)}</div></details>`;
-    if (games.length > 1) html += `<div class="section-title"><h2>${tr("Другие игры")}</h2></div><div data-games-surface="otherGames">${gameOrderControls("otherGames")}${orderedGames(games.filter(g => g.id !== game.id), "otherGames").slice(0, 8).map(matchLink).join("")}</div>`;
+    if (games.length > 1) html += `<div class="section-title"><h2>${tr("Другие игры")}</h2></div><div data-games-surface="otherGames">${games.filter(g => g.id !== game.id).slice(0, 8).map(matchLink).join("")}</div>`;
     return html;
   }
   function operationScores(game) {
     const points = scores(game) || {};
-    const rows = ordering.sortRows(game.players.map(p => ({ ...points[p.id], name: p.name })), sortView("operations"), ordering.columns.operations, locale);
+    const rows = game.players.map(p => ({ ...points[p.id], name: p.name }));
     const headings = [["name", tr("Игрок")], ["crit", "Crit"], ["kill", "Kill"], ["tac", "Tac"], ["primaryBonus", tr("Бонус")]];
-    return `${sortReset("operations")}<div class="table-scroll"><table><thead><tr>${headings.map(([key, label]) => sortHeading("operations", key, label)).join("")}</tr></thead><tbody>${rows.map(row => `<tr><td>${esc(row.name)}</td>${["crit", "kill", "tac", "primaryBonus"].map(key => `<td>${key === "primaryBonus" && row[key] != null ? "+" : ""}${esc(row[key] ?? "—")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    return `<div class="table-scroll"><table><thead><tr>${headings.map(([, label]) => `<th scope="col">${esc(label)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr><td>${esc(row.name)}</td>${["crit", "kill", "tac", "primaryBonus"].map(key => `<td>${key === "primaryBonus" && row[key] != null ? "+" : ""}${esc(row[key] ?? "—")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
   }
   function standingsHead() {
     return [["rank", "#"], ["name", state.detail.tournament.participantMode === "team" ? tr("Команда") : tr("Игрок")], ["points", "TP"], ["totalVp", "VP"], ["strengthOfSchedule", "SoS"]].map(([key, label]) => sortHeading("standings", key, label)).join("");
@@ -316,7 +276,7 @@
     if (!state.detail) return html + empty(tr("Таблица ещё не готова"), tr("Выберите опубликованный турнир, чтобы увидеть участников и результаты."));
     const mine = standingsRows().find(r => r.own);
     if (mine) html += `<div class="stat-grid">${stat(mine.rank, tr("Ваше место"), true)}${stat(mine.points, tr("Турнирные очки"))}${stat(`${mine.wins ?? 0} / ${mine.draws ?? 0} / ${mine.losses ?? 0}`, tr("Победы / ничьи / поражения"))}</div>`;
-    html += `<div class="section-title"><h2>${esc(state.detail.tournament.name)}</h2><span>${state.detail.tournament.status === "completed" ? tr("Итоговая") : tr("Текущая")}</span></div><div class="table-tools"><input id="standings-search" type="search" placeholder="${tr("Найти игрока или команду")}" aria-label="${tr("Поиск по таблице")}" value="${esc(state.query)}"></div><label class="check-row"><input id="only-mine" type="checkbox"${state.onlyMine ? " checked" : ""}><span>${tr("Только моя строка")}</span></label><section class="card table-card">${sortReset("standings")}<div class="table-scroll"><table><thead><tr id="standings-head">${standingsHead()}</tr></thead><tbody id="standings-body">${tableBody()}</tbody></table></div><p class="table-foot">${tr("TP — турнирные очки · VP — победные очки · SoS — сила соперников. Порядок мест рассчитывается по правилам турнира.")}</p></section>`;
+    html += `<div class="section-title"><h2>${esc(state.detail.tournament.name)}</h2><span>${state.detail.tournament.status === "completed" ? tr("Итоговая") : tr("Текущая")}</span></div><div class="table-tools"><input id="standings-search" type="search" placeholder="${tr("Найти игрока или команду")}" aria-label="${tr("Поиск по таблице")}" value="${esc(state.query)}"></div><label class="check-row"><input id="only-mine" type="checkbox"${state.onlyMine ? " checked" : ""}><span>${tr("Только моя строка")}</span></label><section class="card table-card" data-statistics-table="standings">${sortReset("standings")}<div class="table-scroll"><table><thead><tr id="standings-head">${standingsHead()}</tr></thead><tbody id="standings-body">${tableBody()}</tbody></table></div><p class="table-foot">${tr("TP — турнирные очки · VP — победные очки · SoS — сила соперников. Порядок мест рассчитывается по правилам турнира.")}</p></section>`;
     return html;
   }
   function profileScreen() {
@@ -324,7 +284,7 @@
     let html = heading(tr("Профиль"));
     html += `<section class="card"><div class="profile-top">${avatar(user)}<div><h2>${esc(user.name)}</h2><p class="subtle">${esc(user.registerNickname || tr("Игрок KT Companion"))}</p></div></div></section><div class="stat-grid">${stat(user.ratings?.combined ?? user.rating, tr("Общий рейтинг"), true)}${stat(user.ratings?.irl, tr("Рейтинг IRL"))}${stat(user.ratings?.tts, tr("Рейтинг TTS"))}</div><div class="stat-grid">${stat(stats.matches, tr("Сыграно матчей"))}${stat(`${stats.winRate}%`, tr("Побед"))}${stat(`${stats.wins} / ${stats.draws} / ${stats.losses}`, tr("П / Н / ПР"))}</div>`;
     if (profile.teams?.length) html += `<section class="card"><h2>${tr("Мои команды")}</h2>${profile.teams.filter(t => !t.archivedAt).map(t => `<span class="team-chip">${esc(t.name)}</span>`).join("")}</section>`;
-    html += `<div class="section-title"><h2>${tr("Последние игры")}</h2></div>${profile.recentGames?.length ? `<div data-games-surface="profileGames">${gameOrderControls("profileGames")}${orderedGames(profile.recentGames, "profileGames").map(matchLink).join("")}</div>` : empty(tr("Первая игра впереди"), tr("Завершённые матчи и ваш прогресс появятся здесь."), "", "match")}`;
+    html += `<div class="section-title"><h2>${tr("Последние игры")}</h2></div>${profile.recentGames?.length ? `<div data-games-surface="profileGames">${profile.recentGames.map(matchLink).join("")}</div>` : empty(tr("Первая игра впереди"), tr("Завершённые матчи и ваш прогресс появятся здесь."), "", "match")}`;
     html += notifications ? `<form id="preferences-form" class="card"><h2>${tr("Уведомления в Telegram")}</h2>${notifications.blocked ? `<p class="notice">${tr("Бот заблокирован. Откройте диалог с ним и нажмите Start, чтобы снова получать уведомления.")}</p>` : ""}<label class="check-row"><input name="enabled" type="checkbox"${notifications.enabled ? " checked" : ""}><span>${tr("Получать уведомления")}</span></label>${[["pairings", tr("Турнирные пары")], ["results", tr("Подтверждение результатов")], ["invitations", tr("Вызовы и приглашения")], ["tournaments", tr("Начало турниров")]].map(([key, title]) => `<label class="check-row"><input name="${key}" type="checkbox"${notifications.preferences[key] ? " checked" : ""}><span>${title}</span></label>`).join("")}<button class="primary wide" type="submit">${tr("Сохранить настройки")}</button></form>` : `<section class="card"><h2>${tr("Уведомления в Telegram")}</h2><p class="subtle">${tr("Подключите Telegram к существующему аккаунту в профиле сайта.")}</p>${websiteButton("/tournament#/profile", tr("Подключить аккаунт"))}</section>`;
     html += `<p class="subtle">${tr("Изменить язык: /settings в боте.")}</p>`;
     html += `<div class="actions">${websiteButton("/tournament#/profile", tr("Полный профиль"))}${user.isAdmin || user.canCreateTournaments ? websiteButton("/tournament#/administration/tournaments", tr("Управление турнирами")) : ""}</div>`;
@@ -346,15 +306,8 @@
     if (!silent) content.setAttribute("aria-busy", "true");
     try {
       if (refresh || !state.data) {
-        // Summary and list-only requests share the same profile sort revision.
-        // A sort/reset cycle can return to the same path while this request waits.
-        const profileSequence = profileSortSequence, path = profileSummaryPath();
-        const data = await api(path);
+        const data = await api("/summary");
         if (sequence !== state.sequence) return;
-        if (profileSequence !== profileSortSequence || path !== profileSummaryPath()) {
-          if (!silent) content.setAttribute("aria-busy", "false");
-          return;
-        }
         state.data = data; state.user = data.user; chooseDefault();
       }
       const current = route();
@@ -449,7 +402,7 @@
   }
   async function boot() {
     const current = ++bootSequence;
-    profileSortSequence++;
+
     linking = false; linkFlow.dispose(); state.token = null; state.csrf = null; state.user = null; state.ready = false; nav.hidden = true;
     document.getElementById("refresh-button").disabled = true;
     content.innerHTML = `<div class="loading"><span class="loader"></span><p>${tr("Загружаем ваши турниры…")}</p></div>`;
@@ -490,11 +443,14 @@
     }
     if (target.dataset.sortSurface) {
       const surface = target.dataset.sortSurface;
+      if (!statisticsSortScope(target, surface)) return;
       ordering.toggle(sortView(surface), target.dataset.sortKey, ordering.columns[surface]);
       updateSortedSurface(surface); return;
     }
     if (target.dataset.sortReset || target.dataset.sortDirection) {
-      const surface = target.dataset.sortReset || target.dataset.sortDirection, view = sortView(surface);
+      const surface = target.dataset.sortReset || target.dataset.sortDirection;
+      if (!statisticsSortScope(target, surface)) return;
+      const view = sortView(surface);
       if (target.dataset.sortReset) Object.assign(view, { key: null, direction: "asc" });
       else view.direction = view.direction === "asc" ? "desc" : "asc";
       updateSortedSurface(surface); return;
@@ -553,7 +509,7 @@
     if (state.ready) { window.scrollTo(0, 0); await loadScreen(); }
   });
   window.addEventListener("beforeunload", event => { if (state.dirty) { event.preventDefault(); event.returnValue = ""; } });
-  window.addEventListener("pagehide", () => { bootSequence++; profileSortSequence++; state.sequence++; state.ready = false; linkFlow.dispose(); linking = false; });
+  window.addEventListener("pagehide", () => { bootSequence++;  state.sequence++; state.ready = false; linkFlow.dispose(); linking = false; });
   window.addEventListener("pageshow", event => { if (event.persisted) boot(); });
   window.addEventListener("kt:appearance", syncTheme);
   window.addEventListener("offline", () => showError(new Error(tr("Нет интернета. Показаны последние загруженные данные."))));

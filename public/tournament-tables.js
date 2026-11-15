@@ -34,7 +34,7 @@
   }
 
   function enhance(table, options) {
-    if (!table || table.dataset.tournamentTableEnhanced) return;
+    if (!table || !table.dataset.statisticsTable?.trim() || table.dataset.tournamentTableEnhanced) return;
     table.dataset.tournamentTableEnhanced = "true";
     const doc = table.ownerDocument;
     const { t, view, key } = options;

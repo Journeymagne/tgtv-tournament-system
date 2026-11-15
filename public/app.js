@@ -1831,8 +1831,6 @@ function playerTeamPublicPath(slug) {
   return `/teams/${encodeURIComponent(slug || "")}`;
 }
 
-
-
 function leavePublicTournamentRoute() {
   publicTournamentRequestId += 1;
   liveRefresh.invalidate();
@@ -1845,8 +1843,6 @@ function stopTeamPairingPoll() {
 function isCurrentPublicTournamentRoute(slug) {
   return tournamentSlugFromLocation() === String(slug || "");
 }
-
-
 
 function teamPairingSubmissionPending() {
   return teamPairingMutationPending || Boolean(document.querySelector('[data-team-pairing-form] [type="submit"]:disabled, [data-team-pairing-form] [data-combo].open, [data-team-pair-action="roll"]:disabled, [data-team-match-undo]:disabled, [data-team-match-reset]:disabled, [data-team-pairings-override] [type="submit"]:disabled, [data-team-pairings-override] [data-combo].open'));
@@ -1885,8 +1881,6 @@ function isCurrentTeamPairingRoute(matchId) {
   return segments[0] === "team-matches" && Number(segments[1]) === Number(matchId) &&
     state.view === "teamPairing" && Number(state.selectedTeamMatchId) === Number(matchId);
 }
-
-
 
 async function loadTeamPairing(matchId, options = {}) {
   const id = Number(matchId);
@@ -2818,7 +2812,7 @@ function publicStandingsTable(data) {
   if (!standings.length) return `<div class="empty">${t("tournaments.standings.empty")}</div>`;
   return `
     <div class="table-wrap">
-      <table class="data-table individual-standings-table" style="--table-metric-count:${2 + tiebreakerColumns.length}">
+      <table data-statistics-table="tournament-standings" class="data-table individual-standings-table" style="--table-metric-count:${2 + tiebreakerColumns.length}">
         <colgroup><col class="table-col-rank"><col><col class="table-col-text"><col span="${2 + tiebreakerColumns.length}" class="table-col-number"></colgroup>
         <thead>
           <tr>
@@ -2964,10 +2958,10 @@ function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "", to
             </div>
             <button type="button" class="small-button" data-round-search-reset>${t("tournaments.table.reset")}</button>
           </div>
-          ${statisticsListControls(`round:${selectionKey}:${round.roundNumber}`, matchStatisticsColumns())}
+
           <p class="field-help" data-round-search-count aria-live="polite" aria-atomic="true"></p>
           <div class="list tournament-round-matches">
-            ${sortStatisticsRows(round.matches || [], statisticsSortState(`round:${selectionKey}:${round.roundNumber}`, "", "desc"), matchStatisticsValues).map(match => `<div data-round-match="${match.id}" data-live-key="round-match-${match.id}" data-round-search-text="${escapeHtml(tournamentMatchSearchText(match))}">${matchMarkup(match)}</div>`).join("")}
+            ${(round.matches || []).map(match => `<div data-round-match="${match.id}" data-live-key="round-match-${match.id}" data-round-search-text="${escapeHtml(tournamentMatchSearchText(match))}">${matchMarkup(match)}</div>`).join("")}
           </div>
           <p class="empty" data-round-search-empty hidden>${t("tournaments.round.searchEmpty")}</p>
         </section>
@@ -3660,7 +3654,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.5.23`;
+    script.src = `/admin.js?v=1.5.24`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -3809,8 +3803,8 @@ function renderPlay(live = false) {
   const teamPairings = state.teamPairings || [];
   const incoming = state.challenges.filter((item) => item.status === "pending" && item.toUserId === state.me?.id);
   const outgoing = state.challenges.filter((item) => item.status === "pending" && item.fromUserId === state.me?.id);
-  const openGames = sortStatisticsRows(state.games.filter(game => ["open", "pending_confirmation"].includes(game.status)), statisticsSortState("play-active", "", "desc"), game => gameStatisticsValues(game, state.me?.id));
-  const completedGames = sortStatisticsRows(state.games.filter(game => game.status === "completed"), statisticsSortState("play-recent", "date", "desc"), game => gameStatisticsValues(game, state.me?.id)).slice(0, 8);
+  const openGames = state.games.filter(game => ["open", "pending_confirmation"].includes(game.status));
+  const completedGames = state.games.filter(game => game.status === "completed").slice(0, 8);
 
   setLiveContent(content, `
     <section class="card panel" data-live-view="play" data-live-preserve>
@@ -3844,13 +3838,13 @@ function renderPlay(live = false) {
 
     <section class="card panel">
       <div class="panel-header"><h2>${t("play.active.title")}</h2></div>
-      ${statisticsListControls("play-active", gameStatisticsColumns(true))}
+
       <div class="list">${openGames.length ? openGames.map(gameCard).join("") : `<div class="empty">${t("play.active.empty")}</div>`}</div>
     </section>
 
     <section class="card panel">
       <div class="panel-header"><h2>${t("play.recent.title")}</h2></div>
-      ${statisticsListControls("play-recent", gameStatisticsColumns(true), "date", "desc")}
+
       <div class="list">${completedGames.length ? completedGames.map(gameCard).join("") : `<div class="empty">${t("play.recent.empty")}</div>`}</div>
     </section>
     <div class="message" data-message></div>
@@ -3875,8 +3869,8 @@ function teamPairingsPanelMarkup(pairings) {
   if (!pairings.length) return "";
   return `<section class="card panel captain-pairings-panel">
     <div class="panel-header"><div><h2>${t("play.teamPairings.title")}</h2><p class="muted">${t("play.teamPairings.hint")}</p></div></div>
-    ${statisticsListControls("captain-pairings", matchStatisticsColumns())}
-    <div class="list">${sortStatisticsRows(pairings, statisticsSortState("captain-pairings", "", "desc"), matchStatisticsValues).map(teamPairingCard).join("")}</div>
+
+    <div class="list">${pairings.map(teamPairingCard).join("")}</div>
   </section>`;
 }
 
@@ -4565,7 +4559,7 @@ function renderProfile() {
     }).catch(() => {});
   }
   const stats = getProfileStats();
-  const recentGames = sortStatisticsRows(stats.completedGames, statisticsSortState("own-history", "date", "desc"), game => gameStatisticsValues(game, state.me?.id)).slice(0, 5);
+  const recentGames = stats.completedGames.slice(0, 5);
   const latestActiveMatchmaking = latestActiveMatchmakingItem(stats);
   const challengeProgress = ownChallengeProgress();
   content.innerHTML = `
@@ -4687,7 +4681,7 @@ function renderProfile() {
       </section>
       <section class="settings-block profile-dashboard-card">
         <div class="panel-header"><h3>${t("profile.recent.title")}</h3></div>
-        ${statisticsListControls("own-history", gameStatisticsColumns(true), "date", "desc")}
+
         <div class="list profile-card-content">
           ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`}
         </div>
@@ -4905,7 +4899,7 @@ function renderPlayerProfile() {
             <p class="muted">${t("profile.playerProfile.recentSubtitle")}</p>
           </div>
         </div>
-        ${statisticsListControls("player-history:" + user.id, gameStatisticsColumns(true), "date", "desc")}
+
         <div class="list">
           ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`}
         </div>
@@ -5110,9 +5104,8 @@ function activeGameWith(userId) {
 async function loadPlayerProfile(userId) {
   if (state.adminPasswordReset?.userId !== Number(userId)) state.adminPasswordReset = null;
   const sequence = loadPlayerProfile.sequence = (loadPlayerProfile.sequence || 0) + 1;
-  const query = statisticsSortQuery("player-history:" + Number(userId), true);
-  const data = await api(`/api/users/${Number(userId)}?${query}`);
-  if (sequence !== loadPlayerProfile.sequence || query !== statisticsSortQuery("player-history:" + Number(userId), true)) return null;
+  const data = await api(`/api/users/${Number(userId)}`);
+  if (sequence !== loadPlayerProfile.sequence) return null;
   state.playerProfile = data;
   if (state.playerProfile?.challengeProgress) upsertChallengeProgress(state.playerProfile.challengeProgress);
   return state.playerProfile;
@@ -5294,7 +5287,7 @@ function renderGames(live = false) {
   setLiveContent(content, `
 
     ${activeTab === "sessions" ? adminUi().adminActiveGamesPanel() : `
-      <section class="card panel">
+      <section class="card panel" data-statistics-table="games">
       <div class="panel-header">
         <div>
           <h2>${t("games.title")}</h2>
@@ -5494,7 +5487,7 @@ function renderStatistics() {
       : renderKillTeamWinrates(killTeamSummary);
   content.innerHTML = `
     ${venueTabs("statistics", state.statisticsVenue)}
-    <section class="card panel">
+    <section class="card panel" data-statistics-table="global:${state.statisticsTab}">
       <div class="panel-header">
         <div>
           <h2>${t("stats.title")}</h2>
@@ -5608,6 +5601,11 @@ function sortStatisticsRows(rows, sort, valueFor = row => row) {
   }).map(item => item.row);
 }
 
+function statisticsSortScope(element, id) {
+  return typeof id === "string" && id.trim().length > 0 &&
+    element?.closest?.("[data-statistics-table]")?.dataset.statisticsTable === id;
+}
+
 function statisticsListControls(id, columns, defaultKey = "", defaultDir = "desc") {
   const sort = statisticsSortState(id, defaultKey, defaultDir);
   return `<div class="statistics-order-controls" data-statistics-order="${escapeHtml(id)}" data-default-key="${escapeHtml(defaultKey)}" data-default-dir="${defaultDir}">
@@ -5672,17 +5670,6 @@ function matchStatisticsValues(match) {
     status: match.status || match.phase, killzone: mission.killzone, critOp: mission.critOp, layout: mission.layout };
 }
 
-function gameScoreColumns() {
-  return [["name", t("games.filter.playerLabel")], ["faction", t("games.filter.teamLabel")], ["tacOp", t("op.tac")],
-    ["crit", t("op.crit")], ["tac", t("tournaments.review.tacOpVp")], ["kill", t("op.kill")],
-    ["primaryBonus", t("tournaments.review.primaryBonus")], ["total", t("tournaments.score.total")]];
-}
-
-function sortedGamePlayers(game, result) {
-  return sortStatisticsRows(game.players || [], statisticsSortState("game-scores:" + game.id, "", "desc"),
-    player => ({ name: player.name, ...(result.scores?.[player.id] || {}) }));
-}
-
 function serverSortState(id) {
   return statisticsSortState(id, id === "admin-teams" ? "" : id === "games" || id.startsWith("player-history:") || id.startsWith("team-history:") ? "date" : "rank",
     id === "games" || id.includes("-history:") ? "desc" : "asc");
@@ -5714,29 +5701,14 @@ function preserveStatisticsForms() {
   };
 }
 
-function refreshOwnHistory() {
-  const controls = document.querySelector('[data-statistics-order="own-history"]');
-  const list = controls?.nextElementSibling;
-  if (!list) return;
-  const games = sortStatisticsRows(getProfileStats().completedGames, statisticsSortState("own-history", "date", "desc"),
-    game => gameStatisticsValues(game, state.me?.id)).slice(0, 5);
-  list.innerHTML = games.length ? games.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`;
-  controls.outerHTML = statisticsListControls("own-history", gameStatisticsColumns(true), "date", "desc");
-  wireGameButtons();
-}
-
 async function refreshStatisticsSort(id) {
   const location = navigationUrl(), choice = JSON.stringify(statisticsSortState(id));
   const current = () => location === navigationUrl() && choice === JSON.stringify(statisticsSortState(id));
   const restoreForms = preserveStatisticsForms();
   try {
-    if (id === "own-history") refreshOwnHistory();
-    else if (id === "leaderboard") { state.leaderboardPage = 1; if (await loadLeaderboardSearch() && current()) renderTop(); }
+    if (id === "leaderboard") { state.leaderboardPage = 1; if (await loadLeaderboardSearch() && current()) renderTop(); }
     else if (id === "team-leaderboard") { state.teamLeaderboardPage = 1; if (await loadTeamLeaderboard() && current()) renderTop(); }
-    else if (id === "admin-teams") { state.adminTeamsPage = 1; await adminUi().loadAdminTeams(); if (current()) adminUi().renderAdministration(); }
     else if (id === "games") { state.gamesPage = 1; await reloadGamesPage(); if (current()) renderGames(); }
-    else if (id.startsWith("player-history:")) { if (await loadPlayerProfile(Number(id.slice(15))) && current()) renderPlayerProfile(); }
-    else if (id.startsWith("team-history:")) { const data = await loadPlayerTeam(id.slice(13), { force: true }); if (data && current()) renderPlayerTeamProfile(data); }
     else if (tournamentSlugFromLocation() && state.publicTournamentDetail) renderPublicTournament(state.publicTournamentDetail);
     else if (playerTeamSlugFromLocation() && state.teamProfile) renderPlayerTeamProfile(state.teamProfile);
     else renderShell();
@@ -5747,7 +5719,7 @@ async function refreshStatisticsSort(id) {
 function wireStatisticsOrderEvents() {
   document.addEventListener("change", async event => {
     const input = event.target.closest("[data-statistics-order-key]");
-    if (!input) return;
+    if (!input || !statisticsSortScope(input, input.dataset.statisticsOrderKey)) return;
     const id = input.dataset.statisticsOrderKey, sort = statisticsSortState(id);
     const previous = { ...sort };
     const revisions = wireStatisticsOrderEvents.revisions ||= {};
@@ -5763,6 +5735,7 @@ function wireStatisticsOrderEvents() {
     const button = event.target.closest("[data-statistics-server-sort], [data-statistics-order-direction], [data-statistics-order-reset]");
     if (!button || button.disabled) return;
     const id = button.dataset.statisticsServerSort || button.dataset.statisticsOrderDirection || button.dataset.statisticsOrderReset;
+    if (!statisticsSortScope(button, id)) return;
     const sort = button.dataset.statisticsServerSort ? serverSortState(id) : statisticsSortState(id);
     const previous = { ...sort };
     const revisions = wireStatisticsOrderEvents.revisions ||= {};
@@ -5788,6 +5761,7 @@ function wireStatisticsOrderEvents() {
 
 function wireStatsSorting() {
   document.querySelectorAll("[data-stats-sort]").forEach(button => {
+    if (!statisticsSortScope(button, "global:" + state.statisticsTab)) return;
     button.addEventListener("click", () => {
       const sort = statisticsSortState("global:" + state.statisticsTab);
       const key = button.dataset.statsSort;
@@ -5819,7 +5793,7 @@ function renderKillTeamWinrates(summary) {
   const rows = sortedStatRows(applyStatsTeamFilters(summary.rows), ["team", "games", "wins", "losses", "draws", "winRate"], "winRate");
   return `
     <div class="table-wrap">
-      <table class="data-table statistics-table" style="--table-metric-count:5">
+      <table class="data-table statistics-table" data-statistics-table="global:${state.statisticsTab}" style="--table-metric-count:5">
         <colgroup><col><col span="5" class="table-col-number"></colgroup>
         <thead>
           <tr>
@@ -5854,7 +5828,7 @@ function renderTacOpWinrates(summary) {
   const rows = sortedStatRows(summary.rows, ["tacOp", "games", "wins", "winRate", "avgPoints", "avgPrimaryPoints"], "winRate");
   return `
     <div class="table-wrap">
-      <table class="data-table statistics-table" style="--table-metric-count:5">
+      <table class="data-table statistics-table" data-statistics-table="global:${state.statisticsTab}" style="--table-metric-count:5">
         <colgroup><col><col span="5" class="table-col-number"></colgroup>
         <thead>
           <tr>
@@ -5919,7 +5893,7 @@ function statsTeamFilterMatches(team) {
 
 function renderTeamCards(summary) {
   const rows = sortStatisticsRows(teamCardRows(summary), statisticsSortState("faction-cards", "winRate", "desc"));
-  return `
+  return `<div data-statistics-table="faction-cards">
     ${statisticsListControls("faction-cards", [["team", t("games.filter.teamLabel")], ["games", t("stats.column.games")], ["winRate", t("stats.column.winrate")]], "winRate", "desc")}
     <div class="team-card-grid">
       ${rows.length
@@ -5933,7 +5907,7 @@ function renderTeamCards(summary) {
         `).join("")
         : `<div class="empty">${t("stats.empty.killTeam")}</div>`}
     </div>
-  `;
+  </div>`;
 }
 
 function teamCardRows(summary) {
@@ -5971,7 +5945,7 @@ function renderTeamDetail(detail) {
 
       <p class="muted">${t("stats.mirrorsExcluded", { count: detail.mirrorGames || 0 })}</p>
       <section class="grid-2 team-detail-grid">
-        <div class="team-detail-section">
+        <div class="team-detail-section" data-statistics-table="faction-games:${escapeHtml(detail.team)}">
           <div class="panel-header"><h3>${t("stats.team.recentGames.title")}</h3></div>
           ${statisticsListControls("faction-games:" + detail.team, gameStatisticsColumns(true), "date", "desc")}
           <div class="list">
@@ -5983,7 +5957,7 @@ function renderTeamDetail(detail) {
         <div class="team-detail-section">
           <div class="panel-header"><h3>${t("stats.team.bestPlayers.title")}</h3></div>
           <div class="table-wrap">
-            <table class="data-table statistics-table" style="--table-metric-count:3" data-statistics-detail="players">
+            <table class="data-table statistics-table" style="--table-metric-count:3" data-statistics-table="faction-players" data-statistics-detail="players">
               <colgroup><col><col span="3" class="table-col-number"></colgroup>
               <thead><tr><th>${t("games.filter.playerLabel")}</th><th>${t("stats.column.games")}</th><th>${t("stats.column.wins")}</th><th>${t("stats.column.winrate")}</th></tr></thead>
               <tbody>
@@ -6006,7 +5980,7 @@ function renderTeamDetail(detail) {
       <section class="team-detail-section">
         <div class="panel-header"><h3>${t("stats.team.matchups.title")}</h3></div>
         <div class="table-wrap">
-          <table class="data-table statistics-table" style="--table-metric-count:5" data-statistics-detail="matchups">
+          <table class="data-table statistics-table" style="--table-metric-count:5" data-statistics-table="faction-matchups" data-statistics-detail="matchups">
             <colgroup><col><col span="5" class="table-col-number"></colgroup>
             <thead><tr><th>${t("stats.column.opponent")}</th><th>${t("stats.column.games")}</th><th>${t("stats.column.wins")}</th><th>${t("stats.column.losses")}</th><th>${t("stats.column.draws")}</th><th>${t("stats.column.winrate")}</th></tr></thead>
             <tbody>
@@ -6617,9 +6591,9 @@ function renderGameDetail(live = false) {
         <div class="result-headline">${escapeHtml(resultHeadline(game, result))}</div>
         ${submitter ? `<p class="muted">${t("games.detail.submittedBy", { name: escapeHtml(submitter.name) })}${game.submittedAt ? ` &middot; ${fmtDate(game.submittedAt)}` : ""}</p>` : ""}
         ${killzoneReview(result)}
-        ${statisticsListControls("game-scores:" + game.id, gameScoreColumns())}
+
         <div class="score-grid">
-          ${sortedGamePlayers(game, result).map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
+          ${(game.players || []).map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
         </div>
         ${result.tiebreakers?.enabled ? tieBreakerReview(game, result) : ""}
         ${game.elo ? eloReview(game) : ""}
@@ -7051,7 +7025,7 @@ function renderResultReview(gameId) {
       <div class="result-headline">${escapeHtml(reviewSummary)}</div>
       ${killzoneReview(result)}
       <div class="score-grid">
-        ${sortedGamePlayers(game, result).map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
+        ${(game.players || []).map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
       </div>
       ${result.tiebreakers?.enabled ? tieBreakerReview(game, result) : ""}
       <div class="review-actions">
@@ -7280,7 +7254,7 @@ function renderTournamentResultReview(data, match, options = {}) {
       <div class="result-headline">${escapeHtml(resultHeadline(game, result))}</div>
       ${killzoneReview(result)}
       <div class="score-grid">
-        ${sortedGamePlayers(game, result).map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
+        ${(game.players || []).map((player) => reviewScoreCard(player, result.scores?.[player.id])).join("")}
       </div>
       ${result.tiebreakers?.enabled ? tieBreakerReview(game, result) : ""}
       <div class="review-actions">
@@ -8308,10 +8282,11 @@ function teamsTable(teams, { admin = false } = {}) {
   if (admin) state.adminTeamsPage = pageData.currentPage;
   else state.teamLeaderboardPage = pageData.currentPage;
   if (!pageData.total) return `<div class="empty">${t("teams.list.empty")}</div>`;
-  const sortId = admin ? "admin-teams" : "team-leaderboard";
-  return `${statisticsListControls(sortId, admin ? [["name", t("teams.field.name")], ["leaderName", t("teams.role.leader")], ["memberCount", t("teams.members.count")], ["ratingTts", t("teams.rating.tts")], ["ratingIrl", t("teams.rating.irl")]] : [["rank", "#"], ["name", t("teams.field.name")], ["memberCount", t("teams.members.count")], ["rating", t("tournaments.card.rating")]], admin ? "" : "rank", "asc")}<div class="table-wrap"><table class="data-table ${admin ? "admin-teams-table" : "teams-leaderboard-table"}">
+  const sortId = "team-leaderboard";
+  const heading = (label, key) => admin ? `<th>${escapeHtml(label)}</th>` : serverSortHeader(label, key, sortId);
+  return `<div data-statistics-table="${admin ? "" : sortId}">${admin ? "" : statisticsListControls(sortId, [["rank", "#"], ["name", t("teams.field.name")], ["memberCount", t("teams.members.count")], ["rating", t("tournaments.card.rating")]], "rank", "asc")}<div class="table-wrap"><table class="data-table ${admin ? "admin-teams-table" : "teams-leaderboard-table"}">
     <colgroup>${admin ? '<col><col class="table-col-text">' : '<col class="table-col-rank"><col>'}<col class="table-col-number"><col ${admin ? 'span="2" ' : ''}class="table-col-rating"></colgroup>
-    <thead><tr>${admin ? "" : serverSortHeader("#", "rank", sortId)}${serverSortHeader(t("teams.field.name"), "name", sortId)}${admin ? serverSortHeader(t("teams.role.leader"), "leaderName", sortId) : ""}${serverSortHeader(t("teams.members.count"), "memberCount", sortId)}${admin ? serverSortHeader(t("teams.rating.tts"), "ratingTts", sortId) + serverSortHeader(t("teams.rating.irl"), "ratingIrl", sortId) : serverSortHeader(t("tournaments.card.rating"), "rating", sortId)}</tr></thead>
+    <thead><tr>${admin ? "" : heading("#", "rank", sortId)}${heading(t("teams.field.name"), "name", sortId)}${admin ? heading(t("teams.role.leader"), "leaderName", sortId) : ""}${heading(t("teams.members.count"), "memberCount", sortId)}${admin ? heading(t("teams.rating.tts"), "ratingTts", sortId) + heading(t("teams.rating.irl"), "ratingIrl", sortId) : heading(t("tournaments.card.rating"), "rating", sortId)}</tr></thead>
     <tbody>${pageData.items.map((team, index) => `<tr>
       ${admin ? "" : `<td class="rank">${team.rank ?? pageData.start + index + 1}</td>`}
       <td><a href="/teams/${escapeHtml(team.slug)}" data-app-link class="text-button player-name-button leaderboard-player-button" data-team-open="${escapeHtml(team.slug)}" title="${escapeHtml(team.name)}">
@@ -8320,7 +8295,7 @@ function teamsTable(teams, { admin = false } = {}) {
       ${admin ? `<td>${escapeHtml(team.leaderName || "—")}</td>` : ""}
       <td>${team.memberCount ?? 0}</td>${admin ? `<td>${team.ratings.tts}</td><td>${team.ratings.irl}</td>` : `<td>${team.rating}</td>`}
     </tr>`).join("")}</tbody>
-  </table></div>${paginationMarkup(admin ? "admin-teams" : "team-leaderboard", pageData, "teams.pagination.teams")}`;
+  </table></div>${paginationMarkup(admin ? "admin-teams" : "team-leaderboard", pageData, "teams.pagination.teams")}</div>`;
 }
 
 function wireTeamLinks() {
@@ -8333,10 +8308,10 @@ function usersTable(users) {
   const pageData = remotePage(matches ? rankedUsers.filter((user) => matches.has(user.id)) : rankedUsers, state.leaderboardPagination, state.leaderboardPage);
   state.leaderboardPage = pageData.currentPage;
   if (!pageData.total) return `<div class="empty">${t(state.leaderboardQuery.trim() ? "leaderboard.users.searchEmpty" : "leaderboard.empty")}</div>`;
-  return `
+  return `<div data-statistics-table="leaderboard">
     ${statisticsListControls("leaderboard", [["rank", "#"], ["name", t("games.filter.playerLabel")], ["rating", t("tournaments.card.rating")]], "rank", "asc")}
     <div class="table-wrap">
-      <table class="data-table leaderboard-table">
+      <table class="data-table leaderboard-table" data-statistics-table="leaderboard">
         <colgroup><col class="table-col-rank"><col><col class="table-col-rating"></colgroup>
         <thead><tr>${serverSortHeader("#", "rank", "leaderboard")}${serverSortHeader(t("games.filter.playerLabel"), "name", "leaderboard")}${serverSortHeader(t("tournaments.card.rating"), "rating", "leaderboard")}</tr></thead>
         <tbody>
@@ -8356,7 +8331,7 @@ function usersTable(users) {
       </table>
     </div>
     ${paginationMarkup("leaderboard", pageData, "leaderboard.pagination.players")}
-  `;
+  </div>`;
 }
 
 function wireLeaderboardProfiles() {
@@ -8531,7 +8506,7 @@ function tournamentTacOpStatsTable(rows) {
     <section class="admin-subpanel tournament-stat-table">
       <h4>${t("tournaments.stats.tacOpTableTitle")}</h4>
       <div class="table-wrap">
-        <table class="data-table statistics-table" data-tournament-table-kind="tacOps" style="--table-metric-count:5">
+        <table data-statistics-table="tournament-tac-ops" class="data-table statistics-table" data-tournament-table-kind="tacOps" style="--table-metric-count:5">
           <colgroup><col><col span="5" class="table-col-number"></colgroup>
           <thead>
             <tr>
@@ -8567,7 +8542,7 @@ function tournamentKillTeamStatsTable(rows, picksHidden) {
       <h4>${t("tournaments.stats.killTeamTableTitle")}</h4>
       <p class="hint">${t(picksHidden ? "tournaments.stats.factionPicksHidden" : "tournaments.stats.factionPicksHint")}</p>
       <div class="table-wrap">
-        <table class="data-table statistics-table" data-tournament-table-kind="killTeams" style="--table-metric-count:6">
+        <table data-statistics-table="tournament-kill-teams" class="data-table statistics-table" data-tournament-table-kind="killTeams" style="--table-metric-count:6">
           <colgroup><col><col span="6" class="table-col-number"></colgroup>
           <thead>
             <tr>
@@ -8761,7 +8736,7 @@ function wireRosterLinks(root = document) {
 
 function rosterMatchHistoryMarkup(data) {
   const original = [...(data.teamMatches || [])].sort((a, b) => b.roundNumber - a.roundNumber || b.id - a.id);
-  const matches = sortStatisticsRows(original, statisticsSortState("roster-matches:" + data.roster?.id, "", "desc"), matchStatisticsValues);
+  const matches = original;
   if (!matches.length) return `<div class="empty">${t("teams.roster.noMatches")}</div>`;
   return matches.map((match) => {
     const status = data.tournament.status === "registration_closed" ? t("admin.roundSetup.awaitingStart")
@@ -8817,7 +8792,7 @@ function renderRosterProfile() {
       <div class="row-title">${tournamentParticipantProfileLink({ userId: member.userId, displayName: member.displayNameSnapshot })}${member.userId && member.userId === roster.captainUserId && !member.endedAt ? ` · ${t("teams.role.captain")}` : ""}</div>
       <div class="row-meta">${escapeHtml(tournamentFactionsLabel(member))}${member.endedAt ? ` · ${t("teams.roster.formerPlayer")} · ${fmtDate(member.endedAt)}` : ""}</div>
     </div></div>`).join("")}</div></section>
-    <section class="card panel"><h3>${t("teams.roster.matchHistory")}</h3>${statisticsListControls("roster-matches:" + roster.id, matchStatisticsColumns())}<div class="list">${rosterMatchHistoryMarkup(data)}</div></section>
+    <section class="card panel"><h3>${t("teams.roster.matchHistory")}</h3><div class="list">${rosterMatchHistoryMarkup(data)}</div></section>
     <div class="message" data-message></div>
   </div>`;
   content.querySelector("[data-roster-back]").addEventListener("click", () => navigateBack(state.administrationContext ? `/tournament#/administration/tournaments/admin/${tournament.id}` : tournamentPublicPath(tournament.slug), { tournamentTab: "standings" }));
@@ -9081,7 +9056,7 @@ function teamIndividualStandingsTable(data) {
   const hint = `<p class="field-help">${t("teams.tournament.individualStandingsHint")}</p>`;
   if (!rows.length) return `${hint}<div class="empty">${t("teams.tournament.individualStandingsEmpty")}</div>`;
   return `${hint}<div class="table-wrap">
-    <table class="data-table team-individual-standings-table" style="--table-metric-count:5">
+    <table data-statistics-table="team-personal-standings" class="data-table team-individual-standings-table" style="--table-metric-count:5">
       <colgroup><col class="table-col-rank"><col><col class="table-col-text"><col span="5" class="table-col-number"></colgroup>
       <thead><tr><th class="rank">#</th><th>${t("tournaments.player.fallback")}</th><th>${t("teams.tournament.roster")}</th><th>${t("teams.tournament.individualGames")}</th><th>${t("tournaments.standings.column.tp")}</th><th>${t("teams.tournament.individualGp")}</th><th>${t("teams.tournament.individualDiff")}</th><th>${t("tournaments.standings.column.wdl")}</th></tr></thead>
       <tbody>${rows.map(row => `<tr><td class="rank">${row.rank}</td><td>${tournamentParticipantProfileLink({ userId: row.isProxy ? null : row.userId, displayName: row.name }, t("tournaments.player.fallback"))}</td><td>${escapeHtml((row.rosterNames || []).join(" · ") || "—")}</td><td>${row.gamesPlayed ?? 0}</td><td>${row.matchPoints ?? 0}</td><td>${row.totalGp ?? 0}</td><td>${row.gpDiff ?? 0}</td><td>${row.wins ?? 0}-${row.draws ?? 0}-${row.losses ?? 0}</td></tr>`).join("")}</tbody>
@@ -9108,7 +9083,7 @@ function teamStandingsTable(data) {
   if (!source.length) return `<div class="empty">${t("teams.tournament.standingsEmpty")}</div>`;
   return `
     <div class="table-wrap">
-      <table class="data-table team-standings-table" style="--table-metric-count:${2 + teamColumns.length}">
+      <table data-statistics-table="team-standings" class="data-table team-standings-table" style="--table-metric-count:${2 + teamColumns.length}">
         <colgroup><col class="table-col-rank"><col><col span="${2 + teamColumns.length}" class="table-col-number"></colgroup>
         <thead><tr><th class="rank">#</th><th>${t("teams.tournament.roster")}</th><th>${t(usesIndividualTeamPoints(data.tournament) ? "classic.playerTp" : "teams.tournament.ttp")}</th>${teamColumns.map(([, label]) => `<th>${t(label)}</th>`).join("")}<th>${t("tournaments.standings.column.wdl")}</th></tr></thead>
         <tbody>${source.map((row) => {
@@ -9294,20 +9269,7 @@ function teamMatchGamesMarkup(match, options = {}) {
   const slots = [...new Set([...(options.preview && !match.resolution ? Array.from({ length: teamSizeFor(match) }, (_, index) => index + 1) : []), ...pairings.keys(), ...assignments.keys(), ...games.keys()])].sort((a, b) => a - b);
   if (!slots.length) return "";
   const summary = options.showProgress === false ? "" : teamMatchProgressMarkup(match);
-  const sortId = "team-game-slots:" + match.id;
-  const values = slot => {
-    const link = games.get(slot), pairing = pairings.get(slot), assignment = assignments.get(slot);
-    const mission = link?.mission || assignment?.mission || {};
-    return { ...gameStatisticsValues(link?.game || {}), slot, table: link?.table?.tableNumber ?? assignment?.tableId ?? link?.tableId,
-      player: teamRosterMemberLabel(match.rosterA, (link || pairing)?.rosterAMemberId),
-      opponent: teamRosterMemberLabel(match.rosterB, (link || pairing)?.rosterBMemberId),
-      killzone: mission.killzone, critOp: mission.critOp, layout: mission.layout };
-  };
-  const orderedSlots = sortStatisticsRows(slots, statisticsSortState(sortId, "", "desc"), values);
-  const hasScores = (match.games || []).some(link => link.game?.result || link.game?.pendingResult?.result);
-  const columns = gameStatisticsColumns().filter(([key]) => hasScores || !["score", "opponentScore", "vpDiff", "elo"].includes(key));
-  return `${summary}${statisticsListControls(sortId, [["slot", t("stats.sort.slot")], ...columns,
-    ["table", t("stats.sort.table")], ["killzone", t("stats.sort.killzone")], ["critOp", t("stats.sort.critOp")], ["layout", t("stats.sort.layout")]])}<div class="team-match-games">${orderedSlots.map((slot) => {
+  return `${summary}<div class="team-match-games">${slots.map((slot) => {
     const pairing = pairings.get(slot);
     const assignment = assignments.get(slot);
     const link = games.get(slot);
@@ -11002,12 +10964,11 @@ function wireTeamTournamentControls(data, options = {}) {
 }
 
 async function loadPlayerTeam(slug, options = {}) {
-  const query = statisticsSortQuery("team-history:" + slug, true);
-  const signature = slug + ":" + query;
+  const signature = slug;
   if (!options.force && state.teamProfile?.team?.slug === slug && loadPlayerTeam.signature === signature) return state.teamProfile;
   const sequence = loadPlayerTeam.sequence = (loadPlayerTeam.sequence || 0) + 1;
-  const data = await api(`/api/teams/${encodeURIComponent(slug)}?${query}`);
-  if (sequence !== loadPlayerTeam.sequence || query !== statisticsSortQuery("team-history:" + slug, true)) return null;
+  const data = await api(`/api/teams/${encodeURIComponent(slug)}`);
+  if (sequence !== loadPlayerTeam.sequence) return null;
   state.teamProfile = data;
   loadPlayerTeam.signature = signature;
   return data;
@@ -11227,8 +11188,8 @@ function renderPlayerTeamProfile(data) {
       ${teamDeletionPanel(team)}
     ` }] : []),
     { id: "history", label: t("teams.profile.tab.history"), content: `
-      <section class="card panel"><h3>${t("teams.history.games")}</h3>${statisticsListControls("team-history:" + team.slug, [["date", t("stats.sort.date")], ["tournament", t("nav.tournaments")], ["round", t("stats.sort.round")], ["rosterA", t("teams.tournament.roster") + " A"], ["rosterB", t("teams.tournament.roster") + " B"]], "date", "desc")}<div class="list">${teamGameHistory(data.recentGames || [])}</div></section>
-      <section class="card panel"><h3>${t("teams.history.tournaments")}</h3>${statisticsListControls("team-rosters:" + team.id, [["name", t("teams.field.name")], ["tournament", t("nav.tournaments")], ["seed", t("stats.sort.seed")], ["status", t("stats.sort.status")]])}<div class="list">${teamRosterHistory(data.rosters || [])}</div></section>
+      <section class="card panel"><h3>${t("teams.history.games")}</h3><div class="list">${teamGameHistory(data.recentGames || [])}</div></section>
+      <section class="card panel"><h3>${t("teams.history.tournaments")}</h3><div class="list">${teamRosterHistory(data.rosters || [])}</div></section>
     ` }
   ];
   if (state.teamProfileTabTeamId !== team.id || !tabs.some((tab) => tab.id === state.teamProfileTab)) {
@@ -11269,7 +11230,7 @@ function teamMemberCards(members, team, canManage) {
 
 function teamRosterHistory(rosters) {
   if (!rosters.length) return `<div class="empty">${t("teams.history.empty")}</div>`;
-  return sortStatisticsRows(rosters, statisticsSortState("team-rosters:" + state.teamProfile?.team?.id, "", "desc"), roster => ({ name: roster.name, tournament: roster.tournament?.name, seed: roster.seed, status: roster.status })).map((roster) => `<div class="row-card compact-row-card"><div class="row-main">
+  return rosters.map((roster) => `<div class="row-card compact-row-card"><div class="row-main">
     <div class="row-title">${teamRosterLabel(roster)}</div>
     <div class="row-meta">${escapeHtml(roster.tournament?.name || "")} / ${t("teams.roster.seed", { seed: roster.seed || "-" })} / ${escapeHtml(teamRosterStatusLabel(roster.status))}</div>
     ${activeRosterMembersForUi(roster).map((member) => `${escapeHtml(member.displayNameSnapshot)} (${escapeHtml(tournamentFactionsLabel(member))})${member.userId && member.userId === roster.captainUserId ? ` — ${t("teams.role.captain")}` : ""}`).join("<br>")}

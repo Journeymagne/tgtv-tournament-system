@@ -14,11 +14,11 @@ function appFunction(name, context) {
   return vm.runInNewContext(source.slice(start, end) + '\n' + name, context);
 }
 
-test('every Mini App standings and operation score column sorts numerically or by name without changing official ranks', () => {
+test('every Mini App standings column sorts numerically or by name without changing official ranks', () => {
   assert.deepEqual(Object.keys(sorting.columns.standings), ['rank', 'name', 'points', 'totalVp', 'strengthOfSchedule']);
-  assert.deepEqual(Object.keys(sorting.columns.operations), ['name', 'crit', 'kill', 'tac', 'primaryBonus']);
+  assert.deepEqual(Object.keys(sorting.columns), ['standings']);
   for (const [surface, fields] of Object.entries(sorting.columns)) {
-    if (!['standings', 'operations'].includes(surface)) continue;
+    if (surface !== 'standings') continue;
     for (const [key, type] of Object.entries(fields)) {
       const rows = [{ rank: 8, [key]: type === 'text' ? 'Zulu' : '12' }, { rank: 3, [key]: type === 'text' ? 'Alpha' : '2' }];
       const original = JSON.stringify(rows);
@@ -68,35 +68,6 @@ test('standings render preserves published place and sorts filtered rows using r
   assert.ok(html.indexOf('>1</span>') < html.indexOf('>9</span>'));
 });
 
-test('game lists sort all loaded games before their display limit, keeping each surface independent', () => {
-  const games = Array.from({ length: 9 }, (_, index) => ({ id: index + 1, players: [{ id: 1, name: 'Me' }], status: 'completed', round: index + 1, points: index + 1 }));
-  const views = { tournamentGames: { key: 'score', direction: 'desc' }, otherGames: { key: 'round', direction: 'asc' } };
-  const ordered = appFunction('orderedGames', { ordering: sorting, sortView: surface => views[surface], locale: 'en',
-    roundOf: g => g.round, scores: g => ({ 1: { total: g.points } }), playerIsMe: () => true, tr: x => x, statuses: {} });
-  assert.equal(ordered(games, 'tournamentGames').slice(0, 4)[0].id, 9);
-  assert.equal(ordered(games, 'otherGames')[0].id, 1);
-});
-
-test('updating a list changes only its container and never rerenders an unsaved result form', () => {
-  const container = { innerHTML: '' }, form = { innerHTML: 'unsaved' };
-  const update = appFunction('updateSortedSurface', { state: {},
-    document: { querySelector: () => container, getElementById: () => form },
-    gameOrderControls: () => 'controls', orderedGames: rows => rows, matchLink: g => String(g.id), gamesForSelection: () => [{ id: 5 }] });
-  update('tournamentGames');
-  assert.equal(container.innerHTML, 'controls5');
-  assert.equal(form.innerHTML, 'unsaved');
-});
-
-test('Mini App profile requests ordering before the server limits history to five games', () => {
-  const view = { key: 'score', direction: 'desc' };
-  const path = appFunction('profileSummaryPath', { sortView: () => view, URLSearchParams });
-  const query = new URL(path(), 'http://localhost').searchParams;
-  assert.equal(query.get('historySort'), 'score');
-  assert.equal(query.get('historyDirection'), 'desc');
-  view.key = null;
-  assert.equal(path(), '/summary');
-});
-
 test('sorting restores focus to the replacement column button for keyboard navigation', () => {
   let focused = false;
   const context = { document: { activeElement: { isConnected: false, dataset: { sortSurface: 'standings', sortKey: 'points' } },
@@ -108,96 +79,36 @@ test('sorting restores focus to the replacement column button for keyboard navig
   assert.equal(focused, true);
 });
 
-test('profile sorting ignores stale responses and keeps the newest server-selected games', async () => {
-  const pending = [], container = { innerHTML: '', isConnected: true, setAttribute() {} };
-  const state = { data: { profile: { recentGames: [] } } };
-  const refresh = appFunction('refreshProfileGames', { state, profileSortSequence: 0,
-    profileSummaryPath: () => '/summary?historySort=score&historyDirection=desc',
-    document: { querySelector: () => container }, route: () => ({ screen: 'profile' }),
-    api: () => new Promise(resolve => pending.push(resolve)), gameOrderControls: () => 'controls', matchLink: g => String(g.id), showError: assert.fail });
-  const first = refresh(), second = refresh();
-  pending[1]({ profile: { recentGames: [{ id: 9 }] } });
-  await second;
-  pending[0]({ profile: { recentGames: [{ id: 2 }] } });
-  await first;
-  assert.equal(container.innerHTML, 'controls9');
-  assert.deepEqual(state.data.profile.recentGames, [{ id: 9 }]);
+test('Mini App only enables matching tagged standings controls', () => {
+  const scope = appFunction('statisticsSortScope', {});
+  for (const [tag, surface, expected] of [[null, 'standings', false], ['', 'standings', false], ['operations', 'standings', false], ['standings', 'standings', true], ['operations', 'operations', false]]) {
+    assert.equal(scope({ closest: () => tag === null ? null : { dataset: { statisticsTable: tag } } }, surface), expected);
+  }
 });
 
-test('a summary started before a new profile sort cannot overwrite that sort after it completes', async () => {
-  const pending = [], container = { innerHTML: '', isConnected: true, setAttribute() {} };
-  const current = { user: { id: 1 }, locale: 'en', profile: { recentGames: [{ id: 1 }] } };
-  const state = { sequence: 0, user: current.user, data: current, slug: null };
-  const view = { key: null, direction: 'asc' };
-  let renders = 0;
-  const context = { state, profileSortSequence: 0, URLSearchParams,
-    sortView: () => view, content: { setAttribute() {} }, connection: { hidden: true }, tg: null,
-    document: { querySelector: () => container }, route: () => ({ screen: 'profile' }),
-    api: path => new Promise(resolve => pending.push({ path, resolve })),
-    gameOrderControls: () => 'controls', matchLink: g => String(g.id), showError: assert.fail,
-    chooseDefault() {}, applyLocale() {}, rememberSelection() {}, render() { renders++; } };
-  context.profileSummaryPath = appFunction('profileSummaryPath', context);
-  const load = appFunction('loadScreen', context), refresh = appFunction('refreshProfileGames', context);
-  const oldSummary = load({ refresh: true, silent: true });
-  assert.equal(pending[0].path, '/summary');
-  Object.assign(view, { key: 'score', direction: 'desc' });
-  const newSort = refresh();
-  assert.match(pending[1].path, /historySort=score/);
-  pending[1].resolve({ ...current, profile: { recentGames: [{ id: 9 }] } });
-  await newSort;
-  pending[0].resolve({ ...current, profile: { recentGames: [{ id: 2 }] } });
-  await oldSummary;
-  assert.deepEqual(state.data.profile.recentGames, [{ id: 9 }]);
-  assert.equal(container.innerHTML, 'controls9');
-  assert.equal(renders, 0, 'obsolete summary must not rerender the profile');
+test('operation breakdown retains participant order and has no sorting controls', () => {
+  const game = { players: [{ id: 1, name: 'Zulu' }, { id: 2, name: 'Alpha' }] };
+  const render = appFunction('operationScores', { scores: () => ({ 1: { crit: 2, primaryBonus: 2 }, 2: { crit: 4, primaryBonus: 0 } }), esc: String, tr: String });
+  const html = render(game);
+  assert.ok(html.indexOf('Zulu') < html.indexOf('Alpha'));
+  assert.ok(html.includes('>2</td>'));
+  assert.doesNotMatch(html, /data-sort-|sort-button|sort-reset|data-statistics-table/);
 });
 
-test('a sort/reset cycle rejects an older summary even when its requested path matches again', async () => {
-  let finish;
-  const busy = [];
-  const original = { user: { id: 1 }, profile: { recentGames: [{ id: 9 }] } };
-  const state = { sequence: 0, user: original.user, data: original };
-  const context = { state, profileSortSequence: 0, profileSummaryPath: () => '/summary',
-    content: { setAttribute(name, value) { if (name === 'aria-busy') busy.push(value); } }, api: () => new Promise(resolve => { finish = resolve; }),
-    route: () => ({ screen: 'profile' }), document: {}, connection: {}, tg: null,
-    chooseDefault() {}, applyLocale() {}, rememberSelection() {}, render: assert.fail, showError: assert.fail };
-  const pending = appFunction('loadScreen', context)({ refresh: true });
-  context.profileSortSequence += 2;
-  finish({ ...original, profile: { recentGames: [{ id: 2 }] } });
-  await pending;
-  assert.equal(state.data, original);
-  assert.deepEqual(busy, ['true', 'false']);
+test('Mini App captain pairings retain server order and ignore obsolete sort state', () => {
+  const render = appFunction('pairingList', { state: { slug: 'cup', data: { teamPairings: [
+    { id: 1, tournament: { slug: 'cup' }, rosterA: { name: 'Zulu' }, rosterB: { name: 'Z' } },
+    { id: 2, tournament: { slug: 'cup' }, rosterA: { name: 'Alpha' }, rosterB: { name: 'A' } }
+  ] } }, websiteButton: (url, name) => name });
+  assert.equal(render(), 'Zulu — ZAlpha — A');
 });
 
-for (const lifecycle of ['boot', 'pagehide', 'acceptSession']) {
-  test('an old profile sort response cannot update the page after ' + lifecycle, async () => {
-    const pending = [], container = { innerHTML: 'current', isConnected: true, setAttribute() {} };
-    const original = { user: { id: 1 }, profile: { recentGames: [{ id: 9 }] } };
-    const state = { sequence: 0, user: original.user, data: original };
-    const context = { state, profileSortSequence: 0, bootSequence: 0, linking: false,
-      profileSummaryPath: () => '/summary', route: () => ({ screen: 'profile' }), initData: '',
-      content: { innerHTML: '', setAttribute() {} }, nav: {}, linkFlow: { dispose() {} }, tg: null,
-      document: { querySelector: () => container, getElementById: () => ({ disabled: false }) },
-      api: path => new Promise(resolve => pending.push({ path, resolve })),
-      gameOrderControls: () => 'controls', matchLink: g => String(g.id), showError: assert.fail,
-      tr: key => key, applyLocale() {}, acceptSession() {}, loadScreen() {},
-      explicitDestination: true, toast() {} };
-    const oldSort = appFunction('refreshProfileGames', context)();
-    let operation;
-    if (lifecycle === 'boot') operation = appFunction('boot', context)();
-    else if (lifecycle === 'pagehide') {
-      const handler = source.match(/window\.addEventListener\("pagehide", (\(\) => \{[^\n]*\})\);/);
-      assert.ok(handler);
-      vm.runInNewContext('(' + handler[1] + ')', context)();
-    } else operation = appFunction('acceptSession', context)({ user: { id: 2 }, locale: 'en' }, true);
-    pending[0].resolve({ profile: { recentGames: [{ id: 2 }] } });
-    await oldSort;
-    assert.equal(container.innerHTML, 'current');
-    assert.deepEqual(state.data?.profile.recentGames ?? null, lifecycle === 'acceptSession' ? null : [{ id: 9 }]);
-    if (lifecycle === 'boot') {
-      assert.equal(pending[1].path, '/session');
-      pending[1].resolve({ authenticated: true, locale: 'en' });
-    }
-    await operation;
-  });
-}
+test('old unsupported Mini App sort surfaces cannot update work lists or forms', () => {
+  const update = appFunction('updateSortedSurface', { document: { get activeElement() { throw Error('Work-list sorting is disabled'); } } });
+  for (const surface of ['operations', 'pairings', 'tournamentGames', 'otherGames', 'profileGames']) update(surface);
+});
+
+test('only the Mini App standings screen has an explicit statistics tag', () => {
+  assert.match(source, /data-statistics-table="standings"/);
+  assert.doesNotMatch(source, /gameOrderControls|orderedGames|profileSummaryPath|historySort/);
+});

@@ -2,6 +2,12 @@
 
 KT Companion release history, newest first.
 
+## 1.5.24 — 15 November 2026
+
+- Sorting is limited to statistics: Games, Kill Team and tournament statistics, standings, leaderboards and tierlist statistics.
+- Removed unnecessary sorting from individual game results and confirmation, captain pairings, round lists, personal team matchups, short profile histories and team administration. Player, pairing and slot order is preserved.
+- In the Mini App, sorting remains available in tournament standings; work lists and a single game’s operation scores no longer show extra sorting controls.
+
 ## 1.5.23 — 15 November 2026
 
 - Added sorting by every column across statistics, rankings, game history, tournament tables, the Mini App and tierlists. Official places are retained; sorting uses the full list before pagination and top-N limits.

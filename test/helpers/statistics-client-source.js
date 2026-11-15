@@ -5,7 +5,7 @@ const source = fs.readFileSync(path.join(__dirname, '../../public/app.js'), 'utf
 // real sorting dependencies, with an isolated state when the fixture has none.
 const names = ['statisticsSortState', 'sortStatisticsRows', 'statisticsListControls', 'gameStatisticsColumns',
   'gameStatisticsValues', 'matchStatisticsColumns', 'matchStatisticsValues', 'serverSortState',
-  'serverSortHeader', 'statisticsSortQuery', 'compareStatValues', 'statSortNumber', 'gameScoreColumns', 'sortedGamePlayers'];
+  'serverSortHeader', 'statisticsSortQuery', 'compareStatValues', 'statSortNumber', 'statisticsSortScope'];
 module.exports = `
 var statisticsFixtureState = {};
 function statisticsClientState() { return typeof state === 'undefined' ? statisticsFixtureState : state; }

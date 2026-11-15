@@ -136,7 +136,8 @@ test('an obsolete sorting request failure cannot roll back a newer successful ch
       state, document, () => new Promise((resolve, reject) => requests.push({ resolve, reject })), error => errors.push(error), () => "/test");
   wire();
   const click = key => events.click({ target: { closest: () => ({ disabled: false,
-    dataset: { statisticsServerSort: 'leaderboard', sortKey: key } }) } });
+    dataset: { statisticsServerSort: 'leaderboard', sortKey: key },
+    closest: () => ({ dataset: { statisticsTable: 'leaderboard' } }) }) } });
   const first = click('name');
   const second = click('rating');
   requests[1].resolve(); await second;
