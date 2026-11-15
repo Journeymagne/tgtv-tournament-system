@@ -112,3 +112,16 @@ test('only the Mini App standings screen has an explicit statistics tag', () => 
   assert.match(source, /data-statistics-table="standings"/);
   assert.doesNotMatch(source, /gameOrderControls|orderedGames|profileSummaryPath|historySort/);
 });
+
+test('obsolete Mini App list-sort changes cannot mutate state or throw outside tagged statistics', async () => {
+  const start = source.indexOf('  document.addEventListener("change", async event => {');
+  const end = source.indexOf('\n  });', start) + '\n  });'.length;
+  const handlers = {};
+  vm.runInNewContext(source.slice(start, end), {
+    document: { addEventListener: (type, callback) => { handlers[type] = callback; } },
+    sortView: () => { throw Error('Obsolete sorting must not access view state'); }
+  });
+  for (const listSort of ['standings', 'pairings', 'tournamentGames', 'otherGames', 'profileGames']) {
+    await handlers.change({ target: { dataset: { listSort }, value: 'score', matches: () => false, closest: () => null } });
+  }
+});

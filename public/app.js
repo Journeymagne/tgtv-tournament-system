@@ -8284,7 +8284,7 @@ function teamsTable(teams, { admin = false } = {}) {
   if (!pageData.total) return `<div class="empty">${t("teams.list.empty")}</div>`;
   const sortId = "team-leaderboard";
   const heading = (label, key) => admin ? `<th>${escapeHtml(label)}</th>` : serverSortHeader(label, key, sortId);
-  return `<div data-statistics-table="${admin ? "" : sortId}">${admin ? "" : statisticsListControls(sortId, [["rank", "#"], ["name", t("teams.field.name")], ["memberCount", t("teams.members.count")], ["rating", t("tournaments.card.rating")]], "rank", "asc")}<div class="table-wrap"><table class="data-table ${admin ? "admin-teams-table" : "teams-leaderboard-table"}">
+  return `<div${admin ? "" : ` data-statistics-table="${sortId}"`}>${admin ? "" : statisticsListControls(sortId, [["rank", "#"], ["name", t("teams.field.name")], ["memberCount", t("teams.members.count")], ["rating", t("tournaments.card.rating")]], "rank", "asc")}<div class="table-wrap"><table class="data-table ${admin ? "admin-teams-table" : "teams-leaderboard-table"}">
     <colgroup>${admin ? '<col><col class="table-col-text">' : '<col class="table-col-rank"><col>'}<col class="table-col-number"><col ${admin ? 'span="2" ' : ''}class="table-col-rating"></colgroup>
     <thead><tr>${admin ? "" : heading("#", "rank", sortId)}${heading(t("teams.field.name"), "name", sortId)}${admin ? heading(t("teams.role.leader"), "leaderName", sortId) : ""}${heading(t("teams.members.count"), "memberCount", sortId)}${admin ? heading(t("teams.rating.tts"), "ratingTts", sortId) + heading(t("teams.rating.irl"), "ratingIrl", sortId) : heading(t("tournaments.card.rating"), "rating", sortId)}</tr></thead>
     <tbody>${pageData.items.map((team, index) => `<tr>

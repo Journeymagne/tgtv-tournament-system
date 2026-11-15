@@ -88,12 +88,12 @@ test('legacy faction snapshots count consistently in global and detailed summari
   assert.equal(ui.teamDetailSummary('Kommandos', [game]).wins, 1);
 });
 
-test('slower profile response cannot replace the newest history ordering', async () => {
-  const state = {}, requests = [];
+test('profile history ignores old sort settings and a slower response cannot replace a newer request', async () => {
+  const state = { statisticsSorts: {} }, requests = [], urls = [];
   const code = source.match(/async function loadPlayerProfile\([^]*?\r?\n\}/)?.[0];
   const load = new Function('state', 'api', 'upsertChallengeProgress',
     require('../helpers/statistics-client-source') + '\n' + code + ';return loadPlayerProfile;')(
-      state, () => new Promise(resolve => requests.push(resolve)), () => {});
+      state, url => { urls.push(url); return new Promise(resolve => requests.push(resolve)); }, () => {});
   const first = load(17);
   state.statisticsSorts['player-history:17'] = { key: 'score', dir: 'desc' };
   const second = load(17);
@@ -102,6 +102,7 @@ test('slower profile response cannot replace the newest history ordering', async
   requests[0]({ user: { id: 17 }, recentGames: [{ id: 'latest' }] });
   await first;
   assert.equal(state.playerProfile.recentGames[0].id, 'highest');
+  assert.deepEqual(urls, ['/api/users/17', '/api/users/17']);
 });
 
 test('sorting keeps existing form nodes and their unsaved values', () => {

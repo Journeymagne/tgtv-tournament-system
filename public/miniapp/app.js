@@ -276,7 +276,7 @@
     if (!state.detail) return html + empty(tr("Таблица ещё не готова"), tr("Выберите опубликованный турнир, чтобы увидеть участников и результаты."));
     const mine = standingsRows().find(r => r.own);
     if (mine) html += `<div class="stat-grid">${stat(mine.rank, tr("Ваше место"), true)}${stat(mine.points, tr("Турнирные очки"))}${stat(`${mine.wins ?? 0} / ${mine.draws ?? 0} / ${mine.losses ?? 0}`, tr("Победы / ничьи / поражения"))}</div>`;
-    html += `<div class="section-title"><h2>${esc(state.detail.tournament.name)}</h2><span>${state.detail.tournament.status === "completed" ? tr("Итоговая") : tr("Текущая")}</span></div><div class="table-tools"><input id="standings-search" type="search" placeholder="${tr("Найти игрока или команду")}" aria-label="${tr("Поиск по таблице")}" value="${esc(state.query)}"></div><label class="check-row"><input id="only-mine" type="checkbox"${state.onlyMine ? " checked" : ""}><span>${tr("Только моя строка")}</span></label><section class="card table-card" data-statistics-table="standings">${sortReset("standings")}<div class="table-scroll"><table><thead><tr id="standings-head">${standingsHead()}</tr></thead><tbody id="standings-body">${tableBody()}</tbody></table></div><p class="table-foot">${tr("TP — турнирные очки · VP — победные очки · SoS — сила соперников. Порядок мест рассчитывается по правилам турнира.")}</p></section>`;
+    html += `<div class="section-title"><h2>${esc(state.detail.tournament.name)}</h2><span>${state.detail.tournament.status === "completed" ? tr("Итоговая") : tr("Текущая")}</span></div><div class="table-tools"><input id="standings-search" type="search" placeholder="${tr("Найти игрока или команду")}" aria-label="${tr("Поиск по таблице")}" value="${esc(state.query)}"></div><label class="check-row"><input id="only-mine" type="checkbox"${state.onlyMine ? " checked" : ""}><span>${tr("Только моя строка")}</span></label><section class="card table-card" data-statistics-table="standings">${sortReset("standings")}<div class="table-scroll"><table data-statistics-table="standings"><thead><tr id="standings-head">${standingsHead()}</tr></thead><tbody id="standings-body">${tableBody()}</tbody></table></div><p class="table-foot">${tr("TP — турнирные очки · VP — победные очки · SoS — сила соперников. Порядок мест рассчитывается по правилам турнира.")}</p></section>`;
     return html;
   }
   function profileScreen() {
@@ -465,11 +465,6 @@
     }
   });
   document.addEventListener("change", async event => {
-    if (event.target.dataset.listSort) {
-      const surface = event.target.dataset.listSort, key = event.target.value;
-      Object.assign(sortView(surface), { key: key || null, direction: (surface === "profileGames" ? ["player", "opponent", "faction"].includes(key) : (surface === "pairings" ? ordering.columns.pairings : ordering.columns.games)[key] === "text") ? "asc" : "desc" });
-      updateSortedSurface(surface); return;
-    }
     if (event.target.matches("[data-tournament]")) {
       const next = event.target.value;
       if (state.busy || (state.dirty && !await confirmAction(tr("Сменить турнир?"), tr("Несохранённые изменения формы будут потеряны.")))) { event.target.value = state.slug; return; }
