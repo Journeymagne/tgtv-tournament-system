@@ -54,5 +54,5 @@ it('keeps the defensive Save stat separate from the profile-saving action', () =
   render(<DefenderControls defender={Model.basicDefender()} changeHandler={() => {}} idPrefix="def"/>);
   world.KTUI.translate();
   world.KTAppearance.locale = 'ru'; world.KTUI.translate();
-  expect(document.querySelector('label[for="def-Save"]')?.textContent).toBe('Save');
+  expect(document.querySelector('label[for="def-Save"]')?.textContent).toBe('Сейв');
 });
