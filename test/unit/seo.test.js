@@ -22,10 +22,15 @@ test("direct public tournament pages load data and translations before the app",
   );
   assert.equal(handled, true);
   assert.equal(status, 200);
-  assert.match(html, /https:\/\/schema\.org\/BreadcrumbList/);
-  // The crawlable fallback belongs to the app root so mounting the SPA removes
-  // its navigation together with the static tournament summary.
-  assert.match(html, /<div id="app" class="app-shell">\s*<nav[^>]*aria-label="Breadcrumb"[\s\S]*?<\/nav>\s*<main class="public-tournament-layout">/);
+  assert.doesNotMatch(html, /aria-label="Breadcrumb"/);
+  // Keep breadcrumb metadata outside the app's replaceable DOM without
+  // rendering a second, stale navigation row above the interactive interface.
+  const head = html.slice(0, html.indexOf('</head>'));
+  const schemas = [...head.matchAll(/<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/g)].map(match => JSON.parse(match[1]));
+  const breadcrumb = schemas.find(schema => schema['@type'] === 'BreadcrumbList');
+  assert.deepEqual(breadcrumb.itemListElement.map(item => item.position), [1, 2, 3]);
+  assert.equal(breadcrumb.itemListElement[2].name, 'Team Cup');
+  assert.ok(breadcrumb.itemListElement[2].item.endsWith('/tournaments/team-cup'));
   assert.match(html, /"@type":"SportsEvent"/);
   const scripts = [...html.matchAll(/<script src="\/([^?]+)\?[^\"]+" defer><\/script>/g)].map((match) => match[1]);
   assert.deepEqual(scripts, ["companion-sites.js", "companion-i18n.js", "companion-shell.js", "maps/catalog-data.js", "map-catalog.js", "map-catalog-ui.js", "game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "table-layout.js", "tournament-results.js", "training/journey-ui.js", "resource-quotas.js", "pairing-instructions.js", "app.js"]);

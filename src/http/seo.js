@@ -113,6 +113,18 @@ function jsonLdForTournament(origin, tournament) {
   return JSON.stringify(event).replace(/</g, "\\u003c");
 }
 
+function jsonLdForTournamentBreadcrumb(origin, tournament) {
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { name: "KT Companion", item: `${origin}/` },
+      { name: "Kill Team tournaments", item: `${origin}/tournament` },
+      { name: tournament.name || "Kill Team tournament", item: tournamentPublicUrl(origin, tournament) }
+    ].map((item, index) => ({ "@type": "ListItem", position: index + 1, ...item }))
+  }).replace(/</g, "\\u003c");
+}
+
 function securityHeadersWithNonce(nonce) {
   const headers = { ...SECURITY_HEADERS };
   headers["Content-Security-Policy"] = headers["Content-Security-Policy"].replace(
@@ -224,17 +236,11 @@ function tournamentHtml(origin, tournament) {
   <head>
     ${baseHead({ title, description, canonical: url, imageUrl })}
     <script type="application/ld+json" nonce="${escapeHtml(nonce)}">${jsonLdForTournament(origin, tournament)}</script>
+    <script type="application/ld+json" nonce="${escapeHtml(nonce)}">${jsonLdForTournamentBreadcrumb(origin, tournament)}</script>
   </head>
   <body data-companion-section="tournament">
     <div data-companion-nav></div>
     <div id="app" class="app-shell">
-        <nav style="width:min(1180px, calc(100% - 36px)); margin:18px auto" aria-label="Breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
-          <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><a itemprop="item" href="${escapeHtml(origin)}/"><span itemprop="name">KT Companion</span></a><meta itemprop="position" content="1"></span>
-          <span aria-hidden="true"> › </span>
-          <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><a itemprop="item" href="${escapeHtml(origin)}/tournament"><span itemprop="name">Kill Team tournaments</span></a><meta itemprop="position" content="2"></span>
-          <span aria-hidden="true"> › </span>
-          <span itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem"><span itemprop="name">${escapeHtml(tournament.name || "Kill Team tournament")}</span><meta itemprop="position" content="3"></span>
-        </nav>
       <main class="public-tournament-layout">
 
         <section class="card panel public-tournament-shell">
