@@ -2,6 +2,12 @@
 
 KT Companion release history, newest first.
 
+## 1.5.34 — 17 November 2026
+
+- Added a Strike Force Variel miniature to Tier Lists. Dragon Masters is now easy to find in the alphabetical catalog and uses the original Clanblade miniature.
+- Replaced the Legionaries miniature with a Balefire Acolyte. All new images show the full model with a transparent background; existing rankings are preserved.
+- The Variel card explains that tournament statistics are not available yet instead of showing a loading error.
+
 ## 1.5.33 — 16 November 2026
 
 - Faction player leaderboards now require at least 10 eligible completed games on that faction across all time. Players with fewer games appear separately with a provisional Wilson score and no ranking place. This applies to faction statistics and Tier Lists.

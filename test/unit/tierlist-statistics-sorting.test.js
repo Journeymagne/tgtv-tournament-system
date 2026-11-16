@@ -12,6 +12,25 @@ function loadFunction(name, context) {
   return vm.runInNewContext(remaining.slice(0, end) + '\n' + name, context);
 }
 
+test('tierlist-only teams show unavailable statistics without calling the tournament API', async () => {
+  const teamStats = { serial: 0, cache: new Map() };
+  let renders = 0;
+  const context = { teamStats,
+    state: { selected: 'strike-force-variel', teamsById: new Map([
+      ['strike-force-variel', { name: 'Strike Force Variel', statsAvailable: false }]
+    ]) },
+    cancelTeamStats() { teamStats.serial++; teamStats.data = null; },
+    renderTeamStats() { renders++; },
+    statsQuery() { assert.fail('Unsupported teams must not request tournament statistics'); },
+    fetch() { assert.fail('Unsupported teams must not call the statistics API'); }
+  };
+  await loadFunction('loadTeamStats', context)('strike-force-variel');
+  assert.equal(teamStats.teamId, 'strike-force-variel');
+  assert.equal(teamStats.status, 'unavailable');
+  assert.equal(teamStats.data, null);
+  assert.equal(renders, 1);
+});
+
 test('tierlist asks the server to select each top three from all candidates and caches each sort combination separately', async () => {
   const requests = [], data = { team: 'Test Team', season: { name: 'Latest' }, games: 5, topPlayers: [], topTacOps: [] };
   const teamStats = { serial: 0, cache: new Map(), playerSort: { key: 'winRate', direction: 'desc' }, tacOpSort: { key: 'winRate', direction: 'desc' } };

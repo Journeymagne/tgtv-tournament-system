@@ -1,0 +1,27 @@
+{
+  "updatedAt": "2026-11-17",
+  "assets": [
+    {
+      "teamId": "legionaries",
+      "file": "public/tierlist/images/legionaries-balefire-acolyte.png",
+      "miniature": "Legionary Balefire Acolyte",
+      "source": "https://assets.warhammer-community.com/rules-downloads/kill-team/team-rules/legionaries/killteam_teamrules_legionaries_eng_02.10.24.pdf",
+      "preparation": "Original embedded image xref 50 with alpha mask xref 49; no generated miniature."
+    },
+    {
+      "teamId": "dragon-master-clanblade",
+      "file": "public/tierlist/images/dragon-master-clanblade-v2.png",
+      "miniature": "Dragon Master Clanblade",
+      "source": "https://assets.warhammer-community.com/eng_22-07_kill_team_team_rules_exodite_dragon_masters-bfqzdncjqz-ijdqo65ctu.pdf",
+      "preparation": "Original embedded image xref 855 with alpha mask xref 857; no generated miniature."
+    },
+    {
+      "teamId": "strike-force-variel",
+      "file": "public/tierlist/images/strike-force-variel.png",
+      "miniature": "Sergeant Ramus, Strike Force Variel",
+      "source": "https://www.warhammer-community.com/en-gb/articles/msumipr2/warhammer-heroes-brings-another-elite-team-of-space-marines-to-the-battlefield/",
+      "sourceImage": "https://assets.warhammer-community.com/img/carousel1-buflme2lde.png?format=webp&width=1600",
+      "preparation": "Background extraction using imagegen from the official miniature photograph, preserving the full model and base."
+    }
+  ]
+}

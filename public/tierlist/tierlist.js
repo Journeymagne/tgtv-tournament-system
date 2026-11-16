@@ -44,6 +44,7 @@
     storageFull: ['Не удалось сохранить черновик в браузере. Скачайте JSON перед уходом со страницы.', 'Could not store the browser draft. Export JSON before leaving the page.'],
     statsLatest: ['Последний сезон', 'Latest season'], statsClose: ['Закрыть статистику команды', 'Close team statistics'],
     statsLoading: ['Загрузка статистики…', 'Loading statistics…'], statsError: ['Не удалось загрузить статистику команды. Попробуйте ещё раз.', 'Could not load team statistics. Try again.'],
+    statsUnavailable: ['Статистика для этой команды пока недоступна.', 'Statistics for this team are not available yet.'],
     statsGames: ['Игры', 'Games'], statsWinRate: ['Винрейт', 'Win rate'], statsTacOps: ['Топ-3 вторички', 'Top 3 Tac Ops'], statsPlayers: ['Топ-5 игроков · за всё время', 'Top 5 players · all time'],
     statsWilson: ['Уилсон', 'Wilson'],
     statsProvisional: ['Предварительные результаты', 'Provisional results'],
@@ -359,7 +360,7 @@
     }
     const data = teamStats.data, ready = teamStats.status === 'ready';
     $('team-stats-season').textContent = ready ? String(data.season.name || '') : '';
-    $('team-stats-status').textContent = teamStats.status === 'loading' ? t('statsLoading') : teamStats.status === 'error' ? t('statsError') : '';
+    $('team-stats-status').textContent = teamStats.status === 'loading' ? t('statsLoading') : teamStats.status === 'error' ? t('statsError') : teamStats.status === 'unavailable' ? t('statsUnavailable') : '';
     $('team-stats-status').dataset.kind = teamStats.status === 'error' ? 'error' : '';
     $('team-stats-retry').hidden = teamStats.status !== 'error';
     $('team-stats-content').hidden = !ready;
@@ -388,6 +389,9 @@
     const team = state.teamsById.get(id);
     if (!team || state.selected !== id) return;
     cancelTeamStats(); teamStats.teamId = id;
+    if (team.statsAvailable === false) {
+      teamStats.status = 'unavailable'; renderTeamStats(); return;
+    }
     const query = statsQuery(team), cacheKey = id + ":" + query;
     const cached = teamStats.cache.get(cacheKey);
     if (!force && cached && Date.now() < cached.expiresAt) {

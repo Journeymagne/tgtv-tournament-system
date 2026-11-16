@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "teams": [
     {
       "id": "angels-of-death",
@@ -77,6 +77,13 @@
       "image": "/tierlist/images/deathwatch.png",
       "statsName": "Deathwatch",
       "logo": "/kill-team-logos/Deathwatch.webp"
+    },
+    {
+      "id": "dragon-master-clanblade",
+      "name": "Dragon Masters",
+      "image": "/tierlist/images/dragon-master-clanblade-v2.png",
+      "statsName": "Dragon Masters",
+      "logo": "/kill-team-logos/Dragon%20Masters.webp"
     },
     {
       "id": "elucidian-starstriders",
@@ -186,7 +193,7 @@
     {
       "id": "legionaries",
       "name": "Legionaries",
-      "image": "/tierlist/images/legionaries.png",
+      "image": "/tierlist/images/legionaries-balefire-acolyte.png",
       "statsName": "Legionaries",
       "logo": "/kill-team-logos/Legionaries.webp"
     },
@@ -268,11 +275,17 @@
       "logo": "/kill-team-logos/Scout%20Squad.webp"
     },
     {
-      "id": "stealth-suits",
-      "name": "XV26 Stealth Battlesuits",
-      "image": "/tierlist/images/stealth-suits.png",
-      "statsName": "XV26 Stealth Battlesuits",
-      "logo": "/kill-team-logos/XV26%20Stealth%20Battlesuits.webp"
+      "id": "spectre-veteran-sergeant",
+      "name": "Spectre Squad",
+      "image": "/tierlist/images/spectre-veteran-sergeant.png",
+      "statsName": "Spectre Squad",
+      "logo": "/kill-team-logos/Spectre%20Squad.webp"
+    },
+    {
+      "id": "strike-force-variel",
+      "name": "Strike Force Variel",
+      "image": "/tierlist/images/strike-force-variel.png",
+      "statsAvailable": false
     },
     {
       "id": "tempestus-aquilons",
@@ -324,18 +337,11 @@
       "logo": "/kill-team-logos/Wyrmblade.webp"
     },
     {
-      "id": "dragon-master-clanblade",
-      "name": "Exodite Dragon Masters",
-      "image": "/tierlist/images/dragon-master-clanblade.png",
-      "statsName": "Dragon Masters",
-      "logo": "/kill-team-logos/Dragon%20Masters.webp"
-    },
-    {
-      "id": "spectre-veteran-sergeant",
-      "name": "Spectre Squad",
-      "image": "/tierlist/images/spectre-veteran-sergeant.png",
-      "statsName": "Spectre Squad",
-      "logo": "/kill-team-logos/Spectre%20Squad.webp"
+      "id": "stealth-suits",
+      "name": "XV26 Stealth Battlesuits",
+      "image": "/tierlist/images/stealth-suits.png",
+      "statsName": "XV26 Stealth Battlesuits",
+      "logo": "/kill-team-logos/XV26%20Stealth%20Battlesuits.webp"
     }
   ]
 }
