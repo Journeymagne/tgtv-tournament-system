@@ -63,6 +63,12 @@ const seasons = [
     id: "2026-q3-dataslate",
     name: "2026 Q3 Dataslate",
     startsAt: "2026-09-26T00:00:00+04:00",
+    endsAt: "2026-11-09T00:00:00+04:00"
+  },
+  {
+    id: "2026-q4-dataslate",
+    name: "2026 Q4",
+    startsAt: "2026-11-09T00:00:00+04:00",
     endsAt: null
   }
 ];
@@ -73,6 +79,30 @@ function currentSeason(at = Date.now(), available = seasons) {
   const ordered = [...available].sort((a, b) => startsAt(b) - startsAt(a));
   return ordered.find(season => time >= startsAt(season) && (!season.endsAt || time < Date.parse(season.endsAt))) ||
     ordered.find(season => time >= startsAt(season)) || ordered.at(-1);
+}
+
+// Q4 introduces result-date membership for all game sources. Earlier events
+// retain their historical season assignment, including late submitted results.
+function gameInSeason(game, season) {
+  if (!season) return true;
+  const timestamp = game.submittedAt || game.result?.confirmedAt || game.createdAt || "";
+  const time = timestamp ? Date.parse(timestamp) : NaN;
+  const cutover = Date.parse("2026-11-09T00:00:00+04:00");
+  if (!(time >= cutover) && ["tournament_match", "team_match_game"].includes(game.sourceType) && game.tournament?.seasonId) {
+    return game.tournament.seasonId === season.id;
+  }
+  if (!Number.isFinite(time)) return true;
+  return (!season.startsAt || time >= Date.parse(season.startsAt)) &&
+    (!season.endsAt || time < Date.parse(season.endsAt));
+}
+
+// Lower endpoint of the two-sided 95% Wilson interval, on a 0–100 scale.
+// Keep precision for ordering/qualification and round only when displaying.
+function wilsonScore(wins, games) {
+  if (!Number.isSafeInteger(games) || games <= 0 || !Number.isSafeInteger(wins) || wins < 0 || wins > games) return 0;
+  const z = 1.96, z2 = z * z, p = wins / games;
+  return Math.max(0, 100 * (p + z2 / (2 * games) -
+    z * Math.sqrt(p * (1 - p) / games + z2 / (4 * games * games))) / (1 + z2 / games));
 }
 
 const venueModeOptions = [
@@ -88,6 +118,8 @@ if (typeof module !== "undefined") {
     gameSystemOptions,
     seasons,
     currentSeason,
+    gameInSeason,
+    wilsonScore,
     venueModeOptions
   };
 }

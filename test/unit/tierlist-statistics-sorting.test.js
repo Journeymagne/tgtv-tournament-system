@@ -46,10 +46,26 @@ test('tierlist columns and reset independently change one ranking while preservi
   change('players', 'name');
   assert.equal(teamStats.playerSort.direction, 'desc');
   change('players', null);
-  assert.equal(teamStats.playerSort.key, 'winRate');
+  assert.equal(teamStats.playerSort.key, 'wilsonScore');
   assert.equal(teamStats.playerSort.direction, 'desc');
   assert.equal(teamStats.tacOpSort.direction, 'asc');
   assert.equal(loads, 3);
+});
+
+test('all-time player rankings remain visible when the current season has no games', () => {
+  const targets = new Map();
+  const get = id => {
+    if (!targets.has(id)) targets.set(id, { hidden: false, dataset: {}, setAttribute() {}, getAttribute() { return null; } });
+    return targets.get(id);
+  };
+  const context = { teamStats: { teamId: 'aquilons', status: 'ready', data: { season: { name: 'Q4' },
+    games: 0, winRate: null, topPlayers: [{ userId: 1, games: 11, wins: 9, wilsonScore: 52.3014 }], topTacOps: [] } },
+    state: { selected: 'aquilons', teamsById: new Map([['aquilons', { name: 'Tempestus Aquilons' }]]) },
+    $: get, t: key => key, locale: () => 'en', statsPercent: () => '—', location: { origin: 'http://localhost' }, URL,
+    renderStatsRows() {}, positionTeamStats() {}, cancelTeamStats() {} };
+  loadFunction('renderTeamStats', context)();
+  assert.equal(get('team-stats-rankings').hidden, false);
+  assert.equal(get('team-stats-empty').hidden, false);
 });
 
 test('tierlist tables render all accessible sortable columns, raw numeric metrics and profile links', () => {
@@ -69,7 +85,7 @@ test('tierlist tables render all accessible sortable columns, raw numeric metric
   render('team-stats-players', [{ userId: 7, name: '<Player>', games: 12, wins: 9, winRate: 75 }], true);
   render('team-stats-tacops', [{ name: 'Op', games: 10, wins: 6, winRate: 60, avgPoints: 4.2 }]);
   for (const [id, fields, direction] of [
-    ['team-stats-players', ['name', 'games', 'wins', 'winRate'], 'ascending'],
+    ['team-stats-players', ['name', 'games', 'wins', 'winRate', 'wilsonScore'], 'ascending'],
     ['team-stats-tacops', ['name', 'games', 'wins', 'winRate', 'avgPoints'], 'descending']
   ]) {
     const nodes = descendants(targets[id]);

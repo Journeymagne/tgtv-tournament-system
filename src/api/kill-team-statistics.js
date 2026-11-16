@@ -42,7 +42,12 @@ function createHandler({ loadCompleted = gamesApi.listCompleted, loadPublishedId
           const result = await loadCompleted({ client });
           const visible = await loadPublishedIds(client, result.games);
           const games = eligibleGames(result.games, season, visible);
-          const data = new Map(KILL_TEAMS.map(name => [name, aggregateTeam(name, games, season)]));
+          const allTimeGames = eligibleGames(result.games, null, visible);
+          const data = new Map(KILL_TEAMS.map(name => {
+            const summary = aggregateTeam(name, games, season);
+            summary.topPlayers = aggregateTeam(name, allTimeGames, season).topPlayers;
+            return [name, summary];
+          }));
           return { seasonId: season.id, expiresAt: cacheExpiry(clock(), season), data };
         })();
         pending = entry;

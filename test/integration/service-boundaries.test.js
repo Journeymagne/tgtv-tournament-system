@@ -13,13 +13,20 @@ const { environments } = require('../../scripts/service-runtime');
 const { createClient } = require('../helpers/client');
 const root = path.resolve(__dirname, '../..');
 const children = new Map();
+const allocatedPorts = new Set();
 let origin, base;
 async function port() {
-  const server = net.createServer();
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const value = server.address().port;
-  await new Promise(resolve => server.close(resolve));
-  return value;
+  // Closing a reservation allows the OS to return the same ephemeral port on
+  // the next call. Keep service/gateway assignments distinct before spawning.
+  for (;;) {
+    const server = net.createServer();
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const value = server.address().port;
+    await new Promise(resolve => server.close(resolve));
+    if (allocatedPorts.has(value)) continue;
+    allocatedPorts.add(value);
+    return value;
+  }
 }
 async function stop(service) {
   const child = children.get(service);
