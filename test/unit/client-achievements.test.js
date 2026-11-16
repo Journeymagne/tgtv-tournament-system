@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const teams = require('../../public/training/team-courses');
 const source = fs.readFileSync(require.resolve('../../public/app.js'), 'utf8');
-const names = ['achievementTitle', 'achievementDescription', 'achievementPicture', 'achievementCards', 'profileAchievementMarkup'];
+const names = ['achievementTitle', 'achievementDescription', 'achievementPicture', 'achievementCards', 'profileAchievementMarkup', 'formatWilsonScore'];
 const functions = names.map(name => {
   const code = source.match(new RegExp(`function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?\\r?\\n\\}`))?.[0];
   assert.ok(code, name);
@@ -39,4 +39,13 @@ test('profile with only unearned team awards shows the training journey without 
   const html = render.profileAchievementMarkup({ achievements: [], trainingAchievement: {},
     trainingTeamAchievements: teams.progress(questions) }, true);
   assert.equal(html, '<a>Know Thy Kill Team</a>');
+});
+
+test('profile preserves an earned Wilson badge while hiding unearned training team awards', () => {
+  const html = render.profileAchievementMarkup({ achievements: [], trainingAchievement: {},
+    trainingTeamAchievements: teams.progress(questions), wilsonAchievements: [{ team: 'Tempestus Aquilons',
+      name: 'Опытный', nameEn: 'Experienced', emoji: '🥉', wilsonScore: 52.301386, threshold: 50, wins: 9, games: 11 }] }, true);
+  assert.match(html, /Know Thy Kill Team/);
+  assert.match(html, /Опытный: Tempestus Aquilons/);
+  assert.doesNotMatch(html, /Знаток команды: Hand of the Archon/);
 });
