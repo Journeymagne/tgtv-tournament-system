@@ -9,6 +9,10 @@
   const signed = value => number(value) > 0 ? `+${number(value)}` : String(number(value));
   const record = row => `${number(row.wins)} / ${number(row.draws)} / ${number(row.losses)}`;
   const initial = name => Array.from(String(name).trim())[0]?.toUpperCase() || '?';
+  function logoSource(value) {
+    return typeof value === 'string' && (/^\/api\/(?:team|roster)-logos\/\d+(?:\?v=[a-z0-9_-]+)?$/i.test(value)
+      || /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/]+={0,2}$/i.test(value)) ? value : null;
+  }
 
   function isReady(data = {}) {
     const tournament = data.tournament || {}, rounds = data.rounds || [];
@@ -34,7 +38,10 @@
     const all = [...published].sort((a, b) => number(a.rank) - number(b.rank));
     const entries = all.slice(0, 10).map(row => {
       const id = Number(team ? row.rosterId : row.participantId), entity = entities.get(id) || {};
+      const teamName = entity.team?.name || entity.teamNameSnapshot || entity.name || '';
+      const logo = team && (entity.team && Object.hasOwn(entity.team, 'logoData') ? entity.team.logoData : entity.teamLogoSnapshot);
       return { id, rank: number(row.rank), name: entity.name || entity.displayName || entity.displayNameSnapshot || entity.teamNameSnapshot || '',
+        logo: logoSource(logo), initials: team ? teamName.slice(0, 2).toUpperCase() || '?' : initial(entity.displayName || entity.displayNameSnapshot || entity.name),
         members: team ? (entity.members || []).filter(member => !member.endedAt).map(member => member.displayNameSnapshot || member.name).filter(Boolean) : [],
         tp: number(team ? row.teamTournamentPoints : row.matchPoints), gp: number(team ? row.teamGamePoints : row.totalVp),
         showGp: !team || tournament.pairingType !== 'sword_shield_classic',
@@ -64,13 +71,13 @@
     if (!model) return '';
     const gpLabel = model.team ? 'GP' : 'VP';
     const champion = model.entries[0];
-    const avatar = row => `<span class="tournament-result-avatar" aria-hidden="true">${escape(initial(label(row, t)))}</span>`;
+    const avatar = row => `<span class="tournament-result-avatar" aria-hidden="true">${row.logo ? `<img src="${escape(row.logo)}" alt="" decoding="async">` : escape(row.initials)}</span>`;
     const podium = (row, main) => `<section class="tournament-result-card ${main ? 'tournament-result-champion' : 'tournament-result-runner'}">
       <div class="tournament-result-card-heading"><span>${main ? trophy : ''}${escape(t(main ? 'results.champions' : row.rank === 2 ? 'results.silver' : 'results.bronze'))}</span><strong>${row.tp} TP</strong></div>
       <span class="tournament-result-watermark" aria-hidden="true">${String(row.rank).padStart(2, '0')}</span>
       ${avatar(row)}<h3>${escape(label(row, t))}</h3>
       ${main && row.members.length ? `<p class="tournament-result-members">${row.members.map(escape).join(' · ')}</p>` : ''}
-      <div class="tournament-result-card-footer"><span>${record(row)} ${escape(t('results.wdl'))}</span>${row.showGp ? `<strong>${row.gp} ${gpLabel}</strong>` : ''}</div>
+      <div class="tournament-result-card-footer"><span>${record(row)}</span>${row.showGp ? `<strong>${row.gp} ${gpLabel}</strong>` : ''}</div>
     </section>`;
     const table = rows => `<div class="tournament-result-table-wrap" data-table-viewport><table class="tournament-result-table"><caption class="visually-hidden">${escape(t(model.team ? 'results.topTeams' : 'results.topPlayers'))}</caption><thead><tr><th scope="col">#</th><th scope="col">${escape(t(model.team ? 'results.roster' : 'results.player'))}</th><th scope="col">TP</th>${model.showGp ? `<th scope="col">${gpLabel}</th>` : ''}<th scope="col">${escape(t('results.wdl'))}</th></tr></thead><tbody>${rows.map(row => `<tr data-result-entry="${row.id}" class="${row.rank === 1 ? 'is-champion' : ''}"><td>${String(row.rank).padStart(2, '0')}</td><th scope="row">${escape(label(row, t))}</th><td>${row.tp}</td>${model.showGp ? `<td>${row.gp}</td>` : ''}<td>${record(row)}</td></tr>`).join('')}</tbody></table></div>`;
     const winners = model.personalWinners;
@@ -86,9 +93,8 @@
     </section>`;
   }
 
-  // Uses only text and canvas primitives: no cross-origin images, HTML rasterizer
-  // or network fonts can taint the downloadable image.
-  function createCanvas(model, { t, locale = 'ru', document: doc = document, colors = {} } = {}) {
+  // Logos are restricted to the application's image routes or inline raster data.
+  function createCanvas(model, { t, locale = 'ru', document: doc = document, colors = {}, logos = new Map() } = {}) {
     if (!model?.entries.length) throw new Error(t('results.exportFailed'));
     const palette = { surface: '#101010', medallion: '#111111', panel: '#202020', ink: '#f4f4f4', muted: '#b9b9b9', line: '#3b3b3b', accent: '#ff7a1a', good: '#39c27f', ...colors };
     const canvas = doc.createElement('canvas'); canvas.width = 1200;
@@ -136,7 +142,15 @@
     function line(x, y, width) { ctx.strokeStyle = palette.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + width, y); ctx.stroke(); }
     function circle(row, x, y, size, accent = false) {
       ctx.beginPath(); ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2); ctx.fillStyle = palette.medallion; ctx.fill(); ctx.strokeStyle = accent ? palette.accent : palette.line; ctx.lineWidth = 2; ctx.stroke();
-      font(size * .43, 750); const value = initial(label(row, t)); ctx.fillStyle = palette.accent; ctx.fillText(value, x + (size - ctx.measureText(value).width) / 2, y + size * .25);
+      const image = logos.get(row.logo);
+      if (image?.naturalWidth && image?.naturalHeight) {
+        const scale = size * .7 / Math.max(image.naturalWidth, image.naturalHeight);
+        const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+        ctx.drawImage(image, x + (size - width) / 2, y + (size - height) / 2, width, height);
+      } else {
+        const value = row.initials || initial(label(row, t)); font(size * (value.length > 1 ? .32 : .43), 750);
+        ctx.fillStyle = palette.accent; ctx.fillText(value, x + (size - ctx.measureText(value).width) / 2, y + size * .25);
+      }
     }
     text('†  KT COMPANION', 44, 40, 15, palette.accent, 750);
     text(t('results.completed'), 920, 43, 12, palette.good, 600, 236);
@@ -153,7 +167,7 @@
     circle(champion, 44 + heroWidth - 155, y + 110, 100, true);
     if (champion.members.length) text(champion.members.join(' · '), 72, y + 87 + heroLines.length * 65, 13, palette.muted, 500, heroWidth - 56, 20);
     line(72, y + podiumHeight - 58, heroWidth - 56);
-    text(`${record(champion)} ${t('results.wdl')}`, 72, y + podiumHeight - 37, 11, palette.muted);
+    text(record(champion), 72, y + podiumHeight - 37, 11, palette.muted);
     if (champion.showGp) text(`${champion.gp} ${model.team ? 'GP' : 'VP'}`, 44 + heroWidth - 100, y + podiumHeight - 37, 14, palette.ink, 650);
     let runnerY = y;
     runners.forEach((row, i) => {
@@ -205,7 +219,17 @@
 
   async function download(data, options = {}) {
     const model = buildModel(data), doc = options.document || document;
-    const canvas = createCanvas(model, { ...options, document: doc });
+    const logos = new Map();
+    const sources = [...new Set((model?.entries || []).slice(0, 3).map(row => row.logo).filter(Boolean))];
+    await Promise.all(sources.map(src => new Promise(resolve => {
+      const image = doc.createElement('img');
+      const finish = () => { clearTimeout(timer); image.onload = image.onerror = null; resolve(); };
+      const timer = setTimeout(finish, 4000);
+      image.onload = () => { logos.set(src, image); finish(); };
+      image.onerror = finish;
+      image.src = src;
+    })));
+    const canvas = createCanvas(model, { ...options, document: doc, logos });
     const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error(options.t('results.exportFailed'))), 'image/png'));
     const url = URL.createObjectURL(blob), link = doc.createElement('a');
     link.href = url; link.download = `${(model.name || model.slug).replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').slice(0, 120)}-results.png`;

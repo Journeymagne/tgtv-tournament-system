@@ -2,6 +2,11 @@
 
 KT Companion release history, newest first.
 
+## 1.5.30 — 16 November 2026
+
+- Team tournament podiums and downloadable PNG results now show each roster’s team logo. Teams without a logo use their initials.
+- Removed the redundant W / D / L suffix after numeric records on podium cards.
+
 ## 1.5.29 — 16 November 2026
 
 - Restored the usual tournament interface width. When an open table needs more room for its columns, the workspace expands within the screen to reduce or remove horizontal scrolling.
