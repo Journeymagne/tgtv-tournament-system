@@ -26,7 +26,7 @@ function cacheExpiry(now, season) {
 function createHandler({ loadCompleted = gamesApi.listCompleted, loadPublishedIds = publishedIds,
   getSeason = currentSeason, clock = Date.now } = {}) {
   // Cache full aggregate candidates, then select each request's ordering before
-  // the top-three cut. Different sort queries share I/O without sharing selection.
+  // each list limit. Different sort queries share I/O without sharing selection.
   let cache = null, pending = null;
   return async function get({ client, query = new URLSearchParams() }) {
     const input = query.get("team");

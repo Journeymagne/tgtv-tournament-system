@@ -66,6 +66,11 @@ test('all-time player rankings remain visible when the current season has no gam
   loadFunction('renderTeamStats', context)();
   assert.equal(get('team-stats-rankings').hidden, false);
   assert.equal(get('team-stats-empty').hidden, false);
+  context.teamStats.data.topPlayers = [];
+  context.teamStats.data.provisionalPlayers = [{ userId: 1, games: 9, rank: null, provisional: true }];
+  loadFunction('renderTeamStats', context)();
+  assert.equal(get('team-stats-rankings').hidden, false);
+  assert.equal(get('team-stats-provisional').hidden, false);
 });
 
 test('tierlist tables render all accessible sortable columns, raw numeric metrics and profile links', () => {
@@ -76,13 +81,14 @@ test('tierlist tables render all accessible sortable columns, raw numeric metric
       setAttribute(key, value) { this.attributes[key] = value; },
       get childElementCount() { return this.children.length; } };
   }
-  const targets = { 'team-stats-players': element('div'), 'team-stats-tacops': element('div') };
+  const targets = { 'team-stats-players': element('div'), 'team-stats-tacops': element('div'), 'team-stats-provisional-players': element('div') };
   const teamStats = { playerSort: { key: 'games', direction: 'asc' }, tacOpSort: { key: 'avgPoints', direction: 'desc' } };
   const render = loadFunction('renderStatsRows', { teamStats, $: id => targets[id],
     document: { createElement: element, createTextNode: text => ({ textContent: text }) },
-    t: key => key, locale: () => 'en', statsPercent: value => value + '%', window: {}, location: { origin: 'http://localhost' }, URL });
+    t: key => key === 'statsProvisionalShort' ? 'prov.' : key, locale: () => 'en', statsPercent: value => value + '%', window: {}, location: { origin: 'http://localhost' }, URL });
   function descendants(node) { return [node, ...(node.children?.flatMap(descendants) || [])]; }
-  render('team-stats-players', [{ userId: 7, name: '<Player>', games: 12, wins: 9, winRate: 75 }], true);
+  render('team-stats-players', [{ userId: 7, name: '<Player>', rank: 1, games: 12, wins: 9, winRate: 75 }], true);
+  render('team-stats-provisional-players', [{ userId: 8, name: 'Provisional', rank: null, games: 2, wins: 2, winRate: 100, wilsonScore: 34.2 }], true, true);
   render('team-stats-tacops', [{ name: 'Op', games: 10, wins: 6, winRate: 60, avgPoints: 4.2 }]);
   for (const [id, fields, direction] of [
     ['team-stats-players', ['name', 'games', 'wins', 'winRate', 'wilsonScore'], 'ascending'],
@@ -97,4 +103,9 @@ test('tierlist tables render all accessible sortable columns, raw numeric metric
   const player = descendants(targets['team-stats-players']).find(n => n.tag === 'a');
   assert.equal(player.textContent, '<Player>');
   assert.equal(player.href, 'http://localhost/tournament#/players/7');
+  assert.ok(descendants(targets['team-stats-players']).some(node => node.tag === 'span' && node.textContent === '1. '));
+  const provisionalNodes = descendants(targets['team-stats-provisional-players']);
+  assert.ok(provisionalNodes.some(node => node.textContent === '34.2 · prov.'));
+  const provisionalRow = provisionalNodes.find(node => node.tag === 'tr' && node.dataset.provisional === 'true');
+  assert.equal(provisionalRow.children[0].children.length, 1, 'provisional name has no place prefix');
 });

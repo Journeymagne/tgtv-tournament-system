@@ -46,6 +46,11 @@
     statsLoading: ['Загрузка статистики…', 'Loading statistics…'], statsError: ['Не удалось загрузить статистику команды. Попробуйте ещё раз.', 'Could not load team statistics. Try again.'],
     statsGames: ['Игры', 'Games'], statsWinRate: ['Винрейт', 'Win rate'], statsTacOps: ['Топ-3 вторички', 'Top 3 Tac Ops'], statsPlayers: ['Топ-5 игроков · за всё время', 'Top 5 players · all time'],
     statsWilson: ['Уилсон', 'Wilson'],
+    statsProvisional: ['Предварительные результаты', 'Provisional results'],
+    statsProvisionalShort: ['предв.', 'prov.'],
+    statsQualification: ['Допуск в топ — минимум {min} игр на киллтиме за всё время.', 'At least {min} all-time faction games are required to qualify.'],
+    statsProvisionalHint: ['Предварительный балл: {games} из {min} игр для допуска в топ. Места пока нет.', 'Provisional score: {games} of {min} games required to qualify. No place yet.'],
+    statsNoQualified: ['Пока нет игроков, допущенных в топ.', 'No players have qualified yet.'],
     statsEmpty: ['За этот сезон игр пока нет.', 'No games recorded for this season yet.'], statsNoEntries: ['За этот сезон записей нет.', 'No entries for this season.'],
     statsGameCount: ['Игр: {count}', 'Games: {count}'], statsMirrors: ['Зеркальных игр: {count}. Они исключены из показателей.', 'Mirror games: {count}. Excluded from performance statistics.'],
     statsName: ['Название', 'Name'], statsWins: ['Победы', 'Wins'], statsAvgPoints: ['Ср. очки', 'Avg points'],
@@ -281,7 +286,7 @@
     else { view.direction = view.key === key ? (view.direction === 'asc' ? 'desc' : 'asc') : key === 'name' ? 'asc' : 'desc'; view.key = key; }
     if (state.selected) void loadTeamStats(state.selected);
   }
-  function renderStatsRows(target, entries, players = false) {
+  function renderStatsRows(target, entries, players = false, provisional = false) {
     const container = $(target); container.replaceChildren();
     const surface = players ? 'players' : 'tacops', view = players ? teamStats.playerSort : teamStats.tacOpSort;
     container.dataset.statisticsTable = 'tierlist-' + surface;
@@ -316,18 +321,27 @@
         const tournament = window.KT_SITES?.urls?.tournament || '/tournament';
         name.href = new URL(tournament, location.origin).href.replace(/\/$/, '') + '#/players/' + entry.userId;
       }
-      const nameCell = document.createElement('td'); nameCell.append(name); row.append(nameCell);
+      const nameCell = document.createElement('td');
+      if (players && !provisional && Number.isInteger(entry.rank) && entry.rank > 0) {
+        const place = document.createElement('span'); place.textContent = entry.rank + '. '; nameCell.append(place);
+      }
+      nameCell.append(name); row.append(nameCell);
+      if (players) row.dataset.provisional = String(provisional);
       for (const [key] of fields.slice(1)) {
         const cell = document.createElement('td');
         cell.textContent = key === 'winRate' ? statsPercent(entry.winRate, entry.games)
           : Number.isFinite(entry[key]) ? new Intl.NumberFormat(locale(), { maximumFractionDigits: 1 }).format(entry[key]) : '—';
+        if (players && provisional && key === 'wilsonScore') {
+          cell.textContent += ' · ' + t('statsProvisionalShort');
+          cell.title = t('statsProvisionalHint', { games: entry.games, min: teamStats.data?.rankingMinGames || 10 });
+        }
         row.append(cell);
       }
       body.append(row);
     }
     if (!body.childElementCount) {
       const row = document.createElement('tr'), empty = document.createElement('td'); empty.colSpan = fields.length;
-      empty.className = 'tl-team-stats-empty'; empty.textContent = t('statsNoEntries'); row.append(empty); body.append(row);
+      empty.className = 'tl-team-stats-empty'; empty.textContent = t(players && !provisional ? 'statsNoQualified' : 'statsNoEntries'); row.append(empty); body.append(row);
     }
     table.append(head, body); scroll.append(table); container.append(scroll);
   }
@@ -354,9 +368,12 @@
       $('team-stats-games').textContent = new Intl.NumberFormat(locale()).format(data.games);
       $('team-stats-winrate').textContent = statsPercent(data.winRate, data.games);
       $('team-stats-empty').hidden = data.games !== 0;
-      $('team-stats-rankings').hidden = data.games === 0 && !data.topPlayers?.length;
+      $('team-stats-rankings').hidden = data.games === 0 && !data.topPlayers?.length && !data.provisionalPlayers?.length;
+      $('team-stats-qualification').textContent = t('statsQualification', { min: data.rankingMinGames || 10 });
       renderStatsRows('team-stats-tacops', data.topTacOps);
       renderStatsRows('team-stats-players', data.topPlayers, true);
+      $('team-stats-provisional').hidden = !data.provisionalPlayers?.length;
+      renderStatsRows('team-stats-provisional-players', data.provisionalPlayers, true, true);
       $('team-stats-mirrors').hidden = !(data.mirrorGames > 0);
       $('team-stats-mirrors').textContent = t('statsMirrors', { count: data.mirrorGames || 0 });
     }
