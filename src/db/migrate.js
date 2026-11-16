@@ -97,7 +97,8 @@ const MIGRATIONS = [
   require("./migrations/097_widescreen_release_notes"),
   require("./migrations/098_pairing_instruction_terms"),
   require("./migrations/099_conditional_table_width_release_notes"),
-  require("./migrations/100_roster_team_logos_release_notes")
+  require("./migrations/100_roster_team_logos_release_notes"),
+  require("./migrations/101_tournament_breadcrumb_release_notes")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

@@ -2,6 +2,10 @@
 
 KT Companion release history, newest first.
 
+## 1.5.31 — 16 November 2026
+
+- Fixed a stray breadcrumb trail with the tournament name above the interface. It no longer remains after the app loads or when navigating to other sections.
+
 ## 1.5.30 — 16 November 2026
 
 - Team tournament podiums and downloadable PNG results now show each roster’s team logo. Teams without a logo use their initials.

@@ -44,7 +44,8 @@ for (const [version, migrationFile] of [
   ["1.5.24", "094_statistics_scope_release_notes"],
   ["1.5.28", "097_widescreen_release_notes"],
   ["1.5.29", "099_conditional_table_width_release_notes"],
-  ["1.5.30", "100_roster_team_logos_release_notes"]
+  ["1.5.30", "100_roster_team_logos_release_notes"],
+  ["1.5.31", "101_tournament_breadcrumb_release_notes"]
 ]) test(`${version} release notes preserve editorial history and do not duplicate on replay`, async () => {
   const migration = require(`../../src/db/migrations/${migrationFile}`);
   const history = "# Editorial heading\n\nAn editor's introduction.\n\n## 1.5.17 — previous release\n\nPreserved release copy.\n";
