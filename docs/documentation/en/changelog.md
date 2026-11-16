@@ -2,6 +2,11 @@
 
 KT Companion release history, newest first.
 
+## 1.5.29 — 16 November 2026
+
+- Restored the usual tournament interface width. When an open table needs more room for its columns, the workspace expands within the screen to reduce or remove horizontal scrolling.
+- Width adapts when switching sections, changing a table or resizing the window. Pages without wide tables keep their usual margins; narrow-screen faction statistics continue to show metrics in labeled cards.
+
 ## 1.5.28 — 16 November 2026
 
 - The tournament system uses widescreen monitor space. Faction statistics show every metric without horizontal scrolling: sections sit alongside one another on large screens and tables become labeled cards in narrow layouts.

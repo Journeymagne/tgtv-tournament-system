@@ -809,8 +809,8 @@ input[type="file"]::file-selector-button {
 .layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
-  gap: clamp(18px, 1.25vw, 28px);
-  width: calc(100% - 2 * clamp(18px, 1.25vw, 40px));
+  gap: 18px;
+  width: min(var(--table-layout-width, 1280px), calc(100% - 36px));
   margin: 14px auto 28px;
 }
 
