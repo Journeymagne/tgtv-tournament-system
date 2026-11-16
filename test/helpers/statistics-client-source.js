@@ -7,6 +7,7 @@ const names = ['statisticsSortState', 'sortStatisticsRows', 'statisticsListContr
   'gameStatisticsValues', 'matchStatisticsColumns', 'matchStatisticsValues', 'serverSortState',
   'serverSortHeader', 'statisticsSortQuery', 'compareStatValues', 'statSortNumber', 'statisticsSortScope'];
 module.exports = `
+var FACTION_RANKING_MIN_GAMES = ${require('../../public/game-data').FACTION_RANKING_MIN_GAMES};
 var wilsonScore = ${require('../../public/game-data').wilsonScore.toString()};
 var gameInSeason = ${require('../../public/game-data').gameInSeason.toString()};
 var statisticsFixtureState = {};

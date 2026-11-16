@@ -2,6 +2,10 @@
 
 KT Companion release history, newest first.
 
+## 1.5.33 — 16 November 2026
+
+- Faction player leaderboards now require at least 10 eligible completed games on that faction across all time. Players with fewer games appear separately with a provisional Wilson score and no ranking place. This applies to faction statistics and Tier Lists.
+
 ## 1.5.32 — 16 November 2026
 
 - Added the 2026 Q4 season starting on November 9. Results from that date count toward the new season, including games from tournaments that started earlier.

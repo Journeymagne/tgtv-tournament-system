@@ -67,7 +67,8 @@ test('ranking uses Wilson and selects five players after ordering all candidates
   for (let id = 4; id < 10; id++) games.push(...record(1, 1, { userId: id }));
   const summary = aggregateTeam('Tempestus Aquilons', games, seasons[2]);
   const top = orderSummary(summary).topPlayers;
-  assert.equal(top.length, 5); assert.equal(top[0].userId, 1);
-  assert.ok(top[0].wilsonScore > top[1].wilsonScore);
-  assert.equal(orderSummary(summary, { playerSort: 'winRate', playerDirection: 'desc' }).topPlayers[0].userId, 3);
+  assert.equal(top.length, 1); assert.equal(top[0].userId, 1);
+  assert.equal(orderSummary(summary).provisionalPlayers.length, 5);
+  assert.ok(top[0].wilsonScore > orderSummary(summary).provisionalPlayers[0].wilsonScore);
+  assert.equal(orderSummary(summary, { playerSort: 'winRate', playerDirection: 'desc' }).topPlayers[0].userId, 1);
 });

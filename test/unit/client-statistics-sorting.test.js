@@ -8,8 +8,8 @@ function client(names, state = {}) {
     assert.ok(text, name);
     return text;
   }).join('\n');
-  return new Function('state', 'canonicalKillTeamName', 't', 'wilsonScore', `${functions};return {${names.join(',')}};`)(
-    state, String, String, require('../../public/game-data').wilsonScore);
+  return new Function('state', 'canonicalKillTeamName', 't', 'wilsonScore', 'FACTION_RANKING_MIN_GAMES', `${functions};return {${names.join(',')}};`)(
+    state, String, String, require('../../public/game-data').wilsonScore, require('../../public/game-data').FACTION_RANKING_MIN_GAMES);
 }
 
 test('table sort choices are independent and missing numeric values stay last in both directions', () => {
@@ -50,6 +50,7 @@ test('faction detail retains all players, separates proxy replacements and exclu
   assert.equal(summary.mirrorGames, 1);
   assert.equal(summary.players.length, 12);
   assert.equal(summary.players.every(row => row.games === 1), true);
+  assert.equal(summary.players.every(row => row.provisional && row.rank === null), true);
   assert.equal(summary.recentGames.length, 5);
   assert.deepEqual(summary.recentGames.map(item => item.game.id), [11, 10, 9, 8, 7]);
 });
@@ -62,6 +63,8 @@ test('faction player Wilson records span all time independently of seasonal game
   const summary = ui.teamDetailSummary('Kommandos', [], historical);
   assert.equal(summary.games, 0);
   assert.equal(summary.players[0].games, 11);
+  assert.equal(summary.players[0].provisional, false);
+  assert.equal(summary.players[0].rank, 1);
   assert.ok(Math.abs(summary.players[0].wilsonScore - 52.3014) < 0.001);
   assert.notEqual(ui.statisticsPlayerKey({ id: 1, userId: null, name: 'Guest' }, { sourceType: 'tournament_match', tournament: { id: 1 } }), 'user:1');
 });

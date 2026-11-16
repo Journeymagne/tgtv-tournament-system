@@ -1,5 +1,5 @@
 const { canonicalKillTeam, teamKey } = require("./kill-teams");
-const { tacOpOptions, gameInSeason, wilsonScore } = require("../../public/game-data");
+const { tacOpOptions, gameInSeason, wilsonScore, FACTION_RANKING_MIN_GAMES } = require("../../public/game-data");
 const { compareValues } = require("./statistics-sorting");
 const TOURNAMENT_SOURCES = new Set(["tournament_match", "team_match_game"]);
 
@@ -70,8 +70,10 @@ function aggregateTeam(team, games, season) {
       tac.points += Number.isFinite(points) ? points : 0;
     }
   }
+  let playerRank = 0;
   const topPlayers = [...players.values()].map(row => ({ ...row, winRate: winRate(row), wilsonScore: wilsonScore(row.wins, row.games) }))
-    .sort(statRowSort).map((row, index) => ({ ...row, rank: index + 1 }));
+    .sort(statRowSort).map(row => ({ ...row, provisional: row.games < FACTION_RANKING_MIN_GAMES,
+      rank: row.games >= FACTION_RANKING_MIN_GAMES ? ++playerRank : null }));
   const topTacOps = [...tacOps.values()].map(({ points, ...row }) => ({
     ...row, winRate: winRate(row), avgPoints: Math.round(points / row.games * 10) / 10
   })).sort((a, b) => b.winRate - a.winRate || b.wins - a.wins || b.games - a.games ||
@@ -89,7 +91,9 @@ function orderSummary(summary, options = {}) {
     return [...rows].sort((a, b) => compareValues(a[key], b[key], order) || a.rank - b.rank).slice(0, limit);
   };
   return { ...summary,
-    topPlayers: select(summary.topPlayers, 'player', ['rank', 'name', 'games', 'wins', 'winRate', 'wilsonScore'], 5),
+    rankingMinGames: FACTION_RANKING_MIN_GAMES,
+    topPlayers: select(summary.topPlayers.filter(row => !row.provisional), 'player', ['rank', 'name', 'games', 'wins', 'winRate', 'wilsonScore'], 5),
+    provisionalPlayers: select(summary.topPlayers.filter(row => row.provisional), 'player', ['rank', 'name', 'games', 'wins', 'winRate', 'wilsonScore'], 5),
     topTacOps: select(summary.topTacOps, 'tacOp', ['rank', 'name', 'games', 'wins', 'winRate', 'avgPoints'], 3)
   };
 }

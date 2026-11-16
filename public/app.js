@@ -5932,6 +5932,24 @@ function teamCardRows(summary) {
   return [...activeRows, ...inactiveRows];
 }
 
+function factionPlayerTable(rows, provisional = false) {
+  const columns = [["name", t("games.filter.playerLabel")], ["games", t("stats.column.games")], ["wins", t("stats.column.wins")],
+    ["winRate", t("stats.column.winrate")], ["wilsonScore", t("stats.column.wilson")]];
+  return `<div class="table-wrap"><table class="data-table statistics-table" style="--table-metric-count:4" data-statistics-table="faction-players">
+    <colgroup><col><col span="4" class="table-col-number"></colgroup>
+    <thead><tr>${columns.map(([key, label]) => serverSortHeader(label, key, "faction-players")).join("")}</tr></thead>
+    <tbody>${rows.length ? sortStatisticsRows(rows, serverSortState("faction-players")).slice(0, 5).map(row => `
+      <tr data-provisional="${provisional}"${provisional ? "" : ` data-player-rank="${row.rank}"`}>
+        <td>${provisional ? "" : `<span class="muted">${row.rank}.</span> `}<strong>${escapeHtml(row.name)}</strong></td>
+        <td data-label="${escapeHtml(t("stats.column.games"))}">${row.games}</td>
+        <td data-label="${escapeHtml(t("stats.column.wins"))}">${row.wins}</td>
+        <td data-label="${escapeHtml(t("stats.column.winrate"))}"><span class="rating-pill stat-rate">${row.winRate}%</span></td>
+        <td data-label="${escapeHtml(t("stats.column.wilson"))}"${provisional ? ` title="${escapeHtml(t("stats.wilson.provisionalHint", { games: row.games, min: FACTION_RANKING_MIN_GAMES }))}"` : ""}>
+          <strong>${formatWilsonScore(row.wilsonScore)}</strong>${provisional ? ` <small class="muted">${t("stats.wilson.provisionalShort")}</small>` : ""}</td>
+      </tr>`).join("") : `<tr><td colspan="5">${t("stats.wilson.noQualified", { min: FACTION_RANKING_MIN_GAMES })}</td></tr>`}
+    </tbody></table></div>`;
+}
+
 function renderTeamDetail(detail) {
   const classification = killTeamClassification(detail.team);
   return `
@@ -5969,29 +5987,14 @@ function renderTeamDetail(detail) {
         </div>
         <div class="team-detail-section" data-statistics-table="faction-players">
           <div class="panel-header"><h3>${t("stats.team.bestPlayers.title")}</h3></div>
-          <p class="muted">${t("stats.wilson.hint")}</p>
+          <p class="muted">${t("stats.wilson.hint", { min: FACTION_RANKING_MIN_GAMES })}</p>
           ${statisticsListControls("faction-players", [["name", t("games.filter.playerLabel")], ["games", t("stats.column.games")],
             ["wins", t("stats.column.wins")], ["winRate", t("stats.column.winrate")], ["wilsonScore", t("stats.column.wilson")]], "wilsonScore", "desc")}
-          <div class="table-wrap">
-            <table class="data-table statistics-table" style="--table-metric-count:4" data-statistics-table="faction-players">
-              <colgroup><col><col span="4" class="table-col-number"></colgroup>
-              <thead><tr>${[["name", t("games.filter.playerLabel")], ["games", t("stats.column.games")], ["wins", t("stats.column.wins")],
-                ["winRate", t("stats.column.winrate")], ["wilsonScore", t("stats.column.wilson")]].map(([key, label]) => serverSortHeader(label, key, "faction-players")).join("")}</tr></thead>
-              <tbody>
-                ${detail.players.length
-                  ? sortStatisticsRows(detail.players, serverSortState("faction-players")).slice(0, 5).map((row) => `
-                    <tr>
-                      <td><strong>${escapeHtml(row.name)}</strong></td>
-                      <td data-label="${escapeHtml(t("stats.column.games"))}">${row.games}</td>
-                      <td data-label="${escapeHtml(t("stats.column.wins"))}">${row.wins}</td>
-                      <td data-label="${escapeHtml(t("stats.column.winrate"))}"><span class="rating-pill stat-rate">${row.winRate}%</span></td>
-                      <td data-label="${escapeHtml(t("stats.column.wilson"))}"><strong>${formatWilsonScore(row.wilsonScore)}</strong></td>
-                    </tr>
-                  `).join("")
-                  : `<tr><td colspan="5">${t("stats.empty.players")}</td></tr>`}
-              </tbody>
-            </table>
-          </div>
+          ${factionPlayerTable(detail.players.filter(row => !row.provisional))}
+          ${detail.players.some(row => row.provisional) ? `<div data-faction-provisional>
+            <div class="panel-header"><h4>${t("stats.wilson.provisionalTitle")}</h4></div>
+            <p class="muted">${t("stats.wilson.provisionalGroupHint", { min: FACTION_RANKING_MIN_GAMES })}</p>
+            ${factionPlayerTable(detail.players.filter(row => row.provisional), true)}</div>` : ""}
         </div>
         <div class="team-detail-section team-detail-matchups">
           <div class="panel-header"><h3>${t("stats.team.matchups.title")}</h3></div>
@@ -6199,6 +6202,13 @@ function teamDetailSummary(team, games, allTimeGames = games) {
     winRate: row.games ? Math.round((row.wins / row.games) * 100) : 0
   });
 
+  let playerRank = 0;
+  const allTimePlayers = allTimeGames !== games ? teamDetailSummary(team, allTimeGames).players : Array.from(playerStats.values())
+    .map(row => ({ ...withWinRate(row), wilsonScore: wilsonScore(row.wins, row.games) }))
+    .sort((a, b) => b.wilsonScore - a.wilsonScore || statRowSort(a, b))
+    .map(row => ({ ...row, provisional: row.games < FACTION_RANKING_MIN_GAMES,
+      rank: row.games >= FACTION_RANKING_MIN_GAMES ? ++playerRank : null }));
+
   return {
     team: targetTeam,
     ...withWinRate(totals),
@@ -6206,8 +6216,7 @@ function teamDetailSummary(team, games, allTimeGames = games) {
       String(b.game.submittedAt || b.game.result?.confirmedAt || b.game.createdAt || "").localeCompare(String(a.game.submittedAt || a.game.result?.confirmedAt || a.game.createdAt || "")) ||
       Number(b.game.id) - Number(a.game.id)
     ).slice(0, 5),
-    players: allTimeGames !== games ? teamDetailSummary(team, allTimeGames).players : Array.from(playerStats.values()).map(row => ({ ...withWinRate(row), wilsonScore: wilsonScore(row.wins, row.games) }))
-      .sort((a, b) => b.wilsonScore - a.wilsonScore || statRowSort(a, b)),
+    players: allTimePlayers,
     matchups: Array.from(matchupStats.values()).map(withWinRate).sort(statRowSort)
   };
 }

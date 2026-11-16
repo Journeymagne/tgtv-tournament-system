@@ -84,7 +84,8 @@ test("guest endpoint aggregates real completed games, restricts tournament resul
   assert.equal(response.body.wins, 2);
   assert.equal(response.body.topTacOps[0].name, "Plant Banner");
   assert.equal(response.body.topTacOps[0].avgPoints, 4);
-  assert.ok(response.body.topPlayers.every(player => [alpha.id, beta.id].includes(player.userId)));
+  assert.ok(response.body.provisionalPlayers.length > 0);
+  assert.ok([...response.body.topPlayers, ...response.body.provisionalPlayers].every(player => [alpha.id, beta.id].includes(player.userId)));
   // Tournament selection wins over date: this old timestamp is still in the current season.
   await client.query("UPDATE games SET submitted_at='2026-08-01T00:00:00Z' WHERE source_id IN (SELECT id FROM tournament_matches WHERE tournament_id=$1) AND source_type='tournament_match'", [visible]);
   assert.equal((await request(historicalHandler())).body.games, 2);
@@ -159,4 +160,24 @@ test('Q4 includes new results from a Q3 tournament and excludes them from Q3 tot
   const current = await request(createHandler({ clock: () => Date.parse('2026-11-10') }));
   assert.equal(current.body.season.id, '2026-q4-dataslate');
   assert.equal(current.body.games, 1);
+});
+
+test('the public faction top promotes the tenth all-time game and demotes a canceled result', async () => {
+  for (let i = 0; i < 9; i++) await completedChallenge('2026-08-01T00:00:00Z');
+  let result = await request(createHandler());
+  assert.equal(result.body.topPlayers.length, 0);
+  assert.equal(result.body.provisionalPlayers[0].games, 9);
+  assert.equal(result.body.provisionalPlayers[0].rank, null);
+  assert.equal(result.body.provisionalPlayers[0].provisional, true);
+  const tenth = await completedChallenge('2026-08-01T00:00:00Z');
+  result = await request(createHandler());
+  assert.equal(result.body.games, 0, 'seasonal totals do not limit all-time qualification');
+  assert.equal(result.body.topPlayers[0].games, 10);
+  assert.equal(result.body.topPlayers[0].rank, 1);
+  assert.equal(result.body.provisionalPlayers.length, 0);
+  await games.cancel(client, tenth.id);
+  result = await request(createHandler());
+  assert.equal(result.body.topPlayers.length, 0);
+  assert.equal(result.body.provisionalPlayers[0].rank, null);
+  assert.equal(result.body.provisionalPlayers[0].games, 9);
 });

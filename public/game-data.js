@@ -96,6 +96,8 @@ function gameInSeason(game, season) {
     (!season.endsAt || time < Date.parse(season.endsAt));
 }
 
+const FACTION_RANKING_MIN_GAMES = 10;
+
 // Lower endpoint of the two-sided 95% Wilson interval, on a 0–100 scale.
 // Keep precision for ordering/qualification and round only when displaying.
 function wilsonScore(wins, games) {
@@ -112,6 +114,7 @@ const venueModeOptions = [
 
 if (typeof module !== "undefined") {
   module.exports = {
+    FACTION_RANKING_MIN_GAMES,
     tacOpOptions,
     critOpOptions,
     killzoneOptions,

@@ -39,17 +39,18 @@ test("mirrors are counted separately and excluded from performance; draws stay i
   const summary = summarizeTeam(team, [game(1, { opponent: team }), game(2, { winnerId: null })], season);
   assert.deepEqual([summary.games, summary.wins, summary.losses, summary.draws, summary.winRate], [1, 0, 0, 1, 0]);
   assert.equal(summary.matchGames, 2); assert.equal(summary.mirrorGames, 1);
-  assert.deepEqual(summary.topPlayers.map(row => row.games), [1]);
+  assert.deepEqual(summary.topPlayers, []);
+  assert.deepEqual(summary.provisionalPlayers.map(row => row.games), [1]);
   const empty = summarizeTeam("Dragon Masters", [game(1)], season);
   assert.equal(empty.winRate, null); assert.equal(empty.games, 0); assert.deepEqual(empty.topPlayers, []);
 });
 
 test("summary orders all candidates before selecting five players and three Tac Ops and retains official rank", () => {
-  const games = ["Alpha", "Beta", "Gamma", "Zulu"].map((name, index) => {
+  const games = ["Alpha", "Beta", "Gamma", "Zulu"].flatMap((name, index) => {
     const row = game(index + 1, { players: [{ id: 1, userId: index + 1, name }, { id: 2 }] });
     row.result.scores[1].tacOp = ["Flank", "Plant Banner", "Retrieval", "Rout"][index];
     row.result.scores[1].tac = index;
-    return row;
+    return Array.from({ length: 10 }, (_, copy) => ({ ...row, id: index * 10 + copy }));
   });
   const summary = summarizeTeam(team, games, season, {
     playerSort: "name", playerDirection: "desc", tacOpSort: "avgPoints", tacOpDirection: "desc"
@@ -71,8 +72,8 @@ test("played faction wins over registration, with legacy registration fallback",
 
 test("summary cache preserves independent query orders across the top-three boundary", async () => {
   let loads = 0;
-  const values = ["Alpha", "Beta", "Gamma", "Zulu"].map((name, index) =>
-    game(index + 1, { players: [{ id: 1, userId: index + 1, name }, { id: 2 }] }));
+  const values = ["Alpha", "Beta", "Gamma", "Zulu"].flatMap((name, index) =>
+    Array.from({ length: 10 }, (_, copy) => game(index * 10 + copy, { players: [{ id: 1, userId: index + 1, name }, { id: 2 }] })));
   const get = createHandler({ getSeason: () => season, clock: () => Date.parse("2026-10-01"),
     loadCompleted: async () => { loads++; return { games: values }; }, loadPublishedIds: async () => new Set() });
   const request = extra => get({ query: new URLSearchParams({ team, ...extra }) });
@@ -87,8 +88,8 @@ test("summary cache preserves independent query orders across the top-three boun
 test("every summary sort column selects from complete candidates with stable rank tie-breaks", () => {
   const games = [];
   for (const [index, name, count, wins] of [[0, 'Alpha', 1, 1], [1, 'Beta', 2, 1], [2, 'Gamma', 3, 2], [3, 'Zulu', 4, 0]]) {
-    for (let match = 0; match < count; match++) {
-      const row = game(games.length + 1, { winnerId: match < wins ? 1 : 2,
+    for (let match = 0; match < count * 10; match++) {
+      const row = game(games.length + 1, { winnerId: match < wins * 10 ? 1 : 2,
         players: [{ id: 1, userId: index + 10, name }, { id: 2 }] });
       row.result.scores[1].tacOp = ['Flank', 'Plant Banner', 'Retrieval', 'Rout'][index];
       row.result.scores[1].tac = index + 1;
@@ -96,7 +97,7 @@ test("every summary sort column selects from complete candidates with stable ran
     }
   }
   for (const [key, direction, expected] of [
-    ['rank', 'desc', ['Zulu', 'Beta', 'Alpha', 'Gamma']], ['name', 'desc', ['Zulu', 'Gamma', 'Beta', 'Alpha']],
+    ['rank', 'desc', ['Zulu', 'Beta', 'Gamma', 'Alpha']], ['name', 'desc', ['Zulu', 'Gamma', 'Beta', 'Alpha']],
     ['games', 'desc', ['Zulu', 'Gamma', 'Beta', 'Alpha']], ['wins', 'desc', ['Gamma', 'Alpha', 'Beta', 'Zulu']],
     ['winRate', 'asc', ['Zulu', 'Beta', 'Gamma', 'Alpha']]
   ]) {
@@ -104,7 +105,7 @@ test("every summary sort column selects from complete candidates with stable ran
       tacOpSort: key, tacOpDirection: direction });
     assert.deepEqual(response.topPlayers.map(row => row.name), expected, key);
     const tacExpected = key === 'rank' ? ['Zulu', 'Beta', 'Gamma'] : expected.slice(0, 3);
-    if (key !== 'name') assert.deepEqual(response.topTacOps.map(row => row.games), tacExpected.map(name => ({Alpha: 1, Beta: 2, Gamma: 3, Zulu: 4})[name]), key);
+    if (key !== 'name') assert.deepEqual(response.topTacOps.map(row => row.games), tacExpected.map(name => ({Alpha: 10, Beta: 20, Gamma: 30, Zulu: 40})[name]), key);
   }
 });
 test("real players use userId while guests and proxies are scoped by tournament and historical identity", () => {
@@ -114,14 +115,15 @@ test("real players use userId while guests and proxies are scoped by tournament 
     game(3, { tournament: { id: 10 }, players: [{ id: 1, userId: null, isProxy: true, name: "Proxy" }, { id: 2 }] }),
     game(4, { tournament: { id: 20 }, players: [{ id: 1, userId: null, isProxy: true, name: "Proxy" }, { id: 2 }] })
   ];
-  const top = summarizeTeam(team, games, season).topPlayers;
+  const top = summarizeTeam(team, games, season).provisionalPlayers;
   assert.equal(top.length, 3);
   assert.deepEqual(top.map(row => row.games), [2, 1, 1]);
   assert.deepEqual(top.map(row => row.userId), [7, null, null]);
 });
 test("top players and tac ops use existing win-rate, wins, sample-size and points tie-breaks", () => {
-  const games = Array.from({ length: 4 }, (_, i) => {
-    const row = game(i + 1, { players: [{ id: 1, userId: i + 1, name: ["Zulu", "Beta", "Alpha", "Last"][i] }, { id: 2 }] });
+  const games = Array.from({ length: 40 }, (_, index) => {
+    const i = Math.floor(index / 10);
+    const row = game(index + 1, { players: [{ id: 1, userId: i + 1, name: ["Zulu", "Beta", "Alpha", "Last"][i] }, { id: 2 }] });
     row.result.scores[1].tacOp = ["flank", "Plant Banner", "Retrieval", "Rout"][i];
     row.result.scores[1].tac = [1, 5, 3, 0][i];
     return row;
@@ -161,11 +163,11 @@ test("cache changes at season rollover and never caches a failed load", async ()
 test("legacy challenge ids merge real players while hidden profiles and guest namespaces never link", () => {
   const legacy = id => game(id, { players: [{ id: 1, name: "Legacy account" }, { id: 2, name: "Other" }] });
   const legacySummary = summarizeTeam(team, [legacy(1), legacy(2)], season);
-  assert.equal(legacySummary.topPlayers[0].userId, 1);
-  assert.equal(legacySummary.topPlayers[0].games, 2);
+  assert.equal(legacySummary.provisionalPlayers[0].userId, 1);
+  assert.equal(legacySummary.provisionalPlayers[0].games, 2);
   const guest = (id, sourceType) => game(id, { sourceType, tournament: { id: 9 },
     players: [{ id: 1, userId: 123, hasProfile: false, name: "No profile" }, { id: 2 }] });
-  const top = summarizeTeam(team, [guest(3, "tournament_match"), guest(4, "team_match_game")], season).topPlayers;
+  const top = summarizeTeam(team, [guest(3, "tournament_match"), guest(4, "team_match_game")], season).provisionalPlayers;
   assert.equal(top.length, 2);
   assert.ok(top.every(row => row.userId === null && row.games === 1));
 });
