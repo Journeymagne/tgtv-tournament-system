@@ -42,7 +42,8 @@
 .tournament-result-topten { margin-top: 22px; background: var(--panel); padding: 20px 22px; }
 .tournament-result-topten > h3 { max-width: none; margin: 0 0 16px; font-size: 18px; font-weight: 650; letter-spacing: -.02em; }
 .tournament-result-tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
-.tournament-result-tables:has(> table:only-child) { grid-template-columns: 1fr; }
+.tournament-result-tables:has(> .tournament-result-table-wrap:only-child) { grid-template-columns: 1fr; }
+.tournament-result-table-wrap { min-width: 0; overflow-x: auto; }
 .tournament-result-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .tournament-result-table caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .tournament-result-table th, .tournament-result-table td { padding: 11px 7px; border-bottom: 1px solid var(--line); font-size: 12px; text-align: right; vertical-align: top; color: var(--ink); }

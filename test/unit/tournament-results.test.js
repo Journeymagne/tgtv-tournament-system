@@ -74,6 +74,7 @@ test('HTML escapes user names and exposes an accessible public PNG action', () =
   assert.doesNotMatch(html, /<img src=x|<Raven>/);
   assert.match(html, /data-tournament-results-download/);
   assert.equal((html.match(/data-result-entry=/g) || []).length, 10);
+  assert.equal((html.match(/data-table-viewport/g) || []).length, 2, 'each grid column must expose its own table viewport');
 });
 
 test('canvas export renders published values and grows for long names instead of clipping', () => {

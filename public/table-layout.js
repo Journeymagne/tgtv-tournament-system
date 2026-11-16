@@ -3,6 +3,7 @@
   const app = document.querySelector("#app");
   if (!app) return;
   const widthProperty = "--table-layout-width";
+  const viewportSelector = ".table-wrap, [data-table-viewport]";
   let frame = 0;
   const observed = new Set();
   const resize = new ResizeObserver(schedule);
@@ -27,7 +28,7 @@
     const tables = [...layout.querySelectorAll("table")].filter(table =>
       table.getClientRects().length && getComputedStyle(table).display === "table"
       && !table.closest('dialog, [role="dialog"]'));
-    const wrappers = new Set(tables.flatMap(table => [table, table.closest(".table-wrap") || table.parentElement]));
+    const wrappers = new Set(tables.flatMap(table => [table, table.closest(viewportSelector) || table.parentElement]));
     for (const wrapper of observed) {
       if (!wrappers.has(wrapper)) { resize.unobserve(wrapper); observed.delete(wrapper); }
     }
@@ -37,7 +38,7 @@
 
     function overflow() {
       return tables.reduce((total, table) => {
-        const wrapper = table.closest(".table-wrap") || table.parentElement;
+        const wrapper = table.closest(viewportSelector) || table.parentElement;
         return total + Math.max(0, Math.max(table.scrollWidth, Math.round(table.getBoundingClientRect().width)) - wrapper.clientWidth);
       }, 0);
     }

@@ -18,7 +18,7 @@ function mount({ screen = 2560, minimum = 1500, fraction = 1, fixed = false } = 
   const wrapper = { get clientWidth() { return Math.floor(((fixed ? 1280 : layout.getBoundingClientRect().width) - 242) * fraction); } };
   const table = {
     hidden: false, minimum,
-    closest(selector) { return selector === '.table-wrap' ? wrapper : null; },
+    closest(selector) { return selector === '.table-wrap, [data-table-viewport]' ? wrapper : null; },
     getClientRects() { return this.hidden ? [] : [{}]; },
     getBoundingClientRect() { return { width: Math.max(this.minimum, wrapper.clientWidth) }; },
     get scrollWidth() { return Math.ceil(this.getBoundingClientRect().width); }
