@@ -8,7 +8,8 @@ function client(names, state = {}) {
     assert.ok(text, name);
     return text;
   }).join('\n');
-  return new Function('state', 'canonicalKillTeamName', 't', `${functions};return {${names.join(',')}};`)(state, String, String);
+  return new Function('state', 'canonicalKillTeamName', 't', 'wilsonScore', `${functions};return {${names.join(',')}};`)(
+    state, String, String, require('../../public/game-data').wilsonScore);
 }
 
 test('table sort choices are independent and missing numeric values stay last in both directions', () => {
@@ -49,6 +50,20 @@ test('faction detail retains all players, separates proxy replacements and exclu
   assert.equal(summary.mirrorGames, 1);
   assert.equal(summary.players.length, 12);
   assert.equal(summary.players.every(row => row.games === 1), true);
+  assert.equal(summary.recentGames.length, 5);
+  assert.deepEqual(summary.recentGames.map(item => item.game.id), [11, 10, 9, 8, 7]);
+});
+
+test('faction player Wilson records span all time independently of seasonal games and use real account identities', () => {
+  const ui = client(['teamDetailSummary', 'statisticsPlayerKey', 'teamEntryResult', 'addRecord', 'statRowSort']);
+  const historical = Array.from({ length: 11 }, (_, index) => ({ id: index, sourceType: 'challenge', status: 'completed',
+    submittedAt: '2026-08-01', players: [{ id: 1, userId: 1, name: 'Journey' }, { id: 2, userId: 2, name: 'Opponent' }],
+    result: { winnerId: index < 9 ? 1 : 2, scores: { 1: { faction: 'Kommandos' }, 2: { faction: 'Kasrkin' } } } }));
+  const summary = ui.teamDetailSummary('Kommandos', [], historical);
+  assert.equal(summary.games, 0);
+  assert.equal(summary.players[0].games, 11);
+  assert.ok(Math.abs(summary.players[0].wilsonScore - 52.3014) < 0.001);
+  assert.notEqual(ui.statisticsPlayerKey({ id: 1, userId: null, name: 'Guest' }, { sourceType: 'tournament_match', tournament: { id: 1 } }), 'user:1');
 });
 
 test('card sorting uses raw names, dates and numeric scores without mutating input', () => {

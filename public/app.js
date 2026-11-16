@@ -4298,14 +4298,20 @@ function achievementPicture(achievement) {
     : `<span class="achievement-emoji" aria-hidden="true">${escapeHtml(achievement.emoji)}</span>`;
 }
 
-function achievementCards(achievements, { compact = false, trainingTeams = [] } = {}) {
+function achievementCards(achievements, { compact = false, trainingTeams = [], wilsonAchievements = [] } = {}) {
   const en = i18n.getLocale() === 'en';
   const cards = [
-    ...trainingTeams.filter(course => course.total || course.earned).map(course => ({
+    ...wilsonAchievements.map(award => ({
+      name: `${en ? award.nameEn : award.name}: ${award.team}`,
+      emoji: award.emoji, kind: 'player',
+      description: t('achievements.wilson.description', { score: formatWilsonScore(award.wilsonScore), threshold: award.threshold,
+        wins: award.wins, games: award.games }),
+      href: '/tournament#/statistics'
+    })),
+    ...trainingTeams.filter(course => course.earned).map(course => ({
       name: `${en ? 'Team expert' : 'Знаток команды'}: ${course.name}`,
       imageUrl: killTeamLogoSrc(course.name), kind: 'player',
-      description: course.earned ? (en ? 'Achievement earned and retained' : 'Ачивка получена и сохранена')
-        : `${course.solved} / ${course.total} · ${en ? 'Answer every team question correctly at least once.' : 'Ответьте верно хотя бы один раз на каждый вопрос команды.'}`,
+      description: en ? 'Achievement earned and retained' : 'Ачивка получена и сохранена',
       href: '/training?team=' + encodeURIComponent(course.id) + '#training'
     })),
     ...achievements.map(item => ({ ...item,
@@ -4321,8 +4327,8 @@ function achievementCards(achievements, { compact = false, trainingTeams = [] } 
 
 function profileAchievementMarkup(data, compact) {
   return window.KTTrainingJourneyUI.achievement(data.trainingAchievement, { compact, locale: i18n.getLocale() })
-    + (data.achievements.length || data.trainingTeamAchievements?.length || !data.trainingAchievement
-      ? achievementCards(data.achievements, { compact, trainingTeams: data.trainingTeamAchievements || [] }) : '');
+    + (data.achievements.length || data.wilsonAchievements?.length || data.trainingTeamAchievements?.some(course => course.earned) || !data.trainingAchievement
+      ? achievementCards(data.achievements, { compact, trainingTeams: data.trainingTeamAchievements || [], wilsonAchievements: data.wilsonAchievements || [] }) : '');
 }
 
 async function mountProfileAchievements(container, field, id) {
@@ -4483,7 +4489,7 @@ async function renderAchievements() {
           { id: "title", label: t("achievements.hallOfFame") }
         ], category, { publicTabs: true })}
         ${window.KTTrainingJourneyUI.achievement(data.trainingAchievement, { locale: i18n.getLocale() })}
-        ${achievementCards(data.achievements, { trainingTeams: data.trainingTeamAchievements || [] })}
+        ${achievementCards(data.achievements, { trainingTeams: data.trainingTeamAchievements || [], wilsonAchievements: data.wilsonAchievements || [] })}
         ${data.pagination ? paginationMarkup("achievements",data.pagination,"achievements.pagination.items") : ""}
         ${(state.administrationContext && state.me?.isAdmin) ? `<dialog class="tiebreaker-help-dialog achievement-create" aria-labelledby="achievement-create-title" data-achievement-dialog>
           <form data-achievement-create class="tiebreaker-help-content">
@@ -5492,7 +5498,7 @@ function renderStatistics() {
   const killTeamSummary = killTeamWinrateSummary(seasonGames);
   const statisticsContent = state.statisticsTab === "teams"
     ? state.selectedStatisticsTeam
-      ? renderTeamDetail(teamDetailSummary(state.selectedStatisticsTeam, seasonGames), season)
+      ? renderTeamDetail(teamDetailSummary(state.selectedStatisticsTeam, seasonGames, games), season)
       : renderTeamCards(killTeamSummary)
     : state.statisticsTab === "tacOpWinrates"
       ? renderTacOpWinrates(tacOpWinrateSummary(seasonGames, state.statisticsFilters))
@@ -5651,7 +5657,7 @@ function gameStatisticsValues(game, userId = null) {
 }
 
 function statisticsPlayerKey(player, game) {
-  const userId = Number(player.userId ?? (Number(player.id) > 0 ? player.id : 0));
+  const userId = Number(player.userId === undefined && game.sourceType === "challenge" ? player.id : player.userId);
   if (!player.isProxy && player.hasProfile !== false && Number.isSafeInteger(userId) && userId > 0) return "user:" + userId;
   return JSON.stringify(["guest", game.sourceType, game.tournament?.id ?? "game:" + game.id, player.id, player.name || "Player"]);
 }
@@ -5685,6 +5691,7 @@ function matchStatisticsValues(match) {
 }
 
 function serverSortState(id) {
+  if (id === "faction-players") return statisticsSortState(id, "wilsonScore", "desc");
   return statisticsSortState(id, id === "admin-teams" ? "" : id === "games" || id.startsWith("player-history:") || id.startsWith("team-history:") ? "date" : "rank",
     id === "games" || id.includes("-history:") ? "desc" : "asc");
 }
@@ -5787,20 +5794,12 @@ function wireStatsSorting() {
   });
 }
 
+function formatWilsonScore(score) {
+  return new Intl.NumberFormat(i18n.getLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(score);
+}
+
 function filterGamesBySeason(games, season) {
-  if (!season) return games;
-  return games.filter((game) => {
-    if (["tournament_match", "team_match_game"].includes(game.sourceType) && game.tournament?.seasonId) {
-      return game.tournament.seasonId === season.id;
-    }
-    const timestamp = game.submittedAt || game.result?.confirmedAt || game.createdAt || "";
-    if (!timestamp) return true;
-    const time = Date.parse(timestamp);
-    if (Number.isNaN(time)) return true;
-    if (season.startsAt && time < Date.parse(season.startsAt)) return false;
-    if (season.endsAt && time >= Date.parse(season.endsAt)) return false;
-    return true;
-  });
+  return games.filter(game => gameInSeason(game, season));
 }
 
 function renderKillTeamWinrates(summary) {
@@ -5968,23 +5967,28 @@ function renderTeamDetail(detail) {
               : `<div class="empty">${t("stats.empty.teamGames")}</div>`}
           </div>
         </div>
-        <div class="team-detail-section">
+        <div class="team-detail-section" data-statistics-table="faction-players">
           <div class="panel-header"><h3>${t("stats.team.bestPlayers.title")}</h3></div>
+          <p class="muted">${t("stats.wilson.hint")}</p>
+          ${statisticsListControls("faction-players", [["name", t("games.filter.playerLabel")], ["games", t("stats.column.games")],
+            ["wins", t("stats.column.wins")], ["winRate", t("stats.column.winrate")], ["wilsonScore", t("stats.column.wilson")]], "wilsonScore", "desc")}
           <div class="table-wrap">
-            <table class="data-table statistics-table" style="--table-metric-count:3" data-statistics-table="faction-players" data-statistics-detail="players">
-              <colgroup><col><col span="3" class="table-col-number"></colgroup>
-              <thead><tr><th>${t("games.filter.playerLabel")}</th><th>${t("stats.column.games")}</th><th>${t("stats.column.wins")}</th><th>${t("stats.column.winrate")}</th></tr></thead>
+            <table class="data-table statistics-table" style="--table-metric-count:4" data-statistics-table="faction-players">
+              <colgroup><col><col span="4" class="table-col-number"></colgroup>
+              <thead><tr>${[["name", t("games.filter.playerLabel")], ["games", t("stats.column.games")], ["wins", t("stats.column.wins")],
+                ["winRate", t("stats.column.winrate")], ["wilsonScore", t("stats.column.wilson")]].map(([key, label]) => serverSortHeader(label, key, "faction-players")).join("")}</tr></thead>
               <tbody>
                 ${detail.players.length
-                  ? detail.players.map((row) => `
+                  ? sortStatisticsRows(detail.players, serverSortState("faction-players")).slice(0, 5).map((row) => `
                     <tr>
                       <td><strong>${escapeHtml(row.name)}</strong></td>
                       <td data-label="${escapeHtml(t("stats.column.games"))}">${row.games}</td>
                       <td data-label="${escapeHtml(t("stats.column.wins"))}">${row.wins}</td>
                       <td data-label="${escapeHtml(t("stats.column.winrate"))}"><span class="rating-pill stat-rate">${row.winRate}%</span></td>
+                      <td data-label="${escapeHtml(t("stats.column.wilson"))}"><strong>${formatWilsonScore(row.wilsonScore)}</strong></td>
                     </tr>
                   `).join("")
-                  : `<tr><td colspan="4">${t("stats.empty.players")}</td></tr>`}
+                  : `<tr><td colspan="5">${t("stats.empty.players")}</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -6135,7 +6139,7 @@ function statsTeamFilterMatchesWithFilters(team, filters) {
   return true;
 }
 
-function teamDetailSummary(team, games) {
+function teamDetailSummary(team, games, allTimeGames = games) {
   const targetTeam = canonicalKillTeamName(team);
   const playerStats = new Map();
   const matchupStats = new Map();
@@ -6199,9 +6203,11 @@ function teamDetailSummary(team, games) {
     team: targetTeam,
     ...withWinRate(totals),
     recentGames: recentGames.sort((a, b) =>
-      String(b.game.submittedAt || b.game.createdAt).localeCompare(String(a.game.submittedAt || a.game.createdAt))
-    ),
-    players: Array.from(playerStats.values()).map(withWinRate).sort(statRowSort),
+      String(b.game.submittedAt || b.game.result?.confirmedAt || b.game.createdAt || "").localeCompare(String(a.game.submittedAt || a.game.result?.confirmedAt || a.game.createdAt || "")) ||
+      Number(b.game.id) - Number(a.game.id)
+    ).slice(0, 5),
+    players: allTimeGames !== games ? teamDetailSummary(team, allTimeGames).players : Array.from(playerStats.values()).map(row => ({ ...withWinRate(row), wilsonScore: wilsonScore(row.wins, row.games) }))
+      .sort((a, b) => b.wilsonScore - a.wilsonScore || statRowSort(a, b)),
     matchups: Array.from(matchupStats.values()).map(withWinRate).sort(statRowSort)
   };
 }

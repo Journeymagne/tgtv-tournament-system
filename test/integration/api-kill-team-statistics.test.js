@@ -8,7 +8,10 @@ const users = require("../../src/db/repositories/users");
 const games = require("../../src/db/repositories/games");
 const tournaments = require("../../src/api/tournaments");
 let pool, client, admin, alpha, beta;
-const season = currentSeason(), oldSeason = seasons.find(item => item.id !== season.id);
+// Keep historical eligibility fixtures stable as the real current season advances.
+const season = seasons[1], oldSeason = seasons[0];
+const createCurrentHandler = createHandler;
+function historicalHandler(options = {}) { return createCurrentHandler({ ...options, getSeason: () => season, clock: () => Date.parse('2026-10-15') }); }
 async function tx(fn) {
   await client.query("BEGIN");
   try { const value = await fn(); await client.query("COMMIT"); return value; }
@@ -50,6 +53,8 @@ async function completedTournament(name, selectedSeason = season.id) {
   const b = match.participantA.userId === a ? match.participantB.userId : match.participantA.userId;
   await tx(() => tournaments.saveMatchResultAdmin({ client, user: admin,
     params: { ...params, matchId: String(match.id) }, body: { scores: scores(a, b) } }));
+  await client.query(`UPDATE games SET submitted_at='2026-10-01T12:00:00Z'
+    WHERE source_type='tournament_match' AND source_id IN (SELECT id FROM tournament_matches WHERE tournament_id=$1)`, [id]);
   return id;
 }
 function request(get, team = "Kasrkin") { return get({ client, query: new URLSearchParams({ team }) }); }
@@ -72,7 +77,7 @@ test("guest endpoint aggregates real completed games, restricts tournament resul
   const hidden = await completedTournament("Hidden stats");
   await client.query("UPDATE tournaments SET status='draft' WHERE id=$1", [hidden]);
   await completedTournament("Past season stats", oldSeason.id);
-  const response = await request(createHandler());
+  const response = await request(historicalHandler());
   assert.equal(response.body.team, "Kasrkin");
   assert.equal(response.body.season.id, season.id);
   assert.equal(response.body.games, 2);
@@ -82,14 +87,14 @@ test("guest endpoint aggregates real completed games, restricts tournament resul
   assert.ok(response.body.topPlayers.every(player => [alpha.id, beta.id].includes(player.userId)));
   // Tournament selection wins over date: this old timestamp is still in the current season.
   await client.query("UPDATE games SET submitted_at='2026-08-01T00:00:00Z' WHERE source_id IN (SELECT id FROM tournament_matches WHERE tournament_id=$1) AND source_type='tournament_match'", [visible]);
-  assert.equal((await request(createHandler())).body.games, 2);
+  assert.equal((await request(historicalHandler())).body.games, 2);
 });
 test("zero-game canonical team is valid and private account fields never enter the response", async () => {
-  const response = await request(createHandler(), "Dragon Masters");
+  const response = await request(historicalHandler(), "Dragon Masters");
   assert.equal(response.body.games, 0); assert.equal(response.body.winRate, null);
   assert.deepEqual(response.body.topTacOps, []); assert.deepEqual(response.body.topPlayers, []);
   await completedChallenge();
-  const full = await request(createHandler());
+  const full = await request(historicalHandler());
   assert.doesNotMatch(JSON.stringify(full.body), /password|telegram|registerNickname|csrfToken|email/i);
 });
 
@@ -111,4 +116,47 @@ test("the public statistics route lives only in tournaments, without loading the
   const route = routes.find(item => item.path === "/api/statistics/kill-team");
   assert.ok(route); assert.equal(route.auth, "none"); assert.ok(!route.loadUser);
   assert.ok(!require("../../src/api/routes-tierlists").some(item => item.path === route.path));
+});
+
+test('all-time faction qualifications are revoked by corrected results and restored by removing losses', async () => {
+  const { forUser } = require('../../src/api/wilson-achievements');
+  const losses = [];
+  for (let i = 0; i < 11; i++) {
+    const game = await completedChallenge('2026-08-01T00:00:00Z');
+    if (i >= 9) {
+      await client.query(`UPDATE games SET result=jsonb_set(result,'{winnerId}',to_jsonb($2::int)) WHERE id=$1`, [game.id, beta.id]);
+      losses.push(game.id);
+    }
+  }
+  const earned = await forUser(client, alpha.id);
+  assert.deepEqual(earned.map(a => a.threshold), [50]);
+  assert.equal(earned[0].games, 11);
+  assert.ok(Math.abs(earned[0].wilsonScore - 52.3014) < 0.001);
+  const extraLoss = await completedChallenge('2026-11-10T00:00:00Z');
+  await client.query(`UPDATE games SET result=jsonb_set(result,'{winnerId}',to_jsonb($2::int)) WHERE id=$1`, [extraLoss.id, beta.id]);
+  assert.deepEqual(await forUser(client, alpha.id), []);
+  await client.query('DELETE FROM games WHERE id=$1', [extraLoss.id]);
+  assert.deepEqual((await forUser(client, alpha.id)).map(a => a.threshold), [50]);
+  const current = await request(createHandler());
+  assert.equal(current.body.games, 0);
+  assert.equal(current.body.topPlayers.find(p => p.userId === alpha.id).games, 11);
+});
+
+test('unpublishing a tournament revokes a qualification supported by its result', async () => {
+  const { forUser } = require('../../src/api/wilson-achievements');
+  for (let i = 0; i < 3; i++) await completedChallenge();
+  const eventId = await completedTournament('Wilson qualification');
+  assert.deepEqual((await forUser(client, alpha.id)).map(a => a.threshold), [50]);
+  await client.query("UPDATE tournaments SET status='draft' WHERE id=$1", [eventId]);
+  assert.deepEqual(await forUser(client, alpha.id), []);
+});
+
+test('Q4 includes new results from a Q3 tournament and excludes them from Q3 totals', async () => {
+  const id = await completedTournament('Q4 crossover', season.id);
+  await client.query(`UPDATE games SET submitted_at='2026-11-08T20:00:00Z' WHERE source_type='tournament_match'
+    AND source_id IN (SELECT id FROM tournament_matches WHERE tournament_id=$1)`, [id]);
+  assert.equal((await request(historicalHandler())).body.games, 0);
+  const current = await request(createHandler({ clock: () => Date.parse('2026-11-10') }));
+  assert.equal(current.body.season.id, '2026-q4-dataslate');
+  assert.equal(current.body.games, 1);
 });

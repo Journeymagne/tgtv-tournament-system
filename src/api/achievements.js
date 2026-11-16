@@ -23,7 +23,8 @@ async function list({ client, query, user }) {
     ? await training.publicJourney(client, userId || user?.id) : null;
   const achievements = await repo.list(client, { kind, category, userId, teamId }, query);
   const trainingTeamAchievements = showTraining ? await training.publicTeamAchievements(client, userId || user?.id) : [];
-  return { achievements, pagination:achievements.pagination, trainingAchievement, trainingTeamAchievements };
+  const wilsonAchievements = showTraining ? await require('./wilson-achievements').forUser(client, userId || user?.id) : [];
+  return { achievements, pagination:achievements.pagination, trainingAchievement, trainingTeamAchievements, wilsonAchievements };
 }
 async function get({ client, params }) {
   const achievement = await requireAchievement(client, params.id);

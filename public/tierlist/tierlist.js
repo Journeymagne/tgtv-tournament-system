@@ -44,7 +44,8 @@
     storageFull: ['Не удалось сохранить черновик в браузере. Скачайте JSON перед уходом со страницы.', 'Could not store the browser draft. Export JSON before leaving the page.'],
     statsLatest: ['Последний сезон', 'Latest season'], statsClose: ['Закрыть статистику команды', 'Close team statistics'],
     statsLoading: ['Загрузка статистики…', 'Loading statistics…'], statsError: ['Не удалось загрузить статистику команды. Попробуйте ещё раз.', 'Could not load team statistics. Try again.'],
-    statsGames: ['Игры', 'Games'], statsWinRate: ['Винрейт', 'Win rate'], statsTacOps: ['Топ-3 вторички', 'Top 3 Tac Ops'], statsPlayers: ['Топ-3 игрока', 'Top 3 players'],
+    statsGames: ['Игры', 'Games'], statsWinRate: ['Винрейт', 'Win rate'], statsTacOps: ['Топ-3 вторички', 'Top 3 Tac Ops'], statsPlayers: ['Топ-5 игроков · за всё время', 'Top 5 players · all time'],
+    statsWilson: ['Уилсон', 'Wilson'],
     statsEmpty: ['За этот сезон игр пока нет.', 'No games recorded for this season yet.'], statsNoEntries: ['За этот сезон записей нет.', 'No entries for this season.'],
     statsGameCount: ['Игр: {count}', 'Games: {count}'], statsMirrors: ['Зеркальных игр: {count}. Они исключены из показателей.', 'Mirror games: {count}. Excluded from performance statistics.'],
     statsName: ['Название', 'Name'], statsWins: ['Победы', 'Wins'], statsAvgPoints: ['Ср. очки', 'Avg points'],
@@ -62,7 +63,7 @@
   const draftKey = user => 'kt-tierlist-draft-v1:' + (user?.id ?? 'guest');
   const preferencesKey = 'kt-tierlist-view-v1';
   const teamStats = { teamId: null, status: 'idle', data: null, controller: null, serial: 0, cache: new Map(),
-    playerSort: { key: 'winRate', direction: 'desc' }, tacOpSort: { key: 'winRate', direction: 'desc' } };
+    playerSort: { key: 'wilsonScore', direction: 'desc' }, tacOpSort: { key: 'winRate', direction: 'desc' } };
   const snapshot = () => JSON.stringify({ title: state.record?.title || '', seasonId: state.record?.seasonId || '', rows: state.record?.rows || {} });
   const isDirty = () => Boolean(state.record && snapshot() !== state.baseline);
   function emptyRows() { return Object.fromEntries(zoneKeys.map(k => [k, k === 'pool' ? state.teams.map(team => team.id) : []])); }
@@ -275,8 +276,8 @@
   }
   function changeStatsSort(surface, key) {
     const view = surface === 'players' ? teamStats.playerSort : surface === 'tacops' ? teamStats.tacOpSort : null;
-    if (!view || (key !== null && !['name', 'games', 'wins', 'winRate', ...(surface === 'tacops' ? ['avgPoints'] : [])].includes(key))) return;
-    if (key === null) Object.assign(view, { key: 'winRate', direction: 'desc' });
+    if (!view || (key !== null && !['name', 'games', 'wins', 'winRate', ...(surface === 'tacops' ? ['avgPoints'] : ['wilsonScore'])].includes(key))) return;
+    if (key === null) Object.assign(view, { key: surface === 'players' ? 'wilsonScore' : 'winRate', direction: 'desc' });
     else { view.direction = view.key === key ? (view.direction === 'asc' ? 'desc' : 'asc') : key === 'name' ? 'asc' : 'desc'; view.key = key; }
     if (state.selected) void loadTeamStats(state.selected);
   }
@@ -286,6 +287,7 @@
     container.dataset.statisticsTable = 'tierlist-' + surface;
     const fields = [['name', 'statsName'], ['games', 'statsGames'], ['wins', 'statsWins'], ['winRate', 'statsWinRate']];
     if (!players) fields.push(['avgPoints', 'statsAvgPoints']);
+    else fields.push(['wilsonScore', 'statsWilson']);
     const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'tl-action tl-stats-reset'; reset.textContent = t('statsReset');
     reset.dataset.statsReset = surface; container.append(reset);
     const scroll = document.createElement('div'); scroll.className = 'tl-stats-scroll';
@@ -304,8 +306,8 @@
       button.append(direction); th.append(button); headings.append(th);
     }
     head.append(headings);
-    // The API orders the entire candidate set before selecting these three rows.
-    for (const entry of (Array.isArray(entries) ? entries : []).slice(0, 3)) {
+    // The API orders the complete candidate set before applying each list limit.
+    for (const entry of (Array.isArray(entries) ? entries : []).slice(0, players ? 5 : 3)) {
       if (!entry || typeof entry !== 'object') continue;
       const row = document.createElement('tr');
       const canLink = players && Number.isSafeInteger(entry.userId) && entry.userId > 0;
@@ -352,7 +354,7 @@
       $('team-stats-games').textContent = new Intl.NumberFormat(locale()).format(data.games);
       $('team-stats-winrate').textContent = statsPercent(data.winRate, data.games);
       $('team-stats-empty').hidden = data.games !== 0;
-      $('team-stats-rankings').hidden = data.games === 0;
+      $('team-stats-rankings').hidden = data.games === 0 && !data.topPlayers?.length;
       renderStatsRows('team-stats-tacops', data.topTacOps);
       renderStatsRows('team-stats-players', data.topPlayers, true);
       $('team-stats-mirrors').hidden = !(data.mirrorGames > 0);

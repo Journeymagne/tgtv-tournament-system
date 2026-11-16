@@ -7,6 +7,8 @@ const names = ['statisticsSortState', 'sortStatisticsRows', 'statisticsListContr
   'gameStatisticsValues', 'matchStatisticsColumns', 'matchStatisticsValues', 'serverSortState',
   'serverSortHeader', 'statisticsSortQuery', 'compareStatValues', 'statSortNumber', 'statisticsSortScope'];
 module.exports = `
+var wilsonScore = ${require('../../public/game-data').wilsonScore.toString()};
+var gameInSeason = ${require('../../public/game-data').gameInSeason.toString()};
 var statisticsFixtureState = {};
 function statisticsClientState() { return typeof state === 'undefined' ? statisticsFixtureState : state; }
 function statisticsEscapeHtml(value) { return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;'); }

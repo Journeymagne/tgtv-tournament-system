@@ -2139,9 +2139,9 @@ input[type="file"]::file-selector-button {
 
 /* Reserve the table minimum plus 32px for section padding and wrapper borders.
    Integer flex factors also fill the row when another track hits its minimum. */
-@container team-detail (min-width: 920px) {
+@container team-detail (min-width: 1040px) {
   .team-detail-grid {
-    grid-template-columns: minmax(0, 2fr) minmax(568px, 3fr);
+    grid-template-columns: minmax(320px, 2fr) minmax(680px, 3fr);
   }
 
   .team-detail-matchups {
@@ -2151,7 +2151,7 @@ input[type="file"]::file-selector-button {
 
 @container team-detail (min-width: 2000px) {
   .team-detail-grid {
-    grid-template-columns: minmax(320px, 17fr) minmax(568px, 20fr) minmax(792px, 28fr);
+    grid-template-columns: minmax(320px, 17fr) minmax(680px, 20fr) minmax(792px, 28fr);
   }
 
   .team-detail-matchups {
@@ -2449,24 +2449,13 @@ input[type="file"]::file-selector-button {
 }
 
 .game-row-actions {
-  flex-direction: column;
-  align-items: flex-end;
+  flex-shrink: 0;
   max-width: 100%;
 }
 
 .game-status-row,
 .game-button-row {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-width: 100%;
-}
-
-@media (max-width: 560px) {
-  .game-row-actions { align-items: flex-start; }
-  .game-status-row,
-  .game-button-row { justify-content: flex-start; }
+  display: contents;
 }
 
 /* ======================================================================

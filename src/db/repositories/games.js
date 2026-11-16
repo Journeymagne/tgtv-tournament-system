@@ -56,6 +56,15 @@ async function listCompletedForUser(client, userId, venueMode = null) {
   return rows.map(mapGame);
 }
 
+async function listPublishedCompletedForUser(client, userId) {
+  const { rows } = await client.query(`SELECT ${COLUMNS} FROM games g
+    WHERE g.status='completed' AND g.result IS NOT NULL AND ${publishedGameSql()}
+      AND EXISTS (SELECT 1 FROM game_participants gp WHERE gp.game_id=g.id
+        AND gp.user_id=$1 AND NOT gp.is_proxy)
+    ORDER BY COALESCE(g.submitted_at,g.created_at) DESC, g.id DESC`, [userId]);
+  return rows.map(mapGame);
+}
+
 // Match the names shown by gameView, including tournament guests and snapshots.
 const PARTICIPANT_NAME = `CASE WHEN g.source_type = 'team_match_game'
   THEN gp.display_name_snapshot ELSE COALESCE(u.name, gp.display_name_snapshot) END`;
@@ -357,6 +366,7 @@ module.exports = {
   listCompletedPage,
   completedPlayerSuggestions,
   listCompletedForUser,
+  listPublishedCompletedForUser,
   listCompletedForRatingReplay,
   listForUser,
   listActive,

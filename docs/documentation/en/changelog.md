@@ -2,6 +2,13 @@
 
 KT Companion release history, newest first.
 
+## 1.5.32 — 16 November 2026
+
+- Added the 2026 Q4 season starting on November 9. Results from that date count toward the new season, including games from tournaments that started earlier.
+- Faction best-player lists now show an all-time Wilson score, accounting for win rate and sample size. The default order is highest Wilson score first, limited to five players. Recent games in faction details are limited to the latest five matches of the selected season.
+- Added automatic personal faction achievements: Experienced at 50, Connoisseur at 60 and Master at 70 Wilson points. Each uses the player's entire history on that faction and is revoked when the score drops below its threshold.
+- Profiles show only earned team training achievements. Game-card actions and statuses use a more compact layout and wrap when space is limited.
+
 ## 1.5.31 — 16 November 2026
 
 - Fixed a stray breadcrumb trail with the tournament name above the interface. It no longer remains after the app loads or when navigating to other sections.
