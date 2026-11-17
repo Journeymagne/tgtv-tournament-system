@@ -2,6 +2,11 @@
 
 KT Companion release history, newest first.
 
+## 1.5.35 — 17 November 2026
+
+- Fixed a Studio autosave race: newer edits are no longer replaced by an older snapshot or turned into unnecessary recovery copies by saves in the same tab. Edits made while a save is being acknowledged stay in the current draft.
+- Added 0°, 90°, 180° and 270° dice logo rotation in the standalone D6 generator and Studio. The rotation is saved with the design and applied to previews, PNG files and new Tabletop Simulator exports.
+
 ## 1.5.34 — 17 November 2026
 
 - Added a Strike Force Variel miniature to Tier Lists. Dragon Masters is now easy to find in the alphabetical catalog and uses the original Clanblade miniature.
