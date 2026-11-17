@@ -191,7 +191,7 @@ test("a legacy rolled-back draft with duplicate tables remains editable but cann
   await assert.rejects(tournamentsApi.generateNextRoundAdmin({ ...context, body: { matchups } }), { status: 400 });
   matchups[1].tableId = preview.tables.find(table => table.id !== tableId).id;
   const repaired = await tournamentsApi.generateNextRoundAdmin({ ...context, body: { matchups } });
-  assert.equal(repaired.tournament.roundDraft, null);
+  assert.equal((await client.query('SELECT round_draft FROM tournaments WHERE id=$1',[Number(params.id)])).rows[0].round_draft,null);
   assert.equal(new Set(repaired.rounds[0].matches.map(match => match.tableId)).size, 2);
 });
 

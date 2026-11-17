@@ -1,14 +1,20 @@
-## WTC Doubles · 2×2
-
-In TTS, complete the steps in the app. In IRL, agree them at the venue and save both games in the manual form.
+## WTC Doubles · TTS · 2×2
 
 1. Both captains roll D6, rerolling ties. The winner has initiative.
-2. The captain without initiative bans one of the round's four missions. The captain with initiative bans another.
+2. The captain without initiative bans one of four round missions. The captain with initiative bans another. Two missions remain.
 3. The captain with initiative chooses player pairings or assigning tables to their own players and makes that choice first.
-4. The other captain makes the other choice. A table chosen before an opponent remains attached to its player.
-5. The captain without initiative assigns the two remaining missions. Each player, table and mission is used once.
+4. The captain without initiative makes the other choice: player pairings or assigning tables to their own players. Tables selected before opponents remain attached to their players.
+5. The captain without initiative assigns the remaining missions to the two games. Each player, table and mission is used once.
+6. Complete the steps in the app. All round matches share two virtual tables; two personal games are created after all assignments.
 
-TTS matches share two virtual tables for the round. IRL matches each have a separate two-table line; the two missions not selected in the manual form are the bans. There are no Shield/Sword selections.
+## WTC Doubles · IRL · 2×2
+
+1. Both captains roll D6, rerolling ties. The winner has initiative.
+2. The captain without initiative bans one of four round missions. The captain with initiative bans another. Two missions remain.
+3. The captain with initiative chooses player pairings or assigning tables to their own players and makes that choice first.
+4. The captain without initiative makes the other choice: player pairings or assigning tables to their own players. Tables selected before opponents remain attached to their players.
+5. The captain without initiative assigns the remaining missions to the two games. Each player, table and mission is used once.
+6. Agree the pairing at the venue and enter both games in the manual form. Each match has its own two-table line. The two unselected missions are the bans. Either captain or the organizer may save.
 
 ## WTC · 3×3
 

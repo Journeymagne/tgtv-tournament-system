@@ -147,12 +147,12 @@ function tabHarness({ hash = "", tab = "participants" } = {}) {
   const noOp = () => {};
   const wire = new Function("state", "document", "window", "onLive", "wireLeaderboardProfiles", "wireTournamentRoundTabs", "wireTeamRosterDetailsControls",
     "wireTeamTournamentStandingsTabs", "wireTournamentDataTables", "navigationUrl", "pushAppLocation", "tournamentPublicPath", "canManageTournamentParticipants",
-    "adminUi", "isCurrentPublicTournamentRoute", "renderPublicTournament", "renderTournaments", "rememberNavigationContext", "setMessage",
+    "adminUi", "isCurrentPublicTournamentRoute", "renderPublicTournament", "renderTournaments", "rememberNavigationContext", "setMessage", "wireTournamentResultsControls",
     `${extract("wireTournamentInfoControls")}; return wireTournamentInfoControls;`
   )(state, document, { location: { hash } }, (_button, _event, handler) => { listener = handler; }, noOp, noOp, noOp, noOp, noOp,
     () => url, next => { url = next; }, slug => `/tournaments/${slug}`, () => true,
     () => ({ loadAdminUsers: () => new Promise(done => { resolveUsers = done; }) }),
-    slug => url === `/tournaments/${slug}`, data => renders.push(data.tournament.slug), noOp, noOp, error => assert.fail(error));
+    slug => url === `/tournaments/${slug}`, data => renders.push(data.tournament.slug), noOp, noOp, error => assert.fail(error),noOp);
   wire({ tournament: { id: 6, slug: "cup", participantMode: "individual" } }, { admin: true, publicRoute: true });
   return { click: () => listener(), resolve: () => resolveUsers(), navigate: next => { url = next; }, renders };
 }

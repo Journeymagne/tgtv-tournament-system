@@ -17,7 +17,7 @@ test("admin roster removal remains available after start and completed removal i
   }
   const withdrawn = render({ tournament: { status: "in_progress" }, rosters: [{ id: 7, name: "Squad", status: "withdrawn" }] });
   assert.doesNotMatch(withdrawn, /data-admin-team-roster-delete/);
-  assert.match(withdrawn, /teams.tournament.removeAfterStartHint/);
+  assert.doesNotMatch(withdrawn, /teams.tournament.removeAfterStartHint/);
 });
 test("a bye renders a resolved match without captain or reset controls", () => {
   const render = new Function("t", "escapeHtml", "teamRosterLabel", `${extract("usesIndividualTeamPoints")}; ${extract("teamMatchScoreLabel")}; ${extract("teamMatchResultMarkup")}; ${extract("teamTournamentMatchMarkup")}; return teamTournamentMatchMarkup;`)(t, String, (r) => r.name);
@@ -28,7 +28,7 @@ test("a bye renders a resolved match without captain or reset controls", () => {
 });
 test("manual round setup can submit a bye only in the second slot of an odd field", () => {
   const state = { adminTournamentDetail: { rosters: [1, 2, 3].map((id) => ({ id, name: `Squad ${id}`, status: "active" })) } };
-  const render = new Function("t", "escapeHtml", "state", `${extract("teamRoundSetupRosterSelect")}; return teamRoundSetupRosterSelect;`)(t, String, state);
+  const render = new Function("t", "escapeHtml", "state", "teamSizeFor", `${extract("teamRoundSetupRosterSelect")}; return teamRoundSetupRosterSelect;`)(t, String, state, () => 3);
   assert.match(render("rosterBId", null), /value="" selected/);
   assert.doesNotMatch(render("rosterAId", 1), /teams.pairing.bye/);
   state.adminTournamentDetail.rosters.pop();
