@@ -126,19 +126,22 @@ async function mapLimited(items, concurrency, worker) {
 }
 
 async function runSmoke({ origin, analyticsOrigin = 'https://stats.ktcompanion.ru', sha, version = '', checks = createChecks(version),
-  attempts = 4, timeoutMs = 10000, retryDelayMs = 3000, concurrency = 4 }) {
+  attempts = 4, timeoutMs = 10000, retryDelayMs = 3000, concurrency = 4, budgetMs = 6 * 60 * 1000 }) {
   if (!/^[a-f0-9]{40}$/.test(sha || '')) throw Error('Expected deployment SHA must be a full lowercase commit hash');
-  if (!Number.isInteger(attempts) || attempts < 1 || !Number.isInteger(concurrency) || concurrency < 1) throw Error('Invalid smoke-check limits');
+  if (!Number.isInteger(attempts) || attempts < 1 || !Number.isInteger(concurrency) || concurrency < 1 || !Number.isInteger(budgetMs) || budgetMs < 1) throw Error('Invalid smoke-check limits');
   origin = originUrl(origin); analyticsOrigin = originUrl(analyticsOrigin);
   const context = { sha }, assets = new Map();
+  const deadline = Date.now() + budgetMs;
   async function execute(check) {
     const url = new URL(check.route, check.target === 'analytics' ? analyticsOrigin : origin);
-    const result = { name: check.name, route: check.route, target: check.target || 'application', kind: check.kind, service: check.service, ok: false };
+    const result = { name: check.name, route: check.route, target: check.target || 'application', kind: check.kind, service: check.service, ok: false, attempts: 0 };
     for (let attempt = 1; attempt <= attempts; attempt++) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) { result.error = 'Smoke-check time budget exceeded'; return result; }
       result.attempts = attempt;
       try {
         const requested = new URL(url); requested.searchParams.set('_deploy_check', sha.slice(0, 12));
-        const response = await request(requested, { timeoutMs });
+        const response = await request(requested, { timeoutMs: Math.min(timeoutMs, remaining) });
         result.status = response.status;
         validateResponse(check, response, context);
         if (check.service && !context.release) context.release = response.headers.get('x-kt-release');
@@ -154,7 +157,7 @@ async function runSmoke({ origin, analyticsOrigin = 'https://stats.ktcompanion.r
         result.ok = true; delete result.error; return result;
       } catch (error) {
         result.error = ['TimeoutError', 'AbortError'].includes(error.name) ? 'Request timeout' : error.message;
-        if (attempt < attempts) await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        if (attempt < attempts) await new Promise(resolve => setTimeout(resolve, Math.min(retryDelayMs, Math.max(0, deadline - Date.now()))));
       }
     }
     return result;

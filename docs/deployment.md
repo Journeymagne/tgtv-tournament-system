@@ -67,7 +67,9 @@ same-origin JavaScript/CSS and both public changelogs. Responses must have the
 right status, MIME type, page identity or JSON shape, service name and release ID
 matching the deployed commit. Umami dashboard, heartbeat and tracker are also
 checked. HTTP checks retry transient failures and collect all failures into the
-Actions job summary and a report artifact retained for 14 days.
+Actions job summary and a report artifact retained for 14 days. A six-minute
+internal time budget records unfinished checks as failures, leaving time to save
+diagnostics before the ten-minute job deadline.
 
 These are anonymous GET checks; they do not create production data, accounts,
 sessions or analytics events. Private APIs must return a JSON authentication

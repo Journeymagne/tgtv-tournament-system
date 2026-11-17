@@ -111,3 +111,13 @@ test('validates external analytics without requiring application release headers
   const result = await runSmoke({ ...options, origin: f.origin, analyticsOrigin: f.origin, checks: [{ name: 'Umami heartbeat', route: '/api/heartbeat', target: 'analytics', kind: 'json', contract: 'heartbeat' }] });
   assert.equal(result.ok, true);
 });
+
+test('global time budget reports unfinished checks instead of losing diagnostics to the job timeout', async t => {
+  const f = await fixture(t, () => {});
+  const result = await runSmoke({ ...options, origin: f.origin, budgetMs: 40, checks: [page,
+    { ...page, name: 'Second page', route: '/second' }, { ...page, name: 'Third page', route: '/third' }] });
+  assert.equal(result.failed, 3);
+  assert.match(result.results[1].error, /time budget/);
+  assert.match(result.results[2].error, /time budget/);
+  assert.match(summaryMarkdown(result), /Third page/);
+});
