@@ -196,3 +196,67 @@ test("custom event medal text survives podium republishing", async () => {
     assert.equal(saved.textEdited, true); assert.equal(saved.tournamentNumber, 4);
   });
 });
+
+async function teamPodiumFixture(client, slug) {
+  const event = (await client.query(`INSERT INTO tournaments
+    (slug,name,status,format,participant_mode,team_size,completed_at)
+    VALUES ($1,'Team Cup E4','completed','swiss','team',3,'2026-11-16T10:00:00Z') RETURNING id`, [slug])).rows[0];
+  const players = [];
+  for (const name of ['winner', 'replaced', 'silver', 'bronze', 'fourth', 'late']) {
+    players.push((await client.query(`INSERT INTO users (name,name_key,password_hash)
+      VALUES ($1,$1,'unused') RETURNING id`, [`${slug}-${name}`])).rows[0].id);
+  }
+  const rosters = [];
+  for (const [i, recipient] of [players[0], players[2], players[3], players[4]].entries()) {
+    const roster = (await client.query(`INSERT INTO tournament_team_rosters
+      (tournament_id,team_id,name,name_key,team_name_snapshot,status)
+      VALUES ($1,$2,$3,$3,'Medal team','finished') RETURNING id`, [event.id, teamId, `roster-${i}`])).rows[0];
+    rosters.push(roster.id);
+    await client.query(`INSERT INTO tournament_team_roster_members
+      (tournament_id,roster_id,user_id,slot,display_name_snapshot,faction_snapshot,joined_at,ended_at)
+      VALUES ($1,$2,$3,1,'Player','Kommandos','2026-10-01', $4)`,
+    [event.id, roster.id, recipient, i === 0 ? '2026-11-17T10:00:00Z' : null]);
+  }
+  await client.query(`INSERT INTO tournament_team_roster_members
+    (tournament_id,roster_id,user_id,slot,display_name_snapshot,faction_snapshot,joined_at,ended_at)
+    VALUES ($1,$2,$3,1,'Former','Kommandos','2026-09-01','2026-09-30'),
+      ($1,$2,$4,3,'Later','Kommandos','2026-11-17',NULL)`, [event.id, rosters[0], players[1], players[5]]);
+  await client.query(`INSERT INTO tournament_team_roster_members
+    (tournament_id,roster_id,slot,display_name_snapshot,faction_snapshot,joined_at,is_proxy)
+    VALUES ($1,$2,2,'Guest','Kommandos','2026-10-01',TRUE)`, [event.id, rosters[0]]);
+  const tournament = { id: event.id, name: 'Team Cup E4', participantMode: 'team', completedAt: '2026-11-16T10:00:00Z',
+    finalResults: rosters.map((rosterId, i) => ({ rosterId, rank: i + 1 })) };
+  await client.query('UPDATE tournaments SET final_results=$2::jsonb WHERE id=$1', [event.id, JSON.stringify(tournament.finalResults)]);
+  return { tournament, players, rosters };
+}
+
+test('team podium awards personal titles to the completion roster and reconciles winners without duplicates', async () => {
+  await withTransaction(async (client) => {
+    const { tournament, players, rosters } = await teamPodiumFixture(client, 'personal-podium');
+    await repo.syncPodium(client, tournament, 1);
+    const medals = (await repo.list(client)).filter(row => row.tournamentId === tournament.id);
+    assert.equal(medals.filter(row => row.kind === 'team').length, 3);
+    const personal = medals.filter(row => row.kind === 'player').sort((a, b) => a.place - b.place);
+    assert.equal(personal.length, 3);
+    for (const [i, expected] of [players[0], players[2], players[3]].entries()) {
+      assert.deepEqual((await repo.recipients(client, personal[i].id)).map(row => row.userId), [expected]);
+      assert.ok((await repo.list(client, { userId: expected, kind: 'player', category: 'title' })).some(row => row.id === personal[i].id));
+    }
+    for (const absent of [players[1], players[4], players[5]]) {
+      assert.equal((await repo.list(client, { userId: absent })).length, 0);
+    }
+    const awards = (await client.query('SELECT * FROM achievement_awards WHERE achievement_id=ANY($1::int[]) ORDER BY id', [medals.map(row => row.id)])).rows;
+    await repo.syncPodium(client, tournament, 1);
+    assert.deepEqual((await client.query('SELECT * FROM achievement_awards WHERE achievement_id=ANY($1::int[]) ORDER BY id', [medals.map(row => row.id)])).rows, awards);
+    await require('../../src/api/achievements').update({ client, params: { id: personal[0].id }, body: { name: 'Personal winner', description: 'Edited medal' } });
+    tournament.finalResults = [{ rank: 1, rosterId: rosters[1] }, { rank: 2, rosterId: rosters[0] }];
+    await repo.syncPodium(client, tournament, 1);
+    assert.deepEqual((await repo.recipients(client, personal[0].id)).map(row => row.userId), [players[2]]);
+    assert.deepEqual((await repo.recipients(client, personal[1].id)).map(row => row.userId), [players[0]]);
+    assert.deepEqual(await repo.recipients(client, personal[2].id), []);
+    assert.equal((await repo.find(client, personal[0].id)).name, 'Personal winner');
+    await client.query('UPDATE achievements SET deleted_at=NOW() WHERE id=$1', [personal[0].id]);
+    await repo.syncPodium(client, tournament, 1);
+    assert.equal(await repo.find(client, personal[0].id), null);
+  });
+});
