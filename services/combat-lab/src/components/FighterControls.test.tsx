@@ -36,6 +36,7 @@ it('offers an independent frequency only for enabled limited effects', () => {
   fireEvent.change(scratch, {target: {value: 'once'}});
   expect((scratch as HTMLSelectElement).value).toBe('once');
   expect((screen.getByRole('combobox', {name: 'PuritySeal: частота'}) as HTMLSelectElement).value).toBe('each');
-  fireEvent.click(screen.getByLabelText('JaS (Crits)'));
+  // The advanced marker is part of the accessible name; find the checkbox by its rule prefix.
+  fireEvent.click(screen.getByRole('checkbox', {name: /^JaS \(Crits\)/}));
   expect(screen.queryByRole('combobox', {name: 'JaS (Crits): частота'})).toBeNull();
 });
