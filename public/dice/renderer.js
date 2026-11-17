@@ -1,6 +1,6 @@
 (function(root){
 'use strict';
-const defaults={name:'Мой D6',body:'#202b30',ink:'#ff8a24',logoColor:'#ff8a24',style:'pips',valueScale:100,logoFace:6,logoScale:65,tintLogo:false,sizeMm:16};
+const defaults={name:'Мой D6',body:'#202b30',ink:'#ff8a24',logoColor:'#ff8a24',style:'pips',valueScale:100,logoFace:6,logoScale:65,logoRotation:0,tintLogo:false,sizeMm:16};
 function projectDefaults(){return {...defaults,name:'Кубики команды',enabled:false,quantity:6};}
 function resetDesign(settings){return {...settings,...defaults,name:settings.name};}
 function validate(settings){
@@ -9,6 +9,7 @@ function validate(settings){
   !['body','ink'].every(key=>typeof settings[key]==='string'&&/^#[0-9a-f]{6}$/i.test(settings[key]))||
   !['pips','numbers'].includes(settings.style)||typeof settings.tintLogo!=='boolean')throw Error('Проверьте название и оформление кубиков команды');
  if(settings.logoColor!==undefined&&(typeof settings.logoColor!=='string'||!/^#[0-9a-f]{6}$/i.test(settings.logoColor)))throw Error('Проверьте цвет логотипа кубика');
+ if(settings.logoRotation!==undefined&&![0,90,180,270].includes(settings.logoRotation))throw Error('Проверьте поворот логотипа кубика');
  for(const [key,min,max] of [['quantity',1,24],['logoFace',0,6],['valueScale',30,200],['logoScale',30,200],['sizeMm',12,30]]){
   if(!Number.isInteger(settings[key])||settings[key]<min||settings[key]>max)throw Error('Проверьте количество, размер и масштаб кубиков команды');
  }
@@ -31,7 +32,8 @@ function drawFace(canvas,value,settings,logoImage){
   const logo=document.createElement('canvas');logo.width=logo.height=size;
   const ink=logo.getContext('2d'),max=size*settings.logoScale/100,ratio=Math.min(max/logoImage.naturalWidth,max/logoImage.naturalHeight);
   const w=logoImage.naturalWidth*ratio,h=logoImage.naturalHeight*ratio;
-  ink.drawImage(logoImage,(size-w)/2,(size-h)/2,w,h);
+  ink.save();ink.translate(size/2,size/2);ink.rotate((settings.logoRotation||0)*Math.PI/180);
+  ink.drawImage(logoImage,-w/2,-h/2,w,h);ink.restore();
   if(settings.tintLogo){ink.globalCompositeOperation='source-in';ink.fillStyle=settings.logoColor||settings.ink;ink.fillRect(0,0,size,size);}
   ctx.drawImage(logo,0,0);
  }else if(settings.style==='numbers'){

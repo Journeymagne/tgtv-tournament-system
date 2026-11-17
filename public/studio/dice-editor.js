@@ -28,7 +28,7 @@ root.KTUI?.register('studio',{pairs:[
 ]});
 function bind(value){adapter=value;}
 function form(project){
- const settings=project.dice||root.KTDice.projectDefaults(),d={...settings,logoColor:settings.logoColor||settings.ink};
+ const settings=project.dice||root.KTDice.projectDefaults(),d={...settings,logoColor:settings.logoColor||settings.ink,logoRotation:settings.logoRotation??0};
  const input=(label,key,type,attributes='')=>'<label>'+label+'<input data-dice-setting="'+key+'" type="'+type+'" value="'+esc(d[key])+'" '+attributes+'></label>';
  const select=(label,key,options)=>'<label>'+label+'<select data-dice-setting="'+key+'">'+options.map(([value,text])=>'<option value="'+value+'" '+(String(d[key])===String(value)?'selected':'')+'>'+text+'</option>').join('')+'</select></label>';
  return '<section class="panel studio-dice-settings"><div class="panel-title">КУБИКИ КОМАНДЫ</div>'+
@@ -40,6 +40,8 @@ function form(project){
   select('Обозначения граней','style',[['pips','Точки'],['numbers','Цифры']])+select('Грань с логотипом','logoFace',[[0,'Без логотипа'],...[1,2,3,4,5,6].map(n=>[n,'Грань '+n])])+'</div>'+
   '<label class="studio-dice-range">Размер точек и цифр <output data-dice-value="valueScale">'+d.valueScale+'%</output><input data-dice-setting="valueScale" type="range" min="30" max="200" value="'+d.valueScale+'"></label>'+
   '<label class="studio-dice-range">Размер логотипа <output data-dice-value="logoScale">'+d.logoScale+'%</output><input data-dice-setting="logoScale" type="range" min="30" max="200" value="'+d.logoScale+'"></label>'+
+  select('Поворот логотипа','logoRotation',[[0,'0°'],[90,'90°'],[180,'180°'],[270,'270°']])+
+  '<p class="hint">По часовой стрелке на выбранной грани. Повторно загружать картинку не нужно.</p>'+
   '<label class="studio-dice-check"><input type="checkbox" data-dice-setting="tintLogo" '+(d.tintLogo?'checked':'')+'>Изменить цвет логотипа</label>'+input('Цвет логотипа','logoColor','color')+
   '<button type="button" data-dice-reset-design>Сбросить оформление</button><p class="hint">Вернёт стандартные цвета, размеры и обозначения. Название и выбранный логотип сохранятся.</p>'+
   '<p class="hint">'+(project.team.logo?'Используется логотип текущей команды. Его изменение обновляет предпросмотр и новые экспорты.':'Добавьте логотип команды выше. Пока все грани показывают точки или цифры.')+'</p>'+
@@ -71,7 +73,7 @@ document.addEventListener('input',event=>{
  if(!field.checkValidity())return;
  const project=adapter.context();if(!project)return;
  const settings={...(project.dice||root.KTDice.projectDefaults())};
- settings[key]=field.type==='checkbox'?field.checked:['quantity','sizeMm','logoFace','logoScale','valueScale'].includes(key)?Number(field.value):field.value;
+ settings[key]=field.type==='checkbox'?field.checked:['quantity','sizeMm','logoFace','logoScale','logoRotation','valueScale'].includes(key)?Number(field.value):field.value;
  if(key==='logoColor'){settings.tintLogo=true;document.querySelector('[data-dice-setting="tintLogo"]').checked=true;}
  try{root.KTDice.validate(settings);}catch{return;}
  project.dice=settings;

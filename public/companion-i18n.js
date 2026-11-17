@@ -3,6 +3,8 @@
 (function () {
   "use strict";
   const pairs = [
+    ["Поворот логотипа", "Logo rotation"],
+    ["По часовой стрелке на выбранной грани. Повторно загружать картинку не нужно.", "Clockwise on the selected face. No need to upload the image again."],
     ["Тирлист", "Tier List"],
     ["Распределяйте команды по тирам и сохраняйте личные списки с выбором сезона.", "Rank teams and save personal tier lists by season."],
     ["КТ Калькулятор", "KT Calculator"],

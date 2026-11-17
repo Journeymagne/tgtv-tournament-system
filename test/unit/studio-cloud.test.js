@@ -84,6 +84,67 @@ test('autosave debounces edits for less than a second', async()=>{
  assert.equal(uploads.length,1);assert.equal(uploads[0].project.team.name,'Second');
 });
 
+test('a queued autosave cannot reactivate a superseded snapshot while newer edits await durable storage',{timeout:5000},async()=>{
+ const storage=memory(),uploads=[],recovered=[];
+ let begin,release,releaseWrite,holdWrite=false,revision=1;
+ const preparing=new Promise(resolve=>begin=resolve),prepared=new Promise(resolve=>release=resolve);
+ const writing=new Promise(resolve=>releaseWrite=resolve);
+ const cloud=create({storage,schedule:null,loadProject:async()=>null,
+  journal:{keys:async()=>storage.keys(),load:async key=>storage.getItem(key),remove:async key=>storage.removeItem(key),
+   save:async(key,value)=>{if(holdWrite)await writing;storage.setItem(key,value);return true}},
+  beforeSave:async()=>{begin();await prepared;return true},onRecover:(id,project)=>recovered.push(project),
+  request:async(url,options={})=>{
+   let value=url==='/api/session'?{csrfToken:'token'}:{teams:[{id:'team',name:'Team',revision}]};
+   if(options.method==='PUT'){
+    const body=JSON.parse(options.body);uploads.push(body);
+    if(body.revision===revision)value={id:'team',name:body.project.team.name,revision:++revision};
+    else value={id:body.recoveryId,name:'Team (копия правок)',revision:1,recoveredFrom:'team',original:{id:'team',revision}};
+   }
+   return {ok:true,json:async()=>value};
+  }});
+ await cloud.connect();const project=model.newProject('team','Team');cloud.track(project);
+ const flushing=cloud.flush();await preparing;
+ holdWrite=true;project.team.subtitle='Newer edit';cloud.track(project);
+ release();await flushing;releaseWrite();await cloud.flush();
+ assert.equal(uploads.length,1,'only the newest snapshot may be uploaded');
+ assert.equal(uploads[0].project.team.subtitle,'Newer edit');
+ assert.equal(uploads[0].revision,1);assert.deepEqual(recovered,[]);
+ assert.equal(cloud.state('team').dirty,false);
+});
+
+for(const conflict of [false,true])for(const phase of ['source','ancestor'])test(`edits during ${conflict?'conflict':'normal'} ${phase} acknowledgement keep their latest content and acknowledged revision`,{timeout:5000},async()=>{
+ const storage=memory(),uploads=[],recoveries=[];
+ let begin,release,removals=0,revision=1;
+ const acknowledging=new Promise(resolve=>begin=resolve),held=new Promise(resolve=>release=resolve);
+ const cloud=create({storage,schedule:null,loadProject:async()=>null,
+  journal:{keys:async()=>storage.keys(),load:async key=>storage.getItem(key),save:async(key,value)=>{storage.setItem(key,value);return true},
+   remove:async key=>{if(++removals===(phase==='source'?1:3)){begin();await held}storage.removeItem(key)}},
+  onRecover:(id,project)=>recoveries.push(project),
+  request:async(url,options={})=>{
+   let value=url==='/api/session'?{csrfToken:'token'}:{teams:[{id:'team',name:'Team',revision}]};
+   if(options.method==='PUT'){
+    const body=JSON.parse(options.body);uploads.push({url,...body});
+    if(conflict&&uploads.length===1)value={id:'recovered-team',name:'Team (копия правок)',revision:1,recoveredFrom:'team',original:{id:'team',revision:2}};
+    else value={id:body.project.team.id,name:body.project.team.name,revision:++revision};
+   }
+   return {ok:true,json:async()=>value};
+  }});
+ await cloud.connect();const project=model.newProject('team','Team');cloud.track(project);
+ // Supersession removes the first key once; acknowledgement removes it again
+ // after the uploaded source. Hold that later ancestor cleanup as well.
+ if(phase==='ancestor'){project.team.version='2';cloud.track(project)}
+ const saving=cloud.save('team');await acknowledging;
+ project.team.subtitle='Typed during acknowledgement';cloud.track(project);
+ release();await saving;await cloud.flush();
+ const id=conflict?'recovered-team':'team';
+ assert.equal(uploads.length,2,'the edit made during acknowledgement must be saved');
+ assert.equal(uploads[1].url,'/api/drafts/'+id);
+ assert.equal(uploads[1].revision,conflict?1:2);
+ assert.equal(uploads[1].project.team.subtitle,'Typed during acknowledgement');
+ if(conflict)assert.equal(recoveries[0].team.subtitle,'Typed during acknowledgement');
+ assert.equal(cloud.state(id).dirty,false);assert.equal(cloud.pendingProject(id),null);
+});
+
 test('conflict recovery retains edits typed during upload and continues on the database copy', async()=>{
  const uploads=[],recovered=[];let release,started;
  const sent=new Promise(resolve=>started=resolve),held=new Promise(resolve=>release=resolve);

@@ -23,6 +23,7 @@
       if (typeof saved.name === 'string') state.name = saved.name.slice(0,120);
       if (['pips','numbers'].includes(saved.style)) state.style = saved.style;
       for (const [key,min,max] of [['logoFace',0,6],['valueScale',30,200],['logoScale',30,200],['sizeMm',12,30]]) if (Number.isInteger(saved[key]) && bounded(saved[key],min,max)) state[key] = saved[key];
+      if ([0,90,180,270].includes(saved.logoRotation)) state.logoRotation = saved.logoRotation;
       state.tintLogo = saved.tintLogo === true;
       if (imageURI(saved.logo)) {state.logo = saved.logo; state.logoName = String(saved.logoName||'Логотип').slice(0,200); state.sourceId = uuid.test(saved.sourceId) ? saved.sourceId : '';}
     }
@@ -78,7 +79,7 @@
   $('#design-fields').addEventListener('input',event=>{
     const field=event.target,key=field.dataset.setting;if(!key)return;
     if(!field.checkValidity())return;
-    state[key]=field.type==='checkbox'?field.checked:['logoFace','valueScale','logoScale','sizeMm'].includes(key)?Number(field.value):field.value;
+    state[key]=field.type==='checkbox'?field.checked:['logoFace','valueScale','logoScale','logoRotation','sizeMm'].includes(key)?Number(field.value):field.value;
     if(key==='logoColor'){state.tintLogo=true;$('[data-setting="tintLogo"]').checked=true;}
     changed();
   });

@@ -13,6 +13,7 @@ function create({request,storage,journal,loadProject,onChange=()=>{},onRemove=()
  function storedRemoved(){try{const ids=JSON.parse(storage.getItem(REMOVED)||'[]');return Array.isArray(ids)?ids.filter(id=>typeof id==='string'):[]}catch{return []}}
  function isDeleted(id){return deleted.has(id)||storedRemoved().includes(id)}
  const heads=()=>{const superseded=new Set([...pending.values()].flatMap(record=>record.supersedes||[]));return [...pending.values()].filter(record=>!superseded.has(record.key))};
+ const isHead=key=>heads().some(record=>record.key===key);
  const remaining=id=>heads().filter(record=>record.id===id);
  const lineage=record=>record?[record.key,...(record.supersedes||[]).filter(key=>pending.has(key))]:[];
  function activate(record){
@@ -20,15 +21,22 @@ function create({request,storage,journal,loadProject,onChange=()=>{},onRemove=()
   active.set(id,record.key);snapshots.set(id,JSON.stringify(project));
   entries.set(id,{...entries.get(id),id,name:project.team.name,subtitle:project.team.subtitle,version:project.team.version,logo:project.team.logo||'',operativeCount:project.operatives.length,revision:record.revision,dirty:true});
  }
- async function erase(record){
-  await writes.get(record.key);
-  await durable.remove(record.key);pending.delete(record.key);writes.delete(record.key);
+ function discard(record){
+  pending.delete(record.key);writes.delete(record.key);
   detached.delete(record.key);
   if(active.get(record.id)===record.key)active.delete(record.id);
  }
+ async function erase(record){
+  await writes.get(record.key);
+  await durable.remove(record.key);discard(record);
+ }
  async function acknowledge(record){
-  await erase(record);
-  for(const key of record.supersedes||[]){const old=pending.get(key);if(old)await erase(old);else await durable.remove(key)}
+  // Retain the active lineage until every storage operation is complete.
+  // track() must still inherit it while ancestor cleanup awaits IndexedDB.
+  const acknowledged=[record];
+  await writes.get(record.key);await durable.remove(record.key);
+  for(const key of record.supersedes||[]){const old=pending.get(key);if(old){await writes.get(key);acknowledged.push(old)}await durable.remove(key)}
+  return acknowledged;
  }
  function remember(project,revision,supersedes=[],sourceId=project.team.id,branchId){
   const id=project.team.id,key=PENDING+(root.crypto?.randomUUID?.()||Date.now()+'-'+Math.random().toString(36).slice(2));
@@ -127,10 +135,12 @@ function create({request,storage,journal,loadProject,onChange=()=>{},onRemove=()
    try{
     await connect();entry=entries.get(id);
     if(!entry||isDeleted(id))return;
-    if(pendingKey&&!pending.has(pendingKey))return entry;
+    if(pendingKey&&!isHead(pendingKey))return entry;
     const candidate=pendingKey||active.get(id);
     if(!await beforeSave(id,candidate,active.get(id)===candidate&&detached.has(candidate)))throw Error('Проект изменился во время восстановления. Повторите сохранение.');
-    if(pendingKey&&!pending.has(pendingKey))return entries.get(id);
+    // An edit can supersede this queued snapshot while beforeSave awaits
+    // storage. Do not reactivate its older content or revision.
+    if(pendingKey&&!isHead(pendingKey))return entries.get(id);
     if(pendingKey)activate(pending.get(pendingKey));
     entry=entries.get(id);
     const version=generation.get(id)||0,project=JSON.parse(snapshots.get(id)||await loadProject(id)||'null');
@@ -141,16 +151,18 @@ function create({request,storage,journal,loadProject,onChange=()=>{},onRemove=()
     const result=await api('/api/drafts/'+encodeURIComponent(id)+(publish?'/publish':''),{
      method:publish?'POST':'PUT',body:JSON.stringify({project,revision:source.revision,recoveryId:source.recoveryId})
     });
+    if(isDeleted(id)){await forget(id);return}
+    // Journal acknowledgement can await IndexedDB. Read the current editing
+    // lineage afterwards so edits made during that wait are also rebased.
+    for(const record of await acknowledge(source))discard(record);
     const latest=entries.get(id),latestRecord=pending.get(active.get(id)),changed=(generation.get(id)||0)!==version;
     const dirty=changed&&latestRecord&&(latestRecord.branchId||latestRecord.key)===(source.branchId||source.key);
-    if(isDeleted(id)){await forget(id);return}
     if(result.recoveredFrom){
      const recovered=JSON.parse(dirty?snapshots.get(id)||JSON.stringify(project):JSON.stringify(project));
      recovered.team.id=result.id;
      if(recovered.team.name===project.team.name)recovered.team.name=result.name;
      const {original,recoveredFrom,...saved}=result;
      if(original)entries.set(id,{...original,remoteRevision:original.revision,dirty:false,error:'',conflict:false,saving:false});else entries.delete(id);
-     await acknowledge(source);
      snapshots.delete(id);generation.delete(id);
      snapshots.set(result.id,JSON.stringify(recovered));generation.set(result.id,dirty?1:0);
      entries.set(result.id,{...saved,name:recovered.team.name,remoteRevision:result.revision,dirty,error:'',conflict:false,saving:false});
@@ -161,7 +173,7 @@ function create({request,storage,journal,loadProject,onChange=()=>{},onRemove=()
      notify();if(dirty)soon();return result;
     }
     entries.set(id,{...latest,...result,remoteRevision:result.revision,name:dirty?latest.name:result.name,logo:dirty?latest.logo:result.logo,dirty,error:'',conflict:false,saving:false});
-    await acknowledge(source);recoveryErrors.delete(id);
+    recoveryErrors.delete(id);
     if(dirty&&latestRecord&&latestRecord.key!==source.key)remember(latestRecord.project,result.revision,lineage(latestRecord),id,latestRecord.branchId||latestRecord.key);
     else {const next=remaining(id)[0];if(next)activate(next)}
     notify();if(dirty)soon();return result;

@@ -16,18 +16,18 @@
   <meta name="twitter:title" content="Кубики для Tabletop Simulator — KT Companion">
   <meta name="twitter:description" content="Создайте кубик с логотипом команды Kill Team, выберите цвета и экспортируйте его для Tabletop Simulator.">
   <meta name="twitter:image" content="https://ktcompanion.ru/brand/kt-companion/social.png">
-  <script src="/theme-boot.js?v=shared-c168a6bfa758" data-companion-only></script>
+  <script src="/theme-boot.js?v=shared-9c64506148e7" data-companion-only></script>
   <link rel="icon" type="image/x-icon" href="/brand/kt-companion/favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="/brand/kt-companion/icon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/brand/kt-companion/apple-touch-icon.png">
-  <link rel="stylesheet" href="/companion-tokens.css?v=shared-c168a6bfa758">
-  <link rel="stylesheet" href="/companion-shell.css?v=shared-c168a6bfa758">
-  <link rel="stylesheet" href="/dice/dice.css?v=shared-c168a6bfa758">
-  <script src="/companion-sites.js?v=shared-c168a6bfa758" defer></script>
-  <script src="/companion-i18n.js?v=shared-c168a6bfa758" defer></script>
-  <script src="/companion-shell.js?v=shared-c168a6bfa758" defer></script>
-  <script src="/dice/renderer.js?v=1.4.15" defer></script>
-  <script src="/dice/dice.js?v=1.4.15" defer></script>
+  <link rel="stylesheet" href="/companion-tokens.css?v=shared-9c64506148e7">
+  <link rel="stylesheet" href="/companion-shell.css?v=shared-9c64506148e7">
+  <link rel="stylesheet" href="/dice/dice.css?v=shared-9c64506148e7">
+  <script src="/companion-sites.js?v=shared-9c64506148e7" defer></script>
+  <script src="/companion-i18n.js?v=shared-9c64506148e7" defer></script>
+  <script src="/companion-shell.js?v=shared-9c64506148e7" defer></script>
+  <script src="/dice/renderer.js?v=logo-rotation-1" defer></script>
+  <script src="/dice/dice.js?v=logo-rotation-1" defer></script>
 </head>
 <body data-companion-section="dice">
   <div data-companion-nav></div>
@@ -53,6 +53,8 @@
             <label>Размер цифр и точек <output id="value-scale-value">100%</output><input type="range" data-setting="valueScale" min="30" max="200" value="100"></label>
             <label>Размер логотипа <output id="logo-scale-value">65%</output><input type="range" data-setting="logoScale" min="30" max="200" value="65"></label>
             <p class="hint">Логотип можно увеличить до 200%. Части за краями грани обрезаются.</p>
+            <label>Поворот логотипа<select data-setting="logoRotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>
+            <p class="hint">По часовой стрелке на выбранной грани. Повторно загружать картинку не нужно.</p>
             <label class="check-label"><input type="checkbox" data-setting="tintLogo">Изменить цвет логотипа</label>
             <label>Цвет логотипа<input type="color" data-setting="logoColor" value="#ff8a24"></label>
             <label>Размер, мм<input type="number" data-setting="sizeMm" min="12" max="30" step="1" value="16"></label>
