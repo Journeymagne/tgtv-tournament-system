@@ -102,7 +102,7 @@ const state = {
   selectedTournamentId: null,
   adminTournamentDetail: null,
   publicTournamentDetail: null,
-  tournamentInfoTab: "preview",
+  tournamentInfoTab: "",
   tournamentMatchViews: {},
   tournamentTableViews: {},
   teamTournamentStandingsTabs: {},
@@ -1930,7 +1930,7 @@ function clearPlayerTeamRoute() {
 function navigateToPublicTournament(slug, options = {}) {
   if (!slug) return;
   state.administrationContext = false;
-  state.tournamentInfoTab = options.tab || "preview";
+  state.tournamentInfoTab = options.tab || "";
   pushAppLocation(tournamentPublicPath(slug));
   renderPublicTournamentRoute(slug, options);
 }
@@ -2645,7 +2645,6 @@ function tournamentCompactHeaderMarkup(data, options = {}) {
 }
 
 function tournamentPreviewMarkup(data) {
-  if (data.tournament?.status === "completed" && TGTVTournamentResults.buildModel(data)) return tournamentResultsMarkup(data);
   const tournament = data.tournament || {};
   const isTeam = tournament.participantMode === "team";
   const round = tournamentPreviewRound(data.rounds);
@@ -2726,16 +2725,16 @@ function tournamentInfoTabDefinitions(data, options = {}) {
   const resultTabs = data?.tournament?.status === "completed" && (data.tournament.finalResults || data.finalResults)?.length
     ? [{ id: "results", label: t("results.tab") }] : [];
   if (options.admin) return [
-    { id: "preview", label: adminLabel("Обзор", "Overview") },
     ...resultTabs,
+    { id: "preview", label: adminLabel("Обзор", "Overview") },
     { id: "standings", label: t("tournaments.tab.standings") },
     { id: "participants", label: t(data?.tournament?.participantMode === "team" ? "teams.tournament.rosters" : "tournaments.field.participants") },
     { id: "matches", label: adminLabel("Раунды", "Rounds") },
     { id: "settings", label: t("tournaments.tab.settings") }
   ];
   const tabs = [
-    { id: "preview", label: t("tournaments.tab.preview") },
     ...resultTabs,
+    { id: "preview", label: t("tournaments.tab.preview") },
     { id: "standings", label: t("tournaments.tab.standings") },
     { id: "matches", label: t("tournaments.tab.matches") },
     { id: "stats", label: t("tournaments.tab.stats") }
