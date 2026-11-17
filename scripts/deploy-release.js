@@ -243,6 +243,7 @@ async function deploy([repo, app, name, envFile, mode]) {
     await serviceRuntime.switchRelease({ app, name, candidate, id, mode: runtimeMode,
       migrationRollbackSafe: manifest.migrationRollbackSafe });
     saveState('healthy');
+    await require('./prune-releases').cleanupAfterDeploy(app);
     return;
   }
   console.log(manifest.migrationRollbackSafe ? "Migrations unchanged: automatic code rollback enabled." :
@@ -301,6 +302,7 @@ async function deploy([repo, app, name, envFile, mode]) {
     saveState("healthy");
     await run("pm2", ["save"]);
     console.log(`Deployment healthy: ${candidate}. Previous release retained: ${previous || "none"}.`);
+    await require('./prune-releases').cleanupAfterDeploy(app);
   } catch (error) {
     interrupted = false;
     if (healthy) {

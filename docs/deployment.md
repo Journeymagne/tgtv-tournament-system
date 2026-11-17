@@ -158,10 +158,39 @@ lockfile before reuse. It is not a full integrity scan of every installed file.
 Dependencies are copied, never hard-linked/shared across writable releases.
 The first required build after this upgrade creates a dependency stamp/cache.
 
-Nothing prunes releases, failed preparations or cache versions automatically.
-Budget disk space for a candidate, previous releases and cached build tools.
-Remove obsolete directories only after checking the current symlink and keeping
-the desired recovery release; never remove the shared directory or external env.
+After a successful deployment, release cleanup retains the current directory and
+the two most recent older releases with a `healthy` manifest. Other recognized
+releases, including abandoned preparations, are removed. Preparation-only and
+failed deployments never trigger cleanup. PM2 cwd/script references and physical
+`work` storage are protected; unknown entries and symlinks are skipped. Cleanup
+errors warn without rolling back a healthy release. Shared data, external env,
+Docker volumes and build caches are outside this cleanup scope.
+
+For daily cleanup even when no deployment completes, install the checked utility
+outside the versioned releases and enable the supplied production systemd timer:
+
+```bash
+install -d -m 700 /app/tgtv-ts-shared/bin
+install -m 700 scripts/prune-releases.js /app/tgtv-ts-shared/bin/prune-releases.js
+install -m 644 deploy/tgtv-release-cleanup.service deploy/tgtv-release-cleanup.timer /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now tgtv-release-cleanup.timer
+```
+
+Refresh the installed utility when its source changes. The timer and manual runs
+use the deployment lock, so cleanup cannot overlap preparation or activation. A
+busy lock skips that timer run. Before deleting anything, inspect a dry run:
+
+```bash
+flock -n /app/tgtv-ts.update.lock env TGTV_DEPLOY_LOCKED=/app/tgtv-ts node /app/tgtv-ts-shared/bin/prune-releases.js /app/tgtv-ts --dry-run
+```
+
+Replace `--dry-run` with `--apply` to execute the plan. The utility revalidates the
+current link and candidate identities, removes nested symlinks without following
+them, and records plans/deletions in shared `work/release-cleanup.jsonl`. It refuses
+cleanup when the current manifest is not healthy. Keeping a previous directory
+does not make database-incompatible rollback safe. Budget space for three retained
+releases, a new candidate and separate cached build tools.
 The new PM2 logs are `tgtv-ts-shared/work/tgtv-app.out.log` and `.err.log`.
 Historical PM2 logs remain at their previous location.
 
