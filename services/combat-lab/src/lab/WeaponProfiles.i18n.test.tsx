@@ -6,6 +6,8 @@ import vm from 'vm';
 import Model from 'src/Model';
 import WeaponProfiles from './WeaponProfiles';
 import DefenderControls from 'src/components/DefenderControls';
+import FighterControls from 'src/components/FighterControls';
+import Ability from 'src/Ability';
 
 let world: any;
 beforeEach(() => {
@@ -20,6 +22,16 @@ beforeEach(() => {
   }
 });
 afterEach(() => { jest.restoreAllMocks(); delete document.body.dataset.companionSection; });
+
+it('translates fight effect frequency labels and choices in both languages', () => {
+  render(<FighterControls idPrefix="fa" attacker={new Model().setAbility(Ability.PuritySeal)} changeHandler={() => {}} />);
+  world.KTUI.translate();
+  const frequency = screen.getByRole('combobox', {name: 'PuritySeal: frequency'});
+  expect(within(frequency).getByRole('option', {name: 'Every fight'})).toBeTruthy();
+  expect(within(frequency).getByRole('option', {name: 'Once across all fights'})).toBeTruthy();
+  world.KTAppearance.locale = 'ru'; world.KTUI.translate();
+  expect(screen.getByRole('combobox', {name: 'PuritySeal: частота'})).toBe(frequency);
+});
 
 it('translates save, load, counts and status in both languages without translating a user profile name', () => {
   render(<WeaponProfiles mode="shoot" model={new Model()} onChange={() => {}} idPrefix="test"/>);

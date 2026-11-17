@@ -4,10 +4,37 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import Model from 'src/Model';
 import Ability from 'src/Ability';
 import FightOptions from 'src/FightOptions';
+import {frequencyLimitedFightAbilities} from 'src/FightEffectFrequency';
 import { FIGHT_CALCULATOR_PATH } from 'src/CalculatorViewChoice';
 import { getFightStateFromUrl, useFightUrlState } from './useUrlState';
 
 afterEach(() => window.history.replaceState({}, '', '/'));
+
+it('round-trips independent fight effect frequencies through both sharing actions', () => {
+  const a = new Model().setAbility(Ability.PuritySeal).setAbility(Ability.PreParry);
+  const b = new Model().setAbility(Ability.JustAScratchNorms);
+  a.fightOnceAbilities = [...frequencyLimitedFightAbilities];
+  b.fightOnceAbilities = [Ability.JustAScratchNorms];
+  const share = renderFightShare(a, b);
+  for (const action of [
+    () => window.history.replaceState({}, '', share.getShareUrl()),
+    () => share.addParamsToUrl(),
+  ]) {
+    action();
+    const restored = getFightStateFromUrl()!;
+    expect(restored.fighterA.fightOnceAbilities).toEqual(a.fightOnceAbilities);
+    expect(restored.fighterB.fightOnceAbilities).toEqual(b.fightOnceAbilities);
+  }
+});
+
+it('defaults old links to each fight and ignores unsupported once-only rules', () => {
+  const old = '12:4:3:3:4:X:0:0:0:0:0::';
+  window.history.replaceState({}, '', `/?fa=${old}&fb=${old}`);
+  expect(getFightStateFromUrl()!.fighterA.fightOnceAbilities).toEqual([]);
+  const suffix = `${old}:0:0:0::PuritySeal,Brutal,invalid,Balanced`;
+  window.history.replaceState({}, '', `/?fa=${suffix}&fb=${old}`);
+  expect(getFightStateFromUrl()!.fighterA.fightOnceAbilities).toEqual([Ability.PuritySeal, Ability.Brutal]);
+});
 
 it('round-trips combinable 2024 abilities and melee Devastating', () => {
   const rules = [Ability.Dueller, Ability.StrikeOnDeath, Ability.CegorachsJest, Ability.DoubleBlock,

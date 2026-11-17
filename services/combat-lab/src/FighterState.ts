@@ -14,6 +14,14 @@ export default class FighterState {
   public hasStruck: boolean;
   public hasCritStruck: boolean;
   public normScratchUsed: boolean; // JaS (Normals): whether this fighter's norm-only scratch is spent
+  public scratchUsed = false; // JaS (Crits): actual use, separate from the opponent's first-strike flag
+  public usedFightAbilities: readonly Ability[] = [];
+
+  public recordAbilityUse(ability: Ability): void {
+    // Lookahead branches must never spend a live fighter's allowance.
+    if (!this.estimateMode && !this.usedFightAbilities.includes(ability))
+      this.usedFightAbilities = [...this.usedFightAbilities, ability];
+  }
   public relicUsed: boolean; // SaintlyRelics: whether this fighter's once-per-action ignore is spent
   public relicIgnoresUsed: number; // SaintlyRelics: ignores spent so far this battle (capped per battle)
   public hasPreParried: boolean; // Duelist: whether this fighter's once-per-fight free parry is spent
@@ -194,6 +202,8 @@ export default class FighterState {
     this.hasStruck = false;
     this.hasCritStruck = false;
     this.normScratchUsed = false;
+    this.scratchUsed = false;
+    this.usedFightAbilities = [];
     this.relicUsed = false;
     this.hasPreParried = false;
     this.hasResolvedDie = false;
@@ -223,6 +233,8 @@ export default class FighterState {
     // carried so a lookahead nested inside a lookahead stays an estimate, and so a nested clone
     // doesn't hand the relic back after earlier strikes in the same estimate already spent it
     copy.estimateMode = this.estimateMode;
+    copy.scratchUsed = this.scratchUsed;
+    copy.usedFightAbilities = this.usedFightAbilities;
     copy.estimateRelicAvailProb = this.estimateRelicAvailProb;
     copy.hasResolvedDie = this.hasResolvedDie;
     copy.doubleBlockUsed = this.doubleBlockUsed;

@@ -29,6 +29,8 @@ import {
 } from 'src/components/controlNotes';
 import CheckItem from 'src/components/CheckItem';
 import { useCheckboxAndVariable } from 'src/hooks/useCheckboxAndVariable';
+import ShootingEffectFrequencyControl from 'src/components/ShootingEffectFrequencyControl';
+import { defenderFrequencyAbilities } from 'src/ShootEffectFrequency';
 import 'src/components/Controls.css';
 
 export interface Props {
@@ -166,6 +168,11 @@ const DefenderControls: React.FC<Props> = (props: Props) => {
           </CheckItem>
         ))}
       </div>
+      {[...defenderBasicCheckboxes, ...defenderAdvancedCheckboxes,
+        {ability: Ability.Punishing, note: N.Punishing}].filter(box =>
+        def.has(box.ability) && defenderFrequencyAbilities.includes(box.ability)).map(box =>
+        <ShootingEffectFrequencyControl key={box.ability} model={def} ability={box.ability}
+          label={box.note.name} idPrefix={props.idPrefix} onChange={props.changeHandler} />)}
     </div>
   );
 };

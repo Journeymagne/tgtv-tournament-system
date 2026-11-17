@@ -31,6 +31,8 @@ import {
 } from 'src/components/controlNotes';
 import CheckItem from 'src/components/CheckItem';
 import { useCheckboxAndVariable } from 'src/hooks/useCheckboxAndVariable';
+import ShootingEffectFrequencyControl from 'src/components/ShootingEffectFrequencyControl';
+import { attackerFrequencyAbilities } from 'src/ShootEffectFrequency';
 import 'src/components/Controls.css';
 
 export interface Props {
@@ -199,6 +201,11 @@ const AttackerControls: React.FC<Props> = (props: Props) => {
         {attackerBasicCheckboxes.map(box => abilityCheckbox(box, false))}
         {advancedBoxesToShow.map(box => abilityCheckbox(box, true))}
       </div>
+      {[...attackerBasicCheckboxes, ...attackerAdvancedCheckboxes,
+        {ability: Ability.PuritySeal, note: N.PuritySeal}].filter(box =>
+        atk.has(box.ability) && attackerFrequencyAbilities.includes(box.ability)).map(box =>
+        <ShootingEffectFrequencyControl key={box.ability} model={atk} ability={box.ability}
+          label={box.note.name} idPrefix={props.idPrefix} onChange={props.changeHandler} />)}
       {props.children}
     </div>
   );

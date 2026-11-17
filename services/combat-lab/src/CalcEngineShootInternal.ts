@@ -25,6 +25,7 @@ class DefenderFinalDiceStuff {
 export function calcDefenderFinalDiceStuff(
   defender: Model,
   attacker: Model,
+  trackUsedAbilities: boolean = false,
 ): DefenderFinalDiceStuff
 {
   const defenderSingleDieProbs = defender.toDefenderDieProbs();
@@ -58,6 +59,7 @@ export function calcDefenderFinalDiceStuff(
     0,
     undefined,
     defenderCursedDieProbs,
+    trackUsedAbilities,
     );
 
   let defenderFinalDiceProbsWithPx: FinalDiceProb[] = [];
@@ -83,6 +85,7 @@ export function calcDefenderFinalDiceStuff(
       0,
       undefined,
       defenderCursedDieProbs,
+      trackUsedAbilities,
     );
   }
 
@@ -158,6 +161,7 @@ export interface DamageResult {
   numHits: number; // damage-causing hits / FNP-relevant hit instances; includes cancelled crits when MWx contributed damage
   survivingCritHits: number; // crit hits left after saves (each dealing critDmg); SaintlyRelics targets these
   survivingNormHits: number; // norm hits left after saves (each dealing normDmg); SaintlyRelics targets these
+  usedAbilities?: Ability[]; // the actual Scratch choice, when tracked for a multi-Shoot sequence
 }
 
 // One post-SaintlyRelics damage possibility for a single attack/defense scenario.
@@ -207,7 +211,9 @@ export function calcDamage(
     if (critHits > 0) options.push(resolve(critHits - 1, normHits));
     if (normHits > 0) options.push(resolve(critHits, normHits - 1));
     if (attacker.critDmg < attacker.normDmg) options.reverse();
-    return options.reduce((best, r) => (r.damage < best.damage ? r : best));
+    const best = options.reduce((best, r) => (r.damage < best.damage ? r : best));
+    return defender.shootOnceAbilities.includes(Ability.JustAScratch)
+      ? {...best, usedAbilities: [...(best.usedAbilities ?? []), Ability.JustAScratch]} : best;
   }
   return resolve(critHits, normHits);
 }
@@ -223,6 +229,7 @@ function calcDamageAfterJas(
   normSaves: number,
 ): DamageResult {
   const numNormalSavesToCancelCritHit = 2; // for Kill Team rules, not Fire Team rules
+  let normalScratchUsed = false;
 
   function critSavesCancelCritHits() {
     const numCancels = Math.min(critSaves, critHits);
@@ -248,6 +255,7 @@ function calcDamageAfterJas(
   if (defender.has(Ability.JustAScratchNorms)) {
     if (normHits > 0) {
       normHits--;
+      normalScratchUsed = true;
     }
   }
 
@@ -289,7 +297,10 @@ function calcDamageAfterJas(
     const damagingNorms = attacker.normDmg > 0 ? normHits : 0;
     const numHits = damagingCrits + damagingNorms + mwxCancelledCrits;
     const damage = mwxDamage + critHits * attacker.critDmg + normHits * attacker.normDmg;
-    return { damage, numHits, survivingCritHits: critHits, survivingNormHits: normHits };
+    const result: DamageResult = { damage, numHits, survivingCritHits: critHits, survivingNormHits: normHits };
+    if (normalScratchUsed && defender.shootOnceAbilities.includes(Ability.JustAScratchNorms))
+      result.usedAbilities = [Ability.JustAScratchNorms];
+    return result;
   }
 }
 

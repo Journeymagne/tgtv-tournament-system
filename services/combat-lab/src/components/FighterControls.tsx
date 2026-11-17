@@ -13,6 +13,7 @@ import Ability, {
 } from 'src/Ability';
 import { MaxWounds } from 'src/KtMisc';
 import Model from 'src/Model';
+import { frequencyLimitedFightAbilities, passiveFightAbilities } from 'src/FightEffectFrequency';
 import * as N from 'src/Notes';
 import {
   Accepter,
@@ -249,6 +250,26 @@ const FighterControls: React.FC<Props> = (props: Props) => {
           </div>
         </Col>
       </Row>
+      {[...fighterBasicCheckboxes, ...fighterAdvancedCheckboxes,
+        {ability: nicheAbility, note: {name: fightAbilityLabels[nicheAbility] ?? nicheAbility}}].filter(box =>
+        atk.has(box.ability) && frequencyLimitedFightAbilities.includes(box.ability)).map(box => {
+        const id = `${props.idPrefix}-${box.ability}-frequency`;
+        return <div key={id} className="FightEffectFrequency">
+          <label htmlFor={id}>{box.note.name}: частота</label>
+          <select id={id} value={atk.fightOnceAbilities.includes(box.ability) ? 'once' : 'each'}
+            title={passiveFightAbilities.includes(box.ability)
+              ? 'В режиме «Один раз» правило действует весь первый файт.'
+              : 'В режиме «Один раз» эффект расходуется при первом срабатывании.'}
+            onChange={event => {
+              const once = atk.fightOnceAbilities.filter(ability => ability !== box.ability);
+              if (event.target.value === 'once') once.push(box.ability);
+              props.changeHandler(Object.assign(new Model(), atk, {fightOnceAbilities: once}));
+            }}>
+            <option value="each">В каждом файте</option>
+            <option value="once">Один раз на все файты</option>
+          </select>
+        </div>;
+      })}
     </Container>
   );
 }

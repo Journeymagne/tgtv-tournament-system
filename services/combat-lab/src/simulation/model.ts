@@ -1,5 +1,7 @@
 import Ability, {currentAbility, fightAbilityLabels} from 'src/Ability';
 import Model from 'src/Model';
+import {parseFightOnceAbilities} from 'src/FightEffectFrequency';
+import {parseShootOnceAbilities} from 'src/ShootEffectFrequency';
 import {Bonus,Effect,Mode,Operative,PackedModel,Side,Team,Weapon} from './types';
 export const uid=()=>Math.random().toString(36).slice(2,10);
 export const abilityNames:Record<string,string>={Balanced:'Balanced · Re-roll 1',DoubleBalanced:'Re-roll 2',Ceaseless:'Ceaseless',Relentless:'Relentless',CritFishRelentless:'Relentless · поиск критов',Ones:'Re-roll единиц',BothOnesAndBalanced:'Единицы + Balanced',CeaselessPlusBalanced:'Ceaseless + Balanced',Rending:'Rending',Severe:'Severe',Punishing:'Punishing',Brutal:'Brutal',Shock:'Shock',JustAScratch:'Игнор одного попадания',JustAScratchNorms:'Игнор нормального попадания',HalfDamageFirstStrike:'Половина первого удара',PuritySeal:'Purity Seal',Indomitus:'Indomitus',MysticScryBuff:'Mystic Scry',CurseOfRot:'Curse of Rot',PreParry:'PreParry',Dueller:'Dueller',...fightAbilityLabels,[Ability.StrikeStrike]:'Strike+Strike'};
@@ -45,5 +47,5 @@ export function makeModels(side:Side,team:Team,mode:Mode){const op=team.operativ
  if(mode==='fight'){attack.fnp=defense.fnp;attack.saintlyRelics=defense.saintlyRelics;for(const a of defense.abilities)if(a!==Ability.ObscuredTarget)attack.abilities.add(a);}
  return {op,weapon,attack,defense};}
 export function pack(m:Model):PackedModel{return {...m,abilities:[...m.abilities]};}
-export function hydrate(raw:PackedModel):Model{const m=new Model();Object.assign(m,raw);m.abilities=new Set(raw.abilities.map(currentAbility).filter((a):a is Ability=>a!==undefined));return m;}
+export function hydrate(raw:PackedModel):Model{const m=new Model();Object.assign(m,raw);m.abilities=new Set(raw.abilities.map(currentAbility).filter((a):a is Ability=>a!==undefined));m.fightOnceAbilities=parseFightOnceAbilities(raw.fightOnceAbilities);m.shootOnceAbilities=parseShootOnceAbilities(raw.shootOnceAbilities);return m;}
 export function effectLabel(e:Effect){const name=effectFields.find(([f])=>f===e.field)?.[1]||e.field;return name+(e.field.startsWith('ability:')?'':` ${e.operation==='add'&&Number(e.value)>0?'+':''}${e.value}`);}

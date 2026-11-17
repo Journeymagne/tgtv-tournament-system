@@ -15,6 +15,7 @@ export function calcFinalDiceProbsForAttacker(
   attacker: Model,
   defender?: Model,
   defenderScorer?: (crits: number, norms: number) => number,
+  trackUsedAbilities: boolean = false,
 ): FinalDiceProb[]
 {
   // Merge defender's ObscuredTarget into abilities if present
@@ -49,6 +50,7 @@ export function calcFinalDiceProbsForAttacker(
     attacker.critDmg + attacker.mwx,
     scoreHits,
     defender?.has(Ability.CurseOfRot) ? attacker.toCursedAttackerDieProbs() : undefined,
+    trackUsedAbilities,
   );
 }
 
@@ -65,11 +67,12 @@ export function calcFinalDiceProbs(
   critDmgPlusMwx: number = 0,
   scoreHits?: (crits: number, norms: number) => number,
   cursedDieProbs?: DieProbs, // set when the enemy uses Curse of Rot; see buildFinalDiceProbs
+  trackUsedAbilities: boolean = false,
 ): FinalDiceProb[]
 {
   return bestAutoNormPlan(
     singleDieProbs, numDice, reroll, autoCrits, autoNorms,
-    failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits, cursedDieProbs).probs;
+    failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits, cursedDieProbs, trackUsedAbilities).probs;
 }
 
 // Builds the distribution for an exact number of retained Accurate/cover dice.
@@ -86,6 +89,7 @@ function buildFinalDiceProbs(
   critDmgPlusMwx: number,
   scoreHits?: (crits: number, norms: number) => number,
   cursedDieProbs?: DieProbs,
+  trackUsedAbilities: boolean = false,
 ): FinalDiceProb[] {
   const finalDiceProbs: FinalDiceProb[] = [];
 
@@ -118,6 +122,7 @@ function buildFinalDiceProbs(
           critDmgPlusMwx,
           scoreHits,
           cursed,
+          trackUsedAbilities,
         );
 
         if (finalDiceProb.prob > 0) {
@@ -158,6 +163,7 @@ function bestAutoNormPlan(
   critDmgPlusMwx: number,
   scoreHits?: (crits: number, norms: number) => number,
   cursedDieProbs?: DieProbs,
+  trackUsedAbilities: boolean = false,
 ): { used: number; probs: FinalDiceProb[] } {
   const cappedAutoCrits = Math.min(autoCrits, numDice);
   const diceAfterAutoCrits = numDice - cappedAutoCrits;
@@ -165,7 +171,7 @@ function bestAutoNormPlan(
 
   const build = (used: number) => buildFinalDiceProbs(
     singleDieProbs, diceAfterAutoCrits - used, reroll, cappedAutoCrits, used,
-    failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits, cursedDieProbs);
+    failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits, cursedDieProbs, trackUsedAbilities);
 
   if (maxAutoNorms === 0 || !canRankByDamage(normDmg, critDmgPlusMwx)) {
     return { used: maxAutoNorms, probs: build(maxAutoNorms) };
@@ -243,6 +249,7 @@ export function calcFinalDiceProb(
   critDmgPlusMwx: number = 0,
   scoreHits?: (crits: number, norms: number) => number,
   cursedFails: number = 0, // Curse of Rot 3s: not part of the roll odds above, but still fails afterwards
+  trackUsedAbilities: boolean = false,
 ): FinalDiceProb
 {
   let prob = 0
@@ -314,9 +321,13 @@ export function calcFinalDiceProb(
     normDmg,
     critDmgPlusMwx,
     scoreHits,
+    false,
+    trackUsedAbilities,
   );
 
-  return new FinalDiceProb(prob, modified.crits, modified.norms);
+  const result = new FinalDiceProb(prob, modified.crits, modified.norms);
+  if (trackUsedAbilities) result.usedAbilities = modified.usedFightAbilities;
+  return result;
 }
 
 export function calcMultiRollProb(
@@ -722,6 +733,16 @@ export function combineDmgProbs(
   return dmgToProbCombined;
 }
 
+export interface PostRollSuccesses {
+  crits: number;
+  norms: number;
+  usedFightAbilities?: Ability[];
+}
+
+type HitScorer = (crits: number, norms: number, usedFightAbilities?: Ability[]) => number;
+const withUsedAbility = (used: Ability[] | undefined, ability: Ability): Ability[] | undefined =>
+  used ? [...used, ability] : undefined;
+
 export function applyPostRollModifications(
   crits: number,
   norms: number,
@@ -733,19 +754,22 @@ export function applyPostRollModifications(
   abilities: Set<Ability>,
   normDmg: number = 0,
   critDmgPlusMwx: number = 0,
-  scoreHits?: (crits: number, norms: number) => number,
+  scoreHits?: HitScorer,
   critRetentionBlocked: boolean = false,
-): { crits: number; norms: number } {
+  trackFightAbilities: boolean = false,
+  usedFightAbilities: Ability[] | undefined = trackFightAbilities ? [] : undefined,
+): PostRollSuccesses {
   if (abilities.has(Ability.BlessingsOfInfection)) {
     const remaining = new Set(abilities);
     remaining.delete(Ability.BlessingsOfInfection);
-    const finish = (c: number, n: number, f: number, retained: number) => applyPostRollModifications(
+    const finish = (c: number, n: number, f: number, retained: number, used = usedFightAbilities) => applyPostRollModifications(
       c, n, f, additionalCrits, retained, failsToNorms, normsToCrits, remaining,
-      normDmg, critDmgPlusMwx, scoreHits, critRetentionBlocked);
+      normDmg, critDmgPlusMwx, scoreHits, critRetentionBlocked, trackFightAbilities, used);
     const choices = [finish(crits, norms, fails, additionalNorms)];
-    if (fails >= 3) choices.push(finish(crits, norms, fails - 2, additionalNorms + 1));
+    const blessed = withUsedAbility(usedFightAbilities, Ability.BlessingsOfInfection);
+    if (fails >= 3) choices.push(finish(crits, norms, fails - 2, additionalNorms + 1, blessed));
     if (!critRetentionBlocked && crits + norms >= 3 && fails > 0 && norms > 0)
-      choices.push(finish(crits + 1, norms - 1, fails - 1, additionalNorms));
+      choices.push(finish(crits + 1, norms - 1, fails - 1, additionalNorms, blessed));
     return choices.reduce((best, next) => preferDeclineWhenStrictlyBetter(
       best, next, normDmg, critDmgPlusMwx, scoreHits));
   }
@@ -756,6 +780,7 @@ export function applyPostRollModifications(
     normsToCrits = 0;
     // Mystic's fail retention remains legal; its critical retention does not.
     if (abilities.delete(Ability.MysticScryBuff) && fails > 0) {
+      usedFightAbilities = withUsedAbility(usedFightAbilities, Ability.MysticScryBuff);
       additionalNorms++;
       fails--;
     }
@@ -780,25 +805,26 @@ export function applyPostRollModifications(
     && crits > 0
     && fails > 0;
 
-  const resolve = (c: number, n: number, f: number, retained: number) => resolveAfterPunishing(
-    c, n, f, retained, failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits);
+  const resolve = (c: number, n: number, f: number, retained: number, used = usedFightAbilities) => resolveAfterPunishing(
+    c, n, f, retained, failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits, used);
 
   if (!punishingAvailable) {
     return resolve(crits, norms, fails, retainedNorms);
   }
 
-  const taken = resolve(crits, norms + 1, fails - 1, retainedNorms + 1);
+  const taken = resolve(crits, norms + 1, fails - 1, retainedNorms + 1,
+    withUsedAbility(usedFightAbilities, Ability.Punishing));
   const declined = resolve(crits, norms, fails, retainedNorms);
   return preferDeclineWhenStrictlyBetter(taken, declined, normDmg, critDmgPlusMwx, scoreHits);
 }
 
 // Ties keep the take (the historical conversion). Decline only when it scores strictly more.
-function preferDeclineWhenStrictlyBetter<T extends { crits: number; norms: number }>(
+function preferDeclineWhenStrictlyBetter<T extends PostRollSuccesses>(
   taken: T,
   declined: T,
   normDmg: number,
   critDmgPlusMwx: number,
-  scoreHits?: (crits: number, norms: number) => number,
+  scoreHits?: HitScorer,
 ): T {
   const declinedValue = outcomeValue(declined, normDmg, critDmgPlusMwx, scoreHits);
   const takenValue = outcomeValue(taken, normDmg, critDmgPlusMwx, scoreHits);
@@ -809,13 +835,13 @@ function preferDeclineWhenStrictlyBetter<T extends { crits: number; norms: numbe
 // (saves have no damage of their own), so fall back to weights that mirror how saves cancel hits:
 // a critical save cancels any hit, and it takes two normal saves to do the same.
 function outcomeValue(
-  outcome: { crits: number; norms: number },
+  outcome: PostRollSuccesses,
   normDmg: number,
   critDmgPlusMwx: number,
-  scoreHits?: (crits: number, norms: number) => number,
+  scoreHits?: HitScorer,
 ): number {
   if (scoreHits) {
-    return scoreHits(outcome.crits, outcome.norms);
+    return scoreHits(outcome.crits, outcome.norms, outcome.usedFightAbilities);
   }
   const useFallback = !canRankByDamage(normDmg, critDmgPlusMwx);
   const critValue = useFallback ? 2 : critDmgPlusMwx;
@@ -834,20 +860,26 @@ function resolveAfterPunishing(
   abilities: Set<Ability>,
   normDmg: number,
   critDmgPlusMwx: number,
-  scoreHits?: (crits: number, norms: number) => number,
-): { crits: number; norms: number } {
+  scoreHits?: HitScorer,
+  usedFightAbilities?: Ability[],
+): PostRollSuccesses {
+  if (abilities.has(Ability.PuritySeal) && fails >= 2)
+    usedFightAbilities = withUsedAbility(usedFightAbilities, Ability.PuritySeal);
   if (abilities.has(Ability.PuritySeal) || abilities.has(Ability.Indomitus)) {
     if (fails >= 2) {
       norms++;
       fails -= 2;
       // Indomitus retains a failed die; Transhuman Physiology cannot retain it again.
-      if (abilities.has(Ability.Indomitus)) retainedNorms++;
+      if (abilities.has(Ability.Indomitus)) {
+        retainedNorms++;
+        usedFightAbilities = withUsedAbility(usedFightAbilities, Ability.Indomitus);
+      }
     }
   }
 
   return resolveConversions(
     crits, norms, fails, retainedNorms, false,
-    failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits);
+    failsToNorms, normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits, usedFightAbilities);
 }
 
 // Severe "changes" a normal success, so it may take an already-retained one and spends that
@@ -876,8 +908,9 @@ function resolveConversions(
   abilities: Set<Ability>,
   normDmg: number,
   critDmgPlusMwx: number,
-  scoreHits?: (crits: number, norms: number) => number,
-): { crits: number; norms: number } {
+  scoreHits?: HitScorer,
+  usedFightAbilities?: Ability[],
+): PostRollSuccesses {
   const actualFailToNormPromotions = Math.min(failsToNorms, fails);
   norms += actualFailToNormPromotions;
   fails -= actualFailToNormPromotions;
@@ -887,16 +920,17 @@ function resolveConversions(
     const takenState = changeOneNormToCrit(crits, norms, retainedNorms);
     const taken = finishAfterSevere(
       takenState.crits, takenState.norms, fails, takenState.retainedNorms, true,
-      normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits);
+      normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits,
+      withUsedAbility(usedFightAbilities, Ability.Severe));
     const declined = finishAfterSevere(
       crits, norms, fails, retainedNorms, false,
-      normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits);
+      normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits, usedFightAbilities);
     return preferDeclineWhenStrictlyBetter(taken, declined, normDmg, critDmgPlusMwx, scoreHits);
   }
 
   return finishAfterSevere(
     crits, norms, fails, retainedNorms, severeTriggered,
-    normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits);
+    normsToCrits, abilities, normDmg, critDmgPlusMwx, scoreHits, usedFightAbilities);
 }
 
 function finishAfterSevere(
@@ -909,12 +943,18 @@ function finishAfterSevere(
   abilities: Set<Ability>,
   normDmg: number,
   critDmgPlusMwx: number,
-  scoreHits?: (crits: number, norms: number) => number,
-): { crits: number; norms: number } {
+  scoreHits?: HitScorer,
+  usedFightAbilities?: Ability[],
+): PostRollSuccesses {
   // NormsToCrits models "retain a normal success as a critical success instead", so it can only
   // take a norm that came off the dice - not a cover save / Accurate / Punishing retention.
   const promotableNorms = Math.max(0, norms - retainedNorms);
   const actualNormToCritPromotions = Math.min(normsToCrits, promotableNorms);
+  // The generic NormsToCrits allowance is spent first. Transhuman only spends its own
+  // use if an extra eligible save really is promoted beyond that allowance.
+  if (abilities.has(Ability.TranshumanPhysiology)
+    && actualNormToCritPromotions > Math.max(0, normsToCrits - 1))
+    usedFightAbilities = withUsedAbility(usedFightAbilities, Ability.TranshumanPhysiology);
   crits += actualNormToCritPromotions;
   norms -= actualNormToCritPromotions;
 
@@ -925,8 +965,6 @@ function finishAfterSevere(
   // On a shoot, scoreHits is expected damage after that defender's saves, cover, and Piercing.
   // With no defender (and on defence dice) it falls back to raw pre-save damage.
   if (abilities.has(Ability.MysticScryBuff)) {
-    const dmgOf = (c: number, n: number) =>
-      scoreHits ? scoreHits(c, n) : c * critDmgPlusMwx + n * normDmg;
     // Candidates in preference order; the strict-greater pick below keeps the first on ties. Order the
     // crit upgrade ahead of the fail upgrade so a damage tie resolves to the crit, which is strictly
     // better against any real defender (its Devastating/mwx portion bypasses saves, it triggers Piercing,
@@ -938,13 +976,16 @@ function finishAfterSevere(
     if (fails > 0) candidates.push({ crits, norms: norms + 1, retainedNorms: retainedNorms + 1 }); // retain a fail as a norm
     candidates.push({ crits, norms, retainedNorms });              // decline (the buff is optional)
 
-    let best: { crits: number; norms: number } | null = null;
+    let best: PostRollSuccesses | null = null;
     let bestDmg = -Infinity;
     for (const cand of candidates) {
       const finished = finishRendingAndObscured(
         cand.crits, cand.norms, cand.retainedNorms, severeTriggered, abilities,
-        normDmg, critDmgPlusMwx, scoreHits);
-      const dmg = dmgOf(finished.crits, finished.norms);
+        normDmg, critDmgPlusMwx, scoreHits,
+        cand.crits !== crits || cand.norms !== norms
+          ? withUsedAbility(usedFightAbilities, Ability.MysticScryBuff) : usedFightAbilities);
+      const dmg = scoreHits ? scoreHits(finished.crits, finished.norms, finished.usedFightAbilities)
+        : finished.crits * critDmgPlusMwx + finished.norms * normDmg;
       if (dmg > bestDmg + scoreTieEpsilon) {
         bestDmg = dmg;
         best = finished;
@@ -954,7 +995,7 @@ function finishAfterSevere(
   }
 
   return finishRendingAndObscured(
-    crits, norms, retainedNorms, severeTriggered, abilities, normDmg, critDmgPlusMwx, scoreHits);
+    crits, norms, retainedNorms, severeTriggered, abilities, normDmg, critDmgPlusMwx, scoreHits, usedFightAbilities);
 }
 
 // The damage-affecting tail shared by every roll: Rending may promote a rolled norm to a crit
@@ -968,13 +1009,15 @@ function finishRendingAndObscured(
   abilities: Set<Ability>,
   normDmg: number = 0,
   critDmgPlusMwx: number = 0,
-  scoreHits?: (crits: number, norms: number) => number,
-): { crits: number; norms: number } {
-  const afterObscured = (c: number, n: number) => {
+  scoreHits?: HitScorer,
+  usedFightAbilities?: Ability[],
+): PostRollSuccesses {
+  const afterObscured = (c: number, n: number, used = usedFightAbilities): PostRollSuccesses => {
+    const usage = used ? {usedFightAbilities: used} : {};
     if (abilities.has(Ability.ObscuredTarget)) {
-      return { crits: 0, norms: Math.max(0, n + c - 1) };
+      return { crits: 0, norms: Math.max(0, n + c - 1), ...usage };
     }
-    return { crits: c, norms: n };
+    return { crits: c, norms: n, ...usage };
   };
 
   // Rending doesn't work if Severe triggered (per KT2024 rules). It is optional ("you can"),
@@ -986,7 +1029,7 @@ function finishRendingAndObscured(
   }
 
   return preferDeclineWhenStrictlyBetter(
-    afterObscured(crits + 1, norms - 1),
+    afterObscured(crits + 1, norms - 1, withUsedAbility(usedFightAbilities, Ability.Rending)),
     afterObscured(crits, norms),
     normDmg,
     critDmgPlusMwx,

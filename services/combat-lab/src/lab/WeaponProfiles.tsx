@@ -11,7 +11,7 @@ function read(mode:string):Profile[] {
     const rows=JSON.parse(localStorage.getItem(storageKey(mode))||'[]');
     if(!Array.isArray(rows))return [];
     return rows.filter(p=>p&&typeof p.name==='string'&&p.model&&Array.isArray(p.model.abilities)
-      &&Object.entries(new Model()).every(([key,value])=>key==='abilities'||
+      &&Object.entries(new Model()).every(([key,value])=>key==='abilities'||key==='fightOnceAbilities'||key==='shootOnceAbilities'||
         (typeof value==='number'?typeof p.model[key]==='number'&&Number.isFinite(p.model[key]):typeof p.model[key]===typeof value))).slice(0,100);
   } catch {return [];}
 }

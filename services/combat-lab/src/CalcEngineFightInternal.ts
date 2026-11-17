@@ -1,4 +1,5 @@
 import Model from "src/Model";
+import { passiveFightAbilities } from 'src/FightEffectFrequency';
 import * as Util from 'src/Util';
 import FightStrategy from 'src/FightStrategy';
 import FighterState from "src/FighterState";
@@ -105,6 +106,24 @@ export function calcRemainingWoundPairProbs(
   // Use numeric keys internally to avoid string allocation in hot loop
   const woundPairCounts = new Map<number, number>();
 
+  // Private profiles let spent effects disappear from every resolver and lookahead without
+  // modifying the caller's abilities, including when both fighters share a profile object.
+  const guy1Abilities = guy1.abilities;
+  const guy2Abilities = guy2.abilities;
+  guy1 = guy1.withProp('abilities', new Set(guy1Abilities));
+  guy2 = guy2.withProp('abilities', new Set(guy2Abilities));
+
+  function spendLimitedEffects(state: FighterState, diceUsed: readonly Ability[] = []) {
+    for (const ability of state.profile.fightOnceAbilities) {
+      const used = ability === Ability.JustAScratch ? state.scratchUsed
+        : ability === Ability.JustAScratchNorms ? state.normScratchUsed
+        : ability === Ability.PreParry ? state.hasPreParried
+        : state.usedFightAbilities.includes(ability) || diceUsed.includes(ability)
+          || passiveFightAbilities.includes(ability);
+      if (used) state.profile.abilities.delete(ability);
+    }
+  }
+
   // Pre-allocate FighterState objects and reuse across simulations. Their rng is
   // (re)assigned per simulation below to the fighter's own defense stream.
   const guy1State = new FighterState(guy1, 0, 0, guy1Strategy, -1, false, false, null);
@@ -122,6 +141,8 @@ export function calcRemainingWoundPairProbs(
     // SaintlyRelics two-per-battle cap resets each battle (simulation), not each round/action
     guy1State.relicIgnoresUsed = 0;
     guy2State.relicIgnoresUsed = 0;
+    if (guy1.fightOnceAbilities.length) guy1.abilities = new Set(guy1Abilities);
+    if (guy2.fightOnceAbilities.length) guy2.abilities = new Set(guy2Abilities);
 
     for (let round = 0; round < numRounds; round++) {
       if (guy1Wounds <= 0 || guy2Wounds <= 0) break;
@@ -149,8 +170,8 @@ export function calcRemainingWoundPairProbs(
       guy1.diceStat = injuredHitStat(guy1OrigDiceStat, guy1Wounds, guy1OrigWounds);
       guy2.diceStat = injuredHitStat(guy2OrigDiceStat, guy2Wounds, guy2OrigWounds);
 
-      const guy1Dice = simulateFighterDice(guy1, guy2, guy1DiceRng);
-      const guy2Dice = simulateFighterDice(guy2, guy1, guy2DiceRng);
+      let guy1Dice = simulateFighterDice(guy1, guy2, guy1DiceRng);
+      let guy2Dice = simulateFighterDice(guy2, guy1, guy2DiceRng);
 
       // Reset pre-allocated state objects instead of creating new ones. reset()
       // clears per-action flags but preserves each fighter's defense rng stream.
@@ -182,11 +203,14 @@ export function calcRemainingWoundPairProbs(
           if (response && (!chosen || betterFightOutcome(response.wounds, chosen.wounds, guy1Strategy))) chosen = response;
         }
         if (chosen) {
+          guy1Dice = chosen.a; guy2Dice = chosen.b;
           guy1State.crits = chosen.a.crits; guy1State.norms = chosen.a.norms;
           guy2State.crits = chosen.b.crits; guy2State.norms = chosen.b.norms;
         }
       }
       resolveFight(guy1State, guy2State);
+      spendLimitedEffects(guy1State, guy1Dice.usedFightAbilities);
+      spendLimitedEffects(guy2State, guy2Dice.usedFightAbilities);
 
       guy1Wounds = guy1State.currentWounds;
       guy2Wounds = guy2State.currentWounds;
@@ -447,13 +471,16 @@ export function resolveDieChoice(
     if(!chooser.hasStruck) {
       if(enemy.profile.abilities.has(Ability.JustAScratch)) {
         dmg = 0;
+        enemy.scratchUsed = true;
       } else {
         if(chooser.profile.abilities.has(Ability.FirstStrikeBonus)) {
           dmg++;
+          chooser.recordAbilityUse(Ability.FirstStrikeBonus);
         }
         if(enemy.profile.abilities.has(Ability.HalfDamageFirstStrike)) {
           // Halved and rounded up, but never below 2 and never above the strike itself.
           // A 2 stays 2 (half would be 1). A 0 or 1 is already at or under that floor.
+          if (dmg > 2) enemy.recordAbilityUse(Ability.HalfDamageFirstStrike);
           dmg = dmg <= 2 ? dmg : Math.ceil(dmg / 2);
         }
       }
@@ -495,8 +522,10 @@ export function resolveDieChoice(
       // First crit strike discards one unresolved normal, or a crit if there are none.
       if(enemy.norms > 0) {
         enemy.norms--;
+        chooser.recordAbilityUse(Ability.Shock);
       } else if(enemy.crits > 0) {
         enemy.crits--;
+        chooser.recordAbilityUse(Ability.Shock);
       }
     }
 
@@ -506,10 +535,13 @@ export function resolveDieChoice(
   if(choice === FightChoice.CritStrike || choice === FightChoice.NormStrike) {
     const isCrit = choice === FightChoice.CritStrike;
     const followUp = chooser.hasFollowUpStrike(isCrit);
+    const followUpAbility = chooser.profile.has(Ability.StrikeStrike) && !chooser.hasStruck
+      ? Ability.StrikeStrike : Ability.CriticalStrike;
     resolveStrike(isCrit);
     // Resolve only one follow-up, spending a retained die before the opponent acts.
     // Stop on incapacitation so a dead target cannot spend damage-prevention resources.
     if(followUp && chooser.successes() > 0 && enemy.currentWounds > 0) {
+      chooser.recordAbilityUse(followUpAbility);
       resolveStrike(chooser.crits > 0);
     }
   }

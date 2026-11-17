@@ -25,6 +25,8 @@ export default class Model {
   public normsToCrits: number; // all
   public noCover: NoCoverType; // NOT IMPLEMENTED, for shoot-attack only
   public abilities: Set<Ability>; // all, for basically all bool abilities
+  public fightOnceAbilities: Ability[] = []; // fight only: one actual use across all selected fights
+  public shootOnceAbilities: Ability[] = []; // shooting only: one actual use across all selected Shoot actions
 
   public constructor(
     numDice: number = 4,

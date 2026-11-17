@@ -3,6 +3,8 @@ import {appPath} from 'src/lab/appPath';
 import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Model from 'src/Model';
+import { parseFightOnceAbilities } from 'src/FightEffectFrequency';
+import { parseShootOnceAbilities } from 'src/ShootEffectFrequency';
 import ShootOptions from 'src/ShootOptions';
 import FightOptions from 'src/FightOptions';
 import FightStrategy from 'src/FightStrategy';
@@ -46,7 +48,8 @@ function encodeAttacker(atk: Model): string {
     atk.autoCrits,
     atk.failsToNorms,
     atk.normsToCrits,
-    abilities.join('')
+    abilities.join(''),
+    parseShootOnceAbilities(atk.shootOnceAbilities).join(','),
   ].join(':');
 }
 
@@ -72,7 +75,8 @@ function encodeDefender(def: Model): string {
     def.fnp,
     def.reroll,
     abilities.join(''),
-    def.saintlyRelics
+    def.saintlyRelics,
+    parseShootOnceAbilities(def.shootOnceAbilities).join(','),
   ].join(':');
 }
 
@@ -129,6 +133,8 @@ function decodeAttacker(param: string): Model {
     if (abilities.includes('pun')) atk.abilities.add(Ability.Punishing);
   }
 
+  // Append frequency settings so old links keep their per-Shoot behavior.
+  atk.shootOnceAbilities = parseShootOnceAbilities(parts[14]?.split(','));
   return atk;
 }
 
@@ -167,6 +173,7 @@ function decodeDefender(param: string): Model {
 
   // appended after abilities; absent in older URLs and sanitized to off for unrecognized values
   def.saintlyRelics = parseRelicMode(parts[10]);
+  def.shootOnceAbilities = parseShootOnceAbilities(parts[11]?.split(','));
 
   return def;
 }
@@ -208,7 +215,8 @@ function encodeFighter(f: Model): string {
     f.saintlyRelics,
     f.fnp,
     f.mwx,
-    [...f.abilities].join(',')
+    [...f.abilities].join(','),
+    f.fightOnceAbilities.join(',')
   ].join(':');
 }
 
@@ -266,6 +274,8 @@ function decodeFighter(param: string): Model {
     const ability = currentAbility(value);
     if (ability) f.abilities.add(ability);
   }
+  // Append frequency settings so old links keep their per-fight behavior.
+  f.fightOnceAbilities = parseFightOnceAbilities(parts[17]?.split(','));
   return f;
 }
 

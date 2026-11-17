@@ -138,6 +138,29 @@
   flex-shrink: 0;
 }
 
+.FightEffectFrequency {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 10px;
+}
+
+.FightEffectFrequency label {
+  margin: 0;
+  font-size: 12px;
+}
+
+.FightEffectFrequency select {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2329;
+  font-size: 13px;
+}
+
 /* Results: one bordered list of expandable rows. */
 .ResultList {
   border: 1px solid #d1d5db;

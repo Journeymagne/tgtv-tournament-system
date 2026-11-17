@@ -59,20 +59,22 @@ function applyDie(a: FighterState, b: FighterState, move: FightMove, phase: Figh
       : strike && a.hasFollowUpStrike(critical) ? 'strike' : null)
     : null;
   a.hasResolvedDie = true;
-  if (phase === 'death') a.deathStrikeUsed = true;
+  if (phase === 'death') { a.deathStrikeUsed = true; a.recordAbilityUse(Ability.StrikeOnDeath); }
   if (critical) a.crits--; else a.norms--;
   if (!strike) {
     b.crits -= move.blockCrits ?? 0;
     b.norms -= move.blockNorms ?? 0;
-    if (move.enhanced) a.doubleBlockUsed = true;
+    if (move.enhanced) { a.doubleBlockUsed = true; a.recordAbilityUse(Ability.DoubleBlock); }
     return extra;
   }
   let damage = critical ? a.profile.critDmg : a.profile.normDmg;
-  if (move.bonus) { damage++; a.critBonusUsed = true; }
+  if (move.bonus) { damage++; a.critBonusUsed = true; a.recordAbilityUse(Ability.CritDamageBonus); }
   if (!a.hasStruck) {
-    if (a.profile.has(Ability.FirstStrikeBonus)) damage++;
-    if (b.profile.has(Ability.JustAScratch)) damage = 0;
-    else if (b.profile.has(Ability.HalfDamageFirstStrike) && damage > 2) damage = Math.ceil(damage / 2);
+    if (a.profile.has(Ability.FirstStrikeBonus)) { damage++; a.recordAbilityUse(Ability.FirstStrikeBonus); }
+    if (b.profile.has(Ability.JustAScratch)) { damage = 0; b.scratchUsed = true; }
+    else if (b.profile.has(Ability.HalfDamageFirstStrike) && damage > 2) {
+      damage = Math.ceil(damage / 2); b.recordAbilityUse(Ability.HalfDamageFirstStrike);
+    }
   }
   if (!critical && damage > 0 && b.profile.has(Ability.JustAScratchNorms) && !b.normScratchUsed) {
     damage = 0;
@@ -83,7 +85,8 @@ function applyDie(a: FighterState, b: FighterState, move: FightMove, phase: Figh
     pending = Math.max(pending, a.profile.normDmg);
   b.applyDmg(damage, damage >= pending);
   if (critical && !a.hasCritStruck && a.profile.has(Ability.Shock)) {
-    if (b.norms > 0) b.norms--; else if (b.crits > 0) b.crits--;
+    if (b.norms > 0) { b.norms--; a.recordAbilityUse(Ability.Shock); }
+    else if (b.crits > 0) { b.crits--; a.recordAbilityUse(Ability.Shock); }
   }
   a.hasStruck = true;
   if (critical) a.hasCritStruck = true;
@@ -213,12 +216,17 @@ export function resolveModernMove(a: FighterState, b: FighterState, move: FightM
     && b.rng() < jestChance(a, b, move)) {
     resolved = planner.converted(a, b, phase).move;
     b.jestUsed = true;
+    b.recordAbilityUse(Ability.CegorachsJest);
   }
   const extra = applyDie(a, b, resolved, phase);
   resolveDeathStrike(b, a);
   if (a.currentWounds > 0 && b.currentWounds > 0 && extra && a.successes() > 0) {
     const followUp = modernFightDecision(a, b, extra).move;
-    if (followUp) resolveModernMove(a, b, followUp, extra);
+    if (followUp) {
+      a.recordAbilityUse(extra === 'any' ? Ability.StealthAssault
+        : a.profile.has(Ability.StrikeStrike) ? Ability.StrikeStrike : Ability.CriticalStrike);
+      resolveModernMove(a, b, followUp, extra);
+    }
   }
 }
 

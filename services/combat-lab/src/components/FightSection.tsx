@@ -53,6 +53,12 @@ const FightSection: React.FC<FightSectionProps> = ({ isActive }) => {
     </section>
     <details className="lab-notes"><summary>Правила и пояснения</summary><NotesList notes={notes} advancedNotes={advancedNotes}>
               <li>
+                Частоту можно выбрать для каждого правила и NicheAbility. «Один раз на все файты» расходует срабатывающий эффект при первом применении. Если условие не выполнено, эффект сохраняется. Выбор момента применения между файтами не моделируется.
+              </li>
+              <li>
+                Brutal, Dueller, Tilting Shields и Curse of Rot действуют весь файт. В режиме «Один раз на все файты» они действуют только в первом файте.
+              </li>
+              <li>
                 New niche rules use the selected strategy for all legal continuations, including both
                 Stealth Assault dice. Min Dmg To Self maximizes expected remaining own wounds;
                 Max Dmg To Enemy minimizes enemy wounds. Cegorach&apos;s Jest uses its success probability;

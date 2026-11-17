@@ -2,6 +2,12 @@
 
 KT Companion release history, newest first.
 
+## 1.5.38 — 17 November 2026
+
+- The melee calculator now lets each rule, including NicheAbility, apply in every fight or once across the series. Each fighter has independent settings.
+- The shooting calculator offers the same choice for attack and defence rules in both situations. Unused triggered effects remain available for later shots, while the shared Saintly Relics limit and FNP are preserved.
+- Frequency settings are saved in links, scenarios and weapon profiles. Existing settings keep their previous behaviour. For persistent rules, once mode limits the effect to the first fight or shot; explanations are available in Russian and English.
+
 ## 1.5.37 — 17 November 2026
 
 - Administrators can add an existing player to an active team using player search in the management tab. The player joins immediately without accepting an invitation; pending invitations are closed and membership history is preserved.

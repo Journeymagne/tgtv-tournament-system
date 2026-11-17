@@ -1,6 +1,6 @@
 import Model from "src/Model";
 import Ability from "src/Ability";
-import { applyPostRollModifications, canRankByDamage, chooseAutoNorms } from "src/CalcEngineCommon";
+import { applyPostRollModifications, canRankByDamage, chooseAutoNorms, PostRollSuccesses } from "src/CalcEngineCommon";
 
 export type RngFunction = () => number; // returns [0, 1)
 
@@ -56,7 +56,7 @@ export function simulateFighterDice(
   model: Model,
   defender: Model | undefined,
   rng: RngFunction = Math.random,
-): { crits: number; norms: number; cursed: number; options?: {crits: number; norms: number}[] } {
+): PostRollSuccesses & { cursed: number; options?: PostRollSuccesses[] } {
   const shielded = defender?.has(Ability.TiltingShields) ?? false;
   if (shielded) model = model.withProp('lethal', 6).withProp('normsToCrits', 0);
   // lethal must not promote a die that would have failed: clamp critThreshold >= normThreshold
@@ -113,9 +113,12 @@ export function simulateFighterDice(
   // Curse failures cannot be retained, including by Blessings of Infection.
 
   // Apply post-roll modifications (shared with exact engine)
-  const options = new Map<string, {crits: number; norms: number}>();
-  const score = abilities.has(Ability.BlessingsOfInfection) ? (c: number, n: number) => {
-    options.set(`${c},${n}`, {crits: c, norms: n});
+  const trackFightAbilities = model.fightOnceAbilities.length > 0;
+  const options = new Map<string, PostRollSuccesses>();
+  const recordOption = (result: PostRollSuccesses) =>
+    options.set(`${result.crits},${result.norms},${result.usedFightAbilities?.join(',') ?? ''}`, result);
+  const score = abilities.has(Ability.BlessingsOfInfection) ? (c: number, n: number, usedFightAbilities?: Ability[]) => {
+    recordOption(trackFightAbilities ? {crits: c, norms: n, usedFightAbilities: usedFightAbilities ?? []} : {crits: c, norms: n});
     return c * (model.critDmg + model.mwx) + n * model.normDmg;
   } : undefined;
   const modified = applyPostRollModifications(
@@ -127,12 +130,13 @@ export function simulateFighterDice(
     model.critDmg + model.mwx,
     score,
     shielded,
+    trackFightAbilities,
   );
   if (score) {
-    options.set(`${modified.crits},${modified.norms}`, modified);
+    recordOption(modified);
     return {...modified, cursed, options: [...options.values()]};
   }
-  return { crits: modified.crits, norms: modified.norms, cursed };
+  return { ...modified, cursed };
 }
 
 function applyRerolls(

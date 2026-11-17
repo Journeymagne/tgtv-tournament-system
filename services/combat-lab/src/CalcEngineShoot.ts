@@ -3,6 +3,7 @@ import * as Util from 'src/Util';
 import * as Common from 'src/CalcEngineCommon';
 import ShootOptions from "src/ShootOptions";
 import { maxRelicIgnoresPerBattle } from 'src/SaintlyRelics';
+import { calcLimitedShootSequence, hasLimitedShootEffects } from 'src/CalcEngineShootSequence';
 import {
   DamageResult,
   calcDefenderFinalDiceStuff,
@@ -21,6 +22,8 @@ export function calcDmgProbs(
   shootOptions: ShootOptions = new ShootOptions(),
 ): Map<number, number> // damage to prob
 {
+  if (shootOptions.numRounds > 1 && hasLimitedShootEffects(attacker, defender))
+    return calcLimitedShootSequence(attacker, defender, shootOptions.numRounds);
   const defenderStuff = calcDefenderFinalDiceStuff(defender, attacker);
   const attackerFinalDiceProbs = Common.calcFinalDiceProbsForAttacker(
     attacker, defender, hitScorerForDefender(attacker, defender, defenderStuff));
