@@ -56,7 +56,30 @@ Production deploy (`.github/workflows/deploy.yml`) runs when a tag matching
 `vMAJOR.MINOR.PATCH` is pushed (for example `v1.4.3`). It waits until CI has
 succeeded for that commit, SSHs to the VM, runs
 `update_tgtv-ts.sh production --ref <sha>` (using the wrapper from that commit),
-then curls the public homepage and expects HTTP 200.
+then runs the reusable `post-deploy.yml` workflow. The production workflow only
+succeeds after all post-deployment checks pass; a failed check leaves the deployed
+app running and marks the workflow failed for investigation.
+
+The checks cover all menu applications (tournaments/calendar, Combat Lab,
+initiative, activation tracker, Studio, Dice Generator, FAQ, Know Thy Kill Team,
+tierlists), account and map pages, all eight backend services, referenced
+same-origin JavaScript/CSS and both public changelogs. Responses must have the
+right status, MIME type, page identity or JSON shape, service name and release ID
+matching the deployed commit. Umami dashboard, heartbeat and tracker are also
+checked. HTTP checks retry transient failures and collect all failures into the
+Actions job summary and a report artifact retained for 14 days.
+
+These are anonymous GET checks; they do not create production data, accounts,
+sessions or analytics events. Private APIs must return a JSON authentication
+error. Browser interactions and authenticated editing are covered by the existing
+pre-deployment tests rather than writing test records into production.
+
+To check the current installation without a deployment, run **Post-deploy
+application checks** manually in Actions, passing the full deployed commit SHA
+(not necessarily the current `main` SHA). Set the optional `release_tag` to also
+require that version in both public changelogs. A tag deployment supplies both
+values automatically. The entire tag workflow, including these checks, remains
+inside the production deployment concurrency group.
 
 ### One-time GitHub setup
 
@@ -68,7 +91,9 @@ then curls the public homepage and expects HTTP 200.
    - `DEPLOY_SSH_KEY` — private key (PEM), full file contents
    - `DEPLOY_KNOWN_HOSTS` — output of `ssh-keyscan -H <host>`
 3. Optional repository **variable** `DEPLOY_HEALTH_URL` (default
-   `https://ktcompanion.ru/` if unset).
+   `https://ktcompanion.ru/` if unset). Checks use its origin for all app routes.
+   `DEPLOY_ANALYTICS_URL` optionally overrides the Umami origin (default
+   `https://stats.ktcompanion.ru/`).
 
 ### SSH key on the VM
 
