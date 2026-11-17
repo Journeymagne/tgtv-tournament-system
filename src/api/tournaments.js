@@ -431,6 +431,12 @@ async function auditPage({client,params,query}) {
 
 async function createAdmin({ client, user, body }) {
   if (!canCreateTournament(user)) throw new HttpError(403, "Tournament creation permission required");
+  let calendarEvent = null;
+  if (body.calendarEventId !== undefined) {
+    if (!user.isAdmin) throw new HttpError(403, 'Administrator rights required');
+    calendarEvent = await require('./calendar-events').requireEvent(client, body.calendarEventId, true);
+    if (calendarEvent.tournamentCreated) throw new HttpError(409, 'A tournament has already been created for this calendar event');
+  }
   const slug = await uniqueSlug(body.slug || body.name, (candidate) =>
     tournamentsRepo.isSlugTaken(client, candidate)
   );
@@ -439,6 +445,7 @@ async function createAdmin({ client, user, body }) {
     normalizeNewTournament(body, user.id, slug)
   );
   await audit(client, tournament, user, "create", { after: tournament });
+  if (calendarEvent) await require('../db/repositories/calendar-events').link(client,calendarEvent.id,tournament.id);
   return { status: 201, body: { tournament: tournamentSummaryView(tournament) } };
 }
 

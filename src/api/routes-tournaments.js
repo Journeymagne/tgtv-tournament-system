@@ -6,6 +6,7 @@ const games = require("./games");
 const killTeamStatistics = require("./kill-team-statistics");
 const admin = require("./admin");
 const tournaments = require("./tournaments");
+const calendar = require('./calendar-events');
 const tournamentRegistration = require("./tournament-registration");
 const playerTeams = require("./player-teams");
 const teamTournaments = require("./team-tournaments");
@@ -130,6 +131,11 @@ module.exports = [
     auth: "user",
     tx: true
   },
+  { method: 'GET', path: '/api/calendar-events', handler: calendar.list, auth: 'none', loadUser: true },
+  { method: 'GET', path: '/api/admin/calendar-events/:id', handler: calendar.getAdmin, auth: 'admin' },
+  { method: 'POST', path: '/api/admin/calendar-events', handler: calendar.create, auth: 'admin', tx: true },
+  { method: 'PATCH', path: '/api/admin/calendar-events/:id', handler: calendar.update, auth: 'admin', tx: true },
+  { method: 'DELETE', path: '/api/admin/calendar-events/:id', handler: calendar.remove, auth: 'admin', tx: true },
   { method: "GET", path: "/api/tournaments", handler: tournaments.listPublic, auth: "none", loadUser: true },
   {
     method: "GET",

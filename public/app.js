@@ -1302,7 +1302,7 @@ function publicAppRoute(route) {
   if (!route || route.administrationContext) return false;
   if (route.view === "gameDetail") return !route.gameDetailMode;
   if (route.view === "challenge") return Number(route.selectedChallengeUserId) > 0;
-  return ["top", "player", "games", "tournaments", "teams", "statistics", "achievements", "documentation", "roster", "teamPairing"].includes(route.view);
+  return ["top", "player", "games", "tournaments", "calendar", "teams", "statistics", "achievements", "documentation", "roster", "teamPairing"].includes(route.view);
 }
 
 function guestNeedsLogin(route = appRouteFromHash()) {
@@ -1422,6 +1422,7 @@ function appRouteFromHash(routeSegments = null) {
     return { view: "roster", selectedRosterId: Number.isSafeInteger(rosterId) && rosterId > 0 ? rosterId : null };
   }
   if (section === "documentation") return { view: "documentation", documentationPage: subroute || "" };
+  if (section === 'calendar') return { view: 'calendar' };
   if (section === "mygames" || section === "matchmaking" || section === "play") {
     const challengeId = subroute === "challenge" ? Number(id) : null;
     return {
@@ -1617,6 +1618,7 @@ async function applyAppRoute(route) {
 
 function appHashForState() {
   const screenHash = () => {
+    if (state.view === 'calendar') return '#/calendar';
     if (state.view === "administration") return `#/administration/${state.adminHubTab || "overview"}`;
     if (state.view === "achievements") return state.selectedAchievementId ? `#/achievements/${state.selectedAchievementId}` : state.achievementCategory === "title" ? "#/achievements/hall-of-fame" : "#/achievements";
     if (state.view === "roster" && state.selectedRosterId) return `#/rosters/${state.selectedRosterId}`;
@@ -3536,6 +3538,7 @@ function renderShell() {
         ${state.me ? navButton("play", t("nav.myGames")) : ""}
         ${navButton("games", t("nav.games"))}
         ${navButton("tournaments", t("nav.tournaments"))}
+        ${navButton('calendar', t('calendar.title'))}
         ${navButton("teams", t("nav.playerTeams"))}
         ${navButton("statistics", t("nav.stats"))}
         ${state.me ? navButton("profile", t("nav.profile")) : ""}
@@ -3628,6 +3631,7 @@ function renderShell() {
   else if (state.view === "player") renderPlayerProfile();
   else if (state.view === "games") renderGames();
   else if (state.view === "tournaments") renderTournaments();
+  else if (state.view === 'calendar') renderCalendar();
   else if (state.view === "teams") renderTeams();
   else if (state.view === "gameDetail") {
     if (state.gameDetailMode === "review") renderResultReview(state.selectedGameId);
@@ -3656,13 +3660,44 @@ function renderShell() {
 // visitor is an administrator -- before the first render, which is what lets
 // the synchronous markup builders below keep calling it directly.
 let adminUiPromise = null;
+let calendarUiPromise = null;
+
+async function renderCalendar() {
+  const container = document.querySelector('[data-content]');
+  if (!container) return;
+  container.innerHTML = `<section class="card panel" role="status">${t('common.loading')}</section>`;
+  try {
+    if (!calendarUiPromise) {
+      if (!calendarUiPromise) calendarUiPromise = new Promise((resolve, reject) => {
+        const stylesheet = document.createElement('link');
+        stylesheet.rel = 'stylesheet'; stylesheet.href = '/calendar.css?v=calendar-1';
+        const script = document.createElement('script'); script.src = '/calendar.js?v=calendar-1';
+        const failed=()=>{stylesheet.remove();script.remove();reject(new Error(t('calendar.loadError')));};
+        const stylesReady = new Promise((done, fail) => { stylesheet.onload=done; stylesheet.onerror=()=>{failed();fail(new Error(t('calendar.loadError')));}; });
+        const scriptReady = window.TGTV_CALENDAR ? Promise.resolve() : new Promise((done, fail)=>{script.onload=done;script.onerror=()=>{failed();fail(new Error(t('calendar.loadError')));};});
+        Promise.all([stylesReady,scriptReady]).then(resolve,failed);
+        document.head.append(stylesheet);
+        if(!window.TGTV_CALENDAR)document.head.append(script);
+      }).catch(error => { calendarUiPromise=null; throw error; });
+    }
+    await calendarUiPromise;
+    if (state.view !== 'calendar' || !container.isConnected) return;
+    await window.TGTV_CALENDAR.mount(container, {
+      api, t, escapeHtml, confirmDelete, setMessage, user: state.me, locale: () => i18n.getLocale(),
+      isCurrent: () => state.view === 'calendar' && container.isConnected
+    });
+  } catch (error) {
+    if (container.isConnected) container.innerHTML=`<section class="card panel"><p role="alert">${escapeHtml(error?.message || t('calendar.loadError'))}</p><button type="button" class="small-button" data-calendar-load-retry>${t('calendar.retry')}</button></section>`;
+    container.querySelector('[data-calendar-load-retry]')?.addEventListener('click', renderCalendar);
+  }
+}
 
 function loadAdminUi() {
   if (window.TGTV_ADMIN) return Promise.resolve(window.TGTV_ADMIN);
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.5.24-results1`;
+    script.src = `/admin.js?v=1.5.38-calendar1`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);

@@ -358,6 +358,11 @@ async function loadTournamentAdmin() {
     return;
   }
   if (state.adminTournamentMode !== "create") await loadAdminTournaments();
+  else {
+    state.calendarTournamentSource = null;
+    const sourceId = new URLSearchParams(location.search).get('calendarEvent');
+    if (sourceId && state.me?.isAdmin) state.calendarTournamentSource = await api(`/api/admin/calendar-events/${encodeURIComponent(sourceId)}`);
+  }
 }
 
 async function loadAdminTournamentDetail(id) {
@@ -441,7 +446,18 @@ function wireRegistrationPayments(data) {
   });
 }
 
+function clearCalendarTournamentSource() {
+  state.calendarTournamentSource = null;
+  const url = new URL(window.location.href);
+  if (url.searchParams.has('calendarEvent')) {
+    url.searchParams.delete('calendarEvent');
+    window.history.replaceState(window.history.state, '', url.href);
+  }
+}
+
 function adminTournamentCreatePanel() {
+  const source = state.calendarTournamentSource;
+  if (source?.event.tournamentCreated) return `<section class="card panel"><h2>${t('calendar.alreadyCreated')}</h2><a class="primary-button" href="/tournament#/administration/tournaments/admin/${source.event.tournament.id}">${t('calendar.openTournament')}</a></section>`;
   return `
     <section class="card panel">
       <div class="panel-header">
@@ -451,7 +467,8 @@ function adminTournamentCreatePanel() {
         </div>
         <button type="button" class="ghost-button" data-admin-tournament-create-cancel>${t("common.back")}</button>
       </div>
-      ${adminTournamentSettingsContent({}, true)}
+      ${source ? `<p class="field-help">${t('calendar.sourceHint',{ name:escapeHtml(source.event.name) })} ${t('calendar.feeRubles')}: ${Number(source.event.entryFee)} ₽</p>` : ''}
+      ${adminTournamentSettingsContent(source ? { tournament: { ...source.tournamentDefaults, startsAt: source.tournamentDefaults.startsAt ? new Date(source.tournamentDefaults.startsAt).toISOString() : null } } : {}, true)}
       <div class="message" data-message></div>
     </section>
   `;
@@ -1780,6 +1797,7 @@ function wireAdminTournamentControls() {
   wireTournamentInfoControls(state.adminTournamentDetail, { admin: true });
 
   onLive(document.querySelector("[data-admin-tournament-new]"), "click", () => {
+    clearCalendarTournamentSource();
     state.view = "tournaments";
     state.tournamentsTab = "admin";
     state.adminTournamentMode = "create";
@@ -1792,6 +1810,7 @@ function wireAdminTournamentControls() {
 
   onLive(document.querySelector("[data-admin-tournament-create-cancel]"), "click", async () => {
     try {
+      clearCalendarTournamentSource();
       await navigateBack("/tournament#/administration/tournaments");
     } catch (err) {
       setMessage(err.message, true);
@@ -1806,7 +1825,9 @@ function wireAdminTournamentControls() {
     button.disabled = true;
     try {
       const body = adminTournamentBodyFromForm(form, { includeSlug: true });
+      if (state.calendarTournamentSource) body.calendarEventId = state.calendarTournamentSource.event.id;
       const data = await api("/api/admin/tournaments", { method: "POST", body });
+      clearCalendarTournamentSource();
       state.selectedTournamentId = data.tournament.id;
       state.adminTournamentMode = "detail";
       state.tournamentInfoTab = "settings";
