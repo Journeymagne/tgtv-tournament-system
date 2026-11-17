@@ -50,26 +50,39 @@ async function award(client, achievementId, kind, targetId, actorId, members = [
 // Called in the same transaction and under the same tournament lock as publication.
 // Re-publication reconciles the podium instead of retaining outdated winners.
 async function syncPodium(client, tournament, actorId) {
-  const kind = tournament.participantMode === "team" ? "team" : "player";
+  const isTeam = tournament.participantMode === "team";
   for (const place of [1, 2, 3]) {
-    const { rows: [achievement] } = await client.query(`INSERT INTO achievements
-      (name, description, kind, emoji, tournament_id, place, category, tournament_number) VALUES ($1,$2,$3,$4,$5,$6,'title',$7)
-      ON CONFLICT (tournament_id, place) DO UPDATE SET
-        name=CASE WHEN achievements.text_edited THEN achievements.name ELSE EXCLUDED.name END,
-        description=CASE WHEN achievements.text_edited THEN achievements.description ELSE EXCLUDED.description END,
-        category='title', tournament_number=EXCLUDED.tournament_number
-      RETURNING id, deleted_at`, [`${tournament.name} · ${place}`, tournament.name, kind, ["🥇", "🥈", "🥉"][place - 1], tournament.id, place, tournamentNumber(tournament.name)]);
-    if (achievement.deleted_at) continue;
-    const targets = [];
-    for (const row of (tournament.finalResults || []).filter((result) => Number(result.rank) === place)) {
-      const result = kind === "team"
-        ? await client.query("SELECT team_id AS id FROM tournament_team_rosters WHERE id=$1 AND tournament_id=$2", [row.rosterId, tournament.id])
-        : await client.query("SELECT user_id AS id FROM tournament_participants WHERE id=$1 AND tournament_id=$2", [row.participantId, tournament.id]);
-      if (result.rows[0]?.id) targets.push(result.rows[0].id);
+    // A deleted team medal must not reappear as a newly introduced personal title.
+    for (const kind of (isTeam ? ["team", "player"] : ["player"])) {
+      const { rows: [achievement] } = await client.query(`INSERT INTO achievements
+        (name, description, kind, emoji, tournament_id, place, category, tournament_number) VALUES ($1,$2,$3,$4,$5,$6,'title',$7)
+        ON CONFLICT (tournament_id, place, kind) DO UPDATE SET
+          name=CASE WHEN achievements.text_edited THEN achievements.name ELSE EXCLUDED.name END,
+          description=CASE WHEN achievements.text_edited THEN achievements.description ELSE EXCLUDED.description END,
+          category='title', tournament_number=EXCLUDED.tournament_number
+        RETURNING id, deleted_at`, [`${tournament.name} · ${place}`, tournament.name, kind, ["🥇", "🥈", "🥉"][place - 1], tournament.id, place, tournamentNumber(tournament.name)]);
+      if (achievement.deleted_at) {
+        if (kind === "team") break;
+        continue;
+      }
+      const targets = [];
+      for (const row of (tournament.finalResults || []).filter((result) => Number(result.rank) === place)) {
+        const result = kind === "team"
+          ? await client.query("SELECT team_id AS id FROM tournament_team_rosters WHERE id=$1 AND tournament_id=$2", [row.rosterId, tournament.id])
+          : isTeam
+            ? await client.query(`SELECT DISTINCT m.user_id AS id FROM tournament_team_roster_members m
+                JOIN tournament_team_rosters r ON r.id=m.roster_id AND r.tournament_id=m.tournament_id
+                WHERE r.id=$1 AND r.tournament_id=$2 AND m.user_id IS NOT NULL AND NOT m.is_proxy
+                  AND ($3::timestamptz IS NULL OR m.joined_at <= $3::timestamptz)
+                  AND (m.ended_at IS NULL OR m.ended_at > $3::timestamptz)`,
+            [row.rosterId, tournament.id, tournament.completedAt || null])
+          : await client.query("SELECT user_id AS id FROM tournament_participants WHERE id=$1 AND tournament_id=$2", [row.participantId, tournament.id]);
+        for (const recipient of result.rows) if (recipient.id) targets.push(recipient.id);
+      }
+      const column = kind === "team" ? "team_id" : "user_id";
+      await client.query(`DELETE FROM achievement_awards WHERE achievement_id=$1 AND NOT (${column}=ANY($2::integer[]))`, [achievement.id, targets]);
+      for (const target of targets) await award(client, achievement.id, kind, target, actorId);
     }
-    const column = kind === "team" ? "team_id" : "user_id";
-    await client.query(`DELETE FROM achievement_awards WHERE achievement_id=$1 AND NOT (${column}=ANY($2::integer[]))`, [achievement.id, targets]);
-    for (const target of targets) await award(client, achievement.id, kind, target, actorId);
   }
 }
 

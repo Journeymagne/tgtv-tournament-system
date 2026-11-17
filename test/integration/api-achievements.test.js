@@ -260,3 +260,34 @@ test('team podium awards personal titles to the completion roster and reconciles
     assert.equal(await repo.find(client, personal[0].id), null);
   });
 });
+
+test('team podium migration backfills completed results, preserves team medals and respects deletions', async () => {
+  await withTransaction(async (client) => {
+    const { tournament, players } = await teamPodiumFixture(client, 'backfill-podium');
+    // Model the legacy catalog: three team medals, with an edit and a deletion.
+    for (const place of [1, 2, 3]) {
+      const { rows: [medal] } = await client.query(`INSERT INTO achievements
+        (name,description,kind,emoji,tournament_id,place,category,text_edited,deleted_at)
+        VALUES ($1,'Edited description','team','🏆',$2,$3,'title',TRUE,$4) RETURNING id`,
+      [`Custom ${place}`, tournament.id, place, place === 3 ? '2026-11-17T10:00:00Z' : null]);
+      await repo.award(client, medal.id, 'team', teamId, 1);
+    }
+    const existing = (await client.query('SELECT * FROM achievement_awards WHERE achievement_id IN (SELECT id FROM achievements WHERE tournament_id=$1) ORDER BY id', [tournament.id])).rows;
+    const before = (await client.query('SELECT * FROM tournaments WHERE id=$1', [tournament.id])).rows[0];
+    const pending = (await client.query(`INSERT INTO tournaments (slug,name,status,format,participant_mode,team_size,final_results)
+      VALUES ('pending-podium','Pending','in_progress','swiss','team',3,$1::jsonb) RETURNING id`, [JSON.stringify(tournament.finalResults)])).rows[0];
+    const migration = require('../../src/db/migrations/106_team_podium_players');
+    await migration.up(client);
+    await migration.up(client);
+    const medals = (await repo.list(client)).filter(row => row.tournamentId === tournament.id);
+    const personal = medals.filter(row => row.kind === 'player').sort((a, b) => a.place - b.place);
+    assert.deepEqual(personal.map(row => row.place), [1, 2]);
+    assert.deepEqual((await repo.recipients(client, personal[0].id)).map(row => row.userId), [players[0]]);
+    assert.deepEqual((await repo.recipients(client, personal[1].id)).map(row => row.userId), [players[2]]);
+    assert.deepEqual(medals.filter(row => row.kind === 'team').map(row => row.name).sort(), ['Custom 1', 'Custom 2']);
+    const retained = (await client.query('SELECT * FROM achievement_awards WHERE id=ANY($1::int[]) ORDER BY id', [existing.map(row => row.id)])).rows;
+    assert.deepEqual(retained, existing);
+    assert.deepEqual((await client.query('SELECT * FROM tournaments WHERE id=$1', [tournament.id])).rows[0], before);
+    assert.equal((await repo.list(client)).filter(row => row.tournamentId === pending.id).length, 0);
+  });
+});

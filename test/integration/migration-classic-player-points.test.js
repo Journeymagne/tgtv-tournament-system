@@ -88,7 +88,7 @@ async function publishOld(cup, order) {
 
 async function podium(id) {
   return (await client.query(`SELECT a.place,w.team_id FROM achievements a JOIN achievement_awards w ON w.achievement_id=a.id
-    WHERE a.tournament_id=$1 ORDER BY a.place,w.team_id`, [id])).rows;
+    WHERE a.tournament_id=$1 AND a.kind='team' ORDER BY a.place,w.team_id`, [id])).rows;
 }
 
 test("migration 047 replaces historical Classic scores and published podiums, preserves tiebreakers and WTC, and is repeatable", async () => {

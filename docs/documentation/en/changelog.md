@@ -2,6 +2,11 @@
 
 KT Companion release history, newest first.
 
+## 1.5.36 — 17 November 2026
+
+- Fixed personal podium awards for team tournaments: players in the top three rosters receive first-, second- and third-place medals in their profile Hall Of Fame. Awards use the roster at tournament completion.
+- Missing personal medals are restored for completed team tournaments. Republishing results does not create duplicate awards, and team medals are preserved.
+
 ## 1.5.35 — 17 November 2026
 
 - Fixed a Studio autosave race: newer edits are no longer replaced by an older snapshot or turned into unnecessary recovery copies by saves in the same tab. Edits made while a save is being acknowledged stay in the current draft.

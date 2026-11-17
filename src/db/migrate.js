@@ -102,7 +102,9 @@ const MIGRATIONS = [
   require("./migrations/102_q4_season"),
   require("./migrations/103_wilson_mastery_release_notes"),
   require("./migrations/104_faction_qualification_release_notes"),
-  require("./migrations/105_studio_autosave_dice_rotation_release_notes")
+  require("./migrations/105_studio_autosave_dice_rotation_release_notes"),
+  require("./migrations/106_team_podium_players"),
+  require("./migrations/107_team_podium_players_release_notes")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
