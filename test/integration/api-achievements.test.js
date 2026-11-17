@@ -291,3 +291,29 @@ test('team podium migration backfills completed results, preserves team medals a
     assert.equal((await repo.list(client)).filter(row => row.tournamentId === pending.id).length, 0);
   });
 });
+
+test('podium publication works on the legacy schema before the personal medal migration', async () => {
+  await withTransaction(async (client) => {
+    await client.query('SAVEPOINT legacy_podium');
+    try {
+      // Restore the real pre-106 uniqueness contract inside a rolled-back savepoint.
+      await client.query(`DELETE FROM achievements WHERE kind='player' AND tournament_id IN
+        (SELECT tournament_id FROM achievements WHERE kind='team');
+        DROP INDEX tournaments.achievements_tournament_place_kind;
+        ALTER TABLE achievements ADD CONSTRAINT achievements_tournament_id_place_key UNIQUE(tournament_id,place)`);
+      const { tournament, players } = await teamPodiumFixture(client, 'legacy-podium');
+      await repo.syncPodium(client, tournament, 1);
+      const legacy = (await repo.list(client)).filter(row => row.tournamentId === tournament.id);
+      assert.equal(legacy.length, 3);
+      assert.ok(legacy.every(row => row.kind === 'team'));
+      await require('../../src/db/migrations/106_team_podium_players').up(client);
+      const upgraded = (await repo.list(client)).filter(row => row.tournamentId === tournament.id);
+      assert.deepEqual(upgraded.filter(row => row.kind === 'team').map(row => row.id).sort(), legacy.map(row => row.id).sort());
+      const personal = upgraded.filter(row => row.kind === 'player').sort((a, b) => a.place - b.place);
+      assert.equal(personal.length, 3);
+      assert.deepEqual((await repo.recipients(client, personal[0].id)).map(row => row.userId), [players[0]]);
+    } finally {
+      await client.query('ROLLBACK TO SAVEPOINT legacy_podium');
+    }
+  });
+});

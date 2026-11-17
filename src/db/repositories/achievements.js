@@ -54,13 +54,20 @@ async function syncPodium(client, tournament, actorId) {
   for (const place of [1, 2, 3]) {
     // A deleted team medal must not reappear as a newly introduced personal title.
     for (const kind of (isTeam ? ["team", "player"] : ["player"])) {
-      const { rows: [achievement] } = await client.query(`INSERT INTO achievements
+      const values = [`${tournament.name} · ${place}`, tournament.name, kind, ["🥇", "🥈", "🥉"][place - 1], tournament.id, place, tournamentNumber(tournament.name)];
+      // Historical migration 047 calls this before migration 106 adds kind to
+      // podium uniqueness. Its team medals must sync on the old schema too.
+      await client.query(`INSERT INTO achievements
         (name, description, kind, emoji, tournament_id, place, category, tournament_number) VALUES ($1,$2,$3,$4,$5,$6,'title',$7)
-        ON CONFLICT (tournament_id, place, kind) DO UPDATE SET
-          name=CASE WHEN achievements.text_edited THEN achievements.name ELSE EXCLUDED.name END,
-          description=CASE WHEN achievements.text_edited THEN achievements.description ELSE EXCLUDED.description END,
-          category='title', tournament_number=EXCLUDED.tournament_number
-        RETURNING id, deleted_at`, [`${tournament.name} · ${place}`, tournament.name, kind, ["🥇", "🥈", "🥉"][place - 1], tournament.id, place, tournamentNumber(tournament.name)]);
+        ON CONFLICT DO NOTHING`, values);
+      const { rows: [achievement] } = await client.query(`UPDATE achievements SET
+          name=CASE WHEN text_edited THEN name ELSE $1 END,
+          description=CASE WHEN text_edited THEN description ELSE $2 END,
+          category='title', tournament_number=$6
+        WHERE tournament_id=$4 AND place=$5 AND kind=$3
+        RETURNING id, deleted_at`, [values[0], values[1], kind, tournament.id, place, values[6]]);
+      // Legacy uniqueness prevents personal team medals until 106 backfills them.
+      if (!achievement) continue;
       if (achievement.deleted_at) {
         if (kind === "team") break;
         continue;
