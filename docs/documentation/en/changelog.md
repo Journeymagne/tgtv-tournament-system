@@ -2,6 +2,16 @@
 
 KT Companion release history, newest first.
 
+## 1.6.0 — 17 November 2026
+
+- Added a Kill Team event calendar with a month view and list, mobile event cards with tournament posters, search, and Russian city autocomplete. Singles and team events have distinct colours, and tournaments you participate in have a personal marker.
+- Dated tournaments now appear in the calendar automatically. Changing the start date moves the linked event without duplicates or losing announcement details. Automatically generated drafts are administrator-only until publication.
+- Added WTC Doubles for TTS and in-person tournaments: two-player rosters, a dedicated pairing sequence, scoring, and fixed tiebreakers. Other formats now share a consistent tiebreaker settings layout.
+- Tournament viewing and management now share one page. Administrator actions stay visible; the common header shows format, team size, and pairing type. Pending results can be opened for review directly from match lists.
+- Completed tournaments open Results first, while Overview retains the final round's maps, missions, and match results. Improved warnings for assigning multiple pairs to one physical table and handling round pairings.
+- Player profiles have a compact statistics row. Personal details and account controls are grouped under Settings for the owner and administrators. Achievement display and sections have been updated.
+- Statistics now offers Kill Team autocomplete and correct all-time selection, with shorter Winrates section labels in both languages.
+
 ## 1.5.38 — 17 November 2026
 
 - The melee calculator now lets each rule, including NicheAbility, apply in every fight or once across the series. Each fighter has independent settings.

@@ -10,10 +10,10 @@ const extract = name => {
 };
 
 test("all tournament tabs use the same header and facts for viewers and managers", () => {
-  const render = new Function("t", "escapeHtml", "tournamentFormatSummary", "tournamentStatusClass", "tournamentStatusLabel",
+  const render = new Function("t", "escapeHtml", "tournamentFormatSummary", "formatLabel", "teamSizeFor", "tournamentStatusClass", "tournamentStatusLabel",
     "metricCard", "tournamentDateLabel", "tournamentParticipantCountLabel", "tournamentRoundsLabel", "venueModeLabel", "seasonLabel",
     `${extract("isListedTournamentParticipant")}; ${extract("listedTournamentParticipants")}; ${extract("tournamentCompactHeaderMarkup")}; return tournamentCompactHeaderMarkup;`
-  )(key => key, String, () => "Swiss", () => "open", () => "In progress", (label, value) => `<div>${label}:${value}</div>`,
+  )(key => key, String, () => "Swiss", () => "Swiss", () => 3, () => "open", () => "In progress", (label, value) => `<div>${label}:${value}</div>`,
     () => "18 Sep", () => "24/128", () => "6", () => "Tabletop Simulator", () => "2026 Q3");
   const data = { tournament: { name: "A Living Killteam", participantMode: "team" }, rosters: [], rounds: [] };
   const publicHeader = render(data);

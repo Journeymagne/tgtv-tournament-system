@@ -6,7 +6,7 @@ const extract = name => source.match(new RegExp(`(?:async )?function ${name}\\([
 const results = require('../../public/tournament-results');
 
 test('results tab appears only after publication, in public and administration views', () => {
-  const tabs = new Function('t','adminLabel',`${extract('tournamentInfoTabDefinitions')};return tournamentInfoTabDefinitions;`)(key=>key,(_,en)=>en);
+  const tabs = new Function('t','adminLabel','canManageTournamentParticipants',`${extract('tournamentInfoTabDefinitions')};return tournamentInfoTabDefinitions;`)(key=>key,(_,en)=>en,()=>true);
   for (const admin of [false,true]) {
     const data = { tournament: { status: 'in_progress', finalResults: null } };
     assert.equal(tabs(data,{admin}).some(tab=>tab.id==='results'),false);
@@ -19,7 +19,7 @@ test('results tab appears only after publication, in public and administration v
 
 test('completed tournament defaults to results and preserves an explicit overview selection', () => {
   const state = { tournamentInfoTab: '' };
-  const activeTab = new Function('state','t','adminLabel',`${extract('tournamentInfoTabDefinitions')}\n${extract('tournamentInfoActiveTab')};return tournamentInfoActiveTab;`)(state,key=>key,(_,en)=>en);
+  const activeTab = new Function('state','t','adminLabel','canManageTournamentParticipants',`${extract('tournamentInfoTabDefinitions')}\n${extract('tournamentInfoActiveTab')};return tournamentInfoActiveTab;`)(state,key=>key,(_,en)=>en,()=>true);
   const data={tournament:{status:'completed',finalResults:[{rank:1,participantId:1}]}};
   for(const admin of [false,true]) {
     state.tournamentInfoTab='';assert.equal(activeTab(data,{admin}),'results');
