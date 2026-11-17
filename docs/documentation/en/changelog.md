@@ -2,6 +2,11 @@
 
 KT Companion release history, newest first.
 
+## 1.5.37 — 17 November 2026
+
+- Administrators can add an existing player to an active team using player search in the management tab. The player joins immediately without accepting an invitation; pending invitations are closed and membership history is preserved.
+- Current members are excluded from addition search results. Duplicate membership is prevented, and the administrator's action is recorded in the audit log.
+
 ## 1.5.36 — 17 November 2026
 
 - Fixed personal podium awards for team tournaments: players in the top three rosters receive first-, second- and third-place medals in their profile Hall Of Fame. Awards use the roster at tournament completion.

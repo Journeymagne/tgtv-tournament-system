@@ -237,12 +237,39 @@ async function invite({ client, user, params, body }) {
   }
 }
 
-async function respondInvitation({ client, user, params, action }) {
-  const id = requirePositiveIntId(params.id, 404, "Invitation not found");
+async function addMember({ client, user, params, body }) {
+  const team = await requireTeam(client, params.id, true);
+  if (team.archivedAt) throw new HttpError(409, "Restore the archived team before adding players");
+  const playerId = requirePositiveIntId(body.userId, 400, "Choose a player to add");
+  const player = await usersRepo.findById(client, playerId);
+  if (!player) throw new HttpError(404, "Player not found");
+  if (await teamsRepo.activeMembership(client, team.id, player.id)) {
+    throw new HttpError(409, "This player is already a team member");
+  }
+  const membership = await teamsRepo.addMembership(client, team.id, player, "member");
+  const invitations = await teamsRepo.revokePendingInvitations(client, team.id, player.id);
+  await teamsRepo.audit(client, {
+    teamId: team.id, actorUserId: user.id, eventType: "member_add",
+    entityType: "membership", entityId: membership.id, after: membership,
+    metadata: { revokedInvitationIds: invitations.map((invitation) => invitation.id) }
+  });
+  return { status: 201, body: { membership } };
+}
+
+async function requirePendingInvitation(client, id) {
+  const found = await teamsRepo.invitationById(client, id);
+  if (!found) throw new HttpError(404, "Invitation not found");
+  // Membership and invitation changes must lock the team before its invitations.
+  const team = await requireTeam(client, found.teamId, true);
   const invitation = await teamsRepo.invitationById(client, id, true);
   if (!invitation) throw new HttpError(404, "Invitation not found");
   if (invitation.status !== "pending") throw new HttpError(409, "This invitation is no longer pending");
-  const team = await requireTeam(client, invitation.teamId, true);
+  return { team, invitation };
+}
+
+async function respondInvitation({ client, user, params, action }) {
+  const id = requirePositiveIntId(params.id, 404, "Invitation not found");
+  const { team, invitation } = await requirePendingInvitation(client, id);
   if (team.archivedAt) throw new HttpError(409, "Archived team invitations cannot be accepted");
   if (action === "accept") {
     if (invitation.inviteeUserId !== user.id) throw new HttpError(403, "Only the invited player can accept");
@@ -265,10 +292,7 @@ async function respondInvitation({ client, user, params, action }) {
 
 async function revokeInvitation({ client, user, params }) {
   const id = requirePositiveIntId(params.id, 404, "Invitation not found");
-  const invitation = await teamsRepo.invitationById(client, id, true);
-  if (!invitation) throw new HttpError(404, "Invitation not found");
-  if (invitation.status !== "pending") throw new HttpError(409, "This invitation is no longer pending");
-  const team = await requireTeam(client, invitation.teamId, true);
+  const { team, invitation } = await requirePendingInvitation(client, id);
   const membership = await teamsRepo.activeMembership(client, team.id, user.id);
   if (!user.isAdmin && invitation.invitedByUserId !== user.id && membership?.role !== "leader") {
     throw new HttpError(403, "Only the sender, team leader, or administrator can revoke this invitation");
@@ -430,6 +454,7 @@ module.exports = {
   dashboard,
   update,
   invite,
+  addMember,
   acceptInvitation: (ctx) => respondInvitation({ ...ctx, action: "accept" }),
   declineInvitation: (ctx) => respondInvitation({ ...ctx, action: "decline" }),
   revokeInvitation,

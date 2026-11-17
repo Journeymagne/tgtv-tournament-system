@@ -269,6 +269,17 @@ async function updateInvitationStatus(client, id, status) {
   return mapInvitation(rows[0]);
 }
 
+async function revokePendingInvitations(client, teamId, userId) {
+  const { rows } = await client.query(
+    `UPDATE player_team_invitations
+     SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+     WHERE team_id = $1 AND invitee_user_id = $2 AND status = 'pending'
+     RETURNING *`,
+    [teamId, userId]
+  );
+  return rows.map(mapInvitation);
+}
+
 async function hasLockedActiveRoster(client, teamId, userId = null) {
   const { rows } = await client.query(
     `SELECT 1
@@ -369,6 +380,7 @@ module.exports = {
   invitationById,
   listInvitationsForUser,
   updateInvitationStatus,
+  revokePendingInvitations,
   hasLockedActiveRoster,
   hasUnfinishedRoster,
   deletionBlockReason,

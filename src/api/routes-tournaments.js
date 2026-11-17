@@ -58,6 +58,7 @@ module.exports = [
   { method: "GET", path: "/api/teams/dashboard", handler: playerTeams.dashboard, auth: "user" },
   { method: "GET", path: "/api/leaderboards/teams", handler: playerTeams.leaderboard, auth: "none" },
   { method: "GET", path: "/api/admin/teams", handler: playerTeams.administration, auth: "admin" },
+  { method: "POST", path: "/api/admin/teams/:id/members", handler: playerTeams.addMember, auth: "admin", tx: true },
   { method: "GET", path: "/api/teams/:slug", handler: playerTeams.get, auth: "none", loadUser: true },
   { method: "POST", path: "/api/teams", handler: playerTeams.create, auth: "user", tx: true },
   { method: "PATCH", path: "/api/teams/:id", handler: playerTeams.update, auth: "user", tx: true },

@@ -109,6 +109,85 @@ test("an administrator outside a team edits all profile fields and removes its l
   assert.ok(audit.rows.every((row) => row.actor_user_id === admin.id));
 });
 
+test("only administrators can add a player directly to a team", async () => {
+  const url = `/api/admin/teams/${team.id}/members`;
+  assert.equal((await createClient(server.baseUrl).post(url, { userId: outsider.id })).status, 401);
+  for (const player of [leader, member, outsider]) {
+    assert.equal((await player.http.post(url, { userId: outsider.id })).status, 403);
+  }
+  const added = await admin.http.post(url, { userId: outsider.id });
+  assert.equal(added.status, 201);
+  assert.equal(added.body.membership.userId, outsider.id);
+  assert.equal(added.body.membership.role, "member");
+  const profile = (await outsider.http.get(`/api/teams/${team.slug}`)).body;
+  assert.equal(profile.team.viewer.isMember, true);
+  assert.equal(profile.team.leaderUserId, leader.id);
+  assert.equal(profile.currentMembers.length, 3);
+  assert.ok((await outsider.http.get("/api/teams/dashboard")).body.myTeams.some((row) => row.id === team.id));
+  const audit = (await getPool().query("SELECT * FROM player_team_audit_events WHERE event_type = 'member_add'")).rows;
+  assert.equal(audit.length, 1);
+  assert.equal(audit[0].actor_user_id, admin.id);
+  assert.equal(audit[0].entity_id, added.body.membership.id);
+  assert.equal(audit[0].after.userId, outsider.id);
+});
+
+test("direct addition validates players and teams and rejects current members", async () => {
+  const url = `/api/admin/teams/${team.id}/members`;
+  for (const userId of [undefined, null, "", 0, -1, 1.5, "invalid"]) {
+    assert.equal((await admin.http.post(url, { userId })).status, 400);
+  }
+  assert.equal((await admin.http.post(url, { userId: 999999 })).status, 404);
+  assert.equal((await admin.http.post("/api/admin/teams/999999/members", { userId: outsider.id })).status, 404);
+  for (const player of [leader, member]) {
+    assert.equal((await admin.http.post(url, { userId: player.id })).status, 409);
+  }
+  assert.equal((await admin.http.post(`/api/teams/${team.id}/archive`)).status, 200);
+  assert.equal((await admin.http.post(url, { userId: outsider.id })).status, 409);
+  assert.equal((await getPool().query("SELECT id FROM player_team_audit_events WHERE event_type = 'member_add'")).rowCount, 0);
+});
+
+test("direct addition preserves former membership history", async () => {
+  const original = (await member.http.get(`/api/teams/${team.slug}`)).body.currentMembers.find((row) => row.userId === member.id);
+  assert.equal((await member.http.post(`/api/teams/${team.id}/leave`)).status, 200);
+  const added = await admin.http.post(`/api/admin/teams/${team.id}/members`, { userId: member.id });
+  assert.equal(added.status, 201);
+  assert.notEqual(added.body.membership.id, original.id);
+  const profile = (await member.http.get(`/api/teams/${team.slug}`)).body;
+  assert.ok(profile.formerMembers.some((row) => row.id === original.id && row.endReason === "left"));
+  assert.equal(profile.currentMembers.filter((row) => row.userId === member.id).length, 1);
+});
+
+test("direct addition revokes a pending invitation without attributing acceptance to the player", async () => {
+  const invitation = (await leader.http.post(`/api/teams/${team.id}/invitations`, { userId: outsider.id })).body.invitation;
+  assert.equal((await admin.http.post(`/api/admin/teams/${team.id}/members`, { userId: outsider.id })).status, 201);
+  assert.deepEqual((await outsider.http.get("/api/teams/dashboard")).body.incomingInvitations, []);
+  assert.equal((await outsider.http.post(`/api/team-invitations/${invitation.id}/accept`)).status, 409);
+  const row = (await getPool().query("SELECT * FROM player_team_invitations WHERE id = $1", [invitation.id])).rows[0];
+  assert.equal(row.status, "revoked");
+  assert.ok(row.revoked_at);
+  assert.equal(row.responded_at, null);
+  const audit = (await getPool().query("SELECT metadata FROM player_team_audit_events WHERE event_type = 'member_add'")).rows[0];
+  assert.deepEqual(audit.metadata.revokedInvitationIds, [invitation.id]);
+});
+
+test("concurrent administrator additions create a single membership", async () => {
+  const results = await Promise.all([1, 2].map(() => admin.http.post(`/api/admin/teams/${team.id}/members`, { userId: outsider.id })));
+  assert.deepEqual(results.map((row) => row.status).sort(), [201, 409]);
+  assert.equal((await getPool().query("SELECT id FROM player_team_memberships WHERE team_id = $1 AND user_id = $2 AND ended_at IS NULL", [team.id, outsider.id])).rowCount, 1);
+});
+
+test("administrator addition and invitation acceptance serialize without a deadlock", async () => {
+  const invitation = (await leader.http.post(`/api/teams/${team.id}/invitations`, { userId: outsider.id })).body.invitation;
+  const results = await Promise.all([
+    admin.http.post(`/api/admin/teams/${team.id}/members`, { userId: outsider.id }),
+    outsider.http.post(`/api/team-invitations/${invitation.id}/accept`)
+  ]);
+  assert.ok(results[0].status === 201 || results[1].status === 200);
+  assert.ok(results.every((row) => [200, 201, 409].includes(row.status)));
+  assert.equal((await getPool().query("SELECT id FROM player_team_memberships WHERE team_id = $1 AND user_id = $2 AND ended_at IS NULL", [team.id, outsider.id])).rowCount, 1);
+  assert.deepEqual((await outsider.http.get("/api/teams/dashboard")).body.incomingInvitations, []);
+});
+
 test("admin leadership transfers demote the real leader even when the admin is a regular member", async () => {
   await join(admin);
   const denied = await member.http.post(`/api/teams/${team.id}/leadership`, { userId: member.id });

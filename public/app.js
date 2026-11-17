@@ -7732,7 +7732,8 @@ function enhanceUserSelects(root = document) {
           const data=await api('/api/users/search?q='+encodeURIComponent(query));
           if(current!==sequence||!input.isConnected)return;
           const value=select.value,selected=Array.from(select.options).find(option=>option.value===value);
-          const options=data.users.map(user=>new Option(user.name,user.id));
+          const excludedIds=new Set(String(select.dataset.userSearchExclude||'').split(','));
+          const options=data.users.filter(user=>!excludedIds.has(String(user.id))).map(user=>new Option(user.name,user.id));
           if(selected&&!options.some(option=>option.value===value))options.unshift(selected);
           select.replaceChildren(new Option('',''),...options);select.value=value;
           syncUserSelect(select);input.value=query;input.dispatchEvent(new Event('combo-options-change',{bubbles:true}));
@@ -11307,6 +11308,14 @@ function teamManagementPanel(data) {
   const memberIds = new Set(current.map((membership) => membership.userId));
   const inviteCandidates = (state.users || []).filter((user) => !memberIds.has(user.id));
   return `<section class="card panel team-management-panel"><h3>${t("teams.manage.title")}</h3>
+    ${!team.archivedAt && state.me?.isAdmin && state.administrationContext && team.viewer?.canAdmin ? `<form data-team-add-member>
+      <div class="field"><label for="team-add-user">${t("teams.members.add")}</label>
+        <select id="team-add-user" name="userId" data-user-search data-user-search-remote data-user-search-exclude="${escapeHtml([...memberIds].join(","))}" required><option value="">${t("teams.invite.choose")}</option>${inviteCandidates.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("")}</select>
+        <span class="field-help">${t("teams.members.addHint")}</span>
+      </div>
+      <button class="small-button" type="submit">${t("teams.members.add")}</button>
+      <div class="message error" data-team-add-member-message role="alert" hidden></div>
+    </form>` : ""}
     <form data-team-edit>
       <div class="field"><label for="team-edit-name">${t("teams.field.name")}</label><input id="team-edit-name" name="name" minlength="2" maxlength="80" value="${escapeHtml(team.name || "")}" required></div>
       ${markdownEditorField({ name: "description", label: t("teams.field.description"), value: team.description || "", rows: 10 })}
@@ -11354,12 +11363,38 @@ async function deletePlayerTeam(team, button) {
   }
 }
 
+async function addPlayerTeamMember(team, form) {
+  const button = form.querySelector('[type="submit"]');
+  if (button.disabled) return;
+  const select = form.elements.userId;
+  const userId = Number(select.value);
+  const name = select.selectedOptions[0]?.textContent.trim() || "";
+  const message = form.querySelector("[data-team-add-member-message]");
+  button.disabled = true;
+  message.hidden = true;
+  try {
+    await api(`/api/admin/teams/${team.id}/members`, { method: "POST", body: { userId } });
+    await renderPlayerTeamRoute(team.slug, { force: true });
+    await loadNotifications();
+    setMessage(t("teams.message.memberAdded", { name }));
+  } catch (err) {
+    message.textContent = err.message;
+    message.hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function wirePlayerTeamProfile(data) {
   const team = data.team;
   wireRosterLinks();
   wireMarkdownEditors();
   wireTeamProfileTabs();
   wireComboFields();
+  document.querySelector("[data-team-add-member]")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    addPlayerTeamMember(team, event.currentTarget);
+  });
   document.querySelector("[data-team-delete]")?.addEventListener("click", (event) => deletePlayerTeam(team, event.currentTarget));
   document.querySelector("[data-team-back]")?.addEventListener("click", () => navigateBack(state.administrationContext ? "/tournament#/administration/people" : "/tournament#/teams"));
   document.querySelector("[data-team-login]")?.addEventListener("click", () => { state.authMode = "login"; clearPlayerTeamRoute(); render(); });
