@@ -114,3 +114,32 @@ jobs:
     with:
       expected_sha: ${{ github.sha }}
       release_tag: ${{ github.ref_name }}
+
+  release-backup:
+    name: Create verified release database backup
+    needs: post-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+      - name: Back up the checked release on the server
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "flock -n /app/tgtv-ts.update.lock env TGTV_DEPLOY_LOCKED=/app/tgtv-ts node /app/tgtv-ts/scripts/create-release-backup.js /app/tgtv-ts $(printf %q "$DEPLOY_SHA")"

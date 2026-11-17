@@ -126,6 +126,40 @@ git push origin v1.4.3
 Manual deploy on the host remains supported (`bash update_tgtv-ts.sh production`
 or with `--ref`).
 
+### Release backups on the owner's Windows computer
+
+After all production smoke checks pass, the tag workflow creates a fresh complete
+main PostgreSQL database dump using the tagged release's
+`scripts/create-release-backup.js`. It runs under the deployment lock, checks the
+active healthy release/SHA and database container identity, verifies every archive
+entry and computes SHA-256. Only after verification does it publish
+`/app/tgtv-ts-shared/work/release-backups/index.json` and retain the two latest
+complete snapshots. Backup data stays on the server; GitHub receives metadata
+only. Existing daily/FTP backups are independent.
+
+On the Windows computer, install once as the normal user with access to the
+existing `tgtv-server` SSH alias:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-local-backups.ps1
+```
+
+This creates `C:\Backups\KTCompanion` and the hidden current-user scheduled task
+`KTCompanion-BackupSync`. It runs every five minutes and at logon. No password is
+stored. The computer must be online and the user signed in; missed releases are
+collected from the server's latest two snapshots when available. Local downloads
+are staged and verified by size and SHA-256 before publication; only then are
+older managed local snapshots removed. Connection failures leave verified copies
+in place. Each backup includes release metadata; `last-sync.json` and bounded
+`sync.log` record local status. The local folder ACL is limited to that user,
+administrators and SYSTEM. Code is identified by the backup's commit SHA;
+environment configuration remains on the server.
+
+Manual deployments can publish the same backup under the deployment lock by
+running the release script with the full checked commit SHA. This does not make
+schema-incompatible code rollback safe; restore drills should use a separate
+empty database with PostgreSQL 16+ tools.
+
 ## Preparation and switch
 
 1. Create a timestamp/commit release directory. Read the external `.env` as data,
