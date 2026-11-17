@@ -59,14 +59,26 @@ try {
     $entries = @($index.backups)
     if ($index.schema -ne 1 -or $entries.Count -lt 1 -or $entries.Count -gt 2 -or @($entries.id | Select-Object -Unique).Count -ne $entries.Count) { throw 'Invalid server backup index' }
     foreach ($entry in $entries) { Assert-Entry $entry }
+    # An interrupted download may leave the server's two-snapshot window later.
+    # Delete only recognizable obsolete staging files under this locked root.
+    foreach ($abandoned in @(Get-ChildItem -LiteralPath $incoming -Directory | Where-Object { $_.Name -match '^\d{8}T\d{9}Z-[a-f0-9]{12}$' -and $_.Name -notin @($entries.id) })) {
+        $folder = Assert-ManagedPath $abandoned.FullName
+        $children = @(Get-ChildItem -LiteralPath $folder -Force)
+        if (@($children | Where-Object { $_.Name -notin @('database.dump.partial', 'database.dump', 'metadata.json') -or $_.PSIsContainer -or ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) }).Count -gt 0) { throw 'Unrecognized files in obsolete staging; retained for inspection' }
+        Remove-Item -LiteralPath $folder -Recurse -Force
+        Write-SyncLog ('Removed obsolete interrupted transfer ' + $abandoned.Name)
+    }
     foreach ($entry in $entries) {
         $destination = Assert-ManagedPath (Join-Path $snapshots $entry.id)
         $manifest = Assert-ManagedPath (Join-Path $destination 'metadata.json')
         $dump = Assert-ManagedPath (Join-Path $destination 'database.dump')
+        $replaceExisting = $false
         if (Test-Path -LiteralPath $destination) {
             $existing = Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
-            if ($existing.sha256 -cne $entry.sha256 -or (Get-Item -LiteralPath $dump).Length -ne [long]$entry.bytes) { throw 'An existing local backup does not match its manifest; retained for inspection' }
-            continue
+            if ($existing.id -cne $entry.id -or $existing.sha256 -cne $entry.sha256) { throw 'An existing local manifest differs from the server; retained for inspection' }
+            if ((Test-Path -LiteralPath $dump -PathType Leaf) -and (Get-Item -LiteralPath $dump).Length -eq [long]$entry.bytes -and (Get-FileHash -LiteralPath $dump -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $entry.sha256) { continue }
+            $replaceExisting = $true
+            Write-SyncLog ('Existing archive needs a verified replacement: ' + $entry.id)
         }
         $staging = Assert-ManagedPath (Join-Path $incoming $entry.id)
         $null = New-Item -ItemType Directory -Path $staging -Force
@@ -83,13 +95,20 @@ try {
         # Both resolved absolute paths were checked under the dedicated root.
         $null = Assert-ManagedPath $staging
         $null = Assert-ManagedPath $destination
-        Move-Item -LiteralPath $staging -Destination $destination
+        if ($replaceExisting) {
+            Move-Item -LiteralPath $complete -Destination $dump -Force
+            Move-Item -LiteralPath (Assert-ManagedPath (Join-Path $staging 'metadata.json')) -Destination $manifest -Force
+            Remove-Item -LiteralPath $staging
+        } else {
+            Move-Item -LiteralPath $staging -Destination $destination
+        }
         Write-SyncLog ('Verified and published ' + $entry.id)
     }
     $locals = @(Get-ChildItem -LiteralPath $snapshots -Directory | Where-Object { $_.Name -match '^\d{8}T\d{9}Z-[a-f0-9]{12}$' } | ForEach-Object {
         $folder = Assert-ManagedPath $_.FullName
         $metadata = Get-Content -LiteralPath (Assert-ManagedPath (Join-Path $folder 'metadata.json')) -Raw | ConvertFrom-Json
         Assert-Entry $metadata
+        if ($metadata.id -cne $_.Name) { throw 'Local snapshot folder and manifest differ' }
         [PSCustomObject]@{ Folder = $folder; Metadata = $metadata }
     } | Sort-Object { [DateTime]$_.Metadata.createdAt } -Descending)
     foreach ($obsolete in @($locals | Select-Object -Skip 2)) {
