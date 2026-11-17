@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
 const { SERVICES } = require('../../src/services/catalog');
 const { createChecks, validateResponse, discoverAssets, runSmoke, summaryMarkdown } = require('../../scripts/post-deploy-smoke');
 const sha = 'abcdef123456'.repeat(3) + 'abcd';
@@ -12,6 +14,10 @@ const response = (body = '{"user":null}', overrides = {}) => ({ status: 200, bod
 test('coverage includes all backend services, every menu application, calendar and analytics', () => {
   const checks = createChecks('1.6.0');
   for (const service of [...SERVICES, 'gateway']) assert.ok(checks.some(c => c.service === service), service);
+  const home = fs.readFileSync(path.join(__dirname, '../../public/home.html'), 'utf8');
+  for (const link of home.matchAll(/<a\b[^>]*data-companion-service=["'][^"']+["'][^>]*href=["']([^"']+)["']/g)) {
+    assert.ok(checks.some(c => c.kind === 'html' && c.route === link[1]), `Uncovered menu application: ${link[1]}`);
+  }
   for (const route of ['/', '/tournament', '/combat', '/initiative', '/tracker', '/studio', '/dice', '/faq', '/knowthykt', '/tierlist', '/account', '/maps/index.html', '/api/calendar-events', '/api/tierlists/seasons', '/api/heartbeat', '/telemetry/script.js']) {
     assert.ok(checks.some(c => c.route === route), route);
   }
