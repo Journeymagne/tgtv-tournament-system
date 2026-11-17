@@ -242,8 +242,14 @@ function applyRoundSetupBody(roundBlueprint, participants, body = {}, tournament
   const baseMatches = roundBlueprint.matches.map((match) => ({ ...match }));
   if (tournament.format === TOURNAMENT_FORMATS.SWISS && Array.isArray(body.matchups)) {
     if (!setupMatches.length) throw new ValidationError("The round must contain at least one pairing");
-    if (baseMatches.some((match, index) => match.isBye && index >= setupMatches.length)) {
-      throw new ValidationError("Round setup must preserve the bye slot");
+    const byeIndex=baseMatches.findIndex(match=>match.isBye);
+    if(byeIndex!==-1&&setupMatches.length<baseMatches.length){
+      if(setupMatches.length<2)throw new ValidationError("The round must contain at least one pairing");
+      const newByeIndex=Math.min(byeIndex,setupMatches.length-1),slot=setupMatches[newByeIndex];
+      if(!slot||slot.participantAId||slot.participantBId||slot.tableId)throw new ValidationError("Round setup must preserve the bye slot");
+      const bye=baseMatches.splice(byeIndex,1)[0];
+      baseMatches.splice(setupMatches.length-1);
+      baseMatches.splice(newByeIndex,0,bye);
     }
     // An explicit Swiss setup is the complete list, including intentionally empty pairs.
     // Do not restore removed rows from the automatically generated pairings.
@@ -270,7 +276,7 @@ function applyRoundSetupBody(roundBlueprint, participants, body = {}, tournament
   }
   const matches = baseMatches.map((match, index) => {
     const setup = setupMatches[index] || {};
-    if (match.isBye) return { ...match, mission: roundMission };
+    if (match.isBye) return { ...match, bracketPosition:index+1, mission: roundMission };
     const participantAId = setup.participantAId === undefined
       ? match.participantAId || null
       : setup.participantAId === "" || setup.participantAId === null
@@ -1416,7 +1422,7 @@ async function prepareRolledBackRoundSetup(
       roundBlueprint.matches[byeIndex] = { ...roundBlueprint.matches[byeIndex], participantAId: byeId, winnerParticipantId: byeId };
     }
     // Drafts created before bye slots were preserved have a compact array.
-    if (setupBody.matchups.length === roundBlueprint.matches.length - 1) {
+    if (!Array.isArray(body.matchups) && !Object.hasOwn(draft,'byeParticipantId') && setupBody.matchups.length === roundBlueprint.matches.length - 1) {
       setupBody.matchups = [...setupBody.matchups];
       setupBody.matchups.splice(byeIndex, 0, {});
     }
