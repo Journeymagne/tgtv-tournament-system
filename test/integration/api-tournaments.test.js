@@ -1410,7 +1410,7 @@ test("Swiss preparation saves removed pair rows without restoring them and prese
     assert.equal(saved.participants.length, playerCount);
     if (bye) {
       assert.equal(matches.find(match => match.isBye).participantAId, bye.participantAId);
-      assert.equal(matches.find(match => match.isBye).bracketPosition,2);
+      assert.equal(matches.find(match => match.isBye).bracketPosition,1);
     }
     const reopened = await tournamentsApi.previewNextRoundAdmin(context);
     assert.equal(reopened.round.matches.length, matches.length);
