@@ -24,7 +24,7 @@ const { matchParticipant, participantResultKey, winnerParticipantIdFromResult, a
 const { calculateSubmittedResult, parseKillzone } = require("../domain/scoring");
 const { calculateParticipantElo } = require("../domain/elo");
 const { normalizeFactions, registeredFactions, validateResultFactions } = require("../domain/tournaments/factions");
-const { usesSharedTeamTables } = require("../domain/team-tournaments");
+const { usesSharedTeamTables, teamSizeFor } = require("../domain/team-tournaments");
 const { uniqueSlug } = require("../domain/tournaments/slug");
 const { decodeDataUrl, contentVersion } = require("../domain/data-url");
 const { buildSwissNextRound } = require("../domain/tournaments/swiss");
@@ -206,9 +206,12 @@ function missionForMatch(tournament, table, roundMission = {}) {
   return mission || null;
 }
 
-function applyRoundMissionAndTables(tournament, roundBlueprint, tables, previousMatches) {
+function applyRoundMissionAndTables(tournament, roundBlueprint, tables, previousMatches, { allowTableConflicts = false } = {}) {
   const history = tableHistoryByParticipant(previousMatches);
-  const usedThisRound = new Set();
+  if (!allowTableConflicts) pairingWarnings.assertUniquePhysicalTables(roundBlueprint.matches.map(match =>
+    pairingWarnings.individual(match, [], tables)), tournament.venueMode);
+  const usedThisRound = new Set(roundBlueprint.matches.filter(match =>
+    !match.isBye && matchParticipantIds(match).length && match.tableId).map(match => match.tableId));
   for (const match of roundBlueprint.matches) {
     if (match.isBye) continue;
     let table = null;
@@ -219,22 +222,33 @@ function applyRoundMissionAndTables(tournament, roundBlueprint, tables, previous
       if (match.tableId && !table) throw new ValidationError("Round setup uses an unknown table");
       if (table) {
         match.tableId = table.id;
-        usedThisRound.add(table.id);
+        if (matchParticipantIds(match).length) usedThisRound.add(table.id);
       } else {
         match.tableId = null;
       }
     }
     match.mission = missionForMatch(tournament, table, roundBlueprint.mission || {});
   }
+  if (!allowTableConflicts) pairingWarnings.assertUniquePhysicalTables(roundBlueprint.matches.map(match =>
+    pairingWarnings.individual(match, [], tables)), tournament.venueMode);
   return roundBlueprint;
 }
 
-function applyRoundSetupBody(roundBlueprint, participants, body = {}) {
+function applyRoundSetupBody(roundBlueprint, participants, body = {}, tournament = {}) {
   const participantIds = new Set(participants.map((participant) => participant.id));
   const seen = new Set();
   const setupMatches = Array.isArray(body.matchups) ? body.matchups : [];
   const roundMission = normalizeRoundMission(body.mission || body);
   const baseMatches = roundBlueprint.matches.map((match) => ({ ...match }));
+  if (tournament.format === TOURNAMENT_FORMATS.SWISS && Array.isArray(body.matchups)) {
+    if (!setupMatches.length) throw new ValidationError("The round must contain at least one pairing");
+    if (baseMatches.some((match, index) => match.isBye && index >= setupMatches.length)) {
+      throw new ValidationError("Round setup must preserve the bye slot");
+    }
+    // An explicit Swiss setup is the complete list, including intentionally empty pairs.
+    // Do not restore removed rows from the automatically generated pairings.
+    baseMatches.splice(setupMatches.length);
+  }
   while (baseMatches.length < setupMatches.length) {
     baseMatches.push({
       key: `r${roundBlueprint.roundNumber}manual${baseMatches.length + 1}`,
@@ -431,6 +445,7 @@ async function auditPage({client,params,query}) {
 
 async function createAdmin({ client, user, body }) {
   if (!canCreateTournament(user)) throw new HttpError(403, "Tournament creation permission required");
+  const calendarTimeZone = require('../domain/calendar-events').calendarTimeZone(body.calendarTimeZone);
   let calendarEvent = null;
   if (body.calendarEventId !== undefined) {
     if (!user.isAdmin) throw new HttpError(403, 'Administrator rights required');
@@ -446,6 +461,7 @@ async function createAdmin({ client, user, body }) {
   );
   await audit(client, tournament, user, "create", { after: tournament });
   if (calendarEvent) await require('../db/repositories/calendar-events').link(client,calendarEvent.id,tournament.id);
+  if(tournament.startsAt)await require('../db/repositories/calendar-events').syncTournament(client,tournament,calendarTimeZone);
   return { status: 201, body: { tournament: tournamentSummaryView(tournament) } };
 }
 
@@ -460,7 +476,8 @@ async function updateAdmin({ client, user, params, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   if (!canManageTournament(user, tournament)) throw new HttpError(403, "Tournament access required");
   if (body.expectedUpdatedAt && body.expectedUpdatedAt !== tournament.updatedAt) throw new HttpError(409, "Tournament was changed by another administrator. Reload its settings before saving.");
-  const { expectedUpdatedAt, ...changes } = body;
+  const { expectedUpdatedAt, calendarTimeZone:rawCalendarTimeZone, ...changes } = body;
+  const calendarTimeZone=Object.hasOwn(changes,'startsAt')?require('../domain/calendar-events').calendarTimeZone(rawCalendarTimeZone):null;
   body = changes;
   const seasonChanged = Object.hasOwn(body, "seasonId") && normalizeSeasonId(body.seasonId) !== tournament.seasonId;
   if (seasonChanged && !user.isSuperAdmin) throw new HttpError(403, "Only the super administrator can change a tournament season");
@@ -502,6 +519,7 @@ async function updateAdmin({ client, user, params, body }) {
     await clearPreparedRounds(client, tournament);
   }
   const updated = await tournamentsRepo.update(client, tournament.id, patch);
+  if(Object.hasOwn(patch,'startsAt')&&updated.startsAt!==tournament.startsAt)await require('../db/repositories/calendar-events').syncTournament(client,updated,calendarTimeZone);
   if (tournament.participantMode === "team" && Object.hasOwn(patch, "captainPairingEnabled")) {
     await client.query(`UPDATE tournament_team_matches SET captain_pairing_enabled = $2,
       phase = CASE WHEN $2 THEN 'awaiting_roll' ELSE 'environment_selection' END, updated_at = NOW()
@@ -1064,6 +1082,8 @@ async function updateActivePairingsAdmin({ client, user, params, body = {} }) {
   if (!locked.length && !plans.some(plan => plan.participantAId || plan.participantBId)) {
     throw new ValidationError("The round must contain at least one pairing");
   }
+  pairingWarnings.assertUniquePhysicalTables([...locked, ...plans].map(match =>
+    pairingWarnings.individual({ ...match, roundNumber: round.roundNumber }, participants, tables)), tournament.venueMode);
   const changed = plans.filter(plan => !plan.previous ||
     plan.previous.participantAId !== plan.participantAId || plan.previous.participantBId !== plan.participantBId ||
     plan.previous.tableId !== plan.tableId || (!plan.participantAId && !plan.participantBId));
@@ -1193,8 +1213,8 @@ async function addTableAdmin({ client, user, params, body }) {
   const tableCount = Number((await client.query('SELECT count(*) AS count FROM tournament_tables WHERE tournament_id=$1', [tournament.id])).rows[0].count);
   const quotaLimits = await require('../resources/quotas').limits(client, tournament.ownerUserId);
   require('../resources/quotas').check('tournamentTables', quotaLimits.tournamentTables, tableCount, tableCount + 1);
-  if (usesSharedTeamTables(tournament) && tableCount >= 3) {
-    throw new ValidationError("TTS WTC tournaments use exactly three shared tables");
+  if (usesSharedTeamTables(tournament) && tableCount >= teamSizeFor(tournament)) {
+    throw new ValidationError(`TTS WTC tournaments use exactly ${teamSizeFor(tournament)} shared tables`);
   }
   const payload = normalizeTablePayload(body);
   try {
@@ -1307,7 +1327,7 @@ function roundSetupView(roundBlueprint, tables, participants) {
 
 function pairingsCountForTables(roundBlueprint) {
   return (roundBlueprint.matches || []).filter(
-    (match) => !match.isBye && matchParticipantIds(match).length === 2
+    (match) => !match.isBye && matchParticipantIds(match).length > 0
   ).length;
 }
 
@@ -1329,7 +1349,8 @@ async function prepareRolledBackRoundSetup(
   rounds,
   matches,
   participants,
-  body = {}
+  body = {},
+  options = {}
 ) {
   const draft = tournament.roundDraft;
   const setupBody = roundDraftSetupBody(draft, body);
@@ -1403,12 +1424,13 @@ async function prepareRolledBackRoundSetup(
   const setupRound = applyRoundSetupBody(
     roundBlueprint,
     roundSetupParticipantPool(participants),
-    setupBody
+    setupBody,
+    tournament
   );
   const tables = await ensureTablesForPairings(client, tournament, pairingsCountForTables(setupRound));
   return {
     isFirstRound: !rounds.length,
-    round: applyRoundMissionAndTables(tournament, setupRound, tables, matches),
+    round: applyRoundMissionAndTables(tournament, setupRound, tables, matches, options),
     tables,
     restoredDraft: true
   };
@@ -1445,7 +1467,7 @@ function assertNextSingleEliminationRoundAllowed(rounds, matches) {
   return { nextRound, nextMatches };
 }
 
-async function prepareFirstRoundSetup(client, tournament, rounds, matches, participants, body = {}) {
+async function prepareFirstRoundSetup(client, tournament, rounds, matches, participants, body = {}, options = {}) {
   if (rounds.length) throw new HttpError(409, "First round has already been generated");
   const eligible = firstRoundParticipantPool(participants);
   const preview = buildTournamentPreview(tournament, eligible);
@@ -1457,9 +1479,9 @@ async function prepareFirstRoundSetup(client, tournament, rounds, matches, parti
   ) {
     throw new ValidationError("Single elimination cannot add extra pairings");
   }
-  const setupRound = applyRoundSetupBody(firstRound, roundSetupParticipantPool(eligible), body);
+  const setupRound = applyRoundSetupBody(firstRound, roundSetupParticipantPool(eligible), body, tournament);
   const tables = await ensureTablesForPairings(client, tournament, pairingsCountForTables(setupRound));
-  const round = applyRoundMissionAndTables(tournament, setupRound, tables, matches);
+  const round = applyRoundMissionAndTables(tournament, setupRound, tables, matches, options);
   return {
     isFirstRound: true,
     round,
@@ -1471,7 +1493,7 @@ async function prepareFirstRoundSetup(client, tournament, rounds, matches, parti
   };
 }
 
-async function prepareNextRoundSetup(client, tournament, user, rounds, matches, participants, body = {}) {
+async function prepareNextRoundSetup(client, tournament, user, rounds, matches, participants, body = {}, options = {}) {
   if (tournament.roundDraft) {
     return prepareRolledBackRoundSetup(
       client,
@@ -1480,11 +1502,12 @@ async function prepareNextRoundSetup(client, tournament, user, rounds, matches, 
       rounds,
       matches,
       participants,
-      body
+      body,
+      options
     );
   }
   if (!rounds.length) {
-    return prepareFirstRoundSetup(client, tournament, rounds, matches, participants, body);
+    return prepareFirstRoundSetup(client, tournament, rounds, matches, participants, body, options);
   }
 
   let roundBlueprint = null;
@@ -1515,12 +1538,13 @@ async function prepareNextRoundSetup(client, tournament, user, rounds, matches, 
   const setupRound = applyRoundSetupBody(
     roundBlueprint,
     roundSetupParticipantPool(participants),
-    body
+    body,
+    tournament
   );
   const tables = await ensureTablesForPairings(client, tournament, pairingsCountForTables(setupRound));
   return {
     isFirstRound: false,
-    round: applyRoundMissionAndTables(tournament, setupRound, tables, matches),
+    round: applyRoundMissionAndTables(tournament, setupRound, tables, matches, options),
     tables
   };
 }
@@ -1551,7 +1575,9 @@ async function previewNextRoundAdmin({ client, user, params }) {
     user,
     rounds,
     matches,
-    participants
+    participants,
+    {},
+    { allowTableConflicts: true }
   );
   return {
     round: roundSetupView(round, tables, participants),
@@ -1620,6 +1646,8 @@ async function startAdmin({ client, user, params, body = {} }) {
   buildTournamentPreview(tournament, competitive);
   const first = requirePreparedFirstRound(await roundsRepo.listByTournament(client, tournament.id));
   const matches = await matchesRepo.listByRound(client, first.id);
+  pairingWarnings.assertUniquePhysicalTables(matches.map(match =>
+    pairingWarnings.individual(match, participants)), tournament.venueMode);
   const eligibleIds = new Set(competitive.map((participant) => participant.id));
   if (!matches.length || matches.some((match) => matchParticipantIds(match).some((id) => !eligibleIds.has(id)))) {
     throw new HttpError(409, "Participants changed; generate the first round again");

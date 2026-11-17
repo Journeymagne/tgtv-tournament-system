@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/mfursov/russian-cities",
+  "commit": "89826cb1fd047da07029f6c6ead218498454cb95",
+  "source": "https://raw.githubusercontent.com/mfursov/russian-cities/89826cb1fd047da07029f6c6ead218498454cb95/database/cities_ru_en.csv",
+  "license": "Apache-2.0",
+  "licenseFile": "russian-cities-LICENSE.txt",
+  "transformation": "Converted upstream CSV to unique name/search records in UTF-8 JSON; names unchanged.",
+  "imported": "2026-11-17",
+  "sourceSha256": "caed887e759dd46fd6993c19f3f09b2ad2d4d76136f719207c69cc04e8ccec8c"
+}

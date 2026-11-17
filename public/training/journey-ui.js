@@ -10,6 +10,12 @@
     if (!journey) return '';
     const en = locale === 'en';
     const rank = en ? journey.rank.en : journey.rank.name;
+    if (compact) {
+      const label = `Know Thy Kill Team · ${rank}`;
+      return `<a class="kt-training-achievement is-compact is-rank-badge" href="${esc(href)}" title="${esc(label)}" aria-label="${esc(label)}" data-ui-skip>
+        <span class="kt-achievement-seal" data-tier="${journey.rank.tier}">${emblem(journey.rank.tier)}</span>
+        <span class="kt-achievement-rank">${esc(rank)}</span></a>`;
+    }
     const next = journey.next && (en ? journey.next.en : journey.next.name);
     const recertifying = journey.recertification;
     const progressLabel = recertifying ? (en ? 'Recertification progress' : 'Прогресс переаттестации') : (en ? 'Progress to next rank' : 'Прогресс до следующего ранга');

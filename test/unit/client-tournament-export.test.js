@@ -11,14 +11,14 @@ function sourceOf(name) {
 
 test("Excel export appears in the individual tournament management menu even after completion", () => {
   const render = new Function("t", "escapeHtml", "tournamentPublicUrl", "adminTournamentActionButtons",
-    `${sourceOf("adminTournamentMoreMenu")}; return adminTournamentMoreMenu;`)(
+    `${sourceOf("adminTournamentMenu")}; return adminTournamentMenu;`)(
     key => key, String, () => "/tournaments/test", () => ""
   );
   for (const status of ["draft", "registration_open", "in_progress", "completed", "cancelled"]) {
     const html = render({ tournament: { id: 6, participantMode: "individual", status } });
     assert.match(html, /type="button".*data-admin-tournament-action="export-excel"/);
     assert.doesNotMatch(html, /disabled/);
-    assert.match(html, /tournament-admin-maintenance[\s\S]+data-admin-tournament-action="export-excel"/);
+    assert.doesNotMatch(html, /<details|<summary/);
     assert.doesNotMatch(render({ tournament: { id: 6, participantMode: "team", status } }), /export-excel/);
   }
 });

@@ -1,5 +1,13 @@
 Team 3×3 has no individual game tiebreakers. Equal final VP is a draw. GP determines the team match outcome but is not a standings tiebreaker.
 
+## WTC Doubles · 2×2
+
+Each personal game provides 20 GP using the formula below; two games provide 40 GP. A team with 0–17 GP earns 0 TP, 18–22 GP earns 1 TP, and 23–40 GP earns 2 TP. Existing Doubles' total-VP bonus and personal 2/1/0 TP do not apply.
+
+After team TP compare individual wins, mean SOS, total final VP and raw Tac Op without the Primary bonus. SOS averages opponents' current team TP over completed encounters, retaining withdrawn opponents and counting played repeats individually. Compare without rounding. Incomplete team matches contribute no official team standings metrics.
+
+The following sections describe standard WTC 3×3.
+
 ## From VP to GP
 
 Examples: 18:14 VP → 14:6 GP; equal VP → 10:10; a lead of 10 VP or more → 20:0. Each game totals 20 GP; a three-game team match totals 60. Final VP includes Primary bonus.

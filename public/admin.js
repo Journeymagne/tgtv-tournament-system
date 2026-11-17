@@ -467,7 +467,6 @@ function adminTournamentCreatePanel() {
         </div>
         <button type="button" class="ghost-button" data-admin-tournament-create-cancel>${t("common.back")}</button>
       </div>
-      ${source ? `<p class="field-help">${t('calendar.sourceHint',{ name:escapeHtml(source.event.name) })} ${t('calendar.feeRubles')}: ${Number(source.event.entryFee)} ₽</p>` : ''}
       ${adminTournamentSettingsContent(source ? { tournament: { ...source.tournamentDefaults, startsAt: source.tournamentDefaults.startsAt ? new Date(source.tournamentDefaults.startsAt).toISOString() : null } } : {}, true)}
       <div class="message" data-message></div>
     </section>
@@ -499,9 +498,7 @@ function adminTournamentDetailPanel(data) {
     <section class="card panel admin-tournament-detail" data-live-view="adminTournament">
       ${tournamentInfoPanel(data, {
         admin: true,
-        actions: `<button type="button" class="ghost-button" data-admin-tournament-close>${t("common.back")}</button>
-          ${state.tournamentInfoTab === "settings" ? "" : `<button type="button" class="small-button" data-tournament-info-tab="settings">${t("common.edit")}</button>`}
-          ${adminTournamentMoreMenu(data)}`,
+        actions: adminTournamentMenu(data),
         tabActions: (tab) => adminTournamentActionButtons(data, tab)
       })}
       <div class="message" data-message></div>
@@ -509,29 +506,23 @@ function adminTournamentDetailPanel(data) {
   `;
 }
 
-function adminTournamentMoreMenu(data) {
+function adminTournamentMenu(data) {
   const tournament = data.tournament || {};
   const slug = escapeHtml(tournament.slug);
   const exportButton = tournament.id && tournament.participantMode !== "team"
     ? `<button type="button" class="small-button" data-admin-tournament-action="export-excel">${t("admin.tournament.action.exportExcel")}</button>`
     : "";
   return `
-    <details class="tournament-admin-more" data-admin-tournament-more>
-      <summary class="small-button">${t("admin.tournament.detail.more")}</summary>
-      <div class="tournament-admin-menu">
-        <a href="/tournaments/${slug}" data-app-link class="small-button" data-admin-tournament-public="${slug}">${t("admin.tournament.detail.viewPublic")}</a>
-        <button type="button" class="small-button" data-admin-tournament-copy="${escapeHtml(tournamentPublicUrl(tournament))}">${t("admin.tournament.detail.copyLink")}</button>
-        <button type="button" class="small-button" data-tournament-history>${t("admin.tournament.detail.history")}</button>
-        <details class="tournament-admin-maintenance">
-          <summary class="small-button">${t("admin.tournament.detail.management")}</summary>
-          <div class="tournament-admin-menu-group">
-            ${exportButton}
-            ${adminTournamentActionButtons(data, "maintenance")}
-            <button type="button" class="danger-button" data-admin-tournament-action="delete">${t("admin.tournament.detail.delete")}</button>
-          </div>
-        </details>
-      </div>
-    </details>
+    <div class="tournament-admin-menu" role="group" aria-label="${t("admin.tournament.detail.management")}">
+      <button type="button" class="ghost-button" data-admin-tournament-close>${t("common.back")}</button>
+      <button type="button" class="small-button" data-tournament-info-tab="settings">${t("common.edit")}</button>
+      <a href="/tournaments/${slug}" data-app-link class="small-button" data-admin-tournament-public="${slug}">${t("admin.tournament.detail.viewPublic")}</a>
+      <button type="button" class="small-button" data-admin-tournament-copy="${escapeHtml(tournamentPublicUrl(tournament))}">${t("admin.tournament.detail.copyLink")}</button>
+      <button type="button" class="small-button" data-tournament-history>${t("admin.tournament.detail.history")}</button>
+      ${exportButton}
+      ${adminTournamentActionButtons(data, "maintenance")}
+      <button type="button" class="danger-button" data-admin-tournament-action="delete">${t("admin.tournament.detail.delete")}</button>
+    </div>
   `;
 }
 
@@ -542,17 +533,21 @@ function adminTournamentActionButtons(data, tab) {
     buttons.push(`<button class="primary-button" data-admin-tournament-action="publish-open">${t("admin.tournament.action.publishOpen")}</button>`);
     buttons.push(`<button class="small-button" data-admin-tournament-action="publish-closed">${t("admin.tournament.action.publishClosed")}</button>`);
   }
-  if ((!tab || tab === "participants") && tournament.status === "registration_open") {
+  if ((!tab || tab === "preview") && tournament.status === "registration_open") {
     buttons.push(`<button class="small-button" data-admin-tournament-action="close-registration">${t("admin.tournament.action.closeRegistration")}</button>`);
   }
-  if ((!tab || tab === "participants") && tournament.status === "registration_closed") {
+  if ((!tab || tab === "preview") && tournament.status === "registration_closed") {
     buttons.push(`<button class="small-button" data-admin-tournament-action="reopen-registration">${t("admin.tournament.action.reopenRegistration")}</button>`);
   }
-  if ((!tab || tab === "matches") && tournament.status === "registration_closed") {
+  if (tournament.status === "registration_closed") {
     const prepared = (data.rounds || []).some((round) => round.roundNumber === 1 && round.status === "not_ready");
-    buttons.push(`<button class="${prepared ? "small-button" : "primary-button"}" data-admin-tournament-action="generate-next-round">${t(prepared ? "admin.tournament.action.editFirst" : tournament.roundDraft ? "admin.round.resumeDraft" : "admin.tournament.action.generateFirst")}</button>`);
-    if (prepared && tournament.participantMode === "team") buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round">${t("admin.tournament.action.rollbackLatestRound")}</button>`);
-    if (prepared) buttons.push(`<button class="primary-button" data-admin-tournament-action="start">${t("admin.tournament.action.start")}</button>`);
+    if (!tab || tab === (prepared ? "matches" : "preview")) {
+      buttons.push(`<button class="${prepared ? "small-button" : "primary-button"}" data-admin-tournament-action="generate-next-round">${t(prepared ? "admin.tournament.action.editFirst" : tournament.roundDraft ? "admin.round.resumeDraft" : "admin.tournament.action.generateFirst")}</button>`);
+    }
+    if ((!tab || tab === "matches") && prepared) {
+      if (tournament.participantMode === "team") buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round">${t("admin.tournament.action.rollbackLatestRound")}</button>`);
+      buttons.push(`<button class="primary-button" data-admin-tournament-action="start">${t("admin.tournament.action.start")}</button>`);
+    }
   }
   if ((!tab || tab === "matches") && tournament.status === "in_progress") {
     const rollbackState = rollbackRoundActionState(data);
@@ -619,6 +614,7 @@ function adminTournamentSetupForm(data, { active, creating, canApplyTiebreakers 
   const rulesLinkValue = existingRulesLinkType === "url" ? tournament.rulesLink : "";
   const isTeam = tournament.participantMode === "team";
   const doubles = tournament.pairingType === "doubles";
+  const wtcDoubles = tournament.pairingType === "wtc_doubles";
   const externalPanel = active === "tables" || (canApplyTiebreakers && active === "tiebreakers");
   return `
     <form class="admin-tournament-form tournament-settings-form" ${creating ? "data-admin-tournament-create" : "data-admin-tournament-update"}
@@ -690,7 +686,7 @@ function adminTournamentSetupForm(data, { active, creating, canApplyTiebreakers 
           </div>
           <div class="field" data-team-mode-field ${isTeam ? "" : "hidden"}>
             <label for="tournament-setup-team-size">${t("admin.tournament.field.teamSize")}</label>
-            <input id="tournament-setup-team-size" data-team-size-label value="${t(doubles ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree")}" readonly ${lockAttrs}>
+            <input id="tournament-setup-team-size" data-team-size-label value="${t(doubles || wtcDoubles ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree")}" readonly ${lockAttrs}>
           </div>
           <div class="field" data-team-mode-field ${isTeam ? "" : "hidden"}>
             <label for="tournament-setup-pairing-type">${t("admin.tournament.field.pairingType")}</label>
@@ -698,7 +694,9 @@ function adminTournamentSetupForm(data, { active, creating, canApplyTiebreakers 
               <option value="shield_sword" ${tournament.pairingType === "shield_sword" ? "selected" : ""}>${t("tournaments.pairingType.shieldSword")}</option>
               <option value="sword_shield_classic" ${tournament.pairingType === "sword_shield_classic" ? "selected" : ""}>${t("classic.name")}</option>
               <option value="doubles" ${doubles ? "selected" : ""}>${t("doubles.name")}</option>
+              <option value="wtc_doubles" ${wtcDoubles ? "selected" : ""}>${t("wtcDoubles.name")}</option>
             </select>
+            <p class="field-help" data-wtc-doubles-hint ${wtcDoubles ? '' : 'hidden'}>${t('wtcDoubles.settingsHint')}</p>
           </div>
           ${adminRegistrationLimitField(tournament, lockAttrs)}
           ${adminFactionCountField(tournament, lockAttrs)}
@@ -746,15 +744,13 @@ function adminTournamentSetupForm(data, { active, creating, canApplyTiebreakers 
         </div>
       `)}
       ${canApplyTiebreakers ? "" : adminTournamentSetupPanel("tiebreakers", active, `
-        <div class="tournament-tiebreakers" data-individual-mode-field>
-          ${tournamentTiebreakerHeading()}
-          ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], lockAttrs)}
+        <div data-individual-mode-field>
+          ${tournamentIndividualTiebreakerFields(tournament, lockAttrs)}
         </div>
         <div data-team-mode-field ${isTeam ? "" : "hidden"}>
-          <div data-team-classic-settings ${doubles ? "hidden" : ""}>
-            ${teamTournamentTiebreakerFields(doubles ? { id: tournament.id } : tournament, textLockAttrs)}
+          <div data-team-tiebreaker-settings data-pairing-type="${tournament.pairingType || 'shield_sword'}" data-locked="${textLockAttrs ? '1' : '0'}">
+            ${teamTournamentTiebreakerFields(tournament, textLockAttrs)}
           </div>
-          <p class="muted" data-doubles-settings ${doubles ? "" : "hidden"}>${doublesStandingsHint()}</p>
         </div>
       `)}
       <div class="admin-save-row">
@@ -768,13 +764,10 @@ function adminTournamentSetupForm(data, { active, creating, canApplyTiebreakers 
 }
 
 function adminLiveTiebreakersForm(tournament) {
+  if (tournament.pairingType === 'wtc_doubles') return teamTournamentTiebreakerFields(tournament);
   return `
     <form class="tournament-live-tiebreakers" data-admin-tournament-tiebreakers>
-      ${tournament.participantMode === "team" ? teamTournamentTiebreakerFields(tournament) : `
-        <div class="tournament-tiebreakers">
-          ${tournamentTiebreakerHeading()}
-          ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [])}
-        </div>`}
+      ${tournament.participantMode === "team" ? teamTournamentTiebreakerFields(tournament) : tournamentIndividualTiebreakerFields(tournament)}
       <div class="admin-save-row">
         <button class="primary-button" type="submit">${t("admin.tournament.setup.recalculate")}</button>
         <span class="autosave-status" data-tiebreaker-save-status role="status"></span>
@@ -802,7 +795,7 @@ function adminTournamentTablesContent(data) {
   const readOnly = ["completed", "cancelled"].includes(tournament.status) || tournament.teamTablesLocked;
   const sharedTables = tournament.participantMode === "team" && tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic";
   const soloIrl = tournament.venueMode === "irl" && tournament.participantMode !== "team";
-  const cannotAdd = readOnly || (sharedTables && tables.length >= 3);
+  const cannotAdd = readOnly || (sharedTables && tables.length >= size);
   if (tournament.venueMode !== "irl" && tournament.participantMode !== "team") return `<div class="empty">${t("admin.tournament.tables.irlOnly", { venue: t("venue.irl") })}</div>`;
   return `
     <div class="tournament-table-admin" ${soloIrl ? "data-admin-solo-tables" : ""}>
@@ -1095,7 +1088,6 @@ function adminTeamRostersContent(data) {
   const active = rosters.filter((roster) => roster.status !== "withdrawn");
   return `<div class="tournament-participant-admin">
     <div class="panel-header">
-      <p class="participant-admin-note muted">${t("teams.tournament.adminRosterHint")} ${t(started ? "teams.tournament.removeAfterStartHint" : "teams.tournament.deleteHint")}</p>
       <div class="row-actions"><button class="primary-button" data-admin-team-roster-add ${canAddRoster ? "" : "disabled"}>${t("teams.tournament.add")}</button><button class="small-button" data-admin-team-roster-reserve ${canAddRoster ? "" : "disabled"}>${t("teams.reserve.add")}</button></div>
     </div>
     <div class="list">${rosters.length ? rosters.map((roster) => `
@@ -1462,6 +1454,10 @@ function wireAdminTournamentFormBehavior() {
       select.addEventListener("change", () => updateTournamentTiebreakerSelects(form));
     });
     wireTournamentTiebreakerHelp(form);
+    syncTournamentTiebreakerFields(form);
+    form.addEventListener('change', event => {
+      if (event.target.matches('[data-standings-tiebreakers] input[type="checkbox"]')) syncTournamentTiebreakerFields(form);
+    });
     updateTournamentTiebreakerSelects(form);
     wireMarkdownEditors(form);
     wireAdminTournamentAutosave(form);
@@ -1483,7 +1479,7 @@ function wireAdminTournamentTiebreakers() {
   if (!form) return;
   wireTournamentTiebreakerHelp(form);
   const selects = Array.from(form.querySelectorAll("select"));
-  const custom = form.elements.customTeamTiebreakers;
+  const custom = form.elements.customTeamTiebreakers || form.elements.customIndividualTiebreakers;
   const button = form.querySelector("button[type='submit']");
   const status = form.querySelector("[data-tiebreaker-save-status]");
   let values = selects.map(select => select.value);
@@ -1494,7 +1490,7 @@ function wireAdminTournamentTiebreakers() {
   const syncControls = () => {
     if (custom) {
       custom.disabled = button.disabled;
-      form.querySelector(".team-tiebreaker-rank-list").hidden = !custom.checked;
+      form.querySelector(".tiebreaker-rank-list").hidden = !custom.checked;
     }
     selects.forEach(select => { select.disabled = button.disabled || custom?.checked === false; });
   };
@@ -1515,7 +1511,7 @@ function wireAdminTournamentTiebreakers() {
     event.preventDefault();
     const tournament = state.adminTournamentDetail?.tournament;
     if (!tournament || state.adminStandingsRecalculating) return;
-    const tiebreakerOrder = custom?.checked === false ? null : values.filter(Boolean);
+    const tiebreakerOrder = custom?.checked === false ? (tournament.participantMode === 'team' ? null : []) : values.filter(Boolean);
     state.adminStandingsRecalculating = button.disabled = true;
     syncControls();
     setStatus(t("admin.tournament.autosave.saving"), "saving");
@@ -1771,22 +1767,7 @@ function wireTournamentParticipantAdminControls() {
 function wireAdminTournamentControls() {
   wireTournamentListSections();
   wireAdminTournamentStaff();
-  const more = document.querySelector("[data-admin-tournament-more]");
-  const closeMore = () => {
-    if (!more?.open) return;
-    more.open = false;
-    more.querySelector("summary").focus();
-  };
-  onLive(more, "keydown", (event) => {
-    if (event.key !== "Escape" || !more.open) return;
-    event.preventDefault();
-    closeMore();
-  });
-  onLive(more, "focusout", (event) => {
-    if (event.relatedTarget && !more.contains(event.relatedTarget)) more.open = false;
-  });
   onLive(document.querySelector("[data-tournament-history]"), "click", async () => {
-    closeMore();
     try {
       const endpoint = `/api/admin/tournaments/${state.selectedTournamentId}/audit`;
       const data = await api(endpoint);
@@ -1879,7 +1860,6 @@ function wireAdminTournamentControls() {
   document.querySelectorAll("[data-admin-tournament-action]").forEach((button) => {
     onLive(button, "click", async () => {
       const action = button.dataset.adminTournamentAction;
-      if (action !== "export-excel" && more?.contains(button)) closeMore();
       await runAdminTournamentAction(action);
     });
   });
@@ -1982,6 +1962,7 @@ function adminTournamentBodyFromForm(form, options = {}) {
   if (Object.prototype.hasOwnProperty.call(body, "startsAt")) {
     // datetime-local has no timezone; convert in the browser before the API sees it.
     body.startsAt = datetimeLocalToIso(body.startsAt);
+    body.calendarTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   }
   const participantMode = form.elements.participantMode?.value === "team" ? "team" : "individual";
   if (!form.elements.participantMode?.disabled) {
@@ -1989,7 +1970,7 @@ function adminTournamentBodyFromForm(form, options = {}) {
     if (participantMode === "team") {
       body.format = "swiss";
       body.pairingType = form.elements.pairingType?.value || "shield_sword";
-      body.teamSize = body.pairingType === "doubles" ? 2 : 3;
+      body.teamSize = ["doubles","wtc_doubles"].includes(body.pairingType) ? 2 : 3;
     } else {
       setFormValue(body, form, "format");
     }
@@ -2032,7 +2013,9 @@ function adminTournamentBodyFromForm(form, options = {}) {
 
   const tiebreakerSelects = Array.from(form.querySelectorAll("[data-tournament-tiebreaker-select]"))
     .filter((select) => !select.disabled);
-  if (participantMode !== "team" && tiebreakerSelects.length) {
+  if (participantMode !== 'team' && form.elements.customIndividualTiebreakers && !form.elements.customIndividualTiebreakers.disabled && !form.elements.customIndividualTiebreakers.checked) {
+    body.tiebreakerOrder = [];
+  } else if (participantMode !== "team" && tiebreakerSelects.length) {
     const selected = [];
     const seen = new Set();
     for (const select of tiebreakerSelects) {
@@ -2043,14 +2026,17 @@ function adminTournamentBodyFromForm(form, options = {}) {
     }
     body.tiebreakerOrder = selected.slice(0, 4);
   }
-  if (participantMode === "team" && form.elements.pairingType?.value === "doubles") {
+  if (participantMode === "team" && form.elements.pairingType?.value === "wtc_doubles") {
+    if (!form.elements.pairingType.disabled) body.factionCount = 1;
+    body.teamTiebreakerOrder = null;
+  } else if (participantMode === "team" && form.elements.pairingType?.value === "doubles") {
     body.captainPairingEnabled = false;
   } else if (participantMode === "team" && form.elements.captainPairingEnabled && !form.elements.captainPairingEnabled.disabled) {
     body.captainPairingEnabled = form.elements.captainPairingEnabled.checked;
-    if (form.elements.customTeamTiebreakers) {
-      body.teamTiebreakerOrder = form.elements.customTeamTiebreakers.checked
-        ? [0,1,2].map(index => form.elements[`teamTiebreaker-${index}`].value).filter(Boolean) : null;
-    }
+  }
+  if (participantMode === 'team' && form.elements.customTeamTiebreakers && !form.elements.customTeamTiebreakers.disabled) {
+    body.teamTiebreakerOrder = form.elements.customTeamTiebreakers.checked
+      ? [0,1,2].map(index => form.elements[`teamTiebreaker-${index}`]?.value).filter(Boolean) : null;
   }
   return body;
 }

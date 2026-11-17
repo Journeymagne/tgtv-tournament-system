@@ -5,7 +5,7 @@ const { buildSingleElimination, seedSlotOrder } = require("../../src/domain/tour
 const { buildSwissRoundOne, buildSwissNextRound } = require("../../src/domain/tournaments/swiss");
 const { buildTournamentPreview } = require("../../src/domain/tournaments/preview");
 const { buildStandings } = require("../../src/domain/tournaments/standings");
-const { normalizeNewTournament, normalizeTournamentPatch } = require("../../src/domain/tournaments/input");
+const { normalizeNewTournament, normalizeTournamentPatch, validatePublishable } = require("../../src/domain/tournaments/input");
 
 function participant(id, seed, overrides = {}) {
   return {
@@ -60,6 +60,19 @@ test("new tournaments default to the current season and retain an explicitly sel
   }
   assert.equal(normalizeNewTournament({ seasonId: "2026-q2-dataslate" }, 1, "explicit-season").seasonId, "2026-q2-dataslate");
   assert.throws(() => normalizeNewTournament({ seasonId: "unknown-season" }, 1, "invalid-season"), /valid season/);
+});
+
+test("tournaments can be published without a scheduled start date in either venue", () => {
+  for (const venueMode of ["tts", "irl"]) {
+    const tournament = normalizeNewTournament({ name: "Unscheduled Cup", venueMode }, 1, "unscheduled-cup");
+    assert.equal(tournament.startsAt, null);
+    assert.doesNotThrow(() => validatePublishable(tournament));
+  }
+});
+
+test("optional tournament start dates still reject invalid values", () => {
+  assert.throws(() => normalizeTournamentPatch({ startsAt: "not-a-date" }), /Start date must be valid/);
+  assert.equal(normalizeTournamentPatch({ startsAt: "" }).startsAt, null);
 });
 
 test("tournament description keeps its markdown line structure", () => {

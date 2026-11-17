@@ -1,7 +1,7 @@
 const { canManageTournament } = require("../domain/access");
 const { toIso } = require("../db/rows");
 const EVENT_TYPES = [
-  "team_match_roll", "mission_ban", "shield_select", "shields_reveal", "sword_select", "swords_reveal",
+  "team_match_roll", "mission_ban", "wtc_doubles_select", "shield_select", "shields_reveal", "sword_select", "swords_reveal",
   "environment_select", "personal_games_create", "team_pairing_undo", "team_match_reset",
   "team_pairings_override", "team_round_tables_update",
   "team_game_result_submit", "team_game_result_confirm", "team_game_result_reject", "team_game_result_admin-save"
@@ -80,12 +80,16 @@ function eventView(row, match, rosterA, rosterB, user) {
     view.defenderName = metadata.defenderName || null;
   }
   if (row.event_type === "mission_ban") view.mission = metadata.mission || null;
+  if (row.event_type === 'wtc_doubles_select') {
+    view.kind = metadata.kind;
+    view.right = metadata.right || null;
+  }
   if (row.event_type === "environment_select") {
     view.kind = metadata.step?.kind;
     view.slot = metadata.step?.slot;
     view.mission = metadata.assignment?.mission?.critOp || null;
   }
-  if (["environment_select", "personal_games_create", "team_pairings_override"].includes(row.event_type)) {
+  if (["environment_select", "personal_games_create", "team_pairings_override", "wtc_doubles_select"].includes(row.event_type)) {
     view.assignments = (metadata.logAssignments || []).map(item => ({
       slot: item.slot, mission: item.mission, table: item.table,
       playerA: visibleMember(item.playerA, rosters), playerB: visibleMember(item.playerB, rosters)

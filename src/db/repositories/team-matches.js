@@ -16,7 +16,7 @@ function mapTeamMatch(row) {
     rollResult: row.roll_result,
     pairingVersion: row.pairing_version || 1,
     pairingType: row.pairing_type || "shield_sword",
-    teamSize: row.team_size || (row.pairing_type === "doubles" ? 2 : 3),
+    teamSize: row.team_size || (["doubles", "wtc_doubles"].includes(row.pairing_type) ? 2 : 3),
     scoringVersion: row.scoring_version || 1,
     captainPairingEnabled: row.captain_pairing_enabled !== false,
     lineNumber: row.line_number || null,
@@ -102,7 +102,7 @@ async function insert(client, match) {
        CASE WHEN $10 THEN CASE WHEN $11 = 'sword_shield_classic' THEN 9 ELSE 2 END END, CASE WHEN $10 THEN 0 END, CASE WHEN $10 THEN NOW() END, $11, $12, $13, $14, $15) RETURNING *`,
     [match.tournamentId, match.roundId, match.roundNumber, match.bracketPosition, match.rosterAId,
       match.rosterBId, JSON.stringify(match.missions || null), match.tableIds || [], match.pairingVersion || 1, match.rosterBId == null, match.pairingType || "shield_sword",
-      match.captainPairingEnabled !== false, match.lineNumber || null, match.pairingType === "doubles" ? 2 : 3, match.scoringVersion || 1]
+      match.captainPairingEnabled !== false, match.lineNumber || null, ["doubles", "wtc_doubles"].includes(match.pairingType) ? 2 : 3, match.scoringVersion || 1]
   );
   return mapTeamMatch(rows[0]);
 }

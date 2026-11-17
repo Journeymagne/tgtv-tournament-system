@@ -4,9 +4,10 @@ const { CRIT_OPS, KILLZONES } = require("./kill-teams");
 const { pairScoreBrackets, pairByTP } = require("./tournaments/swiss");
 const { shuffledIds } = require("./tournaments/seeding");
 const { DOUBLES_STANDINGS_TIEBREAKERS } = require("./tournaments/constants");
+const { wtcDoublesNextAction } = require('./wtc-doubles');
 
 function teamSizeFor(value) {
-  return value?.pairingType === "doubles" ? 2 : 3;
+  return ["doubles", "wtc_doubles"].includes(value?.pairingType) ? 2 : 3;
 }
 
 function usesIndividualTeamPoints(value) {
@@ -86,6 +87,7 @@ function teamNextAction(match) {
     return { kind: "ban", side: match.missionBans?.length ? attacker : attacker === "a" ? "b" : "a" };
   }
   if (match.phase === "environment_selection") {
+    if (match.pairingType === 'wtc_doubles') return wtcDoublesNextAction(match);
     return teamEnvironmentPlan(match)[Number(match.environment?.step || 0)] || null;
   }
   return null;
@@ -101,7 +103,7 @@ function validateTeamTournament(tournament, rosters) {
   if (rosters.length < (started ? 1 : 4) || rosters.length > 128) {
     throw new ValidationError("Team Swiss requires 4-128 active rosters");
   }
-  if ((!started || tournament.pairingType === "doubles") && rosters.length % 2 !== 0) {
+  if ((!started || teamSizeFor(tournament) === 2) && rosters.length % 2 !== 0) {
     throw new ValidationError("Team Swiss requires an even number of rosters; bye is not supported");
   }
 }
@@ -159,6 +161,7 @@ function teamMatchProgress(match) {
 
 function teamStandings(rosters, matches, order = null, tournament = {}) {
   const doubles = tournament.pairingType === "doubles" || matches.some(match => match.pairingType === "doubles");
+  const wtcDoubles = tournament.pairingType === 'wtc_doubles' || matches.some(match => match.pairingType === 'wtc_doubles');
   // Include withdrawn opponents in the calculation, then hide their ranking.
   const allRosters = [...rosters, ...(tournament.historicalRosters || []).filter(roster => !rosters.some(item => item.id === roster.id))];
   const rows = sortedRosters(allRosters).map((roster) => ({
@@ -178,7 +181,7 @@ function teamStandings(rosters, matches, order = null, tournament = {}) {
   }));
   const byId = new Map(rows.map((row) => [row.roster.id, row]));
   for (const match of matches) {
-    if (doubles && match.phase !== "completed") continue;
+    if ((doubles || wtcDoubles) && match.phase !== "completed") continue;
     const a = byId.get(match.rosterAId);
     const b = byId.get(match.rosterBId);
     if (!a && !b) continue;
@@ -209,11 +212,12 @@ function teamStandings(rosters, matches, order = null, tournament = {}) {
       else row.losses += 1;
     }
   }
-  if (doubles) {
-    for (const row of rows) row.strengthOfSchedule = row.opponents.reduce((sum, id) => sum + (byId.get(id)?.teamTournamentPoints || 0), 0);
+  if (doubles || wtcDoubles) {
+    for (const row of rows) row.strengthOfSchedule = row.opponents.reduce((sum, id) => sum + (byId.get(id)?.teamTournamentPoints || 0), 0) /
+      (wtcDoubles ? Math.max(1,row.opponents.length) : 1);
   }
-  const fields = { individual_wins: "individualWins", vp_diff: "vpDiff", total_vp: "totalVp", strength_of_schedule: "strengthOfSchedule" };
-  const tiebreakers = order ?? (doubles ? DOUBLES_STANDINGS_TIEBREAKERS : null);
+  const fields = { individual_wins: "individualWins", vp_diff: "vpDiff", total_vp: "totalVp", strength_of_schedule: "strengthOfSchedule", tac_op: 'tacOpPoints' };
+  const tiebreakers = wtcDoubles ? ['individual_wins','strength_of_schedule','total_vp','tac_op'] : order ?? (doubles ? DOUBLES_STANDINGS_TIEBREAKERS : null);
   rows.sort((left, right) =>
     right.teamTournamentPoints - left.teamTournamentPoints ||
     (tiebreakers === null ? right.individualWins - left.individualWins || right.totalVp - left.totalVp || right.tacOpPoints - left.tacOpPoints
@@ -330,7 +334,7 @@ function buildNextTeamRound(tournament, rosters, matches, roundNumber, random = 
 }
 
 function normalizeRoundMissions(values = CRIT_OPS, pairingType = null) {
-  if (pairingType === "doubles" && (!Array.isArray(values) || values.length !== 4)) {
+  if (["doubles", "wtc_doubles"].includes(pairingType) && (!Array.isArray(values) || values.length !== 4)) {
     throw new ValidationError("Choose exactly four different missions for a Doubles round");
   }
   if (!Array.isArray(values) || values.length < 3 || values.length > CRIT_OPS.length) {
@@ -384,6 +388,9 @@ function teamTournamentPoints(teamGamePointsA) {
 }
 
 function teamPointsForMatch(match, progress = teamMatchProgress(match)) {
+  if (match.pairingType === 'wtc_doubles') {
+    return progress.gpA < 18 ? {a:0,b:2} : progress.gpA > 22 ? {a:2,b:0} : {a:1,b:1};
+  }
   if (match.pairingType === "doubles") {
     const score = doublesScoring(match, progress);
     return { a: score.baseTpA + (score.vpBonusA || 0), b: score.baseTpB + (score.vpBonusB || 0) };

@@ -11,3 +11,6 @@
 @media(max-width:450px){.kt-team-emblem{width:65px;height:76px}}
 @media(max-width:450px){.kt-training-achievement{gap:15px;padding:18px}.kt-rank-emblem{width:65px;height:76px}.kt-achievement-rank{font-size:22px}}
 @media(prefers-reduced-motion:reduce){.kt-xp-track>span{transition:none}}
+.kt-training-achievement.is-rank-badge{display:inline-flex;max-width:100%;gap:10px;padding:8px 12px;margin-bottom:0;vertical-align:top}
+.is-rank-badge .kt-rank-emblem{width:32px;height:36px}
+.is-rank-badge .kt-achievement-rank{font-size:14px;line-height:1.3}

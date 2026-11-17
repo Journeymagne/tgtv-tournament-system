@@ -86,7 +86,7 @@ function tournamentFormatLabel(tournament) {
 
 function tournamentFormatSummary(tournament) {
   return tournament?.participantMode === "team"
-    ? "Teams · Teams Of Three · WTC"
+    ? tournament.pairingType === 'wtc_doubles' ? 'Teams · Teams Of Two · WTC Doubles' : "Teams · Teams Of Three · WTC"
     : formatLabel(tournament?.format);
 }
 

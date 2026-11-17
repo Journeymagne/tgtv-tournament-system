@@ -58,6 +58,8 @@ const state = {
   teamProfile: null,
   rosterProfile: null,
   selectedRosterId: null,
+  profileTab: "activity",
+  profileTabUserId: null,
   teamProfileTab: "team",
   teamProfileTabTeamId: null,
   teamPairings: [],
@@ -77,6 +79,7 @@ const state = {
   challengeOpenedFromProfile: false,
   challengeTab: "classified",
   statisticsTab: "killTeamWinrates",
+  statisticsTeamQuery: "",
   statisticsVenue: "combined",
   selectedStatisticsTeam: null,
   selectedSeasonId: "",
@@ -1696,8 +1699,8 @@ function currentNavigationEntry() {
 }
 
 function navigationContextKeys() {
-  return ["tournamentInfoTab", "tournamentSetupTab", "tournamentTableViews", "tournamentMatchViews", "teamTournamentStandingsTabs", "teamProfileTab", "teamProfileTabTeamId", "statisticsTab",
-    "selectedStatisticsTeam", "selectedSeasonId", "statisticsFilters", "statisticsSort", "statisticsSorts", "statisticsTableViews",
+  return ["tournamentInfoTab", "tournamentSetupTab", "tournamentTableViews", "tournamentMatchViews", "teamTournamentStandingsTabs", "teamProfileTab", "teamProfileTabTeamId", "profileTab", "profileTabUserId", "statisticsTab",
+    "selectedStatisticsTeam", "selectedSeasonId", "statisticsTeamQuery", "statisticsFilters", "statisticsSort", "statisticsSorts", "statisticsTableViews",
     "gameFilters", "leaderboardPage", "teamLeaderboardPage", "adminUsersPage",
     "adminUsersQuery", "adminTeamsPage", "adminTeamsQuery", "teamsQuery", "challengeTab"];
 }
@@ -2191,7 +2194,7 @@ function renderTournamentJoinForm(data) {
 }
 
 function teamSizeFor(value) {
-  return value?.pairingType === "doubles" ? 2 : 3;
+  return ["doubles", "wtc_doubles"].includes(value?.pairingType) ? 2 : 3;
 }
 
 function usesIndividualTeamPoints(value) {
@@ -2486,8 +2489,8 @@ function tournamentFormatSummary(tournament) {
   if (tournament?.participantMode !== "team") return tournamentFormatLabel(tournament);
   return [
     t("tournaments.participantMode.team"),
-    t(tournament.pairingType === "doubles" ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree"),
-    t(tournament.pairingType === "doubles" ? "doubles.name" : tournament.pairingType === "sword_shield_classic" ? "classic.name" : "tournaments.pairingType.shieldSword"),
+    t(teamSizeFor(tournament) === 2 ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree"),
+    t(tournament.pairingType === "wtc_doubles" ? "wtcDoubles.name" : tournament.pairingType === "doubles" ? "doubles.name" : tournament.pairingType === "sword_shield_classic" ? "classic.name" : "tournaments.pairingType.shieldSword"),
     t("tournaments.factions.tag", { count: tournament.factionCount || 1 })
   ].join(" · ");
 }
@@ -2616,8 +2619,20 @@ function tournamentRoundDeadlineMarkup(round) {
 function tournamentCompactHeaderMarkup(data, options = {}) {
   const tournament = data.tournament || {};
   const isTeam = tournament.participantMode === "team";
-  const compact = options.admin && options.activeTab !== "preview";
-  const round = compact ? tournamentPreviewRound(data.rounds) : null;
+  const pairingTypeLabels = {
+    doubles: "doubles.name",
+    wtc_doubles: "wtcDoubles.name",
+    sword_shield_classic: "classic.name",
+    shield_sword: "tournaments.pairingType.shieldSword"
+  };
+  const formatDetails = [
+    [t("tournaments.field.participantMode"), t(isTeam ? "tournaments.type.team" : "tournaments.participantMode.individual")],
+    ...(isTeam ? [
+      [t("tournaments.field.teamSize"), tournament.teamSize || teamSizeFor(tournament)],
+      [t("admin.tournament.field.pairingType"), pairingTypeLabels[tournament.pairingType] ? t(pairingTypeLabels[tournament.pairingType]) : tournament.pairingType || "—"]
+    ] : []),
+    ...(tournament.format === "swiss" ? [[t("admin.tournament.field.pairingMode"), tournament.pairingMode === "by_tp" ? "By TP" : "Backet Random"]] : [])
+  ];
   const count = isTeam ? (data.rosters || []).filter(roster => roster.status !== "withdrawn").length
     : listedTournamentParticipants(data.participants || []).length;
   return `<header class="tournament-compact-header${options.admin ? " is-admin" : ""}">
@@ -2625,23 +2640,26 @@ function tournamentCompactHeaderMarkup(data, options = {}) {
     <div class="tournament-preview-hero ${tournament.logoData ? "has-logo" : ""}">
       ${tournament.logoData ? `<div class="tournament-preview-logo">${tournamentLogoMarkup(tournament)}</div>` : ""}
       <div class="tournament-preview-heading">
-        <p class="profile-label">${escapeHtml(tournamentFormatSummary(tournament))}</p>
+        <p class="profile-label">${escapeHtml(t("tournaments.factions.tag", { count: tournament.factionCount || 1 }))}</p>
         <h2>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</h2>
         <p class="tournament-compact-status">
           <span class="status-dot ${tournamentStatusClass(tournament.status)}" aria-hidden="true"></span>
           ${escapeHtml(tournamentStatusLabel(tournament.status))}
-          ${compact ? `<span>· ${escapeHtml(venueModeLabel(tournament.venueMode))}${round ? ` · ${t("tournaments.round.title", { number: round.roundNumber })}` : ""}</span>` : ""}
         </p>
       </div>
     </div>
-    ${compact ? "" : `<section class="profile-grid tournament-metrics">
+    <section class="profile-grid tournament-metrics">
       ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
+      ${metricCard(t("tournaments.field.format"), formatLabel(tournament.format))}
       ${metricCard(t(isTeam ? "teams.tournament.rosters" : "tournaments.field.participants"), tournamentParticipantCountLabel({ ...tournament, participantCount: count }))}
       ${metricCard(t("tournaments.field.rounds"), tournamentRoundsLabel(tournament, data))}
       ${metricCard(t("tournaments.field.venue"), venueModeLabel(tournament.venueMode))}
       ${metricCard(t("tournaments.field.season"), seasonLabel(tournament.seasonId))}
-    </section>`}
-    ${!compact && tournament.venueMode === "irl" && tournament.venueAddress ? `<p class="muted tournament-compact-address">${escapeHtml(tournament.venueAddress)}</p>` : ""}
+    </section>
+    <dl class="tournament-format-details">
+      ${formatDetails.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}
+    </dl>
+    ${tournament.venueMode === "irl" && tournament.venueAddress ? `<p class="muted tournament-compact-address">${escapeHtml(tournament.venueAddress)}</p>` : ""}
     ${options.extraActions ? `<div class="row-actions tournament-extra-actions">${options.extraActions}</div>` : ""}
   </header>`;
 }
@@ -2697,9 +2715,9 @@ function tournamentInfoPanel(data, options = {}) {
     tables: t("tournaments.tab.tables")
   };
   const subtitleByTab = {
-    standings: isTeamTournament ? (tournament.pairingType === "doubles" ? doublesStandingsHint()
+    standings: options.admin && tournament.pairingType === "doubles" ? "" : isTeamTournament ? (tournament.pairingType === "wtc_doubles" ? t("wtcDoubles.standingsHint") : tournament.pairingType === "doubles" ? doublesStandingsHint()
       : t(tournament.pairingType === "sword_shield_classic" ? "classic.standingsHint" : "teams.tournament.standingsHint")) : standingsSubtitle(tournament),
-    matches: t("tournaments.info.matchesSubtitle"),
+    matches: options.admin ? "" : t("tournaments.info.matchesSubtitle"),
     stats: t("tournaments.info.statsSubtitle", { name: tournament.name || t("tournaments.fallbackName") }),
     participants: isTeamTournament
       ? t("teams.tournament.rosterCount", { count: (data.rosters || []).filter((roster) => roster.status !== "withdrawn").length })
@@ -2708,15 +2726,15 @@ function tournamentInfoPanel(data, options = {}) {
   };
   return `
     <${wrapperTag} class="${wrapperClass}">
-      ${tournamentCompactHeaderMarkup(data, { ...options, activeTab })}
+      ${tournamentCompactHeaderMarkup(data, options)}
       ${tournamentInfoTabs(activeTab, data, options)}
       ${!["preview", "settings", "results"].includes(activeTab) ? `<div class="panel-header tournament-tab-heading">
         <div>
           <h3>${titleByTab[activeTab]}</h3>
-          <p class="muted">${escapeHtml(subtitleByTab[activeTab])}</p>
+          ${subtitleByTab[activeTab] ? `<p class="muted">${escapeHtml(subtitleByTab[activeTab])}</p>` : ""}
         </div>
       </div>` : ""}
-      ${tabActions ? `<div class="row-actions tournament-admin-tab-actions">${tabActions}</div>` : ""}
+      ${tabActions ? `<div class="row-actions tournament-admin-tab-actions${activeTab === "matches" ? " tournament-round-actions" : ""}">${tabActions}</div>` : ""}
       ${tournamentCompletionBannerMarkup(data, options)}
       ${tournamentInfoTabContent(activeTab, data, options)}
       ${canManage ? `<div class="message" data-message></div>` : ""}
@@ -3670,8 +3688,8 @@ async function renderCalendar() {
     if (!calendarUiPromise) {
       if (!calendarUiPromise) calendarUiPromise = new Promise((resolve, reject) => {
         const stylesheet = document.createElement('link');
-        stylesheet.rel = 'stylesheet'; stylesheet.href = '/calendar.css?v=calendar-1';
-        const script = document.createElement('script'); script.src = '/calendar.js?v=calendar-1';
+        stylesheet.rel = 'stylesheet'; stylesheet.href = '/calendar.css?v=calendar-sync-1';
+        const script = document.createElement('script'); script.src = '/calendar.js?v=calendar-sync-1';
         const failed=()=>{stylesheet.remove();script.remove();reject(new Error(t('calendar.loadError')));};
         const stylesReady = new Promise((done, fail) => { stylesheet.onload=done; stylesheet.onerror=()=>{failed();fail(new Error(t('calendar.loadError')));}; });
         const scriptReady = window.TGTV_CALENDAR ? Promise.resolve() : new Promise((done, fail)=>{script.onload=done;script.onerror=()=>{failed();fail(new Error(t('calendar.loadError')));};});
@@ -3683,7 +3701,7 @@ async function renderCalendar() {
     await calendarUiPromise;
     if (state.view !== 'calendar' || !container.isConnected) return;
     await window.TGTV_CALENDAR.mount(container, {
-      api, t, escapeHtml, confirmDelete, setMessage, user: state.me, locale: () => i18n.getLocale(),
+      api, t, escapeHtml, comboField, wireComboFields, confirmDelete, setMessage, user: state.me, locale: () => i18n.getLocale(),
       isCurrent: () => state.view === 'calendar' && container.isConnected
     });
   } catch (error) {
@@ -3697,7 +3715,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `/admin.js?v=1.5.38-calendar1`;
+    script.src = `/admin.js?v=1.5.38-unified-tiebreakers1-calendar-sync1`;
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -4333,7 +4351,7 @@ function achievementPicture(achievement) {
     : `<span class="achievement-emoji" aria-hidden="true">${escapeHtml(achievement.emoji)}</span>`;
 }
 
-function achievementCards(achievements, { compact = false, trainingTeams = [], wilsonAchievements = [] } = {}) {
+function achievementCards(achievements, { compact = false, trainingTeams = [], wilsonAchievements = [], rankBadge = "", limit = Infinity, hasMore = false } = {}) {
   const en = i18n.getLocale() === 'en';
   const cards = [
     ...wilsonAchievements.map(award => ({
@@ -4352,18 +4370,67 @@ function achievementCards(achievements, { compact = false, trainingTeams = [], w
     ...achievements.map(item => ({ ...item,
       href: `/tournament#/${state.administrationContext ? 'administration/' : ''}achievements/${item.id}` }))
   ];
-  return cards.length ? `<div class="${compact ? "profile-achievement-list" : "achievement-grid"}">${cards.map((item) => `
+  const visibleCards = cards.slice(0, Math.max(0, limit - (rankBadge ? 1 : 0)));
+  const showAll = compact && (cards.length + (rankBadge ? 1 : 0) > limit || hasMore);
+  return cards.length || rankBadge ? `<div class="${compact ? "profile-achievement-list" : "achievement-grid"}">${rankBadge}${visibleCards.map((item) => `
     <a class="${compact ? "profile-achievement-item" : "achievement-card"}" href="${escapeHtml(item.href)}" title="${escapeHtml(achievementDescription(item))}">
       ${achievementPicture(item)}<strong>${escapeHtml(achievementTitle(item))}</strong>
       ${compact ? "" : `<span class="muted">${t(item.kind === "team" ? "achievements.team" : "achievements.personal")}</span>
       <span class="muted">${escapeHtml(achievementDescription(item))}</span>`}
-    </a>`).join("")}</div>` : `<p class="empty">${t("achievements.empty")}</p>`;
+    </a>`).join("")}</div>${showAll ? `<button class="small-button profile-achievements-all" type="button" data-profile-achievements-all aria-haspopup="dialog">${t("achievements.viewAll")}</button>` : ""}` : `<p class="empty">${t("achievements.empty")}</p>`;
 }
 
-function profileAchievementMarkup(data, compact) {
-  return window.KTTrainingJourneyUI.achievement(data.trainingAchievement, { compact, locale: i18n.getLocale() })
+function profileAchievementMarkup(data, compact, { limit = 5 } = {}) {
+  const training = window.KTTrainingJourneyUI.achievement(data.trainingAchievement, { compact, locale: i18n.getLocale() });
+  if (compact) {
+    return achievementCards(data.achievements, { compact, rankBadge: training, limit,
+      hasMore: Number.isFinite(limit) && Number(data.pagination?.total || 0) > data.achievements.length,
+      trainingTeams: data.trainingTeamAchievements || [], wilsonAchievements: data.wilsonAchievements || [] });
+  }
+  return training
     + (data.achievements.length || data.wilsonAchievements?.length || data.trainingTeamAchievements?.some(course => course.earned) || !data.trainingAchievement
       ? achievementCards(data.achievements, { compact, trainingTeams: data.trainingTeamAchievements || [], wilsonAchievements: data.wilsonAchievements || [] }) : '');
+}
+
+async function loadAllProfileAchievements(data, field, id, isCurrent = () => true) {
+  const achievements = new Map(data.achievements.map(item => [item.id, item]));
+  for (let page = (data.pagination?.currentPage || 1) + 1; page <= (data.pagination?.totalPages || 1); page++) {
+    if (!isCurrent()) return null;
+    const next = await api(`/api/achievements?${field}=${encodeURIComponent(id)}&page=${page}`);
+    for (const item of next.achievements) achievements.set(item.id, item);
+  }
+  return { ...data, achievements: [...achievements.values()], pagination: null };
+}
+
+function wireProfileAchievementList(target, field, id) {
+  target.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-profile-achievements-all]");
+    if (!button) return;
+    const dialog = document.createElement("dialog");
+    dialog.className = "tiebreaker-help-dialog profile-achievements-dialog";
+    dialog.setAttribute("aria-labelledby", "profile-achievements-dialog-title");
+    dialog.innerHTML = `<div class="tiebreaker-help-content">
+      <div class="tiebreaker-help-header"><h3 id="profile-achievements-dialog-title">${t("achievements.allTitle")}</h3>
+        <button class="dialog-close-button" type="button" data-achievements-close aria-label="${t("common.close")}">&times;</button></div>
+      <div data-achievements-all-content><p role="status">${t("achievements.loading")}</p></div>
+    </div>`;
+    const root = target.closest("[data-content]") || target;
+    root.appendChild(dialog);
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      target.querySelector("[data-profile-achievements-all]")?.focus();
+    }, { once: true });
+    dialog.querySelector("[data-achievements-close]").addEventListener("click", () => dialog.close());
+    dialog.addEventListener("click", (click) => { if (click.target === dialog) dialog.close(); });
+    dialog.showModal();
+    const body = dialog.querySelector("[data-achievements-all-content]");
+    try {
+      const data = await loadAllProfileAchievements(target.trainingSnapshot, field, id, () => dialog.isConnected);
+      if (data && dialog.isConnected) body.innerHTML = profileAchievementMarkup(data, true, { limit: Infinity });
+    } catch (err) {
+      if (dialog.isConnected) body.innerHTML = `<p role="alert">${escapeHtml(err.message)}</p>`;
+    }
+  });
 }
 
 async function mountProfileAchievements(container, field, id) {
@@ -4387,14 +4454,16 @@ async function mountProfileAchievements(container, field, id) {
     const data = await api(`/api/achievements?${field}=${encodeURIComponent(id)}`);
     if (panel.isConnected) {
       target.innerHTML = profileAchievementMarkup(data, compact);
-      inlinePages(target,data.pagination,async number=>{
-        const next=await api(`/api/achievements?${field}=${encodeURIComponent(id)}&page=${number}`);
-        target.innerHTML=profileAchievementMarkup(next,compact); return next.pagination;
-      });
       if (compact) {
         target.dataset.trainingUser = String(id);
         target.trainingSnapshot = data;
+        wireProfileAchievementList(target, field, id);
         liveRefresh.schedule();
+      } else {
+        inlinePages(target,data.pagination,async number=>{
+          const next=await api(`/api/achievements?${field}=${encodeURIComponent(id)}&page=${number}`);
+          target.innerHTML=profileAchievementMarkup(next,compact); return next.pagination;
+        });
       }
     }
   } catch (err) { if (panel.isConnected) target.textContent = err.message; }
@@ -4604,52 +4673,8 @@ async function renderAchievements() {
   } catch (err) { if (isCurrent()) page.innerHTML = `<h2>${t("achievements.title")}</h2><p role="alert">${escapeHtml(err.message)}</p>`; }
 }
 
-function renderProfile() {
-  const content = document.querySelector("[data-content]");
-  if (!state.teamsDashboard && !state.teamsError) {
-    loadTeamsDashboard().then(() => {
-      if (state.view === "profile") renderShell();
-    }).catch(() => {});
-  }
-  const stats = getProfileStats();
-  const recentGames = stats.completedGames.slice(0, 5);
-  const latestActiveMatchmaking = latestActiveMatchmakingItem(stats);
-  const challengeProgress = ownChallengeProgress();
-  content.innerHTML = `
-    <section class="card panel profile-dashboard" aria-labelledby="profile-dashboard-title">
-    <header class="profile-hero profile-dashboard-hero">
-      <div class="profile-avatar">${avatarMarkup(state.me)}</div>
-      <div class="profile-main">
-        <p class="profile-label">${t("profile.hero.label")}</p>
-        <h2 id="profile-dashboard-title">${escapeHtml(state.me.name)}</h2>
-        <p class="muted">${state.me?.isAdmin ? t("profile.hero.role.admin") : t("profile.hero.role.player")} &middot; ${t("profile.hero.joined", { date: fmtDate(state.me.createdAt) })}</p>
-        ${profileInfoMarkup(state.me)}
-      </div>
-      <button class="ghost-button profile-back-button" data-profile-back>${t("common.back")}</button>
-      ${profileRatingsMarkup(state.me)}
-    </header>
-
-    <div class="profile-grid profile-dashboard-metrics">
-      ${metricCard(t("profile.metric.matches"), stats.completedGames.length)}
-      ${metricCard(t("stats.column.wins"), stats.wins)}
-      ${metricCard(t("stats.column.draws"), stats.draws)}
-      ${metricCard(t("stats.column.losses"), stats.losses)}
-      ${metricCard(t("profile.metric.eloChange"), signed(stats.eloDelta))}
-      ${metricCard(t("profile.metric.winRate"), `${stats.winRate}%`)}
-    </div>
-
-      <div class="panel-header profile-dashboard-heading">
-        <div>
-          <h2>${t("profile.dashboard.title")}</h2>
-          <p class="muted">${t("profile.dashboard.subtitle")}</p>
-        </div>
-      </div>
-      <div class="profile-dashboard-grid">
-        <section class="settings-block profile-dashboard-card">
-          <h3>${adminLabel("Мои тирлисты", "My tier lists")}</h3>
-          <p class="muted">${adminLabel("Ваши сохранённые раскладки команд по сезонам.", "Your saved team rankings by season.")}</p>
-          <a class="ghost-button" href="/tierlist">${adminLabel("Открыть тирлисты", "Open tier lists")}</a>
-        </section>
+function profileSettingsMarkup() {
+  return `<div class="profile-dashboard-grid profile-settings-grid">
         <div class="settings-block profile-dashboard-card">
           <h3>${t("profile.settings.avatarTitle")}</h3>
           <div class="avatar-settings-row">
@@ -4707,6 +4732,101 @@ function renderProfile() {
           </div>
           <button class="primary-button" type="submit">${t("profile.settings.changePassword")}</button>
         </form>
+  </div>`;
+}
+
+function profileSectionsMarkup(user, { activity, settings }) {
+  const canViewSettings = Boolean(state.me && (state.me.id === user.id || state.me.isAdmin));
+  if (state.profileTabUserId !== user.id || !canViewSettings || !["activity", "settings"].includes(state.profileTab)) {
+    state.profileTab = "activity";
+  }
+  state.profileTabUserId = user.id;
+  if (!canViewSettings) return activity;
+  const activeTab = state.profileTab;
+  const tabs = [
+    { id: "activity", label: t("profile.tab.activity"), content: activity },
+    { id: "settings", label: t("profile.tab.settings"), content: settings }
+  ];
+  return `<div class="tabs page-tabs profile-tabs" role="tablist" aria-label="${t("profile.tabsAria")}">
+    ${tabs.map(tab => `<button type="button" class="tab ${activeTab === tab.id ? "active" : ""}" role="tab"
+      id="profile-tab-${tab.id}" data-profile-tab="${tab.id}" aria-controls="profile-panel-${tab.id}"
+      aria-selected="${activeTab === tab.id}" tabindex="${activeTab === tab.id ? "0" : "-1"}">${tab.label}</button>`).join("")}
+    </div>
+    ${tabs.map(tab => `<div class="profile-tab-panel" role="tabpanel" id="profile-panel-${tab.id}"
+      aria-labelledby="profile-tab-${tab.id}" data-profile-panel="${tab.id}" ${activeTab === tab.id ? "" : "hidden"}>${tab.content}</div>`).join("")}`;
+}
+
+function wireProfileTabs() {
+  const buttons = Array.from(document.querySelectorAll("[data-profile-tab]"));
+  const panels = Array.from(document.querySelectorAll("[data-profile-panel]"));
+  const select = (button) => {
+    state.profileTab = button.dataset.profileTab;
+    for (const tab of buttons) {
+      const active = tab === button;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", String(active));
+      tab.tabIndex = active ? 0 : -1;
+    }
+    for (const panel of panels) panel.hidden = panel.dataset.profilePanel !== state.profileTab;
+    rememberNavigationContext();
+  };
+  buttons.forEach((button, index) => {
+    button.addEventListener("click", () => select(button));
+    button.addEventListener("keydown", (event) => {
+      let next;
+      if (event.key === "ArrowRight") next = (index + 1) % buttons.length;
+      else if (event.key === "ArrowLeft") next = (index - 1 + buttons.length) % buttons.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = buttons.length - 1;
+      else return;
+      event.preventDefault();
+      select(buttons[next]);
+      buttons[next].focus();
+    });
+  });
+}
+
+function renderProfile() {
+  const content = document.querySelector("[data-content]");
+  if (!state.teamsDashboard && !state.teamsError) {
+    loadTeamsDashboard().then(() => {
+      if (state.view === "profile") renderShell();
+    }).catch(() => {});
+  }
+  const stats = getProfileStats();
+  const recentGames = stats.completedGames.slice(0, 5);
+  const latestActiveMatchmaking = latestActiveMatchmakingItem(stats);
+  const challengeProgress = ownChallengeProgress();
+  content.innerHTML = `
+    <section class="card panel profile-dashboard" aria-labelledby="profile-dashboard-title">
+    <header class="profile-hero profile-dashboard-hero">
+      <div class="profile-avatar">${avatarMarkup(state.me)}</div>
+      <div class="profile-main">
+        <p class="profile-label">${t("profile.hero.label")}</p>
+        <h2 id="profile-dashboard-title">${escapeHtml(state.me.name)}</h2>
+        <p class="muted">${state.me?.isAdmin ? t("profile.hero.role.admin") : t("profile.hero.role.player")} &middot; ${t("profile.hero.joined", { date: fmtDate(state.me.createdAt) })}</p>
+        ${profileInfoMarkup(state.me)}
+      </div>
+      <button class="ghost-button profile-back-button" data-profile-back>${t("common.back")}</button>
+      ${profileRatingsMarkup(state.me)}
+    </header>
+
+    <div class="profile-grid profile-dashboard-metrics profile-metrics-row">
+      ${metricCard(t("profile.metric.matches"), stats.completedGames.length)}
+      ${metricCard(t("stats.column.wins"), stats.wins)}
+      ${metricCard(t("stats.column.draws"), stats.draws)}
+      ${metricCard(t("stats.column.losses"), stats.losses)}
+      ${metricCard(t("profile.metric.eloChange"), signed(stats.eloDelta))}
+      ${metricCard(t("profile.metric.winRate"), `${stats.winRate}%`)}
+    </div>
+
+      ${profileSectionsMarkup(state.me, {
+        activity: `      <div class="profile-dashboard-grid">
+        <section class="settings-block profile-dashboard-card">
+          <h3>${adminLabel("Мои тирлисты", "My tier lists")}</h3>
+          <p class="muted">${adminLabel("Ваши сохранённые раскладки команд по сезонам.", "Your saved team rankings by season.")}</p>
+          <a class="ghost-button" href="/tierlist">${adminLabel("Открыть тирлисты", "Open tier lists")}</a>
+        </section>
       <section class="settings-block profile-dashboard-card">
         <div class="panel-header">
           <div>
@@ -4740,12 +4860,16 @@ function renderProfile() {
         </div>
       </section>
       </div>
+`,
+        settings: profileSettingsMarkup()
+      })}
       <div class="message" data-profile-message role="status" aria-live="polite"></div>
     </section>
   `;
 
   mountProfileAchievements(content, "userId", state.me?.id);
   document.querySelector("[data-profile-back]").addEventListener("click", () => navigateBack("/tournament#/mygames"));
+  wireProfileTabs();
   wireProfileSettings();
   wireGameButtons();
   wireOpenMatchmakingButton();
@@ -4909,7 +5033,7 @@ function renderPlayerProfile() {
       ${profileRatingsMarkup(user)}
     </section>
 
-    <section class="profile-grid">
+    <section class="profile-grid profile-metrics-row">
       ${metricCard(t("profile.metric.matches"), stats.matches || 0)}
       ${metricCard(t("stats.column.wins"), stats.wins || 0)}
       ${metricCard(t("stats.column.draws"), stats.draws || 0)}
@@ -4918,8 +5042,8 @@ function renderPlayerProfile() {
       ${metricCard(t("profile.metric.winRate"), `${stats.winRate || 0}%`)}
     </section>
 
-    <section class="grid-2">
-      ${state.administrationContext && state.me?.isAdmin && user.id !== state.me?.id ? adminUi().adminPlayerToolsCard(user) : ""}
+    ${profileSectionsMarkup(user, {
+      activity: `    <section class="grid-2">
       <div class="card panel">
         <div class="panel-header">
           <h3 class="icon-heading">${crossedSwordsIcon()}<span>${t("profile.playerProfile.gameChallengesTitle")}</span></h3>
@@ -4930,7 +5054,6 @@ function renderPlayerProfile() {
             ${challengeButton}
           </div>
         </div>
-        <div class="message" data-player-profile-message></div>
       </div>
       ${state.administrationContext && state.me?.isAdmin ? adminUi().adminPendingGamesCard(profile) : ""}
       <div class="card panel">
@@ -4957,7 +5080,10 @@ function renderPlayerProfile() {
           ${recentGames.length ? recentGames.map(gameCard).join("") : `<div class="empty">${t("profile.recent.empty")}</div>`}
         </div>
       </div>
-    </section>
+    </section>`,
+      settings: state.me?.isAdmin ? adminUi().adminPlayerToolsCard(user) : ""
+    })}
+    <div class="message" data-player-profile-message role="status" aria-live="polite"></div>
   `;
 
   mountProfileAchievements(content, "userId", user.id);
@@ -4979,6 +5105,7 @@ function renderPlayerProfile() {
   document.querySelector("[data-profile-game]")?.addEventListener("click", async (event) => {
     await openGameDetail(Number(event.currentTarget.dataset.profileGame));
   });
+  wireProfileTabs();
   adminUi().wireAdminPlayerTools(user.id);
   adminUi().wireAdminPendingGameButtons(user.id);
   wireGameButtons();
@@ -5573,12 +5700,9 @@ function renderStatistics() {
       renderStatistics();
     });
   });
-  document.querySelector("[data-season-select]")?.addEventListener("change", (event) => {
-    state.selectedSeasonId = event.target.value;
-    state.selectedStatisticsTeam = null;
-    renderStatistics();
-  });
+  wireStatisticsSeasonSelector();
   wireStatsFilters();
+  wireTeamCardSearch(killTeamSummary);
   wireStatsSorting();
   wireTeamStatistics();
   document.querySelectorAll("[data-statistics-detail]").forEach(table => {
@@ -5590,6 +5714,7 @@ function renderStatistics() {
 }
 
 function activeSeason() {
+  if (state.selectedSeasonId === "alltime") return null;
   const season = seasons.find((item) => item.id === state.selectedSeasonId) || latestSeason();
   state.selectedSeasonId = season.id;
   return season;
@@ -5600,12 +5725,21 @@ function seasonSelectorMarkup() {
     <div class="stats-season-row">
       <label for="stats-season">${t("tournaments.field.season")}</label>
       <select id="stats-season" data-season-select>
+        <option value="alltime" ${state.selectedSeasonId === "alltime" ? "selected" : ""}>${t("stats.season.alltime")}</option>
         ${seasons.map((season) => `
           <option value="${escapeHtml(season.id)}" ${season.id === state.selectedSeasonId ? "selected" : ""}>${escapeHtml(season.name)}</option>
         `).join("")}
       </select>
     </div>
   `;
+}
+
+function wireStatisticsSeasonSelector() {
+  document.querySelector("[data-season-select]")?.addEventListener("change", (event) => {
+    state.selectedSeasonId = event.target.value;
+    renderStatistics();
+    rememberNavigationContext();
+  });
 }
 
 function statsFiltersMarkup() {
@@ -5940,10 +6074,25 @@ function statsTeamFilterMatches(team) {
 }
 
 function renderTeamCards(summary) {
-  const rows = sortStatisticsRows(teamCardRows(summary), statisticsSortState("faction-cards", "winRate", "desc"));
+  const teams = teamCardRows(summary).map(row => row.team).sort((a, b) => a.localeCompare(b));
   return `<div data-statistics-table="faction-cards">
+    <div class="filter-row">
+      <div data-stats-team-search>
+        ${comboField(t("tournaments.table.searchKillTeams"), "statisticsTeamQuery", "statisticsTeams",
+          state.statisticsTeamQuery || "", t("tournaments.table.searchKillTeams"),
+          { items: teams, valueMode: "label", optional: true })}
+      </div>
+    </div>
     ${statisticsListControls("faction-cards", [["team", t("games.filter.teamLabel")], ["games", t("stats.column.games")], ["winRate", t("stats.column.winrate")]], "winRate", "desc")}
-    <div class="team-card-grid">
+    ${renderTeamCardGrid(summary)}
+  </div>`;
+}
+
+function renderTeamCardGrid(summary) {
+  const query = (state.statisticsTeamQuery || "").trim().toLocaleLowerCase();
+  const rows = sortStatisticsRows(teamCardRows(summary).filter(row => row.team.toLocaleLowerCase().includes(query)),
+    statisticsSortState("faction-cards", "winRate", "desc"));
+  return `<div class="team-card-grid" data-stats-team-grid>
       ${rows.length
         ? rows.map((row) => `
           <button class="team-stat-card" data-stat-team="${escapeHtml(row.team)}">
@@ -5953,9 +6102,26 @@ function renderTeamCards(summary) {
             <div class="team-stat-rate">${row.games ? row.winRate + "%" : "—"}</div>
           </button>
         `).join("")
-        : `<div class="empty">${t("stats.empty.killTeam")}</div>`}
-    </div>
-  </div>`;
+        : `<div class="empty">${t(query ? "tournaments.table.noResults" : "stats.empty.killTeam")}</div>`}
+    </div>`;
+}
+
+function wireTeamCardSearch(summary) {
+  const field = document.querySelector("[data-stats-team-search]");
+  if (!field) return;
+  wireComboFields(field);
+  const input = field.querySelector("[data-combo-input]");
+  const update = () => {
+    state.statisticsTeamQuery = input.value;
+    const grid = document.querySelector("[data-stats-team-grid]");
+    if (grid) {
+      grid.outerHTML = renderTeamCardGrid(summary);
+      wireTeamStatistics();
+    }
+    rememberNavigationContext();
+  };
+  input.addEventListener("input", update);
+  input.addEventListener("change", update);
 }
 
 function teamCardRows(summary) {
@@ -6320,6 +6486,7 @@ function wireTeamStatistics() {
       state.statisticsTab = "teams";
       state.selectedStatisticsTeam = button.dataset.statTeam;
       renderStatistics();
+      window.scrollTo(0, 0);
     });
   });
   document.querySelector("[data-team-back]")?.addEventListener("click", () => {
@@ -8717,7 +8884,7 @@ function tournamentRulesValue(tournament) {
 function tournamentTiebreakerSelects(selected = [], disabled = "") {
   const order = Array.isArray(selected) ? selected.slice(0, 4) : [];
   return `
-    <div class="tiebreaker-rank-list">
+    <div class="tiebreaker-rank-list" style="--tiebreaker-columns:4">
       ${[0, 1, 2, 3].map((index) => {
         const value = order[index] || "";
         return `
@@ -8734,6 +8901,16 @@ function tournamentTiebreakerSelects(selected = [], disabled = "") {
       }).join("")}
     </div>
   `;
+}
+
+function tournamentIndividualTiebreakerFields(tournament, disabled = "") {
+  const custom = Boolean(tournament.tiebreakerOrder?.length) || !tournament.id;
+  return `<div class="tournament-tiebreakers" data-standings-tiebreakers data-tiebreaker-locked="${disabled ? '1' : '0'}">
+    ${tournamentTiebreakerHeading()}
+    <label class="checkbox-line"><input type="checkbox" name="customIndividualTiebreakers" ${custom ? 'checked' : ''} ${disabled}> <span>${t('classic.customOrder')}</span></label>
+    ${tournamentTiebreakerSelects(tournament.tiebreakerOrder || [], disabled)}
+    <p class="field-help">${t('admin.tournament.tiebreaker.individualHint')}</p>
+  </div>`;
 }
 
 function tournamentTiebreakerHeading() {
@@ -9059,7 +9236,8 @@ const teamTiebreakerColumns = {
   individual_wins: ["individualWins", "classic.individual_wins"],
   vp_diff: ["vpDiff", "classic.vp_diff"],
   total_vp: ["totalVp", "classic.total_vp"],
-  strength_of_schedule: ["strengthOfSchedule", "doubles.sos"]
+  strength_of_schedule: ["strengthOfSchedule", "doubles.sos"],
+  tac_op: ['tacOpPoints','teams.tournament.tac']
 };
 const doublesTiebreakerDefaults = ["strength_of_schedule", "total_vp"];
 const teamTiebreakerDefaults = ["individual_wins", "vp_diff", "total_vp"];
@@ -9073,7 +9251,7 @@ function doublesStandingsHint() {
 
 function teamTournamentSettingsFields(tournament = {}, disabled = "") {
   return `<section class="team-tournament-settings" data-team-mode-field ${tournament.participantMode === "team" ? "" : "hidden"}>
-    <p class="field-help" data-doubles-settings ${tournament.pairingType === "doubles" ? "" : "hidden"}>${doublesStandingsHint()} ${t("doubles.manualHint")}</p>
+    <p class="field-help" data-doubles-settings ${tournament.pairingType === "doubles" ? "" : "hidden"}>${t("doubles.manualHint")}</p>
     <div data-team-classic-settings ${tournament.pairingType === "doubles" ? "hidden" : ""}>
     <div class="team-tournament-setting">
       <label class="checkbox-line"><input type="checkbox" name="captainPairingEnabled" ${tournament.captainPairingEnabled !== false ? "checked" : ""} ${disabled}> <span>${t("classic.captainPairing")}</span></label>
@@ -9084,14 +9262,25 @@ function teamTournamentSettingsFields(tournament = {}, disabled = "") {
 }
 
 function teamTournamentTiebreakerFields(tournament, disabled = "") {
+  if (tournament.pairingType === 'wtc_doubles') return `<div class="tournament-tiebreakers" data-standings-tiebreakers data-tiebreaker-fixed="1">
+    <div class="tournament-tiebreaker-heading"><span class="muted">${t('classic.tiebreakers')}</span></div>
+    <label class="checkbox-line"><input type="checkbox" name="customTeamTiebreakers" checked disabled> <span>${t('classic.customOrder')}</span></label>
+    <div class="tiebreaker-rank-list team-tiebreaker-rank-list" style="--tiebreaker-columns:3" data-wtc-doubles-tiebreakers>
+      ${['Wins', 'SOS', 'VP + Tac Op'].map((label, index) => `<label class="tiebreaker-rank-field">
+        <span>${t('admin.tournament.tiebreaker.priority', { index: index + 1 })}</span>
+        <select name="teamTiebreaker-${index}" disabled aria-readonly="true"><option selected>${label}</option></select>
+      </label>`).join('')}
+    </div>
+    <p class="field-help">${t('wtcDoubles.fixedOrderHint')}</p>
+  </div>`;
   const doubles = tournament.pairingType === "doubles";
   const choices = doubles ? doublesTiebreakerDefaults : teamTiebreakerDefaults;
   const custom = tournament.teamTiebreakerOrder != null || !tournament.id;
   const order = tournament.teamTiebreakerOrder ?? choices;
-  return `<div class="tournament-tiebreakers">
+  return `<div class="tournament-tiebreakers" data-standings-tiebreakers data-tiebreaker-locked="${disabled ? '1' : '0'}">
       <div class="tournament-tiebreaker-heading"><span class="muted">${t("classic.tiebreakers")}</span></div>
       <label class="checkbox-line"><input type="checkbox" name="customTeamTiebreakers" ${custom ? "checked" : ""} ${disabled}> <span>${t("classic.customOrder")}</span></label>
-      <div class="tiebreaker-rank-list team-tiebreaker-rank-list">${choices.map((_, index) => `<label class="tiebreaker-rank-field">
+      <div class="tiebreaker-rank-list team-tiebreaker-rank-list" style="--tiebreaker-columns:${choices.length}">${choices.map((_, index) => `<label class="tiebreaker-rank-field">
         <span>${t("admin.tournament.tiebreaker.priority", { index: index + 1 })}</span>
         <select name="teamTiebreaker-${index}" ${disabled}>
           <option value="">${t("admin.tournament.tiebreaker.none")}</option>
@@ -9115,11 +9304,11 @@ function teamMatchScoreLabel(match) {
 
 function teamManualPairingForm(match) {
   const members = roster => (roster?.members || []).filter(member => !member.endedAt && (member.userId || member.isProxy));
-  const select = (name, values, label, selectedIndex) => `<label>${escapeHtml(label)}<select name="${name}" required>${match.pairingType === "doubles" ? `<option value="">${t("games.result.notSelected")}</option>` : ""}${values.map((value,index) => `<option value="${escapeHtml(value.value)}" ${index === selectedIndex ? "selected" : ""}>${escapeHtml(value.label)}</option>`).join("")}</select></label>`;
+  const select = (name, values, label, selectedIndex) => `<label>${escapeHtml(label)}<select name="${name}" required>${teamSizeFor(match) === 2 ? `<option value="">${t("games.result.notSelected")}</option>` : ""}${values.map((value,index) => `<option value="${escapeHtml(value.value)}" ${index === selectedIndex ? "selected" : ""}>${escapeHtml(value.label)}</option>`).join("")}</select></label>`;
   const players = roster => members(roster).map(member => ({ value: member.id, label: teamPairingMemberLabel(member) }));
   const tables = (match.tables || teamTournamentTables(match.tournamentId)).filter(table => match.tableIds.includes(table.id)).map(table => ({ value: table.id, label: tableLabel(table) }));
-  return `<form data-team-pairing-form="manual" data-pairing-size="${teamSizeFor(match)}" data-team-match-id="${match.id}" class="team-manual-pairing"><h4>${t(match.pairingType === "doubles" ? "doubles.manual" : "classic.manual")}</h4>
-    ${match.pairingType === "doubles" ? `<p class="field-help">${t("doubles.pairingRules")}</p>` : ""}
+  return `<form data-team-pairing-form="manual" data-pairing-size="${teamSizeFor(match)}" data-team-match-id="${match.id}" class="team-manual-pairing"><h4>${t(match.pairingType === "wtc_doubles" ? "wtcDoubles.manual" : match.pairingType === "doubles" ? "doubles.manual" : "classic.manual")}</h4>
+    ${match.pairingType === "wtc_doubles" ? `<p class="field-help">${t("wtcDoubles.manualHint")}</p>` : match.pairingType === "doubles" ? `<p class="field-help">${t("doubles.pairingRules")}</p>` : ""}
     ${Array.from({ length: teamSizeFor(match) }, (_, index) => `<fieldset class="grid-2"><legend>${t("teams.pairing.game", { number: index+1 })}</legend>
       ${select(`player-a-${index}`, players(match.rosterA), t("classic.playerA"), index)}
       ${select(`player-b-${index}`, players(match.rosterB), t("classic.playerB"), index)}
@@ -9159,7 +9348,7 @@ function teamStandingsTable(data) {
     ? data.tournament.finalResults
     : data.standings || [];
   const rosters = new Map((data.rosters || []).map((roster) => [roster.id, roster]));
-  const order = data.tournament?.teamTiebreakerOrder ??
+  const order = data.tournament?.pairingType === 'wtc_doubles' ? ['individual_wins','strength_of_schedule','total_vp','tac_op'] : data.tournament?.teamTiebreakerOrder ??
     (data.tournament?.pairingType === "doubles" ? doublesTiebreakerDefaults : null);
   const teamColumns = order
     ? order.map(key => teamTiebreakerColumns[key])
@@ -9178,14 +9367,14 @@ function teamStandingsTable(data) {
         <thead><tr><th class="rank">#</th><th>${t("teams.tournament.roster")}</th><th>${t(usesIndividualTeamPoints(data.tournament) ? "classic.playerTp" : "teams.tournament.ttp")}</th>${teamColumns.map(([, label]) => `<th>${t(label)}</th>`).join("")}<th>${t("tournaments.standings.column.wdl")}</th></tr></thead>
         <tbody>${source.map((row) => {
           const roster = rosters.get(Number(row.rosterId || row.roster?.id));
-          return `<tr><td class="rank">${row.rank}</td><td>${teamRosterLabel(roster)}</td><td>${row.teamTournamentPoints ?? 0}</td>${teamColumns.map(([key]) => `<td>${row[key] ?? data.standings?.find(item => item.rosterId === row.rosterId)?.[key] ?? 0}</td>`).join("")}<td>${row.wins ?? 0}-${row.draws ?? 0}-${row.losses ?? 0}</td></tr>`;
+          return `<tr><td class="rank">${row.rank}</td><td>${teamRosterLabel(roster)}</td><td>${row.teamTournamentPoints ?? 0}</td>${teamColumns.map(([key]) => { const value = row[key] ?? data.standings?.find(item => item.rosterId === row.rosterId)?.[key] ?? 0; return `<td>${key === 'strengthOfSchedule' && data.tournament?.pairingType === 'wtc_doubles' ? Number(value).toFixed(2) : value}</td>`; }).join("")}<td>${row.wins ?? 0}-${row.draws ?? 0}-${row.losses ?? 0}</td></tr>`;
         }).join("")}</tbody>
       </table>
     </div>`;
 }
 
 function teamPairingPhaseLabel(match) {
-  if (match.captainPairingEnabled === false && match.phase === "environment_selection") return t(match.pairingType === "doubles" ? "doubles.manual" : "classic.manual");
+  if (match.captainPairingEnabled === false && match.phase === "environment_selection") return t(match.pairingType === "wtc_doubles" ? "wtcDoubles.manual" : match.pairingType === "doubles" ? "doubles.manual" : "classic.manual");
   if (match.pairingType === "sword_shield_classic" && match.phase === "awaiting_roll") return t("classic.initiative");
   return teamMatchPhaseLabel(match.phase);
 }
@@ -9291,6 +9480,14 @@ function teamPairingSideMarkup(match, side) {
 }
 
 function teamPairingSelectionsMarkup(match) {
+  if (match.pairingType === 'wtc_doubles') {
+    const state = match.environment?.wtcDoubles;
+    const winner = match.attackerRosterId === match.rosterAId ? match.rosterA : match.rosterB;
+    const own = state?.tableSide === 'a' ? match.rosterA : match.rosterB;
+    const summary = state?.right ? `<p>${escapeHtml(t('wtcDoubles.rightChosen',{name:winner?.name || '',right:t('wtcDoubles.'+state.right)}))}</p>` : '';
+    const tableChoices = (state?.tables || []).map(choice=>`<p>${escapeHtml(teamRosterMemberLabel(own,choice.memberId))} · ${escapeHtml(tableLabel((match.tables || []).find(table=>table.id === choice.tableId) || {tableNumber:choice.tableId}))}</p>`).join('');
+    return teamRollHistoryMarkup(match) + summary + tableChoices + teamPairingTablesPreviewMarkup(match) + teamMissionPoolMarkup(match);
+  }
   if (match.captainPairingEnabled === false) return teamPairingTablesPreviewMarkup(match) + teamMissionPoolMarkup(match);
   const selections = `${teamRollHistoryMarkup(match)}<div class="team-pairing-selections">${teamPairingSideMarkup(match, "a")}${teamPairingSideMarkup(match, "b")}</div>${teamPairingTablesPreviewMarkup(match)}${teamMissionPoolMarkup(match)}`;
   return ["in_progress", "completed"].includes(match.phase)
@@ -9324,7 +9521,9 @@ function teamMissionPoolMarkup(match) {
   const bans = match.missionBans || [];
   const used = new Set((match.environment?.assignments || []).map((item) => item.mission?.critOp));
   const turn = match.nextAction;
-  const next = turn ? t(turn.kind === "either" ? "classic.firstChoice" : turn.kind === "ban" ? "teams.pairing.turnBan" : turn.kind === "table" ? "teams.pairing.turnTable" : "teams.pairing.turnMission", {
+  const next = turn && match.pairingType === 'wtc_doubles' && turn.kind !== 'ban'
+    ? t('wtcDoubles.turn',{name:(turn.side === 'a' ? match.rosterA : match.rosterB)?.name || turn.side,action:t('wtcDoubles.'+turn.kind)})
+    : turn ? t(turn.kind === "either" ? "classic.firstChoice" : turn.kind === "ban" ? "teams.pairing.turnBan" : turn.kind === "table" ? "teams.pairing.turnTable" : "teams.pairing.turnMission", {
     name: (turn.side === "a" ? match.rosterA : match.rosterB)?.name || turn.side.toUpperCase(),
     matchup: turn.kind === "ban" ? "" : teamPairingMatchupLabel(match, turn.slot)
   }) : "";
@@ -9432,7 +9631,28 @@ function teamCaptainPairingControl(match, tournament) {
   return side ? teamPairingControlForSide(match, tournament, side) : "";
 }
 
+function wtcDoublesChoiceForm(match, side) {
+  const action = match.nextAction;
+  if (!action || action.side !== side) return `<span class="muted">${t('teams.pairing.waitingTurn')}</span>`;
+  const select = (name,label,items) => `<label>${escapeHtml(label)}<select name="${name}" required><option value="">${t('games.result.notSelected')}</option>${items.map(item=>`<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`).join('')}</select></label>`;
+  let fields = '';
+  const players = roster => activeRosterMembersForUi(roster).map(member=>({value:member.id,label:teamPairingMemberLabel(member)}));
+  if (action.kind === 'right') fields = select('right',t('wtcDoubles.right'),['pairings','tables'].map(value=>({value,label:t('wtcDoubles.'+value)})));
+  if (action.kind === 'pairings') fields = [0,1].map(i=>`<fieldset class="grid-2"><legend>${t('teams.pairing.game',{number:i+1})}</legend>${select('player-a-'+i,match.rosterA.name,players(match.rosterA))}${select('player-b-'+i,match.rosterB.name,players(match.rosterB))}</fieldset>`).join('');
+  if (action.kind === 'tables') {
+    const own = side === 'a' ? match.rosterA : match.rosterB;
+    const tables = (match.tables || []).filter(table=>match.tableIds.includes(table.id)).map(table=>({value:table.id,label:tableLabel(table)}));
+    fields = activeRosterMembersForUi(own).map((member,i)=>`<input type="hidden" name="member-${i}" value="${member.id}">${select('table-'+i,teamPairingMemberLabel(member),tables)}`).join('');
+  }
+  if (action.kind === 'missions') {
+    const missions = (match.missions || []).filter(m=>!(match.missionBans || []).some(b=>b.mission === m.critOp)).map(m=>({value:m.critOp,label:m.critOp}));
+    fields = [0,1].map(i=>select('mission-'+i,teamPairingMatchupLabel(match,i+1),missions)).join('');
+  }
+  return `<form class="team-manual-pairing" data-team-pairing-form="environment" data-wtc-doubles="1" data-team-match-id="${match.id}" data-side="${side}" data-kind="${action.kind}" data-step="${Number(match.environment?.step || 0)}"><h4>${t('wtcDoubles.'+action.kind)}</h4>${fields}<button type="submit" class="primary-button">${t('common.confirm')}</button></form>`;
+}
+
 function teamPairingControlForSide(match, tournament, side) {
+  if (match.pairingType === 'wtc_doubles' && match.phase === 'environment_selection') return wtcDoublesChoiceForm(match,side);
   const ownRoster = side === "a" ? match.rosterA : match.rosterB;
   const opponent = side === "a" ? match.rosterB : match.rosterA;
   const adminControls = state.administrationContext && canManageTournamentUi(tournament)
@@ -9541,7 +9761,7 @@ function teamTournamentMatchMarkup(match, tournament, options = {}) {
   if (match.resolution === "bye") return `<article class="row-card team-match-card"><div class="row-main"><div class="row-title">${teamRosterLabel(match.rosterA)}</div>${resultMarkup || `<div class="row-meta">${t("teams.pairing.bye")}</div>`}</div></article>`;
   const canReset = state.administrationContext && canManageTournamentUi(tournament) && tournament.status === "in_progress" && !match.resolution && match.rosterA?.status !== "withdrawn" && match.rosterB?.status !== "withdrawn";
   const canOpenPairing = !options.standalone;
-  const resetPhases = match.captainPairingEnabled === false ? ["environment_selection"] : ["awaiting_roll", ...(match.pairingVersion === 2 && match.pairingType !== "sword_shield_classic" ? ["mission_ban"] : []), "shield_selection", "sword_selection", "environment_selection"];
+  const resetPhases = match.captainPairingEnabled === false ? ["environment_selection"] : match.pairingType === 'wtc_doubles' ? ['awaiting_roll'] : ["awaiting_roll", ...(match.pairingVersion === 2 && match.pairingType !== "sword_shield_classic" ? ["mission_ban"] : []), "shield_selection", "sword_selection", "environment_selection"];
   const resetPhaseIndex = resetPhases.indexOf(match.phase);
   const resetOptions = resetPhases.slice(0, resetPhaseIndex === -1 ? undefined : resetPhaseIndex + 1)
     .map((phase) => `<option value="${phase}">${teamPairingPhaseLabel({ ...match, phase })}</option>`).join("");
@@ -9556,7 +9776,7 @@ function teamTournamentMatchMarkup(match, tournament, options = {}) {
       ${resultMarkup || (status ? `<div class="row-meta">${escapeHtml(status)}</div>` : "")}
       ${options.standalone ? teamPairingRostersMarkup(match) : ""}
       ${teamPairingSelectionsMarkup(match)}${teamMatchGamesMarkup(match, { showProgress: false })}
-      <div class="team-captain-control">${teamCaptainPairingControl(match, tournament)}${canReset && match.captainPairingEnabled !== false ? adminUi().adminTeamPairingOverrideForm(match) : ""}</div>
+      <div class="team-captain-control">${teamCaptainPairingControl(match, tournament)}${canReset && match.captainPairingEnabled !== false && match.pairingType !== 'wtc_doubles' ? adminUi().adminTeamPairingOverrideForm(match) : ""}</div>
       ${match.canUndo && (state.administrationContext || [match.rosterA?.captainUserId, match.rosterB?.captainUserId].includes(state.me?.id)) && tournament.status === "in_progress" ? `<div class="row-actions team-pairing-undo"><button class="ghost-button" data-team-match-undo="${match.id}" data-revision="${match.pairingRevision}" data-resets-results="${Boolean(match.undoResetsResults)}">${t("teams.pairing.undo")}</button></div>` : ""}
     </div>
     ${canOpenPairing || canReset ? `<div class="row-actions team-match-admin-actions">${canOpenPairing ? `<a href="/tournament#/team-matches/${match.id}" data-app-link class="small-button" data-team-pairing-open="${match.id}">${t("play.teamPairings.open")}</a>` : ""}${canReset ? `<label>${t("teams.pairing.resetTo")}<select data-team-match-reset-phase="${match.id}">${resetOptions}</select></label><button class="danger-button" data-team-match-reset="${match.id}">${t("teams.pairing.reset")}</button>` : ""}</div>` : ""}
@@ -9594,6 +9814,9 @@ function teamPairingLogEvent(event) {
     if (event.attackerName && !event.initiative) details.push(t("teams.pairing.log.roles", { attacker: event.attackerName, defender: event.defenderName }));
   } else if (event.type === "mission_ban") {
     text = t("teams.pairing.log.ban", { actor, mission: event.mission || "?" });
+  } else if (event.type === 'wtc_doubles_select') {
+    text = t('wtcDoubles.turn',{name:actor,action:t('wtcDoubles.'+(event.right || event.kind))});
+    details = (event.assignments || []).map(teamPairingLogAssignment);
   } else if (["shield_select", "shields_reveal", "sword_select", "swords_reveal"].includes(event.type)) {
     const kind = event.type.startsWith("shield") ? "shield" : "sword";
     const choice = event.choice ? teamPairingLogMember(event.choice) : t("teams.pairing.log.hiddenChoice");
@@ -9676,8 +9899,8 @@ function renderTeamPairing(live = false) {
       <div class="panel-header">
         <div>
           <p class="profile-label">${escapeHtml(tournament.name || "")} · ${t("notifications.round", { number: match.roundNumber })}</p>
-          <h2>${t(match.captainPairingEnabled === false ? (match.pairingType === "doubles" ? "doubles.manual" : "classic.manual") : match.pairingType === "sword_shield_classic" ? "classic.name" : "teams.pairing.screenTitle")}</h2>
-          <p class="muted">${t(match.pairingType === "doubles" ? "doubles.manualHint" : match.captainPairingEnabled === false ? "classic.manualHint" : "teams.pairing.screenHint")}</p>
+          <h2>${t(match.pairingType === 'wtc_doubles' ? (match.captainPairingEnabled === false ? 'wtcDoubles.manual' : 'wtcDoubles.name') : match.captainPairingEnabled === false ? (match.pairingType === "doubles" ? "doubles.manual" : "classic.manual") : match.pairingType === "sword_shield_classic" ? "classic.name" : "teams.pairing.screenTitle")}</h2>
+          <p class="muted">${t(match.pairingType === "wtc_doubles" ? (match.captainPairingEnabled === false ? "wtcDoubles.manualHint" : "wtcDoubles.guidedHint") : match.pairingType === "doubles" ? "doubles.manualHint" : match.captainPairingEnabled === false ? "classic.manualHint" : "teams.pairing.screenHint")}</p>
         </div>
         <div class="row-actions">
           <button class="small-button" data-team-pairing-help>${t("teams.pairing.instructions")}</button>
@@ -9918,6 +10141,18 @@ function handleTournamentRulesFile(input) {
     setMessage(t("admin.tournament.rulesFile.readErrorMessage"), true);
   };
   reader.readAsDataURL(file);
+}
+
+function syncTournamentTiebreakerFields(form) {
+  form.querySelectorAll('[data-standings-tiebreakers]').forEach(block => {
+    const custom = block.querySelector('input[type="checkbox"]');
+    const fixed = block.dataset.tiebreakerFixed === '1';
+    const inactive = block.closest('[data-team-mode-field]')?.hidden || block.closest('[data-individual-mode-field]')?.hidden;
+    const locked = block.dataset.tiebreakerLocked === '1' || Boolean(inactive);
+    custom.disabled = locked || fixed;
+    block.querySelector('.tiebreaker-rank-list').hidden = !custom.checked;
+    block.querySelectorAll('select').forEach(select => { select.disabled = locked || fixed || !custom.checked; });
+  });
 }
 
 function updateTournamentTiebreakerSelects(form) {
@@ -10162,7 +10397,7 @@ function renderRoundSetupModal(preview) {
           <div class="round-setup-list" data-round-setup-list>
             ${(preview.tableOnly ? [] : round.matches || []).map((match, index) =>
               match.isBye ? `<input type="hidden" data-round-bye-index="${index}" value="${match.participantAId || ""}">`
-              : preview.teamRound ? teamRoundSetupMatchRow(match, tables) : roundSetupMatchRow(match, tournament, tables, preview.participants)
+              : preview.teamRound ? teamRoundSetupMatchRow(match, tables) : roundSetupMatchRow(match, tournament, tables, preview.participants, tournament.format === "swiss" && !preview.activePairings)
             ).join("")}
           </div>
           <div class="row-actions">
@@ -10178,13 +10413,17 @@ function renderRoundSetupModal(preview) {
 }
 
 function teamRoundMissionFields(tables = [], round = {}, reuseLines = false) {
-  const doubles = state.adminTournamentDetail?.tournament?.pairingType === "doubles";
+  const doubles = teamSizeFor(state.adminTournamentDetail?.tournament) === 2;
   const classic = state.adminTournamentDetail?.tournament?.pairingType === "sword_shield_classic";
   const venue = state.adminTournamentDetail?.tournament?.venueMode;
   const sharedTables = !classic && venue !== "irl";
-  return `<section class="admin-subpanel"><p class="muted">${t(sharedTables ? "teams.tournament.tablesHint" : venue === "irl" ? "classic.readyIrl" : "classic.readyTts")}</p>
+  return `<section class="admin-subpanel"><p class="muted">${t(sharedTables ? (doubles ? "wtcDoubles.tablesHint" : "teams.tournament.tablesHint") : venue === "irl" ? "classic.readyIrl" : "classic.readyTts")}</p>
     <p class="muted">${t(doubles ? "doubles.missionsHint" : classic ? "classic.missionsHint" : "teams.tournament.missionPoolHint")}</p>
-    ${doubles ? `<div class="grid-2">${Array.from({ length: 4 }, (_, index) => `<label>${t("classic.mission", { number: index + 1 })}<select name="doublesMission-${index}" required>${critOpOptions.map(mission => `<option value="${escapeHtml(mission)}" ${round.missions?.[index]?.critOp === mission ? "selected" : ""}>${escapeHtml(mission)}</option>`).join("")}</select></label>`).join("")}</div>` : ""}
+    ${doubles ? `<div class="grid-2">${Array.from({ length: 4 }, (_, index) => `
+      <div class="field">
+        <label for="doubles-mission-${index}">${t("classic.mission", { number: index + 1 })}</label>
+        <select id="doubles-mission-${index}" name="doublesMission-${index}" required>${critOpOptions.map(mission => `<option value="${escapeHtml(mission)}" ${round.missions?.[index]?.critOp === mission ? "selected" : ""}>${escapeHtml(mission)}</option>`).join("")}</select>
+      </div>`).join("")}</div>` : ""}
     ${reuseLines && !sharedTables ? savedTeamLinesMarkup(tables) : teamTableSetupFields(tables, venue, sharedTables)}</section>`;
 }
 
@@ -10204,7 +10443,7 @@ function savedTeamLinesMarkup(tables) {
 function teamTableSetupFields(tables = [], venueMode = "tts", sharedTables = false) {
   const optionalKillzone = venueMode === "irl";
   const size = teamSizeFor(state.adminTournamentDetail?.tournament);
-  return `${sharedTables ? "" : `<p class="muted">${t(size === 2 ? "doubles.linesHint" : optionalKillzone ? "classic.linesHintIrl" : "classic.linesHint")}</p>`}<div class="team-table-setup">${Array.from({ length: sharedTables ? 3 : Math.max(size, tables.length) }, (_, index) => `
+  return `${sharedTables ? "" : `<p class="muted">${t(size === 2 ? "doubles.linesHint" : optionalKillzone ? "classic.linesHintIrl" : "classic.linesHint")}</p>`}<div class="team-table-setup">${Array.from({ length: sharedTables ? size : Math.max(size, tables.length) }, (_, index) => `
     ${!sharedTables && index % size === 0 ? `<h4 class="team-line-heading">${t("classic.line", { number: index / size + 1 })}</h4>` : ""}
     <section class="team-table-setup-card" data-team-table-setup="${index}">
       ${tables[index]?.id ? `<input type="hidden" name="teamTableId-${index}" value="${Number(tables[index].id)}">` : ""}
@@ -10336,7 +10575,7 @@ function teamRoundSetupMatchRow(match = {}, tables = []) {
 
 function teamRoundSetupRosterSelect(name, selectedId = "") {
   const rosters = (state.adminTournamentDetail?.rosters || []).filter((roster) => ["registered", "active"].includes(roster.status));
-  const allowBye = state.adminTournamentDetail?.tournament?.pairingType !== "doubles" && name === "rosterBId" && rosters.length % 2 === 1;
+  const allowBye = teamSizeFor(state.adminTournamentDetail?.tournament) !== 2 && name === "rosterBId" && rosters.length % 2 === 1;
   return `<div class="field"><label>${name === "rosterAId" ? t("teams.tournament.rosterA") : t("teams.tournament.rosterB")}</label><select name="${name}" ${allowBye ? "" : "required"}><option value="" ${!selectedId ? "selected" : ""}>${t(allowBye ? "teams.pairing.bye" : "games.result.notSelected")}</option>${rosters.map((roster) => `<option value="${roster.id}" ${Number(selectedId) === roster.id ? "selected" : ""}>${escapeHtml(roster.name)}</option>`).join("")}</select></div>`;
 }
 
@@ -10374,7 +10613,7 @@ function roundMissionFields(tournament, round) {
   `;
 }
 
-function roundSetupMatchRow(match = {}, tournament = {}, tables = [], participants) {
+function roundSetupMatchRow(match = {}, tournament = {}, tables = [], participants, allowRemove = false) {
   return `
     <div class="row-card compact-row-card round-setup-match-row" data-round-match-id="${match.id || ""}">
       <div class="row-main">
@@ -10387,6 +10626,7 @@ function roundSetupMatchRow(match = {}, tournament = {}, tables = [], participan
       </div>
       <div class="row-actions">
         <button class="small-button" type="button" data-round-setup-clear>${t("admin.roundSetup.clear")}</button>
+        ${allowRemove ? `<button class="small-button danger" type="button" data-round-setup-remove>${t("admin.roundSetup.remove")}</button>` : ""}
       </div>
     </div>
   `;
@@ -10488,11 +10728,17 @@ function wireRoundSetupModal(tournament, tables, preview = {}) {
   document.querySelector("[data-round-setup-add-empty]")?.addEventListener("click", () => {
     document.querySelector("[data-round-setup-list]")?.insertAdjacentHTML(
       "beforeend",
-      roundSetupMatchRow({}, tournament, tables, preview.participants)
+      roundSetupMatchRow({}, tournament, tables, preview.participants, tournament.format === "swiss" && !preview.activePairings)
     );
     updatePlayers();
   });
   document.querySelector("[data-round-setup-list]")?.addEventListener("click", (event) => {
+    const remove = event.target.closest("[data-round-setup-remove]");
+    if (remove) {
+      remove.closest(".round-setup-match-row")?.remove();
+      updatePlayers();
+      return;
+    }
     const button = event.target.closest("[data-round-setup-clear]");
     if (!button) return;
     const row = button.closest(".round-setup-match-row");
@@ -10574,13 +10820,20 @@ function updateRoundSetupWarnings(tournament, tables, preview) {
   if (!preview.teamRound && !preview.activePairings && tournament.venueMode === "irl") {
     proposed = TGTVPairingWarnings.assignTables(proposed, tables, history.players);
   }
+  const locked = !preview.teamRound ? (preview.lockedMatches || []).map(match => TGTVPairingWarnings.individual(
+    { ...match, roundNumber: preview.round?.roundNumber }, data.participants, tables)) : [];
+  const conflicts = !preview.teamRound ? TGTVPairingWarnings.tableConflicts([...proposed, ...locked], tournament.venueMode) : [];
   rows.forEach((row, index) => {
     row.dataset.resolvedTableId = proposed[index].tableId || "";
     const mapBox = row.querySelector('[data-round-table-map]');
     if (mapBox) TGTVMapPreview(mapBox, tables.find(table => Number(table.id) === Number(proposed[index].tableId)));
     const container = row.querySelector("[data-pairing-warnings]");
-    if (container) container.innerHTML = pairingWarningsMarkup(TGTVPairingWarnings.warnings(proposed[index],
-      preview.teamRound ? history.teams : history.players, tournament.venueMode));
+    const tableConflict = conflicts.find(warning => warning.matchIndex === index);
+    row.querySelector('[name="tableId"]')?.setCustomValidity(tableConflict ? pairingWarningText(tableConflict) : "");
+    if (container) container.innerHTML = pairingWarningsMarkup([
+      ...TGTVPairingWarnings.warnings(proposed[index], preview.teamRound ? history.teams : history.players, tournament.venueMode),
+      ...(tableConflict ? [tableConflict] : [])
+    ]);
   });
 }
 
@@ -10618,7 +10871,7 @@ function roundSetupPayload(form, tournament) {
   if (tournament.participantMode === "team") {
     return {
       ...deadline,
-      ...(tournament.pairingType === "doubles" ? { missions: Array.from({ length: 4 }, (_, index) => form.elements[`doublesMission-${index}`]?.value || "") } : {}),
+      ...(["doubles","wtc_doubles"].includes(tournament.pairingType) ? { missions: Array.from({ length: 4 }, (_, index) => form.elements[`doublesMission-${index}`]?.value || "") } : {}),
       ...(form.elements["teamKillzone-0"] ? { tables: teamTableSetupPayload(form) } : {}),
       matchups: rows.map((row) => ({
         lineNumber: Number(row.querySelector('[name="lineNumber"]')?.value) || null,
@@ -10804,11 +11057,12 @@ function updateTournamentParticipantModeFields(form) {
   });
   const type = form.elements.pairingType;
   const doubles = isTeam && type?.value === "doubles";
+  const wtcDoubles = isTeam && type?.value === "wtc_doubles";
   const sizeLabel = form.querySelector("[data-team-size-label]");
-  if (sizeLabel) sizeLabel.value = t(doubles ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree");
+  if (sizeLabel) sizeLabel.value = t(doubles || wtcDoubles ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree");
   form.querySelectorAll("[data-team-classic-settings]").forEach((classicSettings) => {
-    classicSettings.hidden = doubles;
-    classicSettings.querySelectorAll("input,select").forEach(control => { control.disabled = doubles || !isTeam || control.dataset.modeBaseDisabled === "1"; });
+    classicSettings.hidden = doubles || wtcDoubles;
+    classicSettings.querySelectorAll("input,select").forEach(control => { control.disabled = doubles || wtcDoubles || !isTeam || control.dataset.modeBaseDisabled === "1"; });
   });
   form.querySelectorAll("[data-doubles-settings]").forEach((settings) => { settings.hidden = !doubles; });
   const venue = form.elements.venueMode;
@@ -10817,13 +11071,27 @@ function updateTournamentParticipantModeFields(form) {
     if (tts) tts.disabled = doubles;
     if (doubles) venue.value = "irl";
   }
+  const factionCount = form.elements.factionCount;
+  if (factionCount) {
+    if (factionCount.dataset.modeBaseDisabled === undefined) factionCount.dataset.modeBaseDisabled = factionCount.disabled ? '1' : '0';
+    if (wtcDoubles) factionCount.value = "1";
+    factionCount.disabled = wtcDoubles || factionCount.dataset.modeBaseDisabled === "1";
+  }
+  const wtcHint = form.querySelector("[data-wtc-doubles-hint]");
+  if (wtcHint) { wtcHint.hidden = !wtcDoubles; wtcHint.textContent = t("wtcDoubles.settingsHint"); }
   updateTournamentVenueAddressField(form);
-  if (doubles && form.dataset.previousPairingType && form.dataset.previousPairingType !== "doubles" && form.elements.swissRoundCount && !form.elements.swissRoundCount.disabled) form.elements.swissRoundCount.value = "4";
+  if ((doubles || wtcDoubles) && form.dataset.previousPairingType && form.dataset.previousPairingType !== "doubles" && form.elements.swissRoundCount && !form.elements.swissRoundCount.disabled) form.elements.swissRoundCount.value = "4";
   form.dataset.previousPairingType = type?.value || "";
   if (type && !type.dataset.doublesWired) {
     type.dataset.doublesWired = "1";
     type.addEventListener("change", () => updateTournamentParticipantModeFields(form));
   }
+  const teamTiebreakers = form.querySelector('[data-team-tiebreaker-settings]');
+  if (teamTiebreakers && teamTiebreakers.dataset.pairingType !== type?.value) {
+    teamTiebreakers.dataset.pairingType = type?.value || 'shield_sword';
+    teamTiebreakers.innerHTML = teamTournamentTiebreakerFields({ pairingType: teamTiebreakers.dataset.pairingType }, teamTiebreakers.dataset.locked === '1' ? 'disabled' : '');
+  }
+  syncTournamentTiebreakerFields(form);
   updateTournamentFormatFields(form);
   const limitField = form.querySelector('[name="registrationLimit"]');
   if (limitField) {
@@ -10974,7 +11242,7 @@ function wireTeamTournamentControls(data, options = {}) {
       onLive(form, "change", () => updateTeamPairingFormWarnings(form, data));
       updateTeamPairingFormWarnings(form, data);
     }
-    if (form.dataset.teamPairingForm === "manual" && Number(form.dataset.pairingSize) === 2) {
+    if ((form.dataset.teamPairingForm === "manual" && Number(form.dataset.pairingSize) === 2) || form.dataset.wtcDoubles) {
       const updateChoices = () => {
         for (const prefix of ["player-a-", "player-b-", "table-", "mission-"]) {
           const selects = [...form.querySelectorAll(`select[name^="${prefix}"]`)];
@@ -11004,6 +11272,12 @@ function wireTeamTournamentControls(data, options = {}) {
         body.kind = form.dataset.kind;
         if (form.elements.mission) body.mission = form.elements.mission.value;
         if (form.elements.tableId) body.tableId = Number(form.elements.tableId.value);
+        if (form.dataset.wtcDoubles) {
+          if (body.kind === 'right') body.right = form.elements.right.value;
+          if (body.kind === 'pairings') body.pairings = [0,1].map(i=>({rosterAMemberId:Number(form.elements['player-a-'+i].value),rosterBMemberId:Number(form.elements['player-b-'+i].value)}));
+          if (body.kind === 'tables') body.tables = [0,1].map(i=>({memberId:Number(form.elements['member-'+i].value),tableId:Number(form.elements['table-'+i].value)}));
+          if (body.kind === 'missions') body.missions = [0,1].map(i=>({slot:i+1,mission:form.elements['mission-'+i].value}));
+        }
       }
       try {
         form.querySelector('[type="submit"]').disabled = true;
@@ -11031,7 +11305,7 @@ function wireTeamTournamentControls(data, options = {}) {
       button.disabled = true;
       try {
         const phase = document.querySelector(`[data-team-match-reset-phase="${button.dataset.teamMatchReset}"]`)?.value || "awaiting_roll";
-        await submitTeamPairingAction(data, options, `/api/admin/tournaments/${data.tournament.id}/team-matches/${button.dataset.teamMatchReset}/reset`, { phase, confirmResultsReset: true });
+        await submitTeamPairingAction(data, options, `/api/admin/tournaments/${data.tournament.id}/team-matches/${button.dataset.teamMatchReset}/reset`, { phase, revision: pairingRevision(button.dataset.teamMatchReset), confirmResultsReset: true });
       } catch (err) { setMessage(err.message, true); }
       finally { if (button.isConnected) button.disabled = false; }
     });

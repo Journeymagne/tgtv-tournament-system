@@ -95,7 +95,32 @@
       ] }
     }
   };
+  const doublesSteps = {
+    ru: [
+      'Оба капитана бросают D6; при равенстве перебрасывают. Победитель получает инициативу.',
+      'Капитан без инициативы банит одну из четырёх миссий раунда. Затем капитан с инициативой банит другую. Остаются две миссии.',
+      'Капитан с инициативой выбирает право составить пары игроков или назначить столы своим игрокам и первым выполняет выбранное действие.',
+      'Капитан без инициативы выполняет оставшееся действие: составляет пары либо назначает столы своим игрокам. Если столы выбраны раньше соперников, они остаются закреплены за игроками.',
+      'Капитан без инициативы распределяет между двумя играми оставшиеся миссии. Каждый игрок, стол и миссия используются один раз.'
+    ],
+    en: [
+      'Both captains roll D6, rerolling ties. The winner has initiative.',
+      'The captain without initiative bans one of four round missions. The captain with initiative bans another. Two missions remain.',
+      'The captain with initiative chooses player pairings or assigning tables to their own players and makes that choice first.',
+      'The captain without initiative makes the other choice: player pairings or assigning tables to their own players. Tables selected before opponents remain attached to their players.',
+      'The captain without initiative assigns the remaining missions to the two games. Each player, table and mission is used once.'
+    ]
+  };
+  for (const locale of ['ru','en']) {
+    guides[locale].wtcDoublesTts = {title:'WTC Doubles · TTS · 2×2',steps:[...doublesSteps[locale],locale === 'ru'
+      ? 'Выполните шаги в приложении. Все встречи раунда используют два общих виртуальных стола; после завершения назначений создаются две личные игры.'
+      : 'Complete the steps in the app. All round matches share two virtual tables; two personal games are created after all assignments.']};
+    guides[locale].wtcDoublesIrl = {title:'WTC Doubles · IRL · 2×2',steps:[...doublesSteps[locale],locale === 'ru'
+      ? 'Выполните паринг за столом и внесите обе игры в ручную форму. Встреча использует отдельную линию из двух физических столов. Две невыбранные миссии считаются забаненными. Любой капитан или организатор может сохранить пары.'
+      : 'Agree the pairing at the venue and enter both games in the manual form. Each match has its own two-table line. The two unselected missions are the bans. Either captain or the organizer may save.']};
+  }
   function key(match, tournament = {}) {
+    if (match.pairingType === 'wtc_doubles') return match.captainPairingEnabled === false ? 'wtcDoublesIrl' : 'wtcDoublesTts';
     if (match.pairingType === "doubles") return "doubles";
     if (match.captainPairingEnabled === false) return "manual";
     if (match.pairingType === "sword_shield_classic") return "classic";

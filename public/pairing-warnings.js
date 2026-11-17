@@ -90,8 +90,24 @@
     return result;
   }
 
+  function tableConflicts(matches = [], venueMode = "tts") {
+    if (venueMode !== "irl") return [];
+    const groups = new Map();
+    matches.forEach((match, index) => {
+      if (match.isBye || (!match.a && !match.b) || !match.tableId) return;
+      const key = `${Number(match.roundNumber) || 0}:${Number(match.tableId)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ match, index });
+    });
+    return [...groups.values()].filter(group => group.length > 1).flatMap(group => group.map(({ match, index }) => ({
+      kind: "table_conflict", matchIndex: index, tableId: Number(match.tableId), tableNumber: match.tableNumber,
+      names: [], rounds: []
+    })));
+  }
+
   function assignTables(matches, tables = [], previous = []) {
-    const used = new Set();
+    const used = new Set(matches.filter(match => !match.isBye && (match.a || match.b) && match.tableId)
+      .map(match => Number(match.tableId)));
     return matches.map(match => {
       if (match.isBye || !match.a || !match.b) return match;
       let table = tables.find(item => item.id === Number(match.tableId));
@@ -108,5 +124,5 @@
     });
   }
 
-  return { individual, team, teamGames, history, warnings, assignTables };
+  return { individual, team, teamGames, history, warnings, tableConflicts, assignTables };
 });

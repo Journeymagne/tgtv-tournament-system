@@ -99,6 +99,10 @@ function normalizeTiebreakerOrder(value) {
 }
 
 function normalizeTeamTiebreakerOrder(order, pairingType) {
+  if (pairingType === 'wtc_doubles') {
+    if (order !== null) throw new ValidationError('WTC Doubles uses fixed tiebreakers: individual wins, mean SOS, total VP, Tac Op');
+    return null;
+  }
   const doubles = pairingType === TEAM_PAIRING_TYPES.DOUBLES;
   const allowed = doubles ? DOUBLES_STANDINGS_TIEBREAKERS : TEAM_STANDINGS_TIEBREAKERS;
   if (order !== null && (!Array.isArray(order) || new Set(order).size !== order.length ||
@@ -136,7 +140,7 @@ function normalizeTeamPairingType(value, participantMode) {
   if (participantMode !== PARTICIPANT_MODES.TEAM) return null;
   const pairingType = String(value || TEAM_PAIRING_TYPES.SHIELD_SWORD);
   if (!Object.values(TEAM_PAIRING_TYPES).includes(pairingType)) {
-    throw new ValidationError("Choose WTC, SWORD SHIELD CLASSIC or Doubles");
+    throw new ValidationError("Choose WTC, SWORD SHIELD CLASSIC, Doubles or WTC Doubles");
   }
   return pairingType;
 }
@@ -215,7 +219,7 @@ function normalizeTournamentPatch(body = {}, current = {}) {
     Object.prototype.hasOwnProperty.call(body, "participantMode")
   ) {
     patch.pairingType = normalizeTeamPairingType(body.pairingType ?? current.pairingType, participantMode);
-    patch.teamSize = participantMode === PARTICIPANT_MODES.TEAM ? (patch.pairingType === "doubles" ? 2 : 3) : null;
+    patch.teamSize = participantMode === PARTICIPANT_MODES.TEAM ? (["doubles", "wtc_doubles"].includes(patch.pairingType) ? 2 : 3) : null;
     if (Object.hasOwn(body, "teamSize") && Number(body.teamSize) !== patch.teamSize) {
       throw new ValidationError("Roster size must match the selected team format");
     }
@@ -277,9 +281,10 @@ function normalizeTournamentPatch(body = {}, current = {}) {
   }
   const pairingType = Object.hasOwn(patch, "pairingType") ? patch.pairingType : current.pairingType;
   const doubles = pairingType === TEAM_PAIRING_TYPES.DOUBLES;
+  const wtcDoubles = pairingType === TEAM_PAIRING_TYPES.WTC_DOUBLES;
   if (Object.hasOwn(body, "teamTiebreakerOrder")) {
     patch.teamTiebreakerOrder = normalizeTeamTiebreakerOrder(body.teamTiebreakerOrder, pairingType);
-  } else if (doubles !== (current.pairingType === TEAM_PAIRING_TYPES.DOUBLES)) {
+  } else if (pairingType !== current.pairingType) {
     patch.teamTiebreakerOrder = null;
   }
   if (doubles) {
@@ -287,6 +292,15 @@ function normalizeTournamentPatch(body = {}, current = {}) {
     if (body.captainPairingEnabled === true) throw new ValidationError("Doubles uses manual captain pairings");
     patch.captainPairingEnabled = false;
     if (!Object.hasOwn(body, "swissRoundCount") && !current.swissRoundCount) patch.swissRoundCount = 4;
+  }
+  if (wtcDoubles) {
+    if ((patch.factionCount ?? current.factionCount ?? 1) !== 1) throw new ValidationError('WTC Doubles requires one faction per player');
+    patch.factionCount = 1;
+    const guided = (patch.venueMode || current.venueMode || 'tts') === 'tts';
+    if (Object.hasOwn(body,'captainPairingEnabled') && body.captainPairingEnabled !== guided)
+      throw new ValidationError('WTC Doubles uses guided pairing in TTS and manual pairing in IRL');
+    patch.captainPairingEnabled = guided;
+    if (!Object.hasOwn(body,'swissRoundCount') && !current.swissRoundCount) patch.swissRoundCount = 4;
   }
   const limit = Object.hasOwn(patch, "registrationLimit") ? patch.registrationLimit : current.registrationLimit;
   const capacity = participantMode === PARTICIPANT_MODES.TEAM ? 128
@@ -345,14 +359,15 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
 function validatePublishable(tournament) {
   requiredTournamentText(tournament.name, "Tournament name", NAME_MAX);
   requiredTournamentText(tournament.gameSystem, "Game system", GAME_SYSTEM_MAX);
-  if (!tournament.startsAt) throw new ValidationError("Start date is required");
   normalizeFormat(tournament.format);
   const participantMode = normalizeParticipantMode(tournament.participantMode);
   if (participantMode === PARTICIPANT_MODES.TEAM) {
-    if (tournament.format !== TOURNAMENT_FORMATS.SWISS || Number(tournament.teamSize) !== (tournament.pairingType === "doubles" ? 2 : 3)) {
+    if (tournament.format !== TOURNAMENT_FORMATS.SWISS || Number(tournament.teamSize) !== (["doubles", "wtc_doubles"].includes(tournament.pairingType) ? 2 : 3)) {
       throw new ValidationError("Team tournaments require Swiss and the correct roster size");
     }
     if (tournament.pairingType === "doubles" && (tournament.venueMode !== "irl" || tournament.captainPairingEnabled !== false)) throw new ValidationError("Doubles requires IRL and manual captain pairings");
+    if (tournament.pairingType === 'wtc_doubles' && (tournament.factionCount !== 1 || tournament.captainPairingEnabled !== (tournament.venueMode === 'tts')))
+      throw new ValidationError('WTC Doubles requires one faction and venue-appropriate captain pairing');
     normalizeTeamPairingType(tournament.pairingType, participantMode);
   }
   if (tournament.format === TOURNAMENT_FORMATS.SWISS && !tournament.swissRoundCount) {

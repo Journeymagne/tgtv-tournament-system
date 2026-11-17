@@ -1,3 +1,15 @@
+## WTC Doubles · 2×2
+
+In TTS, complete the steps in the app. In IRL, agree them at the venue and save both games in the manual form.
+
+1. Both captains roll D6, rerolling ties. The winner has initiative.
+2. The captain without initiative bans one of the round's four missions. The captain with initiative bans another.
+3. The captain with initiative chooses player pairings or assigning tables to their own players and makes that choice first.
+4. The other captain makes the other choice. A table chosen before an opponent remains attached to its player.
+5. The captain without initiative assigns the two remaining missions. Each player, table and mission is used once.
+
+TTS matches share two virtual tables for the round. IRL matches each have a separate two-table line; the two missions not selected in the manual form are the bans. There are no Shield/Sword selections.
+
 ## WTC · 3×3
 
 1. Both captains roll D6, rerolling ties. The winner is Attacker; the loser is Defender.

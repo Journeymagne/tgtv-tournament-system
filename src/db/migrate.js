@@ -107,7 +107,10 @@ const MIGRATIONS = [
   require("./migrations/107_team_podium_players_release_notes"),
   require("./migrations/108_admin_team_members_release_notes"),
   require("./migrations/109_calculator_effect_frequency_release_notes"),
-  require("./migrations/110_calendar_events")
+  require("./migrations/110_calendar_events"),
+  require("./migrations/111_wtc_doubles"),
+  require("./migrations/112_calendar_format"),
+  require("./migrations/113_calendar_tournament_sync")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

@@ -10,7 +10,7 @@ async function requireEvent(client, id, lock = false) {
 }
 async function list({ client, user, query }) {
   const month = query.get('month') || new Date().toISOString().slice(0,7);
-  return { events: await repo.list(client, monthRange(month), !!user?.isAdmin) };
+  return { events: await repo.list(client, monthRange(month), !!user?.isAdmin, user?.id || null) };
 }
 async function getAdmin({ client, user, params }) {
   requireAdmin(user); const event = await requireEvent(client, params.id);
@@ -23,7 +23,12 @@ async function create({ client, user, body }) {
 async function update({ client, user, params, body }) {
   requireAdmin(user); const event = await requireEvent(client, params.id, true);
   if (!body.expectedUpdatedAt || body.expectedUpdatedAt !== event.updatedAt) throw new HttpError(409, 'Calendar event changed. Reload it before saving.');
-  return { event: await repo.update(client, event.id, normalizeCalendarEvent({ ...event,...body })) };
+  const changes={...event,...body};
+  if(Object.hasOwn(body,'tournamentType') && !Object.hasOwn(body,'participantMode')) {
+    delete changes.participantMode;
+    if(!Object.hasOwn(body,'teamSize'))delete changes.teamSize;
+  }
+  return { event: await repo.update(client, event.id, normalizeCalendarEvent(changes,{allowIncomplete:!!event.autoCreated})) };
 }
 async function remove({ client, user, params }) {
   requireAdmin(user); const event = await requireEvent(client, params.id, true); await repo.remove(client,event.id);

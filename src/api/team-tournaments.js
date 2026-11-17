@@ -27,6 +27,7 @@ const { teamGamePermissions } = require("../domain/team-game-permissions");
 const { participantResultKey } = require("../domain/tournaments/results");
 const { buildTeamIndividualStandings } = require("../domain/team-individual-standings");
 const { normalizeFactions, registeredFactions, validateResultFactions } = require("../domain/tournaments/factions");
+const { applyWtcDoublesSelection } = require('../domain/wtc-doubles');
 const {
   teamSizeFor,
   usesIndividualTeamPoints,
@@ -300,7 +301,8 @@ async function assertRosterReplacementSafe(client, tournament, roster, replacedM
     if (match.resolution || match.phase === "completed" || match.games.length ||
         ![match.rosterAId, match.rosterBId].includes(roster.id)) continue;
     const selected = [match.shieldAMemberId, match.shieldBMemberId, match.swordAMemberId, match.swordBMemberId,
-      ...(match.pairings || []).flatMap(pair => [pair.rosterAMemberId, pair.rosterBMemberId])];
+      ...(match.pairings || []).flatMap(pair => [pair.rosterAMemberId, pair.rosterBMemberId]),
+      ...(match.environment?.wtcDoubles?.tables || []).map(choice => choice.memberId)];
     if (selected.some(id => replaced.has(id))) {
       throw new HttpError(409, "Reset this pairing before replacing a selected player");
     }
@@ -335,7 +337,7 @@ async function deleteRoster({ client, user, params }) {
     const matches = (await teamMatchesRepo.listByTournament(client, tournament.id))
       .filter((match) => match.rosterAId === roster.id || match.rosterBId === roster.id);
     const forfeitedMatchIds = [];
-    if (tournament.pairingType === "doubles" && matches.some(match => match.phase !== "completed")) {
+    if (teamSizeFor(tournament) === 2 && matches.some(match => match.phase !== "completed")) {
       throw new HttpError(409, "Doubles technical results are not configured. Complete the roster's matches before removing it");
     }
     for (const match of matches.filter((item) => item.phase !== "completed")) {
@@ -460,12 +462,13 @@ async function nextTeamRoundTables(client, tournament, values) {
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
   const previous = tournament.roundDraft?.tables || tablesForRound(rounds.at(-1), defaults);
   const sharedTables = usesSharedTeamTables(tournament);
-  const input = values === undefined ? (sharedTables ? previous.slice(0, 3) : previous) : values;
+  const size = teamSizeFor(tournament);
+  const input = values === undefined ? (sharedTables ? previous.slice(0, size) : previous) : values;
   const selected = sharedTables
-    ? numberTeamTables(validateTeamTables(input, tournament.venueMode))
+    ? numberTeamTables(validateTeamTables(input, tournament.venueMode, size))
     : validateTeamLines(input, tournament.venueMode, teamSizeFor(tournament));
   if (!sharedTables && !usesIndividualTeamPoints(tournament)) {
-    for (let index = 0; index < selected.length; index += 3) validateTeamTables(selected.slice(index, index + 3), tournament.venueMode);
+    for (let index = 0; index < selected.length; index += size) validateTeamTables(selected.slice(index, index + size), tournament.venueMode, size);
   }
   const used = new Set();
   const result = [];
@@ -516,7 +519,7 @@ async function startTournament(client, tournament, user, body = {}) {
   if (first.metadata?.lines) {
     validateTeamLines(tables, tournament.venueMode, teamSizeFor(tournament));
     assignLines(firstMatches, tables, teamSizeFor(tournament));
-    if (usesIndividualTeamPoints(tournament)) normalizeRoundMissions(first.metadata.missions, tournament.pairingType);
+    if (usesIndividualTeamPoints(tournament) || tournament.pairingType === 'wtc_doubles') normalizeRoundMissions(first.metadata.missions, tournament.pairingType);
   } else validateTeamTables(tables, tournament.venueMode, teamSizeFor(tournament));
   for (const roster of competitive) {
     if (activeRosterMembers(roster).length !== teamSizeFor(tournament)) throw new ValidationError("Every active roster must have the correct number of players");
@@ -592,7 +595,7 @@ async function previewNextRound(client, tournament) {
   const previous = tournament.roundDraft?.tables || tablesForRound(rounds.at(-1), defaults);
   const sharedTables = usesSharedTeamTables(tournament);
   const size = teamSizeFor(tournament);
-  const count = sharedTables ? 3 : Math.max(size, blueprint.pairings.filter(pair => pair.rosterBId !== null).length * size, Math.ceil(previous.length / size) * size);
+  const count = sharedTables ? size : Math.max(size, blueprint.pairings.filter(pair => pair.rosterBId !== null).length * size, Math.ceil(previous.length / size) * size);
   const highestNumber = Math.max(0, ...previous.map(table => table.tableNumber));
   const tables = Array.from({ length: count }, (_, index) => previous[index] || {
     tableNumber: highestNumber + index - previous.length + 1,
@@ -604,7 +607,7 @@ async function previewNextRound(client, tournament) {
     try {
       validateTeamLines(previous, tournament.venueMode, size);
       if (!usesIndividualTeamPoints(tournament)) {
-        for (let index = 0; index < previous.length; index += 3) validateTeamTables(previous.slice(index, index + 3), tournament.venueMode);
+        for (let index = 0; index < previous.length; index += size) validateTeamTables(previous.slice(index, index + size), tournament.venueMode, size);
       }
     } catch (error) {
       if (!(error instanceof ValidationError)) throw error;
@@ -614,8 +617,8 @@ async function previewNextRound(client, tournament) {
   return {
     tournament: tournamentSummaryView(tournament),
     round: { ...blueprint, endsAt: tournament.roundDraft?.endsAt || (tournament.status === "registration_closed" ? rounds[0]?.metadata?.endsAt : null) || null,
-      matches: pairings, missions: tournament.pairingType === "doubles"
-      ? normalizeRoundMissions(tournament.roundDraft?.missions || rounds.at(-1)?.metadata?.missions || CRIT_OPS.slice(0, 4), "doubles")
+      matches: pairings, missions: teamSizeFor(tournament) === 2
+      ? normalizeRoundMissions(tournament.roundDraft?.missions || rounds.at(-1)?.metadata?.missions || CRIT_OPS.slice(0, 4), tournament.pairingType)
       : CRIT_OPS.map((critOp) => ({ critOp })) },
     tables: tables.map(tournamentTableView), teamRound: true, reuseLines, lines: !sharedTables,
     pairingHistory: { teams: matches.map(match => pairingWarnings.team(match, rosters)), players: [] },
@@ -625,7 +628,7 @@ async function previewNextRound(client, tournament) {
 
 async function generateRound(client, tournament, user, body = {}) {
   const endsAt = normalizeRoundDeadline(Object.hasOwn(body, "endsAt") ? body.endsAt : tournament.roundDraft?.endsAt);
-  const missions = usesIndividualTeamPoints(tournament)
+  const missions = usesIndividualTeamPoints(tournament) || tournament.pairingType === 'wtc_doubles'
     ? normalizeRoundMissions(body.missions, tournament.pairingType) : CRIT_OPS.map((critOp) => ({ critOp }));
   const { blueprint, rosters, matches } = await buildRoundPreview(client, tournament, body);
   const tables = await nextTeamRoundTables(client, tournament, body.tables);
@@ -800,6 +803,8 @@ function recordPairingAction(handler) {
     if (body.revision !== undefined && Number(body.revision) !== context.match.pairingRevision) {
       throw new HttpError(409, "Pairing changed. Refresh and try again");
     }
+    if (context.match.pairingType === 'wtc_doubles' && (!Number.isInteger(body.revision) || body.revision !== context.match.pairingRevision))
+      throw new HttpError(409,'Pairing changed. Refresh and try again');
     const before = pairingSnapshot(context.match);
     await handler(request);
     await teamMatchesRepo.update(client, context.match.id, {
@@ -817,6 +822,7 @@ function hasEarlierPairingStep(match) {
 }
 
 async function earlierPairingSnapshot(client, match) {
+  if (match.pairingType === 'wtc_doubles') return null; // New matches always record exact action snapshots.
   // Older matches have no saved snapshots. Reconstruct their last logical step
   // from the retained selections, using the audit log for simultaneous choices.
   if (!hasEarlierPairingStep(match)) return null;
@@ -977,7 +983,7 @@ async function manualPairings({ client, user, params, body }) {
   if (match.captainPairingEnabled !== false || match.games.length) throw new HttpError(409, "Manual assignment is unavailable");
   const input = body.pairings;
   const size = teamSizeFor(match);
-  if (match.pairingType === "doubles" && (!Number.isInteger(body.revision) || body.revision !== match.pairingRevision)) throw new HttpError(409, "Pairing changed. Refresh and try again");
+  if (teamSizeFor(match) === 2 && (!Number.isInteger(body.revision) || body.revision !== match.pairingRevision)) throw new HttpError(409, "Pairing changed. Refresh and try again");
   if (!Array.isArray(input) || input.length !== size || input.some(item => !item || typeof item !== "object") || new Set(input.map(p => Number(p.rosterAMemberId))).size !== size ||
       new Set(input.map(p => Number(p.rosterBMemberId))).size !== size || new Set(input.map(p => Number(p.tableId))).size !== size ||
       new Set(input.map(p => p.mission)).size !== size) throw new ValidationError("Use each player, table and mission exactly once");
@@ -1050,7 +1056,7 @@ async function banMission({ client, user, params, body = {} }) {
   }
   const bans = [...context.match.missionBans, { side, mission }];
   const updated = await teamMatchesRepo.update(client, context.match.id, {
-    missionBans: bans, phase: bans.length === 2 ? "shield_selection" : "mission_ban"
+    missionBans: bans, phase: bans.length === 2 ? (context.match.pairingType === 'wtc_doubles' ? 'environment_selection' : "shield_selection") : "mission_ban"
   });
   await audit(client, context.tournament, user, "mission_ban", { entityType: "team_match", entityId: updated.id, metadata: { side, mission } });
   return { teamMatch: redactTeamMatch(updated, context.rosterA, context.rosterB, user) };
@@ -1212,6 +1218,25 @@ async function selectEnvironment({ client, user, params, body }) {
 }
 
 async function selectTeamEnvironment(client, context, user, body) {
+  if (context.match.pairingType === 'wtc_doubles') {
+    const action = teamNextAction(context.match);
+    if (!action || actionSide(user,body,context.side,context.tournament.id) !== action.side) throw new HttpError(403,'Waiting for the other captain');
+    const patch = applyWtcDoublesSelection(context.match,body,activeRosterMembers(context.rosterA),activeRosterMembers(context.rosterB));
+    const tables = await tablesForTeamMatch(client,context.match);
+    if (patch.environment.assignments.length === 2) {
+      patch.environment.assignments = patch.environment.assignments.map(assignment=>{
+        const table = tables.find(t=>t.id === assignment.tableId && context.match.tableIds.includes(t.id));
+        if (!table) throw new HttpError(409,'The selected table is unavailable');
+        return {...assignment,mission:{...assignment.mission,killzone:table.killzone,layout:table.deployment}};
+      });
+    }
+    context.match = await teamMatchesRepo.update(client,context.match.id,patch);
+    if (patch.environment.assignments.length === 2) await createPersonalGames(client,context,patch.environment.assignments,user,body);
+    await audit(client,context.tournament,user,'wtc_doubles_select',{entityType:'team_match',entityId:context.match.id,
+      metadata:{side:action.side,kind:action.kind,right:body.right,step:body.step,
+        logAssignments:pairingLog.assignmentDetails(context,patch.environment.assignments,tables)}});
+    return;
+  }
   if (context.match.pairingType === "sword_shield_classic") return selectClassicEnvironment(client, context, user, body);
   const { match } = context;
   const state = match.environment || { step: 0, assignments: [] };
@@ -1267,7 +1292,7 @@ async function selectTeamEnvironment(client, context, user, body) {
 async function createPersonalGames(client, context, assignments, user, body = {}) {
   const existing = context.match.games || await teamMatchesRepo.listGameLinks(client, context.match.id);
   if (existing.length === teamSizeFor(context.match)) {
-    await teamMatchesRepo.update(client, context.match.id, { phase: "in_progress", environment: { step: "complete", assignments } });
+    await teamMatchesRepo.update(client, context.match.id, { phase: "in_progress", environment: { ...context.match.environment, step: "complete", assignments } });
     return existing;
   }
   const pairingBySlot = new Map(context.match.pairings.map((pairing) => [pairing.slot, pairing]));
@@ -1309,7 +1334,7 @@ async function createPersonalGames(client, context, assignments, user, body = {}
       tableId: assignment.tableId
     });
   }
-  await teamMatchesRepo.update(client, context.match.id, { phase: "in_progress", environment: { step: "complete", assignments } });
+  await teamMatchesRepo.update(client, context.match.id, { phase: "in_progress", environment: { ...context.match.environment, step: "complete", assignments } });
   await audit(client, context.tournament, user, "personal_games_create", { entityType: "team_match", entityId: context.match.id, metadata: { assignments, logAssignments: pairingLog.assignmentDetails(context, assignments, roundTables) } });
 }
 
@@ -1496,15 +1521,19 @@ function matchIdForLink(matches, link) {
 async function resetMatchAdmin({ client, user, params, body }) {
   const context = await requireMatchContext(client, params, user);
   if (!canManageTournament(user, context.tournament)) throw new HttpError(403, "Administrator rights required");
+  if (context.match.pairingType === 'wtc_doubles' && (!Number.isInteger(body.revision) || body.revision !== context.match.pairingRevision))
+    throw new HttpError(409,'Pairing changed. Refresh before resetting this pairing');
   const rounds = await roundsRepo.listByTournament(client, context.tournament.id);
   if (rounds.some(round => round.roundNumber > context.match.roundNumber)) throw new HttpError(409, "Roll back later rounds before changing this pairing");
-  if (context.match.pairingType === "doubles") {
+  if (teamSizeFor(context.match) === 2) {
     if (context.match.games.some(link => link.game?.status === "pending_confirmation") && body.confirmResultsReset !== true) throw new HttpError(409, "Confirm removal of submitted personal results before resetting pairing");
   }
   const targetPhase = context.match.captainPairingEnabled === false ? "environment_selection" : String(body.phase || "awaiting_roll");
   const allowed = ["awaiting_roll", "shield_selection", "sword_selection", "environment_selection"];
   if (context.match.pairingVersion === 2 && context.match.pairingType !== "sword_shield_classic") allowed.push("mission_ban");
   if (!allowed.includes(targetPhase)) throw new ValidationError("Choose a valid reset phase");
+  if (context.match.pairingType === 'wtc_doubles' && targetPhase !== (context.match.captainPairingEnabled === false ? 'environment_selection' : 'awaiting_roll'))
+    throw new ValidationError('Restart WTC Doubles pairing from initiative, or undo the last action');
   const phases = ["awaiting_roll", "mission_ban", "shield_selection", "sword_selection", "environment_selection", "in_progress", "completed"];
   if (phases.indexOf(targetPhase) > phases.indexOf(context.match.phase)) throw new HttpError(409, "Reset cannot skip pairing steps");
   if ((context.match.games || []).some((link) => link.game?.status === "completed") && !body.confirmResultsReset) {
@@ -1553,7 +1582,7 @@ async function resetMatchAdmin({ client, user, params, body }) {
 async function overridePairingsAdmin({ client, user, params, body }) {
   const context = await requireMatchContext(client, params, user);
   if (!canManageTournament(user, context.tournament)) throw new HttpError(403, "Administrator rights required");
-  if (context.match.pairingType === "doubles") throw new HttpError(409, "Reset this Doubles pairing and fill the manual form");
+  if (teamSizeFor(context.match) === 2) throw new HttpError(409, "Reset this pairing or use the guided pairing controls");
   if (!["environment_selection", "in_progress"].includes(context.match.phase)) throw new HttpError(409, "Player pairings are not available yet");
   if ((context.match.games || []).length) throw new HttpError(409, "Reset personal games before changing player pairings");
   const pairings = Array.isArray(body.pairings) ? body.pairings.map((pairing, index) => ({
@@ -1608,7 +1637,7 @@ async function handleGameRequest(context, action) {
   if (!matchCandidate) throw new HttpError(409, "Team tournament game link is invalid");
   // Pairing undo and result submission acquire locks in the same order.
   const tournament = await tournamentsRepo.lockById(client, matchCandidate.tournamentId);
-  const completedDoublesEdit = tournament.status === "completed" && matchCandidate.pairingType === "doubles" && action === "admin-save" && canManageTournament(user, tournament);
+  const completedDoublesEdit = tournament.status === "completed" && teamSizeFor(matchCandidate) === 2 && action === "admin-save" && canManageTournament(user, tournament);
   if (tournament.status !== "in_progress" && !completedDoublesEdit) throw new HttpError(409, "Tournament is not in progress");
   const match = await teamMatchesRepo.findById(client, matchCandidate.id, true);
   const game = await gamesRepo.lockById(client, candidate.id);
@@ -1661,7 +1690,7 @@ async function handleGameRequest(context, action) {
     await gamesRepo.clearResult(client, game.id);
   } else if (action === "admin-save") {
     if (!canManageTournament(user, tournament)) throw new HttpError(403, "Administrator rights required");
-    if (match.pairingType === "doubles") {
+    if (teamSizeFor(match) === 2) {
       const rounds = await roundsRepo.listByTournament(client, tournament.id);
       if (rounds.some(round => round.roundNumber > match.roundNumber)) throw new HttpError(409, "Roll back later rounds before correcting this result");
     }

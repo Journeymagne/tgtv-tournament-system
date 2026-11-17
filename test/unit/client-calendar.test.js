@@ -26,3 +26,11 @@ test('calendar uses the existing application shell and omits the game-system con
   assert.match(calendar,/class="primary-button"/);
   assert.match(calendar,/calendarEvent=\$\{event.id\}/);
 });
+
+test('Teams filter includes pairs and teams of three; Players excludes both',()=>{
+ const events=[{name:'Solo',city:'Moscow',venue:'Club',tournamentType:'solo',participantMode:'individual'},
+  {name:'Pairs',city:'Moscow',venue:'Club',tournamentType:'pairs',participantMode:'team'},
+  {name:'Teams',city:'Moscow',venue:'Club',tournamentType:'teams',participantMode:'team'}];
+ assert.equal(filterEvents(events,{search:'',city:'',type:'team'}).length,2);
+ assert.equal(filterEvents(events,{search:'',city:'',type:'individual'}).length,1);
+});

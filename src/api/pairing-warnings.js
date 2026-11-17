@@ -1,5 +1,5 @@
 const crypto = require("node:crypto");
-const { HttpError } = require("../http/io");
+const { HttpError, ValidationError } = require("../http/io");
 const pairingWarnings = require("../../public/pairing-warnings");
 
 // This is an advisory review for interactive clients, not a pairing prohibition.
@@ -16,4 +16,10 @@ function reviewPairingWarnings(body = {}, proposed = [], history = [], venueMode
   throw error;
 }
 
-module.exports = { ...pairingWarnings, reviewPairingWarnings };
+function assertUniquePhysicalTables(proposed = [], venueMode = "tts") {
+  if (pairingWarnings.tableConflicts(proposed, venueMode).length) {
+    throw new ValidationError("Each physical table can be assigned to only one pairing per round");
+  }
+}
+
+module.exports = { ...pairingWarnings, reviewPairingWarnings, assertUniquePhysicalTables };

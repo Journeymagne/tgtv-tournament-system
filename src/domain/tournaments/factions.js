@@ -31,7 +31,7 @@ function normalizeFactions(body, tournament, { allowEmpty = false } = {}) {
 }
 
 function validateResultFactions(tournament, result, participants) {
-  if ((tournament.factionCount || 1) === 1) return;
+  if ((tournament.factionCount || 1) === 1 && tournament.pairingType !== 'wtc_doubles') return;
   for (const participant of participants) {
     const factions = registeredFactions(participant);
     if (factions.length && !factions.includes(result.scores?.[participantResultKey(participant)]?.faction)) {

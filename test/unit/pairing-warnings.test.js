@@ -63,6 +63,32 @@ test("automatic tables prefer fresh tables and preserve an explicit choice", () 
   assert.equal(warnings.assignTables([next], tables, previous)[0].tableId, 10);
 });
 
+test("physical table conflicts include every occupied pairing in the same round", () => {
+  const first = normalized(match());
+  const second = normalized(match({ participantAId: 3, participantBId: 4, tableId: "10" }));
+  const proposed = [first, second, normalized(match({ participantAId: null, participantBId: null })),
+    { ...first, isBye: true }, { ...first, roundNumber: 3 }];
+  assert.deepEqual(warnings.tableConflicts(proposed, "irl").map(item => item.matchIndex), [0, 1]);
+  assert.deepEqual(warnings.tableConflicts(proposed, "tts"), []);
+  assert.deepEqual(warnings.tableConflicts([first, { ...second, tableId: 20 }], "irl"), []);
+  assert.deepEqual(warnings.tableConflicts([first, { ...second, b: null }], "irl").map(item => item.matchIndex), [0, 1]);
+});
+
+test("automatic assignment reserves later explicit choices before assigning earlier automatic pairs", () => {
+  const automatic = normalized(match({ tableId: null }));
+  const explicit = normalized(match({ participantAId: 3, participantBId: 4 }));
+  const assigned = warnings.assignTables([automatic, explicit], tables);
+  assert.deepEqual(assigned.map(item => item.tableId), [20, 10]);
+  assert.deepEqual(warnings.tableConflicts(assigned, "irl"), []);
+});
+
+test("duplicate physical tables are invalid independently of advisory warning acknowledgement", () => {
+  const { assertUniquePhysicalTables } = require("../../src/api/pairing-warnings");
+  const proposed = [normalized(match()), normalized(match({ participantAId: 3, participantBId: 4 }))];
+  assert.throws(() => assertUniquePhysicalTables(proposed, "irl"), { status: 400 });
+  assert.doesNotThrow(() => assertUniquePhysicalTables(proposed, "tts"));
+});
+
 test("a reviewed warning is advisory and its acknowledgement applies only to the reviewed pairings", () => {
   let review;
   assert.throws(() => reviewPairingWarnings({ reviewPairingWarnings: true }, [next], previous, "irl"), error => {

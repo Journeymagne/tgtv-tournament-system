@@ -136,6 +136,65 @@ async function reviewSoloCup(count = 4, overrides = {}, factions = []) {
   return { tournament, started: await closeAndStart(tournament), params: { id: String(tournament.id) } };
 }
 
+test("IRL preparation rejects shared physical tables and reserves later explicit assignments", async () => {
+  const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 3, venueMode: "irl" });
+  for (const name of ["Table One", "Table Two", "Table Three", "Table Four"]) {
+    await addUserParticipant(tournament, await createUser(name));
+  }
+  const context = { client, user: root, params: { id: String(tournament.id) } };
+  await tournamentsApi.closeRegistration(context);
+  const preview = await tournamentsApi.previewNextRoundAdmin(context);
+  const tableId = preview.tables[0].id;
+  const matchups = preview.round.matches.map(match => ({ participantAId: match.participantAId,
+    participantBId: match.participantBId, tableId }));
+  await assert.rejects(tournamentsApi.generateNextRoundAdmin({ ...context, body: { matchups } }), { status: 400 });
+  assert.equal((await client.query("SELECT count(*)::int AS count FROM tournament_rounds WHERE tournament_id=$1", [tournament.id])).rows[0].count, 0);
+  matchups[0].tableId = null;
+  const saved = await tournamentsApi.generateNextRoundAdmin({ ...context, body: { matchups } });
+  const assigned = saved.rounds[0].matches.filter(match => !match.isBye).map(match => match.tableId);
+  assert.equal(new Set(assigned).size, 2);
+  assert.equal(assigned[1], tableId);
+});
+
+test("active IRL pairing edits reject table conflicts with editable and completed matches without changing games", async () => {
+  const { started, params } = await reviewSoloCup(4, { venueMode: "irl" });
+  const context = { client, user: root, params: { ...params, roundId: String(started.rounds[0].id) } };
+  const preview = await tournamentsApi.getActivePairingsAdmin(context);
+  const body = editablePairingBody(preview);
+  body.matchups[1].tableId = body.matchups[0].tableId;
+  const before = (await client.query("SELECT id, status, result FROM games ORDER BY id")).rows;
+  await assert.rejects(tournamentsApi.updateActivePairingsAdmin({ ...context, body }), { status: 400 });
+  assert.deepEqual((await client.query("SELECT id, status, result FROM games ORDER BY id")).rows, before);
+  const first = started.rounds[0].matches[0];
+  await tournamentsApi.saveMatchResultAdmin({ client, user: root, params: { ...params, matchId: String(first.id) },
+    body: { scores: scores(first.participantA.userId, first.participantB.userId) } });
+  const withLockedMatch = await tournamentsApi.getActivePairingsAdmin(context);
+  const edit = editablePairingBody(withLockedMatch);
+  edit.matchups[0].tableId = first.tableId;
+  const afterResult = (await client.query("SELECT id, status, result FROM games ORDER BY id")).rows;
+  await assert.rejects(tournamentsApi.updateActivePairingsAdmin({ ...context, body: edit }), { status: 400 });
+  assert.deepEqual((await client.query("SELECT id, status, result FROM games ORDER BY id")).rows, afterResult);
+});
+
+test("a legacy rolled-back draft with duplicate tables remains editable but cannot be saved unchanged", async () => {
+  const { started, params } = await reviewSoloCup(4, { venueMode: "irl" });
+  const context = { client, user: root, params };
+  const tableId = started.rounds[0].matches[0].tableId;
+  await tournamentsApi.rollbackLatestRoundAdmin(context);
+  await client.query("UPDATE tournaments SET round_draft=jsonb_set(round_draft, '{matchups,1,tableId}', to_jsonb($2::int)) WHERE id=$1", [Number(params.id), tableId]);
+  const preview = await tournamentsApi.previewNextRoundAdmin(context);
+  assert.equal(preview.restoredDraft, true);
+  assert.equal(preview.round.matches[0].tableId, tableId);
+  assert.equal(preview.round.matches[1].tableId, tableId);
+  const matchups = preview.round.matches.map(match => ({ participantAId: match.participantAId,
+    participantBId: match.participantBId, tableId: match.tableId }));
+  await assert.rejects(tournamentsApi.generateNextRoundAdmin({ ...context, body: { matchups } }), { status: 400 });
+  matchups[1].tableId = preview.tables.find(table => table.id !== tableId).id;
+  const repaired = await tournamentsApi.generateNextRoundAdmin({ ...context, body: { matchups } });
+  assert.equal(repaired.tournament.roundDraft, null);
+  assert.equal(new Set(repaired.rounds[0].matches.map(match => match.tableId)).size, 2);
+});
+
 test("a stale result form cannot score a replacement opponent", async () => {
   const { started, params } = await reviewSoloCup();
   const [first, second] = started.rounds[0].matches;
@@ -1224,6 +1283,34 @@ test("single elimination start requires the selected bracket size", async () => 
   );
 });
 
+test("a TTS tournament switched to IRL can prepare and start without a scheduled date", async () => {
+  const tournament = await createPublishedTournament({
+    format: "swiss",
+    swissRoundCount: 2,
+    venueMode: "tts",
+    startsAt: null
+  });
+  const context = { client, user: root, params: { id: String(tournament.id) } };
+  const updated = await tournamentsApi.updateAdmin({ ...context, body: { venueMode: "irl" } });
+  assert.equal(updated.tournament.venueMode, "irl");
+  assert.equal(updated.tournament.startsAt, null);
+  for (const name of ["Alpha", "Bravo", "Charlie", "Delta"]) {
+    await addUserParticipant(tournament, await createUser(name));
+  }
+  await tournamentsApi.closeRegistration(context);
+
+  const prepared = await tournamentsApi.generateNextRoundAdmin(context);
+  assert.equal(prepared.tournament.status, "registration_closed");
+  assert.equal(prepared.rounds[0].status, "not_ready");
+  assert.equal(prepared.rounds[0].matches.length, 2);
+
+  const started = await tournamentsApi.startAdmin(context);
+  assert.equal(started.tournament.status, "in_progress");
+  assert.equal(started.tournament.startsAt, null);
+  assert.ok(started.tournament.startedAt);
+  assert.equal(started.rounds[0].status, "active");
+});
+
 test("preparing the first round preserves its pairings until an explicit tournament start", async () => {
   const tournament = await createPublishedTournament({
     format: "swiss",
@@ -1265,6 +1352,33 @@ test("preparing the first round preserves its pairings until an explicit tournam
   assert.deepEqual(started.rounds[0].matches.map((match) => match.id), generated.rounds[0].matches.map((match) => match.id));
   assert.ok(started.participants.every((participant) => participant.status === "active"));
   assert.equal((await client.query("SELECT count(*)::int AS n FROM games")).rows[0].n, 2);
+});
+
+test("Swiss preparation saves removed pair rows without restoring them and preserves a bye", async () => {
+  for (const playerCount of [4, 5]) {
+    const tournament = await createPublishedTournament({ format: "swiss", swissRoundCount: 2, venueMode: "irl" });
+    const context = { client, user: root, params: { id: String(tournament.id) } };
+    for (let index = 0; index < playerCount; index++) {
+      await addUserParticipant(tournament, await createUser(`Player ${playerCount} ${index}`));
+    }
+    await tournamentsApi.closeRegistration(context);
+    const preview = await tournamentsApi.previewNextRoundAdmin(context);
+    const kept = preview.round.matches.find(match => !match.isBye);
+    const bye = preview.round.matches.find(match => match.isBye);
+    const matchups = preview.round.matches.filter(match => match === kept || match.isBye).map(match => match.isBye ? {} : {
+      participantAId: kept.participantAId, participantBId: kept.participantBId
+    });
+    const saved = await tournamentsApi.generateNextRoundAdmin({ ...context, body: { matchups } });
+    const matches = saved.rounds[0].matches;
+    assert.equal(matches.length, bye ? 2 : 1);
+    const pair = matches.find(match => !match.isBye);
+    assert.deepEqual([pair.participantAId, pair.participantBId], [kept.participantAId, kept.participantBId]);
+    assert.equal(saved.participants.length, playerCount);
+    if (bye) assert.equal(matches.find(match => match.isBye).participantAId, bye.participantAId);
+    const reopened = await tournamentsApi.previewNextRoundAdmin(context);
+    assert.equal(reopened.round.matches.length, matches.length);
+    await assert.rejects(() => tournamentsApi.generateNextRoundAdmin({ ...context, body: { matchups: [] } }), /at least one pairing/);
+  }
 });
 
 test("round setup rejects duplicate players and Empty really frees a pairing slot", async () => {
