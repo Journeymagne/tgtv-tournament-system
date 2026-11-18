@@ -30,3 +30,38 @@ test('tierlist edits select own service plus common guards without tournament de
   assert.deepEqual(selectedTests(plan, ['test/integration/api-tierlists.test.js', 'test/unit/http-io.test.js',
     'test/integration/api-tournaments.test.js']), ['test/integration/api-tierlists.test.js','test/unit/http-io.test.js']);
 });
+
+test('provider changes select tournament regressions and the shared service boundary check', () => {
+  const requiredTests = [
+    'test/integration/api-tournament-provider-membership.test.js',
+    'test/integration/service-boundaries.test.js',
+    'test/unit/client-tournament-providers.test.js'
+  ];
+  for (const source of [
+    'public/tournament-providers.js',
+    'public/tournament-providers.css',
+    'src/api/routes-tournament-providers.js',
+    'src/api/tournament-provider-events.js',
+    'src/api/tournament-providers.js',
+    'src/db/repositories/tournament-providers.js',
+    'src/domain/tournament-providers.js'
+  ]) {
+    const plan = affected([source]);
+    assert.ok(plan.groups.includes('tournaments'), source);
+    assert.equal(plan.combat, false, source);
+    assert.deepEqual(selectedTests(plan, requiredTests), requiredTests, source);
+  }
+});
+
+test('shared authorization and provider database changes select every root service', () => {
+  for (const source of [
+    'src/api/authorization.js',
+    'src/db/repositories/access.js',
+    'src/db/migrations/116_tournament_providers.js'
+  ]) {
+    assert.deepEqual(affected([source]), {
+      groups: ['accounts', 'faq', 'knowthykt', 'notifications', 'studio', 'tierlists', 'tournaments'],
+      combat: false
+    }, source);
+  }
+});

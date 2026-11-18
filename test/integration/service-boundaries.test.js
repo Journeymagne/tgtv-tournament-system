@@ -4,6 +4,7 @@ const net = require('node:net');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { randomBytes } = require('node:crypto');
+const { Client } = require('pg');
 const { TEST_DATABASE_URL } = require('../helpers/db');
 process.env.DATABASE_URL = TEST_DATABASE_URL;
 const { getPool, closePool } = require('../../src/db/pool');
@@ -66,7 +67,16 @@ test.before(async () => {
 });
 test.after(async () => { for (const service of [...children.keys()].reverse()) await stop(service); await closePool(); });
 const ok = async (promise, status = 200) => { const result = await promise; assert.equal(result.status, status, JSON.stringify(result.body)); return result.body; };
-test('scoped services share sessions, save prepared rounds and survive a tournament outage', async () => {
+async function waitForNotification(client, type, sourceId) {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const { items } = await ok(client.get('/api/notifications'));
+    const item = items.find(item => item.type === type && (sourceId === undefined || item.sourceId === sourceId));
+    if (item) return item;
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  assert.fail(`Notifications service did not deliver ${type}`);
+}
+test('scoped services share sessions, save prepared rounds and survive a tournament outage', async t => {
   const headers = {};
   const admin = createClient(origin, headers);
   const players = Array.from({ length: 3 }, () => createClient(origin));
@@ -75,8 +85,9 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
   headers['X-Studio-Account'] = String(user.id);
   headers['X-Training-Account'] = String(user.id);
   await require('../helpers/access').grantOwner(getPool(), user);
+  const playerUsers = [];
   for (const [index, player] of players.entries()) {
-    await ok(player.post('/api/register', registration('ServicePlayer' + index)), 201);
+    playerUsers.push((await ok(player.post('/api/register', registration('ServicePlayer' + index)), 201)).user);
   }
   for (const route of ['/api/session', '/api/me', '/api/notifications', '/api/studio/drafts', '/api/faq', '/api/knowthykt/progress']) await ok(admin.get(route));
   assert.equal((await ok(admin.post('/api/miniapp/session'))).authenticated, true);
@@ -97,16 +108,56 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
   const preview = await ok(admin.get(url + '/rounds/next/preview'));
   assert.equal(preview.round.mission.critOp, 'Loot');
   await ok(admin.post(url + '/start'));
-  let delivered = false;
-  for (let attempt = 0; attempt < 50; attempt++) {
-    const inbox = await ok(admin.get('/api/notifications'));
-    if (inbox.items.some(item => item.type === 'tournament_started')) { delivered = true; break; }
-    await new Promise(resolve => setTimeout(resolve, 200));
-  }
-  assert.ok(delivered, 'tournament worker and notification service must deliver across scoped schemas');
+  await waitForNotification(admin, 'tournament_started');
+
+  await t.test('provider invitations cross services while event creation stays scoped', async () => {
+    const [organizer, otherPlayer] = players;
+    const organizerId = playerUsers[0].id;
+    const logoData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aS1cAAAAASUVORK5CYII=';
+    const profile = { name: 'Service Club', city: 'Yerevan', logoData };
+    const { provider } = await ok(admin.post('/api/tournament-providers', profile), 201);
+    const { provider: otherProvider } = await ok(admin.post('/api/tournament-providers', { ...profile, name: 'Other Service Club' }), 201);
+    const { invitation } = await ok(admin.post(`/api/tournament-providers/${provider.id}/invitations`, {
+      userId: organizerId, role: 'organizer'
+    }), 201);
+    const item = await waitForNotification(organizer, 'tournament_provider_invitation', invitation.id);
+    assert.equal(item.provider.id, provider.id);
+
+    const accept = `/api/tournament-provider-invitations/${invitation.id}/accept`;
+    await ok(otherPlayer.post(accept), 403);
+    assert.equal((await ok(organizer.post(accept))).invitation.status, 'accepted');
+
+    const accountsEnv = environments(base, 'ci-services').accounts;
+    const db = new Client({ connectionString: accountsEnv.DATABASE_URL });
+    await db.connect();
+    try {
+      for (const table of [
+        'tournament_providers',
+        'tournament_provider_memberships',
+        'tournament_provider_invitations',
+        'tournament_provider_audit_events'
+      ]) {
+        await assert.rejects(db.query('SELECT * FROM tournaments.' + table), { code: '42501' });
+      }
+    } finally { await db.end(); }
+    assert.equal((await ok(organizer.get('/api/session'))).user.id, organizerId);
+    const { user: updatedProfile } = await ok(organizer.patch('/api/me', { registerNickname: 'Service organizer' }));
+    assert.equal(updatedProfile.registerNickname, 'Service organizer');
+    const { user: tournamentUser } = await ok(organizer.get('/api/me'));
+    assert.equal(tournamentUser.capabilities.canCreateTournaments, false);
+    assert.equal(tournamentUser.capabilities.canCreateProviderEvents, true);
+    await ok(admin.patch(`/api/admin/users/${organizerId}/permissions`, { canCreateTournaments: false }));
+
+    const event = { name: 'Provider Service Cup', startsAt: '2027-02-01T12:00:00Z', format: 'swiss', swissRoundCount: 3 };
+    const tournamentRoute = '/api/admin/tournaments';
+    await ok(organizer.post(tournamentRoute, event), 403);
+    await ok(organizer.post(tournamentRoute, { ...event, providerId: otherProvider.id }), 403);
+    const { tournament } = await ok(organizer.post(tournamentRoute, { ...event, providerId: provider.id }), 201);
+    assert.equal(tournament.providerId, provider.id);
+  });
   for (const service of ['studio', 'knowthykt', 'tournaments', 'tierlists']) {
     const env = environments(base, 'ci-services')[service];
-    const { Client } = require('pg'); const db = new Client({ connectionString: env.DATABASE_URL });
+    const db = new Client({ connectionString: env.DATABASE_URL });
     await db.connect();
     try {
       await assert.rejects(db.query('SELECT password_hash FROM accounts.users'), error => error.code === '42501');
