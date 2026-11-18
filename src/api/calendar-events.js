@@ -2,6 +2,7 @@ const { HttpError } = require('../http/io');
 const { requirePositiveIntId } = require('./params');
 const { normalizeCalendarEvent, monthRange, tournamentDefaults } = require('../domain/calendar-events');
 const repo = require('../db/repositories/calendar-events');
+const { canCreateTournament } = require('../domain/access');
 function requireAdmin(user) { if (!user?.isAdmin) throw new HttpError(403, 'Administrator rights required'); }
 async function requireEvent(client, id, lock = false) {
   const event = await repo.find(client, requirePositiveIntId(id,404,'Calendar event not found'), true, lock);
@@ -17,7 +18,7 @@ async function getAdmin({ client, user, params }) {
   return { event, tournamentDefaults: tournamentDefaults(event) };
 }
 async function create({ client, user, body }) {
-  requireAdmin(user);
+  if (!canCreateTournament(user)) throw new HttpError(403, 'Tournament creation permission required');
   return { status: 201, body: { event: await repo.insert(client, normalizeCalendarEvent(body), user.id) } };
 }
 async function update({ client, user, params, body }) {

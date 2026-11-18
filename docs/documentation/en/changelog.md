@@ -2,6 +2,10 @@
 
 KT Companion release history, newest first.
 
+## 1.6.1 — 18 November 2026
+
+- Tournament organizers with tournament-creation permission can now add events to the Calendar.
+
 ## 1.6.0 — 18 November 2026
 
 - Added a Kill Team event calendar with a month view and list, mobile event cards with tournament posters, search, and Russian city autocomplete. Singles and team events have distinct colours, and tournaments you participate in have a personal marker.
