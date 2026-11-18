@@ -207,7 +207,14 @@ async function deleteUser({ client, user, params }) {
   if (target.id === owner) throw new ValidationError("The platform owner cannot be deleted");
   if (target.id === user.id) throw new ValidationError("You cannot delete yourself");
   await access.audit(client,user,"user_deleted","user",target.id,{ name:target.name },null);
-  await usersRepo.remove(client, target.id);
+  try {
+    await usersRepo.remove(client, target.id);
+  } catch (error) {
+    if (error.code === '23503' && error.constraint === 'tournament_providers_owner_user_id_fkey') {
+      throw new HttpError(409, 'Transfer the chief organizer role in every organization before deleting this account');
+    }
+    throw error;
+  }
   return { ok: true };
 }
 

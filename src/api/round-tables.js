@@ -11,10 +11,11 @@ const { saveTableImage } = require("./tournament-table-images");
 const { tournamentTableView } = require("./views");
 
 async function context(client, user, params, forUpdate = false) {
-  if (!canManageTournament(user, params.id)) throw new HttpError(403, "Only administrators can edit round tables");
   const id = requirePositiveIntId(params.id, 404, "Tournament not found");
   const tournament = forUpdate ? await tournaments.lockById(client, id) : await tournaments.findById(client, id);
   if (!tournament) throw new HttpError(404, "Tournament not found");
+  if (forUpdate && tournament.providerId != null) user = await require("./authorization").freshUser(client,user);
+  if (!canManageTournament(user,tournament)) throw new HttpError(403, "Only administrators can edit round tables");
   if (tournament.participantMode !== "team") throw new HttpError(409, "This is not a team tournament");
   if (!["registration_closed", "in_progress"].includes(tournament.status)) {
     throw new HttpError(409, "Round tables cannot be edited in this tournament state");

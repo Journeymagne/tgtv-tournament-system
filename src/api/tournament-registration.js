@@ -9,11 +9,12 @@ const teams = require("../db/repositories/player-teams");
 
 function paymentHandler(team) {
   return async ({ client, user, params, body }) => {
-    if (!canManageTournament(user, params.id)) throw new HttpError(403, "Administrator rights required");
     if (typeof body.paid !== "boolean") throw new ValidationError("Paid must be true or false");
     const id = requirePositiveIntId(params.id, 404, "Tournament not found");
     const tournament = await tournaments.lockById(client, id);
     if (!tournament || (tournament.participantMode === "team") !== team) throw new HttpError(404, "Tournament not found");
+    if (tournament.providerId != null) user = await require("./authorization").freshUser(client,user);
+    if (!canManageTournament(user,tournament)) throw new HttpError(403, "Administrator rights required");
     const entryId = requirePositiveIntId(team ? params.rosterId : params.participantId, 404, "Registration not found");
     const entry = team ? await rosters.findById(client, entryId, true) : await participants.lockById(client, entryId);
     if (!entry || entry.tournamentId !== id) throw new HttpError(404, "Registration not found");

@@ -20,7 +20,7 @@ test("MEDIUM 3: каждый маршрут /api/admin/* требует глоб
   const adminRoutes = routes.filter((route) => route.path.startsWith("/api/admin/"));
   assert.ok(adminRoutes.length > 0, "sanity: there should be admin routes to check");
   for (const route of adminRoutes) {
-    assert.ok(route.auth === "admin" || (route.auth === "user" && ["super", "administration", "tournaments.create", "tournament.manage", "judges.manage", "game.manage"].includes(route.permission)), `${route.method} ${route.path} requires an explicit privilege boundary`);
+    assert.ok(route.auth === "admin" || (route.auth === "user" && ["super", "administration", "tournaments.create", "tournament.manage", "judges.manage", "game.manage", "calendar.manage"].includes(route.permission)), `${route.method} ${route.path} requires an explicit privilege boundary`);
   }
 });
 

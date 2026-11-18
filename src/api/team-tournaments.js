@@ -1,4 +1,5 @@
-const { canManageTournament, tournamentPermissions } = require("../domain/access");
+const { canManageTournament, canFinishTournament, tournamentPermissions } = require("../domain/access");
+const { freshUser, withProviderWriteAccess } = require("./authorization");
 const crypto = require("node:crypto");
 const { HttpError, ValidationError } = require("../http/io");
 const { requirePositiveIntId } = require("./params");
@@ -1451,7 +1452,8 @@ async function attachTeamGameDetails(client, games) {
     `SELECT l.*, tm.tournament_id, tm.round_number, tm.phase, tm.roster_a_id, tm.roster_b_id, tm.pairing_version,
             ra.name AS roster_a_name, ra.team_id AS team_a_id, ra.team_name_snapshot AS team_a_name, ra.captain_user_id AS captain_a_id,
             rb.name AS roster_b_name, rb.team_id AS team_b_id, rb.team_name_snapshot AS team_b_name, rb.captain_user_id AS captain_b_id,
-            t.slug AS tournament_slug, t.name AS tournament_name, t.venue_mode, t.season_id, t.faction_count
+            t.slug AS tournament_slug, t.name AS tournament_name, t.venue_mode, t.season_id, t.faction_count,
+            t.provider_id, ${tournamentsRepo.providerSummarySql('t.provider_id')}
      FROM tournament_team_match_games l
      JOIN tournament_team_matches tm ON tm.id = l.team_match_id
      JOIN tournament_team_rosters ra ON ra.id = tm.roster_a_id
@@ -1487,6 +1489,8 @@ async function attachTeamGameDetails(client, games) {
       })),
       tournament: {
         id: link.tournament_id,
+        providerId: link.provider_id ?? null,
+        provider: link.provider || null,
         slug: link.tournament_slug,
         name: link.tournament_name,
         seasonId: link.season_id,
@@ -1630,13 +1634,19 @@ async function applyFinalGameResult(client, tournament, game, result, submittedB
 }
 
 async function handleGameRequest(context, action) {
-  const { client, user, params, body = {} } = context;
+  const { client, params, body = {} } = context;
+  let { user } = context;
   const candidate = await gamesRepo.findById(client, requirePositiveIntId(params.id, 404, "Game not found"));
   if (!candidate || candidate.sourceType !== "team_match_game") throw new HttpError(404, "Team tournament game not found");
   const matchCandidate = await teamMatchesRepo.findById(client, candidate.sourceId);
   if (!matchCandidate) throw new HttpError(409, "Team tournament game link is invalid");
   // Pairing undo and result submission acquire locks in the same order.
   const tournament = await tournamentsRepo.lockById(client, matchCandidate.tournamentId);
+  if (!tournament) throw new HttpError(404, "Tournament not found");
+  if (tournament.providerId != null) {
+    user = await freshUser(client,user);
+    if (action === "admin-save" && !canManageTournament(user,tournament)) throw new HttpError(403, "Tournament access required");
+  }
   const completedDoublesEdit = tournament.status === "completed" && teamSizeFor(matchCandidate) === 2 && action === "admin-save" && canManageTournament(user, tournament);
   if (tournament.status !== "in_progress" && !completedDoublesEdit) throw new HttpError(409, "Tournament is not in progress");
   const match = await teamMatchesRepo.findById(client, matchCandidate.id, true);
@@ -1769,6 +1779,11 @@ async function recalculateTeamRatings(client) {
 }
 
 async function publishFinalStandings(client, tournament, user) {
+  if (tournament.providerId != null) {
+    tournament = await tournamentsRepo.lockById(client,tournament.id);
+    user = await freshUser(client,user);
+    if (!canFinishTournament(user,tournament)) throw new HttpError(403, "Only the organizer can finish this tournament");
+  }
   const rosters = (await rostersRepo.listByTournament(client, tournament.id, { includeWithdrawn: false }))
     .filter((roster) => ["active", "finished"].includes(roster.status));
   const rounds = await roundsRepo.listByTournament(client, tournament.id);
@@ -1861,6 +1876,13 @@ module.exports = {
   redactTeamMatch
 };
 
+for (const name of ["updateRosterSeedsAdmin","resetMatchAdmin","overridePairingsAdmin"]) {
+  module.exports[name] = withProviderWriteAccess(module.exports[name]);
+}
+for (const name of ["registerRoster","updateRoster","withdrawRoster","deleteRoster","selectInitiative","manualPairings",
+  "roll","banMission","selectShield","selectSword","selectEnvironment","undoPairing"]) {
+  module.exports[name] = withProviderWriteAccess(module.exports[name],"tournament.participate");
+}
 for (const name of ["undoPairing", "resetMatchAdmin", "handleGameRequest", "deleteRoster", "updateRoster"]) {
   module.exports[name] = require("../db/rating-write-lock").withRatingWriteLock(module.exports[name]);
 }

@@ -9,13 +9,35 @@ async function ownerId(client) {
 async function hydrate(client, user) {
   if (!user) return null;
   const tournamentAccess = ['monolith','tournaments'].includes(process.env.SERVICE_NAME || 'monolith');
+  // The accounts role cannot read tournaments tables. Read all tournament grants in
+  // one statement so role changes, scoped IDs and picker options share a snapshot.
+  const tournamentGrants = tournamentAccess ? `LEFT JOIN LATERAL (
+    SELECT array_agg(DISTINCT id ORDER BY id) FILTER (WHERE manage) AS managed,
+      array_agg(DISTINCT id ORDER BY id) FILTER (WHERE organize) AS organized,
+      array_agg(DISTINCT id ORDER BY id) FILTER (WHERE assign_judges) AS judge_management
+    FROM (
+      SELECT t.id,TRUE AS manage,TRUE AS organize,TRUE AS assign_judges
+      FROM tournaments t WHERE t.owner_user_id=u.id AND t.provider_id IS NULL
+      UNION ALL
+      SELECT j.tournament_id,TRUE,FALSE,FALSE FROM tournament_judges j
+      WHERE j.user_id=u.id AND j.revoked_at IS NULL AND (j.expires_at IS NULL OR j.expires_at>NOW())
+      UNION ALL
+      SELECT t.id,TRUE,m.role='organizer',p.owner_user_id=u.id
+      FROM tournament_provider_memberships m JOIN tournament_providers p ON p.id=m.provider_id
+      JOIN tournaments t ON t.provider_id=p.id WHERE m.user_id=u.id AND m.ended_at IS NULL
+      UNION ALL
+      SELECT t.id,FALSE,FALSE,TRUE FROM tournaments t WHERE u.is_admin AND t.provider_id IS NOT NULL
+    ) effective_grants
+  ) grants ON TRUE` : '';
+  const tournamentFields = tournamentAccess ? `grants.managed,grants.organized,grants.judge_management,
+    (SELECT jsonb_agg(jsonb_build_object('providerId',p.id,'role',m.role,'isOwner',p.owner_user_id=u.id,
+      'name',p.name,'slug',p.slug,'archivedAt',p.archived_at) ORDER BY p.name,p.id)
+      FROM tournament_provider_memberships m JOIN tournament_providers p ON p.id=m.provider_id
+      WHERE m.user_id=u.id AND m.ended_at IS NULL) AS provider_memberships` : 'NULL AS managed';
   const { rows: [row] } = await client.query(`SELECT u.is_admin, u.can_create_tournaments, u.is_faq_moderator,
     u.suspended_until, u.suspension_reason,
     EXISTS (SELECT 1 FROM platform_ownership p WHERE p.owner_user_id=u.id) AS is_super_admin,
-    ${tournamentAccess ? `ARRAY(SELECT id FROM tournaments WHERE owner_user_id=u.id
-      UNION SELECT tournament_id FROM tournament_judges WHERE user_id=u.id AND revoked_at IS NULL
-      AND (expires_at IS NULL OR expires_at > NOW()))` : 'ARRAY[]::integer[]'} AS managed_tournament_ids
-    FROM users u WHERE u.id=$1`, [user.id]);
+    ${tournamentFields} FROM users u ${tournamentGrants} WHERE u.id=$1`, [user.id]);
   if (!row) return null;
   const result = { ...user, isSuperAdmin: row.is_super_admin,
     isAdmin: row.is_admin || row.is_super_admin,
@@ -23,7 +45,10 @@ async function hydrate(client, user) {
     isFAQModerator: row.is_faq_moderator,
     suspendedUntil: row.suspended_until?.toISOString() || null,
     suspensionReason: row.suspension_reason,
-    managedTournamentIds: row.managed_tournament_ids };
+    managedTournamentIds: row.managed || [],
+    organizedTournamentIds: row.organized || [],
+    judgeManagementTournamentIds: row.judge_management || [],
+    providerMemberships: row.provider_memberships || [] };
   return { ...result, capabilities: permissions.userCapabilities(result) };
 }
 

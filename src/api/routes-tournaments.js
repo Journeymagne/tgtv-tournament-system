@@ -23,6 +23,7 @@ function withAction(handler, action) {
 }
 
 module.exports = [
+  ...require('./routes-tournament-providers'),
   { method: "GET", path: "/api/statistics/kill-team", handler: killTeamStatistics.get, auth: "none" },
   {method:'GET',path:'/api/admin/tournaments/:id/audit',handler:tournaments.auditPage,auth:'user',permission:'tournament.manage'},
   ...require("./miniapp").routes,
@@ -132,10 +133,10 @@ module.exports = [
     tx: true
   },
   { method: 'GET', path: '/api/calendar-events', handler: calendar.list, auth: 'none', loadUser: true },
-  { method: 'GET', path: '/api/admin/calendar-events/:id', handler: calendar.getAdmin, auth: 'admin' },
-  { method: 'POST', path: '/api/admin/calendar-events', handler: calendar.create, auth: 'admin', tx: true },
-  { method: 'PATCH', path: '/api/admin/calendar-events/:id', handler: calendar.update, auth: 'admin', tx: true },
-  { method: 'DELETE', path: '/api/admin/calendar-events/:id', handler: calendar.remove, auth: 'admin', tx: true },
+  { method: 'GET', path: '/api/admin/calendar-events/:id', handler: calendar.getAdmin, auth: 'user', permission:'calendar.manage' },
+  { method: 'POST', path: '/api/admin/calendar-events', handler: calendar.create, auth: 'user', permission:'calendar.manage', tx: true },
+  { method: 'PATCH', path: '/api/admin/calendar-events/:id', handler: calendar.update, auth: 'user', permission:'calendar.manage', tx: true },
+  { method: 'DELETE', path: '/api/admin/calendar-events/:id', handler: calendar.remove, auth: 'user', permission:'calendar.manage', tx: true },
   { method: "GET", path: "/api/tournaments", handler: tournaments.listPublic, auth: "none", loadUser: true },
   {
     method: "GET",
@@ -449,6 +450,8 @@ module.exports = [
   }
 ].map(route => {
   route = { ...route, ratingMutation: route.ratingMutation || route.handler.ratingMutation === true };
+  if (route.tx && route.path.startsWith('/api/tournaments/:id/') && !route.permission) return {...route,permission:'tournament.participate'};
+  if (route.tx && route.path.startsWith('/api/games/:id/') && !route.permission) return {...route,permission:'game.participate'};
   if (route.permission) return route;
   if (route.path.startsWith("/api/admin/tournaments/:id")) return { ...route, auth: "user", permission: "tournament.manage" };
   if (route.path === "/api/admin/tournaments") return { ...route, auth: "user",

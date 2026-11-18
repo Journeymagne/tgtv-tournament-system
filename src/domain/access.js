@@ -2,38 +2,56 @@ function isPlatformAdmin(user) {
   return Boolean(user?.isSuperAdmin || user?.isAdmin);
 }
 
+function tournamentId(tournament) {
+  return Number(tournament?.id ?? tournament);
+}
+
+function personalOwner(user, tournament) {
+  return Boolean(user && tournament?.providerId == null && tournament?.ownerUserId === user.id);
+}
+
 function canManageTournament(user, tournament) {
   if (!user) return false;
-  if (isPlatformAdmin(user)) return true;
-  const id = Number(typeof tournament === "object" ? tournament?.id : tournament);
-  if (!Number.isSafeInteger(id) || id < 1) return false;
-  return Number(tournament?.ownerUserId) === user.id || (user.managedTournamentIds || []).includes(id);
+  const id = tournamentId(tournament);
+  return isPlatformAdmin(user) || personalOwner(user, tournament) || Boolean(user.managedTournamentIds?.includes(id));
 }
 
 function canManageJudges(user, tournament) {
-  return Boolean(user && (user.isSuperAdmin || Number(tournament?.ownerUserId) === user.id));
+  if (!user) return false;
+  return Boolean(user.isSuperAdmin || personalOwner(user, tournament)
+    || (tournament?.providerId != null && isPlatformAdmin(user))
+    || user.judgeManagementTournamentIds?.includes(tournamentId(tournament)));
 }
 
 function canFinishTournament(user, tournament) {
-  return Boolean(user && (isPlatformAdmin(user) || Number(tournament?.ownerUserId) === user.id));
+  return Boolean(user && (isPlatformAdmin(user) || personalOwner(user, tournament)
+    || user.organizedTournamentIds?.includes(tournamentId(tournament))));
 }
 
-function canCreateTournament(user) {
-  return Boolean(user && (isPlatformAdmin(user) || user.canCreateTournaments));
+function canCreateTournament(user, {providerId = null} = {}) {
+  if (!user) return false;
+  if (isPlatformAdmin(user)) return true;
+  if (providerId == null) return Boolean(user.canCreateTournaments);
+  return Boolean(user.providerMemberships?.some(member => member.providerId === providerId
+    && member.role === 'organizer' && !member.archivedAt));
+}
+
+function canCreateProviderEvents(user) {
+  return Boolean(user?.providerMemberships?.some(member => member.role === 'organizer' && !member.archivedAt));
 }
 
 function canOpenAdministration(user) {
-  return Boolean(user && (canCreateTournament(user) || user.managedTournamentIds?.length));
+  return Boolean(user && (canCreateTournament(user) || canCreateProviderEvents(user) || user.managedTournamentIds?.length));
 }
 
 function tournamentPermissions(user, tournament) {
   const canAdmin = canManageTournament(user, tournament);
+  const organizer = personalOwner(user,tournament) || user?.organizedTournamentIds?.includes(tournamentId(tournament));
   return {
     canAdmin,
     canFinish: canFinishTournament(user, tournament),
     canManageJudges: canManageJudges(user, tournament),
-    role: user?.isSuperAdmin ? "super_admin" : user && tournament?.ownerUserId === user.id ? "organizer"
-      : canAdmin ? "judge" : "player"
+    role: user?.isSuperAdmin ? "super_admin" : organizer ? "organizer" : canAdmin ? "judge" : "player"
   };
 }
 
@@ -42,6 +60,8 @@ function userCapabilities(user) {
     canOpenAdministration: canOpenAdministration(user),
     canModerateFAQ: Boolean(user && (isPlatformAdmin(user) || user.isFAQModerator)),
     canCreateTournaments: canCreateTournament(user),
+    canCreateProviders: canCreateTournament(user),
+    canCreateProviderEvents: canCreateProviderEvents(user),
     canManageUsers: isPlatformAdmin(user),
     canManageContent: isPlatformAdmin(user),
     canAssignGlobalRoles: Boolean(user?.isSuperAdmin)

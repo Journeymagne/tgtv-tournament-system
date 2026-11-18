@@ -59,7 +59,7 @@ function normalizeCalendarEvent(body, {allowIncomplete=false} = {}) {
 function tournamentDefaults(event) {
   const size = event.participantMode==='individual' ? 1 : event.teamSize || (event.tournamentType === 'teams' ? 3 : event.tournamentType === 'pairs' ? 2 : 1);
   return {
-    name: event.name, gameSystem: 'Warhammer 40k Kill Team', venueMode: 'irl',
+    providerId: event.providerId ?? null, name: event.name, gameSystem: 'Warhammer 40k Kill Team', venueMode: 'irl',
     venueAddress: [event.city, event.venue, event.address].filter(Boolean).join(', '),
     // Browser supplies its local datetime as an ISO timestamp on submission.
     startsAt: `${event.date}T${event.time || '00:00'}`,

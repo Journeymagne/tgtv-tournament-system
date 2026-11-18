@@ -9,6 +9,7 @@ async function revision({ client, user }) {
   const { rows: [row] } = await client.query("SELECT last_value::text || ':' || pg_current_snapshot()::text AS revision FROM tournament_feed_revision");
   return { revision: row.revision, isAdmin: Boolean(user?.isAdmin),
     isSuperAdmin: Boolean(user?.isSuperAdmin), managedTournamentIds: user?.managedTournamentIds || [],
+    providerMemberships: user?.providerMemberships || [],
     capabilities: user?.capabilities || {} };
 }
 
@@ -24,7 +25,7 @@ async function logo({ client, params, user, req, query }) {
   const file = decodeDataUrl(row.logo_data);
   if (!file) throw new HttpError(404, "Logo not found");
   const version = contentVersion(row.logo_data);
-  const headers = { ETag: `"${version}"`, "Cache-Control": query?.get("v") === version ? "private, max-age=604800, immutable" : "private, max-age=0, must-revalidate" };
+  const headers = { ETag: `"${version}"`, "Cache-Control": row.status && !PUBLISHED_STATUSES.includes(row.status) ? "private, no-store" : query?.get("v") === version ? "private, max-age=604800, immutable" : "private, max-age=0, must-revalidate" };
   if (req?.headers?.["if-none-match"] === headers.ETag) return { status: 304, buffer: null, headers };
   return { buffer: file.bytes, contentType: file.contentType, headers };
 }

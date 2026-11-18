@@ -17,9 +17,9 @@ test.beforeEach(async () => {
   admin = await users.insert(pool, { name: 'CalendarAdmin', passwordHash: 's:h', rating: 1000, isAdmin: true });
   player = await users.insert(pool, { name: 'CalendarPlayer', passwordHash: 's:h', rating: 1000 });
 });
-test('calendar routes are public to read and administrator-only to mutate', async () => {
+test('calendar routes are public to read and require authenticated scoped writes', async () => {
   assert.equal(routes.find(r => r.path === '/api/calendar-events').auth, 'none');
-  for (const r of routes.filter(r => r.path.startsWith('/api/admin/calendar-events'))) assert.equal(r.auth, 'admin');
+  for (const r of routes.filter(r => r.path.startsWith('/api/admin/calendar-events'))) assert.equal(r.auth, 'user');
   await assert.rejects(tx(client => calendar.create({ client, user: player, body: data })), { status: 403 });
   const saved = await tx(client => calendar.create({ client, user: admin, body: data }));
   const event = saved.body.event;

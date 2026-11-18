@@ -1,5 +1,5 @@
 const { HttpError, ValidationError } = require("../http/io");
-const { canManageTournament, canCreateTournament, canFinishTournament, tournamentPermissions } = require("../domain/access");
+const { canManageTournament, canFinishTournament, tournamentPermissions } = require("../domain/access");
 const tournamentsRepo = require("../db/repositories/tournaments");
 const participantsRepo = require("../db/repositories/tournament-participants");
 const roundsRepo = require("../db/repositories/tournament-rounds");
@@ -450,23 +450,19 @@ async function auditPage({client,params,query}) {
 }
 
 async function createAdmin({ client, user, body }) {
-  if (!canCreateTournament(user)) throw new HttpError(403, "Tournament creation permission required");
   const calendarTimeZone = require('../domain/calendar-events').calendarTimeZone(body.calendarTimeZone);
-  let calendarEvent = null;
-  if (body.calendarEventId !== undefined) {
-    if (!user.isAdmin) throw new HttpError(403, 'Administrator rights required');
-    calendarEvent = await require('./calendar-events').requireEvent(client, body.calendarEventId, true);
-    if (calendarEvent.tournamentCreated) throw new HttpError(409, 'A tournament has already been created for this calendar event');
-  }
+  const context = await require('./calendar-events').tournamentCreationContext(client,user,body);
+  const calendarEvent = context.event;
+  user = context.user;
   const slug = await uniqueSlug(body.slug || body.name, (candidate) =>
     tournamentsRepo.isSlugTaken(client, candidate)
   );
   const tournament = await tournamentsRepo.insert(
     client,
-    normalizeNewTournament(body, user.id, slug)
+    {...normalizeNewTournament(body, user.id, slug), providerId:context.providerId}
   );
   await audit(client, tournament, user, "create", { after: tournament });
-  if (calendarEvent) await require('../db/repositories/calendar-events').link(client,calendarEvent.id,tournament.id);
+  if (calendarEvent) await require('../db/repositories/calendar-events').link(client,calendarEvent.id,tournament.id,calendarTimeZone);
   if(tournament.startsAt)await require('../db/repositories/calendar-events').syncTournament(client,tournament,calendarTimeZone);
   return { status: 201, body: { tournament: tournamentSummaryView(tournament) } };
 }
@@ -478,6 +474,7 @@ function assertEditableSetup(tournament) {
 }
 
 async function updateAdmin({ client, user, params, body }) {
+  if (Object.hasOwn(body,"providerId") || Object.hasOwn(body,"provider_id")) throw new HttpError(403,"Tournament organization cannot be changed");
   if (Object.hasOwn(body, "ownerUserId") || Object.hasOwn(body, "owner_user_id")) throw new HttpError(403, "Tournament ownership cannot be changed here");
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   if (!canManageTournament(user, tournament)) throw new HttpError(403, "Tournament access required");
@@ -2567,6 +2564,19 @@ module.exports = {
   rejectResult,
   saveMatchResultAdmin
 };
+
+// These handlers are also used directly by the game API and internal callers.
+// A preceding membership change must be visible at every write entry point.
+const { withProviderWriteAccess } = require("./authorization");
+for (const name of ["updateAdmin","deleteAdmin","publishAdmin","closeRegistration","reopenRegistration",
+  "addParticipant","bulkParticipants","updateParticipant","removeParticipant","updateActivePairingsAdmin",
+  "resetMatchResultAdmin","updateSeeds","regenerateSeeds","startAdmin","generateNextRoundAdmin","rollbackLatestRoundAdmin",
+  "addTableAdmin","updateTableAdmin","deleteTableAdmin","publishFinalStandingsAdmin","recalculateStandingsAdmin","saveMatchResultAdmin"]) {
+  module.exports[name] = withProviderWriteAccess(module.exports[name]);
+}
+for (const name of ["join","withdraw","submitResult","confirmResult","rejectResult"]) {
+  module.exports[name] = withProviderWriteAccess(module.exports[name],"tournament.participate");
+}
 
 for (const name of ["deleteAdmin", "resetMatchResultAdmin", "submitResult", "confirmResult", "rejectResult", "saveMatchResultAdmin",
   "updateParticipant", "removeParticipant", "updateActivePairingsAdmin", "recalculateStandingsAdmin", "rollbackLatestRoundAdmin"]) {

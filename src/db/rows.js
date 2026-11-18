@@ -22,7 +22,7 @@ const FEEDBACK_COLUMNS = `
 `;
 
 const TOURNAMENT_COLUMNS = `
-  id, owner_user_id, slug, name, logo_data, description, game_system, starts_at,
+  id, owner_user_id, provider_id, slug, name, logo_data, description, game_system, starts_at,
   rules_summary, rules_link, status, format, swiss_round_count,
   single_elimination_size, tiebreaker_order, pairing_mode, rating_policy,
   challenge_credit_policy, season_id, venue_mode, venue_address, final_results, round_draft,
@@ -160,6 +160,8 @@ function mapTournament(row) {
   return {
     id: row.id,
     ownerUserId: row.owner_user_id,
+    providerId: row.provider_id ?? null,
+    provider: row.provider || null,
     slug: row.slug,
     name: row.name || "",
     logoData: row.logo_data || null,

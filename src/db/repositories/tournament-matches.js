@@ -1,3 +1,4 @@
+const { providerSummarySql } = require('./tournaments');
 const {
   TOURNAMENT_COLUMNS,
   COMPACT_TOURNAMENT_COLUMNS,
@@ -104,7 +105,7 @@ async function listActiveForUser(client, userId) {
      JOIN tournament_participants pa ON pa.id = tm.participant_a_id
      JOIN tournament_participants pb ON pb.id = tm.participant_b_id
      LEFT JOIN tournament_tables tt ON tt.id = tm.table_id
-     CROSS JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_COLUMNS, "t")}) tournament_row
+     CROSS JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_COLUMNS, "t")}, ${providerSummarySql('t.provider_id')}) tournament_row
      CROSS JOIN LATERAL (SELECT ${aliasColumns(COLUMNS, "tm")}) match_row
      CROSS JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_PARTICIPANT_COLUMNS, "pa")}) participant_a_row
      CROSS JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_PARTICIPANT_COLUMNS, "pb")}) participant_b_row
@@ -134,7 +135,7 @@ function mapMatchLinks(rows) {
 }
 
 function matchLinksQuery(relation, { compactTournament = false } = {}) { return `SELECT
-        ${compactTournament ? `(SELECT row_to_json(summary) FROM (SELECT ${aliasColumns(COMPACT_TOURNAMENT_COLUMNS, 't')}) summary)` : 'row_to_json(t)'} AS tournament,
+        (SELECT row_to_json(summary) FROM (SELECT ${compactTournament ? aliasColumns(COMPACT_TOURNAMENT_COLUMNS,'t') : 't.*'}, ${providerSummarySql('t.provider_id')}) summary) AS tournament,
         row_to_json(tm) AS match,
         row_to_json(pa) AS participant_a,
         row_to_json(pb) AS participant_b,

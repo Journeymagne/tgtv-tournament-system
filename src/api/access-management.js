@@ -11,6 +11,7 @@ async function context(client, user, params, write = false) {
   const tournament = write ? await tournaments.lockById(client, id) : await tournaments.findById(client, id);
   if (!tournament) throw new HttpError(404, "Tournament not found");
   user = await access.hydrate(client, user);
+  access.assertActive(user);
   if (!(write ? canManageJudges(user, tournament) : canManageTournament(user, tournament))) {
     throw new HttpError(403, "Only the organizer or super administrator can manage judges");
   }
@@ -21,29 +22,32 @@ async function staff({ client, user, params }) {
   const contextValue = await context(client, user, params);
   const { tournament } = contextValue;
   user = contextValue.user;
-  const { rows } = await client.query(`SELECT u.id, u.name, u.is_admin,
+  const { rows } = await client.query(`SELECT u.id, u.name, u.is_admin, m.role AS provider_role, p.owner_user_id AS provider_owner_id,
     EXISTS (SELECT 1 FROM platform_ownership p WHERE p.owner_user_id=u.id) AS is_super_admin,
     j.granted_by, g.name AS granted_by_name, j.expires_at, j.revoked_at,
     (j.user_id IS NOT NULL AND j.revoked_at IS NULL AND (j.expires_at IS NULL OR j.expires_at > NOW())) AS assigned
     FROM users u LEFT JOIN tournament_judges j ON j.user_id=u.id AND j.tournament_id=$1
+    LEFT JOIN tournament_providers p ON p.id=$3
+    LEFT JOIN tournament_provider_memberships m ON m.user_id=u.id AND m.provider_id=p.id AND m.ended_at IS NULL
     LEFT JOIN users g ON g.id=j.granted_by
-    WHERE u.is_admin OR u.id=$2 OR j.user_id IS NOT NULL
+    WHERE u.is_admin OR (p.id IS NULL AND u.id=$2) OR j.user_id IS NOT NULL OR m.user_id IS NOT NULL
       OR EXISTS (SELECT 1 FROM platform_ownership p WHERE p.owner_user_id=u.id)
-    ORDER BY (u.id=$2) DESC, u.name`, [tournament.id, tournament.ownerUserId]);
-  return { ownerUserId: tournament.ownerUserId, canManageJudges: canManageJudges(user, tournament),
+    ORDER BY (u.id=COALESCE(p.owner_user_id,$2)) DESC, u.name`, [tournament.id, tournament.ownerUserId,tournament.providerId]);
+  const ownerUserId = tournament.providerId ? rows[0]?.provider_owner_id : tournament.ownerUserId;
+  return { ownerUserId, canManageJudges: canManageJudges(user, tournament),
     staff: rows.map(row => ({ userId: row.id, name: row.name,
-      role: row.id === tournament.ownerUserId ? "organizer" : row.is_super_admin ? "super_admin" : "judge",
-      automatic: row.is_admin || row.is_super_admin,
-      assigned: row.assigned, active: row.id === tournament.ownerUserId || row.is_admin || row.is_super_admin || row.assigned,
+      role: row.is_super_admin ? "super_admin" : row.provider_role || (row.id === ownerUserId ? "organizer" : "judge"),
+      automatic: row.is_admin || row.is_super_admin || Boolean(row.provider_role),
+      assigned: row.assigned, active: row.id === ownerUserId || row.is_admin || row.is_super_admin || row.assigned || Boolean(row.provider_role),
       grantedByName: row.granted_by_name, expiresAt: row.expires_at?.toISOString() || null,
-      canRevoke: canManageJudges(user, tournament) && row.assigned && row.id !== tournament.ownerUserId })) };
+      canRevoke: canManageJudges(user, tournament) && row.assigned && (tournament.providerId != null || row.id !== ownerUserId) })) };
 }
 
 async function assignJudge({ client, user, params, body }) {
   const ctx = await context(client, user, params, true);
   const id = requirePositiveIntId(body.userId, 400, "Choose a user");
   if (!await users.findById(client, id)) throw new HttpError(404, "User not found");
-  if (id === ctx.tournament.ownerUserId) throw new ValidationError("The organizer already has full tournament access");
+  if (ctx.tournament.providerId == null && id === ctx.tournament.ownerUserId) throw new ValidationError("The organizer already has full tournament access");
   const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
   if (expiresAt && (!Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() <= Date.now())) {
     throw new ValidationError("Expiry must be a future date");
@@ -59,7 +63,7 @@ async function assignJudge({ client, user, params, body }) {
 async function revokeJudge({ client, user, params }) {
   const ctx = await context(client, user, params, true);
   const id = requirePositiveIntId(params.userId, 400, "Choose a user");
-  if (id === ctx.tournament.ownerUserId) throw new ValidationError("The organizer cannot be removed");
+  if (ctx.tournament.providerId == null && id === ctx.tournament.ownerUserId) throw new ValidationError("The organizer cannot be removed");
   const { rowCount } = await client.query(`UPDATE tournament_judges SET revoked_at=NOW()
     WHERE tournament_id=$1 AND user_id=$2 AND revoked_at IS NULL`, [ctx.tournament.id,id]);
   if (!rowCount) throw new HttpError(409, "No explicit judge assignment exists; platform access cannot be revoked here");
@@ -108,7 +112,10 @@ async function auditLog({ client, user }) {
 
 async function transferOwner({ client, user, params, body }) {
   if (!user?.isSuperAdmin) throw new HttpError(403, "Super administrator rights required");
-  const { tournament } = await context(client, user, params, true);
+  const ctx = await context(client, user, params, true);
+  if (!ctx.user.isSuperAdmin) throw new HttpError(403, "Super administrator rights required");
+  const { tournament } = ctx;
+  if (tournament.providerId != null) throw new HttpError(409, "Ownership of a provider event is managed by its organization");
   const id = requirePositiveIntId(body.userId, 400, "Choose an organizer");
   const reason = String(body.reason || "").trim().slice(0,1000);
   if (!reason) throw new ValidationError("Provide a reason for transferring ownership");

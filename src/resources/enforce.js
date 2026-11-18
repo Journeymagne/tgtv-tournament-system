@@ -22,7 +22,7 @@ async function before(route, ctx) {
   if (action === 'POST /api/teams') {
     await activeTeams(client, user.id);
     await q.spend(client, user.id, 'teamsCreateDay', DAY);
-  } else if (action === 'POST /api/teams/:id/invitations') {
+  } else if (action === 'POST /api/teams/:id/invitations' || action === 'POST /api/tournament-providers/:id/invitations') {
     await q.spend(client, user.id, 'inviteDay', DAY);
     await q.spend(client, user.id, 'inviteRecipientDay', DAY, String(Number(body.userId)));
   } else if (action === 'POST /api/challenges') {

@@ -9,6 +9,23 @@ const PUBLISHED_STATUSES = [
   "cancelled"
 ];
 
+// Used in SELECT and RETURNING, without copying provider logo blobs into an event.
+function providerSummarySql(providerIdColumn) {
+  return `(SELECT jsonb_build_object('id',p.id,'slug',p.slug,'name',p.name,
+    'logoUrl','/api/tournament-provider-logos/'||p.id||'?v='||p.logo_version)
+    FROM tournament_providers p WHERE p.id=${providerIdColumn}) AS provider`;
+}
+
+// Data migrations 034, 047 and 106 also use the single-row methods below.
+// Their tournament rows predate providers and have no provider_id.
+async function mapWithProvider(client,row) {
+  if (row?.provider_id != null) {
+    const {rows:[summary]} = await client.query(`SELECT ${providerSummarySql('$1')}`,[row.provider_id]);
+    row.provider = summary.provider;
+  }
+  return mapTournament(row);
+}
+
 const FIELD_COLUMNS = {
   ownerUserId: "owner_user_id",
   slug: "slug",
@@ -67,9 +84,9 @@ async function insert(client, tournament) {
        (owner_user_id, slug, name, description, game_system, starts_at,
         rules_summary, rules_link, status, format, swiss_round_count,
         single_elimination_size, tiebreaker_order, rating_policy,
-        challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type, logo_data, registration_limit, captain_pairing_enabled, team_tiebreaker_order, faction_count, venue_address, pairing_mode)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23::text[], $24, $25, $26)
-     RETURNING ${COLUMNS}`,
+        challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type, logo_data, registration_limit, captain_pairing_enabled, team_tiebreaker_order, faction_count, venue_address, pairing_mode, provider_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23::text[], $24, $25, $26, $27)
+     RETURNING ${COLUMNS}, ${providerSummarySql('tournaments.provider_id')}`,
     [
       tournament.ownerUserId || null,
       tournament.slug,
@@ -96,7 +113,8 @@ async function insert(client, tournament) {
       tournament.teamTiebreakerOrder ?? null,
       tournament.factionCount || 1,
       tournament.venueAddress || "",
-      tournament.pairingMode || "backet_random"
+      tournament.pairingMode || "backet_random",
+      tournament.providerId ?? null
     ]
   );
   return mapTournament(rows[0]);
@@ -104,19 +122,29 @@ async function insert(client, tournament) {
 
 async function findById(client, id, { compactTournament = false } = {}) {
   const { rows } = await client.query(`SELECT ${compactTournament ? COMPACT_TOURNAMENT_COLUMNS : '*'} FROM tournaments WHERE id = $1`, [id]);
-  return mapTournament(rows[0]);
+  return mapWithProvider(client,rows[0]);
+}
+
+async function lockProviderForTournament(client, id) {
+  // Membership changes lock the provider. Acquire it before the tournament even
+  // for roster and game writes that arrive through participant-facing endpoints.
+  const result = await client.query(`SELECT p.id FROM tournament_providers p
+    JOIN tournaments t ON t.provider_id=p.id WHERE t.id=$1 FOR UPDATE OF p`, [id]);
+  return result.rowCount > 0;
 }
 
 async function lockById(client, id) {
+  const {rows:[schema]} = await client.query("SELECT to_regclass('tournaments.tournament_providers') IS NOT NULL AS has_providers");
+  if (schema.has_providers) await lockProviderForTournament(client,id);
   const { rows } = await client.query(
     `SELECT * FROM tournaments WHERE id = $1 FOR UPDATE`,
     [id]
   );
-  return mapTournament(rows[0]);
+  return mapWithProvider(client,rows[0]);
 }
 
 async function findBySlug(client, slug) {
-  const { rows } = await client.query(`SELECT * FROM tournaments WHERE slug = $1`, [
+  const { rows } = await client.query(`SELECT *, ${providerSummarySql('tournaments.provider_id')} FROM tournaments WHERE slug = $1`, [
     slug
   ]);
   return mapTournament(rows[0]);
@@ -124,7 +152,7 @@ async function findBySlug(client, slug) {
 
 async function listPublished(client) {
   const { rows } = await client.query(
-     `SELECT t.*,
+     `SELECT t.*, ${providerSummarySql('t.provider_id')},
              CASE WHEN t.participant_mode = 'team'
                THEN COALESCE(trc.roster_count, 0)
                ELSE COALESCE(pc.participant_count, 0)
@@ -157,7 +185,7 @@ async function listPublished(client) {
 
 async function listAdmin(client) {
   const { rows } = await client.query(
-     `SELECT t.*,
+     `SELECT t.*, ${providerSummarySql('t.provider_id')},
              CASE WHEN t.participant_mode = 'team'
                THEN COALESCE(trc.roster_count, 0)
                ELSE COALESCE(pc.participant_count, 0)
@@ -209,14 +237,14 @@ async function update(client, id, patch) {
      RETURNING *`,
     values
   );
-  return mapTournament(rows[0]);
+  return mapWithProvider(client,rows[0]);
 }
 
 async function remove(client, id) {
   const { rows } = await client.query(
     `DELETE FROM tournaments
      WHERE id = $1
-     RETURNING ${COLUMNS}`,
+     RETURNING ${COLUMNS}, ${providerSummarySql('tournaments.provider_id')}`,
     [id]
   );
   return mapTournament(rows[0]);
@@ -224,7 +252,9 @@ async function remove(client, id) {
 
 module.exports = {
   PUBLISHED_STATUSES,
+  providerSummarySql,
   isSlugTaken,
+  lockProviderForTournament,
   insert,
   findById,
   lockById,
@@ -238,7 +268,7 @@ module.exports = {
 async function listPage(client, query, user = null, { mine = false } = {}) {
   const {TOURNAMENT_COLUMNS} = require('../rows');
   const columns=TOURNAMENT_COLUMNS.split(',').map(s=>s.trim()).filter(s=>s&&!['logo_data','rules_link','round_draft','final_results'].includes(s)).map(s=>'t.'+s).join(',');
-  const result=await require('../../resources/pages').select(client, `SELECT ${columns},
+  const result=await require('../../resources/pages').select(client, `SELECT ${columns}, ${providerSummarySql('t.provider_id')},
     CASE WHEN t.logo_data IS NOT NULL THEN '/api/tournament-logos/'||t.id||'?v='||left(encode(sha256(convert_to(t.logo_data,'UTF8')),'hex'),16) END AS logo_data,
     CASE WHEN t.rules_link LIKE 'data:%' THEN '/api/tournaments/'||t.slug||'/rules?v='||left(encode(sha256(convert_to(t.rules_link,'UTF8')),'hex'),16) ELSE t.rules_link END AS rules_link,
     CASE WHEN t.participant_mode='team' THEN (SELECT count(*) FROM tournament_team_rosters WHERE tournament_id=t.id AND status<>'withdrawn')
@@ -246,7 +276,7 @@ async function listPage(client, query, user = null, { mine = false } = {}) {
     (SELECT count(*)::int FROM tournament_rounds WHERE tournament_id=t.id) AS round_count
     FROM tournaments t WHERE ${mine ? `
       t.status=ANY($3::text[]) AND (
-        t.owner_user_id=$1 OR t.id=ANY($2::int[]) OR (
+        (t.provider_id IS NULL AND t.owner_user_id=$1) OR t.id=ANY($2::int[]) OR (
           (t.participant_mode='individual' AND EXISTS (
             SELECT 1 FROM tournament_participants p
             WHERE p.tournament_id=t.id AND p.user_id=$1 AND p.status NOT IN ('withdrawn','removed')
@@ -261,7 +291,7 @@ async function listPage(client, query, user = null, { mine = false } = {}) {
           ))
         )
       )
-    ` : `($1::boolean AND (t.owner_user_id=$2 OR $3 OR t.id=ANY($4::int[])))
+    ` : `($1::boolean AND ((t.provider_id IS NULL AND t.owner_user_id=$2) OR $3 OR t.id=ANY($4::int[])))
       OR (NOT $1 AND t.status=ANY($5::text[]))`} ORDER BY t.created_at DESC,t.id DESC`,
     mine ? [user?.id || null, user?.managedTournamentIds || [], ["registration_open", "registration_closed", "in_progress"]]
       : [!!user,user?.id||null,!!(user?.isAdmin||user?.isSuperAdmin),user?.managedTournamentIds||[],PUBLISHED_STATUSES],query);

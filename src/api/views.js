@@ -116,6 +116,7 @@ function userSummary({ user, hasAdmin, challenges, games, teamPairings = [], peo
     user: { ...publicUser(user), bcpEmail: user.bcpEmail || "", isSuperAdmin: Boolean(user.isSuperAdmin),
       isFAQModerator: Boolean(user.isFAQModerator),
       canCreateTournaments: Boolean(user.canCreateTournaments),
+      providerMemberships: user.providerMemberships || [],
       capabilities: user.capabilities || {}, managedTournamentIds: user.managedTournamentIds || [] },
     hasAdmin,
     challenges: challenges.map((challenge) => challengeView(challenge, people)),
@@ -258,6 +259,8 @@ function tournamentSummaryView(tournament) {
   return {
     id: tournament.id,
     ownerUserId: tournament.ownerUserId,
+    providerId: tournament.providerId ?? null,
+    provider: tournament.provider || null,
     logoData: logoUrl("tournament", tournament.id, tournament.logoData),
     slug: tournament.slug,
     name: tournament.name,
