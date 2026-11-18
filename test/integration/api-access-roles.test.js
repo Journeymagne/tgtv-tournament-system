@@ -15,8 +15,10 @@ let server, owner, organizer, judge, admin, player, cup, other;
 const base = event => `/api/admin/tournaments/${event.id}`;
 async function expect(request,status=200) {const result=await request; assert.equal(result.status,status,JSON.stringify(result.body));return result.body;}
 async function register(name) {
-  const http=createClient(server.baseUrl);
+  const headers={};
+  const http=createClient(server.baseUrl,headers);
   const {user}=await expect(http.post('/api/register',{name,password:'password123',confirmPassword:'password123',telegramContact:`@${name}`}),201);
+  headers['x-faq-account']=String(user.id);
   assert.equal(user.isAdmin,false,'Registration must never grant global rights');
   return {...user,http};
 }
