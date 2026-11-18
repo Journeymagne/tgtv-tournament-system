@@ -11,7 +11,7 @@ function canManageTournament(user, tournament) {
 }
 
 function canManageJudges(user, tournament) {
-  return Boolean(user && (user.isSuperAdmin || Number(tournament?.ownerUserId) === user.id));
+  return Boolean(user && (isPlatformAdmin(user) || Number(tournament?.ownerUserId) === user.id));
 }
 
 function canFinishTournament(user, tournament) {
@@ -44,7 +44,8 @@ function userCapabilities(user) {
     canCreateTournaments: canCreateTournament(user),
     canManageUsers: isPlatformAdmin(user),
     canManageContent: isPlatformAdmin(user),
-    canAssignGlobalRoles: Boolean(user?.isSuperAdmin)
+    canAssignGlobalRoles: isPlatformAdmin(user),
+    canRevokeAdministrators: Boolean(user?.isSuperAdmin)
   };
 }
 

@@ -5,6 +5,8 @@ KT Companion release history, newest first.
 ## 1.6.1 — 18 November 2026
 
 - Tournament organizers with tournament-creation permission can now add events to the Calendar.
+- Administration → Players and teams now includes an Administrators tab: search users with special permissions and manage global roles, tournament organizers and judges.
+- Any administrator can grant and edit permissions, assign judges and transfer tournament ownership. Only the super administrator can remove administrator status.
 
 ## 1.6.0 — 18 November 2026
 

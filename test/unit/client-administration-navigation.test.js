@@ -50,3 +50,16 @@ test("saved administrative URLs lead to the central administration", () => {
     assert.equal(serialize(route(`#/${screen}`)), `#/administration/${screen}`);
   }
 });
+
+test("people subtab URLs survive navigation and refresh", () => {
+  for (const tab of ["teams", "administrators"]) {
+    const hash = `#/administration/people/${tab}`;
+    const parsed = route(hash);
+    assert.equal(parsed.adminPeopleTab, tab);
+    assert.equal(parsed.administrationContext, true);
+    assert.equal(serialize(parsed), hash);
+  }
+  const players = route('#/administration/people');
+  assert.equal(players.adminPeopleTab, 'players');
+  assert.equal(serialize(players), '#/administration/people');
+});

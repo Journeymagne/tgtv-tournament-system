@@ -30,7 +30,7 @@ module.exports = [
   { method:"POST", path:"/api/auth/password/reset", handler:email.reset, tx:true, emailLimit:true, maxBodyBytes:4096 },
   { method:"POST", path:"/api/email/webhook", handler:email.webhook, tx:true, rawBody:true, maxBodyBytes:65536 },
   { method:"GET", path:"/api/admin/email", handler:email.health, auth:"user", permission:"super" },
-  { method: "PATCH", path: "/api/admin/users/:id/permissions", handler: accessManagement.setPermissions, auth: "user", permission: "super", tx: true },
+  { method: "PATCH", path: "/api/admin/users/:id/permissions", handler: accessManagement.setPermissions, auth: "admin", tx: true },
   { method: "PATCH", path: "/api/admin/users/:id/suspension", handler: accessManagement.suspendUser, auth: "admin", tx: true },
   { method: "GET", path: "/api/session", handler: account.session, auth: "none", loadUser: true },
   { method: "PATCH", path: "/api/me", handler: auth.updateMe, auth: "user", tx: true, rateLimit: "auth" },

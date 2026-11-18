@@ -98,6 +98,7 @@ const state = {
   leaderboardUserIds: null,
   adminUsersPage: 1,
   adminUsersQuery: "",
+  adminSpecialUsers: [], adminSpecialUsersPage: 1, adminSpecialUsersQuery: "",
   gamesTab: "history",
   tournamentsTab: "public",
   searchResults: [],
@@ -1418,8 +1419,9 @@ function appRouteFromHash(routeSegments = null) {
   if (!segments.length) return null;
   const [section, subroute, id] = segments;
   if (section === "administration") {
+    if(subroute==="people" && segments.length===3 && ["players","teams","administrators"].includes(id))return {view:"administration",adminHubTab:"people",adminPeopleTab:id,administrationContext:true};
     if (segments.length <= 2 && [undefined, "overview", "tournaments", "people", "content"].includes(subroute)) {
-      return { view: "administration", adminHubTab: subroute || "overview", administrationContext: true };
+      return { view: "administration", adminHubTab: subroute || "overview", ...(subroute === "people" ? {adminPeopleTab:"players"} : {}), administrationContext: true };
     }
     const nested = appRouteFromHash(segments.slice(1));
     return nested ? { ...nested, administrationContext: true } : null;
@@ -1629,7 +1631,7 @@ async function applyAppRoute(route) {
 function appHashForState() {
   const screenHash = () => {
     if (state.view === 'calendar') return '#/calendar';
-    if (state.view === "administration") return `#/administration/${state.adminHubTab || "overview"}`;
+    if (state.view === "administration") return `#/administration/${state.adminHubTab || "overview"}${state.adminHubTab === "people" && ["teams","administrators"].includes(state.adminPeopleTab) ? "/"+state.adminPeopleTab : ""}`;
     if (state.view === "achievements") return state.selectedAchievementId ? `#/achievements/${state.selectedAchievementId}` : state.achievementCategory === "title" ? "#/achievements/hall-of-fame" : "#/achievements";
     if (state.view === "roster" && state.selectedRosterId) return `#/rosters/${state.selectedRosterId}`;
     if (state.view === "play") {
@@ -8500,6 +8502,7 @@ function wirePaginationControls() {
     'leaderboard': ['leaderboardPage', loadTop],
     'team-leaderboard': ['teamLeaderboardPage', loadTeamLeaderboard],
     'admin-users': ['adminUsersPage', () => adminUi().loadAdminUsers()],
+    'admin-special-users': ['adminSpecialUsersPage', () => adminUi().loadAdminSpecialUsers()],
     'admin-teams': ['adminTeamsPage', () => adminUi().loadAdminTeams()],
     'tournaments': ['tournamentsPage', loadTournaments],
     'my-tournaments': ['myTournamentsPage', loadTournaments],

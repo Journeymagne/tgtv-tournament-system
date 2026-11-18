@@ -2,8 +2,8 @@ const { defaultPages } = require("../../domain/documentation");
 
 // Frozen release text; preserve previously edited documentation.
 const releaseNotes = {
-  "ru": "## 1.6.1 — 18 ноября 2026\n\n- Организаторы с правом создания турниров теперь могут добавлять события в Календарь.",
-  "en": "## 1.6.1 — 18 November 2026\n\n- Tournament organizers with tournament-creation permission can now add events to the Calendar."
+  "ru": "## 1.6.1 — 18 ноября 2026\n\n- Организаторы с правом создания турниров теперь могут добавлять события в Календарь.\n- В «Администрирование → Игроки и команды» добавлена вкладка «Администраторы»: поиск пользователей со специальными правами, глобальные роли и назначения организаторов и судей в отдельных турнирах.\n- Любой администратор может выдавать и менять права, назначать судей и передавать организацию турнира. Снять статус администратора может только суперадминистратор.",
+  "en": "## 1.6.1 — 18 November 2026\n\n- Tournament organizers with tournament-creation permission can now add events to the Calendar.\n- Administration → Players and teams now includes an Administrators tab: search users with special permissions and manage global roles, tournament organizers and judges.\n- Any administrator can grant and edit permissions, assign judges and transfer tournament ownership. Only the super administrator can remove administrator status."
 };
 
 module.exports = {

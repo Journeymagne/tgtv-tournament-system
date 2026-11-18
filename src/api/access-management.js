@@ -12,7 +12,7 @@ async function context(client, user, params, write = false) {
   if (!tournament) throw new HttpError(404, "Tournament not found");
   user = await access.hydrate(client, user);
   if (!(write ? canManageJudges(user, tournament) : canManageTournament(user, tournament))) {
-    throw new HttpError(403, "Only the organizer or super administrator can manage judges");
+    throw new HttpError(403, "Only the organizer or a platform administrator can manage judges");
   }
   return { tournament, user };
 }
@@ -69,20 +69,27 @@ async function revokeJudge({ client, user, params }) {
 }
 
 async function setPermissions({ client, user, params, body }) {
-  const target = await users.findById(client, requirePositiveIntId(params.id, 404, "User not found"));
+  if (!user) throw new HttpError(401, "You need to sign in");
+  const id = requirePositiveIntId(params.id, 404, "User not found");
+  const locked = await users.lockByIds(client, [user.id, id]);
+  user = await access.hydrate(client, locked.find(row => row.id === user.id));
+  if (!user?.isAdmin && !user?.isSuperAdmin) throw new HttpError(403, "Administrator rights required");
+  access.assertActive(user);
+  const target = locked.find(row => row.id === id);
   if (!target) throw new HttpError(404, "User not found");
-  const owner = await access.assertTarget(client, user, target, { ownerOnly: true });
-  if (body.isAdmin !== undefined && typeof body.isAdmin !== "boolean") throw new ValidationError("Invalid administrator value");
-  if (body.canCreateTournaments !== undefined && typeof body.canCreateTournaments !== "boolean") throw new ValidationError("Invalid permission value");
-  if (target.id === owner && body.isAdmin === false) throw new ValidationError("The platform owner cannot be demoted");
+  const fields = ['isAdmin', 'canCreateTournaments', 'isFAQModerator'];
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => ![...fields, 'reason'].includes(key))) throw new ValidationError("Invalid permission fields");
+  for (const field of fields) if (body[field] !== undefined && typeof body[field] !== 'boolean') throw new ValidationError("Invalid permission value");
+  if (!fields.some(field => body[field] !== undefined)) throw new ValidationError("Choose a permission to change");
   const before = await access.hydrate(client, target);
+  if (body.isAdmin === false && before.isAdmin && !user.isSuperAdmin) throw new HttpError(403, "Only the super administrator can remove administrator rights");
+  if (body.isAdmin === false && before.isSuperAdmin) throw new ValidationError("The platform owner cannot be demoted");
   await client.query(`UPDATE users SET is_admin=COALESCE($2,is_admin),
-    can_create_tournaments=COALESCE($3,can_create_tournaments),updated_at=NOW() WHERE id=$1`,
-  [target.id, body.isAdmin ?? null, body.canCreateTournaments ?? null]);
+    can_create_tournaments=COALESCE($3,can_create_tournaments),is_faq_moderator=COALESCE($4,is_faq_moderator),updated_at=NOW() WHERE id=$1`,
+    [target.id, body.isAdmin ?? null, body.canCreateTournaments ?? null, body.isFAQModerator ?? null]);
   const after = await access.hydrate(client, target);
-  await access.audit(client,user,"user_permissions_changed","user",target.id,
-    { isAdmin: before.isAdmin, canCreateTournaments: before.canCreateTournaments },
-    { isAdmin: after.isAdmin, canCreateTournaments: after.canCreateTournaments },body.reason);
+  const roles = value => Object.fromEntries(fields.map(field => [field, Boolean(value[field])]));
+  await access.audit(client,user,"user_permissions_changed","user",target.id,roles(before),roles(after),body.reason);
   return { ok: true };
 }
 
@@ -107,8 +114,11 @@ async function auditLog({ client, user }) {
 }
 
 async function transferOwner({ client, user, params, body }) {
-  if (!user?.isSuperAdmin) throw new HttpError(403, "Super administrator rights required");
-  const { tournament } = await context(client, user, params, true);
+  if (!user?.isAdmin && !user?.isSuperAdmin) throw new HttpError(403, "Administrator rights required");
+  const ctx = await context(client, user, params, true);
+  user = ctx.user;
+  if (!user.isAdmin && !user.isSuperAdmin) throw new HttpError(403, "Administrator rights required");
+  const { tournament } = ctx;
   const id = requirePositiveIntId(body.userId, 400, "Choose an organizer");
   const reason = String(body.reason || "").trim().slice(0,1000);
   if (!reason) throw new ValidationError("Provide a reason for transferring ownership");
@@ -124,4 +134,22 @@ async function transferOwner({ client, user, params, body }) {
   return {ok:true};
 }
 
-module.exports = { staff, assignJudge, revokeJudge, setPermissions, suspendUser, auditLog, transferOwner };
+async function userRoles({ client, user, params }) {
+  if (!user?.isAdmin && !user?.isSuperAdmin) throw new HttpError(403, "Administrator rights required");
+  const id = requirePositiveIntId(params.id, 404, "User not found");
+  const target = await users.findById(client,id);
+  if (!target) throw new HttpError(404,"User not found");
+  const hydrated = await access.hydrate(client,target);
+  const { rows } = await client.query(`SELECT t.id,t.name,t.slug,t.status,
+    CASE WHEN t.owner_user_id=$1 THEN 'organizer' ELSE 'judge' END AS role,
+    CASE WHEN t.owner_user_id=$1 THEN NULL ELSE j.expires_at END AS expires_at
+    FROM tournaments t LEFT JOIN tournament_judges j ON j.tournament_id=t.id AND j.user_id=$1
+      AND j.revoked_at IS NULL AND (j.expires_at IS NULL OR j.expires_at>NOW())
+    WHERE t.owner_user_id=$1 OR j.user_id IS NOT NULL ORDER BY t.created_at DESC,t.id DESC`,[id]);
+  return { user: { ...require('./views').publicUserSummary(hydrated),isAdmin:hydrated.isAdmin,isSuperAdmin:hydrated.isSuperAdmin,
+    canCreateTournaments:hydrated.canCreateTournaments,isFAQModerator:hydrated.isFAQModerator,
+    suspendedUntil:hydrated.suspendedUntil,suspensionReason:hydrated.suspensionReason },
+    tournamentRoles:rows.map(row=>({tournamentId:row.id,name:row.name,slug:row.slug,status:row.status,role:row.role,expiresAt:row.expires_at?.toISOString()||null})) };
+}
+
+module.exports = { userRoles, staff, assignJudge, revokeJudge, setPermissions, suspendUser, auditLog, transferOwner };

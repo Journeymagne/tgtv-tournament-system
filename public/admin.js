@@ -1304,10 +1304,10 @@ function adminTeamPairingOverrideForm(match) {
   </form>`;
 }
 
-function adminUsersResultsMarkup(users) {
-  const pageData = remotePage(users,state.adminUsersPagination,state.adminUsersPage);
-  state.adminUsersPage = pageData.currentPage;
-  return '<div class="list">' + pageData.items.map(user => `<div class="row-card"><div class="row-main"><a href="/tournament#/administration/players/${user.id}" data-app-link class="text-link-button" data-profile-user="${user.id}">${escapeHtml(user.name)}</a><div class="row-meta">${user.isSuperAdmin ? adminLabel("Супер-администратор", "Super administrator") : user.isAdmin ? adminLabel("Администратор · судья всех турниров", "Administrator · judge of all tournaments") : user.canCreateTournaments ? adminLabel("Игрок · может создавать турниры", "Player · can create tournaments") : adminLabel("Игрок", "Player")}${user.suspendedUntil && new Date(user.suspendedUntil) > new Date() ? ' · ' + adminLabel("Заблокирован", "Suspended") : ''}</div></div><button class="small-button" data-role-user="${user.id}">${adminLabel("Управление", "Manage")}</button></div>`).join('') + '</div>' + paginationMarkup("admin-users", pageData, "leaderboard.users.pagination.users");
+function adminUsersResultsMarkup(users, options = {}) {
+  const pageData = remotePage(users,options.special?state.adminSpecialUsersPagination:state.adminUsersPagination,options.special?state.adminSpecialUsersPage:state.adminUsersPage);
+  state[options.special?'adminSpecialUsersPage':'adminUsersPage'] = pageData.currentPage;
+  return '<div class="list">' + pageData.items.map(user => `<div class="row-card"><div class="row-main"><a href="/tournament#/administration/players/${user.id}" data-app-link class="text-link-button" data-profile-user="${user.id}">${escapeHtml(user.name)}</a><div class="row-meta">${adminUserRoleLabels(user)}${user.suspendedUntil && new Date(user.suspendedUntil) > new Date() ? ' · ' + adminLabel('Заблокирован','Suspended') : ''}</div></div><button class="small-button" data-role-user="${user.id}">${adminLabel('Управление','Manage')}</button></div>`).join('') + '</div>' + paginationMarkup(options.special?'admin-special-users':'admin-users',pageData,'leaderboard.users.pagination.users');
 }
 
 function renderAdmin() {
@@ -2498,6 +2498,7 @@ window.TGTV_ADMIN = {
   loadAdminTournamentDetail,
   loadAdminTournaments,
   loadAdminUsers,
+  loadAdminSpecialUsers,
   loadTournamentAdmin,
   refreshAdminTournamentDetailView,
   wireAdminGameButtons,
@@ -2512,14 +2513,71 @@ window.TGTV_ADMIN = {
   wireTournamentTableAdminControls
 };
 
+async function loadAdminSpecialUsers() {
+  if (!state.me?.isAdmin) return;
+  const sequence=loadAdminSpecialUsers.sequence=(loadAdminSpecialUsers.sequence||0)+1;
+  const data=await api(`/api/admin/users?access=special&page=${state.adminSpecialUsersPage||1}&q=${encodeURIComponent(state.adminSpecialUsersQuery||'')}`);
+  if(sequence!==loadAdminSpecialUsers.sequence)return;
+  state.adminSpecialUsers=data.users||[];state.adminSpecialUsersPagination=data.pagination;
+}
+
+function adminUserRoleLabels(user) {
+  const roles=[];
+  if(user.isSuperAdmin)roles.push(adminLabel('Суперадминистратор','Super administrator'));
+  else if(user.isAdmin)roles.push(adminLabel('Администратор','Administrator'));
+  if(user.canCreateTournaments)roles.push(adminLabel('Создание турниров и событий','Create tournaments and events'));
+  if(user.isFAQModerator)roles.push(adminLabel('Модератор FAQ','FAQ moderator'));
+  if(user.hasOwnedTournaments)roles.push(adminLabel('Организатор турниров','Tournament organizer'));
+  if(user.hasJudgeAssignments)roles.push(adminLabel('Судья турниров','Tournament judge'));
+  return roles.join(' · ')||adminLabel('Игрок','Player');
+}
+
+function adminSpecialUsersPanel() {
+  if(!state.me?.isAdmin)return '';
+  return `<section class="card panel"><div class="panel-header"><div><h2>${adminLabel('Администраторы','Administrators')}</h2><p class="muted">${adminLabel('Пользователи со специальными правами и назначениями в турнирах','Users with special permissions and tournament assignments')}</p></div></div><div class="filter-row"><div class="field compact-field"><label for="admin-special-users-search">${t('leaderboard.users.searchLabel')}</label><input id="admin-special-users-search" type="search" value="${escapeHtml(state.adminSpecialUsersQuery||'')}" placeholder="${t('leaderboard.users.searchPlaceholderTelegram')}" autocomplete="off" data-admin-special-users-search></div></div><div data-admin-special-users-results>${adminUsersResultsMarkup(state.adminSpecialUsers||[],{special:true})}</div><div class="message" data-message></div></section>`;
+}
+
+function wireAdminSpecialUserControls() {
+  wireRemoteAdminSearch('[data-admin-special-users-search]','adminSpecialUsersQuery','adminSpecialUsersPage',loadAdminSpecialUsers,()=>{
+    const results=document.querySelector('[data-admin-special-users-results]');if(!results)return;
+    results.innerHTML=adminUsersResultsMarkup(state.adminSpecialUsers||[],{special:true});
+    wirePaginationControls();wireRoleUserButtons();
+  });
+  wireRoleUserButtons();
+}
+
+function adminPeoplePanel() {
+  const selected=['players','teams','administrators'].includes(state.adminPeopleTab)?state.adminPeopleTab:'players';
+  const tabs=[['players',adminLabel('Игроки','Players')],['teams',t('nav.playerTeams')],['administrators',adminLabel('Администраторы','Administrators')]];
+  return `<nav class="tabs administration-people-tabs" aria-label="${adminLabel('Игроки и команды','Players and teams')}">${tabs.map(([id,label])=>`<button type="button" class="tab ${selected===id?'active':''}" aria-pressed="${selected===id}" data-admin-people="${id}">${label}</button>`).join('')}</nav>${selected==='teams'?adminTeamsPanel():selected==='administrators'?adminSpecialUsersPanel():adminUsersPanel()}`;
+}
+
+function adminPermissionFields(actor,user) {
+  if(!actor?.isAdmin&&!actor?.isSuperAdmin)return '';
+  const protectedAdmin=user.isSuperAdmin||(user.isAdmin&&!actor.isSuperAdmin);
+  return `<label class="checkbox-line admin-permission-option"><input type="checkbox" name="isAdmin" ${user.isAdmin?'checked':''} ${protectedAdmin?'disabled':''}><span><strong>${adminLabel('Администратор платформы','Platform administrator')}</strong><small>${adminLabel('Снимать права администратора может только суперадминистратор','Only the super administrator can remove administrator rights')}</small></span></label>
+    <label class="checkbox-line admin-permission-option"><input type="checkbox" name="canCreateTournaments" ${user.canCreateTournaments?'checked':''}><span><strong>${adminLabel('Создание турниров и событий','Create tournaments and events')}</strong><small>${adminLabel('Отдельное право создавать турниры и события Календаря','Separate permission to create tournaments and Calendar events')}</small></span></label>
+    <label class="checkbox-line admin-permission-option"><input type="checkbox" name="isFAQModerator" ${user.isFAQModerator?'checked':''}><span><strong>${adminLabel('Модератор FAQ','FAQ moderator')}</strong><small>${adminLabel('Модерация FAQ без статуса администратора','Moderate FAQ without administrator status')}</small></span></label>`;
+}
+
+function adminPermissionsPayload(form,user,actor) {
+  return {isAdmin:Boolean(user.isSuperAdmin||(user.isAdmin&&!actor.isSuperAdmin)||form.has('isAdmin')),
+    canCreateTournaments:form.has('canCreateTournaments'),isFAQModerator:form.has('isFAQModerator'),reason:form.get('reason')};
+}
+
+function adminTournamentRolesMarkup(roles) {
+  return `<section class="card panel admin-user-section"><header class="admin-user-section-heading"><h4>${adminLabel('Роли в турнирах','Tournament roles')}</h4></header>${roles.length?`<div class="list">${roles.map(role=>`<div class="row-card"><div class="row-main"><strong>${escapeHtml(role.name||'#'+role.tournamentId)}</strong><div class="row-meta">${role.role==='organizer'?adminLabel('Организатор','Organizer'):adminLabel('Судья','Judge')}${role.expiresAt?' · '+escapeHtml(new Date(role.expiresAt).toLocaleString()):''}</div></div><a class="small-button" href="/tournament#/administration/tournaments/admin/${role.tournamentId}" data-role-tournament>${adminLabel('Управлять','Manage')}</a></div>`).join('')}</div>`:`<p class="empty">${adminLabel('Нет отдельных назначений в турнирах','No individual tournament assignments')}</p>`}</section>`;
+}
+
 async function loadAdministration() {
   if (!canOpenAdministration()) return;
   const allowed = state.me.isAdmin ? ["overview", "tournaments", "people", "content"] : ["overview", "tournaments"];
   if (!allowed.includes(state.adminHubTab)) state.adminHubTab = "overview";
   await loadAdminTournaments();
   if (state.adminHubTab === "people") {
-    await loadAdminUsers();
-    await loadAdminTeams();
+    if(state.adminPeopleTab==='administrators')await loadAdminSpecialUsers();
+    else if(state.adminPeopleTab==='teams')await loadAdminTeams();
+    else await loadAdminUsers();
   }
 }
 
@@ -2542,20 +2600,20 @@ function renderAdministration() {
   const tile = (href, title, hint) => `<a href="/tournament#/${href}" data-app-link data-app-route class="card panel administration-tile"><h3>${title}</h3><p class="muted">${hint}</p></a>`;
   let body = '';
   if (tab === 'tournaments') body = adminTournamentsPanel();
-  else if (tab === 'people' && state.me.isAdmin) body = `<nav class="tabs administration-people-tabs" aria-label="${adminLabel('Игроки и команды', 'Players and teams')}"><button type="button" class="tab ${state.adminPeopleTab !== 'teams' ? 'active' : ''}" aria-pressed="${state.adminPeopleTab !== 'teams'}" data-admin-people="players">${adminLabel('Игроки', 'Players')}</button><button type="button" class="tab ${state.adminPeopleTab === 'teams' ? 'active' : ''}" aria-pressed="${state.adminPeopleTab === 'teams'}" data-admin-people="teams">${t('nav.playerTeams')}</button></nav>${state.adminPeopleTab === 'teams' ? adminTeamsPanel() : adminUsersPanel()}`;
+  else if (tab === 'people' && state.me.isAdmin) body = adminPeoplePanel();
   else if (tab === 'content' && state.me.isAdmin) body = `<div class="administration-tiles">${tile('administration/documentation', adminLabel('Документация', 'Documentation'), adminLabel('Редактирование инструкций и страниц помощи', 'Edit instructions and help pages'))}${tile('administration/achievements', t('achievements.title'), adminLabel('Достижения, награды и зал славы', 'Achievements, awards and hall of fame'))}${tile('administration/people', adminLabel('Kill Team Challenge', 'Kill Team Challenge'), adminLabel('Выберите игрока и откройте его прогресс Challenge', 'Choose a player and open their Challenge progress'))}</div>`;
   else {
     const events = state.adminTournaments || [];
-    body = `<div class="administration-tiles">${tile('administration/tournaments', `${state.adminTournamentsPagination?.total ?? events.length} · ${t('nav.tournaments')}`, adminLabel('Доступные турниры, участники, раунды и судьи', 'Available tournaments, participants, rounds and judges'))}${state.me.isAdmin ? tile('administration/people', adminLabel('Игроки и команды', 'Players and teams'), adminLabel('Аккаунты, доступы, блокировки и команды', 'Accounts, permissions, suspensions and teams')) + tile('administration/feedback', adminLabel('Обращения', 'Feedback'), adminLabel('Сообщения игроков и статусы обработки', 'Player messages and resolution status')) + tile('administration/games/sessions', adminLabel('Игровые сессии', 'Game sessions'), adminLabel('Подтверждение результатов и разбор спорных игр', 'Review results and disputed games')) : ''}</div><section class="card panel"><h3>${adminLabel('Ваш доступ', 'Your access')}</h3><p>${state.me.isSuperAdmin ? adminLabel('Супер-администратор платформы. Управление глобальными ролями и всеми турнирами.', 'Platform super administrator. Manage global roles and every tournament.') : state.me.isAdmin ? adminLabel('Администратор платформы. Вы автоматически судья каждого турнира. Назначение судей доступно только в ваших турнирах.', 'Platform administrator. You automatically judge every tournament. You can appoint judges only in tournaments you own.') : adminLabel('Доступ ограничен вашими турнирами и турнирами, где вы назначены судьёй.', 'Access is limited to tournaments you own or judge.')}</p></section>`;
+    body = `<div class="administration-tiles">${tile('administration/tournaments', `${state.adminTournamentsPagination?.total ?? events.length} · ${t('nav.tournaments')}`, adminLabel('Доступные турниры, участники, раунды и судьи', 'Available tournaments, participants, rounds and judges'))}${state.me.isAdmin ? tile('administration/people', adminLabel('Игроки и команды', 'Players and teams'), adminLabel('Аккаунты, доступы, блокировки и команды', 'Accounts, permissions, suspensions and teams')) + tile('administration/feedback', adminLabel('Обращения', 'Feedback'), adminLabel('Сообщения игроков и статусы обработки', 'Player messages and resolution status')) + tile('administration/games/sessions', adminLabel('Игровые сессии', 'Game sessions'), adminLabel('Подтверждение результатов и разбор спорных игр', 'Review results and disputed games')) : ''}</div><section class="card panel"><h3>${adminLabel('Ваш доступ', 'Your access')}</h3><p>${state.me.isSuperAdmin ? adminLabel('Супер-администратор платформы. Управление глобальными ролями и всеми турнирами.', 'Platform super administrator. Manage global roles and every tournament.') : state.me.isAdmin ? adminLabel('Администратор платформы. Вы автоматически судья каждого турнира. Вы можете управлять правами пользователей и назначениями в турнирах.', 'Platform administrator. You automatically judge every tournament. You can manage user permissions and tournament assignments.') : adminLabel('Доступ ограничен вашими турнирами и турнирами, где вы назначены судьёй.', 'Access is limited to tournaments you own or judge.')}</p></section>`;
   }
   content.innerHTML = `<section class="card panel administration-navigation"><div class="panel-header administration-heading"><div><h2>${adminLabel('Администрирование', 'Administration')}</h2><p class="muted">${adminLabel('Управление турнирной платформой', 'Tournament platform management')}</p></div>${state.me.isAdmin ? `<button type="button" class="small-button" data-admin-audit>${adminLabel('История действий', 'Activity log')}</button>` : ''}</div><nav class="tabs administration-tabs" aria-label="${adminLabel('Разделы администрирования', 'Administration sections')}">${tabs.map(([id,label]) => `<button type="button" class="tab ${id===tab?'active':''}" aria-pressed="${id===tab}" data-admin-hub="${id}">${label}</button>`).join('')}</nav></section>${body}${tab === 'overview' ? adminAnalyticsPanel() : ''}<div class="message" data-message></div>`;
   document.querySelectorAll('[data-admin-hub]').forEach(button => button.onclick = async () => {
     try { state.adminHubTab=button.dataset.adminHub; await loadAdministration(); syncAppHash(); renderAdministration(); } catch(err) {setMessage(err.message,true);}
   });
-  document.querySelectorAll('[data-admin-people]').forEach(button => button.onclick = () => {state.adminPeopleTab=button.dataset.adminPeople; renderAdministration();});
+  document.querySelectorAll('[data-admin-people]').forEach(button => button.onclick = async () => {try{state.adminPeopleTab=button.dataset.adminPeople;await loadAdministration();syncAppHash();renderAdministration();}catch(err){setMessage(err.message,true);}});
   document.querySelector('[data-admin-audit]')?.addEventListener('click', showAdministrativeAudit);
   if(tab==='tournaments') { wireAdminTournamentControls(); wirePaginationControls(); }
-  if(tab==='people') {wireAdminUserControls(); wireAdminTeams(); wirePaginationControls();}
+  if(tab==='people') {if(state.adminPeopleTab==='administrators')wireAdminSpecialUserControls();else if(state.adminPeopleTab==='teams')wireAdminTeams();else wireAdminUserControls();wirePaginationControls();}
 }
 
 function administrationDialog(title, body) {
@@ -2575,7 +2633,7 @@ function administrationDialog(title, body) {
 function adminTournamentStaffContent(data) {
   const roster = data.staff;
   if(!roster) return '';
-  return `<details class="admin-settings-section"><summary>${adminLabel('Организатор и судьи', 'Organizer and judges')}</summary><p class="muted">${adminLabel('Организатор назначает судей. Судьи управляют проведением турнира, но не назначают других судей. Администраторы платформы получают судейский доступ автоматически.', 'The organizer appoints judges. Judges manage the tournament but cannot appoint other judges. Platform administrators receive judge access automatically.')}</p><div class="list">${roster.staff.filter(person=>person.active).map(person=>`<div class="row-card"><div class="row-main"><strong>${escapeHtml(person.name)}</strong><div class="row-meta">${person.role==='organizer'?adminLabel('Организатор', 'Organizer'):person.role==='super_admin'?adminLabel('Супер-администратор', 'Super administrator'):adminLabel('Судья', 'Judge')}${person.automatic?' · '+adminLabel('Доступ через роль платформы', 'Platform role access'):''}${person.expiresAt?' · '+fmtDate(person.expiresAt):''}</div></div>${person.canRevoke&&!person.automatic?`<button class="danger-button" data-judge-revoke="${person.userId}">${adminLabel('Снять судью', 'Remove judge')}</button>`:''}</div>`).join('')}</div>${roster.canManageJudges?`<button type="button" class="small-button" data-judge-assign>${adminLabel('Назначить судью', 'Assign judge')}</button>`:''}${state.me.isSuperAdmin?`<button type="button" class="small-button" data-transfer-owner>${adminLabel('Передать организатору', 'Transfer ownership')}</button>`:''}</details>`;
+  return `<details class="admin-settings-section"><summary>${adminLabel('Организатор и судьи', 'Organizer and judges')}</summary><p class="muted">${adminLabel('Организатор назначает судей. Судьи управляют проведением турнира, но не назначают других судей. Администраторы платформы получают судейский доступ автоматически.', 'The organizer appoints judges. Judges manage the tournament but cannot appoint other judges. Platform administrators receive judge access automatically.')}</p><div class="list">${roster.staff.filter(person=>person.active).map(person=>`<div class="row-card"><div class="row-main"><strong>${escapeHtml(person.name)}</strong><div class="row-meta">${person.role==='organizer'?adminLabel('Организатор', 'Organizer'):person.role==='super_admin'?adminLabel('Супер-администратор', 'Super administrator'):adminLabel('Судья', 'Judge')}${person.automatic?' · '+adminLabel('Доступ через роль платформы', 'Platform role access'):''}${person.expiresAt?' · '+fmtDate(person.expiresAt):''}</div></div>${person.canRevoke&&!person.automatic?`<button class="danger-button" data-judge-revoke="${person.userId}">${adminLabel('Снять судью', 'Remove judge')}</button>`:''}</div>`).join('')}</div>${roster.canManageJudges?`<button type="button" class="small-button" data-judge-assign>${adminLabel('Назначить судью', 'Assign judge')}</button>`:''}${state.me.isAdmin||state.me.isSuperAdmin?`<button type="button" class="small-button" data-transfer-owner>${adminLabel('Передать организатору', 'Transfer ownership')}</button>`:''}</details>`;
 }
 
 function wireAdminTournamentStaff() {
@@ -2599,19 +2657,18 @@ function wireRoleUserButtons() {
   document.querySelectorAll('[data-role-user]').forEach(button=>button.onclick=()=>showRoleUser(Number(button.dataset.roleUser)));
 }
 
-function showRoleUser(id) {
-  const user=state.adminUsers.find(item=>item.id===id); if(!user)return;
+async function showRoleUser(id) {
+  if(!state.me?.isAdmin&&!state.me?.isSuperAdmin)return;
+  let details;try{details=await api(`/api/admin/users/${id}/tournament-roles`);}catch(err){setMessage(err.message,true);return;}
+  const user=details.user;
   const canManage=state.me.isSuperAdmin || (!user.isAdmin&&!user.isSuperAdmin);
-  const roleForm = state.me.isSuperAdmin ? `<section class="card panel admin-user-section admin-user-permissions" aria-labelledby="admin-user-permissions-title"><header class="admin-user-section-heading"><h4 id="admin-user-permissions-title">${adminLabel('Доступы', 'Permissions')}</h4><p class="muted">${adminLabel('Роли и права пользователя на платформе', 'User roles and platform permissions')}</p></header><form class="admin-dialog-form" data-user-permissions>
-    <div class="admin-permission-options">
-      <label class="checkbox-line admin-permission-option"><input type="checkbox" name="isAdmin" ${user.isAdmin ? 'checked' : ''} ${user.isSuperAdmin ? 'disabled' : ''}><span><strong>${adminLabel('Администратор платформы', 'Platform administrator')}</strong><small>${adminLabel('Судейский доступ ко всем турнирам', 'Judge access to every tournament')}</small></span></label>
-      <label class="checkbox-line admin-permission-option"><input type="checkbox" name="canCreateTournaments" ${user.canCreateTournaments ? 'checked' : ''}><span><strong>${adminLabel('Создание турниров', 'Create tournaments')}</strong><small>${adminLabel('Может создавать турниры и управлять ими', 'Can create and manage tournaments')}</small></span></label>
-    </div>
+  const roleForm = state.me.isAdmin || state.me.isSuperAdmin ? `<section class="card panel admin-user-section admin-user-permissions" aria-labelledby="admin-user-permissions-title"><header class="admin-user-section-heading"><h4 id="admin-user-permissions-title">${adminLabel('Доступы', 'Permissions')}</h4><p class="muted">${adminLabel('Роли и права пользователя на платформе', 'User roles and platform permissions')}</p></header><form class="admin-dialog-form" data-user-permissions>
+    <div class="admin-permission-options">${adminPermissionFields(state.me,user)}</div>
     <label>${adminLabel('Причина изменения', 'Reason for change')}<input name="reason" required maxlength="1000"></label>
     <div class="row-actions"><button type="submit" class="primary-button">${t('common.save')}</button></div>
   </form></section>` : '';
   const contacts = [user.telegramContact, user.registerNickname].filter(Boolean).map(escapeHtml).join(' · ');
-  const dialog = administrationDialog(user.name, `${contacts ? `<p class="admin-user-meta">${contacts}</p>` : ''}${user.isSuperAdmin ? `<p class="admin-user-notice">${adminLabel('Владелец платформы. Супер-администратора нельзя удалить или понизить.', 'Platform owner. The super administrator cannot be deleted or demoted.')}</p>` : ''}<div class="admin-user-sections">${roleForm}
+  const dialog = administrationDialog(user.name, `${contacts ? `<p class="admin-user-meta">${contacts}</p>` : ''}${user.isSuperAdmin ? `<p class="admin-user-notice">${adminLabel('Владелец платформы. Супер-администратора нельзя удалить или понизить.', 'Platform owner. The super administrator cannot be deleted or demoted.')}</p>` : ''}<div class="admin-user-sections">${roleForm}${adminTournamentRolesMarkup(details.tournamentRoles||[])}
     ${canManage && id !== state.me.id ? `<section class="card panel admin-user-section" aria-labelledby="admin-user-security-title"><header class="admin-user-section-heading"><h4 id="admin-user-security-title">${adminLabel('Безопасность аккаунта', 'Account security')}</h4><p class="muted">${adminLabel('Восстановление доступа и блокировка аккаунта', 'Account recovery and suspension')}</p></header>
       <div class="admin-dialog-form"><div class="row-actions"><button type="button" class="small-button" data-role-reset>${t('profile.admin.resetPassword')}</button></div><p class="admin-user-notice" data-role-password></p>
       <form class="admin-dialog-form" data-user-suspension><label>${adminLabel('Заблокировать до', 'Suspend until')}<input name="until" type="datetime-local" required></label><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><div class="row-actions"><button type="button" class="small-button" data-role-restore>${adminLabel('Снять блокировку', 'Restore account')}</button><button type="submit" class="danger-button">${adminLabel('Заблокировать', 'Suspend')}</button></div></form></div>
@@ -2625,7 +2682,7 @@ function showRoleUser(id) {
     quotas.onclick = () => { dialog.close(); showResourceQuotas(id); };
     dialog.querySelector('[data-dialog-actions]').prepend(quotas);
   }
-  const run=async action=>{try{await action();await loadAdminUsers();renderShell();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
+  const run=async action=>{try{await action();await refresh();await loadAdminUsers();if(state.adminPeopleTab==='administrators')await loadAdminSpecialUsers();renderShell();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
   if (state.me.isSuperAdmin && !user.isSuperAdmin && id !== state.me.id) {
     const remove = document.createElement('button');
     remove.type = 'button'; remove.className = 'danger-button';
@@ -2636,7 +2693,8 @@ function showRoleUser(id) {
       await run(async () => { await api(`/api/admin/users/${id}`, { method: 'DELETE' }); dialog.close(); });
     };
   }
-  dialog.querySelector('[data-user-permissions]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}/permissions`,{method:'PATCH',body:{isAdmin:user.isSuperAdmin||form.has('isAdmin'),canCreateTournaments:form.has('canCreateTournaments'),reason:form.get('reason')}});dialog.close();});});
+  dialog.querySelectorAll('[data-role-tournament]').forEach(link=>link.addEventListener('click',()=>dialog.close()));
+  dialog.querySelector('[data-user-permissions]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}/permissions`,{method:'PATCH',body:adminPermissionsPayload(form,user,state.me)});dialog.close();});});
   dialog.querySelector('[data-role-reset]')?.addEventListener('click',async()=>{if(!await confirmAction({message:t('dialog.admin.resetPassword'),confirmLabel:t('profile.admin.resetPassword')}))return;run(async()=>{const result=await api(`/api/admin/users/${id}/reset-password`,{method:'POST'});dialog.querySelector('[data-role-password]').textContent=result.password || adminLabel('Запрос на восстановление принят. Проверьте подтверждённую почту.', 'Recovery requested. Check the confirmed email.');});});
   dialog.querySelector('[data-user-suspension]')?.addEventListener('submit',event=>{event.preventDefault();const form=new FormData(event.currentTarget);run(async()=>{await api(`/api/admin/users/${id}/suspension`,{method:'PATCH',body:{until:new Date(form.get('until')).toISOString(),reason:form.get('reason')}});dialog.close();});});
   dialog.querySelector('[data-role-restore]')?.addEventListener('click',()=>run(async()=>{await api(`/api/admin/users/${id}/suspension`,{method:'PATCH',body:{until:null,reason:'Restored by administrator'}});dialog.close();}));

@@ -27,7 +27,7 @@ module.exports = [
   {method:'GET',path:'/api/admin/tournaments/:id/audit',handler:tournaments.auditPage,auth:'user',permission:'tournament.manage'},
   ...require("./miniapp").routes,
   ...require("./telegram").routes,
-  { method: "PATCH", path: "/api/admin/tournaments/:id/owner", handler: accessManagement.transferOwner, auth: "user", permission: "super", tx: true },
+  { method: "PATCH", path: "/api/admin/tournaments/:id/owner", handler: accessManagement.transferOwner, auth: "admin", tx: true },
   { method: "GET", path: "/api/admin/tournaments/:id/staff", handler: accessManagement.staff, auth: "user", permission: "tournament.manage" },
   { method: "POST", path: "/api/admin/tournaments/:id/judges", handler: accessManagement.assignJudge, auth: "user", permission: "judges.manage", tx: true },
   { method: "DELETE", path: "/api/admin/tournaments/:id/judges/:userId", handler: accessManagement.revokeJudge, auth: "user", permission: "judges.manage", tx: true },
@@ -225,6 +225,7 @@ module.exports = [
     tx: true
   },
   { method: "GET", path: "/api/admin/users", handler: admin.listUsers, auth: "admin" },
+  { method: "GET", path: "/api/admin/users/:id/tournament-roles", handler: accessManagement.userRoles, auth: "admin" },
   { method: "GET", path: "/api/admin/tournaments", handler: tournaments.listAdmin, auth: "admin" },
   { method: "POST", path: "/api/admin/teams/:id/restore", handler: playerTeams.restore, auth: "admin", tx: true },
   { method: "POST", path: "/api/admin/tournaments/:id/rosters", handler: teamTournaments.registerRoster, auth: "admin", tx: true },
