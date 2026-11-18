@@ -40,6 +40,10 @@
   align-items: end;
 }
 
+.provider-filters > .field {
+  margin-bottom: 0;
+}
+
 .provider-card,
 .provider-member,
 .provider-calendar-card,

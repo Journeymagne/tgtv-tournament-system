@@ -3858,7 +3858,7 @@ function loadTournamentProvidersUi() {
   if (tournamentProvidersUiPromise) return tournamentProvidersUiPromise;
   const assets = ["tournament-providers.css", "tournament-providers.js"].map(filename => {
     const element = document.createElement(filename.endsWith(".css") ? "link" : "script");
-    const url = `/${filename}?v=providers-1`;
+      const url = `/${filename}?v=providers-2`;
     if (element.tagName === "LINK") {
       element.rel = "stylesheet";
       element.href = url;
