@@ -43,12 +43,17 @@ test("upgrade from 2.3.2 imports the achievement catalog without demo data or aw
     const before = { users: [user], player_teams: [team], tournaments: [tournament], games: [game] };
 
     assert.deepEqual(await migrate(pool), MIGRATIONS.filter((item) => item.version > 21).map((item) => item.version));
-    Object.assign(tournament, { registration_limit: null, captain_pairing_enabled: true, team_tiebreaker_order: null, faction_count: 1, venue_address: "", pairing_mode: "backet_random" });
+    Object.assign(tournament, { registration_limit: null, captain_pairing_enabled: true, team_tiebreaker_order: null, faction_count: 1, venue_address: "", pairing_mode: "backet_random", provider_id: null });
     Object.assign(user, {can_create_tournaments:false, suspended_until:null, suspension_reason:"", is_faq_moderator:false, bcp_email:null});
     Object.assign(game, { source_slot: 0 });
     for (const [table, expected] of Object.entries(before)) {
       assert.deepEqual((await pool.query(`SELECT * FROM ${table} ORDER BY id`)).rows, expected, `${table} must be preserved without demo rows`);
     }
+    assert.deepEqual((await pool.query(`SELECT
+      (SELECT count(*)::int FROM tournaments.tournament_providers) AS providers,
+      (SELECT count(*)::int FROM tournaments.tournament_provider_memberships) AS memberships,
+      (SELECT count(*)::int FROM tournaments.tournament_provider_invitations) AS invitations`)).rows,
+    [{providers:0,memberships:0,invitations:0}]);
     assert.deepEqual((await pool.query("SELECT faction,factions FROM tournament_participants ORDER BY id")).rows,
       [{ faction: "Kommandos", factions: ["Kommandos"] }, { faction: null, factions: [] }]);
     const { rows } = await pool.query(`SELECT legacy_id AS id,name,description,emoji FROM achievements ORDER BY legacy_id`);

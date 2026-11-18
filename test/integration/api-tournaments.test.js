@@ -779,7 +779,7 @@ test("individual Excel export uses persisted results, is admin-only and rejects 
   try {
     const url = `${server.baseUrl}/api/admin/tournaments/${tournament.id}/export.xlsx`;
     assert.equal((await fetch(url)).status, 401);
-    viewer = { id: 999, isAdmin: false };
+    viewer = await createUser("Export spectator");
     assert.equal((await fetch(url)).status, 403);
     viewer = root;
     const response = await fetch(url);

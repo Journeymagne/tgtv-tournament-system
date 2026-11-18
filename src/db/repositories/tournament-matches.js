@@ -1,6 +1,5 @@
 const { providerSummarySql } = require('./tournaments');
 const {
-  TOURNAMENT_COLUMNS,
   COMPACT_TOURNAMENT_COLUMNS,
   TOURNAMENT_PARTICIPANT_COLUMNS,
   TOURNAMENT_MATCH_COLUMNS: COLUMNS,
@@ -27,9 +26,15 @@ const OPTIONAL_IDS = new Set(['bracketPosition', 'participantAId', 'participantB
 
 // Historical migrations 034/047 call this repository before normalization.
 // Inspect the schema instead of caching a flag that becomes stale mid-migration.
+async function readMatchSchema(client) {
+  const { rows: [row] } = await client.query(`SELECT
+    to_regclass('tournaments.tournament_match_results') IS NOT NULL AS normalized,
+    to_regclass('tournaments.tournament_providers') IS NOT NULL AS has_providers`);
+  return { relation: row.normalized ? 'tournament_match_results' : 'tournament_matches', hasProviders: row.has_providers };
+}
+
 async function readRelation(client) {
-  const { rows } = await client.query("SELECT to_regclass('tournaments.tournament_match_results') IS NOT NULL AS normalized");
-  return rows[0].normalized ? 'tournament_match_results' : 'tournament_matches';
+  return (await readMatchSchema(client)).relation;
 }
 
 function storedFields(value, normalized) {
@@ -93,6 +98,7 @@ async function listByRound(client, roundId) {
 }
 
 async function listActiveForUser(client, userId) {
+  const schema = await readMatchSchema(client);
   const { rows } = await client.query(
     `SELECT
         row_to_json(tournament_row) AS tournament,
@@ -100,12 +106,12 @@ async function listActiveForUser(client, userId) {
         row_to_json(participant_a_row) AS participant_a,
         row_to_json(participant_b_row) AS participant_b,
         row_to_json(table_row) AS tournament_table
-     FROM ${await readRelation(client)} tm
+     FROM ${schema.relation} tm
      JOIN tournaments t ON t.id = tm.tournament_id
      JOIN tournament_participants pa ON pa.id = tm.participant_a_id
      JOIN tournament_participants pb ON pb.id = tm.participant_b_id
      LEFT JOIN tournament_tables tt ON tt.id = tm.table_id
-     CROSS JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_COLUMNS, "t")}, ${providerSummarySql('t.provider_id')}) tournament_row
+     CROSS JOIN LATERAL (SELECT ${tournamentProjection(schema, false)}) tournament_row
      CROSS JOIN LATERAL (SELECT ${aliasColumns(COLUMNS, "tm")}) match_row
      CROSS JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_PARTICIPANT_COLUMNS, "pa")}) participant_a_row
      CROSS JOIN LATERAL (SELECT ${aliasColumns(TOURNAMENT_PARTICIPANT_COLUMNS, "pb")}) participant_b_row
@@ -134,13 +140,19 @@ function mapMatchLinks(rows) {
   });
 }
 
-function matchLinksQuery(relation, { compactTournament = false } = {}) { return `SELECT
-        (SELECT row_to_json(summary) FROM (SELECT ${compactTournament ? aliasColumns(COMPACT_TOURNAMENT_COLUMNS,'t') : 't.*'}, ${providerSummarySql('t.provider_id')}) summary) AS tournament,
+function tournamentProjection({hasProviders}, compact) {
+  const fields = hasProviders ? COMPACT_TOURNAMENT_COLUMNS : COMPACT_TOURNAMENT_COLUMNS.replace('provider_id, ', '');
+  const columns = compact ? aliasColumns(fields,'t') : 't.*';
+  return hasProviders ? `${columns}, ${providerSummarySql('t.provider_id')}` : columns;
+}
+
+function matchLinksQuery(schema, { compactTournament = false } = {}) { return `SELECT
+        (SELECT row_to_json(summary) FROM (SELECT ${tournamentProjection(schema, compactTournament)}) summary) AS tournament,
         row_to_json(tm) AS match,
         row_to_json(pa) AS participant_a,
         row_to_json(pb) AS participant_b,
         row_to_json(tt) AS tournament_table
-     FROM ${relation} tm
+     FROM ${schema.relation} tm
      JOIN tournaments t ON t.id = tm.tournament_id
      LEFT JOIN tournament_participants pa ON pa.id = tm.participant_a_id
      LEFT JOIN tournament_participants pb ON pb.id = tm.participant_b_id
@@ -150,7 +162,7 @@ async function listByGameIds(client, gameIds, options) {
   const ids = [...new Set(gameIds)].filter((id) => Number.isInteger(id));
   if (!ids.length) return [];
   const { rows } = await client.query(
-    `${matchLinksQuery(await readRelation(client), options)}
+    `${matchLinksQuery(await readMatchSchema(client), options)}
      WHERE tm.game_id = ANY($1::int[])`,
     [ids]
   );
@@ -168,7 +180,7 @@ async function listCompletedUnlinkedForUser(client, userId) {
 async function completedUnlinked(client, values = []) {
   const forUser = values.length > 0;
   const { rows } = await client.query(
-    `${matchLinksQuery(await readRelation(client))}
+    `${matchLinksQuery(await readMatchSchema(client))}
      WHERE tm.status = 'completed'
        AND tm.is_bye = FALSE
        AND tm.result IS NOT NULL

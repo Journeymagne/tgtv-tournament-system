@@ -144,10 +144,10 @@ async function lockById(client, id) {
 }
 
 async function findBySlug(client, slug) {
-  const { rows } = await client.query(`SELECT *, ${providerSummarySql('tournaments.provider_id')} FROM tournaments WHERE slug = $1`, [
+  const { rows } = await client.query(`SELECT * FROM tournaments WHERE slug = $1`, [
     slug
   ]);
-  return mapTournament(rows[0]);
+  return mapWithProvider(client,rows[0]);
 }
 
 async function listPublished(client) {
