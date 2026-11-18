@@ -47,3 +47,17 @@ preview workflow.
   entries and editorial changes.
 - Treat the release as complete only after the deployed version is visible in
   both `/api/documentation/ru/changelog` and `/api/documentation/en/changelog`.
+
+# Local backups only at release completion
+
+- Standing user instruction (2026-11-18): do not create periodic Windows tasks,
+  polling loops or logon triggers for backups. The old KTCompanion-BackupSync task
+  was removed because its recurring console window interrupted the user.
+- After a production release and its CI smoke checks/server backup job succeed,
+  run C:\Backups\KTCompanion\Sync-Backups.ps1 once on this Windows PC, with
+  -BackupRoot C:\Backups\KTCompanion. This is the local-copy step of the release.
+- Verify successful exit, at most two complete local snapshots, and the deployed
+  full commit SHA in C:\Backups\KTCompanion\last-sync.json before claiming that
+  release backups are copied. Preserve current backups on errors.
+- If this PC is unavailable, report the local copy as pending and perform it
+  explicitly when available; do not restore automatic polling as a workaround.
