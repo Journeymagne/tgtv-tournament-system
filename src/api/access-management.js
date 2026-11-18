@@ -27,12 +27,11 @@ async function staff({ client, user, params }) {
     (j.user_id IS NOT NULL AND j.revoked_at IS NULL AND (j.expires_at IS NULL OR j.expires_at > NOW())) AS assigned
     FROM users u LEFT JOIN tournament_judges j ON j.user_id=u.id AND j.tournament_id=$1
     LEFT JOIN users g ON g.id=j.granted_by
-    WHERE u.is_admin OR u.id=$2 OR j.user_id IS NOT NULL
-      OR EXISTS (SELECT 1 FROM platform_ownership p WHERE p.owner_user_id=u.id)
+    WHERE u.id=$2 OR (j.revoked_at IS NULL AND (j.expires_at IS NULL OR j.expires_at > NOW()) AND j.user_id IS NOT NULL)
     ORDER BY (u.id=$2) DESC, u.name`, [tournament.id, tournament.ownerUserId]);
   return { ownerUserId: tournament.ownerUserId, canManageJudges: canManageJudges(user, tournament),
     staff: rows.map(row => ({ userId: row.id, name: row.name,
-      role: row.id === tournament.ownerUserId ? "organizer" : row.is_super_admin ? "super_admin" : "judge",
+      role: row.id === tournament.ownerUserId ? "organizer" : "judge",
       automatic: row.is_admin || row.is_super_admin,
       assigned: row.assigned, active: row.id === tournament.ownerUserId || row.is_admin || row.is_super_admin || row.assigned,
       grantedByName: row.granted_by_name, expiresAt: row.expires_at?.toISOString() || null,

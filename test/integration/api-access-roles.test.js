@@ -58,7 +58,8 @@ test('platform administrators manage judge assignments across all tournaments',a
     await expect(admin.http.patch(base(tournament),{description:'Automatic judge'}));
     const roster=await expect(admin.http.get(`${base(tournament)}/staff`));
     assert.equal(roster.canManageJudges,true);
-    assert.equal(roster.staff.find(person=>person.userId===admin.id).automatic,true);
+    assert.ok(!roster.staff.some(person=>person.userId===admin.id));
+    assert.ok(roster.staff.some(person=>person.userId===tournament.ownerUserId && person.role==="organizer"));
     await expect(admin.http.post(`${base(tournament)}/judges`,{userId:player.id}));
     await expect(admin.http.del(`${base(tournament)}/judges/${player.id}`));
   }

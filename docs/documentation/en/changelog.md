@@ -7,6 +7,7 @@ KT Companion release history, newest first.
 - Tournament organizers with tournament-creation permission can now add events to the Calendar.
 - Administration → Players and teams now includes an Administrators tab: search users with special permissions and manage global roles, tournament organizers and judges.
 - Any administrator can grant and edit permissions, assign judges and transfer tournament ownership. Only the super administrator can remove administrator status.
+- Tournament staff lists show the organizer and assigned judges. Global administrators have access by default and appear in the list only when they hold a tournament role.
 
 ## 1.6.0 — 18 November 2026
 
