@@ -482,6 +482,10 @@ function clearCalendarTournamentSource() {
 
 function adminTournamentCreatePanel() {
   const source = state.calendarTournamentSource;
+  const data = source ? {
+    tournament: source.tournamentDefaults,
+    calendarTimeZone: source.event.providerId == null ? null : source.event.timeZone
+  } : {};
   if (source?.event.tournamentCreated) return `<section class="card panel"><h2>${t('calendar.alreadyCreated')}</h2><a class="primary-button" href="/tournament#/administration/tournaments/admin/${source.event.tournament.id}">${t('calendar.openTournament')}</a></section>`;
   return `
     <section class="card panel">
@@ -492,8 +496,7 @@ function adminTournamentCreatePanel() {
         </div>
         <button type="button" class="ghost-button" data-admin-tournament-create-cancel>${t("common.back")}</button>
       </div>
-      ${state.tournamentCreateOptions?.options.length ? adminTournamentSettingsContent(source
-        ? { tournament: { ...source.tournamentDefaults, startsAt: source.tournamentDefaults.startsAt ? new Date(source.tournamentDefaults.startsAt).toISOString() : null } } : {}, true)
+      ${state.tournamentCreateOptions?.options.length ? adminTournamentSettingsContent(data, true)
         : `<p role="alert" class="empty">${escapeHtml(state.tournamentCreateError || t("providers.permissionLost"))}</p>`}
       <div class="message" data-message role="status"></div>
     </section>
@@ -653,7 +656,8 @@ function adminTournamentSetupForm(data, { active, creating, canApplyTiebreakers 
           </div>
           <div class="field">
             <label for="tournament-setup-start">${t("admin.tournament.field.startsAt")}</label>
-            <input id="tournament-setup-start" name="startsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(tournament.startsAt))}" ${textLockAttrs}>
+            <input id="tournament-setup-start" name="startsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(tournament.startsAt))}" ${textLockAttrs}${data.calendarTimeZone ? ' aria-describedby="tournament-setup-timezone"' : ''}>
+            ${data.calendarTimeZone ? `<p class="field-help" id="tournament-setup-timezone">${adminLabel('Время показано в вашем часовом поясе. Часовой пояс календаря', 'Time is shown in your local time zone. Calendar time zone')} &middot; ${escapeHtml(data.calendarTimeZone)}</p>` : ""}
           </div>
           <div class="field">
             <label for="tournament-setup-season">${t("tournaments.field.season")}</label>
@@ -1850,7 +1854,7 @@ function wireAdminTournamentControls(options = {}) {
     if (button.disabled) return;
     button.disabled = true;
     try {
-      const body = adminTournamentBodyFromForm(form, { includeSlug: true });
+      const body = adminTournamentBodyFromForm(form, { includeSlug: true, calendarSource: state.calendarTournamentSource });
       if (form.elements.providerId?.value) body.providerId = Number(form.elements.providerId.value);
       if (state.calendarTournamentSource) body.calendarEventId = state.calendarTournamentSource.event.id;
       const data = await api("/api/admin/tournaments", { method: "POST", body });
@@ -1996,8 +2000,19 @@ async function saveAdminTournamentUpdate(form, options = {}) {
   return data;
 }
 
+function adminTournamentSchedule(value, calendarSource) {
+  const event = calendarSource?.event;
+  const providerEvent = event?.providerId != null;
+  const defaultStart = providerEvent && calendarSource.tournamentDefaults?.startsAt;
+  const useDefault = defaultStart && value === datetimeLocalValue(defaultStart);
+  return {
+    startsAt: useDefault ? defaultStart : datetimeLocalToIso(value),
+    calendarTimeZone: (providerEvent && event.timeZone) || Intl.DateTimeFormat().resolvedOptions().timeZone
+  };
+}
+
 function adminTournamentBodyFromForm(form, options = {}) {
-  const { includeSlug = false } = options;
+  const { includeSlug = false, calendarSource = null } = options;
   if (form.dataset.logoLoading === "1") throw new Error(t("tournaments.logo.loading"));
   if (form.dataset.rulesFileLoading === "1") {
     throw new Error(t("admin.tournament.rulesFile.stillLoading"));
@@ -2011,10 +2026,8 @@ function adminTournamentBodyFromForm(form, options = {}) {
   if (form.elements.registrationLimit && !form.elements.registrationLimit.disabled) {
     body.registrationLimit = form.elements.registrationLimit.value.trim() === "" ? null : Number(form.elements.registrationLimit.value);
   }
-  if (Object.prototype.hasOwnProperty.call(body, "startsAt")) {
-    // datetime-local has no timezone; convert in the browser before the API sees it.
-    body.startsAt = datetimeLocalToIso(body.startsAt);
-    body.calendarTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (Object.hasOwn(body, "startsAt")) {
+    Object.assign(body, adminTournamentSchedule(body.startsAt, calendarSource));
   }
   const participantMode = form.elements.participantMode?.value === "team" ? "team" : "individual";
   if (!form.elements.participantMode?.disabled) {
@@ -2625,20 +2638,62 @@ function administrationDialog(title, body) {
 function adminTournamentStaffContent(data) {
   const roster = data.staff;
   if(!roster) return '';
-  return `<details class="admin-settings-section"><summary>${adminLabel('Организатор и судьи', 'Organizer and judges')}</summary><p class="muted">${adminLabel('Организатор назначает судей. Судьи управляют проведением турнира, но не назначают других судей. Администраторы платформы получают судейский доступ автоматически.', 'The organizer appoints judges. Judges manage the tournament but cannot appoint other judges. Platform administrators receive judge access automatically.')}</p><div class="list">${roster.staff.filter(person=>person.active).map(person=>`<div class="row-card"><div class="row-main"><strong>${escapeHtml(person.name)}</strong><div class="row-meta">${person.role==='organizer'?adminLabel('Организатор', 'Organizer'):person.role==='super_admin'?adminLabel('Супер-администратор', 'Super administrator'):adminLabel('Судья', 'Judge')}${person.automatic?' · '+adminLabel('Доступ через роль платформы', 'Platform role access'):''}${person.expiresAt?' · '+fmtDate(person.expiresAt):''}</div></div>${person.canRevoke&&!person.automatic?`<button class="danger-button" data-judge-revoke="${person.userId}">${adminLabel('Снять судью', 'Remove judge')}</button>`:''}</div>`).join('')}</div>${roster.canManageJudges?`<button type="button" class="small-button" data-judge-assign>${adminLabel('Назначить судью', 'Assign judge')}</button>`:''}${state.me.isSuperAdmin?`<button type="button" class="small-button" data-transfer-owner>${adminLabel('Передать организатору', 'Transfer ownership')}</button>`:''}</details>`;
+  const organizationTournament = data.tournament?.providerId != null;
+  const help = organizationTournament
+    ? adminLabel('Главный организатор и администраторы управляют назначениями судей на этот турнир.', 'The chief organizer and platform administrators manage judge assignments for this tournament.')
+    : adminLabel('Организатор назначает судей. Судьи управляют проведением турнира. Администраторы платформы получают судейский доступ автоматически.', 'The organizer appoints judges. Judges manage the tournament. Platform administrators receive judge access automatically.');
+  const staffRows = roster.staff.filter(person => person.active).map(person => {
+    const role = person.role === 'organizer' ? adminLabel('Организатор', 'Organizer')
+      : person.role === 'super_admin' ? adminLabel('Супер-администратор', 'Super administrator')
+        : adminLabel('Судья', 'Judge');
+    const access = [role];
+    if (person.providerRole) access.push(adminLabel('Членство в организации', 'Organization membership'));
+    if (person.hasPlatformAccess) access.push(adminLabel('Доступ через роль платформы', 'Platform role access'));
+    if (person.assigned) {
+      access.push(adminLabel('Назначение судьёй турнира', 'Tournament judge assignment'));
+      if (person.expiresAt) access.push(fmtDate(person.expiresAt));
+    }
+    return `<div class="row-card">
+      <div class="row-main"><strong>${escapeHtml(person.name)}</strong><div class="row-meta">${escapeHtml(access.join(' · '))}</div></div>
+      ${person.canRevoke ? `<button type="button" class="danger-button" data-judge-revoke="${person.userId}">${adminLabel('Отозвать назначение', 'Revoke judge assignment')}</button>` : ''}
+    </div>`;
+  }).join('');
+  return `<details class="admin-settings-section">
+    <summary>${adminLabel('Организатор и судьи', 'Organizer and judges')}</summary>
+    <p class="muted">${help}</p>
+    <div class="list">${staffRows}</div>
+    ${roster.canManageJudges ? `<button type="button" class="small-button" data-judge-assign>${adminLabel('Назначить судью', 'Assign judge')}</button>` : ''}
+    ${state.me?.isSuperAdmin && !organizationTournament ? `<button type="button" class="small-button" data-transfer-owner>${adminLabel('Передать организатору', 'Transfer ownership')}</button>` : ''}
+  </details>`;
 }
 
 function wireAdminTournamentStaff() {
   const data=state.adminTournamentDetail; if(!data?.tournament) return;
   document.querySelector('[data-judge-assign]')?.addEventListener('click',async()=> {
     try { await loadAdminUsers(); } catch (err) { setMessage(err.message,true); return; }
-    const assigned=new Set(data.staff.staff.filter(person=>person.active).map(person=>person.userId));
-    const candidates=state.adminUsers.filter(user=>!assigned.has(user.id));
-    const dialog=administrationDialog(adminLabel('Назначить судью', 'Assign judge'), `<form data-judge-form><label>${adminLabel("Поиск игрока", "Find player")}<input type="search" data-judge-search></label><p class="muted">${adminLabel("Судья получит все права проведения турнира, кроме назначения судей.", "The judge receives full tournament management rights except appointing judges.")}</p><label>${adminLabel('Игрок', 'Player')}<select name="userId" data-remote-users required><option value="">${adminLabel('Выберите игрока', 'Choose a player')}</option>${candidates.map(user=>`<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}</select></label><label>${adminLabel('Доступ до (необязательно)', 'Access until (optional)')}<input type="datetime-local" name="expiresAt"></label><button class="primary-button">${adminLabel('Назначить', 'Assign')}</button></form>`);
+    const organizationTournament = data.tournament.providerId != null;
+    const assigned = new Set(data.staff.staff
+      .filter(person => organizationTournament ? person.assigned : person.active)
+      .map(person => person.userId));
+    const candidates = state.adminUsers.filter(user => !assigned.has(user.id));
+    const dialog = administrationDialog(adminLabel('Назначить судью', 'Assign judge'), `
+      <form data-judge-form>
+        <p class="muted">${adminLabel('Назначение даёт судейский доступ к этому турниру.', 'This assignment grants judge access for this tournament.')}</p>
+        <div class="field">
+          <label for="tournament-judge-picker">${adminLabel('Игрок', 'Player')}</label>
+          <select id="tournament-judge-picker" name="userId" data-user-search data-user-search-remote data-user-search-exclude="${escapeHtml([...assigned].join(','))}" required>
+            <option value="">${adminLabel('Выберите игрока', 'Choose a player')}</option>
+            ${candidates.map(user => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}
+          </select>
+        </div>
+        <label>${adminLabel('Доступ до (необязательно)', 'Access until (optional)')}<input type="datetime-local" name="expiresAt"></label>
+        <button class="primary-button">${adminLabel('Назначить', 'Assign')}</button>
+      </form>`);
+    wireComboFields(dialog);
 
     dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();try{const form=new FormData(event.currentTarget);await api(`/api/admin/tournaments/${data.tournament.id}/judges`,{method:'POST',body:{userId:Number(form.get('userId')),expiresAt:form.get('expiresAt')?new Date(form.get('expiresAt')).toISOString():null}});await loadAdminTournamentDetail(data.tournament.id);dialog.close();renderTournaments();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};
   });
-  document.querySelectorAll('[data-judge-revoke]').forEach(button=>button.onclick=async()=>{if(!await confirmAction({message:adminLabel('Снять судью? Доступ к управлению турниром будет отозван.', 'Remove this judge? Tournament management access will be revoked.'),confirmLabel:adminLabel('Снять', 'Remove')}))return;try{await api(`/api/admin/tournaments/${data.tournament.id}/judges/${button.dataset.judgeRevoke}`,{method:'DELETE'});await loadAdminTournamentDetail(data.tournament.id);renderTournaments();}catch(err){setMessage(err.message,true);}});
+  document.querySelectorAll('[data-judge-revoke]').forEach(button=>button.onclick=async()=>{if(!await confirmAction({message:adminLabel('Отозвать назначение судьи на этот турнир?', 'Revoke the judge assignment for this tournament?'),confirmLabel:adminLabel('Отозвать', 'Revoke')}))return;try{await api(`/api/admin/tournaments/${data.tournament.id}/judges/${button.dataset.judgeRevoke}`,{method:'DELETE'});await loadAdminTournamentDetail(data.tournament.id);renderTournaments();}catch(err){setMessage(err.message,true);}});
   document.querySelector('[data-transfer-owner]')?.addEventListener('click',()=> {
     const dialog=administrationDialog(adminLabel('Передать турнир', 'Transfer tournament'),`<form><p>${adminLabel('Новый организатор получит право назначать судей. Предыдущий потеряет права организатора.', 'The new organizer can appoint judges. The previous owner loses organizer access.')}</p><label>${adminLabel('Новый организатор', 'New organizer')}<select name="userId" data-remote-users>${state.adminUsers.filter(user=>user.id!==data.tournament.ownerUserId).map(user=>`<option value="${user.id}">${escapeHtml(user.name)}</option>`).join('')}</select></label><label>${adminLabel('Причина', 'Reason')}<input name="reason" required maxlength="1000"></label><button class="danger-button">${adminLabel('Подтвердить передачу', 'Confirm transfer')}</button></form>`);
     dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();try{const form=new FormData(event.currentTarget);await api(`/api/admin/tournaments/${data.tournament.id}/owner`,{method:'PATCH',body:{userId:Number(form.get('userId')),reason:form.get('reason')}});await loadAdminTournamentDetail(data.tournament.id);dialog.close();renderTournaments();}catch(err){dialog.querySelector('[data-dialog-error]').textContent=err.message;}};

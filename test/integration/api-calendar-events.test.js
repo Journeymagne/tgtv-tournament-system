@@ -140,6 +140,14 @@ test('dated tournaments appear automatically, hide drafts, and move the same eve
   assert.equal((await list('2026-12')).length,0);
   await tx(client=>tournaments.updateAdmin({client,user:admin,params:{id},body:patch}));
   assert.equal((await list('2027-01')).length,1);
+  await tx(client=>tournaments.updateAdmin({client,user:admin,params:{id},body:{
+    startsAt:'2027-01-02T02:15:00Z',calendarTimeZone:'America/Los_Angeles'
+  }}));
+  const [relocated]=await list('2027-01');
+  assert.equal(relocated.id,event.id);
+  assert.equal(relocated.date,'2027-01-01');
+  assert.equal(relocated.time,'18:15');
+  assert.equal(relocated.timeZone,'America/Los_Angeles');
   assert.equal(Number((await pool.query('SELECT count(*) FROM calendar_events WHERE tournament_id=$1',[id])).rows[0].count),1);
 });
 

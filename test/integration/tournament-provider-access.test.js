@@ -74,6 +74,12 @@ test('removal wins against a waiting write and explicit judge access survives me
   const {body:{tournament:t}} = await create(author,{providerId});
   const stale = await access.hydrate(pool,author);
   await transaction(client => staff.assignJudge({client,user:admin,params:{id:t.id},body:{userId:judge.id}}));
+  const before = (await staff.staff({client:pool,user:admin,params:{id:t.id}})).staff;
+  const judgeEntry = before.find(entry=>entry.userId===judge.id);
+  assert.equal(judgeEntry.providerRole,'judge');
+  assert.equal(judgeEntry.assigned,true);
+  assert.equal(judgeEntry.hasPlatformAccess,false);
+  assert.equal(before.find(entry=>entry.userId===admin.id).hasPlatformAccess,true);
   let waiting;
   await transaction(async client => {
     await client.query('SELECT id FROM tournament_providers WHERE id=$1 FOR UPDATE',[providerId]);
@@ -97,6 +103,9 @@ test('removal wins against a waiting write and explicit judge access survives me
   assert.equal(rights.canManageTournament(removed,t),false);
   assert.equal(rights.canManageTournament(removed,t.id),false);
   assert.equal(rights.canManageTournament(await access.hydrate(pool,judge),t.id),true);
+  const after = (await staff.staff({client:pool,user:admin,params:{id:t.id}})).staff.find(entry=>entry.userId===judge.id);
+  assert.equal(after.providerRole,null);
+  assert.equal(after.assigned,true);
   assert.equal((await tournaments.listAdmin({client:pool,user:removed})).tournaments.length,0);
   await assert.rejects(tournaments.getPublic({client:pool,user:removed,params:{slug:t.slug}}),{status:404});
   await pool.query("UPDATE tournaments SET logo_data='data:image/png;base64,YQ==' WHERE id=$1",[t.id]);
@@ -108,23 +117,35 @@ test('removal wins against a waiting write and explicit judge access survives me
 });
 
 test('provider calendar inherits organization on conversion and hides a draft link from guests', async () => {
-  const body = {providerId,name:'Announcement',date:'2026-11-21',time:'10:00',calendarTimeZone:'Asia/Yerevan',city:'City',venue:'Club',address:'',tournamentType:'solo',participantLimit:8,entryFee:0};
+  const body = {providerId,name:'Announcement',date:'2099-11-21',time:'00:30',calendarTimeZone:'Asia/Tokyo',city:'City',venue:'Club',address:'',tournamentType:'solo',participantLimit:8,entryFee:0};
   const {body:{event}} = await transaction(client => calendar.create({client,user:author,body}));
   assert.equal(event.providerId,providerId);
   await assert.rejects(create(admin,{calendarEventId:event.id,providerId:null}),{status:403});
   await assert.rejects(create(judge,{calendarEventId:event.id}),{status:403});
-  const {body:{tournament}} = await create(author,{calendarEventId:event.id,startsAt:'2026-11-21T06:00:00Z',calendarTimeZone:'UTC'});
+  const {tournamentDefaults} = await calendar.getAdmin({client:pool,user:owner,params:{id:event.id}});
+  assert.equal(tournamentDefaults.startsAt,'2099-11-20T15:30:00.000Z');
+  const {body:{tournament}} = await create(owner,{...tournamentDefaults,calendarEventId:event.id,calendarTimeZone:'America/Los_Angeles'});
+  assert.equal(tournament.startsAt,tournamentDefaults.startsAt);
   assert.equal(tournament.provider.id,providerId);
-  const list = user => calendar.list({client:pool,user,query:new URLSearchParams('month=2026-11')});
+  const list = user => calendar.list({client:pool,user,query:new URLSearchParams('month=2099-11')});
   const guest = (await list(null)).events[0];
   assert.equal(guest.tournament,null);
   assert.equal(guest.posterUrl,null);
   const member = (await list(await access.hydrate(pool,judge))).events[0];
   assert.equal(member.tournament.id,tournament.id);
-  assert.equal(member.time,'10:00');
-  assert.equal(member.timeZone,'Asia/Yerevan');
+  assert.equal(member.date,'2099-11-21');
+  assert.equal(member.time,'00:30');
+  assert.equal(member.timeZone,'Asia/Tokyo');
   assert.equal(member.viewer.canEdit,false);
   assert.equal((await list(await access.hydrate(pool,author))).events[0].viewer.canEdit,true);
+  await transaction(client=>tournaments.updateAdmin({client,user:author,params:{id:tournament.id},body:{
+    startsAt:'2099-11-21T16:00:00Z',calendarTimeZone:'America/Los_Angeles'
+  }}));
+  const [rescheduled] = (await list(null)).events;
+  assert.equal(rescheduled.id,event.id);
+  assert.equal(rescheduled.date,'2099-11-22');
+  assert.equal(rescheduled.time,'01:00');
+  assert.equal(rescheduled.timeZone,'Asia/Tokyo');
 });
 
 test('archive blocks new provider events while existing tournament staff retain their roles', async () => {

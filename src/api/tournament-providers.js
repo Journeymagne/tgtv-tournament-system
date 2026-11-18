@@ -1,5 +1,5 @@
 const { HttpError, ValidationError } = require('../http/io');
-const { requirePositiveIntId } = require('./params');
+const { requirePositiveIntId: positiveInt } = require('./params');
 const repo = require('../db/repositories/tournament-providers');
 const users = require('../db/repositories/users');
 const access = require('../db/repositories/access');
@@ -8,6 +8,11 @@ const { canCreateTournament, isPlatformAdmin } = require('../domain/access');
 const { uniqueSlug } = require('../domain/tournaments/slug');
 const notifications = require('../notifications/publish');
 const notificationId = id => 'tournament_provider_invitation:'+id;
+function requirePositiveIntId(value,status,message) {
+  const id=positiveInt(value,status,message);
+  if (!Number.isSafeInteger(id) || id>2147483647) throw new HttpError(status,message);
+  return id;
+}
 
 function publicProvider(provider, viewer) {
   return { ...provider, viewer };

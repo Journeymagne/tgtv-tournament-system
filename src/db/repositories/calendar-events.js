@@ -3,6 +3,9 @@ const { isPlatformAdmin, canManageTournament } = require('../../domain/access');
 
 const COLUMNS = `e.id,e.name,e.provider_id,p.archived_at AS provider_archived_at,${providerSummarySql('e.provider_id')},to_char(e.event_date,'YYYY-MM-DD') AS date,
   to_char(e.start_time,'HH24:MI') AS time,e.time_zone,e.city,e.venue,e.address,e.tournament_type,
+  CASE WHEN e.provider_id IS NOT NULL THEN to_char(
+    ((e.event_date + COALESCE(e.start_time,TIME '00:00')) AT TIME ZONE e.time_zone) AT TIME ZONE 'UTC',
+    'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') END AS starts_at,
   e.participant_limit,e.entry_fee,e.tournament_id,e.swiss_round_count,e.team_size,e.auto_created,
   to_char(e.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
   t.slug AS tournament_slug,t.status AS tournament_status,t.venue_mode,
@@ -18,6 +21,7 @@ function view(row, user = null) {
   const canEdit = admin || Boolean(row.provider_id && user?.providerMemberships?.some(m => m.providerId === row.provider_id && m.role === 'organizer'));
   const viewer = { canEdit, canCreateTournament: canEdit && !row.provider_archived_at && !row.tournament_id };
   return { id: row.id, providerId:row.provider_id ?? null, provider:row.provider || null, viewer, name: row.name, date: row.date, time: row.time, timeZone:row.time_zone, city: row.city, venue: row.venue,
+    ...(row.provider_id != null ? { startsAt:row.starts_at } : {}),
     address: row.address, tournamentType: row.tournament_type, participantMode:row.tournament_type==='solo'?'individual':'team',
     teamSize:row.team_size,swissRoundCount:row.swiss_round_count,participantLimit: row.participant_limit==null?null:Number(row.participant_limit),
     entryFee: row.entry_fee==null?null:Number(row.entry_fee), autoCreated:row.auto_created, venueMode:visibleTournament ? row.venue_mode : null,
@@ -71,11 +75,13 @@ async function link(client, id, tournamentId, timeZone = null) {
 async function syncTournament(client, tournament, timeZone = null) {
   try {
   // Keep announcement identity and editorial fields; only the tournament start owns the schedule.
+  const scheduleZone = 'COALESCE(CASE WHEN provider_id IS NULL THEN $3::text END,time_zone)';
   const {rows}=await client.query(`UPDATE tournaments.calendar_events SET
-    event_date=($2::timestamptz AT TIME ZONE time_zone)::date,
-    start_time=($2::timestamptz AT TIME ZONE time_zone)::time,
+    event_date=($2::timestamptz AT TIME ZONE ${scheduleZone})::date,
+    start_time=($2::timestamptz AT TIME ZONE ${scheduleZone})::time,
+    time_zone=${scheduleZone},
     updated_at=clock_timestamp()
-    WHERE tournament_id=$1 RETURNING id`,[tournament.id,tournament.startsAt]);
+    WHERE tournament_id=$1 RETURNING id`,[tournament.id,tournament.startsAt,timeZone]);
   if(rows.length||!tournament.startsAt)return;
   const size=tournament.participantMode==='team'?tournament.teamSize:1;
   const rounds=tournament.swissRoundCount||Math.log2(tournament.singleEliminationSize||8);

@@ -37,6 +37,8 @@ async function staff({ client, user, params }) {
   return { ownerUserId, canManageJudges: canManageJudges(user, tournament),
     staff: rows.map(row => ({ userId: row.id, name: row.name,
       role: row.is_super_admin ? "super_admin" : row.provider_role || (row.id === ownerUserId ? "organizer" : "judge"),
+      providerRole: row.provider_role || null,
+      hasPlatformAccess: Boolean(row.is_admin || row.is_super_admin),
       automatic: row.is_admin || row.is_super_admin || Boolean(row.provider_role),
       assigned: row.assigned, active: row.id === ownerUserId || row.is_admin || row.is_super_admin || row.assigned || Boolean(row.provider_role),
       grantedByName: row.granted_by_name, expiresAt: row.expires_at?.toISOString() || null,

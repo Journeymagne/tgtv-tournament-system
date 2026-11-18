@@ -3812,17 +3812,35 @@ async function refreshProviderIdentity() {
   return providerIdentityRequest;
 }
 
+async function loadCreationProviders(user) {
+  if (user.isAdmin || user.isSuperAdmin) {
+    const providers = [];
+    let totalPages = 1;
+    for (let page = 1; page <= totalPages; page++) {
+      const data = await api(`/api/tournament-providers?page=${page}`);
+      providers.push(...data.providers);
+      totalPages = data.pagination.totalPages;
+    }
+    return providers;
+  }
+  if (!user.capabilities?.canCreateProviderEvents) return [];
+  return (await api("/api/tournament-providers/dashboard")).providers;
+}
+
 async function loadEventProviderOptions(kind, preferredSlug = "", fixed = null) {
-  if (!state.me) return { options: [] };
-  const ui = await loadTournamentProvidersUi();
-  const [provider, dashboard] = await Promise.all([
+  const user = state.me;
+  if (!user) return { options: [] };
+  const [ui, provider, available] = await Promise.all([
+    loadTournamentProvidersUi(),
     fixed ? fixed.provider : preferredSlug
       ? api(`/api/tournament-providers/${encodeURIComponent(preferredSlug)}`).then(data => data.provider) : null,
-    fixed || (!state.me.capabilities?.canCreateProviderEvents && !state.me.isAdmin && !state.me.isSuperAdmin)
-      ? null : api("/api/tournament-providers/dashboard")
+    fixed ? [] : loadCreationProviders(user)
   ]);
-  const providers = [...(provider ? [provider] : []), ...(dashboard?.providers || [])];
-  const options = ui.eventCreationOptions(state.me, providers, kind, fixed?.id ?? null);
+  if (!state.me || state.me.id !== user.id) return { options: [] };
+  const providers = provider ? [provider, ...available] : available;
+  const lostPlatformAccess = (user.isAdmin || user.isSuperAdmin) && !(state.me.isAdmin || state.me.isSuperAdmin);
+  const permitted = lostPlatformAccess && !fixed ? providers.filter(item => item.viewer?.isMember) : providers;
+  const options = ui.eventCreationOptions(state.me, permitted, kind, fixed?.id ?? null);
   const requested = fixed?.id ?? provider?.id;
   const selectedValue = requested == null ? options[0]?.value : String(requested);
   if (requested != null && !options.some(option => option.value === selectedValue)) return { options: [] };

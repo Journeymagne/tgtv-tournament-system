@@ -61,8 +61,9 @@ function tournamentDefaults(event) {
   return {
     providerId: event.providerId ?? null, name: event.name, gameSystem: 'Warhammer 40k Kill Team', venueMode: 'irl',
     venueAddress: [event.city, event.venue, event.address].filter(Boolean).join(', '),
-    // Browser supplies its local datetime as an ISO timestamp on submission.
-    startsAt: `${event.date}T${event.time || '00:00'}`,
+    // A provider may have organizers in several time zones. The repository
+    // resolves the announced wall time in the event's saved IANA zone.
+    startsAt: event.providerId != null ? event.startsAt : `${event.date}T${event.time || '00:00'}`,
     participantMode: size === 1 ? 'individual' : 'team', format: 'swiss', swissRoundCount: event.swissRoundCount ?? 3,
     ...(size===1 ? {} : {teamSize:size}),
     pairingType: size === 2 ? 'doubles' : size === 3 ? 'shield_sword' : null,

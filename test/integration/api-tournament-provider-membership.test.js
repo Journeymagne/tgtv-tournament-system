@@ -55,6 +55,8 @@ test('only global creators create providers; mandatory profile fields and creato
   assert.equal(profile.members[0].isOwner,true);
   assert.equal(profile.provider.viewer.canManageMembers,false);
   assert.equal(profile.provider.logoData,undefined);
+  await expect(player.http.get('/api/tournament-provider-logos/2147483648'),404);
+  await expect(chief.http.post(url('/invitations'),{userId:'90071992547409930',role:'judge'}),400);
 });
 test('invited organizer can edit profile but never receives global creation or member-management rights',async()=>{
   const invitation=await invite(organizer);
