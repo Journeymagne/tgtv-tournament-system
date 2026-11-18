@@ -1,6 +1,12 @@
 param([string]$BackupRoot = 'C:\Backups\KTCompanion')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
+$legacyTask = Get-ScheduledTask -TaskName 'KTCompanion-BackupSync' -ErrorAction SilentlyContinue
+if ($legacyTask) {
+    Disable-ScheduledTask -TaskName 'KTCompanion-BackupSync' | Out-Null
+    Stop-ScheduledTask -TaskName 'KTCompanion-BackupSync' -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName 'KTCompanion-BackupSync' -Confirm:$false
+}
 $root = [IO.Path]::GetFullPath($BackupRoot).TrimEnd('\')
 if ($root -notmatch '^C:\\[^\r\n"]+$') { throw 'Use a dedicated folder on drive C' }
 $source = Join-Path $PSScriptRoot 'sync-local-backups.ps1'
@@ -25,12 +31,6 @@ Set-Acl -LiteralPath $root -AclObject $acl
 $installed = Join-Path $root 'Sync-Backups.ps1'
 Copy-Item -LiteralPath $source -Destination $installed -Force
 # This installer only prepares a one-shot copy command. Remove the old poller.
-$legacyTask = Get-ScheduledTask -TaskName 'KTCompanion-BackupSync' -ErrorAction SilentlyContinue
-if ($legacyTask) {
-    Disable-ScheduledTask -TaskName 'KTCompanion-BackupSync' | Out-Null
-    Stop-ScheduledTask -TaskName 'KTCompanion-BackupSync' -ErrorAction SilentlyContinue
-    Unregister-ScheduledTask -TaskName 'KTCompanion-BackupSync' -Confirm:$false
-}
 $readme = @'
 KT Companion database backups
 
