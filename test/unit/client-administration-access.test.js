@@ -75,6 +75,6 @@ test('Players and teams exposes three tabs and renders the selected independent 
 
 test('ordinary administrators can transfer organizers through the existing tournament controls',()=>{
   const render=helper('adminTournamentStaffContent',{state:{me:administrator},fmtDate:value=>value});
-  const html=render({staff:{canManageJudges:true,staff:[]}});
-  assert.match(html,/data-transfer-owner/);assert.match(html,/data-judge-assign/);
+  const html=render({staff:{canManageJudges:true,staff:[{userId:5,name:'Admin with explicit judge grant',role:'judge',active:true,assigned:true,automatic:true,canRevoke:true}]}});
+  assert.match(html,/data-transfer-owner/);assert.match(html,/data-judge-assign/);assert.match(html,/data-judge-revoke="5"/);
 });

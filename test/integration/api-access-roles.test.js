@@ -63,6 +63,9 @@ test('platform administrators manage judge assignments across all tournaments',a
   const owned=await event(admin,'Admin Own Cup');
   await expect(admin.http.post(`${base(owned)}/judges`,{userId:judge.id}));
   await expect(organizer.http.del(`${base(cup)}/judges/${admin.id}`),409);
+  await expect(admin.http.post(`${base(cup)}/judges`,{userId:admin.id}));
+  await expect(admin.http.del(`${base(cup)}/judges/${admin.id}`));
+  await expect(admin.http.get(base(cup))); // Automatic global-admin access remains.
   await expect(owner.http.patch(`/api/admin/users/${admin.id}/permissions`,{isAdmin:false}));
   await expect(admin.http.get(base(cup)),403);
   await expect(admin.http.get(base(owned)));
