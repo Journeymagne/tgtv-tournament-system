@@ -20,7 +20,7 @@ function apiService(path, method = 'GET') {
 function pageService(path) {
   if (/^\/tierlist(?:\/|$)/.test(path)) return 'tierlists';
   if (['/companion/css/common.css','/training/journey-shared.css'].includes(path)) return null;
-  if (/^\/(?:app\.js|admin\.js|calendar\.(?:js|css)|resource-quotas\.js|styles\.css|i18n\/|pairing-warnings\.js|tournament-tables\.js|telegram-account\.js|robots\.txt|sitemap\.xml)/.test(path)) return 'tournaments';
+  if (/^\/(?:app\.js|admin\.js|(?:calendar|tournament-providers)\.(?:js|css)|resource-quotas\.js|styles\.css|i18n\/|pairing-warnings\.js|tournament-tables\.js|telegram-account\.js|robots\.txt|sitemap\.xml)/.test(path)) return 'tournaments';
   if (/^\/(?:studio|dice)(?:\/|$)/.test(path)) return 'studio';
   if (/^\/(?:faq|community-faq)(?:\/|$)/.test(path)) return 'faq';
   if (/^\/(?:training|knowthykt|know-thy-kill-team)(?:\/|$)/.test(path)) return 'knowthykt';

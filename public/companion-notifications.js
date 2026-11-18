@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   const host=document.querySelector('.companion-tools');if(!host)return;
-  const styles=document.createElement('link');styles.rel='stylesheet';styles.href='/companion-notifications.css?v=shared-56c8210c7bd6';document.head.append(styles);
+  const styles=document.createElement('link');styles.rel='stylesheet';styles.href='/companion-notifications.css?v=shared-710fa0a2d5bd';document.head.append(styles);
   const panel=document.createElement('details');panel.className='shared-notifications';panel.hidden=true;
   const toggle=document.createElement('summary');toggle.setAttribute('aria-label','Уведомления');
   toggle.innerHTML='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></svg>';
@@ -11,7 +11,9 @@
   status.setAttribute('role','status');readAll.type='button';popup.append(heading,status,list,readAll);panel.append(toggle,popup);host.append(panel);
   let inbox=null,busy=null,userId=null,generation=0,identityKnown=false;
   const english=()=>window.KTAppearance?.locale==='en';
-  const title=item=>item.title||({studio_review:english()?'New team review':'Новый обзор команды',studio_comment:english()?'New team discussion message':'Сообщение в обсуждении команды',game_challenge:english()?'Game challenge':'Вызов на игру',team_invitation:english()?'Team invitation':'Приглашение в команду',tournament_started:english()?'Tournament started':'Турнир начался',tournament_pairing:english()?'Your pairing is ready':'Опубликована ваша пара',team_tournament_pairing:english()?'Team pairing is ready':'Опубликована командная пара'})[item.type]||'KT Companion';
+  const title=item=>item.type==='tournament_provider_invitation'
+    ? (english()?'Organization invitation':'Приглашение в организацию')
+    : item.title||({studio_review:english()?'New team review':'Новый обзор команды',studio_comment:english()?'New team discussion message':'Сообщение в обсуждении команды',game_challenge:english()?'Game challenge':'Вызов на игру',team_invitation:english()?'Team invitation':'Приглашение в команду',tournament_started:english()?'Tournament started':'Турнир начался',tournament_pairing:english()?'Your pairing is ready':'Опубликована ваша пара',team_tournament_pairing:english()?'Team pairing is ready':'Опубликована командная пара'})[item.type]||'KT Companion';
   function destination(item){try{const url=new URL(item.href?.startsWith('#/')?'/tournament'+item.href:item.href||'/',location.origin);return url.origin===location.origin?url.href:'/';}catch{return '/';}}
   async function api(path,body){const response=await fetch('/api/notifications'+path,{credentials:'same-origin',cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});if(!response.ok){const error=Error(english()?'Notifications are temporarily unavailable':'Уведомления временно недоступны');error.status=response.status;throw error;}return response.json();}
   function render(){
@@ -25,7 +27,7 @@
     for(const item of inbox?.items||[]){
       const link=document.createElement('a');link.href=destination(item);link.className=item.unread?'unread':'';link.dataset.uiSkip='';
       const name=document.createElement('strong');name.textContent=title(item);const info=document.createElement('span');
-      info.textContent=[item.teamName||item.tournament?.name||item.team?.name,item.authorName||item.actor?.name,item.excerpt].filter(Boolean).join(' · ');
+      info.textContent=[item.provider?.name||item.teamName||item.tournament?.name||item.team?.name,item.authorName||item.actor?.name,item.excerpt].filter(Boolean).join(' · ');
       const time=document.createElement('small');time.textContent=new Date(item.createdAt).toLocaleString(english()?'en':'ru');link.append(name,info,time);
       link.addEventListener('click',async event=>{if(event.button||event.ctrlKey||event.metaKey||event.shiftKey)return;event.preventDefault();if(version!==generation)return;try{if(item.unread)await api('/read',{id:item.id});if(version===generation)location.assign(link.href);}catch(error){showError(error,version);}});
       list.append(link);

@@ -38,7 +38,12 @@
       optional&&name==='calendarCityFilter'?tr('allCities'):ctx.t('tournaments.combo.defaultPlaceholder'),
       {items:cityItems(catalog,extra),valueMode:'label',optional});
   }
+  function calendarActions(viewer = {}, eventViewer = {}) {
+    return { create: viewer.canCreateEvents === true, createTournament: eventViewer.canCreateTournament === true,
+      edit: eventViewer.canEdit === true };
+  }
   let host, ctx, request = 0, loadedMonth = '', loading = false, error = '';
+  let viewer = {}, editor = null, openingEditor = false;
   let events = [], selectedId = null, selectedDate = dateKey(now), month = selectedDate.slice(0,7), scope = 'day';
   let filters = { search:'',city:'',type:'' }, filtersOpen = false;
   const active = () => host?.isConnected && ctx?.isCurrent();
@@ -76,23 +81,27 @@
   }
 
   function eventRow(event) {
-    return `<button type="button" class="row-card calendar-event-row ${eventClass(event)} ${event.id===selectedId?'active':''}" data-calendar-event="${event.id}"><span class="calendar-event-line">${eventBadges(event)}<span class="muted">${event.time||tr('timePending')}</span></span><strong>${esc(title(event))}</strong><span class="calendar-event-location">${esc(place(event))}</span><span class="calendar-event-line calendar-event-footer"><span>${capacity(event)}</span><b>${esc(fee(event))}</b></span></button>`;
+    return `<button type="button" class="row-card calendar-event-row ${eventClass(event)} ${event.id===selectedId?'active':''}" data-calendar-event="${event.id}"><span class="calendar-event-line">${eventBadges(event)}<span class="muted">${event.time||tr('timePending')}</span></span><strong>${esc(title(event))}</strong>${event.provider ? `<span class="calendar-event-location">${esc(event.provider.name)}</span>` : ''}<span class="calendar-event-location">${esc(place(event))}</span><span class="calendar-event-line calendar-event-footer"><span>${capacity(event)}</span><b>${esc(fee(event))}</b></span></button>`;
   }
 
   function details(event, dialog = false) {
     if (!event) return `<section class="card panel calendar-details"><p class="empty">${tr('selectEvent')}</p></section>`;
     let action = '';
+    const actions = calendarActions(viewer, event.viewer);
     if (event.tournament) {
-      const href = ctx.user?.isAdmin ? `/tournament#/administration/tournaments/admin/${event.tournament.id}` : `/tournaments/${encodeURIComponent(event.tournament.slug)}`;
+      const href = `/tournaments/${encodeURIComponent(event.tournament.slug)}`;
       action = `<a href="${href}" class="primary-button">${tr('openTournament')}</a>`;
     } else if (event.tournamentCreated) action = `<p class="muted">${tr('tournamentPending')}</p>`;
-    else if (ctx.user?.isAdmin) action = `<a class="primary-button" target="_blank" rel="noopener" href="/tournament?calendarEvent=${event.id}#/administration/tournaments/admin/create">${tr('createTournament')} ↗</a>`;
-    return `<article class="${dialog?'calendar-dialog-details':'card panel calendar-details'} ${eventClass(event)}">${poster(event)}<div class="panel-header"><div><p class="profile-label">${tr('event')}</p><h3 ${dialog?'id="calendar-event-dialog-title"':''}>${esc(title(event))}</h3></div>${dialog?`<button class="dialog-close-button" type="button" data-calendar-close aria-label="${ctx.t('common.close')}">&times;</button>`:''}</div>${eventBadges(event)}<dl class="calendar-event-fields"><div><dt>${tr('date')}</dt><dd>${esc(fmt(event.date,{day:'numeric',month:'long',year:'numeric'}))}${event.time?' · '+event.time:''}</dd></div><div><dt>${tr('city')}</dt><dd>${esc(event.city||tr('notSpecified'))}</dd></div><div><dt>${tr('venue')}</dt><dd>${esc(event.venue||(!event.address?tr(event.venueMode==='tts'?'online':'locationPending'):''))}${event.address?`<span class="muted">${esc(event.address)}</span>`:''}</dd></div><div><dt>${tr('tournamentType')}</dt><dd>${type(event)}</dd></div>${formatDetails(event)}<div><dt>${tr('participantLimit')}</dt><dd>${capacity(event)}</dd></div><div><dt>${tr('entryFee')}</dt><dd>${esc(fee(event))}</dd></div></dl><div class="row-actions calendar-detail-actions">${action}</div>${ctx.user?.isAdmin?`<div class="row-actions calendar-admin-actions"><button class="small-button" data-calendar-edit="${event.id}" type="button">${ctx.t('common.edit')}</button><button class="danger-button" data-calendar-delete="${event.id}" type="button">${ctx.t('common.delete')}</button></div>`:''}</article>`;
+    else if (actions.createTournament) action = `<a class="primary-button" target="_blank" rel="noopener" href="/tournament?calendarEvent=${event.id}#/administration/tournaments/admin/create">${tr('createTournament')} ↗</a>`;
+    return `<article class="${dialog?'calendar-dialog-details':'card panel calendar-details'} ${eventClass(event)}">${poster(event)}<div class="panel-header"><div><p class="profile-label">${tr('event')}</p><h3 ${dialog?'id="calendar-event-dialog-title"':''}>${esc(title(event))}</h3></div>${dialog?`<button class="dialog-close-button" type="button" data-calendar-close aria-label="${ctx.t('common.close')}">&times;</button>`:''}</div>${eventBadges(event)}${ctx.eventProviderLink(event.provider)}<dl class="calendar-event-fields"><div><dt>${tr('date')}</dt><dd>${esc(fmt(event.date,{day:'numeric',month:'long',year:'numeric'}))}${event.time?' · '+event.time:''}</dd></div><div><dt>${tr('city')}</dt><dd>${esc(event.city||tr('notSpecified'))}</dd></div><div><dt>${tr('venue')}</dt><dd>${esc(event.venue||(!event.address?tr(event.venueMode==='tts'?'online':'locationPending'):''))}${event.address?`<span class="muted">${esc(event.address)}</span>`:''}</dd></div><div><dt>${tr('tournamentType')}</dt><dd>${type(event)}</dd></div>${formatDetails(event)}<div><dt>${tr('participantLimit')}</dt><dd>${capacity(event)}</dd></div><div><dt>${tr('entryFee')}</dt><dd>${esc(fee(event))}</dd></div></dl><div class="row-actions calendar-detail-actions">${action}</div>${actions.edit?`<div class="row-actions calendar-admin-actions"><button class="small-button" data-calendar-edit="${event.id}" type="button">${ctx.t('common.edit')}</button><button class="danger-button" data-calendar-delete="${event.id}" type="button">${ctx.t('common.delete')}</button></div>`:''}</article>`;
   }
 
   function poster(event) {
-    if(typeof event.posterUrl!=='string'||!/^\/api\/tournament-logos\/\d+$/.test(event.posterUrl))return '';
-    return `<a class="calendar-poster" href="${esc(event.posterUrl)}" target="_blank" rel="noopener" aria-label="${tr('openPoster')}"><img src="${esc(event.posterUrl)}" alt="${esc(tr('posterAlt',{name:event.name}))}" decoding="async"></a>`;
+    const ownPoster = /^\/api\/tournament-logos\/\d+$/.test(event.posterUrl || '') ? event.posterUrl : '';
+    const fallback = ctx.providerLogoUrl(event.provider);
+    const src = ownPoster || fallback;
+    if (!src) return '';
+    return `<a class="calendar-poster" href="${esc(src)}" target="_blank" rel="noopener" aria-label="${tr('openPoster')}"><img src="${esc(src)}" data-calendar-poster="${ownPoster ? esc(fallback) : ''}" alt="${esc(tr('posterAlt',{name:event.name}))}" decoding="async"></a>`;
   }
 
   function render() {
@@ -100,7 +109,7 @@
     const list = filtered(), dayList = list.filter(e=>e.date===selectedDate);
     const visible = small() && scope==='day' ? dayList : list;
     const dates = [...new Set(visible.map(e=>e.date))], cities = [...new Set(events.map(e=>e.city))].sort();
-    host.innerHTML = `<section class="card panel calendar-header"><div class="panel-header"><div><h2>${tr('title')}</h2><p class="muted">${tr('intro')}</p></div>${ctx.user?.isAdmin?`<button class="primary-button" type="button" data-calendar-add>${tr('add')}</button>`:''}</div><div class="calendar-search-row"><div class="field"><label for="calendar-search">${tr('search')}</label><input id="calendar-search" type="search" maxlength="120" value="${esc(filters.search)}" placeholder="${tr('searchPlaceholder')}"></div><button class="small-button calendar-filter-toggle" type="button" data-calendar-filters aria-expanded="${filtersOpen}" aria-controls="calendar-filter-fields">${tr('filters')}${filters.city||filters.type?' ·':''}</button></div><div id="calendar-filter-fields" class="calendar-filter-fields ${filtersOpen?'is-open':''}">${cityField('calendarCityFilter',filters.city,[],cities,true)}<div class="field"><label for="calendar-type">${tr('tournamentType')}</label><select id="calendar-type"><option value="">${tr('allTypes')}</option>${['individual','team'].map(value=>`<option value="${value}" ${filters.type===value?'selected':''}>${ctx.t('tournaments.participantMode.'+value)}</option>`).join('')}</select></div></div></section><div class="event-calendar-layout"><div class="calendar-month-column">${monthMarkup()}<p class="field-help calendar-desktop-hint">${tr('monthHint')}</p></div><section class="calendar-event-list" aria-label="${tr('events')}"><div class="calendar-list-header"><h3>${small()&&scope==='day'?esc(fmt(selectedDate,{day:'numeric',month:'long'})):tr('events')} <span class="muted">${visible.length}</span></h3><div class="tabs calendar-scope"><button type="button" class="tab ${scope==='day'?'active':''}" data-calendar-scope="day" aria-pressed="${scope==='day'}">${tr('day')}</button><button type="button" class="tab ${scope==='month'?'active':''}" data-calendar-scope="month" aria-pressed="${scope==='month'}">${tr('month')}</button></div></div>${loading?`<div class="card panel" role="status">${ctx.t('common.loading')}</div>`:error?`<div class="card panel"><p role="alert">${esc(error)}</p><button class="small-button" type="button" data-calendar-retry>${tr('retry')}</button></div>`:dates.map(date=>`<section class="calendar-date-group" id="calendar-day-${date}"><h4>${esc(fmt(date,{weekday:'long',day:'numeric',month:'long'}))}</h4>${visible.filter(e=>e.date===date).map(eventRow).join('')}</section>`).join('')||`<section class="card panel calendar-empty"><h3>${tr(small()&&scope==='day'?'emptyDay':'emptyMonth')}</h3><p class="muted">${tr('emptyHint')}</p>${small()&&scope==='day'?`<button type="button" class="small-button" data-calendar-scope="month">${tr('viewMonth')}</button>`:''}</section>`}</section><aside class="calendar-detail-column">${details(selected())}</aside></div><p class="field-help calendar-time-hint">${tr('localTime')}</p>`;
+    host.innerHTML = `<section class="card panel calendar-header"><div class="panel-header"><div><h2>${tr('title')}</h2><p class="muted">${tr('intro')}</p></div>${calendarActions(viewer).create?`<button class="primary-button" type="button" data-calendar-add>${tr('add')}</button>`:''}</div><p class="message error" role="alert" data-calendar-main-error hidden></p><div class="calendar-search-row"><div class="field"><label for="calendar-search">${tr('search')}</label><input id="calendar-search" type="search" maxlength="120" value="${esc(filters.search)}" placeholder="${tr('searchPlaceholder')}"></div><button class="small-button calendar-filter-toggle" type="button" data-calendar-filters aria-expanded="${filtersOpen}" aria-controls="calendar-filter-fields">${tr('filters')}${filters.city||filters.type?' ·':''}</button></div><div id="calendar-filter-fields" class="calendar-filter-fields ${filtersOpen?'is-open':''}">${cityField('calendarCityFilter',filters.city,[],cities,true)}<div class="field"><label for="calendar-type">${tr('tournamentType')}</label><select id="calendar-type"><option value="">${tr('allTypes')}</option>${['individual','team'].map(value=>`<option value="${value}" ${filters.type===value?'selected':''}>${ctx.t('tournaments.participantMode.'+value)}</option>`).join('')}</select></div></div></section><div class="event-calendar-layout"><div class="calendar-month-column">${monthMarkup()}<p class="field-help calendar-desktop-hint">${tr('monthHint')}</p></div><section class="calendar-event-list" aria-label="${tr('events')}"><div class="calendar-list-header"><h3>${small()&&scope==='day'?esc(fmt(selectedDate,{day:'numeric',month:'long'})):tr('events')} <span class="muted">${visible.length}</span></h3><div class="tabs calendar-scope"><button type="button" class="tab ${scope==='day'?'active':''}" data-calendar-scope="day" aria-pressed="${scope==='day'}">${tr('day')}</button><button type="button" class="tab ${scope==='month'?'active':''}" data-calendar-scope="month" aria-pressed="${scope==='month'}">${tr('month')}</button></div></div>${loading?`<div class="card panel" role="status">${ctx.t('common.loading')}</div>`:error?`<div class="card panel"><p role="alert">${esc(error)}</p><button class="small-button" type="button" data-calendar-retry>${tr('retry')}</button></div>`:dates.map(date=>`<section class="calendar-date-group" id="calendar-day-${date}"><h4>${esc(fmt(date,{weekday:'long',day:'numeric',month:'long'}))}</h4>${visible.filter(e=>e.date===date).map(eventRow).join('')}</section>`).join('')||`<section class="card panel calendar-empty"><h3>${tr(small()&&scope==='day'?'emptyDay':'emptyMonth')}</h3><p class="muted">${tr('emptyHint')}</p>${small()&&scope==='day'?`<button type="button" class="small-button" data-calendar-scope="month">${tr('viewMonth')}</button>`:''}</section>`}</section><aside class="calendar-detail-column">${details(selected())}</aside></div><p class="field-help calendar-time-hint">${tr('localTime')}</p>`;
     wire(host);
   }
 
@@ -110,8 +119,9 @@
     try {
       const data = await ctx.api(`/api/calendar-events?month=${encodeURIComponent(month)}`);
       if (token!==request || target!==host || requestedMonth!==month || !active()) return;
-      events = data.events; loadedMonth = month;
+      events = data.events; viewer = data.viewer || {}; loadedMonth = month;
       if (!events.some(e=>e.id===selectedId)) selectedId = events.find(e=>e.date===selectedDate)?.id || null;
+      await checkEditorPermission();
     } catch (e) { if(token===request && target===host && active()) error=e.message; }
     finally { if(token===request && target===host && active()){loading=false;render();} }
   }
@@ -131,6 +141,16 @@
   }
 
   function wire(root) {
+    root.querySelectorAll('[data-calendar-poster]').forEach(image => {
+      image.onerror = () => {
+        const fallback = image.dataset.calendarPoster;
+        if (fallback) {
+          image.dataset.calendarPoster = '';
+          image.src = fallback;
+          image.closest('a').href = fallback;
+        } else image.closest('a').remove();
+      };
+    });
     ctx.wireComboFields(root);
     root.querySelectorAll('[data-combo-options="calendarCities"] [data-combo-input]').forEach(input=>input.maxLength=80);
     const cityFilter=root.querySelector('[name="calendarCityFilter"]');
@@ -159,8 +179,8 @@
     if(input)input.oninput=e=>{const pos=e.target.selectionStart;filters.search=e.target.value;render();const field=host.querySelector('#calendar-search');field.focus();field.setSelectionRange(pos,pos);};
     ['city','type'].forEach(name=>{const input=root.querySelector('#calendar-'+name);if(input)input.onchange=e=>{filters[name]=e.target.value;render();};});
     root.querySelectorAll('[data-calendar-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
-    root.querySelector('[data-calendar-add]')?.addEventListener('click',()=>editEvent());
-    root.querySelectorAll('[data-calendar-edit]').forEach(b=>{const event=events.find(e=>e.id===Number(b.dataset.calendarEdit));b.onclick=()=>{if(event)editEvent(event);};});
+    root.querySelector('[data-calendar-add]')?.addEventListener('click',event=>editEvent(null,'',event.currentTarget));
+    root.querySelectorAll('[data-calendar-edit]').forEach(b=>{const event=events.find(e=>e.id===Number(b.dataset.calendarEdit));b.onclick=()=>{if(event)editEvent(event,'',b);};});
     root.querySelectorAll('[data-calendar-delete]').forEach(b=>{
       const event=events.find(e=>e.id===Number(b.dataset.calendarDelete));
       b.onclick=async()=>{
@@ -168,19 +188,72 @@
       if(!await ctx.confirmDelete(tr('confirmDelete',{name:event.name}),ctx.t('common.delete')))return;
       b.disabled=true;
       try{await ctx.api(`/api/admin/calendar-events/${event.id}`,{method:'DELETE'});closeDialogs();selectedId=null;await load();}
-      catch(e){let message=root.querySelector('[data-calendar-action-error]');if(!message){message=document.createElement('p');message.dataset.calendarActionError='';message.setAttribute('role','alert');b.parentElement.after(message);}message.textContent=e.message;b.disabled=false;}
+      catch(e){if([401,403,404].includes(e.status)){closeDialogs();await load();showCalendarError(ctx.t('providers.permissionLost'));return;}let message=root.querySelector('[data-calendar-action-error]');if(!message){message=document.createElement('p');message.dataset.calendarActionError='';message.setAttribute('role','alert');b.parentElement.after(message);}message.textContent=e.message;b.disabled=false;}
     };});
   }
 
-  async function editEvent(event) {
-    const catalog=await loadCityCatalog();
-    if(!active())return;
+  function showCalendarError(message) {
+    const target = host?.querySelector('[data-calendar-main-error]');
+    if (target) { target.hidden = false; target.textContent = message; }
+  }
+
+  async function checkEditorPermission() {
+    const current = editor;
+    if (!current || current.locked) return;
+    if (current.event) {
+      if (current.event.date?.slice(0, 7) === month &&
+          !calendarActions(viewer, events.find(event => event.id === current.event.id)?.viewer).edit) current.lock();
+      return;
+    }
+    if (!calendarActions(viewer).create) { current.lock(); return; }
+    try {
+      await ctx.refreshIdentity();
+      const picker = await ctx.eventProviderOptions(current.preferred);
+      if (editor !== current) return;
+      const select = current.form.elements.providerId;
+      if (!picker.options.some(option => option.value === select.value)) current.lock();
+      else for (const option of Array.from(select.options)) {
+        if (!picker.options.some(item => item.value === option.value)) option.remove();
+      }
+    } catch (error) {
+      if (editor === current && [401,403,404].includes(error.status)) current.lock();
+    }
+  }
+
+  async function editEvent(event, preferred = '', opener = null) {
+    if (openingEditor) return;
+    const target = host;
+    openingEditor = true;
+    let catalog, picker;
+    try {
+      [catalog, picker] = await Promise.all([loadCityCatalog(), event ? null : ctx.eventProviderOptions(preferred)]);
+      if (!active() || target !== host) return;
+      if (!event && !picker.options.length) { showCalendarError(ctx.t('providers.permissionLost')); return; }
+    } catch (error) {
+      if (active() && target === host) showCalendarError(error.message);
+      return;
+    } finally {
+      openingEditor = false;
+    }
     closeDialogs();const dialog=document.createElement('dialog');
     dialog.className='tiebreaker-help-dialog administration-dialog calendar-edit-dialog';dialog.dataset.calendarDialog='';dialog.setAttribute('aria-labelledby','calendar-edit-title');
     const field=(name,label,attrs,value)=>`<div class="field"><label for="calendar-edit-${name}">${tr(label)}</label><input id="calendar-edit-${name}" name="${name}" ${attrs} value="${esc(value)}"></div>`;
-    dialog.innerHTML=`<form class="tiebreaker-help-content"><div class="panel-header"><h3 id="calendar-edit-title">${event?ctx.t('common.edit'):tr('add')}</h3><button type="button" class="dialog-close-button" data-calendar-close aria-label="${ctx.t('common.close')}">&times;</button></div>${field('name','name',`${event?.autoCreated?'':'required'} maxlength="120"`,event?.name||'')}<div class="calendar-form-grid">${field('date','date','type="date" min="2000-01-01" max="2099-12-31" required',event?.date||selectedDate)}${field('time','time','type="time"',event?.time||'')}</div>${cityField('city',event?.city||'',catalog,[...events.map(item=>item.city),event?.city].filter(Boolean),!!event?.autoCreated)}${field('venue','venue',`${event?.autoCreated?'':'required'} maxlength="160"`,event?.venue||'')}${field('address','address',`maxlength="${event?.autoCreated?500:300}"`,event?.address||'')}${formatFields(event)}<div class="calendar-form-grid">${field('participantLimit','participantLimit',`type="number" min="2" max="10000" step="1" ${event?.autoCreated?'':'required'}`,event?.autoCreated?(event.participantLimit??''):(event?.participantLimit||32))}${field('entryFee','feeRubles',`type="number" min="0" max="1000000" step="0.01" ${event?.autoCreated?'':'required'}`,event?.autoCreated?(event.entryFee??''):(event?.entryFee??0))}</div><p class="field-help">${tr('capacityHint')}</p>${event?.tournamentCreated?`<p class="field-help">${tr('editLinkedHint')}</p>`:''}<p data-calendar-form-error role="alert"></p><div class="row-actions"><button type="button" class="small-button" data-calendar-close>${ctx.t('common.cancel')}</button><button type="submit" class="primary-button">${ctx.t('common.save')}</button></div></form>`;
-    document.body.appendChild(dialog);dialog.addEventListener('close',()=>dialog.remove(),{once:true});wire(dialog);
+    dialog.innerHTML=`<form class="tiebreaker-help-content"><div class="panel-header"><h3 id="calendar-edit-title">${event?ctx.t('common.edit'):tr('add')}</h3><button type="button" class="dialog-close-button" data-calendar-close aria-label="${ctx.t('common.close')}">&times;</button></div>${event ? ctx.eventProviderLink(event.provider) : ctx.providerEventField(picker, 'calendar-edit-provider', 'providers.event.personalCalendar')}${field('name','name',`${event?.autoCreated?'':'required'} maxlength="120"`,event?.name||'')}<div class="calendar-form-grid">${field('date','date','type="date" min="2000-01-01" max="2099-12-31" required',event?.date||selectedDate)}${field('time','time','type="time"',event?.time||'')}</div>${cityField('city',event?.city||'',catalog,[...events.map(item=>item.city),event?.city].filter(Boolean),!!event?.autoCreated)}${field('venue','venue',`${event?.autoCreated?'':'required'} maxlength="160"`,event?.venue||'')}${field('address','address',`maxlength="${event?.autoCreated?500:300}"`,event?.address||'')}${formatFields(event)}<div class="calendar-form-grid">${field('participantLimit','participantLimit',`type="number" min="2" max="10000" step="1" ${event?.autoCreated?'':'required'}`,event?.autoCreated?(event.participantLimit??''):(event?.participantLimit||32))}${field('entryFee','feeRubles',`type="number" min="0" max="1000000" step="0.01" ${event?.autoCreated?'':'required'}`,event?.autoCreated?(event.entryFee??''):(event?.entryFee??0))}</div><p class="field-help">${tr('capacityHint')}</p>${event?.tournamentCreated?`<p class="field-help">${tr('editLinkedHint')}</p>`:''}<p data-calendar-form-error role="alert"></p><div class="row-actions"><button type="button" class="small-button" data-calendar-close>${ctx.t('common.cancel')}</button><button type="submit" class="primary-button">${ctx.t('common.save')}</button></div></form>`;
+    document.body.appendChild(dialog);
     const form=dialog.querySelector('form');
+    const submit=form.querySelector('[type=submit]');
+    const current={event,preferred,form,locked:false,lock(){
+      this.locked=true;
+      submit.disabled=true;
+      form.querySelector('[data-calendar-form-error]').textContent=ctx.t('providers.permissionLost');
+    }};
+    editor=current;
+    dialog.addEventListener('close',()=>{
+      if(editor===current)editor=null;
+      dialog.remove();
+      if(active()&&host===target)(opener?.isConnected?opener:host.querySelector('[data-calendar-add], #calendar-search'))?.focus();
+    },{once:true});
+    wire(dialog);
     const capacity=form.elements.participantLimit;
     const updateCapacity=()=>{
       const team=form.elements.participantMode.value==='team', size=Number(form.elements.teamSize.value);
@@ -191,33 +264,66 @@
     form.elements.participantMode.addEventListener('change',updateCapacity);
     form.elements.teamSize.addEventListener('change',updateCapacity);updateCapacity();
     form.onsubmit=async e=>{
-      e.preventDefault();const submit=form.querySelector('[type=submit]');submit.disabled=true;
-      const body=Object.fromEntries(new FormData(form));if(event)body.expectedUpdatedAt=event.updatedAt;
+      e.preventDefault();
+      if(submit.disabled)return;
+      submit.disabled=true;
+      const body=Object.fromEntries(new FormData(form));
+      if(event)body.expectedUpdatedAt=event.updatedAt;
+      else {
+        if(body.providerId)body.providerId=Number(body.providerId);
+        else delete body.providerId;
+        body.calendarTimeZone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+      }
       try{
         const data=await ctx.api('/api/admin/calendar-events'+(event?'/'+event.id:''),{method:event?'PATCH':'POST',body});
         selectedId=data.event.id;selectedDate=data.event.date;month=selectedDate.slice(0,7);filters={search:'',city:'',type:''};dialog.close();await load();
-      }catch(e){form.querySelector('[data-calendar-form-error]').textContent=e.message;submit.disabled=false;}
+      }catch(e){
+        if([401,403,404].includes(e.status)){current.lock();await load();return;}
+        form.querySelector('[data-calendar-form-error]').textContent=e.message;
+        submit.disabled=current.locked;
+      }
     };
     dialog.showModal();
   }
 
   async function mount(container, options) {
     host=container;ctx=options;closeDialogs();
-    const requestedId=Number(new URLSearchParams(location.search).get('calendarEvent'));
-    const preselect=!loadedMonth&&Number.isSafeInteger(requestedId)&&requestedId>0;
-    if(preselect)selectedId=requestedId;
+    const query=new URLSearchParams(location.search);
+    const requestedId=Number(query.get('calendarEvent'));
+    const requestedMonth=query.get('calendarMonth');
+    const preselect=Number.isSafeInteger(requestedId)&&requestedId>0;
+    if(preselect){
+      if(/^(?:20\d\d)-(?:0[1-9]|1[0-2])$/.test(requestedMonth||''))month=requestedMonth;
+      selectedId=requestedId;
+      filters={search:'',city:'',type:''};
+    }
     if(loadedMonth!==month)await load();else{render();await load();}
-    if(preselect&&active()&&host===container&&selected()){
-      const event=selected();selectedDate=event.date;render();if(small())openDetails(event);
+    if(!active()||host!==container)return;
+    if(preselect&&selected()?.id===requestedId){
+      const event=selected();selectedDate=event.date;render();
+      if(matchMedia('(max-width: 1350px)').matches)openDetails(event);
+    }
+    const preferred=query.get('provider');
+    if(preferred){
+      ctx.clearPreferredProvider();
+      if(calendarActions(viewer).create)await editEvent(null,preferred);
+      else showCalendarError(ctx.t('providers.permissionLost'));
     }
   }
+  function unmount() {
+    if (!host) return;
+    host = null;
+    closeDialogs();
+  }
+
   if(typeof window!=='undefined') {
     const onResize=()=>{if(active())render();};
     matchMedia('(max-width: 760px)').addEventListener('change',onResize);
     window.addEventListener('hashchange',()=>{if(!active())closeDialogs();});
     window.addEventListener('focus',()=>{if(active())load();});
+    window.setInterval(()=>{if(active()&&editor&&!document.hidden)void load();},15000);
   }
-  const api={mount,monthDays,filterEvents,cityItems};
+  const api={mount,unmount,monthDays,filterEvents,cityItems,calendarActions};
   root.TGTV_CALENDAR=api;
   if(typeof module!=='undefined')module.exports=api;
 })(typeof window==='undefined'?globalThis:window);

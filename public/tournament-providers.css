@@ -1,0 +1,193 @@
+[data-tournament-providers] {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.provider-panel,
+.provider-event-group,
+.provider-dialog .tiebreaker-help-content {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.provider-panel h2,
+.provider-panel h3,
+.provider-dialog h3,
+.provider-heading p {
+  margin: 0;
+}
+
+.provider-panel-header,
+.provider-panel .row-actions,
+.provider-dialog .row-actions {
+  flex-wrap: wrap;
+}
+
+.provider-catalog,
+.provider-filters {
+  display: grid;
+  gap: 12px;
+}
+
+.provider-catalog {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 255px), 1fr));
+}
+
+.provider-filters {
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+}
+
+.provider-card,
+.provider-member,
+.provider-calendar-card,
+.provider-identity {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.provider-card,
+.provider-member,
+.provider-calendar-card {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.provider-card {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+
+.provider-identity > div,
+.provider-card .row-main,
+.provider-member .row-main,
+.provider-calendar-card .row-main {
+  min-width: 0;
+}
+
+.provider-card .row-title,
+.provider-member .row-title,
+.provider-heading,
+.provider-calendar-card,
+.provider-panel .markdown-content,
+.provider-dialog {
+  overflow-wrap: anywhere;
+}
+
+.provider-logo,
+.provider-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 48px;
+  aspect-ratio: 1;
+  position: relative;
+  overflow: hidden;
+  color: var(--accent-text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.provider-heading .provider-logo {
+  width: clamp(56px, 11vw, 84px);
+  font-size: 1.4rem;
+}
+
+.provider-logo img,
+.provider-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--surface);
+}
+
+.provider-avatar {
+  width: 36px;
+  border-radius: 50%;
+}
+
+.provider-avatar img {
+  object-fit: cover;
+}
+
+.provider-event-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--button-height);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.provider-event-group > summary::before {
+  content: "›";
+  color: var(--accent-text);
+}
+
+.provider-event-group[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.provider-event-group[open] > summary {
+  margin-block-end: 12px;
+}
+
+.provider-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block-start: 12px;
+}
+
+.provider-panel :is(button, a):focus-visible,
+.provider-event-group summary:focus-visible,
+.provider-dialog :is(button, input, select, textarea):focus-visible,
+.provider-invitation-focus:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.provider-panel .message:empty,
+.provider-dialog .message:empty,
+[data-provider-inbox]:empty,
+[data-provider-create]:empty,
+[data-provider-notice]:empty {
+  display: none;
+}
+
+.provider-dialog {
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+}
+
+.provider-dialog .markdown-content,
+.provider-overview .markdown-content {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+@media (max-width: 600px) {
+  .provider-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .provider-filters .field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .provider-member .row-actions,
+  .provider-overview .row-actions {
+    justify-content: flex-start;
+  }
+}
