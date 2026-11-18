@@ -113,7 +113,7 @@ const MIGRATIONS = [
   require("./migrations/113_calendar_tournament_sync"),
   require("./migrations/114_calendar_wtc_rollup_release_notes"),
   require("./migrations/115_wtc_doubles_documentation"),
-  require("./migrations/116_tournament_providers")
+  require("./migrations/117_tournament_providers")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

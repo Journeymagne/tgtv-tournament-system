@@ -57,7 +57,7 @@ test('shared authorization and provider database changes select every root servi
   for (const source of [
     'src/api/authorization.js',
     'src/db/repositories/access.js',
-    'src/db/migrations/116_tournament_providers.js'
+    'src/db/migrations/117_tournament_providers.js'
   ]) {
     assert.deepEqual(affected([source]), {
       groups: ['accounts', 'faq', 'knowthykt', 'notifications', 'studio', 'tierlists', 'tournaments'],

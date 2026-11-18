@@ -1,5 +1,5 @@
 module.exports = {
-  version: 116,
+  version: 117,
   name: 'tournament_providers',
   async up(client) {
     await client.query(`
