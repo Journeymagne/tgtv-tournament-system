@@ -69,7 +69,7 @@ async function tournamentCreationContext(client,user,body) {
 async function list({ client, user, query }) {
   const month = query.get('month') || new Date().toISOString().slice(0,7);
   return { events: await repo.list(client,monthRange(month),user),
-    viewer: { canCreateEvents: isPlatformAdmin(user) || Boolean(user?.capabilities?.canCreateProviderEvents) } };
+    viewer: { canCreateEvents: canCreateTournament(user) || Boolean(user?.capabilities?.canCreateProviderEvents) } };
 }
 
 async function getAdmin({client,user,params}) {
@@ -83,10 +83,10 @@ async function create({client,user,body}) {
     ({user} = await requireProviderAccess(client,user,providerId,'canCreateEvents',{lock:true}));
   } else {
     user = await refreshUser(client,user);
-    if (!isPlatformAdmin(user)) throw new HttpError(403,'Administrator rights required');
+    if (!canCreateTournament(user)) throw new HttpError(403,'Tournament creation permission required');
   }
   const event = {...normalizeCalendarEvent(body),providerId};
-  return {status:201,body:{event:await repo.insert(client,event,user.id,calendarTimeZone(body.calendarTimeZone))}};
+  return {status:201,body:{event:await repo.insert(client,event,user.id,calendarTimeZone(body.calendarTimeZone),user)}};
 }
 
 async function update({client,user,params,body}) {

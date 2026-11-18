@@ -79,7 +79,11 @@ test('removal wins against a waiting write and explicit judge access survives me
   assert.equal(judgeEntry.providerRole,'judge');
   assert.equal(judgeEntry.assigned,true);
   assert.equal(judgeEntry.hasPlatformAccess,false);
-  assert.equal(before.find(entry=>entry.userId===admin.id).hasPlatformAccess,true);
+  assert.ok(!before.some(entry=>entry.userId===admin.id),'platform-only access does not add an administrator to the visible staff');
+  await transaction(client => staff.assignJudge({client,user:admin,params:{id:t.id},body:{userId:admin.id}}));
+  const assignedAdmin = (await staff.staff({client:pool,user:admin,params:{id:t.id}})).staff.find(entry=>entry.userId===admin.id);
+  assert.equal(assignedAdmin.hasPlatformAccess,true);
+  assert.equal(assignedAdmin.assigned,true);
   let waiting;
   await transaction(async client => {
     await client.query('SELECT id FROM tournament_providers WHERE id=$1 FOR UPDATE',[providerId]);
@@ -102,6 +106,10 @@ test('removal wins against a waiting write and explicit judge access survives me
   const removed = await access.hydrate(pool,author);
   assert.equal(rights.canManageTournament(removed,t),false);
   assert.equal(rights.canManageTournament(removed,t.id),false);
+  const roles = await staff.userRoles({client:pool,user:admin,params:{id:author.id}});
+  assert.ok(!roles.tournamentRoles.some(entry=>entry.tournamentId===t.id),'historical provider authorship is not a personal organizer grant');
+  const special = await users.listWithGameCounts(pool,new URLSearchParams('access=special'));
+  assert.ok(!special.some(entry=>entry.id===author.id),'historical provider authorship is not a current special role');
   assert.equal(rights.canManageTournament(await access.hydrate(pool,judge),t.id),true);
   const after = (await staff.staff({client:pool,user:admin,params:{id:t.id}})).staff.find(entry=>entry.userId===judge.id);
   assert.equal(after.providerRole,null);

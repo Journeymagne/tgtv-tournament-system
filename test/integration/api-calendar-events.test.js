@@ -178,3 +178,30 @@ test('undated tournaments appear after scheduling and retain their linked event 
   await assert.rejects(tx(client=>tournaments.updateAdmin({client,user:admin,params:{id},body:{startsAt:'2026-11-27T09:00:00Z',calendarTimeZone:'invalid/zone'}})),{status:400});
   await assert.rejects(tx(client=>tournaments.updateAdmin({client,user:admin,params:{id},body:{startsAt:'2100-01-01T09:00:00Z'}})),{status:400});
 });
+
+
+test('organizers can publish calendar announcements with their own creator ID, but cannot manage existing events', async () => {
+  let organizer = await users.insert(pool, { name: 'CalendarOrganizer', passwordHash: 's:h', rating: 1000 });
+  await pool.query('UPDATE accounts.users SET can_create_tournaments=TRUE WHERE id=$1', [organizer.id]);
+  organizer = await require('../../src/db/repositories/access').hydrate(pool, organizer);
+  assert.equal(organizer.isAdmin, false);
+  const route = routes.find(r => r.path === '/api/admin/calendar-events' && r.method === 'POST');
+  const authorized = await require('../../src/api/authorization').authorize({ client: pool, user: organizer, params: {}, route });
+  const saved = await tx(client => calendar.create({ client, user: authorized, body: data }));
+  assert.equal(saved.status, 201);
+  const event = saved.body.event;
+  const stored = await pool.query('SELECT created_by FROM tournaments.calendar_events WHERE id=$1', [event.id]);
+  assert.equal(event.viewer.canEdit, false);
+  assert.equal(event.viewer.canCreateTournament, false);
+  assert.equal(stored.rows[0].created_by, organizer.id);
+  const visible = await calendar.list({ client: pool, user: null, query: new URLSearchParams('month=2026-11') });
+  assert.ok(visible.events.some(e => e.id === event.id));
+  await assert.rejects(calendar.getAdmin({ client: pool, user: organizer, params: { id: event.id } }), { status: 403 });
+  await assert.rejects(tx(client => calendar.update({ client, user: organizer, params: { id: event.id }, body: { ...data, expectedUpdatedAt: event.updatedAt } })), { status: 403 });
+  await assert.rejects(tx(client => calendar.remove({ client, user: organizer, params: { id: event.id } })), { status: 403 });
+  await assert.rejects(tx(client => calendar.create({ client, user: { ...player, managedTournamentIds: [1] }, body: data })), { status: 403 });
+  await pool.query('UPDATE accounts.users SET can_create_tournaments=FALSE WHERE id=$1', [organizer.id]);
+  const revoked = await require('../../src/db/repositories/access').hydrate(pool, organizer);
+  await assert.rejects(require('../../src/api/authorization').authorize({ client: pool, user: revoked, params: {}, route }), { status: 403 });
+  await assert.rejects(tx(client => calendar.create({ client, user: revoked, body: data })), { status: 403 });
+});

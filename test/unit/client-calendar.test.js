@@ -34,3 +34,36 @@ test('Teams filter includes pairs and teams of three; Players excludes both',()=
  assert.equal(filterEvents(events,{search:'',city:'',type:'team'}).length,2);
  assert.equal(filterEvents(events,{search:'',city:'',type:'individual'}).length,1);
 });
+
+
+test('calendar actions use server permissions for organizers, judges and administrators', async () => {
+  const vm = require('node:vm');
+  const source = fs.readFileSync(path.join(__dirname, '../../public/calendar.js'), 'utf8');
+  const cases = [
+    { user: null, canAdd: false, canEdit: false, canCreateTournament: false },
+    { user: { id: 2, managedTournamentIds: [1] }, canAdd: false, canEdit: false, canCreateTournament: false },
+    { user: { id: 2, capabilities: { canCreateTournaments: true } }, canAdd: true, canEdit: false, canCreateTournament: false },
+    { user: { id: 2, capabilities: { canCreateProviderEvents: true } }, canAdd: true, canEdit: true, canCreateTournament: true },
+    { user: { id: 1, isAdmin: true }, canAdd: true, canEdit: true, canCreateTournament: true },
+    { user: { id: 1, isAdmin: true }, canAdd: false, canEdit: false, canCreateTournament: false }
+  ];
+  for (const { user, canAdd, canEdit, canCreateTournament } of cases) {
+    const sandbox = { module: { exports: {} }, URLSearchParams, location: { search: '' }, matchMedia: () => ({ matches: false }), document: { querySelectorAll: () => [] } };
+    vm.runInNewContext(source, sandbox);
+    const container = { isConnected: true, innerHTML: '', querySelectorAll: () => [], querySelector: () => null };
+    const today = new Date(), date = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
+    await sandbox.module.exports.mount(container, {
+      user, isCurrent: () => true, t: key => key, escapeHtml: value => String(value), locale: () => 'en',
+      comboField: () => '', wireComboFields: () => {}, eventProviderLink: () => '', providerLogoUrl: () => '',
+      api: async () => ({
+        viewer: { canCreateEvents: canAdd },
+        events: [{ id: 1, name: 'Announcement', date, city: 'Moscow', venue: 'Club', participantLimit: 32, entryFee: 1000,
+          viewer: { canEdit, canCreateTournament } }]
+      })
+    });
+    assert.equal(container.innerHTML.includes('data-calendar-add'), canAdd, JSON.stringify(user));
+    assert.equal(container.innerHTML.includes('data-calendar-edit='), canEdit);
+    assert.equal(container.innerHTML.includes('data-calendar-delete='), canEdit);
+    assert.equal(container.innerHTML.includes('calendarEvent=1'), canCreateTournament);
+  }
+});

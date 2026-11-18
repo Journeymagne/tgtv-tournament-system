@@ -66,7 +66,7 @@ async function list({client,user,query=new URLSearchParams()}) {
  const teamCounts=await client.query(`SELECT team,count(*)::int n FROM faq_entries e CROSS JOIN LATERAL jsonb_array_elements_text(e.content->'teams') team
    WHERE ${common} AND ${sourceFilter} AND NOT (e.content->'teams' ? 'Все команды') AND cardinality($6::text[])>=0 GROUP BY team`,values);
  return {entries:result.rows.map(view),pagination:result.pagination,counts:Object.fromEntries(counts.rows.map(r=>[r.category,r.n])),teamCounts:Object.fromEntries(teamCounts.rows.map(r=>[r.team,r.n])),
-   canModerate:canModerate(user),canManageRoles:!!user?.isSuperAdmin,
+   canModerate:canModerate(user),canManageRoles:Boolean(user?.isAdmin||user?.isSuperAdmin),
    teams:[...new Set(['Все команды',...KILL_TEAMS,...seed.entries.flatMap(e=>e.teams)])].sort((a,b)=>a.localeCompare(b)),logos,snapshot:seed.snapshot,communityVersion:seed.communityVersion,communitySource:seed.communitySource};
 }
 async function getEntry({client,user,params,query}) {
@@ -215,13 +215,13 @@ async function removeReply({client,user,params,body}){
   reply_updated_at=NULL,revision=revision+1 WHERE id=$1`,[q.id]);
  await require('../notifications/publish').retract(client,'faq','faq_reply:'+q.id);return {ok:true};
 }
-async function moderators({client,user}){if(!user.isSuperAdmin)throw new HttpError(403,'Only the platform owner assigns FAQ Moderators');const {rows}=await client.query('SELECT id,name,is_faq_moderator FROM users ORDER BY name');return {users:rows};}
-async function setModerator({client,user,params,body}){
- if(!user.isSuperAdmin)throw new HttpError(403,'Only the platform owner assigns FAQ Moderators');
- if(typeof body.enabled!=='boolean')throw new ValidationError('Invalid role');const id=Number(params.userId);if(!Number.isSafeInteger(id)||id<1)throw new ValidationError('Invalid account');
- const {rows:[before]}=await client.query('SELECT is_faq_moderator FROM users WHERE id=$1 FOR UPDATE',[id]);if(!before)throw new HttpError(404,'User not found');
- await client.query('UPDATE users SET is_faq_moderator=$2 WHERE id=$1',[id,body.enabled]);await access.audit(client,user,'faq_moderator_changed','user',id,{enabled:before.is_faq_moderator},{enabled:body.enabled});return {ok:true};
+async function moderators({client,user}){if(!user?.isAdmin&&!user?.isSuperAdmin)throw new HttpError(403,'Administrator rights required');const {rows}=await client.query('SELECT id,name,is_faq_moderator FROM users ORDER BY name');return {users:rows};}
+async function setModerator({client,user,params,body}) {
+  if(typeof body.enabled!=='boolean')throw new ValidationError('Invalid role');
+  const id=Number(params.userId);if(!Number.isSafeInteger(id)||id<1)throw new ValidationError('Invalid account');
+  return require('./access-management').setPermissions({client,user,params:{id},body:{isFAQModerator:body.enabled,reason:body.reason||'FAQ moderator role changed'}});
 }
+
 async function recordHistory({client,user,params}){moderator(user);await entry(client,params.id);const {rows}=await client.query('SELECT h.action,h.snapshot,h.created_at,u.name actor FROM faq_history h LEFT JOIN users u ON u.id=h.actor_id WHERE entry_id=$1 ORDER BY h.id DESC LIMIT 50',[params.id]);return {history:rows};}
 const routes=[
  {method:'GET',path:'/api/faq',handler:list,loadUser:true},

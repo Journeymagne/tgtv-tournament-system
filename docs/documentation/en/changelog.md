@@ -2,6 +2,21 @@
 
 KT Companion release history, newest first.
 
+## 1.7.0 — 18 November 2026
+
+- Tournaments now includes an Organizations tab: tournament providers with a name, logo, home city, description, and a roster of organizers and judges.
+- The creator becomes the chief organizer and invites players with a chosen role. Organizers create tournaments and calendar events for their organization; judges run its events. Platform administrators can manage every organization and its membership.
+- Organization profiles have collapsible current, upcoming and past event lists. Linked tournaments and announcements appear once, and event cards and the calendar identify their provider.
+- Added ownership transfer, leaving and archiving organizations. Membership changes update access, while explicit tournament judge appointments remain independently manageable.
+- The interface supports both themes and languages and mobile screens. Organization filters are aligned, and announcement times are preserved when organizers work across time zones.
+
+## 1.6.1 — 18 November 2026
+
+- Tournament organizers with tournament-creation permission can now add events to the Calendar.
+- Administration → Players and teams now includes an Administrators tab: search users with special permissions and manage global roles, tournament organizers and judges.
+- Any administrator can grant and edit permissions, assign judges and transfer tournament ownership. Only the super administrator can remove administrator status.
+- Tournament staff lists show the organizer and assigned judges. Global administrators have access by default and appear in the list only when they hold a tournament role.
+
 ## 1.6.0 — 18 November 2026
 
 - Added a Kill Team event calendar with a month view and list, mobile event cards with tournament posters, search, and Russian city autocomplete. Singles and team events have distinct colours, and tournaments you participate in have a personal marker.

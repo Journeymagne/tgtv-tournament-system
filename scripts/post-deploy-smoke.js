@@ -18,7 +18,9 @@ function createChecks(version = '') {
     ['Tierlist catalog', '/api/tierlists/catalog', 'tierlists', 'catalog'], ['Tierlist seasons', '/api/tierlists/seasons', 'tierlists', 'seasons'],
     ['Combat build', '/combat/api/health', 'calculators', 'combat'],
     ['Private notifications', '/api/notifications', 'notifications', 'unauthorized'],
-    ['Private tierlists', '/api/tierlists', 'tierlists', 'unauthorized']
+    ['Private tierlists', '/api/tierlists', 'tierlists', 'unauthorized'],
+    ['Private administrator list', '/api/admin/users?access=special', 'tournaments', 'unauthorized'],
+    ['Private tournament roles', '/api/admin/users/1/tournament-roles', 'tournaments', 'unauthorized']
   ].map(([name, route, service, contract]) => ({ name, route, service, contract, kind: 'json', status: contract === 'unauthorized' ? 401 : 200 }));
   return [...pages, ...apis,
     ...['ru', 'en'].map(locale => ({ name: `Changelog (${locale})`, route: `/api/documentation/${locale}/changelog`, service: 'tournaments', kind: 'json', contract: 'changelog', version })),

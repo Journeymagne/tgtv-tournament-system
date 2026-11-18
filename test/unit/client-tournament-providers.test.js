@@ -56,15 +56,13 @@ test('scoped creation offers only organizations where an organizer can create ev
     { id: 3, name: 'Local cup', viewer: { canCreateEvents: true } },
     { id: 4, name: 'Judges club', viewer: { canCreateEvents: false } }
   ];
-  assert.deepEqual(eventCreationOptions(organizer, providers, 'tournament').map(option => option.value), ['3']);
-  assert.deepEqual(eventCreationOptions(organizer, providers, 'calendar').map(option => option.value), ['3']);
-  assert.deepEqual(eventCreationOptions(organizer, providers, 'tournament', 4), []);
+  assert.deepEqual(eventCreationOptions(organizer, providers).map(option => option.value), ['3']);
+  assert.deepEqual(eventCreationOptions(organizer, providers, 4), []);
 });
 
-test('personal calendar creation requires administration while personal tournament creation uses the global grant', () => {
+test('personal event creation uses the global grant while calendar event actions follow server permissions', () => {
   const globalOrganizer = { capabilities: { canCreateTournaments: true } };
-  assert.deepEqual(eventCreationOptions(globalOrganizer, [], 'tournament').map(option => option.value), ['']);
-  assert.deepEqual(eventCreationOptions(globalOrganizer, [], 'calendar'), []);
+  assert.deepEqual(eventCreationOptions(globalOrganizer, []).map(option => option.value), ['']);
   assert.equal(calendarActions({ canCreateEvents: true }, { canEdit: false, canCreateTournament: true }).createTournament, true);
   assert.equal(calendarActions({ canCreateEvents: false }, { canEdit: false }).edit, false);
 });
@@ -163,7 +161,7 @@ test('platform administrators can choose active nonmember organizations on later
   for (const permission of ['isAdmin', 'isSuperAdmin']) {
     const paths = [];
     const picker = await appFunctions(['loadCreationProviders', 'loadEventProviderOptions'],
-      `loadEventProviderOptions('tournament')`, {
+      `loadEventProviderOptions()`, {
         state: { me: { id: 1, [permission]: true, providerMemberships: [] } },
         loadTournamentProvidersUi: async () => ({ eventCreationOptions }),
         api: async path => {
@@ -180,7 +178,7 @@ test('platform administrators can choose active nonmember organizations on later
 test('an organization organizer loads event choices from their membership dashboard', async () => {
   const paths = [];
   const picker = await appFunctions(['loadCreationProviders', 'loadEventProviderOptions'],
-    `loadEventProviderOptions('calendar')`, {
+    `loadEventProviderOptions()`, {
       state: { me: { id: 2, capabilities: { canCreateProviderEvents: true } } },
       loadTournamentProvidersUi: async () => ({ eventCreationOptions }),
       api: async path => {

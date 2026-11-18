@@ -7,10 +7,10 @@
   const groups = ['current', 'future', 'past', 'draft'];
   const disclosures = new Map();
 
-  function eventCreationOptions(user, providers, kind, fixedId = null) {
+  function eventCreationOptions(user, providers, fixedId = null) {
     if (!user) return [];
     const isAdmin = user.isAdmin || user.isSuperAdmin;
-    const personal = kind === 'calendar' ? isAdmin : isAdmin || user.capabilities?.canCreateTournaments;
+    const personal = isAdmin || user.capabilities?.canCreateTournaments;
     const options = personal ? [{ value: '', name: '' }] : [];
     for (const provider of providers) {
       if (provider.viewer?.canCreateEvents && !options.some(option => option.value === String(provider.id))) {

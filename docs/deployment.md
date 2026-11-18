@@ -144,16 +144,23 @@ existing `tgtv-server` SSH alias:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-local-backups.ps1
 ```
 
-This creates `C:\Backups\KTCompanion` and the hidden current-user scheduled task
-`KTCompanion-BackupSync`. It runs every five minutes and at logon. No password is
-stored. The computer must be online and the user signed in; missed releases are
-collected from the server's latest two snapshots when available. Local downloads
-are staged and verified by size and SHA-256 before publication; only then are
-older managed local snapshots removed. Connection failures leave verified copies
-in place. Each backup includes release metadata; `last-sync.json` and bounded
-`sync.log` record local status. The local folder ACL is limited to that user,
-administrators and SYSTEM. Code is identified by the backup's commit SHA;
-environment configuration remains on the server.
+This prepares `C:\Backups\KTCompanion` for a single copy at release completion.
+The installer removes the previous `KTCompanion-BackupSync` task; it does not
+create scheduled tasks, background polling or logon triggers.
+
+After the production deployment, smoke checks and server backup job succeed,
+the release operator runs the local command once:
+
+```powershell
+powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File C:\Backups\KTCompanion\Sync-Backups.ps1 -BackupRoot C:\Backups\KTCompanion
+```
+
+Then check `last-sync.json`: it must include the deployed full commit SHA and no
+more than two verified snapshots. When a release happens while this PC is
+unavailable, perform this copy explicitly when it becomes available; no task runs
+by itself later. Downloads are staged and verified by size/SHA-256 before older
+managed snapshots are removed. Connection failures leave verified copies intact.
+The local folder ACL remains limited to the user, administrators and SYSTEM.
 
 Manual deployments can publish the same backup under the deployment lock by
 running the release script with the full checked commit SHA. This does not make

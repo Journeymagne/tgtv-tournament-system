@@ -1,6 +1,12 @@
 param([string]$BackupRoot = 'C:\Backups\KTCompanion')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
+$legacyTask = Get-ScheduledTask -TaskName 'KTCompanion-BackupSync' -ErrorAction SilentlyContinue
+if ($legacyTask) {
+    Disable-ScheduledTask -TaskName 'KTCompanion-BackupSync' | Out-Null
+    Stop-ScheduledTask -TaskName 'KTCompanion-BackupSync' -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName 'KTCompanion-BackupSync' -Confirm:$false
+}
 $root = [IO.Path]::GetFullPath($BackupRoot).TrimEnd('\')
 if ($root -notmatch '^C:\\[^\r\n"]+$') { throw 'Use a dedicated folder on drive C' }
 $source = Join-Path $PSScriptRoot 'sync-local-backups.ps1'
@@ -24,13 +30,7 @@ foreach ($sid in @($user.User, (New-Object Security.Principal.SecurityIdentifier
 Set-Acl -LiteralPath $root -AclObject $acl
 $installed = Join-Path $root 'Sync-Backups.ps1'
 Copy-Item -LiteralPath $source -Destination $installed -Force
-$arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $installed + '" -BackupRoot "' + $root + '"'
-$action = New-ScheduledTaskAction -Execute (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe') -Argument $arguments -WorkingDirectory $root
-$repeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5)
-$logon = New-ScheduledTaskTrigger -AtLogOn -User $user.Name
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 1) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -Hidden
-$principal = New-ScheduledTaskPrincipal -UserId $user.Name -LogonType Interactive -RunLevel Limited
-Register-ScheduledTask -TaskName 'KTCompanion-BackupSync' -Action $action -Trigger @($repeat, $logon) -Settings $settings -Principal $principal -Description 'Download and verify the latest two KT Companion release database backups over SSH.' -Force | Out-Null
+# This installer only prepares a one-shot copy command. Remove the old poller.
 $readme = @'
 KT Companion database backups
 
@@ -39,8 +39,10 @@ Each database.dump is paired with metadata.json containing release/version,
 capture time, source filename, size and SHA-256. These are full main database
 backups, including tournament-system accounts and other services in that database.
 
-Windows task: KTCompanion-BackupSync. Runs every five minutes while signed in,
-and at logon. If this computer is offline, it catches up when available.
+Release-only copying: after the production deploy, smoke checks and server
+backup job succeed, the release operator runs Sync-Backups.ps1 once on this PC.
+There are no scheduled tasks, periodic polls or logon triggers. If this PC is
+unavailable during a remote release, copy explicitly when it becomes available.
 sync.log and last-sync.json show transfer status. Downloads enter .incoming
 first; existing backups are replaced only after size and SHA-256 verification.
 
@@ -49,4 +51,4 @@ Restore into a separate empty database first. Code is identified by commitSha
 in metadata.json; application environment configuration stays on the server.
 '@
 [IO.File]::WriteAllText((Join-Path $root 'README.txt'), $readme, (New-Object Text.UTF8Encoding($false)))
-Write-Output ('Installed KTCompanion-BackupSync in ' + $root)
+Write-Output ('Installed release-only backup copying in ' + $root)

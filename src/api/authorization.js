@@ -1,7 +1,7 @@
 const { HttpError } = require("../http/io");
 const access = require("../db/repositories/access");
 const tournaments = require("../db/repositories/tournaments");
-const { canManageTournament, canManageJudges, canOpenAdministration, isPlatformAdmin } = require("../domain/access");
+const { canManageTournament, canManageJudges, canCreateTournament, canOpenAdministration, isPlatformAdmin } = require("../domain/access");
 const { requirePositiveIntId } = require("./params");
 
 async function freshUser(client,user) {
@@ -47,7 +47,12 @@ async function authorize({client,user,params,route,body={}}) {
     if (!user.isSuperAdmin) throw new HttpError(403,"Super administrator rights required");
     return user;
   }
-  if (route.permission === "calendar.manage") return user; // Handler resolves the event's provider.
+  if (route.permission === "calendar.manage") {
+    if (route.method === "POST" && !canCreateTournament(user) && !user.capabilities?.canCreateProviderEvents) {
+      throw new HttpError(403,"Calendar creation permission required");
+    }
+    return user; // Handler resolves and locks the event's provider.
+  }
   if (route.permission === "administration") {
     if (!canOpenAdministration(user)) throw new HttpError(403,"Administration access required");
     return user;

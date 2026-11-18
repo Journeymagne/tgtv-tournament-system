@@ -95,11 +95,19 @@ async function listLeaderboard(client, venueMode = "combined", query = "", pagin
 
 async function listWithGameCounts(client, query = new URLSearchParams()) {
   const term = String(query.get('q') || '').trim().toLowerCase().slice(0,200);
-  const result = await require('../../resources/pages').select(client, `SELECT ${COLUMNS},
+  const mode = query.get('access') || '';
+  if (!['', 'special'].includes(mode)) throw new (require('../../http/io').ValidationError)('Invalid access filter');
+  const owner = 'EXISTS (SELECT 1 FROM tournaments t WHERE t.owner_user_id=users.id AND t.provider_id IS NULL)';
+  const judge = 'EXISTS (SELECT 1 FROM tournament_judges j WHERE j.user_id=users.id AND j.revoked_at IS NULL AND (j.expires_at IS NULL OR j.expires_at>NOW()))';
+  const special = `is_admin OR can_create_tournaments OR is_faq_moderator OR EXISTS (SELECT 1 FROM platform_ownership p WHERE p.owner_user_id=users.id) OR ${owner} OR ${judge}`;
+  const result = await require('../../resources/pages').select(client, `SELECT ${COLUMNS},is_faq_moderator,
+    ${owner} AS has_owned_tournaments,${judge} AS has_judge_assignments,
     (SELECT count(*)::int FROM games WHERE status='completed' AND users.id=ANY(player_ids)) AS games_played
-    FROM users WHERE $1='' OR strpos(lower(name),$1)>0 OR strpos(lower(COALESCE(register_nickname,'')),$1)>0
-    OR strpos(lower(COALESCE(telegram_contact,'')),$1)>0 ORDER BY rating_tts DESC,name,id`, [term], query);
-  return Object.assign(result.rows.map(row => ({...mapUser(row),gamesPlayed:row.games_played})), {pagination:result.pagination});
+    FROM users WHERE ($1='' OR strpos(lower(name),$1)>0 OR strpos(lower(COALESCE(register_nickname,'')),$1)>0
+      OR strpos(lower(COALESCE(telegram_contact,'')),$1)>0) AND (NOT $2::boolean OR (${special}))
+    ORDER BY rating_tts DESC,name,id`, [term, mode === 'special'], query);
+  return Object.assign(result.rows.map(row => ({...mapUser(row),gamesPlayed:row.games_played,
+    isFAQModerator:Boolean(row.is_faq_moderator),hasOwnedTournaments:Boolean(row.has_owned_tournaments),hasJudgeAssignments:Boolean(row.has_judge_assignments)})), {pagination:result.pagination});
 }
 
 async function listForRatingReplay(client, { includeCombined = true } = {}) {

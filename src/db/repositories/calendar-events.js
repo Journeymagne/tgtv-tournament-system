@@ -57,10 +57,10 @@ async function find(client, id, user = false, lock = false) {
   const { rows } = await client.query(`SELECT ${COLUMNS} FROM ${FROM} WHERE e.id=$1${lock ? ' FOR UPDATE OF e' : ''}`, [id]);
   return view(rows[0], user);
 }
-async function insert(client, event, userId, timeZone = null) {
+async function insert(client, event, userId, timeZone = null, viewer = false) {
   const { rows } = await client.query(`INSERT INTO tournaments.calendar_events (${FIELDS.join(',')},created_by,provider_id,time_zone)
     VALUES (${FIELDS.map((_, i) => '$'+(i+1)).join(',')},$${FIELDS.length+1},$${FIELDS.length+2},$${FIELDS.length+3}) RETURNING id`, [...values(event), userId, event.providerId ?? null, timeZone || 'UTC']);
-  return find(client, rows[0].id, true);
+  return find(client, rows[0].id, viewer);
 }
 async function update(client, id, event) {
   await client.query(`UPDATE tournaments.calendar_events SET ${FIELDS.map((name,i)=>`${name}=$${i+2}`).join(',')},updated_at=clock_timestamp() WHERE id=$1`, [id,...values(event)]);

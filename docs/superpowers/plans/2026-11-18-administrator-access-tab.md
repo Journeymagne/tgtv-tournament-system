@@ -1,0 +1,7 @@
+# Administrators and special access
+
+Add Administrators under Administration / Players and teams, including all global privileged users plus tournament owners and active explicitly assigned judges. Apply the special-access filter in SQL before pagination and keep its search/page state separate from the Players list. Display all global grants and scoped tournament roles; link each tournament role to its existing management UI.
+
+Any platform administrator can grant/edit global administrator, tournament/calendar creation and FAQ-moderator flags, appoint/revoke judges across tournaments, and transfer tournament ownership. Only the super administrator can remove a global administrator flag; the platform owner cannot be demoted. Keep account deletion, password reset, suspension and resource-quota protections unchanged. Lock actor and target rows in ID order and refresh actor grants before mutations; audit all changed role flags.
+
+Add real authenticated API coverage for grants/demotion denials, scoped role controls, revoked actor races, special filtering before pagination, inactive assignment exclusion and payload privacy. Add client tests for tabs, deep links, state separation and role form safety. Run automated tests in GitHub CI only. Carry forward the pending calendar-organizer creation change into release1.6.1, update RU/EN public release notes preserving history, and perform local backup copying once at release completion.

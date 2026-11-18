@@ -123,7 +123,8 @@ async function listUsers({ client, query }) {
   return {
     pagination: rows.pagination,
     users: rows.map((row) => ({ ...publicUserSummary(row), gamesPlayed: row.gamesPlayed,
-      isSuperAdmin: row.id === owner, canCreateTournaments: byId.get(row.id)?.can_create_tournaments || false,
+      isSuperAdmin: row.id === owner, isAdmin: Boolean(row.isAdmin || row.id === owner),
+      isFAQModerator: Boolean(row.isFAQModerator), hasOwnedTournaments: Boolean(row.hasOwnedTournaments), hasJudgeAssignments: Boolean(row.hasJudgeAssignments), canCreateTournaments: byId.get(row.id)?.can_create_tournaments || false,
       suspendedUntil: byId.get(row.id)?.suspended_until || null,
       suspensionReason: byId.get(row.id)?.suspension_reason || "" }))
   };

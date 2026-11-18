@@ -73,7 +73,8 @@ test("a previous owner loses only super-admin status and existing sessions see t
   const previous = await me("previous-session"), journey = await me("journey-session");
   assert.equal(previous.isSuperAdmin, false);
   assert.equal(previous.isAdmin, true);
-  assert.equal(previous.capabilities.canAssignGlobalRoles, false);
+  assert.equal(previous.capabilities.canAssignGlobalRoles, true);
+  assert.equal(previous.capabilities.canRevokeAdministrators, false);
   assert.equal(journey.isSuperAdmin, true);
   assert.equal(journey.capabilities.canAssignGlobalRoles, true);
   assert.deepEqual((await pool.query("SELECT id FROM users WHERE is_admin ORDER BY id")).rows.map(row => row.id), [1, 2, 3]);
