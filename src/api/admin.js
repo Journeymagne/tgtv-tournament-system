@@ -213,7 +213,7 @@ async function deleteUser({ client, user, params }) {
     await usersRepo.remove(client, target.id);
   } catch (error) {
     if (error.code === '23503' && error.constraint === 'tournament_providers_owner_user_id_fkey') {
-      throw new HttpError(409, 'Transfer organization leadership in every organization before deleting this account');
+      throw new HttpError(409, 'Transfer leadership of each organization to another active organizer before deleting this account');
     }
     throw error;
   }
