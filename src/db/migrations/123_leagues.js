@@ -39,9 +39,29 @@ module.exports = {
         UNIQUE (league_id,id), UNIQUE (league_id,origin_key)
       );
       CREATE UNIQUE INDEX league_people_user_idx ON tournaments.league_people(league_id,user_id) WHERE user_id IS NOT NULL;
+      CREATE INDEX league_people_live_account_idx ON tournaments.league_people(user_id) WHERE user_id IS NOT NULL;
+      CREATE FUNCTION tournaments.snapshot_league_account() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+        SET search_path=pg_catalog,tournaments,pg_temp AS $$
+        BEGIN
+          UPDATE tournaments.league_people SET display_name=OLD.name,register_nickname=OLD.register_nickname
+            WHERE user_id=OLD.id;
+          RETURN OLD;
+        END $$;
+      REVOKE ALL ON FUNCTION tournaments.snapshot_league_account() FROM PUBLIC;
+      CREATE TRIGGER snapshot_league_account BEFORE DELETE ON accounts.users FOR EACH ROW
+        EXECUTE FUNCTION tournaments.snapshot_league_account();
+      -- An account deletion clears the live FK. Retain the original numeric identity from signed game records.
+      CREATE TABLE tournaments.league_person_accounts (
+        league_id INTEGER NOT NULL REFERENCES tournaments.leagues ON DELETE CASCADE,
+        historical_user_id INTEGER NOT NULL,
+        person_id INTEGER NOT NULL,
+        PRIMARY KEY (league_id,historical_user_id),
+        FOREIGN KEY (league_id,person_id) REFERENCES tournaments.league_people(league_id,id) ON DELETE CASCADE
+      );
       CREATE TABLE tournaments.league_person_bindings (
         league_id INTEGER NOT NULL REFERENCES tournaments.leagues ON DELETE CASCADE,
         source_key TEXT NOT NULL,
+        origin_key TEXT NOT NULL,
         tournament_id INTEGER NOT NULL REFERENCES tournaments.tournaments ON DELETE CASCADE,
         person_id INTEGER NOT NULL,
         display_name TEXT NOT NULL,
@@ -52,6 +72,7 @@ module.exports = {
         FOREIGN KEY (league_id,person_id) REFERENCES tournaments.league_people(league_id,id) ON DELETE CASCADE
       );
       CREATE INDEX league_bindings_person_idx ON tournaments.league_person_bindings(league_id,person_id);
+      CREATE INDEX league_bindings_manual_origin_idx ON tournaments.league_person_bindings(league_id,origin_key) WHERE manual;
       CREATE TABLE tournaments.league_place_recipients (
         league_id INTEGER NOT NULL REFERENCES tournaments.leagues ON DELETE CASCADE,
         tournament_id INTEGER NOT NULL,
@@ -66,7 +87,7 @@ module.exports = {
       DO $$ BEGIN
         IF EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='kt_tournaments') THEN
           GRANT SELECT,INSERT,UPDATE,DELETE ON tournaments.leagues,tournaments.league_rules,
-            tournaments.league_tournaments,tournaments.league_people,tournaments.league_person_bindings,
+            tournaments.league_tournaments,tournaments.league_people,tournaments.league_person_accounts,tournaments.league_person_bindings,
             tournaments.league_place_recipients TO kt_tournaments;
           GRANT USAGE,SELECT ON SEQUENCE tournaments.leagues_id_seq,tournaments.league_people_id_seq TO kt_tournaments;
         END IF;

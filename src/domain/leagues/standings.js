@@ -75,4 +75,3 @@ function buildLeagueStandings(contributions, encounters, rule) {
 }
 
 module.exports = { buildLeagueStandings };
-

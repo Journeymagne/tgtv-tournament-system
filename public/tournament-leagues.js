@@ -94,7 +94,7 @@
     formats(formats = []) { return formats.map(format => this.t(format)).join(" · "); }
     eventMeta(event) { return [this.dateLabel(event.date || event.tournamentDate), this.t(event.format)].filter(Boolean).join(" · "); }
     head(title, subtitle, actions = "") {
-      return `<header class="lg-head"><div><h1>${escape(title)}</h1>${subtitle ? `<p>${escape(subtitle)}</p>` : ""}</div>${actions ? `<div class="lg-actions">${actions}</div>` : ""}</header>`;
+      return `<header class="lg-head"><div><h1 tabindex="-1">${escape(title)}</h1>${subtitle ? `<p>${escape(subtitle)}</p>` : ""}</div>${actions ? `<div class="lg-actions">${actions}</div>` : ""}</header>`;
     }
     crumb(last) {
       return `<nav class="lg-crumb" aria-label="${this.tr("Навигация", "Breadcrumb")}">${leagueLink(this.t("leagues"))}${this.league && last ? `<span aria-hidden="true">/</span>${leagueLink(this.league.name, this.slug, this.track)}` : ""}<span aria-hidden="true">/</span><span aria-current="page">${escape(last || this.league?.name)}</span></nav>`;
@@ -103,7 +103,7 @@
       const conflict = error?.status === 409;
       const message = conflict ? this.tr("Лига изменилась с момента загрузки. Откройте текущие данные и повторите изменение.", "This league changed since you opened it. Reload the current data and apply your change again.") :
         (error?.message || this.tr("Не удалось получить данные лиги.", "Could not load league data."));
-      return `<div role="alert" class="lg-notice">${escape(message)} ${action ? button(this.t(conflict ? "reload" : "retry"), conflict ? "reload" : action, value) : ""}</div>`;
+      return `<div role="alert" class="lg-notice">${escape(message)} ${action || conflict ? button(this.t(conflict ? "reload" : "retry"), conflict ? "reload" : action, value) : ""}</div>`;
     }
     issue(issue, events) {
       const eventName = events?.find(e => String(e.id) === String(issue.tournamentId))?.name || issue.tournamentName || (issue.tournamentId ? `#${issue.tournamentId}` : "");
@@ -175,7 +175,8 @@
       if (league.viewer?.canManage) sections.push(["registry", this.t("registry")]);
       return this.crumb() + this.head(league.name, this.formats(league.formats), editor) +
         tabs(sections, this.page, "page", this.t("leagues")) +
-        (this.page === "events" ? this.eventsPanel() : this.trackTabs() + (this.page === "rules" ? this.rulesPanel() : this.standings()));
+        (this.page === "events" ? this.eventsPanel() : this.page === "rules" ?
+          `<div class="lg-stack lg-rule-sections">${tracksFor(league.formats).map(track => this.rulesPanel(track, true)).join("")}</div>` : this.trackTabs() + this.standings());
     }
     trackTabs() {
       const tracks = tracksFor(this.league.formats);
@@ -183,15 +184,20 @@
       return `<nav class="tabs lg-tabs" aria-label="${this.tr("Зачёты лиги", "League tracks")}">${tracks.map(track =>
         `<a class="${tabClass(track === this.track)}" href="${leagueUrl(this.slug, track)}" data-league="${escape(this.slug)}" data-track="${track}"${track === this.track ? ' aria-current="page"' : ""}>${escape(this.trackTitle(track))}</a>`).join("")}</nav>`;
     }
-    rulesPanel() {
-      const rule = this.league.rules[this.track];
+    provisional(track) {
+      return (this.league.events || []).some(e => trackFor(e.format) === track && e.status === "counted" &&
+        (e.issues || []).some(issue => ["guest", "place_recipient"].includes(issue.code)));
+    }
+    rulesPanel(track = this.track, full = false) {
+      const rule = this.league.rules[track];
       const titles = [this.t(rule.primary), ...rule.criteria.map(c => this.criterion(c) + (c.name ?
         ` · ${this.t(c.metric)} · ${c.aggregate === "max" ? this.tr("лучшее за этап", "best stage") : this.tr("сумма", "sum")}` : ""))];
-      return `<section class="lg-panel"><h2>${this.tr("Как считается место", "How ranks are calculated")}</h2>
+      return `<section class="lg-panel"><h2>${full ? this.trackTitle(track) : this.tr("Как считается место", "How ranks are calculated")}</h2>
         <ol class="lg-rules">${titles.map(title => `<li>${escape(title)}</li>`).join("")}</ol>
         ${rule.primary === "place" ? this.scaleDescription(rule.scale) : ""}
         ${rule.sourceName ? `<p class="lg-note">${this.t("source")} · ${escape(rule.sourceName)}</p>` : ""}
-        <p class="lg-note">${this.tr("При полном равенстве участники делят место.", "Ties across all criteria share a rank.")}</p></section>`;
+        <p class="lg-note">${this.tr("При полном равенстве участники делят место.", "Ties across all criteria share a rank.")}</p>
+        ${full && this.provisional(track) ? status(this.tr("Места предварительные до завершения сверки.", "Ranks are provisional until registry and placement review is complete.")) : ""}</section>`;
     }
     scaleDescription(scale) {
       return `<p class="lg-note">${escape(scale.map((value, index) => index === scale.length - 1 ?
@@ -203,14 +209,17 @@
       return `<section class="lg-panel"><div class="lg-section-head"><h2>${this.t("eventsTitle")}</h2>${edit}</div>${events.length ? list(events.map(event => {
         const issues = event.issues || [];
         const warnings = issues.map(issue => `<small>${escape(this.issue(issue))}</small>`).join("");
-        return `<div><strong>${tournamentLink(event.name, event.slug)}</strong><small>${escape(this.eventMeta(event))}</small>${warnings}</div><span class="lg-state lg-${event.status === "counted" ? "counted" : "waiting"}">${escape(this.t(event.status))}</span>`;
+        const counted = event.status === "counted";
+        const contribution = counted && event.appearanceCount != null ? `<small>${this.tr("Выступлений", "Appearances")} · ${this.num(event.appearanceCount)} / ${this.t("points")} · ${this.num(event.points)}</small>` : "";
+        return `<div><strong>${tournamentLink(event.name, event.slug)}</strong><small>${escape(this.eventMeta(event))}</small>${contribution}${warnings}</div>
+          <div class="lg-actions"><span class="lg-state lg-${counted ? "counted" : "waiting"}">${escape(this.t(event.status))}</span>
+          ${this.league.viewer?.canManage && issues.some(i => i.code === "guest" || i.code === "place_recipient") ? button(this.t("registry"), "page", "registry") : ""}</div>`;
       })) : status(this.tr("К лиге пока не привязаны турниры.", "No tournaments are linked to this league."))}</section>`;
     }
     standings() {
       const solo = this.track === "solo";
       const counted = (this.league.events || []).filter(e => trackFor(e.format) === this.track && e.status === "counted");
-      const provisional = this.rows.some(row => row.identityStatus === "guest") ||
-        counted.some(event => (event.issues || []).some(issue => ["guest", "place_recipient"].includes(issue.code)));
+      const provisional = this.rows.some(row => row.identityStatus === "guest") || this.provisional(this.track);
       return `<div class="lg-split"><section class="lg-panel lg-board"><header><h2>${this.trackTitle(this.track)}</h2>
         <p class="lg-note">${solo ? this.tr("Игроков", "Players") : this.tr("Организаций", "Organizations")} · ${this.num(this.rows.length)} &nbsp; ${this.tr("Учтено турниров", "Counted tournaments")} · ${this.num(counted.length)}</p></header>
         ${provisional ? `<div class="lg-notice">${this.tr("Места предварительные. Есть участники или награды, ожидающие сверки.", "Standings are provisional while participants or placement awards await review.")} ${this.league.viewer?.canManage ? button(this.t("registry"), "page", "registry", {className: "lg-text-button"}) : ""}</div>` : ""}

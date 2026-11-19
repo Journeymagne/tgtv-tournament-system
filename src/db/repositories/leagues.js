@@ -23,14 +23,16 @@ async function find(client, key, {slug=false,lock=false}={}) {
 }
 
 async function config(client,id) {
-  const {rows} = await client.query(`SELECT track,primary_points,scale,criteria,source_snapshot
-    FROM league_rules WHERE league_id=$1`,[id]);
+  const {rows} = await client.query(`SELECT r.track,r.primary_points,r.scale,r.criteria,r.source_snapshot,
+    t.id IS NOT NULL AS source_visible FROM league_rules r LEFT JOIN tournaments t
+      ON t.id=(r.source_snapshot->>'sourceTournamentId')::int AND t.status=ANY($2)
+    WHERE r.league_id=$1`,[id,PUBLISHED_STATUSES]);
   const rules = Object.fromEntries(rows.map(row => [row.track,{
     primary:row.primary_points,scale:row.scale.map(Number),criteria:row.criteria,...row.source_snapshot
   }]));
   const links = await client.query(`SELECT t.id FROM league_tournaments lt JOIN tournaments t ON t.id=lt.tournament_id
     WHERE lt.league_id=$1 AND t.status=ANY($2) ORDER BY t.id`,[id,PUBLISHED_STATUSES]);
-  return {rules,tournamentIds:links.rows.map(row=>row.id)};
+  return {rules,tournamentIds:links.rows.map(row=>row.id),hiddenRuleSources:rows.filter(r=>r.source_snapshot && !r.source_visible).map(r=>r.source_snapshot.sourceTournamentId)};
 }
 
 async function availableSources(client,{ids=null,q='',lock=false}={}) {

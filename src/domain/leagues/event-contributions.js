@@ -50,4 +50,3 @@ function buildEventContributions(bundle, bindings = {}, rule = {}) {
 }
 
 module.exports = { buildEventContributions };
-

@@ -96,6 +96,28 @@ test('config is atomic, publication visibility and league ownership apply to all
   assert.deepEqual((await repo.forTournament(pool,event.id)).map(l=>l.slug),[second.slug]);
 });
 
+test('copied rules retain their effective order and hide an unpublished source; a corrected archive rejoins automatically',async()=>{
+  const template=await cup('template'),stage=await cup('archive'),good=await cup('full-results');
+  await tournaments.update(pool,template.id,{tiebreakerOrder:['total_vp']});
+  const old=await seat(stage,'Unresolved archive'),known=await seat(good,'Known winner',viewer.id);
+  await publish(stage,[{participantId:old.id,rank:1,matchPoints:3}]);
+  await publish(good,[{participantId:known.id,rank:1,matchPoints:3,totalVp:12}]);
+  const draft={name:'Imported',formats:['solo'],tournamentIds:[stage.id,good.id],rules:{solo:{importTournamentId:template.id}}};
+  const preview=await call('preview',{body:draft});
+  assert.ok(preview.issues.some(i=>i.code==='missing_data' && i.tournamentId===stage.id && i.field==='total_vp'));
+  const l=(await call('save',{body:draft})).league;
+  assert.equal(l.events.find(e=>e.id===stage.id).status,'needs_data');
+  assert.deepEqual((await ranking(l)).rows.map(r=>r.points),[3]);
+  await tournaments.update(pool,template.id,{tiebreakerOrder:[],status:'draft'});
+  const detail=async()=>(await call('detail',{user:null,params:{slug:l.slug}})).league;
+  assert.deepEqual((await detail()).rules.solo.criteria.map(c=>c.metric),['total_vp']);
+  assert.equal((await detail()).rules.solo.sourceName,undefined);
+  await publish(stage,[{participantId:old.id,rank:1,matchPoints:3,totalVp:20}]);
+  await tx(client=>repo.syncTournamentIdentities(client,stage.id));
+  assert.equal((await detail()).events.find(e=>e.id===stage.id).status,'counted');
+  assert.deepEqual((await ranking(l)).rows.map(r=>r.criteriaValues),[[20],[12]]);
+});
+
 test('registry cards survive renames, account deletion, republication, and claiming two guest appearances',async()=>{
   const rook=await person('Rook account',{registerNickname:'Rook'});
   const other=await person('Registry account',{registerNickname:'Rook'});
@@ -126,7 +148,6 @@ test('registry cards survive renames, account deletion, republication, and claim
   assert.equal((await pending(league)).bindings.length,0);
   await users.updateProfile(pool,rook.id,{registerNickname:'Rook II'});
   assert.equal((await ranking(league)).rows.find(row=>row.subjectKey===leader.subjectKey).name,'Rook II');
-  await tx(client=>repo.syncTournamentIdentities(client,a.id));
   await pool.query('DELETE FROM accounts.users WHERE id=$1',[rook.id]);
   const orphan=(await ranking(league)).rows.find(row=>row.subjectKey===leader.subjectKey);
   assert.equal(orphan.name,'Rook II');
@@ -139,6 +160,31 @@ test('registry cards survive renames, account deletion, republication, and claim
     assert.equal((await ranking(league)).rows.find(row=>row.subjectKey===leader.subjectKey).points,16);
     assert.deepEqual(await counts(),stable);
   }
+});
+
+test('attaching one official game to two leagues preserves its single personal Challenge credit',async()=>{
+  const t=await cup('challenge-stage');
+  const a=await seat(t,'Winner',viewer.id),b=await seat(t,'Opponent',neighbor.id);
+  const {rows:[round]}=await pool.query("INSERT INTO tournament_rounds(tournament_id,round_number,status) VALUES($1,1,'completed') RETURNING id",[t.id]);
+  const {rows:[match]}=await pool.query(`INSERT INTO tournament_matches(tournament_id,round_id,round_number,status,participant_a_id,participant_b_id)
+    VALUES($1,$2,1,'not_ready',$3,$4) RETURNING id`,[t.id,round.id,a.id,b.id]);
+  const games=require('../../src/db/repositories/games');
+  const game=await games.insert(pool,{playerIds:[viewer.id,neighbor.id],sourceType:'tournament_match',sourceId:match.id,
+    participants:[a,b].map(p=>({userId:p.userId,resultKey:p.userId,tournamentParticipantId:p.id,displayNameSnapshot:p.displayName}))});
+  const faction=require('../../src/domain/kill-teams').ALL_KILL_TEAM_TRACK[0];
+  await games.saveFinalResult(pool,game.id,{result:{winnerId:viewer.id,scores:{
+    [viewer.id]:{faction,total:10},[neighbor.id]:{faction:'Kommandos',total:4}}},elo:{}});
+  await pool.query("UPDATE tournament_matches SET game_id=$2,status='completed',winner_participant_id=$3 WHERE id=$1",[match.id,game.id,a.id]);
+  await publish(t,[{participantId:a.id,rank:1,matchPoints:3},{participantId:b.id,rank:2,matchPoints:0}]);
+  const challenge=async()=>(await require('../../src/api/users').challengeProgress({client:pool,user:viewer,query:new URLSearchParams()})).users[0].tracks.allKillTeam;
+  const before=await challenge();
+  assert.equal(before.completedCount,1);
+  assert.equal(before.completed[0].gameId,game.id);
+  const first=await make('League one',[t.id]),second=await make('League two',[t.id]);
+  await tx(client=>repo.syncTournamentIdentities(client,t.id));
+  assert.equal((await ranking(first)).rows.length,2);
+  assert.equal((await ranking(second)).rows.find(r=>r.points===0).eventCount,1);
+  assert.deepEqual(await challenge(),before);
 });
 
 test('an unresolved split slot reserves one place, changing the recipient moves exactly that award',async()=>{

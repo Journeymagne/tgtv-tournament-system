@@ -40,7 +40,14 @@ function checkRevision(league,revision) {
 }
 
 function publicLeague(league,user) {
-  const {ownerUserId,...fields}=league;
+  const {ownerUserId,hiddenRuleSources=[],...fields}=league;
+  if (fields.rules && hiddenRuleSources.length) {
+    fields.rules=Object.fromEntries(Object.entries(fields.rules).map(([track,r])=>{
+      if (!hiddenRuleSources.includes(r.sourceTournamentId)) return [track,r];
+      const {sourceTournamentId,sourceName,sourceVersion,...visible}=r;
+      return [track,visible];
+    }));
+  }
   return {...fields,viewer:{canManage:canManageLeague(user,league)}};
 }
 
@@ -68,6 +75,15 @@ function calculate(bundles,bindings,rules,formats) {
   for (const track of TRACKS) {
     const section=facts.filter(f=>f.track===track);
     standings[track]=buildLeagueStandings(section.flatMap(f=>f.contributions),section.flatMap(f=>f.encounters),rules[track] || {});
+  }
+  const byEvent=new Map(events.map(e=>[e.id,e]));
+  for (const e of events) { e.points=0; e.appearanceCount=0; }
+  for (const row of Object.values(standings).flat()) {
+    for (const appearance of row.history) {
+      const event=byEvent.get(appearance.tournamentId);
+      event.points+=appearance.points;
+      event.appearanceCount++;
+    }
   }
   return {facts,events,standings};
 }
@@ -197,6 +213,7 @@ function rankChanges(before,after) {
 
 async function configure(ctx,save) {
   const {client,body,params}=ctx;
+  if (!body || typeof body!=='object' || Array.isArray(body)) throw new HttpError(400,'Invalid league settings');
   const access=await requireLeagueAccess(client,ctx.user,params.leagueId);
   const current=access.league ? {...access.league,...await repo.config(client,access.league.id)} : null;
   checkRevision(current,body.revision);
@@ -216,7 +233,7 @@ async function configure(ctx,save) {
     const before=current ? (await load(client,current)).standings : {solo:[],org:[]};
     return response({
       valid:issues.length===0,issues:[...issues,...computed.events.flatMap(e=>e.issues)],
-      league:{...publicLeague(current || {ownerUserId:access.user.id},access.user),...draft,events:computed.events},
+      league:publicLeague({...current,ownerUserId:current?.ownerUserId ?? access.user.id,...draft,events:computed.events},access.user),
       standings:Object.fromEntries(TRACKS.map(track=>[track,computed.standings[track].map(rowSummary)])),
       changes:Object.fromEntries(TRACKS.map(track=>[track,rankChanges(before[track],computed.standings[track])]))
     });
@@ -236,6 +253,7 @@ async function configure(ctx,save) {
 
 async function identityWork(ctx,lock=false) {
   const {league,user}=await requireLeagueAccess(ctx.client,ctx.user,ctx.params.leagueId,{lock});
+  if (lock && (!ctx.body || typeof ctx.body!=='object' || Array.isArray(ctx.body))) throw new HttpError(400,'Invalid league decision');
   if (lock) checkRevision(league,ctx.body.revision);
   const data=await load(ctx.client,league);
   const {bindings}=data;
@@ -250,7 +268,7 @@ async function identityWork(ctx,lock=false) {
     appearanceKeys:appearanceKeys.get(active.get(b.sourceKey))}));
   // Evaluate the slot without any award decisions to enumerate precisely the players who actually shared it.
   const places=[];
-  for (const bundle of data.bundles.filter(b=>trackOf(b.tournament)==='solo')) {
+  for (const bundle of data.bundles.filter(b=>data.league.rules.solo?.primary==='place' && trackOf(b.tournament)==='solo')) {
     const view=buildEventContributions(bundle,{...bindings,recipients:new Map()},{...data.league.rules.solo,primary:'place'});
     for (const issue of view.issues.filter(i=>i.code==='place_recipient')) {
       const candidates=issue.candidateKeys.flatMap(key=>{
@@ -268,7 +286,14 @@ async function identityWork(ctx,lock=false) {
 async function bindings(ctx) {
   const {league,sources,places}=await identityWork(ctx);
   const all=ctx.query.get('status')==='all',selected=ctx.query.get('sourceKey');
-  const entries=sources.filter(s=>(!selected || s.sourceKey===selected) && (selected || all || !s.person.confirmed));
+  const seen=new Set();
+  const entries=sources.filter(s=>{
+    if ((selected && s.sourceKey!==selected) || (!selected && !all && s.person.confirmed)) return false;
+    const key=s.personId+':'+s.appearanceKeys[0];
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   if (selected && !entries.length) throw new HttpError(404,'League source not found');
   const q=ctx.query.get('q') ?? (selected?entries[0].name:'');
   return response({revision:league.revision,bindings:entries.map(({manual,person,appearanceKeys,...s})=>({...s,userId:person.userId,

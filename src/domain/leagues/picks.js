@@ -46,4 +46,3 @@ function playedOrDeclared(played, factions) {
 }
 
 module.exports = { leaguePick, uniquePicks, playedOrDeclared };
-

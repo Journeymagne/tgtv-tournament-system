@@ -15,6 +15,8 @@ async function state(client,leagueId,tournamentIds) {
     people.set(p.id,p);
     if (p.userId) byUser.set(p.userId,p);
   }
+  const aliases=await client.query('SELECT historical_user_id,person_id FROM league_person_accounts WHERE league_id=$1',[leagueId]);
+  for (const a of aliases.rows) byUser.set(a.historical_user_id,people.get(a.person_id));
   const {rows:bindings}=await client.query(`SELECT source_key AS "sourceKey",person_id AS "personId",
     tournament_id AS "tournamentId",display_name AS name,manual FROM league_person_bindings
     WHERE league_id=$1 AND tournament_id=ANY($2) ORDER BY tournament_id,source_key`,[leagueId,tournamentIds]);
@@ -52,17 +54,36 @@ async function sync(client,leagueId,bundles) {
     INSERT INTO league_people(league_id,origin_key,display_name,register_nickname,verified)
     SELECT DISTINCT ON (s.origin) $1::int,s.origin,s."displayName",s."registerNickname",s."userId" IS NOT NULL
     FROM src s WHERE live_user_id IS NULL AND NOT EXISTS
-      (SELECT 1 FROM league_person_bindings b WHERE b.league_id=$1 AND b.source_key=s."sourceKey")
+      (SELECT 1 FROM league_person_accounts a WHERE a.league_id=$1 AND a.historical_user_id=s."userId")
+      AND NOT EXISTS (SELECT 1 FROM league_person_bindings b JOIN league_people p ON p.id=b.person_id
+        WHERE b.league_id=$1 AND b.source_key=s."sourceKey" AND (b.manual OR b.origin_key=s.origin
+          OR (s."userId" IS NULL AND p.user_id IS NULL AND EXISTS
+            (SELECT 1 FROM league_person_accounts a WHERE a.league_id=$1 AND a.person_id=p.id))))
     ORDER BY s.origin,s."sourceKey" ON CONFLICT (league_id,origin_key) DO NOTHING`,data);
   await client.query(`WITH src AS (${INPUT})
-    INSERT INTO league_person_bindings(league_id,source_key,tournament_id,person_id,display_name)
-    SELECT $1,s."sourceKey",s."tournamentId",COALESCE(account.id,old.person_id,guest.merged_into_id,guest.id),s."displayName"
+    INSERT INTO league_person_accounts(league_id,historical_user_id,person_id)
+    SELECT DISTINCT $1::int,s."userId",COALESCE(account.id,guest.merged_into_id,guest.id)
     FROM src s LEFT JOIN league_people account ON account.league_id=$1 AND account.user_id=s.live_user_id
-    LEFT JOIN league_person_bindings old ON old.league_id=$1 AND old.source_key=s."sourceKey"
     LEFT JOIN league_people guest ON guest.league_id=$1 AND guest.origin_key=s.origin
-    ON CONFLICT (league_id,source_key) DO UPDATE SET display_name=EXCLUDED.display_name,
+    WHERE s."userId" IS NOT NULL AND COALESCE(account.id,guest.id) IS NOT NULL
+    ON CONFLICT (league_id,historical_user_id) DO NOTHING`,data);
+  await client.query(`WITH src AS (${INPUT})
+    INSERT INTO league_person_bindings(league_id,source_key,origin_key,tournament_id,person_id,display_name)
+    SELECT $1,s."sourceKey",s.origin,s."tournamentId",COALESCE(a.person_id,
+      CASE WHEN old.manual OR old.origin_key=s.origin OR
+        (s."userId" IS NULL AND prior.user_id IS NULL AND EXISTS
+          (SELECT 1 FROM league_person_accounts alias WHERE alias.league_id=$1 AND alias.person_id=prior.id)) THEN old.person_id END,
+      correction.person_id,guest.merged_into_id,guest.id),s."displayName"
+    FROM src s LEFT JOIN league_person_accounts a ON a.league_id=$1 AND a.historical_user_id=s."userId"
+    LEFT JOIN league_person_bindings old ON old.league_id=$1 AND old.source_key=s."sourceKey"
+    LEFT JOIN league_people prior ON prior.id=old.person_id
+    LEFT JOIN league_people guest ON guest.league_id=$1 AND guest.origin_key=s.origin
+    LEFT JOIN LATERAL (SELECT min(b.person_id) AS person_id FROM league_person_bindings b
+      WHERE b.league_id=$1 AND b.origin_key=s.origin AND b.manual AND s."userId" IS NULL
+      HAVING count(DISTINCT b.person_id)=1) correction ON TRUE
+    ON CONFLICT (league_id,source_key) DO UPDATE SET display_name=EXCLUDED.display_name,origin_key=EXCLUDED.origin_key,
       person_id=CASE WHEN league_person_bindings.manual THEN league_person_bindings.person_id ELSE EXCLUDED.person_id END
-    WHERE league_person_bindings.display_name IS DISTINCT FROM EXCLUDED.display_name
+    WHERE (league_person_bindings.display_name,league_person_bindings.origin_key) IS DISTINCT FROM (EXCLUDED.display_name,EXCLUDED.origin_key)
       OR (NOT league_person_bindings.manual AND league_person_bindings.person_id<>EXCLUDED.person_id)`,data);
 }
 
@@ -123,11 +144,16 @@ async function bind(client,leagueId,source,body,user) {
     }
   }
   if (!target) throw new HttpError(404,'Registry card not found in this league');
+  if (body.userId!=null) {
+    await client.query(`INSERT INTO league_person_accounts(league_id,historical_user_id,person_id) VALUES($1,$2,$3)
+      ON CONFLICT (league_id,historical_user_id) DO NOTHING`,[leagueId,body.userId,target.id]);
+  }
   // A claim explicitly moves the card's complete history. An ordinary correction changes only the selected performance.
   const changed=await client.query(`UPDATE league_person_bindings SET person_id=$3,manual=TRUE,confirmed_by=$4,confirmed_at=now()
     WHERE league_id=$1 AND person_id=$6 AND (source_key=ANY($2::text[]) OR $5) AND (person_id<>$3 OR NOT manual)
     RETURNING source_key`,[leagueId,source.appearanceKeys,target.id,user.id,wantClaim,current.id]);
   if (wantClaim && current.id!==target.id) {
+    await client.query('UPDATE league_person_accounts SET person_id=$3 WHERE league_id=$1 AND person_id=$2',[leagueId,current.id,target.id]);
     await client.query('UPDATE league_people SET merged_into_id=$3 WHERE league_id=$1 AND (id=$2 OR merged_into_id=$2)',
       [leagueId,current.id,target.id]);
     await client.query('UPDATE league_place_recipients SET person_id=$3,confirmed_by=$4,confirmed_at=now() WHERE league_id=$1 AND person_id=$2',

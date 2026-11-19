@@ -105,6 +105,21 @@ test("shared solo slot awards match points and actual opponents to each player a
     [["Two", 10, 1], ["One", 0, 1]]);
 });
 
+test("a deleted account retains official points even when the archive contains only one of its three matches", () => {
+  const bundle = solo(18, [[10, null, "Archived player", 1, 6, 30, 3], [20, 200, "Opponent", 2, 3, 28, 6]]);
+  Object.assign(bundle.tournament, { format: "swiss", swissRoundCount: 3 });
+  const match = soloGame(77, 10, 20, 10, 12, 8);
+  match.recorded = [{ participantId: 10, userId: null, resultKey: 101, displayName: "Archived player", isProxy: false }];
+  bundle.matches = [match];
+  const beforeDeletion = { id: 5, userId: null, registerNickname: "Original" };
+  const bindings = { bySource: new Map([["18:match:77:a", beforeDeletion]]) };
+  const event = buildEventContributions(bundle, bindings);
+  assert.equal(event.status, "counted");
+  const row = event.contributions.find(source => source.participantId === 10);
+  assert.deepEqual([row.subjectKey, row.name, row.rawTp], ["person:5", "Original", 6]);
+  assert.equal(event.identities.find(source => source.participantId === 10).userId, 101);
+});
+
 test("same-key proxies stay distinct after substitution, and correction reunites exactly their own matches", () => {
   const bundle = solo(9, [[10, null, "Proxy", 1, 6, 20, 0], [20, 200, "Opponent", 2, 0, 5, 6]]);
   bundle.replacedParticipantIds = [10];
@@ -169,5 +184,3 @@ test("legacy recovery uses format scoring, exact WTC opponent average and histor
   delete teamMatches[0].games[0].game.result.scores[17].tac;
   assert.equal(buildEventContributions({ tournament, rosters, teamMatches }, {}, rule).status, "needs_data");
 });
-
-

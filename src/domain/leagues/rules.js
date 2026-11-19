@@ -68,4 +68,3 @@ function validateLeagueRules(rule = {}, sources = []) {
 }
 
 module.exports = { DEFAULT_SCALE, METRICS, leagueFormat, supportedMetrics, supportedTrackMetrics, resolveTournamentOrder, validateLeagueRules };
-

@@ -46,6 +46,7 @@ function soloContributions(bundle, bindings, rule, output, base) {
   const slots = new Map(participants.map(p => [p.id, p]));
   const played = new Map(participants.map(p => [p.id, []]));
   const ambiguous = new Set(bundle.replacedParticipantIds || []);
+  const firstOccupant = new Map();
   const games = [];
   for (const match of matches.filter(match => match.status === "completed")) {
     const entries = [];
@@ -54,9 +55,14 @@ function soloContributions(bundle, bindings, rule, output, base) {
       const participant = slots.get(participantId);
       const side = actualSide(match, participant);
       if (!side) continue;
-      if (side.userId !== participant.userId || (!side.userId && side.displayName !== participant.displayName)) {
+      // Account deletion clears the seat FK but leaves positive recorded game
+      // keys. A vacant FK alone is not evidence that another person played.
+      const knownSeatConflict = (participant.userId != null || participant.isProxy) && side.userId !== participant.userId;
+      const differentPlayers = firstOccupant.has(participantId) && firstOccupant.get(participantId) !== side.userId;
+      if (knownSeatConflict || differentPlayers || (!side.userId && side.displayName !== participant.displayName)) {
         ambiguous.add(participantId);
       }
+      if (!firstOccupant.has(participantId)) firstOccupant.set(participantId, side.userId);
       const score = match.result ? participantScore(match.result, side) : {};
       const entry = { match, label, side, slot: participantId, score };
       entries.push(entry);
@@ -173,4 +179,3 @@ function soloContributions(bundle, bindings, rule, output, base) {
 }
 
 module.exports = { soloContributions };
-

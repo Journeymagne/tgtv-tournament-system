@@ -104,4 +104,3 @@ async function loadLeagueEvents(client, tournamentIds) {
 }
 
 module.exports = { loadLeagueEvents };
-

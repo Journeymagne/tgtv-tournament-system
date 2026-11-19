@@ -116,4 +116,3 @@ function teamContributions(bundle, output, base) {
 }
 
 module.exports = { teamContributions };
-
