@@ -123,7 +123,8 @@ const MIGRATIONS = [
   require("./migrations/123_leagues"),
   require("./migrations/124_leagues_release_notes"),
   require("./migrations/125_tierlist_seasons"),
-  require("./migrations/126_tierlist_season_label_release_notes")
+  require("./migrations/126_tierlist_season_label_release_notes"),
+  require("./migrations/127_tierlist_drag_jpeg_release_notes")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

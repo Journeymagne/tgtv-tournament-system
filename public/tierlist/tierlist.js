@@ -1,3 +1,6 @@
+import { bindTierlistDrag } from './drag.js?v=1.8.3';
+import { createTierlistJpeg } from './jpeg.js?v=1.8.3';
+
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -9,12 +12,14 @@
     retry: ['Повторить', 'Retry'], settings: ['Настройки тирлиста', 'Tier list settings'], titleLabel: ['Название', 'Title'], titlePlaceholder: ['Мой тирлист', 'My tier list'],
     seasonLabel: ['Сезон оценки', 'Ranking season'], save: ['Сохранить', 'Save'], saveCopy: ['Сохранить копию', 'Save a copy'], undo: ['Отменить ход', 'Undo move'],
     reset: ['Вернуть вниз', 'Return all to pool'], export: ['Экспорт JSON', 'Export JSON'], import: ['Импорт JSON', 'Import JSON'], pictureSize: ['Размер', 'Size'],
+    exportJpeg: ['Скачать JPEG', 'Download JPEG'], creatingJpeg: ['Подготовка JPEG…', 'Preparing JPEG…'],
+    jpegError: ['Не удалось создать JPEG. Попробуйте ещё раз.', 'Could not create the JPEG. Try again.'],
     showNames: ['Названия', 'Names'], recordMode: ['Для записи', 'Recording view'], exitRecording: ['Вернуть управление', 'Show controls'],
     tiers: ['Тиры команд', 'Team tiers'], pool: ['Для распределения', 'Unranked'], searchLabel: ['Найти команду', 'Find a team'], searchPlaceholder: ['Найти команду…', 'Find a team…'],
     shufflePool: ['Перемешать', 'Shuffle'], shufflePoolLabel: ['Перемешать команды в пуле', 'Shuffle unranked teams'],
     poolShuffled: ['Команды в пуле перемешаны.', 'Unranked teams shuffled.'],
     noResults: ['По этому запросу команд нет.', 'No teams match this search.'],
-    help: ['Перетащите фигурку или выберите её и нажмите букву тира. S / A / B / C / F — переместить, 0 — вернуть вниз, Esc — снять выбор. Ctrl+Z — отменить.', 'Drag a miniature, or select it and choose a tier. S / A / B / C / F — move, 0 — return to pool, Esc — clear selection. Ctrl+Z — undo.'],
+    help: ['Перетащите команду в тир или обратно в пул. На сенсорном экране удержите фигурку и перетащите. Нажмите на команду, чтобы открыть статистику. Ctrl+Z отменяет ход.', 'Drag a team into a tier or back to the pool. On a touch screen, hold the miniature and drag. Select a team to see its statistics. Ctrl+Z undoes a move.'],
     restoreGuest: ['Открыть гостевой черновик', 'Open guest draft'], filterSeason: ['Фильтр по сезону', 'Filter by season'], allSeasons: ['Все сезоны', 'All seasons'],
     refresh: ['Обновить', 'Refresh'], close: ['Закрыть', 'Close'], cancel: ['Отмена', 'Cancel'], continue: ['Продолжить', 'Continue'], delete: ['Удалить', 'Delete'],
     guest: ['Можно распределять команды без входа. Войдите в KT Companion, чтобы сохранить тирлист в профиле.', 'You can rank teams without signing in. Sign in to KT Companion to save this tier list to your profile.'],
@@ -22,8 +27,8 @@
     loginSave: ['Войти и сохранить', 'Sign in to save'], unsaved: ['Есть изменения', 'Unsaved changes'], draft: ['Черновик', 'Draft'],
     saving: ['Сохранение…', 'Saving…'], saved: ['Сохранено в профиле', 'Saved to profile'], browserDraft: ['Черновик автоматически сохраняется в этом браузере. Для переноса используйте JSON.', 'Your draft is saved automatically in this browser. Use JSON to transfer it.'],
     scopedDraft: ['Черновик в этом браузере относится только к вашему аккаунту. Сохраните его в профиль для доступа с других устройств.', 'This browser draft belongs to your account only. Save it to your profile to access it on other devices.'],
-    allRanked: ['Все команды распределены', 'All teams are ranked'], selected: ['Выбрана: {name}. Нажмите букву тира или свободное место в ряду.', 'Selected: {name}. Choose a tier label or an empty row.'],
-    tierLabel: ['Тир {rank}', 'Tier {rank}'], moveHint: ['Переместить выбранную команду в тир {rank}', 'Move selected team to tier {rank}'],
+    allRanked: ['Все команды распределены', 'All teams are ranked'], selected: ['Выбрана команда «{name}».', '{name} selected.'],
+    tierLabel: ['Тир {rank}', 'Tier {rank}'],
     laneHint: ['Перетащите команду сюда', 'Drop a team here'], noSaved: ['В этом сезоне сохранённых тирлистов пока нет.', 'No tier lists saved for this season yet.'],
     listLoading: ['Загрузка ваших тирлистов…', 'Loading your tier lists…'], listCount: ['Сохранено: {count}', 'Saved: {count}'],
     authLists: ['Чтобы открыть свои тирлисты, войдите в KT Companion.', 'Sign in to KT Companion to open your tier lists.'],
@@ -66,7 +71,7 @@
     return value;
   }
   const state = { teams: [], teamsById: new Map(), seasons: [], currentSeasonId: '', user: null, authVerified: false,
-    record: null, baseline: '', history: [], selected: null, dragging: null, busy: false, booted: false,
+    record: null, baseline: '', history: [], selected: null, busy: false, booted: false,
     csrf: '', savedLists: [], accountGeneration: 0, requestSerial: 0, lastIdentityCheck: 0 };
   const draftKey = user => 'kt-tierlist-draft-v1:' + (user?.id ?? 'guest');
   const preferencesKey = 'kt-tierlist-view-v1';
@@ -218,29 +223,12 @@
   function buildBoard() {
     $('board').replaceChildren();
     for (const rank of ranks) {
-      const row = document.createElement('div'); row.className = 'tl-tier';
-      const button = document.createElement('button'); button.type = 'button'; button.className = 'tl-rank'; button.dataset.rank = rank;
-      button.textContent = rank; button.setAttribute('aria-label', t('moveHint', { rank })); button.addEventListener('click', () => move(state.selected, rank));
-      const lane = document.createElement('div'); lane.className = 'tl-lane'; lane.dataset.zone = rank; lane.id = 'tier-' + rank; lane.tabIndex = 0;
+      const row = document.createElement('div'); row.className = 'tl-tier'; row.dataset.zone = rank;
+      const label = document.createElement('span'); label.className = 'tl-rank'; label.dataset.rank = rank;
+      label.textContent = rank; label.setAttribute('aria-hidden', 'true');
+      const lane = document.createElement('div'); lane.className = 'tl-lane'; lane.id = 'tier-' + rank;
       lane.setAttribute('role', 'group'); lane.setAttribute('aria-label', t('tierLabel', { rank }));
-      row.append(button, lane); $('board').append(row);
-    }
-    for (const lane of document.querySelectorAll('.tl-lane')) {
-      lane.addEventListener('click', event => { if (!event.target.closest('.tl-card')) move(state.selected, lane.dataset.zone); });
-      lane.addEventListener('keydown', event => {
-        if ((event.key === 'Enter' || event.key === ' ') && event.target === lane && state.selected) { event.preventDefault(); move(state.selected, lane.dataset.zone); }
-      });
-      lane.addEventListener('dragover', event => {
-        if (state.busy || !state.dragging) return;
-        event.preventDefault(); event.dataTransfer.dropEffect = 'move'; lane.classList.add('drag-over');
-      });
-      lane.addEventListener('dragleave', event => { if (!lane.contains(event.relatedTarget)) lane.classList.remove('drag-over'); });
-      lane.addEventListener('drop', event => {
-        event.preventDefault(); lane.classList.remove('drag-over');
-        if (!state.dragging) return;
-        const target = event.target.closest('.tl-card');
-        move(state.dragging, lane.dataset.zone, target?.dataset.id || null); state.dragging = null; document.body.classList.remove('tl-card-dragging');
-      });
+      row.append(label, lane); $('board').append(row);
     }
   }
   function select(id) {
@@ -480,11 +468,6 @@
         const caption = document.createElement('span'); caption.className = 'tl-card-name'; caption.textContent = team.name;
         button.append(image, caption);
         button.addEventListener('click', () => select(id));
-        button.addEventListener('dragstart', event => {
-          if (state.busy) { event.preventDefault(); return; }
-          state.dragging = id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', id); button.classList.add('dragging'); document.body.classList.add('tl-card-dragging');
-        });
-        button.addEventListener('dragend', () => { state.dragging = null; document.body.classList.remove('tl-card-dragging'); document.querySelectorAll('.drag-over,.dragging').forEach(el => el.classList.remove('drag-over', 'dragging')); });
         lane.append(button);
       }
     }
@@ -583,7 +566,6 @@
     document.querySelectorAll('[data-aria-copy]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.ariaCopy)); });
     document.title = (locale() === 'en' ? 'Kill Team tier lists' : 'Тирлисты Kill Team') + ' — KT Companion';
     fillSeasonSelects();
-    document.querySelectorAll('.tl-rank').forEach(el => { el.setAttribute('aria-label', t('moveHint', { rank: el.dataset.rank })); });
     ranks.forEach(rank => $('tier-' + rank)?.setAttribute('aria-label', t('tierLabel', { rank })));
     renderLists(); render(); updateControls();
   }
@@ -640,9 +622,30 @@
   $('shuffle-pool').addEventListener('click', shufflePool);
   $('card-size').addEventListener('input', savePreferences); $('show-names').addEventListener('change', savePreferences);
   $('record-mode').addEventListener('click', () => recording(true)); $('exit-recording').addEventListener('click', () => recording(false));
+  function downloadFile(blob, filename) {
+    const url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url; link.download = filename; document.body.append(link);
+    try { link.click(); }
+    finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000); }
+  }
   $('export-json').addEventListener('click', () => {
-    const a = document.createElement('a'), url = URL.createObjectURL(new Blob([JSON.stringify({ version: 1, title: state.record.title, topic: state.record.title, seasonId: state.record.seasonId, zones: state.record.rows }, null, 2)], { type: 'application/json' }));
-    a.href = url; a.download = 'kill-team-tierlist.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const data = { version: 1, title: state.record.title, topic: state.record.title, seasonId: state.record.seasonId, zones: state.record.rows };
+    downloadFile(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), 'kill-team-tierlist.json');
+  });
+  $('export-jpeg').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    if (button.disabled || !state.record) return;
+    const title = state.record.title.trim();
+    button.disabled = true; button.textContent = t('creatingJpeg');
+    try {
+      const blob = await createTierlistJpeg($('board'), {
+        title: title || t('titlePlaceholder'), season: seasonLabel(state.record.seasonId),
+        cardSize: Number($('card-size').value), showNames: $('show-names').checked
+      });
+      const name = title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').replace(/[. ]+$/, '');
+      downloadFile(blob, name ? 'tierlist-' + name + '.jpg' : 'kill-team-tierlist.jpg');
+    } catch { toast(t('jpegError')); }
+    finally { button.disabled = false; button.textContent = t('exportJpeg'); }
   });
   $('import-json').addEventListener('click', () => { if (!state.busy) $('import-file').click(); });
   $('import-file').addEventListener('change', async event => {
@@ -670,10 +673,6 @@
     }
     if (event.target.closest('input,textarea,select,dialog') || !state.booted) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); $('undo').click(); return; }
-    const key = event.key.toUpperCase();
-    if (!event.ctrlKey && !event.metaKey && !event.altKey && state.selected && (ranks.includes(key) || key === '0')) {
-      event.preventDefault(); move(state.selected, key === '0' ? 'pool' : key);
-    }
   });
   window.addEventListener('beforeunload', event => { persist(); if (isDirty()) { event.preventDefault(); event.returnValue = ''; } });
   window.addEventListener('kt:appearance', appearance);
@@ -703,5 +702,6 @@
     finally { initializing = false; updateControls(); }
   }
   $('retry').addEventListener('click', init);
+  bindTierlistDrag($('workspace'), move);
   void init();
 })();

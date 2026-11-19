@@ -2,6 +2,11 @@
 
 KT Companion release history, newest first.
 
+## 1.8.3 — 20 November 2026
+
+- Drag teams to move them in a tier list. Click a miniature to open its statistics. On a touchscreen, touch and hold the miniature, then drag it to a tier or back to the pool.
+- Download JPEG saves the title, season and all five tiers in one image. The export uses your theme, miniature size and team name settings.
+
 ## 1.8.2 — 19 November 2026
 
 - In tier list statistics, the Season label fits on one line next to the season selector.

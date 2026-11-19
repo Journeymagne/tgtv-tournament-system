@@ -31,6 +31,30 @@ test('tierlist-only teams show unavailable statistics without calling the tourna
   assert.equal(renders, 1);
 });
 
+test('clicking a rank label or an empty lane leaves the selected team in place', () => {
+  function element(tag) {
+    return { tag, dataset: {}, children: [], listeners: {},
+      replaceChildren() { this.children = []; },
+      append(...nodes) { this.children.push(...nodes); },
+      setAttribute() {}, closest() { return null; },
+      addEventListener(type, handler) { this.listeners[type] = handler; }
+    };
+  }
+  const board = element('div'), ranks = ['S', 'A', 'B', 'C', 'F'];
+  const moves = [];
+  const document = { createElement: element, querySelectorAll: () => board.children.map(row => row.children[1]) };
+  loadFunction('buildBoard', { document, ranks, $: () => board, t: key => key,
+    state: { selected: 'angels' }, move: (...args) => moves.push(args) })();
+  for (const row of board.children) {
+    const [label, lane] = row.children;
+    label.listeners.click?.({ target: label });
+    lane.listeners.click?.({ target: lane });
+    lane.listeners.keydown?.({ target: lane, key: 'Enter', preventDefault() {} });
+  }
+  assert.deepEqual(board.children.map(row => row.dataset.zone), ranks);
+  assert.deepEqual(moves, []);
+});
+
 test('shuffling changes the whole unranked pool as one undoable edit', () => {
   const rows = { S: ['ranked'], A: [], B: [], C: [], F: [], pool: ['one', 'two', 'three'] };
   const state = { record: { rows }, busy: false };
