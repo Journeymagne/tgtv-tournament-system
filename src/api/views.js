@@ -275,6 +275,7 @@ function tournamentSummaryView(tournament) {
     // 130 KB base64 blob was being repeated once per match.
     rulesLink: tournamentRulesUrl(tournament),
     rulesLinkType: tournamentRulesType(tournament),
+    chatUrl: tournament.chatUrl || "",
     status: tournament.status,
     format: tournament.format,
     participantMode: tournament.participantMode || "individual",

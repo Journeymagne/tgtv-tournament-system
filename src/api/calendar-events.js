@@ -98,7 +98,7 @@ async function update({client,user,params,body}) {
     delete changes.participantMode;
     if (!Object.hasOwn(body,'teamSize')) delete changes.teamSize;
   }
-  return {event:await repo.update(client,event.id,normalizeCalendarEvent(changes,{allowIncomplete:!!event.autoCreated}))};
+  return {event:await repo.update(client,event,normalizeCalendarEvent(changes,{allowIncomplete:!!event.autoCreated}))};
 }
 
 async function remove({client,user,params}) {

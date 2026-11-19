@@ -6,6 +6,7 @@ const {
   normalizeName,
   profileText,
   requiredProfileText,
+  tournamentChatUrl,
   markdownText,
   requireInteger
 } = require("../validation");
@@ -272,6 +273,7 @@ function normalizeTournamentPatch(body = {}, current = {}) {
   if (Object.prototype.hasOwnProperty.call(body, "venueMode")) {
     patch.venueMode = normalizePolicy(body.venueMode, VENUE_MODES, "tts", "venue");
   }
+  if (Object.hasOwn(body, "chatUrl")) patch.chatUrl = tournamentChatUrl(body.chatUrl);
   if (Object.hasOwn(body, "venueAddress")) {
     patch.venueAddress = optionalTournamentText(body.venueAddress, "Venue address", VENUE_ADDRESS_MAX);
   }
@@ -335,6 +337,7 @@ function normalizeNewTournament(body = {}, ownerUserId, slug) {
     factionCount: patch.factionCount || 1,
     rulesSummary: patch.rulesSummary || "",
     rulesLink: patch.rulesLink || "",
+    chatUrl: patch.chatUrl || "",
     logoData: patch.logoData || null,
     format: patch.format || TOURNAMENT_FORMATS.SINGLE_ELIMINATION,
     participantMode: patch.participantMode || PARTICIPANT_MODES.INDIVIDUAL,

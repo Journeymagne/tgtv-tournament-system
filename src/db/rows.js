@@ -23,7 +23,7 @@ const FEEDBACK_COLUMNS = `
 
 const TOURNAMENT_COLUMNS = `
   id, owner_user_id, provider_id, slug, name, logo_data, description, game_system, starts_at,
-  rules_summary, rules_link, status, format, swiss_round_count,
+  rules_summary, rules_link, chat_url, status, format, swiss_round_count,
   single_elimination_size, tiebreaker_order, pairing_mode, rating_policy,
   challenge_credit_policy, season_id, venue_mode, venue_address, final_results, round_draft,
   participant_mode, team_size, pairing_type, team_tables_locked, registration_limit, captain_pairing_enabled, team_tiebreaker_order,
@@ -34,7 +34,7 @@ const TOURNAMENT_COLUMNS = `
 // Text-only game clients need rules/permissions metadata, not embedded uploads,
 // editorial content or tournament-wide result/draft documents over the wire.
 const COMPACT_TOURNAMENT_COLUMNS = TOURNAMENT_COLUMNS.split(',').map(column => column.trim())
-  .filter(column => column && !['logo_data', 'description', 'rules_summary', 'rules_link', 'final_results', 'round_draft'].includes(column)).join(', ');
+  .filter(column => column && !['logo_data', 'description', 'rules_summary', 'rules_link', 'chat_url', 'final_results', 'round_draft'].includes(column)).join(', ');
 
 const TOURNAMENT_PARTICIPANT_COLUMNS = `
   id, tournament_id, user_id, display_name, display_name_key, faction, factions,
@@ -170,6 +170,7 @@ function mapTournament(row) {
     startsAt: toIso(row.starts_at),
     rulesSummary: row.rules_summary || "",
     rulesLink: row.rules_link || "",
+    chatUrl: row.chat_url || "",
     status: row.status,
     format: row.format,
     swissRoundCount: row.swiss_round_count,

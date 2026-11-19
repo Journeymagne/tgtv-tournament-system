@@ -38,6 +38,7 @@ const FIELD_COLUMNS = {
   factionCount: "faction_count",
   rulesSummary: "rules_summary",
   rulesLink: "rules_link",
+  chatUrl: "chat_url",
   status: "status",
   format: "format",
   swissRoundCount: "swiss_round_count",
@@ -84,8 +85,8 @@ async function insert(client, tournament) {
        (owner_user_id, slug, name, description, game_system, starts_at,
         rules_summary, rules_link, status, format, swiss_round_count,
         single_elimination_size, tiebreaker_order, rating_policy,
-        challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type, logo_data, registration_limit, captain_pairing_enabled, team_tiebreaker_order, faction_count, venue_address, pairing_mode, provider_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23::text[], $24, $25, $26, $27)
+        challenge_credit_policy, season_id, venue_mode, participant_mode, team_size, pairing_type, logo_data, registration_limit, captain_pairing_enabled, team_tiebreaker_order, faction_count, venue_address, pairing_mode, provider_id, chat_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft', $9, $10, $11, $12::text[], $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23::text[], $24, $25, $26, $27, $28)
      RETURNING ${COLUMNS}, ${providerSummarySql('tournaments.provider_id')}`,
     [
       tournament.ownerUserId || null,
@@ -114,7 +115,8 @@ async function insert(client, tournament) {
       tournament.factionCount || 1,
       tournament.venueAddress || "",
       tournament.pairingMode || "backet_random",
-      tournament.providerId ?? null
+      tournament.providerId ?? null,
+      tournament.chatUrl || ""
     ]
   );
   return mapTournament(rows[0]);

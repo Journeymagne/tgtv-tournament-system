@@ -1,3 +1,4 @@
+const { tournamentChatUrl } = require('./validation');
 const { ValidationError } = require('../http/io');
 
 function calendarTimeZone(value) {
@@ -52,23 +53,30 @@ function normalizeCalendarEvent(body, {allowIncomplete=false} = {}) {
   if (fee!==''&&(!/^\d{1,7}(?:\.\d{1,2})?$/.test(fee) || Number(fee) > 1000000)) throw new ValidationError('Entry fee must be between 0 and 1000000 with at most two decimal places');
   const time = body.time === '' || body.time == null ? null : body.time;
   if (time !== null && (typeof time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) throw new ValidationError('Invalid event time');
-  const city = text(body.city, 'City', 80,!allowIncomplete), venue = text(body.venue, 'Venue', 160,!allowIncomplete), address = text(body.address, 'Address', allowIncomplete?500:300, false);
+  const venueMode = body.venueMode ?? 'irl';
+  if (!['irl', 'tts'].includes(venueMode)) throw new ValidationError('Invalid venue mode');
+  const online = venueMode === 'tts';
+  const city = online ? '' : text(body.city, 'City', 80, !allowIncomplete);
+  const venue = online ? '' : text(body.venue, 'Venue', 160, !allowIncomplete);
+  const address = online ? '' : text(body.address, 'Address', allowIncomplete ? 500 : 300, false);
+  const chatUrl = tournamentChatUrl(body.chatUrl);
   if ([city,venue,address].filter(Boolean).join(', ').length > 500) throw new ValidationError('Combined venue address must not exceed 500 characters');
-  return { name: text(body.name, 'Event name', 120,!allowIncomplete), date: localDate(body.date), time, city,venue,address,tournamentType,participantMode,teamSize,swissRoundCount,participantLimit,entryFee:fee===''?null:Number(fee) };
+  return { name: text(body.name, 'Event name', 120,!allowIncomplete), date: localDate(body.date), time, city,venue,address,venueMode,chatUrl,tournamentType,participantMode,teamSize,swissRoundCount,participantLimit,entryFee:fee===''?null:Number(fee) };
 }
 
 function tournamentDefaults(event) {
   const size = event.participantMode==='individual' ? 1 : event.teamSize || (event.tournamentType === 'teams' ? 3 : event.tournamentType === 'pairs' ? 2 : 1);
+  const venueMode = event.venueMode || 'irl';
   return {
-    providerId: event.providerId ?? null, name: event.name, gameSystem: 'Warhammer 40k Kill Team', venueMode: 'irl',
-    venueAddress: [event.city, event.venue, event.address].filter(Boolean).join(', '),
+    providerId: event.providerId ?? null, name: event.name, gameSystem: 'Warhammer 40k Kill Team', venueMode, chatUrl: event.chatUrl || '',
+    venueAddress: venueMode === 'tts' ? '' : [event.city, event.venue, event.address].filter(Boolean).join(', '),
     // A provider may have organizers in several time zones. The repository
     // resolves the announced wall time in the event's saved IANA zone.
     startsAt: event.providerId != null ? event.startsAt : `${event.date}T${event.time || '00:00'}`,
     participantMode: size === 1 ? 'individual' : 'team', format: 'swiss', swissRoundCount: event.swissRoundCount ?? 3,
     ...(size===1 ? {} : {teamSize:size}),
-    pairingType: size === 2 ? 'doubles' : size === 3 ? 'shield_sword' : null,
-    captainPairingEnabled: size === 2 ? false : true,
+    pairingType: size === 2 ? (venueMode === 'tts' ? 'wtc_doubles' : 'doubles') : size === 3 ? 'shield_sword' : null,
+    captainPairingEnabled: size !== 2 || venueMode === 'tts',
     registrationLimit: event.participantLimit==null ? null : Math.floor(event.participantLimit / size)
   };
 }

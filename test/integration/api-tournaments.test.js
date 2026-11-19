@@ -3345,6 +3345,21 @@ test("only a super administrator can move an event and its existing results to a
   assert.ok((await gamesApi.listCompleted({ client })).games.every(game => game.tournament.seasonId === "2026-q2-dataslate"));
 });
 
+test("tournament chat can be created, edited after start, and removed from the public overview", async () => {
+  const chatUrl = "https://example.org/chat";
+  const tournament = await createPublishedTournament({ chatUrl });
+  const params = { id: String(tournament.id) };
+  const overview = async () => (await tournamentsApi.getPublic({ client, params: { slug: tournament.slug }, query: new URLSearchParams() })).tournament;
+  assert.equal((await overview()).chatUrl, chatUrl);
+  await client.query("UPDATE tournaments SET status = 'in_progress' WHERE id = $1", [tournament.id]);
+  const update = value => tournamentsApi.updateAdmin({ client, user: root, params, body: { chatUrl: value } });
+  await assert.rejects(update("data:text/html,chat"), { status: 400 });
+  await update("https://example.org/new-chat");
+  assert.equal((await overview()).chatUrl, "https://example.org/new-chat");
+  await update("");
+  assert.equal((await overview()).chatUrl, "");
+});
+
 test("IRL venue addresses persist in public lists, remain optional and can change after start", async () => {
   const withoutAddress = await createPublishedTournament({ venueMode: "irl", startsAt: "2030-01-01T10:00:00Z" });
   assert.equal(withoutAddress.venueAddress, "");

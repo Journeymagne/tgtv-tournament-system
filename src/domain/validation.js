@@ -99,7 +99,19 @@ function optionalTextInput(value, label, maxLength = 80) {
   return text;
 }
 
+function tournamentChatUrl(value) {
+  if (value == null || value === '') return '';
+  const link = typeof value === 'string' ? value.trim() : '';
+  if (typeof value === 'string' && !link) return '';
+  if (link.length <= 2048 && /^https?:\/\/[^\s\\]+$/i.test(link) && URL.canParse(link)) {
+    const url = new URL(link);
+    if (url.hostname && !url.username && !url.password) return link;
+  }
+  throw new ValidationError('Enter an HTTP or HTTPS tournament chat URL (up to 2048 characters)');
+}
+
 module.exports = {
+  tournamentChatUrl,
   normalizeName,
   requireName,
   profileText,

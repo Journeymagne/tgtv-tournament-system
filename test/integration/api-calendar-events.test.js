@@ -36,6 +36,34 @@ test('manual pending conditions persist, can be filled, and can be cleared witho
   const created=await tx(client=>tournaments.createAdmin({client,user:admin,body:{name:data.name,gameSystem:'Warhammer 40k Kill Team',calendarEventId:id}}));
   assert.equal(created.body.tournament.registrationLimit,null);
 });
+test('online announcements transfer their venue, roster capacity and chat to a tournament', async () => {
+  const chatUrl = 'https://example.org/chat';
+  const event = (await tx(client => calendar.create({client, user: admin, body: {
+    ...data, city: '', venue: '', venueMode: 'tts', tournamentType: 'pairs', participantLimit: 8, chatUrl
+  }}))).body.event;
+  const params = {id: event.id};
+  const {tournamentDefaults} = await calendar.getAdmin({client: pool, user: admin, params});
+  assert.equal(tournamentDefaults.venueMode, 'tts');
+  assert.equal(tournamentDefaults.registrationLimit, 4);
+  assert.equal(tournamentDefaults.chatUrl, chatUrl);
+  const created = await tx(client => tournaments.createAdmin({client, user: admin, body: {
+    ...tournamentDefaults, calendarEventId: event.id
+  }}));
+  assert.equal(created.body.tournament.chatUrl, chatUrl);
+  assert.equal(created.body.tournament.pairingType, 'wtc_doubles');
+  const change = body => tx(async client => {
+    const {event: current} = await calendar.getAdmin({client, user: admin, params});
+    return calendar.update({client, user: admin, params, body: {...body, expectedUpdatedAt: current.updatedAt}});
+  });
+  await assert.rejects(change({venueMode: 'irl'}), {status: 400});
+  await assert.rejects(change({chatUrl: 'javascript:void(0)'}), {status: 400});
+  const physical = (await change({city: 'Moscow', venue: 'Club', venueMode: 'irl', chatUrl: ''})).event;
+  assert.equal(physical.venue, 'Club');
+  assert.equal(physical.chatUrl, '');
+  const online = (await change({venueMode: 'tts'})).event;
+  assert.deepEqual([online.city, online.venue, online.address], ['', '', '']);
+});
+
 test('calendar routes are public to read and require authenticated scoped writes', async () => {
   assert.equal(routes.find(r => r.path === '/api/calendar-events').auth, 'none');
   for (const r of routes.filter(r => r.path.startsWith('/api/admin/calendar-events'))) assert.equal(r.auth, 'user');

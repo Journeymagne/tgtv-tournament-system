@@ -255,7 +255,7 @@
         <div class="row-main">
           <span class="status">${esc(t('calendar.event'))}</span>
           <div class="row-title">${esc(event.name)}</div>
-          <div class="row-meta">${esc([date, event.time, event.city, event.venue].filter(Boolean).join(' · '))}</div>
+          <div class="row-meta">${esc([date, event.time, ...(event.venueMode === 'tts' ? [ctx.t('venue.tts')] : [event.city, event.venue])].filter(Boolean).join(' · '))}</div>
         </div>
         ${routeLink(href, t('common.open'), 'small-button')}
       </article>`;

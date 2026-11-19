@@ -51,9 +51,13 @@
   const esc = value => ctx.escapeHtml(String(value??''));
   const fmt = (value, options) => new Intl.DateTimeFormat(ctx.locale(),options).format(parseDate(value));
   const fee = event => event.entryFee==null ? tr('feePending') : Number(event.entryFee) === 0 ? tr('free') : new Intl.NumberFormat(ctx.locale(),{ style:'currency',currency:'RUB',maximumFractionDigits:2 }).format(event.entryFee);
-  const capacity = event => event.participantLimit==null ? tr('capacityPending') : tr('players',{count:event.participantLimit});
+  function capacity(event) {
+    if (event.participantLimit == null) return tr('capacityPending');
+    if (eventMode(event) === 'team') return tr('rosters', {count: Math.floor(event.participantLimit / eventSize(event))});
+    return tr('players', {count: event.participantLimit});
+  }
   const title = event => event.name || ctx.t('tournaments.list.untitled');
-  const place = event => [event.city,event.venue].filter(Boolean).join(' · ') || event.address || tr(event.venueMode==='tts'?'online':'locationPending');
+  const place = event => event.venueMode === 'tts' ? ctx.t('venue.tts') : [event.city,event.venue].filter(Boolean).join(' · ') || event.address || tr(event.venueMode==='tts'?'online':'locationPending');
   const eventMode = e => e?.participantMode || (e?.tournamentType && e.tournamentType!=='solo'?'team':'individual');
   const eventSize = e => e?.teamSize || (e?.tournamentType==='pairs'?2:3);
   const type = e => ctx.t('tournaments.participantMode.'+eventMode(e));
@@ -81,7 +85,17 @@
   }
 
   function eventRow(event) {
-    return `<button type="button" class="row-card calendar-event-row ${eventClass(event)} ${event.id===selectedId?'active':''}" data-calendar-event="${event.id}"><span class="calendar-event-line">${eventBadges(event)}<span class="muted">${event.time||tr('timePending')}</span></span><strong>${esc(title(event))}</strong>${event.provider ? `<span class="calendar-event-location">${esc(event.provider.name)}</span>` : ''}<span class="calendar-event-location">${esc(place(event))}</span><span class="calendar-event-line calendar-event-footer"><span>${capacity(event)}</span><b>${esc(fee(event))}</b></span></button>`;
+    return `<article class="row-card calendar-event-row ${eventClass(event)} ${event.id===selectedId?'active':''}">
+      <div class="calendar-event-line">${eventBadges(event)}<span class="muted">${event.time||tr('timePending')}</span></div>
+      <button class="calendar-event-open" type="button" data-calendar-event="${event.id}">${esc(title(event))}</button>
+      <div class="calendar-event-line calendar-venue-line">
+        <span class="calendar-event-location">${esc(place(event))}</span>
+        ${ctx.eventProviderLink(event.provider)}
+      </div>
+      <div class="calendar-event-line calendar-event-footer"><span>${capacity(event)}</span>
+        ${event.chatUrl ? ctx.tournamentChatLink(event.chatUrl) : ''}<b>${esc(fee(event))}</b>
+      </div>
+    </article>`;
   }
 
   function details(event, dialog = false) {
@@ -93,7 +107,7 @@
       action = `<a href="${href}" class="primary-button">${tr('openTournament')}</a>`;
     } else if (event.tournamentCreated) action = `<p class="muted">${tr('tournamentPending')}</p>`;
     else if (actions.createTournament) action = `<a class="primary-button" target="_blank" rel="noopener" href="/tournament?calendarEvent=${event.id}#/administration/tournaments/admin/create">${tr('createTournament')} ↗</a>`;
-    return `<article class="${dialog?'calendar-dialog-details':'card panel calendar-details'} ${eventClass(event)}">${poster(event)}<div class="panel-header"><div><p class="profile-label">${tr('event')}</p><h3 ${dialog?'id="calendar-event-dialog-title"':''}>${esc(title(event))}</h3></div>${dialog?`<button class="dialog-close-button" type="button" data-calendar-close aria-label="${ctx.t('common.close')}">&times;</button>`:''}</div>${eventBadges(event)}${ctx.eventProviderLink(event.provider)}<dl class="calendar-event-fields"><div><dt>${tr('date')}</dt><dd>${esc(fmt(event.date,{day:'numeric',month:'long',year:'numeric'}))}${event.time?' · '+event.time:''}</dd></div><div><dt>${tr('city')}</dt><dd>${esc(event.city||tr('notSpecified'))}</dd></div><div><dt>${tr('venue')}</dt><dd>${esc(event.venue||(!event.address?tr(event.venueMode==='tts'?'online':'locationPending'):''))}${event.address?`<span class="muted">${esc(event.address)}</span>`:''}</dd></div><div><dt>${tr('tournamentType')}</dt><dd>${type(event)}</dd></div>${formatDetails(event)}<div><dt>${tr('participantLimit')}</dt><dd>${capacity(event)}</dd></div><div><dt>${tr('entryFee')}</dt><dd>${esc(fee(event))}</dd></div></dl><div class="row-actions calendar-detail-actions">${action}</div>${actions.edit?`<div class="row-actions calendar-admin-actions"><button class="small-button" data-calendar-edit="${event.id}" type="button">${ctx.t('common.edit')}</button><button class="danger-button" data-calendar-delete="${event.id}" type="button">${ctx.t('common.delete')}</button></div>`:''}</article>`;
+    return `<article class="${dialog?'calendar-dialog-details':'card panel calendar-details'} ${eventClass(event)}">${poster(event)}<div class="panel-header"><div><p class="profile-label">${tr('event')}</p><h3 ${dialog?'id="calendar-event-dialog-title"':''}>${esc(title(event))}</h3></div>${dialog?`<button class="dialog-close-button" type="button" data-calendar-close aria-label="${ctx.t('common.close')}">&times;</button>`:''}</div>${eventBadges(event)}${ctx.eventProviderLink(event.provider)}<dl class="calendar-event-fields"><div><dt>${tr('date')}</dt><dd>${esc(fmt(event.date,{day:'numeric',month:'long',year:'numeric'}))}${event.time?' · '+event.time:''}</dd></div>${event.venueMode === 'tts' ? `<div><dt>${tr('venue')}</dt><dd>${ctx.t('venue.tts')}</dd></div>` : `<div><dt>${tr('city')}</dt><dd>${esc(event.city||tr('notSpecified'))}</dd></div><div><dt>${tr('venue')}</dt><dd>${esc(event.venue||(!event.address?tr(event.venueMode==='tts'?'online':'locationPending'):''))}${event.address?`<span class="muted">${esc(event.address)}</span>`:''}</dd></div>`}<div><dt>${tr('tournamentType')}</dt><dd>${type(event)}</dd></div>${formatDetails(event)}<div><dt>${tr('participantLimit')}</dt><dd>${capacity(event)}</dd></div><div><dt>${tr('entryFee')}</dt><dd>${esc(fee(event))}</dd></div></dl><div class="row-actions calendar-detail-actions">${action}${event.chatUrl ? ctx.tournamentChatLink(event.chatUrl) : ''}</div>${actions.edit?`<div class="row-actions calendar-admin-actions"><button class="small-button" data-calendar-edit="${event.id}" type="button">${ctx.t('common.edit')}</button><button class="danger-button" data-calendar-delete="${event.id}" type="button">${ctx.t('common.delete')}</button></div>`:''}</article>`;
   }
 
   function poster(event) {
@@ -238,7 +252,12 @@
     closeDialogs();const dialog=document.createElement('dialog');
     dialog.className='tiebreaker-help-dialog administration-dialog calendar-edit-dialog';dialog.dataset.calendarDialog='';dialog.setAttribute('aria-labelledby','calendar-edit-title');
     const field=(name,label,attrs,value)=>`<div class="field"><label for="calendar-edit-${name}">${tr(label)}</label><input id="calendar-edit-${name}" name="${name}" ${attrs} value="${esc(value)}"></div>`;
-    dialog.innerHTML=`<form class="tiebreaker-help-content"><div class="panel-header"><h3 id="calendar-edit-title">${event?ctx.t('common.edit'):tr('add')}</h3><button type="button" class="dialog-close-button" data-calendar-close aria-label="${ctx.t('common.close')}">&times;</button></div>${event ? ctx.eventProviderLink(event.provider) : ctx.providerEventField(picker, 'calendar-edit-provider', 'providers.event.personalCalendar')}${field('name','name',`${event?.autoCreated?'':'required'} maxlength="120"`,event?.name||'')}<div class="calendar-form-grid">${field('date','date','type="date" min="2000-01-01" max="2099-12-31" required',event?.date||selectedDate)}${field('time','time','type="time"',event?.time||'')}</div>${cityField('city',event?.city||'',catalog,[...events.map(item=>item.city),event?.city].filter(Boolean),!!event?.autoCreated)}${field('venue','venue',`${event?.autoCreated?'':'required'} maxlength="160"`,event?.venue||'')}${field('address','address',`maxlength="${event?.autoCreated?500:300}"`,event?.address||'')}${formatFields(event)}<div class="calendar-form-grid">${field('participantLimit','participantLimit',`type="number" min="2" max="10000" step="1" placeholder="${esc(tr('capacityPending'))}" aria-describedby="calendar-pending-hint"`,event?.participantLimit??'')}${field('entryFee','feeRubles',`type="number" min="0" max="1000000" step="0.01" placeholder="${esc(tr('feePending'))}" aria-describedby="calendar-pending-hint"`,event?.entryFee??'')}</div><p class="field-help" id="calendar-pending-hint">${tr('pendingHint')}</p><p class="field-help">${tr('capacityHint')}</p>${event?.tournamentCreated?`<p class="field-help">${tr('editLinkedHint')}</p>`:''}<p data-calendar-form-error role="alert"></p><div class="row-actions"><button type="button" class="small-button" data-calendar-close>${ctx.t('common.cancel')}</button><button type="submit" class="primary-button">${ctx.t('common.save')}</button></div></form>`;
+    dialog.innerHTML=`<form class="tiebreaker-help-content"><div class="panel-header"><h3 id="calendar-edit-title">${event?ctx.t('common.edit'):tr('add')}</h3><button type="button" class="dialog-close-button" data-calendar-close aria-label="${ctx.t('common.close')}">&times;</button></div>${event ? ctx.eventProviderLink(event.provider) : ctx.providerEventField(picker, 'calendar-edit-provider', 'providers.event.personalCalendar')}${field('name','name',`${event?.autoCreated?'':'required'} maxlength="120"`,event?.name||'')}<div class="calendar-form-grid">${field('date','date','type="date" min="2000-01-01" max="2099-12-31" required',event?.date||selectedDate)}${field('time','time','type="time"',event?.time||'')}</div><div class="field"><label for="calendar-edit-venue-mode">${ctx.t('tournaments.field.venue')}</label>
+      <select id="calendar-edit-venue-mode" name="venueMode"><option value="irl">${ctx.t('venue.irl')}</option>
+      <option value="tts" ${event?.venueMode === 'tts' ? 'selected' : ''}>${ctx.t('venue.tts')}</option></select></div>
+      <fieldset class="calendar-physical-location">${cityField('city',event?.city||'',catalog,[...events.map(item=>item.city),event?.city].filter(Boolean),!!event?.autoCreated)}${field('venue','venue',`${event?.autoCreated?'':'required'} maxlength="160"`,event?.venue||'')}${field('address','address',`maxlength="${event?.autoCreated?500:300}"`,event?.address||'')}</fieldset>
+      <div class="field"><label for="calendar-edit-chat">${ctx.t('tournaments.chatUrl')}</label>
+        <input id="calendar-edit-chat" name="chatUrl" type="url" maxlength="2048" placeholder="https://…" value="${esc(event?.chatUrl)}"></div>${formatFields(event)}<div class="calendar-form-grid">${field('participantLimit','participantLimit',`type="number" min="2" max="10000" step="1" placeholder="${esc(tr('capacityPending'))}" aria-describedby="calendar-pending-hint"`,event?.participantLimit??'')}${field('entryFee','feeRubles',`type="number" min="0" max="1000000" step="0.01" placeholder="${esc(tr('feePending'))}" aria-describedby="calendar-pending-hint"`,event?.entryFee??'')}</div><p class="field-help" id="calendar-pending-hint">${tr('pendingHint')}</p><p class="field-help">${tr('capacityHint')}</p>${event?.tournamentCreated?`<p class="field-help">${tr('editLinkedHint')}</p>`:''}<p data-calendar-form-error role="alert"></p><div class="row-actions"><button type="button" class="small-button" data-calendar-close>${ctx.t('common.cancel')}</button><button type="submit" class="primary-button">${ctx.t('common.save')}</button></div></form>`;
     document.body.appendChild(dialog);
     const form=dialog.querySelector('form');
     const submit=form.querySelector('[type=submit]');
@@ -254,6 +273,12 @@
       if(active()&&host===target)(opener?.isConnected?opener:host.querySelector('[data-calendar-add], #calendar-search'))?.focus();
     },{once:true});
     wire(dialog);
+    const physicalLocation = form.querySelector('.calendar-physical-location');
+    function updateVenueFields() {
+      physicalLocation.hidden = physicalLocation.disabled = form.elements.venueMode.value === 'tts';
+    }
+    form.elements.venueMode.addEventListener('change', updateVenueFields);
+    updateVenueFields();
     const capacity=form.elements.participantLimit;
     const updateCapacity=()=>{
       const team=form.elements.participantMode.value==='team', size=Number(form.elements.teamSize.value);

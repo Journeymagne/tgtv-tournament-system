@@ -8,7 +8,8 @@ const COLUMNS = `e.id,e.name,e.provider_id,p.archived_at AS provider_archived_at
     'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') END AS starts_at,
   e.participant_limit,e.entry_fee,e.tournament_id,e.swiss_round_count,e.team_size,e.auto_created,
   to_char(e.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
-  t.slug AS tournament_slug,t.status AS tournament_status,t.venue_mode,
+  t.slug AS tournament_slug,t.status AS tournament_status,t.venue_mode AS tournament_venue_mode,t.chat_url AS tournament_chat_url,
+  e.venue_mode,e.chat_url,
   (t.logo_data IS NOT NULL AND t.logo_data<>'') AS has_poster`;
 const FROM = 'tournaments.calendar_events e LEFT JOIN tournaments.tournaments t ON t.id=e.tournament_id LEFT JOIN tournaments.tournament_providers p ON p.id=e.provider_id';
 const FIELDS = ['name','event_date','start_time','city','venue','address','tournament_type','participant_limit','entry_fee','swiss_round_count','team_size'];
@@ -20,11 +21,14 @@ function view(row, user = null) {
   const visibleTournament = PUBLISHED_STATUSES.includes(row.tournament_status) || admin || canManageTournament(user,row.tournament_id);
   const canEdit = admin || Boolean(row.provider_id && user?.providerMemberships?.some(m => m.providerId === row.provider_id && m.role === 'organizer'));
   const viewer = { canEdit, canCreateTournament: canEdit && !row.provider_archived_at && !row.tournament_id };
+  const inheritTournament = row.auto_created && visibleTournament;
+  const venueMode = row.venue_mode || (inheritTournament && row.tournament_venue_mode) || 'irl';
+  const chatUrl = row.chat_url ?? (inheritTournament ? row.tournament_chat_url : '') ?? '';
   return { id: row.id, providerId:row.provider_id ?? null, provider:row.provider || null, viewer, name: row.name, date: row.date, time: row.time, timeZone:row.time_zone, city: row.city, venue: row.venue,
     ...(row.provider_id != null ? { startsAt:row.starts_at } : {}),
     address: row.address, tournamentType: row.tournament_type, participantMode:row.tournament_type==='solo'?'individual':'team',
     teamSize:row.team_size,swissRoundCount:row.swiss_round_count,participantLimit: row.participant_limit==null?null:Number(row.participant_limit),
-    entryFee: row.entry_fee==null?null:Number(row.entry_fee), autoCreated:row.auto_created, venueMode:visibleTournament ? row.venue_mode : null,
+    entryFee: row.entry_fee==null?null:Number(row.entry_fee), autoCreated:row.auto_created, venueMode, chatUrl,
     updatedAt: row.updated_at, tournamentCreated: !!row.tournament_id,
     isParticipant: Boolean(row.is_participant && visibleTournament),
     posterUrl:row.has_poster && row.tournament_id && visibleTournament ? `/api/tournament-logos/${row.tournament_id}` : null,
@@ -58,12 +62,18 @@ async function find(client, id, user = false, lock = false) {
   return view(rows[0], user);
 }
 async function insert(client, event, userId, timeZone = null, viewer = false) {
-  const { rows } = await client.query(`INSERT INTO tournaments.calendar_events (${FIELDS.join(',')},created_by,provider_id,time_zone)
-    VALUES (${FIELDS.map((_, i) => '$'+(i+1)).join(',')},$${FIELDS.length+1},$${FIELDS.length+2},$${FIELDS.length+3}) RETURNING id`, [...values(event), userId, event.providerId ?? null, timeZone || 'UTC']);
+  const { rows } = await client.query(`INSERT INTO tournaments.calendar_events (${FIELDS.join(',')},created_by,provider_id,time_zone,venue_mode,chat_url)
+    VALUES (${FIELDS.map((_, i) => '$'+(i+1)).join(',')},$${FIELDS.length+1},$${FIELDS.length+2},$${FIELDS.length+3},$${FIELDS.length+4},$${FIELDS.length+5}) RETURNING id`, [...values(event), userId, event.providerId ?? null, timeZone || 'UTC', event.venueMode, event.chatUrl]);
   return find(client, rows[0].id, viewer);
 }
-async function update(client, id, event) {
-  await client.query(`UPDATE tournaments.calendar_events SET ${FIELDS.map((name,i)=>`${name}=$${i+2}`).join(',')},updated_at=clock_timestamp() WHERE id=$1`, [id,...values(event)]);
+async function update(client, previous, event) {
+  const id = previous.id;
+  const fields = [...FIELDS], params = values(event);
+  // An automatic announcement follows its tournament until an editor overrides a field.
+  for (const [key, column] of [['venueMode', 'venue_mode'], ['chatUrl', 'chat_url']]) {
+    if (event[key] !== previous[key]) { fields.push(column); params.push(event[key]); }
+  }
+  await client.query(`UPDATE tournaments.calendar_events SET ${fields.map((name,i)=>`${name}=$${i+2}`).join(',')},updated_at=clock_timestamp() WHERE id=$1`, [id,...params]);
   return find(client, id, true);
 }
 async function link(client, id, tournamentId, timeZone = null) {

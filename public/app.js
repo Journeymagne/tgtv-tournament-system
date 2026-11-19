@@ -2728,6 +2728,7 @@ function tournamentCompactHeaderMarkup(data, options = {}) {
       ${formatDetails.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}
     </dl>
     ${tournament.venueMode === "irl" && tournament.venueAddress ? `<p class="muted tournament-compact-address">${escapeHtml(tournament.venueAddress)}</p>` : ""}
+    ${tournament.chatUrl ? tournamentChatLink(tournament.chatUrl) : ""}
     ${options.extraActions ? `<div class="row-actions tournament-extra-actions">${options.extraActions}</div>` : ""}
   </header>`;
 }
@@ -3795,6 +3796,11 @@ function providerLogoUrl(provider) {
   return /^\/api\/tournament-provider-logos\/\d+(?:\?v=[a-f0-9]+)?$/i.test(provider?.logoUrl || "") ? provider.logoUrl : "";
 }
 
+function tournamentChatLink(url) {
+  if (!/^https?:\/\//i.test(url || "")) return "";
+  return `<a class="text-link-button" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${t("tournaments.chat")}</a>`;
+}
+
 function eventProviderLink(provider) {
   if (!provider?.slug) return "";
   const href = `/tournament#/tournaments/organizations/${encodeURIComponent(provider.slug)}`;
@@ -3928,7 +3934,7 @@ async function renderCalendar() {
     if (state.view !== 'calendar' || !container.isConnected) return;
     await window.TGTV_CALENDAR.mount(container, {
       api, t, escapeHtml, comboField, wireComboFields, confirmDelete, setMessage, user: state.me, locale: () => i18n.getLocale(),
-      eventProviderLink, providerLogoUrl, providerEventField,
+      eventProviderLink, providerLogoUrl, providerEventField, tournamentChatLink,
       eventProviderOptions: preferred => loadEventProviderOptions(preferred),
       refreshIdentity: refreshProviderIdentity,
       clearPreferredProvider: () => {

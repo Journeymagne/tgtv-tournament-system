@@ -672,6 +672,11 @@ function adminTournamentSetupForm(data, { active, creating, canApplyTiebreakers 
             </select>
           </div>
           ${adminTournamentVenueAddressField(tournament, textLockAttrs)}
+          <div class="field">
+            <label for="tournament-setup-chat">${t("tournaments.chatUrl")}</label>
+            <input id="tournament-setup-chat" name="chatUrl" type="url" maxlength="2048" placeholder="https://…"
+              value="${escapeHtml(tournament.chatUrl || "")}" ${textLockAttrs}>
+          </div>
         </div>
         <details class="admin-settings-section">
           <summary>${t("admin.tournament.setup.extra")}</summary>
@@ -2046,6 +2051,7 @@ function adminTournamentBodyFromForm(form, options = {}) {
   setFormValue(body, form, "pairingMode");
   setFormValue(body, form, "venueMode");
   setFormValue(body, form, "venueAddress");
+  setFormValue(body, form, "chatUrl");
   if (includeSlug) setFormValue(body, form, "slug");
 
   const tournamentRulesField = form.elements.tournamentRules;

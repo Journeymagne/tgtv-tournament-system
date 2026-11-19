@@ -459,7 +459,7 @@ async function createAdmin({ client, user, body }) {
   );
   const tournament = await tournamentsRepo.insert(
     client,
-    {...normalizeNewTournament(body, user.id, slug), providerId:context.providerId}
+    {...normalizeNewTournament({ chatUrl: calendarEvent?.chatUrl, ...body }, user.id, slug), providerId:context.providerId}
   );
   await audit(client, tournament, user, "create", { after: tournament });
   if (calendarEvent) await require('../db/repositories/calendar-events').link(client,calendarEvent.id,tournament.id,calendarTimeZone);
@@ -488,7 +488,7 @@ async function updateAdmin({ client, user, params, body }) {
   const seasonOnly = user.isSuperAdmin && Object.keys(body).length > 0 && Object.keys(body).every(key => key === "seasonId");
   if (!seasonOnly) assertEditableSetup(tournament);
   if (tournament.status === TOURNAMENT_STATUSES.IN_PROGRESS) {
-    const allowed = new Set(["description", "rulesSummary", "rulesLink", "logoData", "startsAt", "tournamentRules", "venueAddress", "pairingMode", ...(user.isSuperAdmin ? ["seasonId"] : []), ...(tournament.participantMode === "team" ? ["captainPairingEnabled", "teamTiebreakerOrder"] : [])]);
+    const allowed = new Set(["description", "rulesSummary", "rulesLink", "chatUrl", "logoData", "startsAt", "tournamentRules", "venueAddress", "pairingMode", ...(user.isSuperAdmin ? ["seasonId"] : []), ...(tournament.participantMode === "team" ? ["captainPairingEnabled", "teamTiebreakerOrder"] : [])]);
     for (const key of Object.keys(body || {})) {
       if (!allowed.has(key)) throw new HttpError(409, "Tournament setup is locked after start");
     }
