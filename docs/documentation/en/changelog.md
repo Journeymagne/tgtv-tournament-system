@@ -2,6 +2,10 @@
 
 KT Companion release history, newest first.
 
+## 1.7.3 — 19 November 2026
+
+- Clickable organization cards preserve the UI Kit content typography and left alignment.
+
 ## 1.7.2 — 19 November 2026
 
 - The entire organization card now opens its profile, including its logo, city and padding. Keyboard navigation and opening in a new tab remain available. Cards show the home city without a member count.

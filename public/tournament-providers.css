@@ -64,6 +64,8 @@
 .provider-card {
   flex-wrap: nowrap;
   justify-content: flex-start;
+  font: inherit;
+  text-align: left;
   color: var(--ink);
   text-decoration: none;
 }
