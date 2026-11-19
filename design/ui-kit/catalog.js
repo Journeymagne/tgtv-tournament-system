@@ -55,6 +55,30 @@
     bells.push({ bell, count }); document.querySelector('#notification-examples').append(bell.element);
   }
   document.querySelector('#identity-examples').append(ui.avatar(demoUser), ui.avatar({ name: 'Новый игрок' }), ui.rating(1123));
+  const tabLabels = { events: 'Ивенты', organizations: 'Организации', tts: 'TTS', irl: 'Вживую', combined: 'Combined MMR' };
+  const tabValues = { events: 'events', venue: 'tts' };
+  function updateTabStatus() {
+    document.querySelector('#tabs-demo-status').textContent = 'Выбрано: ' + tabLabels[tabValues.events] + ' · ' + tabLabels[tabValues.venue] + '.';
+  }
+  for (const [id, key, values] of [
+    ['event-tabs-example', 'events', ['events', 'organizations']],
+    ['venue-tabs-example', 'venue', ['tts', 'irl', 'combined']]
+  ]) {
+    const tabs = ui.segmentedControl({
+      label: key === 'events' ? 'Разделы турниров' : 'Формат игр', value: tabValues[key],
+      items: values.map(value => ({ value, label: tabLabels[value] })),
+      onChange: value => { tabValues[key] = value; updateTabStatus(); }
+    });
+    document.getElementById(id).append(tabs.element);
+  }
+  document.querySelector('#long-tabs-example').append(ui.segmentedControl({
+    label: 'Статистика', value: 'teams',
+    items: [
+      { value: 'teams', label: 'Победы Kill Team' },
+      { value: 'tacops', label: 'Победы по Tac Op' },
+      { value: 'unavailable', label: 'Недоступный раздел', disabled: true }
+    ]
+  }).element);
   setAppearance({});
   document.querySelector('#copy-snippet').addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(document.querySelector('#integration-snippet').textContent); announce('Шаблон подключения скопирован.'); }

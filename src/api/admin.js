@@ -124,7 +124,8 @@ async function listUsers({ client, query }) {
     pagination: rows.pagination,
     users: rows.map((row) => ({ ...publicUserSummary(row), gamesPlayed: row.gamesPlayed,
       isSuperAdmin: row.id === owner, isAdmin: Boolean(row.isAdmin || row.id === owner),
-      isFAQModerator: Boolean(row.isFAQModerator), hasOwnedTournaments: Boolean(row.hasOwnedTournaments), hasJudgeAssignments: Boolean(row.hasJudgeAssignments), canCreateTournaments: byId.get(row.id)?.can_create_tournaments || false,
+      isFAQModerator: Boolean(row.isFAQModerator), hasOwnedTournaments: Boolean(row.hasOwnedTournaments),
+      hasOwnedOrganizations: Boolean(row.hasOwnedOrganizations), hasJudgeAssignments: Boolean(row.hasJudgeAssignments), canCreateTournaments: byId.get(row.id)?.can_create_tournaments || false,
       suspendedUntil: byId.get(row.id)?.suspended_until || null,
       suspensionReason: byId.get(row.id)?.suspension_reason || "" }))
   };
@@ -212,7 +213,7 @@ async function deleteUser({ client, user, params }) {
     await usersRepo.remove(client, target.id);
   } catch (error) {
     if (error.code === '23503' && error.constraint === 'tournament_providers_owner_user_id_fkey') {
-      throw new HttpError(409, 'Transfer the chief organizer role in every organization before deleting this account');
+      throw new HttpError(409, 'Transfer organization leadership in every organization before deleting this account');
     }
     throw error;
   }

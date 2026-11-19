@@ -1,0 +1,60 @@
+/* Shared segmented tabs. Keep the standalone UI Kit copy in sync via assets:sync. */
+:is(.tabs, .kt-tabs) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px;
+  margin-bottom: 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+:is(.tab, .kt-tab) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 96px;
+  min-width: min-content;
+  min-height: var(--button-height);
+  margin: 0;
+  padding: var(--button-padding);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--button-radius);
+  background: var(--panel-2);
+  color: var(--ink);
+  box-shadow: none;
+  font: var(--button-font-weight) var(--button-font-size)/1.3 var(--font-ui);
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: break-word;
+  cursor: pointer;
+}
+
+:is(.tab, .kt-tab):not(:disabled):hover {
+  border-color: var(--accent);
+}
+
+:is(.tab.active, .kt-tab[aria-pressed="true"]) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+:is(.tab.active, .kt-tab[aria-pressed="true"]):not(:disabled):hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+:is(.tab, .kt-tab):focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+:is(.tab, .kt-tab):disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}

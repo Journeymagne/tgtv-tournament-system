@@ -7,6 +7,7 @@
   <title>UI Kit · KT Companion</title>
   <link rel="icon" href="icon.png">
   <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="tabs.css">
   <link rel="stylesheet" href="components.css">
   <link rel="stylesheet" href="catalog.css">
   <script src="components.js" defer></script>
@@ -19,7 +20,7 @@
       <div><p class="eyebrow">KT COMPANION / UI KIT 01</p><h1>Общие элементы</h1><p class="catalog-lead">Каталог компонентов для будущих подсервисов. Автономный образец, сохранённый в проекте.</p></div>
       <span class="catalog-version">Библиотека · v1</span>
     </div>
-    <nav class="catalog-nav" aria-label="Разделы каталога"><a href="#account">Блок аккаунта</a><a href="#primitives">Элементы</a><a href="#tokens">Токены</a><a href="#connect">Подключение</a><a href="audit/2026-10-22/index.html">Аудит сервисов</a></nav>
+    <nav class="catalog-nav" aria-label="Разделы каталога"><a href="#account">Блок аккаунта</a><a href="#primitives">Элементы</a><a href="#tabs">Вкладки</a><a href="#tokens">Токены</a><a href="#connect">Подключение</a><a href="audit/2026-10-22/index.html">Аудит сервисов</a></nav>
     <section id="account">
       <div class="section-heading"><div><p class="eyebrow">01 / КОМПОЗИЦИЯ</p><h2>Блок аккаунта</h2></div><p>Профиль → язык → тема → выход → уведомления</p></div>
       <div class="specimen"><div class="specimen-label"><h3>Игрок</h3><span>Аватар · имя · общий MMR</span></div><div class="demo-bar" data-example="player"></div></div>
@@ -37,6 +38,25 @@
         <article class="component-card"><h3>Идентичность</h3><div class="component-preview" id="identity-examples"></div><p>Аватар с запасными инициалами и бейдж общего рейтинга MMR.</p></article>
       </div>
     </section>
+    <section id="tabs">
+      <div class="section-heading"><h2>Вкладки</h2><p>Общий стандарт раздела турниров</p></div>
+      <div class="specimen"><div class="specimen-label"><h3>Два пункта</h3><span>Ивенты и организации</span></div><div class="demo-tabs" id="event-tabs-example"></div></div>
+      <div class="specimen"><div class="specimen-label"><h3>Три пункта</h3><span>Формат игр в рейтинге и статистике</span></div><div class="demo-tabs" id="venue-tabs-example"></div></div>
+      <div class="specimen"><div class="specimen-label"><h3>Длинные подписи и недоступный пункт</h3><span>Перенос текста на узком экране</span></div><div class="demo-tabs" id="long-tabs-example"></div></div>
+      <p class="catalog-note">Активный пункт — оранжевый с тёмным текстом. У остальных пунктов — собственный фон и рамка. Высота — от 40 px, на мобильном экране — от 44 px. Tab переводит фокус, Enter и пробел выбирают пункт.</p>
+      <p class="catalog-status" id="tabs-demo-status" role="status">Выбрано: Ивенты · TTS.</p>
+      <pre><code>const tabs = KTComponents.segmentedControl({
+  label: 'Формат игр', value: 'tts',
+  items: [
+    { value: 'tts', label: 'TTS' },
+    { value: 'irl', label: 'Вживую' },
+    { value: 'combined', label: 'Combined MMR' }
+  ],
+  onChange: value =&gt; { /* показать выбранный раздел */ }
+});
+document.querySelector('[data-tabs]').append(tabs.element);
+tabs.setValue('irl');</code></pre>
+    </section>
     <section id="tokens">
       <div class="section-heading"><div><p class="eyebrow">03 / ОСНОВА</p><h2>Цвет и размеры</h2></div><p>Токены следуют выбранной теме</p></div>
       <div class="swatches"><div><span class="swatch swatch-bg"></span><strong>Фон</strong><code>--bg</code></div><div><span class="swatch swatch-surface"></span><strong>Поверхность</strong><code>--surface</code></div><div><span class="swatch swatch-ink"></span><strong>Текст</strong><code>--ink</code></div><div><span class="swatch swatch-accent"></span><strong>Акцент</strong><code>--accent</code></div><div><span class="swatch swatch-line"></span><strong>Граница</strong><code>--line-strong</code></div></div>
@@ -46,7 +66,7 @@
       <div class="section-heading"><div><p class="eyebrow">04 / ПОВТОРНОЕ ИСПОЛЬЗОВАНИЕ</p><h2>Подключить в новом сервисе</h2></div></div>
       <p>Для будущего использования скопируйте токены, стили и компоненты в новый сервис. Данные пользователя и обработчики действий передаются явно. Сейчас каталог работает автономно.</p>
       <div class="code-heading"><span>Минимальный шаблон</span><button type="button" class="kt-control" id="copy-snippet">Копировать</button></div>
-      <pre><code id="integration-snippet">// После загрузки tokens.css, components.css и components.js:
+      <pre><code id="integration-snippet">// После загрузки tokens.css, tabs.css, components.css и components.js:
 const bar = KTComponents.accountBar({
   user: { name: 'Player', rating: 1123 },
   locale: 'ru', theme: 'dark',
@@ -58,7 +78,7 @@ const bar = KTComponents.accountBar({
 document.querySelector('[data-account-bar]').append(bar.element);
 const bell = KTComponents.notificationButton({ count: 3 });
 bar.notifications.append(bell.element);</code></pre>
-      <p class="catalog-note">Для отдельных элементов: <code>KTComponents.button()</code>, <code>avatar()</code>, <code>rating()</code>, <code>notificationButton()</code>, <code>accountBar()</code>. <a href="components.js">Исходный код компонентов</a>.</p>
+      <p class="catalog-note">Для отдельных элементов: <code>KTComponents.button()</code>, <code>avatar()</code>, <code>rating()</code>, <code>segmentedControl()</code>, <code>notificationButton()</code>, <code>accountBar()</code>. <a href="components.js">Исходный код компонентов</a>.</p>
     </section>
     <footer>KT Companion · Общая библиотека интерфейса</footer>
   </main>

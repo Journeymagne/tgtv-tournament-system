@@ -150,6 +150,7 @@ test('the special-user list filters every global/scoped role before paging and o
   assert.deepEqual(new Set(collected.map(user=>user.id)),expected);
   assert.equal(collected.find(user=>user.id===moderator.id).isFAQModerator,true);
   assert.equal(collected.find(user=>user.id===ownedOnly.id).hasOwnedTournaments,true);
+  assert.equal(collected.find(user=>user.id===ownedOnly.id).hasOwnedOrganizations,false);
   assert.equal(collected.find(user=>user.id===ownedOnly.id).canCreateTournaments,false);
   assert.equal(collected.find(user=>user.id===judge.id).hasJudgeAssignments,true);
   assert.equal((await expect(admin.http.get('/api/admin/users?access=special&q=Ordinary'))).pagination.total,0);

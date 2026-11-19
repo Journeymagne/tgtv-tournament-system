@@ -226,7 +226,7 @@
   });
   window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader, brandLogoUrl };
   if (active !== 'tournament' && mounts[0]) {
-    const script = document.createElement('script'); script.src='/companion-notifications.js?v=shared-e1a9b1709d88'; document.head.append(script);
+    const script = document.createElement('script'); script.src='/companion-notifications.js?v=shared-e346ddd746c0'; document.head.append(script);
   }
   const exports = document.querySelector(".studio-export-menu");
   if (exports) {

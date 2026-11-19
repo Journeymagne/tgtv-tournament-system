@@ -8,7 +8,7 @@ const { SERVICE_PATHS } = require("../domain/sites");
 const SITE_NAME = "KT Companion";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.7.3-leagues";
+const ASSET_VERSION = "1.8.0";
 const { version: SHARED_ASSET_VERSION } = require("./shared-assets.json");
 
 function requestOrigin(req) {
@@ -200,6 +200,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <meta name="twitter:description" content="${escapeHtml(description)}">
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
     <link rel="stylesheet" href="/companion-tokens.css?v=${SHARED_ASSET_VERSION}">
+    <link rel="stylesheet" href="/companion-tabs.css?v=${SHARED_ASSET_VERSION}">
     <link rel="stylesheet" href="/styles.css?v=${SHARED_ASSET_VERSION}">
     <link rel="stylesheet" href="/map-catalog-ui.css?v=${ASSET_VERSION}">
     <link rel="stylesheet" href="/tournament-results.css?v=${SHARED_ASSET_VERSION}">
