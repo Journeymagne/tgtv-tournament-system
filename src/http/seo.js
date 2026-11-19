@@ -200,6 +200,7 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <meta name="twitter:description" content="${escapeHtml(description)}">
     <meta name="twitter:image" content="${escapeHtml(imageUrl)}">
     <link rel="stylesheet" href="/companion-tokens.css?v=${SHARED_ASSET_VERSION}">
+    <link rel="stylesheet" href="/companion-tabs.css?v=${SHARED_ASSET_VERSION}">
     <link rel="stylesheet" href="/styles.css?v=${SHARED_ASSET_VERSION}">
     <link rel="stylesheet" href="/map-catalog-ui.css?v=${ASSET_VERSION}">
     <link rel="stylesheet" href="/tournament-results.css?v=${SHARED_ASSET_VERSION}">

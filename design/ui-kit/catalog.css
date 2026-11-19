@@ -23,6 +23,8 @@ body { margin: 0; font-family: var(--font-ui); color: var(--ink); background: va
 .specimen-label h3 { margin: 0; font-size: 13px; }
 .specimen-label span { font-size: 12px; color: var(--muted); }
 .demo-bar { padding: 24px; }
+.demo-tabs { padding: 12px; }
+.demo-tabs .kt-tabs { margin: 0; }
 .catalog-note { color: var(--muted); font-size: 13px; line-height: 1.7; }
 .catalog-status { color: var(--accent-text); font-size: 13px; min-height: 22px; }
 .component-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }

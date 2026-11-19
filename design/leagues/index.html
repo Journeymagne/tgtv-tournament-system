@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Осенняя лига · KT Companion</title>
+  <link rel="stylesheet" href="../ui-kit/tokens.css">
+  <link rel="stylesheet" href="../ui-kit/tabs.css">
+  <link rel="stylesheet" href="../ui-kit/components.css">
+  <link rel="stylesheet" href="screens.css">
+  <script defer src="../ui-kit/components.js"></script>
+  <script defer src="screens.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">К содержанию</a>
+  <header class="topbar">
+    <a class="brand" href="#directory" aria-label="KT Companion · Каталог лиг">
+      <img id="brand-mark" src="../../public/brand/kt-companion/mark-dark.png" width="54" height="38" alt="">
+      <span><strong>KT Companion</strong><small>Турнирная система</small></span>
+    </a>
+    <div class="tools">
+      <label class="role-label" for="role">Вид макета</label>
+      <select id="role" aria-label="Вид макета"><option value="public">Зритель</option><option value="staff">Организатор</option></select>
+      <div id="themes" class="theme-switch" role="group" aria-label="Тема оформления"></div>
+    </div>
+  </header>
+  <div class="layout">
+    <aside class="rail">
+      <nav class="rail-nav" aria-label="Экраны макета">
+        <div class="rail-title">Экраны макета</div>
+        <a href="#directory">Каталог лиг</a>
+        <a href="#solo">Личный зачёт</a>
+        <a href="#org">Зачёт организаций</a>
+        <a href="#events">Турниры лиги</a>
+        <a href="#tournament">Страница турнира</a>
+        <div class="rail-title rail-section">Организатор</div>
+        <a href="#create">Создание лиги</a>
+        <a href="#attach">Привязка турнира</a>
+        <a href="#rules">Правила подсчёта</a>
+      </nav>
+      <label class="mobile-picker">Экраны макета<select id="screen-picker" aria-label="Выбрать экран макета"></select></label>
+    </aside>
+    <main id="main" tabindex="-1"></main>
+  </div>
+  <footer>Макет KT Companion · Данные вымышлены. Изменения действуют до перезагрузки.</footer>
+  <dialog id="detail-dialog" aria-labelledby="dialog-title"><div id="dialog-body"></div><form method="dialog"><button class="kt-control">Закрыть</button></form></dialog>
+  <div id="notice" role="status" aria-live="polite"></div>
+</body>
+</html>

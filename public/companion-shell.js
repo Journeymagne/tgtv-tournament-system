@@ -1,5 +1,7 @@
 (function () {
   "use strict";
+  const viewport = document.querySelector('meta[name="viewport"]');
+  if (viewport && !viewport.content.includes('viewport-fit')) viewport.content += ', viewport-fit=cover';
   function brandLogoUrl(kind = "mark") {
     const theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
     return `/brand/kt-companion/${kind}-${theme}.png`;
@@ -29,6 +31,18 @@
   let tournamentHeader;
   const accounts = [];
   const mounts = [...document.querySelectorAll("[data-companion-nav]")];
+  const mainContent = document.querySelector('#app, main, #studio-workspace, #root');
+  if (mainContent && !document.querySelector('.skip-link')) {
+    if (!mainContent.id) mainContent.id = 'companion-main';
+    if (!mainContent.hasAttribute('tabindex')) mainContent.tabIndex = -1;
+    const skip = document.createElement('a');
+    skip.className = 'companion-skip-link'; skip.href = '#' + mainContent.id;
+    const labelSkip = () => { skip.textContent = window.KTAppearance?.locale === 'en' ? 'Skip to content' : 'Перейти к содержимому'; };
+    labelSkip(); window.addEventListener('kt:locale', labelSkip);
+    // Keep application hash routes intact when skipping the shared header.
+    skip.addEventListener('click', event => { event.preventDefault(); mainContent.focus(); mainContent.scrollIntoView({ block: 'start' }); });
+    document.body.prepend(skip);
+  }
   for (const mount of mounts) {
     mount.className = "companion-utility";
     const brand = document.createElement("div");
@@ -226,7 +240,7 @@
   });
   window.KTCompanion = { ready, session, setUser, changed, loginUrl, returnAfterLogin, serviceUrl, setTournamentHeader, brandLogoUrl };
   if (active !== 'tournament' && mounts[0]) {
-    const script = document.createElement('script'); script.src='/companion-notifications.js?v=shared-56c8210c7bd6'; document.head.append(script);
+    const script = document.createElement('script'); script.src='/companion-notifications.js?v=shared-1c9f97def4c4'; document.head.append(script);
   }
   const exports = document.querySelector(".studio-export-menu");
   if (exports) {

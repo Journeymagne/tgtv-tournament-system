@@ -42,9 +42,25 @@
         return total + Math.max(0, Math.max(table.scrollWidth, Math.round(table.getBoundingClientRect().width)) - wrapper.clientWidth);
       }, 0);
     }
+    // Make overflowing data reachable with arrow keys, not only a swipe/trackpad.
+    function updateScrollRegions() {
+      for (const table of tables) {
+        const wrapper = table.closest(viewportSelector);
+        if (!wrapper) continue;
+        const scrolls = table.scrollWidth > wrapper.clientWidth + 1;
+        if (scrolls) {
+          wrapper.tabIndex = 0;
+          wrapper.setAttribute('role', 'region');
+          wrapper.setAttribute('aria-label', window.KTAppearance?.locale === 'en' ? 'Table: scroll horizontally' : 'Таблица: прокрутка по горизонтали');
+          wrapper.dataset.tableScrollRegion = '';
+        } else if (wrapper.hasAttribute('data-table-scroll-region')) {
+          for (const name of ['tabindex', 'role', 'aria-label', 'data-table-scroll-region']) wrapper.removeAttribute(name);
+        }
+      }
+    }
     const ordinaryWidth = layout.getBoundingClientRect().width;
     const ordinaryOverflow = overflow();
-    if (!ordinaryOverflow) return;
+    if (!ordinaryOverflow) { updateScrollRegions(); return; }
 
     // CSS keeps the normal gutters, including the existing mobile overrides.
     layout.style.setProperty(widthProperty, "100vw");
@@ -52,9 +68,10 @@
     const fullOverflow = overflow();
     if (upper <= ordinaryWidth + 1 || fullOverflow >= ordinaryOverflow) {
       layout.style.removeProperty(widthProperty);
+      updateScrollRegions();
       return;
     }
-    if (fullOverflow) return; // Use available space when the screen cannot fit all columns.
+    if (fullOverflow) { updateScrollRegions(); return; } // Use available space when the screen cannot fit all columns.
 
     // Find only the extra space these tables need, rather than filling every
     // wide monitor. All probes finish in this frame, before the browser paints.
@@ -66,6 +83,7 @@
       else upper = middle;
     }
     layout.style.setProperty(widthProperty, `${Math.ceil(upper)}px`);
+    updateScrollRegions();
   }
 
   new MutationObserver(records => {

@@ -15,7 +15,15 @@ function mount({ screen = 2560, minimum = 1500, fraction = 1, fixed = false } = 
     getBoundingClientRect() { return { width: Math.min(width === '100vw' ? screen : parseFloat(width) || 1280, screen - 36) }; },
     querySelectorAll() { return [table]; }, matches(selector) { return selector === '.layout'; }
   };
-  const wrapper = { get clientWidth() { return Math.floor(((fixed ? 1280 : layout.getBoundingClientRect().width) - 242) * fraction); } };
+  const attributes = new Map();
+  const wrapper = {
+    dataset: {},
+    setAttribute(name, value) { attributes.set(name, value); },
+    hasAttribute(name) { return attributes.has(name) || name === 'data-table-scroll-region' && Object.hasOwn(this.dataset, 'tableScrollRegion'); },
+    removeAttribute(name) { attributes.delete(name); if (name === 'data-table-scroll-region') delete this.dataset.tableScrollRegion; },
+    getAttribute(name) { return attributes.get(name); },
+    get clientWidth() { return Math.floor(((fixed ? 1280 : layout.getBoundingClientRect().width) - 242) * fraction); }
+  };
   const table = {
     hidden: false, minimum,
     closest(selector) { return selector === '.table-wrap, [data-table-viewport]' ? wrapper : null; },
@@ -87,4 +95,14 @@ test('the viewport bounds expansion and resizing restores the appropriate width'
 test('a fixed-width widget does not unnecessarily expand the whole page', () => {
   const page = mount({ fixed: true });
   assert.equal(page.width(), undefined);
+});
+
+test('only overflowing tables get a labelled keyboard scroll region, and resizing removes it', () => {
+  const page = mount({ screen: 1100, minimum: 1500 });
+  assert.equal(page.wrapper.tabIndex, 0);
+  assert.equal(page.wrapper.getAttribute('role'), 'region');
+  assert.ok(page.wrapper.getAttribute('aria-label'));
+  page.resize(2560);
+  assert.equal(page.wrapper.getAttribute('role'), undefined);
+  assert.equal(page.wrapper.hasAttribute('data-table-scroll-region'), false);
 });

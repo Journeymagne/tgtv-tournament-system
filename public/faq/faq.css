@@ -83,3 +83,9 @@ body[data-companion-section="faq"] .companion-utility .companion-theme-button[ar
 .info-section>footer { margin-top:30px; padding-top:18px; border-top:1px solid var(--line); font-size:12px; }
 .info-section>footer a { text-decoration:none; }
 @media(max-width:550px) { .info-section>header { flex-direction:column; gap:12px; } .info-section>header h3 { font-size:20px; } .info-body>p:first-child { padding-left:14px; font-size:14px; } }
+/* Touch controls keep the existing card composition, with a reachable hit area. */
+@media (max-width: 900px), (pointer: coarse) {
+  :root .bookmark, :root .edit-card, :root .icon-button, :root .card-footer button { min-width: 44px; min-height: 44px; }
+  .service-tabs > :is(a, button) { min-width: 44px; min-height: 44px; }
+  :root .read-more { min-height: 44px; }
+}
