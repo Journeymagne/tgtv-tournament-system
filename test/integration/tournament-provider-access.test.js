@@ -47,6 +47,34 @@ test.beforeEach(async () => {
   });
 });
 
+test('Gefest history links the selected tournaments and their calendar entries exactly once', async () => {
+  await pool.query("SELECT setval(pg_get_serial_sequence('accounts.users','id'),100,false)");
+  const gefest = await users.insert(pool,{name:'Gefest',passwordHash:'s:h',rating:1000,isAdmin:true});
+  await transaction(async client => {
+    await client.query("INSERT INTO tournament_provider_memberships(provider_id,user_id,role) VALUES ($1,$2,'organizer')",[providerId,gefest.id]);
+    await client.query("UPDATE tournament_providers SET owner_user_id=$2,slug='imgefest-tournament-series' WHERE id=$1",[providerId,gefest.id]);
+  });
+  const slugs = ['sneaky-gits-vol-2','shadows-bite-25-11-26-20','another-cup','warp-storm-vol-1'];
+  for (const slug of slugs) {
+    await create(slug === 'warp-storm-vol-1' ? admin : gefest,{slug, startsAt:'2026-11-25T17:00:00Z'});
+  }
+  await pool.query("UPDATE tournaments SET status='completed' WHERE slug=$1",[slugs[0]]);
+  await pool.query("UPDATE tournaments SET status='registration_open' WHERE slug=$1",[slugs[1]]);
+  const migration = require('../../src/db/migrations/124_gefest_tournament_history');
+  await transaction(client => migration.up(client));
+  await transaction(client => migration.up(client));
+  const {rows} = await pool.query(`SELECT t.provider_id, e.provider_id AS calendar_provider, t.status
+    FROM tournaments t JOIN calendar_events e ON e.tournament_id=t.id ORDER BY t.id`);
+  assert.deepEqual(rows, [
+    {provider_id:providerId,calendar_provider:providerId,status:'completed'},
+    {provider_id:providerId,calendar_provider:providerId,status:'registration_open'},
+    {provider_id:null,calendar_provider:null,status:'draft'},
+    {provider_id:null,calendar_provider:null,status:'draft'}
+  ]);
+  const audit = await pool.query("SELECT id FROM tournament_provider_audit_events WHERE provider_id=$1 AND event_type='event_linked'",[providerId]);
+  assert.equal(audit.rowCount,4);
+});
+
 test('scoped organizer creates only for their organization, judge inherits match access and cannot finish', async () => {
   const {body:{tournament:t}} = await create(author,{providerId});
   assert.equal(t.providerId,providerId);
