@@ -157,7 +157,7 @@
         ${logo(provider)}
         <div class="row-main">
           <div class="row-title" id="provider-card-name-${provider.id}">${esc(provider.name)}</div>
-          <div class="row-meta">${esc(provider.city)} · ${esc(ctx.plural('providers.members.count', provider.memberCount || 0))}</div>
+          <div class="row-meta">${esc(provider.city)}</div>
           ${provider.archivedAt ? `<span class="status">${esc(tr('archived'))}</span>` : ''}
         </div>
       </a>`).join('');

@@ -2,8 +2,8 @@ const { defaultPages } = require("../../domain/documentation");
 
 // Frozen release text; preserve previously edited documentation.
 const releaseNotes = {
-  "ru": "## 1.7.2 — 19 ноября 2026\n\n- В списке организаций вся карточка открывает её страницу: название, логотип, город и свободная область. Сохранены навигация с клавиатуры и открытие в новой вкладке.",
-  "en": "## 1.7.2 — 19 November 2026\n\n- The entire organization card now opens its profile, including its logo, city and padding. Keyboard navigation and opening in a new tab remain available."
+  "ru": "## 1.7.2 — 19 ноября 2026\n\n- В списке организаций вся карточка открывает её страницу: название, логотип, город и свободная область. Сохранены навигация с клавиатуры и открытие в новой вкладке. На карточках показан город без количества участников.",
+  "en": "## 1.7.2 — 19 November 2026\n\n- The entire organization card now opens its profile, including its logo, city and padding. Keyboard navigation and opening in a new tab remain available. Cards show the home city without a member count."
 };
 
 module.exports = {
