@@ -73,6 +73,7 @@ test("migration repairs game 369 collision and published statistics, preserving 
   assert.deepEqual((await client.query("SELECT * FROM users ORDER BY id")).rows, usersBefore);
   assert.deepEqual((await client.query("SELECT * FROM tournament_matches WHERE id <> 199 ORDER BY id")).rows, correctMatchesBefore);
   const view = await tournamentsApi.getPublic({ client, user: null, params: { slug: "identity-repair" } });
+  assert.deepEqual(view.tournament.leagues, []);
   assert.equal(view.rounds[1].matches[0].winnerParticipantId, 108);
   const byId = new Map(view.finalResults.map(row => [row.participantId, row]));
   assert.equal(byId.get(124).wins, 1);

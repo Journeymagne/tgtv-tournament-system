@@ -77,7 +77,14 @@ async function update(client,id,data) {
   await client.query('UPDATE leagues SET name=$2,formats=$3,revision=revision+1 WHERE id=$1',[id,data.name,data.formats]);
 }
 
+// Existing tournament endpoints also serve historical schemas while migrations are replayed.
+async function tournamentLinksAvailable(client) {
+  const {rows:[{available}]}=await client.query("SELECT to_regclass('league_tournaments') IS NOT NULL AS available");
+  return available;
+}
+
 async function forTournament(client,id) {
+  if (!await tournamentLinksAvailable(client)) return [];
   const {rows}=await client.query(`SELECT l.slug,l.name,
     CASE WHEN t.participant_mode='team' THEN 'org' ELSE 'solo' END AS track
     FROM league_tournaments lt JOIN leagues l ON l.id=lt.league_id JOIN tournaments t ON t.id=lt.tournament_id
@@ -90,6 +97,7 @@ async function forTournament(client,id) {
 
 // The caller already holds the tournament write lock. Configuration writes lock sources before leagues as well.
 async function syncTournamentIdentities(client,id) {
+  if (!await tournamentLinksAvailable(client)) return;
   const {rows}=await client.query(`SELECT l.id FROM leagues l JOIN league_tournaments lt ON lt.league_id=l.id
     WHERE lt.tournament_id=$1 ORDER BY l.id FOR UPDATE OF l`,[id]);
   if (!rows.length) return;
