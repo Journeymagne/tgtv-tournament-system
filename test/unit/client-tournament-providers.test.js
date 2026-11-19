@@ -36,6 +36,34 @@ test('guest can open the organizations tab and read an organization profile', ()
   }
 });
 
+test('leagues sit before organizations and open as public standings with a shareable track', () => {
+  const hash = '#/tournaments/leagues/autumn?track=org';
+  const parsed = appFunctions(['hashSegments', 'tournamentSlugFromHash', 'appRouteFromHash', 'publicAppRoute',
+    'activeTournamentTab', 'leagueHash', 'leaguePageUrl', 'tournamentPublicTabs'], `
+    const tournamentSlugFromLocation = tournamentSlugFromHash;
+    const route = appRouteFromHash();
+    ({slug: route.leagueSlug, track: route.leagueTrack, public: publicAppRoute(route),
+      hash: leagueHash(route.leagueSlug, route.leagueTrack), tabs: tournamentPublicTabs(activeTournamentTab(route.tournamentsTab, false))})
+  `, { window: {location: {hash}}, sharedChallengeTokenFromHash: () => '', t: key => key, adminLabel: ru => ru });
+  assert.equal(parsed.slug, 'autumn');
+  assert.equal(parsed.track, 'org');
+  assert.equal(parsed.public, true);
+  assert.equal(parsed.hash, hash);
+  assert.match(parsed.tabs, /href="\/tournament#\/tournaments"[\s\S]*?tournaments\/leagues"[^>]+aria-current="page"[\s\S]*?tournaments\/organizations"/);
+});
+
+test('tournament backlinks support zero, one and multiple leagues', () => {
+  const render = appFunctions(['leagueResultsActions', 'leaguePageUrl', 'leagueHash', 'escapeHtml'], 'leagueResultsActions', {adminLabel: ru => ru});
+  assert.equal(render([]), '');
+  const autumn = {slug: 'autumn', track: 'org', name: 'Autumn <Final>'};
+  const action = render([autumn]);
+  assert.match(action, /href="\/tournament#\/tournaments\/leagues\/autumn\?track=org">Итоги лиги/);
+  const menu = render([autumn, {slug: 'regional', track: 'solo', name: 'Regional'}]);
+  assert.match(menu, /<summary[^>]*>Итоги лиги<\/summary>/);
+  assert.match(menu, /Autumn &lt;Final&gt;/);
+  assert.match(menu, /leagues\/regional\?track=solo/);
+});
+
 test('a provider notification focuses its pending invitation on the public profile', () => {
   const parsed = appFunctions([
     'providerInvitationDestination', 'hashSegments', 'tournamentSlugFromHash', 'appRouteFromHash'

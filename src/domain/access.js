@@ -35,6 +35,14 @@ function canCreateTournament(user, {providerId = null} = {}) {
     && member.role === 'organizer' && !member.archivedAt));
 }
 
+function canCreateLeague(user) {
+  return canCreateTournament(user);
+}
+
+function canManageLeague(user, league) {
+  return Boolean(user && league && (isPlatformAdmin(user) || league.ownerUserId === user.id));
+}
+
 function canCreateProviderEvents(user) {
   return Boolean(user?.providerMemberships?.some(member => member.role === 'organizer' && !member.archivedAt));
 }
@@ -69,4 +77,4 @@ function userCapabilities(user) {
 }
 
 module.exports = { isPlatformAdmin, canManageTournament, canManageJudges, canFinishTournament, canCreateTournament,
-  canOpenAdministration, tournamentPermissions, userCapabilities };
+  canOpenAdministration, tournamentPermissions, userCapabilities, canCreateLeague, canManageLeague };

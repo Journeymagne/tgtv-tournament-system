@@ -1,0 +1,249 @@
+/* League screens use the tournament shell’s typography, palettes and controls. */
+.kt-leagues {
+  container-type: inline-size;
+  min-width: 0;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  overflow-wrap: anywhere;
+}
+.kt-leagues :where(h1, h2, h3, p, ol, ul, fieldset) { margin: 0; }
+.kt-leagues h1 { font-size: clamp(25px, 3vw, 38px); line-height: 1.12; letter-spacing: -.025em; }
+.kt-leagues h2 { font-size: 21px; line-height: 1.25; letter-spacing: -.018em; }
+.kt-leagues h3 { font-size: 16px; line-height: 1.35; }
+.kt-leagues :where(h1, h2, h3) { color: var(--ink); }
+.kt-leagues a { color: var(--accent-text); text-underline-offset: 3px; }
+.kt-leagues :where(button, input, select, a, summary):focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+.kt-leagues :where(p, small) { line-height: 1.45; }
+.kt-leagues small, .lg-note { color: var(--muted); font-size: 13px; }
+.kt-leagues small { display: block; margin-top: 3px; }
+.lg-head, .lg-panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.lg-head, .lg-section-head, .lg-step-actions, .lg-actions, .lg-chips, .lg-crumb, .lg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.lg-head, .lg-section-head, .lg-step-actions { justify-content: space-between; }
+.lg-head { padding: clamp(14px, 2.4vw, 23px); margin-bottom: 14px; gap: 14px; }
+.lg-head > div { min-width: 0; }
+.lg-head p { margin-top: 5px; color: var(--muted); }
+.lg-panel { padding: clamp(14px, 2vw, 20px); }
+.lg-crumb { margin-bottom: 11px; font-size: 13px; color: var(--muted); }
+.lg-crumb a { color: var(--muted); }
+.kt-leagues .lg-tabs { flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.kt-leagues .lg-tabs .tab { flex: 1 1 100px; min-width: 0; min-height: var(--button-height); height: auto; text-align: center; text-decoration: none; }
+.kt-leagues .lg-tabs .ghost-button { color: var(--ink); }
+.kt-leagues .lg-tabs .active { color: var(--on-accent); }
+.lg-split, .lg-stack, .lg-form { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 14px; }
+.lg-split { align-items: start; }
+.lg-form { gap: 16px; }
+.lg-form > button { justify-self: start; }
+.lg-panel > :is(.lg-note, .lg-list, .lg-rules, h3, details) { margin-top: 12px; }
+.lg-panel > h2:not(:first-child) { margin-top: 20px; }
+.lg-form > :is(h2, h3, .lg-note, .lg-list, details) { margin-top: 0; }
+.kt-leagues :is(.lg-button, .lg-text-button, .lg-name, .lg-pick-button, .lg-more, summary),
+.lg-dialog .lg-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: var(--button-height);
+  min-width: 0;
+  padding: var(--button-padding);
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--button-radius);
+  background: var(--panel-2);
+  color: var(--ink);
+  box-shadow: none;
+  font: var(--button-font-weight) var(--button-font-size)/1.3 var(--font-ui);
+  white-space: normal;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.kt-leagues .lg-primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.kt-leagues .lg-button:enabled:hover, .kt-leagues a.lg-button:hover { border-color: var(--accent); }
+.kt-leagues .lg-primary:enabled:hover { background: var(--accent-hover); color: var(--on-accent); }
+.kt-leagues :is(.lg-text-button, .lg-name, .lg-pick-button, .lg-more, summary) {
+  justify-content: start;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: start;
+}
+.kt-leagues :is(.lg-text-button, .lg-more, summary) { color: var(--accent-text); }
+.kt-leagues .lg-text-button { text-decoration: underline; text-underline-offset: 3px; }
+.lg-name::before, .kt-leagues summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border: solid currentColor;
+  border-width: 1.5px 1.5px 0 0;
+  transform: rotate(45deg);
+  color: var(--muted);
+  margin: 0 10px 0 2px;
+}
+.lg-name[aria-expanded="true"]::before, .kt-leagues details[open] > summary::before { transform: rotate(135deg); }
+.kt-leagues summary::-webkit-details-marker { display: none; }
+.kt-leagues .lg-name:hover { color: var(--accent-text); }
+.lg-list, .lg-full-picks, .lg-steps { list-style: none; padding: 0; }
+.lg-list > li, .lg-criterion-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+.lg-list > li > div { min-width: 0; }
+.lg-list strong > a { color: var(--ink); }
+.lg-list strong > a:hover { color: var(--accent-text); }
+.lg-rules { counter-reset: lg-rank; padding: 0; list-style: none; }
+.lg-rules > li { display: flex; gap: 9px; padding: 9px 0; border-top: 1px solid var(--line); }
+.lg-rules > li::before { counter-increment: lg-rank; content: counter(lg-rank); font-weight: 750; color: var(--accent-text); min-width: 1.25em; }
+.lg-state { color: var(--muted); font-size: 13px; }
+.lg-counted { color: var(--good); }
+.lg-notice { margin: 12px 0; padding: 12px; border: 1px solid var(--line-strong); background: var(--surface-well); border-radius: 6px; }
+.lg-notice > .lg-list { margin: 0; }
+.lg-notice > .lg-list > li:first-child { border-top: 0; }
+.lg-board { padding: 0; overflow: hidden; }
+.lg-board > header { padding: 17px 18px 13px; }
+.lg-board > header p { margin-top: 4px; }
+.lg-board > :is(.lg-notice, .lg-note) { margin: 0 16px 12px; }
+.lg-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.lg-table th, .lg-table td { padding: 9px 8px; border: 0; border-bottom: 1px solid var(--line); text-align: start; }
+.lg-table th { background: var(--surface-well); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.lg-table td { font-size: 14px; }
+.lg-table tr > :first-child { padding-left: 16px; }
+.lg-table tr > :last-child { padding-right: 16px; }
+.lg-table :is(.lg-score, .lg-count, .lg-tie), .lg-table th:nth-child(n+3) { text-align: end; }
+.lg-table .lg-score { font-size: 21px; font-weight: 750; }
+.lg-leader { background: rgb(var(--accent-rgb) / .065); }
+.lg-rank, .lg-tie { color: var(--muted); }
+.lg-leader :is(.lg-rank, .lg-score) { color: var(--accent-text); }
+.lg-chips { gap: 3px; justify-content: end; }
+.lg-loyal { --lg-side: #80beff; } .lg-chaos { --lg-side: #ff9b95; } .lg-xenos { --lg-side: #79dca8; }
+.lg-unknown { --lg-side: var(--muted); }
+:root[data-theme="light"] .lg-loyal { --lg-side: #145b9d; }
+:root[data-theme="light"] .lg-chaos { --lg-side: #a52d2c; }
+:root[data-theme="light"] .lg-xenos { --lg-side: #1a6940; }
+.kt-leagues .lg-pick-button, .lg-chip {
+  color: var(--lg-side);
+  position: relative;
+  isolation: isolate;
+  justify-content: center;
+  min-width: var(--button-height);
+  padding: 0 5px;
+  font-size: 12px;
+  font-weight: 750;
+}
+.kt-leagues .lg-pick-button::before, .lg-chip {
+  border: 1px solid color-mix(in srgb, var(--lg-side) 45%, transparent);
+  background: color-mix(in srgb, var(--lg-side) 9%, transparent);
+  border-radius: 5px;
+}
+.kt-leagues .lg-pick-button::before { position: absolute; content: ""; inset: 7px 1px; z-index: -1; }
+.lg-chip { display: inline-block; min-width: auto; line-height: 1.6; }
+.kt-leagues .lg-more { justify-content: center; min-width: var(--button-height); }
+.lg-legend { border-top: 1px solid var(--line); padding: 12px 16px; color: var(--muted); font-size: 12px; gap: 8px 14px; }
+.lg-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.lg-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lg-side); }
+.lg-detail-row td { background: var(--surface-well); }
+.lg-detail-row h3 { margin: 4px 0 9px; }
+.lg-detail-row .lg-list { margin-top: 10px; }
+.lg-full-picks, .lg-member { display: flex; flex-wrap: wrap; gap: 4px 11px; align-items: center; font-size: 13px; }
+.lg-full-picks, .lg-member { margin-top: 7px; }
+.lg-full-picks li { display: flex; gap: 5px; align-items: center; }
+.lg-member .lg-full-picks { margin: 0; }
+.lg-dialog {
+  width: min(430px, calc(100vw - 28px));
+  max-height: 80dvh;
+  overflow: auto;
+  padding: 20px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+.lg-dialog::backdrop { background: var(--overlay); }
+.lg-dialog form { margin-top: 14px; }
+.lg-steps { display: flex; flex-wrap: wrap; gap: 7px 18px; margin-bottom: 14px; color: var(--muted); }
+.lg-steps li { display: flex; align-items: baseline; gap: 6px; font-size: 13px; }
+.lg-steps [aria-current] { color: var(--accent-text); font-weight: 700; }
+.kt-leagues fieldset { min-width: 0; padding: 0; border: 0; }
+.kt-leagues legend { font: 650 14px/1.35 var(--font-ui); color: var(--ink); margin-bottom: 8px; }
+.lg-form label, .lg-search label, .lg-scale label { display: grid; gap: 5px; min-width: 0; font-weight: 600; }
+.lg-search { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin: 14px 0; }
+.lg-form .lg-search { margin: 0; }
+.lg-search > label { flex: 1 1 160px; }
+.kt-leagues :is(select, input:not([type="radio"], [type="checkbox"])) {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--button-height);
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--button-radius);
+  background: var(--surface-input);
+  color: var(--ink);
+  font: 400 14px/1.4 var(--font-ui);
+}
+.kt-leagues input:is([type="radio"], [type="checkbox"]) { flex: none; width: 17px; height: 17px; min-height: 0; padding: 0; margin: 2px 0 0; accent-color: var(--accent); }
+.lg-options, .lg-scale { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); }
+.lg-scale { grid-template-columns: repeat(auto-fit, minmax(min(100%, 68px), 1fr)); margin-bottom: 8px; }
+.kt-leagues .lg-option, .kt-leagues .lg-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: var(--button-height);
+  padding: 10px;
+  cursor: pointer;
+}
+.kt-leagues .lg-option { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--button-radius); }
+.lg-option:has(input:checked) { border-color: var(--accent); }
+.kt-leagues .lg-choice { width: 100%; align-items: center; padding: 3px 0; }
+.lg-option small, .lg-choice small { font-weight: 450; }
+.lg-criterion-list { counter-reset: lg-criterion; padding: 0; }
+.lg-criterion-list > li { flex-wrap: wrap; justify-content: flex-start; }
+.lg-criterion-list > li::before { counter-increment: lg-criterion; content: counter(lg-criterion); color: var(--accent-text); font-weight: 750; }
+.lg-criterion-list .lg-actions { margin-inline-start: auto; gap: 4px; }
+.lg-step-actions { margin-top: 14px; }
+.lg-preview details, .lg-custom { border-top: 1px solid var(--line); }
+.lg-wide { width: 100%; }
+@container (min-width: 810px) {
+  .lg-split { grid-template-columns: minmax(0, 2.55fr) minmax(205px, 1fr); }
+  .lg-preview { position: sticky; top: 12px; max-height: 85vh; overflow-y: auto; }
+}
+@container (min-width: 551px) and (max-width: 809px) {
+  .lg-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 550px) {
+  .lg-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .lg-table, .lg-table tbody, .lg-table .lg-detail-row { display: block; }
+  .lg-table .lg-standing { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto auto; align-items: center; gap: 2px 7px; padding: 5px 10px; border-top: 1px solid var(--line); }
+  .lg-table .lg-standing td { display: block; padding: 0; border: none; }
+  .lg-rank { grid-area: 1/1; }
+  .lg-who { grid-area: 1/2; }
+  .lg-score { grid-area: 1/3; }
+  .lg-count { grid-area: 1/4; }
+  .lg-picks { grid-area: 2/2; }
+  .lg-tie { grid-area: 2/3/3/-1; font-size: 12px; max-width: 100px; }
+  .lg-table .lg-tie::before { content: attr(data-label) " "; }
+  .lg-table :is(.lg-score, .lg-count)::before { display: block; content: attr(data-label); font-size: 10px; color: var(--muted); }
+  .lg-chips { justify-content: start; }
+  .lg-detail-row td { display: block; padding: 12px; }
+  .lg-form .lg-actions { gap: 5px; }
+}

@@ -178,6 +178,7 @@ function createRouter(routes, deps) {
     const runner = route.tx ? withTransaction : withClient;
     const execute = () =>
       runner(async (client) => {
+        if (route.repeatableRead) await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");
         if (route.ratingMutation) await require("../db/rating-write-lock").acquireRatingWriteLock(client);
         const auth = route.auth || "none";
         let user = null;
@@ -198,7 +199,14 @@ function createRouter(routes, deps) {
         return route.handler(context);
       });
 
-    if (!limiterKey) return execute();
+    if (!limiterKey) {
+      try { return await execute(); }
+      catch (error) {
+        // Two snapshot reads can simultaneously renew the same expiring session. Retry on a fresh snapshot.
+        if (route.repeatableRead && error.code === '40001') return execute();
+        throw error;
+      }
+    }
     try {
       return await execute();
     } catch (err) {

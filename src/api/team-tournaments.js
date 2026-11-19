@@ -1421,6 +1421,7 @@ async function tournamentData(client, tournament, user, { includeAudit = false }
   return {
     tournament: {
       ...tournamentSummaryView(tournament),
+      leagues: await require("../db/repositories/leagues").forTournament(client, tournament.id),
       viewer: {
         role: canManageTournament(user, tournament) ? "admin" : "spectator",
         ...tournamentPermissions(user, tournament),
@@ -1810,6 +1811,7 @@ async function publishFinalStandings(client, tournament, user) {
   for (const row of standings) await rostersRepo.update(client, row.roster.id, { status: "finished", finalPlace: row.rank, finishedAt: nowIso() });
   const updated = await tournamentsRepo.update(client, tournament.id, { status: "completed", completedAt: tournament.completedAt || nowIso(), finalResults });
   await require("../db/repositories/achievements").syncPodium(client, updated, user.id);
+  await require("../db/repositories/leagues").syncTournamentIdentities(client, updated.id);
   await audit(client, updated, user, "team_standings_publish", { after: finalResults });
   return tournamentData(client, updated, user, { includeAudit: true });
 }

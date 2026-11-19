@@ -51,6 +51,7 @@ function resolveStaticPath(pathname) {
   if (requested === "/initiative" || requested === "/initiative/") requested = "/killteam-initiative-calculator.html";
   if (requested === "/tracker" || requested === "/tracker/") requested = "/killteam-activation-tracker.html";
   if (requested === "/tournament" || requested === "/tournament/") requested = "/index.html";
+  if (/^\/leagues(?:\/[^/\\]+)?\/?$/.test(requested)) requested = "/index.html";
   if (requested === "/miniapp" || requested === "/miniapp/") requested = "/miniapp/index.html";
   if (requested === "/studio" || requested === "/studio/") requested = "/studio/index.html";
   if (requested === "/dice" || requested === "/dice/") requested = "/dice/index.html";

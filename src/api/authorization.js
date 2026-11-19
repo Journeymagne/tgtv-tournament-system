@@ -47,6 +47,10 @@ async function authorize({client,user,params,route,body={}}) {
     if (!user.isSuperAdmin) throw new HttpError(403,"Super administrator rights required");
     return user;
   }
+  if (route.permission === "league.create" || route.permission === "league.manage") {
+    const { requireLeagueAccess } = require("./leagues");
+    return (await requireLeagueAccess(client,user,route.permission === "league.manage" ? params.leagueId : null)).user;
+  }
   if (route.permission === "calendar.manage") {
     if (route.method === "POST" && !canCreateTournament(user) && !user.capabilities?.canCreateProviderEvents) {
       throw new HttpError(403,"Calendar creation permission required");

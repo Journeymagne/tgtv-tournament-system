@@ -101,6 +101,8 @@ const state = {
   adminSpecialUsers: [], adminSpecialUsersPage: 1, adminSpecialUsersQuery: "",
   gamesTab: "history",
   tournamentsTab: "public",
+  leagueSlug: "",
+  leagueTrack: null,
   providerSlug: "",
   providerInvitationId: "",
   searchResults: [],
@@ -445,6 +447,7 @@ async function api(path, options = {}) {
     if (!res.ok) {
       const error = new Error(data.message || data.error || t("common.requestFailed"));
       error.status = res.status;
+      if (Array.isArray(data.issues)) error.issues = data.issues;
       if (data.pairingWarningReview) error.pairingWarningReview = data.pairingWarningReview;
       throw error;
     }
@@ -1388,6 +1391,11 @@ let navigationRequestId = 0;
 async function handleHashNavigation() {
   const requestId = ++navigationRequestId;
   try {
+    const [section, league, extra] = pathSegments();
+    if (!window.location.hash && section === "leagues" && !extra) {
+      const track = new URLSearchParams(window.location.search).get("track");
+      pushAppLocation(leaguePageUrl(league, track), { replace: true });
+    }
     const route = appRouteFromHash();
     state.administrationContext = Boolean(route?.administrationContext);
     if (state.administrationContext && !canOpenAdministration()) {
@@ -1499,6 +1507,11 @@ function appRouteFromHash(routeSegments = null) {
     return { view: "games", gamesTab: subroute === "sessions" ? "sessions" : "history", ...(subroute === "sessions" ? { administrationContext: true } : {}) };
   }
   if (section === "tournaments") {
+    if (subroute === "leagues") {
+      const track = new URLSearchParams(String(window.location.hash || "").split("?")[1]).get("track");
+      return { view: "tournaments", tournamentsTab: "leagues", leagueSlug: id || "",
+        leagueTrack: id && ["solo", "org"].includes(track) ? track : null };
+    }
     if (subroute === "organizations") {
       const invitation = new URLSearchParams(String(window.location.hash || "").split("?")[1]).get("invitation");
       return {
@@ -1620,6 +1633,8 @@ async function applyAppRoute(route) {
     }
   } else if (route.view === "tournaments") {
     state.tournamentsTab = activeTournamentTab(route.tournamentsTab, canOpenAdministration());
+    state.leagueSlug = route.leagueSlug || "";
+    state.leagueTrack = route.leagueTrack || null;
     state.providerSlug = route.providerSlug || "";
     state.providerInvitationId = route.providerInvitationId || "";
     if (state.tournamentsTab === "admin") {
@@ -1692,6 +1707,7 @@ function appHashForState() {
         : `#/games/game/${encodeURIComponent(state.selectedGameId)}${state.gameDetailMode ? `/${state.gameDetailMode}` : ""}`;
     }
     if (state.view === "tournaments") {
+      if (state.tournamentsTab === "leagues") return leagueHash(state.leagueSlug, state.leagueTrack);
       if (state.tournamentsTab === "organizations") {
         const path = state.providerSlug ? `/${encodeURIComponent(state.providerSlug)}` : "";
         const query = state.providerInvitationId ? `?invitation=${encodeURIComponent(state.providerInvitationId)}` : "";
@@ -1849,7 +1865,7 @@ function sharedChallengeTokenFromHash() {
 
 function tournamentSlugFromHash() {
   const segments = hashSegments();
-  if (segments.length !== 2 || segments[0] !== "tournaments" || ["admin", "organizations"].includes(segments[1])) return "";
+  if (segments.length !== 2 || segments[0] !== "tournaments" || ["admin", "leagues", "organizations"].includes(segments[1])) return "";
   return segments[1] || "";
 }
 
@@ -2074,6 +2090,24 @@ function publicTournamentContainer(data = null) {
   return document.querySelector("[data-content]");
 }
 
+function leagueHash(slug, track) {
+  const path = slug ? `/${encodeURIComponent(slug)}` : "";
+  const query = slug && ["solo", "org"].includes(track) ? `?track=${track}` : "";
+  return `#/tournaments/leagues${path}${query}`;
+}
+
+function leaguePageUrl(slug, track) {
+  return "/tournament" + leagueHash(slug, track);
+}
+
+function leagueResultsActions(leagues = []) {
+  if (!leagues.length) return "";
+  const label = adminLabel("Итоги лиги", "League standings");
+  const link = (league, title) => `<a class="small-button" data-app-link data-app-route href="${escapeHtml(leaguePageUrl(league.slug, league.track))}">${escapeHtml(title)}</a>`;
+  if (leagues.length === 1) return link(leagues[0], label);
+  return `<details class="league-results-menu"><summary class="small-button">${label}</summary><div>${leagues.map(league => link(league, league.name)).join("")}</div></details>`;
+}
+
 function renderPublicTournament(data, live = false) {
   const tournament = data.tournament || {};
   const admin = Boolean(data.management && state.me && canManageTournamentUi(tournament));
@@ -2081,7 +2115,7 @@ function renderPublicTournament(data, live = false) {
   setLiveContent(publicTournamentContainer(data), `
     <div data-live-view="tournament" class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
       ${tournamentInfoPanel(data, { publicRoute: true, admin,
-        actions: `<button class="ghost-button" data-public-back>${t("common.back")}</button>${state.tournamentInfoTab === "settings" ? "" : tournamentEditButton(tournament)}${admin ? adminUi().adminTournamentMenu(data) : ""}`,
+        actions: `<button class="ghost-button" data-public-back>${t("common.back")}</button>${leagueResultsActions(tournament.leagues)}${state.tournamentInfoTab === "settings" ? "" : tournamentEditButton(tournament)}${admin ? adminUi().adminTournamentMenu(data) : ""}`,
         tabActions: admin ? (tab) => adminUi().adminTournamentActionButtons(data, tab) : null,
         extraActions: state.me ? publicTournamentViewerActions(data) : `
           <button class="small-button" data-public-login>${t("auth.tab.signIn")}</button>
@@ -3233,14 +3267,15 @@ function wirePageTabs() {
 }
 
 function activeTournamentTab(tab, canAdmin) {
-  return tab === "organizations" || (tab === "admin" && canAdmin) ? tab : "public";
+  return ["leagues", "organizations"].includes(tab) || (tab === "admin" && canAdmin) ? tab : "public";
 }
 
 function tournamentPublicTabs(active) {
   return `<nav class="tabs page-tabs" aria-label="${t("nav.tournaments")}">
-    ${[["public", "/tournament#/tournaments", "providers.tournamentTab"],
-      ["organizations", "/tournament#/tournaments/organizations", "providers.title"]].map(([id, href, label]) =>
-      `<a href="${href}" data-app-link data-app-route class="tab ${active === id ? "active primary-button" : "ghost-button"}"${active === id ? ' aria-current="page"' : ""}>${t(label)}</a>`
+    ${[["public", "/tournament#/tournaments", t("providers.tournamentTab")],
+      ["leagues", leaguePageUrl(), adminLabel("Лиги", "Leagues")],
+      ["organizations", "/tournament#/tournaments/organizations", t("providers.title")]].map(([id, href, label]) =>
+      `<a href="${href}" data-app-link data-app-route class="tab ${active === id ? "active primary-button" : "ghost-button"}"${active === id ? ' aria-current="page"' : ""}>${label}</a>`
     ).join("")}
   </nav>`;
 }
@@ -3266,6 +3301,21 @@ function renderTournaments(live = false) {
   const tournaments = state.tournaments || [];
   const activeTab = activeTournamentTab(state.tournamentsTab, canOpenAdministration());
   state.tournamentsTab = activeTab;
+  if (activeTab === "leagues") {
+    if (!content.querySelector("[data-tournament-leagues]")) {
+      content.innerHTML = `${tournamentPublicTabs(activeTab)}<div data-tournament-leagues></div>`;
+      void mountTournamentLeagues(content.querySelector("[data-tournament-leagues]"), {
+        api, t, locale: i18n.getLocale(), me: state.me,
+        canCreate: Boolean(state.me?.capabilities?.canCreateTournaments || state.me?.isAdmin || state.me?.isSuperAdmin),
+        slug: state.leagueSlug, track: state.leagueTrack,
+        navigate: async (slug, track) => {
+          pushAppLocation(leaguePageUrl(slug, track));
+          await handleHashNavigation();
+        }
+      });
+    }
+    return;
+  }
   if (activeTab === "organizations") {
     if (!content.querySelector("[data-tournament-providers]")) {
       content.innerHTML = `${tournamentPublicTabs(activeTab)}<div data-tournament-providers></div>`;
@@ -3857,31 +3907,55 @@ function providerEventField(data, id, personalKey) {
 }
 
 function loadTournamentProvidersUi() {
-  if (tournamentProvidersUiPromise) return tournamentProvidersUiPromise;
-  const assets = ["tournament-providers.css", "tournament-providers.js"].map(filename => {
-    const element = document.createElement(filename.endsWith(".css") ? "link" : "script");
-      const url = `/${filename}?v=1.7.3`;
-    if (element.tagName === "LINK") {
-      element.rel = "stylesheet";
-      element.href = url;
-    } else {
-      element.src = url;
-    }
-    return element;
-  });
-  tournamentProvidersUiPromise = Promise.all(assets.map(element => new Promise((resolve, reject) => {
-    element.onload = resolve;
-    element.onerror = () => reject(new Error(t("providers.loadError")));
-    document.head.append(element);
-  }))).then(() => {
-    if (!window.TGTV_TOURNAMENT_PROVIDERS) throw new Error(t("providers.loadError"));
-    return window.TGTV_TOURNAMENT_PROVIDERS;
-  }).catch(error => {
-    assets.forEach(element => element.remove());
+  tournamentProvidersUiPromise ??= loadTournamentAssets(["tournament-providers.css", "tournament-providers.js"],
+    "1.7.3", "TGTV_TOURNAMENT_PROVIDERS", t("providers.loadError")).catch(error => {
     tournamentProvidersUiPromise = null;
     throw error;
   });
   return tournamentProvidersUiPromise;
+}
+
+function loadTournamentAssets(filenames, version, globalName, errorMessage) {
+  const assets = filenames.map(filename => {
+    const element = document.createElement(filename.endsWith(".css") ? "link" : "script");
+    const url = `/${filename}?v=${version}`;
+    if (element.tagName === "LINK") {
+      element.rel = "stylesheet";
+      element.href = url;
+    } else {
+      element.async = false;
+      element.src = url;
+    }
+    return element;
+  });
+  return Promise.all(assets.map(element => new Promise((resolve, reject) => {
+    element.onload = resolve;
+    element.onerror = () => reject(new Error(errorMessage));
+    document.head.append(element);
+  }))).then(() => {
+    if (!window[globalName]) throw new Error(errorMessage);
+    return window[globalName];
+  }).catch(error => {
+    assets.forEach(element => element.remove());
+    throw error;
+  });
+}
+
+let tournamentLeaguesUiPromise;
+async function mountTournamentLeagues(container, options) {
+  container.innerHTML = `<section class="card panel" role="status">${t("common.loading")}</section>`;
+  try {
+    tournamentLeaguesUiPromise ??= loadTournamentAssets(
+      ["tournament-leagues.css", "tournament-leagues-editor.js", "tournament-leagues.js"], "1",
+      "KTLeagues", adminLabel("Не удалось загрузить лиги", "Could not load leagues")
+    ).catch(error => { tournamentLeaguesUiPromise = null; throw error; });
+    const ui = await tournamentLeaguesUiPromise;
+    if (container.isConnected) await ui.mount(container, options);
+  } catch (error) {
+    if (!container.isConnected) return;
+    container.innerHTML = `<section class="card panel"><p role="alert">${escapeHtml(error.message)}</p><button type="button" class="small-button">${t("providers.retry")}</button></section>`;
+    container.querySelector("button").onclick = () => mountTournamentLeagues(container, options);
+  }
 }
 
 async function mountTournamentProviders(container) {

@@ -23,6 +23,7 @@ function siteName(req) {
   if (ALIASES[pathname]) return ALIASES[pathname];
   if (/^\/(?:faq|community-faq)\/(?:info|conduct)\/?$/.test(pathname)) return "faq";
   if (/^\/(tournaments|teams)\/[^/]+\/?$/.test(pathname)) return "tournament";
+  if (/^\/leagues(?:\/[^/]+)?\/?$/.test(pathname)) return "tournament";
   return Object.keys(SERVICE_PATHS).find(name => SERVICE_PATHS[name] === pathname) || null;
 }
 

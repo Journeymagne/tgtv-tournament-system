@@ -380,7 +380,7 @@ async function fullView(client, tournament, user, { includeAudit = false } = {})
     await attachTournamentGameDetails(client, await gamesRepo.listByIds(client, completedGameIds))
   ).map((game) => gameView(game, people));
 
-  return tournamentDetailView({
+  const detail = tournamentDetailView({
     tournament,
     participants: visibleParticipants,
     matchParticipants: participants,
@@ -393,6 +393,8 @@ async function fullView(client, tournament, user, { includeAudit = false } = {})
     viewer: viewerFor(tournament, participants, user),
     auditEvents
   });
+  detail.tournament.leagues = await require("../db/repositories/leagues").forTournament(client, tournament.id);
+  return detail;
 }
 
 async function listPublic({ client, user, query }) {
@@ -1834,7 +1836,10 @@ async function recalculateStandingsAdmin({ client, user, params, body = {} }) {
     ...previous.get(row.participant.id), ...finalResultFromStanding(row, row.rank)
   })) : tournament.finalResults;
   const updated = await tournamentsRepo.update(client, tournament.id, { finalResults });
-  if (published) await require("../db/repositories/achievements").syncPodium(client, updated, user.id);
+  if (published) {
+    await require("../db/repositories/achievements").syncPodium(client, updated, user.id);
+    await require("../db/repositories/leagues").syncTournamentIdentities(client, updated.id);
+  }
   await audit(client, updated, user, "standings_recalculated", {
     entityType: "tournament", entityId: tournament.id, before,
     after: { finalResults, matches: repairs.map(({ match, patch }) => ({ id: match.id, ...patch })) },
@@ -1922,6 +1927,7 @@ async function publishFinalStandingsAdmin({ client, user, params, body }) {
     finalResults
   });
   await require("../db/repositories/achievements").syncPodium(client, updated, user.id);
+  await require("../db/repositories/leagues").syncTournamentIdentities(client, updated.id);
   await audit(client, updated, user, "standings_publish", { after: updated, metadata: { finalResults } });
   return fullView(client, updated, user, { includeAudit: true });
 }

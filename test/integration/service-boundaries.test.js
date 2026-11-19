@@ -100,6 +100,16 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
   const cup = (await ok(admin.post('/api/admin/tournaments', { name: 'Service Cup', startsAt: '2027-01-01T12:00:00Z', format: 'swiss', swissRoundCount: 3 }), 201)).tournament;
   const url = `/api/admin/tournaments/${cup.id}`;
   await ok(admin.post(url + '/publish'));
+  await t.test('league catalog, sources and standings pass through the gateway under the tournaments service role', async () => {
+    const guest=createClient(origin);
+    const draft={name:'Service League',formats:['solo'],tournamentIds:[cup.id]};
+    assert.equal((await ok(admin.post('/api/leagues/preview',draft))).valid,true);
+    const {league}=await ok(admin.post('/api/leagues',draft),201);
+    assert.deepEqual((await ok(guest.get('/api/leagues/'+league.slug))).league.events.map(e=>e.status),['pending']);
+    assert.deepEqual((await ok(guest.get('/api/leagues/'+league.slug+'/standings?track=solo'))).rows,[]);
+    assert.ok((await ok(guest.get('/api/tournaments/'+cup.slug))).tournament.leagues.some(item=>item.slug===league.slug));
+    await ok(players[0].get('/api/leagues/'+league.id+'/bindings'),403);
+  });
   for (const client of [admin, ...players]) await ok(client.post(`/api/tournaments/${cup.id}/join`, { faction: 'Kommandos' }));
   await ok(admin.post(url + '/registration/close'));
   const prepared = await ok(admin.post(url + '/rounds/next'));

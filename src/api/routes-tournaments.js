@@ -24,6 +24,7 @@ function withAction(handler, action) {
 
 module.exports = [
   ...require('./routes-tournament-providers'),
+  ...require('./leagues').routes,
   { method: "GET", path: "/api/statistics/kill-team", handler: killTeamStatistics.get, auth: "none" },
   {method:'GET',path:'/api/admin/tournaments/:id/audit',handler:tournaments.auditPage,auth:'user',permission:'tournament.manage'},
   ...require("./miniapp").routes,
