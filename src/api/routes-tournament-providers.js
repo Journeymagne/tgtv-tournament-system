@@ -13,6 +13,8 @@ module.exports = [
   {method:'PATCH',path:'/api/tournament-providers/:id/members/:userId',handler:action(providers.changeMember,'role'),auth:'user',tx:true},
   {method:'DELETE',path:'/api/tournament-providers/:id/members/:userId',handler:action(providers.changeMember,'remove'),auth:'user',tx:true},
   {method:'POST',path:'/api/tournament-providers/:id/leave',handler:action(providers.changeMember,'leave'),auth:'user',tx:true},
-  {method:'PATCH',path:'/api/tournament-providers/:id/owner',handler:providers.transferOwner,auth:'user',tx:true},
+  {method:'PATCH',path:'/api/tournament-providers/:id/owner',handler:action(providers.changeChief,'transfer'),auth:'user',tx:true},
+  {method:'POST',path:'/api/tournament-providers/:id/owners/:userId',handler:action(providers.changeChief,'add'),auth:'user',tx:true},
+  {method:'DELETE',path:'/api/tournament-providers/:id/owners/:userId',handler:action(providers.changeChief,'remove'),auth:'user',tx:true},
   ...['archive','restore'].map(value=>({method:'POST',path:'/api/tournament-providers/:id/'+value,handler:action(providers.archive,value),auth:'user',tx:true}))
 ];

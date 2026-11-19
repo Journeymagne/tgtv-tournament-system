@@ -211,7 +211,7 @@ async function deleteUser({ client, user, params }) {
   try {
     await usersRepo.remove(client, target.id);
   } catch (error) {
-    if (error.code === '23503' && error.constraint === 'tournament_providers_owner_user_id_fkey') {
+    if (error.code === '23503' && ['tournament_providers_owner_user_id_fkey','tournament_providers_co_owner_user_id_fkey'].includes(error.constraint)) {
       throw new HttpError(409, 'Transfer the chief organizer role in every organization before deleting this account');
     }
     throw error;

@@ -2704,10 +2704,10 @@ function adminTournamentStaffContent(data) {
   if(!roster) return '';
   const organizationTournament = data.tournament?.providerId != null;
   const help = organizationTournament
-    ? adminLabel('Главный организатор и администраторы управляют назначениями судей на этот турнир.', 'The chief organizer and platform administrators manage judge assignments for this tournament.')
+    ? adminLabel('Главные организаторы и администраторы назначают судей на этот турнир.', 'Chief organizers and platform administrators appoint judges for this tournament.')
     : adminLabel('Организатор турнира и администраторы платформы назначают судей. Судьи управляют проведением турнира. Администраторы платформы получают судейский доступ автоматически.', 'The tournament organizer and platform administrators appoint judges. Judges manage the tournament. Platform administrators receive judge access automatically.');
   const staffRows = roster.staff.filter(person => person.active).map(person => {
-    const role = person.role === 'organizer' ? adminLabel('Организатор', 'Organizer')
+    const role = person.isProviderChief ? t('providers.role.owner') : person.role === 'organizer' ? adminLabel('Организатор', 'Organizer')
       : person.role === 'super_admin' ? adminLabel('Супер-администратор', 'Super administrator')
         : adminLabel('Судья', 'Judge');
     const access = [role];

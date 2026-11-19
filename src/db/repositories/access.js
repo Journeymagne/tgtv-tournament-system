@@ -22,7 +22,7 @@ async function hydrate(client, user) {
       SELECT j.tournament_id,TRUE,FALSE,FALSE FROM tournament_judges j
       WHERE j.user_id=u.id AND j.revoked_at IS NULL AND (j.expires_at IS NULL OR j.expires_at>NOW())
       UNION ALL
-      SELECT t.id,TRUE,m.role='organizer',p.owner_user_id=u.id
+      SELECT t.id,TRUE,m.role='organizer',(p.owner_user_id=u.id OR p.co_owner_user_id IS NOT DISTINCT FROM u.id)
       FROM tournament_provider_memberships m JOIN tournament_providers p ON p.id=m.provider_id
       JOIN tournaments t ON t.provider_id=p.id WHERE m.user_id=u.id AND m.ended_at IS NULL
       UNION ALL
@@ -30,7 +30,7 @@ async function hydrate(client, user) {
     ) effective_grants
   ) grants ON TRUE` : '';
   const tournamentFields = tournamentAccess ? `grants.managed,grants.organized,grants.judge_management,
-    (SELECT jsonb_agg(jsonb_build_object('providerId',p.id,'role',m.role,'isOwner',p.owner_user_id=u.id,
+    (SELECT jsonb_agg(jsonb_build_object('providerId',p.id,'role',m.role,'isOwner',(p.owner_user_id=u.id OR p.co_owner_user_id IS NOT DISTINCT FROM u.id),
       'name',p.name,'slug',p.slug,'archivedAt',p.archived_at) ORDER BY p.name,p.id)
       FROM tournament_provider_memberships m JOIN tournament_providers p ON p.id=m.provider_id
       WHERE m.user_id=u.id AND m.ended_at IS NULL) AS provider_memberships` : 'NULL AS managed';

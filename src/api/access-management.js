@@ -23,6 +23,7 @@ async function staff({ client, user, params }) {
   const { tournament } = contextValue;
   user = contextValue.user;
   const { rows } = await client.query(`SELECT u.id, u.name, u.is_admin, m.role AS provider_role, p.owner_user_id AS provider_owner_id,
+    (u.id=p.owner_user_id OR u.id IS NOT DISTINCT FROM p.co_owner_user_id) AS provider_chief,
     EXISTS (SELECT 1 FROM platform_ownership p WHERE p.owner_user_id=u.id) AS is_super_admin,
     j.granted_by, g.name AS granted_by_name, j.expires_at, j.revoked_at,
     (j.user_id IS NOT NULL AND j.revoked_at IS NULL AND (j.expires_at IS NULL OR j.expires_at > NOW())) AS assigned
@@ -32,12 +33,13 @@ async function staff({ client, user, params }) {
     LEFT JOIN users g ON g.id=j.granted_by
     WHERE (p.id IS NULL AND u.id=$2) OR m.user_id IS NOT NULL
       OR (j.user_id IS NOT NULL AND j.revoked_at IS NULL AND (j.expires_at IS NULL OR j.expires_at > NOW()))
-    ORDER BY (u.id=COALESCE(p.owner_user_id,$2)) DESC, u.name`, [tournament.id, tournament.ownerUserId,tournament.providerId]);
+    ORDER BY provider_chief DESC, (u.id=COALESCE(p.owner_user_id,$2)) DESC, u.name`, [tournament.id, tournament.ownerUserId,tournament.providerId]);
   const ownerUserId = tournament.providerId ? rows[0]?.provider_owner_id : tournament.ownerUserId;
   return { ownerUserId, canManageJudges: canManageJudges(user, tournament),
     staff: rows.map(row => ({ userId: row.id, name: row.name,
       role: row.id === ownerUserId ? "organizer" : row.provider_role || "judge",
       providerRole: row.provider_role || null,
+      isProviderChief: Boolean(row.provider_chief),
       hasPlatformAccess: Boolean(row.is_admin || row.is_super_admin),
       automatic: row.is_admin || row.is_super_admin || Boolean(row.provider_role),
       assigned: row.assigned, active: row.id === ownerUserId || row.is_admin || row.is_super_admin || row.assigned || Boolean(row.provider_role),

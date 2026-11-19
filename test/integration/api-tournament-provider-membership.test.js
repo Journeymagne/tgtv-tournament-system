@@ -106,6 +106,64 @@ test('chief cannot disappear and transfer preserves one chief while recording th
   await expect(organizer.http.patch(url('/owner'),{userId:chief.id}));
   await expect(organizer.http.post(url('/invitations'),{userId:judge.id,role:'judge'}),403);
 });
+test('two chiefs share scoped permissions and either can give up or transfer a seat',async()=>{
+  for (const person of [organizer,judge,player]) await accept(person,await invite(person));
+  await expect(chief.http.patch(url('/owner'),{userId:organizer.id}));
+  const seat = person => url('/owners/'+person.id);
+  await expect(judge.http.post(seat(judge)),403);
+  const race = await Promise.all([organizer.http.post(seat(judge)),organizer.http.post(seat(judge))]);
+  assert.deepEqual(race.map(r=>r.status).sort(),[200,409]);
+  await expect(organizer.http.post(seat(player)),409);
+  const profile = person => expect(person.http.get('/api/tournament-providers/'+provider.slug));
+  const first = await profile(organizer), second = await profile(judge);
+  assert.equal(second.provider.viewer.isOwner,true);
+  assert.deepEqual(first.provider.viewer,second.provider.viewer);
+  assert.deepEqual(second.members.filter(m=>m.isOwner).map(m=>m.userId).sort((a,b)=>a-b),[organizer.id,judge.id]);
+  await expect(judge.http.post('/api/tournament-providers',{...input,name:'No global grant'}),403);
+  await expect(organizer.http.del(url('/members/'+judge.id)),400);
+  await expect(chief.http.del('/api/admin/users/'+judge.id),409);
+  const {tournament} = await expect(judge.http.post('/api/admin/tournaments',{name:'Shared cup',providerId:provider.id}),201);
+  const judges = '/api/admin/tournaments/'+tournament.id+'/judges';
+  await expect(judge.http.post(judges,{userId:player.id}));
+  await expect(organizer.http.del(judges+'/'+player.id));
+
+  await expect(judge.http.patch(url('/owner'),{userId:player.id}));
+  assert.equal((await profile(judge)).provider.viewer.canManageMembers,false);
+  await expect(judge.http.post(judges,{userId:player.id}),403);
+  await expect(player.http.del(seat(organizer)));
+  const remaining = await profile(player);
+  assert.equal(remaining.provider.ownerUserId,player.id);
+  assert.equal(remaining.provider.coOwnerUserId,null);
+  assert.equal(remaining.provider.createdByUserId,chief.id);
+  await expect(player.http.del(seat(player)),409);
+});
+
+test('the Beer Brothers assignment grants acolyte only organization leadership and is repeatable',async()=>{
+  const db = getPool();
+  await db.query("SELECT setval(pg_get_serial_sequence('accounts.users','id'),169,false)");
+  const original = await register('BeerChief');
+  await db.query("SELECT setval(pg_get_serial_sequence('accounts.users','id'),298,false)");
+  const acolyte = await register('acolyte');
+  await db.query("SELECT setval(pg_get_serial_sequence('tournaments.tournament_providers','id'),3,false)");
+  const repo = require('../../src/db/repositories/tournament-providers');
+  const beer = await withTransaction(c=>repo.insert(c,{slug:'beer-brothers-tournament-series',name:'Beer Brothers',
+    nameKey:'beer brothers',city:'Saint Petersburg',logoData,createdByUserId:original.id}));
+  await withTransaction(c=>repo.insertInvitation(c,{providerId:beer.id,invitedByUserId:original.id,inviteeUserId:acolyte.id,role:'judge'}));
+  const migration = require('../../src/db/migrations/126_beer_brothers_co_owner');
+  await withTransaction(c=>migration.up(c));
+  await withTransaction(c=>migration.up(c));
+  const profile = await expect(acolyte.http.get('/api/tournament-providers/'+beer.slug));
+  assert.deepEqual(profile.members.map(m=>[m.userId,m.isOwner,m.role]),[[169,true,'organizer'],[298,true,'organizer']]);
+  assert.equal(profile.provider.viewer.canManageMembers,true);
+  assert.equal(profile.provider.ownerUserId,original.id);
+  assert.equal(profile.provider.createdByUserId,original.id);
+  assert.equal(profile.invitations.length,0);
+  assert.equal((await expect(acolyte.http.get('/api/tournament-providers/'+provider.slug))).provider.viewer.canManageMembers,false);
+  await expect(acolyte.http.post('/api/tournament-providers',{...input,name:'Global grant'}),403);
+  const audit = await db.query("SELECT id FROM tournaments.tournament_provider_audit_events WHERE provider_id=$1 AND event_type='provider_chief_added'",[beer.id]);
+  assert.equal(audit.rowCount,1);
+});
+
 test('archive revokes pending invitations, preserves public profile and can be restored by an administrator',async()=>{
   const invitation=await invite(organizer);
   await expect(chief.http.post(url('/archive')));

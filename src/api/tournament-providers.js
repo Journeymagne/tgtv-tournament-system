@@ -3,7 +3,7 @@ const { requirePositiveIntId: positiveInt } = require('./params');
 const repo = require('../db/repositories/tournament-providers');
 const users = require('../db/repositories/users');
 const access = require('../db/repositories/access');
-const { normalizeProvider, providerPermissions } = require('../domain/tournament-providers');
+const { normalizeProvider, providerPermissions, isProviderChief } = require('../domain/tournament-providers');
 const { canCreateTournament, isPlatformAdmin } = require('../domain/access');
 const { uniqueSlug } = require('../domain/tournaments/slug');
 const notifications = require('../notifications/publish');
@@ -91,7 +91,7 @@ async function create({client,user,body}) {
 async function update({client,user,params,body}) {
   const ctx = await requireProviderAccess(client,user,params.id,'canEdit',{lock:true});
   if (body.expectedUpdatedAt !== ctx.provider.updatedAt) throw new HttpError(409,'Organization changed. Reload before saving.');
-  if (['ownerUserId','createdByUserId','slug','archivedAt','owner_user_id'].some(k=>Object.hasOwn(body,k))) throw new HttpError(403,'Use the dedicated organization action');
+  if (['ownerUserId','coOwnerUserId','createdByUserId','slug','archivedAt','owner_user_id','co_owner_user_id'].some(k=>Object.hasOwn(body,k))) throw new HttpError(403,'Use the dedicated organization action');
   const patch = normalizeProvider(body,{partial:true});
   const provider = await uniqueWrite(()=>repo.update(client,ctx.provider.id,patch));
   await record(client,ctx.user,provider,'provider_updated',ctx.provider,provider);
@@ -141,24 +141,47 @@ async function changeMember({client,user,params,body,action}) {
   const userId = action==='leave'?user.id:requirePositiveIntId(params.userId,404,'Member not found');
   const member = await repo.activeMembership(client,ctx.provider.id,userId);
   if (!member) throw new HttpError(404,'Member not found');
-  if (userId===ctx.provider.ownerUserId) throw new ValidationError('Transfer the chief organizer role first');
+  if (isProviderChief(ctx.provider,userId)) throw new ValidationError('Transfer the chief organizer role first');
   let updated;
   if (action==='role') updated=await repo.setMembershipRole(client,member.id,role(body.role));
   else updated=await repo.endMembership(client,member.id);
   await record(client,ctx.user,ctx.provider,action==='role'?'member_role_changed':action==='leave'?'member_left':'member_removed',member,updated,'membership',member.id);
   return profileData(client,ctx.provider,ctx.user);
 }
-async function transferOwner({client,user,params,body}) {
-  const ctx = await requireProviderAccess(client,user,params.id,'canTransferOwnership',{lock:true});
-  const id = requirePositiveIntId(body.userId,400,'Choose an organizer');
-  const membership = await repo.activeMembership(client,ctx.provider.id,id);
+async function requireEligibleChief(client,providerId,id) {
+  const membership = await repo.activeMembership(client,providerId,id);
   if (!membership || membership.role!=='organizer') throw new ValidationError('Choose an active organizer');
   const target=await access.hydrate(client,await users.findById(client,id));
   if (!target || (target.suspendedUntil && new Date(target.suspendedUntil).getTime()>Date.now())) {
     throw new ValidationError('Choose an active organizer whose account is not suspended');
   }
-  const provider = await repo.update(client,ctx.provider.id,{ownerUserId:id});
-  await record(client,ctx.user,provider,'provider_owner_changed',ctx.provider,provider);
+}
+async function changeChief({client,user,params,body,action}) {
+  const ctx = await requireProviderAccess(client,user,params.id,'canTransferOwnership',{lock:true});
+  const previous = ctx.provider;
+  const id = requirePositiveIntId(action === 'transfer' ? body.userId : params.userId,400,'Choose an organizer');
+  let patch, eventType;
+  if (action === 'remove') {
+    if (!previous.coOwnerUserId || !isProviderChief(previous,id)) throw new HttpError(409,'Two chief organizers are required to remove one');
+    patch = {ownerUserId: id === previous.ownerUserId ? previous.coOwnerUserId : previous.ownerUserId, coOwnerUserId:null};
+    eventType = 'provider_chief_removed';
+  } else {
+    await requireEligibleChief(client,previous.id,id);
+    if (action === 'add') {
+      if (previous.coOwnerUserId || isProviderChief(previous,id)) throw new HttpError(409,'Choose a new second chief organizer');
+      patch = {coOwnerUserId:id};
+      eventType = 'provider_chief_added';
+    } else {
+      const from = body.fromUserId == null
+        ? (ctx.permissions.isOwner ? ctx.user.id : previous.ownerUserId)
+        : requirePositiveIntId(body.fromUserId,400,'Choose the chief organizer to replace');
+      if (!isProviderChief(previous,from) || (id !== from && isProviderChief(previous,id))) throw new HttpError(409,'The chief organizers have changed');
+      patch = from === previous.ownerUserId ? {ownerUserId:id} : {coOwnerUserId:id};
+      eventType = 'provider_owner_changed';
+    }
+  }
+  const provider = await repo.update(client,previous.id,patch);
+  await record(client,ctx.user,provider,eventType,previous,provider);
   return profileData(client,provider,ctx.user);
 }
 async function archive({client,user,params,action}) {
@@ -187,4 +210,4 @@ async function events(ctx) {
   const access=await requireProviderAccess(ctx.client,ctx.user,ctx.params.id,null);
   return require('./tournament-provider-events').list({...ctx,user:access.user,provider:access.provider,canSeeDrafts:access.permissions.isMember || isPlatformAdmin(access.user)});
 }
-module.exports={requireProviderAccess,list,dashboard,get,create,update,invite,respondInvitation,changeMember,transferOwner,archive,logo,events};
+module.exports={requireProviderAccess,list,dashboard,get,create,update,invite,respondInvitation,changeMember,changeChief,archive,logo,events};

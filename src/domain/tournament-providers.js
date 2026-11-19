@@ -40,11 +40,15 @@ function normalizeProvider(input, { partial = false } = {}) {
   return profile;
 }
 
+function isProviderChief(provider, userId) {
+  return userId != null && (provider.ownerUserId === userId || provider.coOwnerUserId === userId);
+}
+
 function providerPermissions(user, provider, membership) {
   const isMember = Boolean(user && provider && membership && membership.userId === user.id &&
     membership.providerId === provider.id && !membership.endedAt);
   const organizer = isMember && membership.role === 'organizer';
-  const isOwner = organizer && provider.ownerUserId === user.id;
+  const isOwner = organizer && isProviderChief(provider, user.id);
   const admin = Boolean(provider && isPlatformAdmin(user));
   const manageMembers = admin || isOwner;
   const active = Boolean(provider && !provider.archivedAt);
@@ -65,4 +69,4 @@ function providerLogoUrl(id, version) {
   return id && version ? `/api/tournament-provider-logos/${id}?v=${version}` : null;
 }
 
-module.exports = { normalizeProvider, providerPermissions, providerLogoUrl };
+module.exports = { normalizeProvider, providerPermissions, providerLogoUrl, isProviderChief };

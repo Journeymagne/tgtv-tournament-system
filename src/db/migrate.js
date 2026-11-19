@@ -121,7 +121,9 @@ const MIGRATIONS = [
   require("./migrations/121_provider_card_links_release_notes"),
   require("./migrations/122_provider_card_typography_release_notes"),
   require("./migrations/123_event_venue_and_chat"),
-  require("./migrations/124_gefest_tournament_history")
+  require("./migrations/124_gefest_tournament_history"),
+  require("./migrations/125_provider_co_owner"),
+  require("./migrations/126_beer_brothers_co_owner")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

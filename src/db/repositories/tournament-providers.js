@@ -8,7 +8,7 @@ const PROVIDERS = 'tournaments.tournament_providers';
 const MEMBERSHIPS = 'tournaments.tournament_provider_memberships';
 const INVITATIONS = 'tournaments.tournament_provider_invitations';
 const PROVIDER_COLUMNS = `p.id, p.slug, p.name, p.logo_version, p.city, p.description, p.created_by_user_id,
-  p.owner_user_id, p.archived_at, p.created_at,
+  p.owner_user_id, p.co_owner_user_id, p.archived_at, p.created_at,
   to_char(p.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at`;
 
 function mapProvider(row) {
@@ -22,6 +22,7 @@ function mapProvider(row) {
     description: row.description,
     createdByUserId: row.created_by_user_id,
     ownerUserId: row.owner_user_id,
+    coOwnerUserId: row.co_owner_user_id ?? null,
     archivedAt: toIso(row.archived_at),
     createdAt: toIso(row.created_at),
     updatedAt: row.updated_at
@@ -122,7 +123,7 @@ async function insert(client, provider) {
 async function update(client, id, patch) {
   const fields = {
     name: 'name', nameKey: 'name_key', city: 'city', description: 'description',
-    logoData: 'logo_data', ownerUserId: 'owner_user_id', archivedAt: 'archived_at'
+    logoData: 'logo_data', ownerUserId: 'owner_user_id', coOwnerUserId: 'co_owner_user_id', archivedAt: 'archived_at'
   };
   const values = [id];
   const assignments = [];
@@ -152,7 +153,7 @@ async function activeMembership(client, providerId, userId) {
 async function listMemberships(client, providerId) {
   const { rows } = await client.query(
     `SELECT m.id,m.provider_id,m.user_id,m.role,m.joined_at,m.ended_at,
-       m.user_id=p.owner_user_id AS is_owner,u.name AS user_name,u.avatar_version
+       (m.user_id=p.owner_user_id OR m.user_id IS NOT DISTINCT FROM p.co_owner_user_id) AS is_owner,u.name AS user_name,u.avatar_version
      FROM ${MEMBERSHIPS} m
      JOIN ${PROVIDERS} p ON p.id=m.provider_id
      JOIN accounts.users u ON u.id=m.user_id
@@ -176,7 +177,7 @@ async function listMembershipsForUser(client, userId) {
   );
   return rows.map(row => ({
     ...mapMembership({ ...row, id: row.membership_id }),
-    isOwner: row.owner_user_id === userId,
+    isOwner: row.owner_user_id === userId || row.co_owner_user_id === userId,
     provider: mapProvider(row)
   }));
 }

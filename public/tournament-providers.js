@@ -169,8 +169,15 @@
       setNotice(notice, noticeError);
     }
 
-    function memberRow(member, viewer) {
+    function memberRow(member, provider) {
+      const viewer = provider.viewer;
       const editable = viewer?.canManageMembers && !member.isOwner;
+      const controls = [];
+      if (editable) controls.push(button('changeRole', tr('members.changeRole')), button('remove', tr('members.remove'), 'danger-button'));
+      if (viewer?.canTransferOwnership && member.role === 'organizer') {
+        if (!member.isOwner && !provider.coOwnerUserId) controls.push(button('addChief', tr('members.addChief')));
+        if (member.isOwner && provider.coOwnerUserId) controls.push(button('removeChief', tr('members.removeChief')));
+      }
       return `<div class="row-card provider-member" data-provider-member="${esc(member.userId)}">
         <div class="provider-identity">
           <span class="provider-avatar" aria-hidden="true">${ctx.avatarMarkup(member)}</span>
@@ -179,7 +186,7 @@
             <div class="row-meta">${esc(roleName(member))}</div>
           </div>
         </div>
-        ${editable ? `<div class="row-actions">${button('changeRole', tr('members.changeRole'))}${button('remove', tr('members.remove'), 'danger-button')}</div>` : ''}
+        ${controls.length ? `<div class="row-actions">${controls.join('')}</div>` : ''}
       </div>`;
     }
 
@@ -232,7 +239,7 @@
         ${invitationList(incoming)}
         <section class="card panel provider-panel">
           <h3>${esc(tr('members.title'))}</h3>
-          <div class="list">${members.map(member => memberRow(member, provider.viewer)).join('') || `<p class="empty">${esc(tr('members.empty'))}</p>`}</div>
+          <div class="list">${members.map(member => memberRow(member, provider)).join('') || `<p class="empty">${esc(tr('members.empty'))}</p>`}</div>
         </section>
         ${invitationList(invitations || [], true)}
         ${groups.filter(group => Object.hasOwn(counts, group)).map(eventGroup).join('')}`;
@@ -493,21 +500,28 @@
           opener, () => canManageMembers() && profile.members.some(row => row.userId === member.userId && !row.isOwner));
         writeForm(current, `${base}/members/${member.userId}`, 'PATCH', form => ({ role: form.elements.role.value }), refresh);
       } else {
+        const source = provider.coOwnerUserId ? field('provider-former-owner', tr('members.transferFrom'),
+          `<select id="provider-former-owner" name="fromUserId">${members.filter(row => row.isOwner).map(row =>
+            `<option value="${esc(row.userId)}" ${row.userId === ctx.user()?.id ? 'selected' : ''}>${esc(row.name)}</option>`).join('')}</select>`) : '';
         const current = showDialog(tr('action.transfer'),
-          `<p>${esc(tr('members.transferHint'))}</p>${field('provider-owner', tr('members.player'),
+          `<p>${esc(tr('members.transferHint'))}</p>${source}${field('provider-owner', tr('members.player'),
             `<select id="provider-owner" name="userId" required><option value="">${esc(tr('members.selectPlayer'))}</option>
              ${members.filter(row => row.role === 'organizer' && !row.isOwner).map(row => `<option value="${esc(row.userId)}">${esc(row.name)}</option>`).join('')}</select>`)}`,
           opener, () => Boolean(profile?.provider.viewer?.canTransferOwnership), tr('action.transfer'));
-        writeForm(current, base + '/owner', 'PATCH', form => ({ userId: Number(form.elements.userId.value) }), refresh);
+        writeForm(current, base + '/owner', 'PATCH', form => ({
+          fromUserId: Number(form.elements.fromUserId?.value || provider.ownerUserId), userId: Number(form.elements.userId.value)
+        }), refresh);
       }
     }
 
     async function mutate(action, opener, member, invitationId) {
       const provider = profile?.provider;
-      const path = invitationId ? `/api/tournament-provider-invitations/${encodeURIComponent(invitationId)}/${action}` :
+      const chiefAction = action === 'addChief' || action === 'removeChief';
+      const path = chiefAction ? `${endpoint}/${provider.id}/owners/${encodeURIComponent(member.userId)}` :
+        invitationId ? `/api/tournament-provider-invitations/${encodeURIComponent(invitationId)}/${action}` :
         `${endpoint}/${provider.id}/${member ? 'members/' + encodeURIComponent(member.userId) : action}`;
-      if (['archive', 'leave', 'remove', 'revoke'].includes(action)) {
-        const label = action === 'remove' ? tr('members.remove') : action === 'revoke' ? tr('invitations.revoke') : tr('action.' + action);
+      if (chiefAction || ['archive', 'leave', 'remove', 'revoke'].includes(action)) {
+        const label = chiefAction || action === 'remove' ? tr('members.' + action) : action === 'revoke' ? tr('invitations.revoke') : tr('action.' + action);
         if (!await ctx.confirmAction({
           title: label, confirmLabel: label, danger: true,
           message: tr('confirm.' + action, { name: member?.name || provider?.name || '' })
@@ -516,8 +530,8 @@
       if (!live()) return;
       opener.disabled = true;
       try {
-        await api(path, { method: member ? 'DELETE' : 'POST' });
-        if (['accept', 'leave', 'archive', 'restore'].includes(action)) await ctx.refreshIdentity().catch(() => {});
+        await api(path, { method: member && action !== 'addChief' ? 'DELETE' : 'POST' });
+        if (chiefAction || ['accept', 'leave', 'archive', 'restore'].includes(action)) await ctx.refreshIdentity().catch(() => {});
         if (live()) {
           setNotice(tr('saved'));
           await load({ focusAction: action });
