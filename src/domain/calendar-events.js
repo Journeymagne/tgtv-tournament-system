@@ -42,18 +42,18 @@ function normalizeCalendarEvent(body, {allowIncomplete=false} = {}) {
   const rawRounds = body.swissRoundCount===undefined ? 3 : body.swissRoundCount;
   const swissRoundCount = Number(rawRounds);
   if (!['number','string'].includes(typeof rawRounds) || !Number.isSafeInteger(swissRoundCount) || swissRoundCount<1 || swissRoundCount>2147483647) throw new ValidationError('Swiss round count must be a positive integer');
-  const participantLimit = allowIncomplete&&(body.participantLimit==null||body.participantLimit==='')?null:Number(body.participantLimit);
+  const participantLimit = body.participantLimit==null||body.participantLimit===''?null:Number(body.participantLimit);
   const max = allowIncomplete?2147483647*size:size === 1 ? 10000 : 128 * size, min=allowIncomplete?size:Math.max(2,size);
   if (participantLimit!==null&&(!['number', 'string'].includes(typeof body.participantLimit) || !Number.isSafeInteger(participantLimit) || participantLimit < min || participantLimit > max)) {
     throw new ValidationError(`Participant limit must be between ${min} and ${max}`);
   }
   const fee = String(body.entryFee ?? '').replace(',', '.');
-  if (!(allowIncomplete&&fee==='')&&(!/^\d{1,7}(?:\.\d{1,2})?$/.test(fee) || Number(fee) > 1000000)) throw new ValidationError('Entry fee must be between 0 and 1000000 with at most two decimal places');
+  if (fee!==''&&(!/^\d{1,7}(?:\.\d{1,2})?$/.test(fee) || Number(fee) > 1000000)) throw new ValidationError('Entry fee must be between 0 and 1000000 with at most two decimal places');
   const time = body.time === '' || body.time == null ? null : body.time;
   if (time !== null && (typeof time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) throw new ValidationError('Invalid event time');
   const city = text(body.city, 'City', 80,!allowIncomplete), venue = text(body.venue, 'Venue', 160,!allowIncomplete), address = text(body.address, 'Address', allowIncomplete?500:300, false);
   if ([city,venue,address].filter(Boolean).join(', ').length > 500) throw new ValidationError('Combined venue address must not exceed 500 characters');
-  return { name: text(body.name, 'Event name', 120,!allowIncomplete), date: localDate(body.date), time, city,venue,address,tournamentType,participantMode,teamSize,swissRoundCount,participantLimit,entryFee:allowIncomplete&&fee===''?null:Number(fee) };
+  return { name: text(body.name, 'Event name', 120,!allowIncomplete), date: localDate(body.date), time, city,venue,address,tournamentType,participantMode,teamSize,swissRoundCount,participantLimit,entryFee:fee===''?null:Number(fee) };
 }
 
 function tournamentDefaults(event) {
@@ -68,7 +68,7 @@ function tournamentDefaults(event) {
     ...(size===1 ? {} : {teamSize:size}),
     pairingType: size === 2 ? 'doubles' : size === 3 ? 'shield_sword' : null,
     captainPairingEnabled: size === 2 ? false : true,
-    registrationLimit: Math.floor(event.participantLimit / size)
+    registrationLimit: event.participantLimit==null ? null : Math.floor(event.participantLimit / size)
   };
 }
 

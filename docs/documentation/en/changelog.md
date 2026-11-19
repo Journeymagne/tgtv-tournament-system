@@ -2,6 +2,11 @@
 
 KT Companion release history, newest first.
 
+## 1.7.1 — 19 November 2026
+
+- Calendar announcements can leave their fee and player capacity blank. Both display as to be confirmed; a fee of 0 still means free entry.
+- Pending conditions survive editing and tournament creation without becoming a zero registration limit.
+
 ## 1.7.0 — 18 November 2026
 
 - Tournaments now includes an Organizations tab: tournament providers with a name, logo, home city, description, and a roster of organizers and judges.

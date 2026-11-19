@@ -3,6 +3,20 @@ const assert = require('node:assert/strict');
 const { normalizeCalendarEvent, monthRange, tournamentDefaults } = require('../../src/domain/calendar-events');
 const event = { name: 'November cup', date: '2026-11-21', time: '10:30', city: 'Moscow', venue: 'Club', address: 'Street 1', tournamentType: 'solo', participantLimit: 32, entryFee: '1500.50' };
 
+test('manual announcements preserve pending conditions without turning them into free entry or zero capacity', () => {
+  for (const pending of [null, undefined, '']) {
+    const saved = normalizeCalendarEvent({...event,participantLimit:pending,entryFee:pending});
+    assert.equal(saved.participantLimit,null);
+    assert.equal(saved.entryFee,null);
+    assert.equal(tournamentDefaults(saved).registrationLimit,null);
+  }
+  assert.equal(normalizeCalendarEvent({...event,entryFee:0}).entryFee,0);
+  assert.equal(normalizeCalendarEvent({...event,participantLimit:null}).entryFee,1500.5);
+  for (const pending of [null, '']) {
+    assert.equal(tournamentDefaults(normalizeCalendarEvent({...event,tournamentType:'pairs',participantLimit:pending})).registrationLimit,null);
+  }
+});
+
 test('calendar events preserve local dates and monetary precision without a system selector', () => {
   const value = normalizeCalendarEvent(event);
   assert.equal(value.date, '2026-11-21');

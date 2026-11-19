@@ -17,6 +17,25 @@ test.beforeEach(async () => {
   admin = await users.insert(pool, { name: 'CalendarAdmin', passwordHash: 's:h', rating: 1000, isAdmin: true });
   player = await users.insert(pool, { name: 'CalendarPlayer', passwordHash: 's:h', rating: 1000 });
 });
+
+test('manual pending conditions persist, can be filled, and can be cleared without affecting free entry', async () => {
+  const saved = await tx(client=>calendar.create({client,user:admin,body:{...data,participantLimit:'',entryFee:''}}));
+  const id=saved.body.event.id;
+  assert.equal(saved.body.event.participantLimit,null);
+  assert.equal(saved.body.event.entryFee,null);
+  const update=async changes=>{
+    const current=(await calendar.list({client:pool,user:admin,query:new URLSearchParams('month=2026-11')})).events.find(e=>e.id===id);
+    return tx(client=>calendar.update({client,user:admin,params:{id},body:{...data,...changes,expectedUpdatedAt:current.updatedAt}}));
+  };
+  await update({participantLimit:24,entryFee:0});
+  let row=(await pool.query('SELECT participant_limit,entry_fee,auto_created FROM tournaments.calendar_events WHERE id=$1',[id])).rows[0];
+  assert.equal(Number(row.participant_limit),24);assert.equal(Number(row.entry_fee),0);assert.equal(row.auto_created,false);
+  await update({participantLimit:null,entryFee:null});
+  row=(await pool.query('SELECT participant_limit,entry_fee FROM tournaments.calendar_events WHERE id=$1',[id])).rows[0];
+  assert.equal(row.participant_limit,null);assert.equal(row.entry_fee,null);
+  const created=await tx(client=>tournaments.createAdmin({client,user:admin,body:{name:data.name,gameSystem:'Warhammer 40k Kill Team',calendarEventId:id}}));
+  assert.equal(created.body.tournament.registrationLimit,null);
+});
 test('calendar routes are public to read and require authenticated scoped writes', async () => {
   assert.equal(routes.find(r => r.path === '/api/calendar-events').auth, 'none');
   for (const r of routes.filter(r => r.path.startsWith('/api/admin/calendar-events'))) assert.equal(r.auth, 'user');

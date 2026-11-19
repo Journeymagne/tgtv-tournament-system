@@ -4,7 +4,8 @@
 
 const TGTV_I18N_RU = {
   "calendar.feePending": "Стоимость уточняется",
-  "calendar.capacityPending": "Лимит не указан",
+  "calendar.capacityPending": "Лимит уточняется",
+  "calendar.pendingHint": "Оставьте взнос или лимит пустым, если он уточняется. Взнос 0 означает бесплатное участие.",
   "calendar.locationPending": "Место уточняется",
   "calendar.notSpecified": "Не указан",
   "calendar.online": "Онлайн · Tabletop Simulator",

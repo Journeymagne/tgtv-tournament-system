@@ -3860,7 +3860,7 @@ function loadTournamentProvidersUi() {
   if (tournamentProvidersUiPromise) return tournamentProvidersUiPromise;
   const assets = ["tournament-providers.css", "tournament-providers.js"].map(filename => {
     const element = document.createElement(filename.endsWith(".css") ? "link" : "script");
-      const url = `/${filename}?v=1.7.0`;
+      const url = `/${filename}?v=1.7.1`;
     if (element.tagName === "LINK") {
       element.rel = "stylesheet";
       element.href = url;
@@ -3914,8 +3914,8 @@ async function renderCalendar() {
     if (!calendarUiPromise) {
       if (!calendarUiPromise) calendarUiPromise = new Promise((resolve, reject) => {
         const stylesheet = document.createElement('link');
-        stylesheet.rel = 'stylesheet'; stylesheet.href = '/calendar.css?v=1.7.0';
-        const script = document.createElement('script'); script.src = '/calendar.js?v=1.7.0';
+        stylesheet.rel = 'stylesheet'; stylesheet.href = '/calendar.css?v=1.7.1';
+        const script = document.createElement('script'); script.src = '/calendar.js?v=1.7.1';
         const failed=()=>{stylesheet.remove();script.remove();reject(new Error(t('calendar.loadError')));};
         const stylesReady = new Promise((done, fail) => { stylesheet.onload=done; stylesheet.onerror=()=>{failed();fail(new Error(t('calendar.loadError')));}; });
         const scriptReady = window.TGTV_CALENDAR ? Promise.resolve() : new Promise((done, fail)=>{script.onload=done;script.onerror=()=>{failed();fail(new Error(t('calendar.loadError')));};});
@@ -3949,7 +3949,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = "/admin.js?v=1.7.0";
+    script.src = "/admin.js?v=1.7.1";
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);

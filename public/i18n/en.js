@@ -4,7 +4,8 @@
 
 const TGTV_I18N_EN = {
   "calendar.feePending": "Fee to be confirmed",
-  "calendar.capacityPending": "No limit specified",
+  "calendar.capacityPending": "Capacity to be confirmed",
+  "calendar.pendingHint": "Leave the fee or capacity blank if it is to be confirmed. A fee of 0 means free entry.",
   "calendar.locationPending": "Venue to be confirmed",
   "calendar.notSpecified": "Not specified",
   "calendar.online": "Online · Tabletop Simulator",
