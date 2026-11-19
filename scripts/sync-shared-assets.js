@@ -6,7 +6,7 @@ const root = path.join(__dirname, '..');
 const readSource = filename => fs.readFileSync(filename, 'utf8').replace(/\r\n/g, '\n');
 // Include dynamically loaded dependencies of theme-boot and notifications too.
 const assets = [
-  'theme-boot.js', 'companion-tokens.css', 'companion-shell.css', 'companion-shell.js',
+  'theme-boot.js', 'companion-tokens.css', 'companion-tabs.css', 'companion-shell.css', 'companion-shell.js',
   'companion-i18n.js', 'companion-auth.js', 'companion-notifications.js',
   'companion-notifications.css', 'companion/css/common.css', 'companion/css/base.css',
   'companion/css/components.css', 'companion/css/nav.css', 'training/journey-shared.css',
@@ -33,6 +33,7 @@ function walk(directory) {
 }
 function outputs() {
   const result = new Map();
+  result.set(path.join(root, 'design/ui-kit/tabs.css'), readSource(path.join(root, 'public/companion-tabs.css')));
   for (const kind of ['account', 'studio']) {
     const filename = path.join(root, 'public', kind, 'index.html');
     const source = readSource(filename);

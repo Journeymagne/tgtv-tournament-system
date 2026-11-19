@@ -1,8 +1,9 @@
 {
-  "version": "shared-71c7da47fecc",
+  "version": "shared-3ff3309e43e3",
   "assets": [
     "theme-boot.js",
     "companion-tokens.css",
+    "companion-tabs.css",
     "companion-shell.css",
     "companion-shell.js",
     "companion-i18n.js",

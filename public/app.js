@@ -3240,7 +3240,7 @@ function tournamentPublicTabs(active) {
   return `<nav class="tabs page-tabs" aria-label="${t("nav.tournaments")}">
     ${[["public", "/tournament#/tournaments", "providers.tournamentTab"],
       ["organizations", "/tournament#/tournaments/organizations", "providers.title"]].map(([id, href, label]) =>
-      `<a href="${href}" data-app-link data-app-route class="tab ${active === id ? "active primary-button" : "ghost-button"}"${active === id ? ' aria-current="page"' : ""}>${t(label)}</a>`
+      `<a href="${href}" data-app-link data-app-route class="tab${active === id ? " active" : ""}"${active === id ? ' aria-current="page"' : ""}>${t(label)}</a>`
     ).join("")}
   </nav>`;
 }

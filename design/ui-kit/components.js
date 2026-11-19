@@ -41,6 +41,30 @@
     return element;
   }
   function rating(value) { return node('span', 'kt-rating', 'MMR ' + value); }
+  function segmentedControl({ label, items = [], value = items.find(item => !item.disabled)?.value, onChange } = {}) {
+    const element = node('div', 'kt-tabs');
+    element.setAttribute('role', 'group');
+    if (label) element.setAttribute('aria-label', label);
+    const controls = items.map(item => {
+      const control = node('button', 'kt-tab', item.label);
+      control.type = 'button'; control.disabled = Boolean(item.disabled);
+      control.addEventListener('click', () => {
+        if (item.value === value) return;
+        setValue(item.value); onChange?.(value);
+      });
+      element.append(control);
+      return control;
+    });
+    function setValue(next) {
+      if (!items.some(item => item.value === next && !item.disabled)) return;
+      value = next;
+      controls.forEach((control, index) => control.setAttribute('aria-pressed', String(items[index].value === value)));
+    }
+    // Always expose a boolean state, including when the initial value is absent.
+    controls.forEach(control => control.setAttribute('aria-pressed', 'false'));
+    setValue(value);
+    return { element, setValue };
+  }
   function notificationButton({ tag = 'button', count = 0, locale = 'ru' } = {}) {
     const element = node(tag, 'kt-control kt-control--icon kt-notification-toggle');
     if (tag === 'button') element.type = 'button';
@@ -109,5 +133,5 @@
     setUser(user);
     return { element, profile, notifications, setUser, setAppearance };
   }
-  window.KTComponents = Object.freeze({ icon, button, avatar, rating, notificationButton, accountBar });
+  window.KTComponents = Object.freeze({ icon, button, avatar, rating, segmentedControl, notificationButton, accountBar });
 })();
