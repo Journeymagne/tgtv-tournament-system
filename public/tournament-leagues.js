@@ -176,7 +176,8 @@
       return this.crumb() + this.head(league.name, this.formats(league.formats), editor) +
         tabs(sections, this.page, "page", this.t("leagues")) +
         (this.page === "events" ? this.eventsPanel() : this.page === "rules" ?
-          `<div class="lg-stack lg-rule-sections">${tracksFor(league.formats).map(track => this.rulesPanel(track, true)).join("")}</div>` : this.trackTabs() + this.standings());
+          `<div class="lg-stack lg-rule-sections">${tracksFor(league.formats).map(track => this.rulesPanel(track, true)).join("")}</div>
+          <p class="lg-note lg-challenge-note">${this.tr("Подходящие игры участников автоматически учитываются в личном All Kill Team Challenge.", "Eligible games automatically count toward each player’s personal All Kill Team Challenge.")}</p>` : this.trackTabs() + this.standings());
     }
     trackTabs() {
       const tracks = tracksFor(this.league.formats);
@@ -248,7 +249,7 @@
             ${first ? `<td class="lg-tie" data-label="${escape(tieLabel)}">${this.num(row.criteriaValues?.[0])}</td>` : ""}
             <td class="lg-count" data-label="${this.t("events")}">${this.num(row.eventCount)}</td>
             ${solo ? `<td class="lg-picks"><div class="lg-chips">${picks.slice(0, 2).map((pick, pickIndex) =>
-              button(pick.code || pick.name, "pick", `${index},${pickIndex}`, {className: `lg-pick-button lg-${this.pickSide(pick)}`, title: this.pickText(pick)})).join("")}
+              button((pick.code || pick.name) + (pick.declared ? this.tr(" · заявлена", " · declared") : ""), "pick", `${index},${pickIndex}`, {className: `lg-pick-button lg-${this.pickSide(pick)}`, title: this.pickText(pick)})).join("")}
               ${picks.length > 2 ? button(`+${picks.length - 2}`, "more-picks", index, {className: "lg-more", title: this.tr("Все киллтимы", "All kill teams")}) : ""}</div></td>` : ""}</tr>
             ${open ? `<tr class="lg-detail-row"><td colspan="${header.length}">${this.history(row, index)}</td></tr>` : ""}`;
         }).join("")}</tbody></table>`;
@@ -351,6 +352,7 @@
       const candidates = r.results || [];
       return `<h2>${escape(binding.name)}</h2><p class="lg-note">${escape(this.league.events.find(e => String(e.id) === String(binding.tournamentId))?.name || "")}</p>
         <form data-form="binding-search" class="lg-search"><label>${this.tr("Никнейм в Реестре", "Registry nickname")}<input name="query" maxlength="120" value="${escape(r.query || "")}"></label><button class="lg-button">${this.t("search")}</button></form>
+        ${binding.confirmed ? `<p class="lg-note">${this.tr("Текущая карточка", "Current card")} · ${escape(binding.cardName || binding.registerNickname || binding.name)} · #${escape(binding.personId)}</p>` : ""}
         ${r.searching ? status(this.t("load")) : r.searchError ? this.errorBox(r.searchError, "candidate-retry") : `<form data-form="bind" class="lg-form">
           <fieldset><legend>${this.tr("Карточки Реестра", "Registry matches")}</legend>${candidates.length ? candidates.map((c, i) => {
             const ids = [c.userId && this.tr(`профиль #${c.userId}`, `profile #${c.userId}`), c.personId && this.tr(`карточка #${c.personId}`, `card #${c.personId}`)].filter(Boolean).join(" · ");
@@ -360,7 +362,7 @@
             ${binding.confirmed && binding.personId && !binding.userId ? `<label class="lg-option"><input type="checkbox" name="claimCard"><span>${this.tr("Связать с выбранным профилем все выступления этой гостевой карточки", "Link all appearances on this guest card to the selected profile")}</span></label>` : ""}
             <p class="lg-note">${this.tr("Очки, ивенты и пики выступления перейдут к выбранному участнику. Обе строки пересчитаются.", "Points, events and picks for this appearance will move to the selected person. Both rows will be recalculated.")}</p>
             <button class="lg-button lg-primary">${this.t("apply")}</button>` : ""}</form>
-          <form class="lg-form" data-form="new-card"><h3>${this.tr("Игрок без аккаунта", "Player without an account")}</h3><label>${this.tr("Подтверждённый ник в Реестре", "Confirmed registry nickname")}<input name="nickname" required maxlength="80"></label>
+          <form class="lg-form" data-form="new-card"><h3>${this.tr("Игрок без аккаунта", "Player without an account")}</h3><label>${this.tr("Подтверждённый ник в Реестре", "Confirmed registry nickname")}<input name="nickname" required maxlength="120"></label>
           <button class="lg-button">${this.tr("Создать карточку и привязать", "Create card and link")}</button></form>`}`;
     }
     async findCandidates(query) {
@@ -418,6 +420,7 @@
         if (!this.current()) return;
         this.league.revision = result.revision;
         const wasAll = r.all;
+        if (this.editor) return;
         const keepRegistry = r === this.registry && this.page === "registry";
         await this.load();
         if (this.current() && !this.pageError && keepRegistry) await this.openRegistry(wasAll);

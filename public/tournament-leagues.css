@@ -222,6 +222,8 @@
 .lg-criterion-list .lg-actions { margin-inline-start: auto; gap: 4px; }
 .lg-step-actions { margin-top: 14px; }
 .lg-preview details, .lg-custom { border-top: 1px solid var(--line); }
+.lg-challenge-note { margin-top: 12px; }
+.lg-rule-sections { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
 .lg-wide { width: 100%; }
 @container (min-width: 810px) {
   .lg-split { grid-template-columns: minmax(0, 2.55fr) minmax(205px, 1fr); }

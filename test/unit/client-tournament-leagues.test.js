@@ -122,7 +122,7 @@ test("custom rule metrics respect selected sources and previews use server ranks
     league: {events: [{status: "counted"}]}, changes: {org: [{name: "Fresh Meat", from: 2, to: 1}]}};
   const preview = editor.previewPanel();
   assert.match(preview, /Fresh Meat/);
-  assert.match(preview, /24 points/);
+  assert.match(preview, /Points · 24/);
   assert.match(preview, /2 → 1/);
 });
 

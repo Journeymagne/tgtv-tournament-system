@@ -191,7 +191,15 @@
     }
     pointFormats() {
       if (this.track === "solo") return "";
-      return `<p class="lg-note">${this.tr("Складываются опубликованные ТП всех составов в исходной шкале турнира. В Doubles учитываются базовые ТП и бонус VP, в WTC — результат 2/1/0 за матч, в классическом «Мече и щите» — очки каждого стола.", "Each roster contributes its published TP on its tournament’s scale. Doubles uses base TP and VP bonuses, WTC uses 2/1/0 per match, and classic Sword and Shield scores each table.")}</p>`;
+      const sources = [...this.selected].map(id => this.sources.get(id)).filter(s => s && this.ui.trackFor(s.format) === "org");
+      const scales = {
+        doubles: this.tr("Doubles — 2/1/0 за игру и бонус 1 за перевес по VP", "Doubles — 2/1/0 per game and a 1-point bonus for higher total VP"),
+        wtc_doubles: this.tr("WTC Doubles — 2/1/0 за матч пары", "WTC Doubles — 2/1/0 per doubles match"),
+        sword_shield_classic: this.tr("«Меч и щит» — сумма 3/1/0 за каждую игру", "Classic Sword and Shield — sum of 3/1/0 per game"),
+        wtc: this.tr("WTC 3×3 — 2/1/0 за командный матч", "WTC 3×3 — 2/1/0 per team match")
+      };
+      const types = [...new Set(sources.map(s => scales[s.pairingType] || (s.format === "team" ? scales.wtc : scales.doubles)))];
+      return `<p class="lg-note">${this.tr("Очки всех составов складываются в исходной шкале каждого турнира.", "Every roster contributes points on its tournament’s original scale.")} ${this.ui.escape(types.join(". "))}</p>`;
     }
     scaleFields() {
       const {escape, button} = this.ui;
@@ -257,7 +265,7 @@
       const p = this.preview;
       const events = p.league?.events || [...this.sources.values()];
       const issues = (p.issues || []).map(issue => this.screen.issue(issue, events));
-      const summary = p.league?.events ? `<p class="lg-note">${this.tr("Привязано турниров", "Linked tournaments")} · ${p.league.events.length}. ${this.tr("Учтено сразу", "Counting now")} · ${p.league.events.filter(e => e.status === "counted").length}.</p>` : "";
+      const summary = p.league?.events ? `<p class="lg-note">${this.tr("Этапов в лиге", "Linked stages")} — ${p.league.events.length}. ${this.tr("Учтено сразу", "Counting now")} — ${p.league.events.filter(e => e.status === "counted").length}.</p>` : "";
       const shown = this.step === 3 ? [this.track] : this.tracks();
       return title + summary + (issues.length ? `<div role="status" class="lg-notice">${list(issues.map(escape))}</div>` : "") +
         shown.map(track => {
@@ -267,7 +275,7 @@
           return `<h3>${this.screen.trackTitle(track)}</h3>${rows.length ? list(rows.map(row =>
             `<div><strong>#${this.screen.num(row.rank)} · ${escape(row.name)}</strong>
               <small>${escape(criteria.map((c, i) => this.screen.criterion(c) + " " + this.screen.num(row.criteriaValues?.[i])).join(" · "))}</small></div>
-              <strong>${this.screen.num(row.points)} ${this.t("points").toLocaleLowerCase(this.screen.locale)}</strong>`)) : status(this.tr("Пока нет учтённых выступлений.", "No appearances counted yet."))}
+              <strong>${this.t("points")} · ${this.screen.num(row.points)}</strong>`)) : status(this.tr("Пока нет учтённых выступлений.", "No appearances counted yet."))}
               ${changes.length ? `<details><summary>${this.tr("Изменения мест", "Rank changes")} (${changes.length})</summary>${list(changes.map(c => `<span>${escape(c.name)}</span><b>${this.screen.num(c.from)} → ${this.screen.num(c.to)}</b>`))}</details>` : ""}`;
         }).join("");
     }
@@ -327,6 +335,8 @@
         if (custom) {
           let message = "";
           if (!name) message = this.tr("Укажите название критерия.", "Enter a criterion name.");
+          else if (aggregate === "max" && ["head_to_head", "events"].includes(metric))
+            message = this.tr("Для этого показателя выберите сумму.", "Choose sum for this metric.");
           else if (rule.criteria.some(c => c.metric === metric && c.aggregate === aggregate))
             message = this.tr("Такой показатель с этим способом объединения уже добавлен.", "This metric and aggregation are already in the order.");
           if (message) {
