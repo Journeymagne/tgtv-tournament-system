@@ -47,6 +47,28 @@ test.beforeEach(async () => {
   });
 });
 
+test('the administrator list identifies the current organization head without a global grant or owned tournaments', async () => {
+  const list = query => require('../../src/api/admin').listUsers({client:pool,query:new URLSearchParams(query)});
+  const first = await list('access=special&limit=1');
+  assert.equal(first.pagination.total,2,'the organization head and platform administrator are special users');
+  const selected = await list('access=special&q=ProviderOwner');
+  assert.deepEqual(selected.users.map(user=>user.id),[owner.id]);
+  assert.equal(selected.users[0].hasOwnedOrganizations,true);
+  assert.equal(selected.users[0].hasOwnedTournaments,false);
+  assert.equal(selected.users[0].canCreateTournaments,false);
+  const ordinaryOrganizer = await list('q=ProviderAuthor');
+  assert.equal(ordinaryOrganizer.users[0].hasOwnedOrganizations,false);
+  assert.equal((await list('access=special&q=ProviderAuthor')).pagination.total,0);
+
+  const providerApi = require('../../src/api/tournament-providers');
+  await transaction(client => providerApi.transferOwner({client,user:owner,params:{id:providerId},body:{userId:author.id}}));
+  assert.equal((await list('q=ProviderOwner')).users[0].hasOwnedOrganizations,false);
+  assert.equal((await list('access=special&q=ProviderOwner')).pagination.total,0);
+  assert.equal((await list('access=special&q=ProviderAuthor')).users[0].hasOwnedOrganizations,true);
+  await transaction(client => providerApi.archive({client,user:author,params:{id:providerId},action:'archive'}));
+  assert.equal((await list('access=special&q=ProviderAuthor')).users[0].hasOwnedOrganizations,true);
+});
+
 test('scoped organizer creates only for their organization, judge inherits match access and cannot finish', async () => {
   const {body:{tournament:t}} = await create(author,{providerId});
   assert.equal(t.providerId,providerId);

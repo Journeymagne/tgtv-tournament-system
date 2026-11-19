@@ -2590,7 +2590,8 @@ function adminUserRoleLabels(user) {
   else if(user.isAdmin)roles.push(adminLabel('Администратор','Administrator'));
   if(user.canCreateTournaments)roles.push(adminLabel('Создание турниров и событий','Create tournaments and events'));
   if(user.isFAQModerator)roles.push(adminLabel('Модератор FAQ','FAQ moderator'));
-  // Ownership belongs in the per-tournament roles section, not the global grants summary.
+  // Personal tournament ownership is shown only in the per-tournament roles section.
+  if(user.hasOwnedOrganizations)roles.push(adminLabel('Руководитель организации','Organization head'));
   if(user.hasJudgeAssignments)roles.push(adminLabel('Судья турниров','Tournament judge'));
   return roles.join(' · ')||adminLabel('Игрок','Player');
 }
@@ -2698,7 +2699,7 @@ function adminTournamentStaffContent(data) {
   if(!roster) return '';
   const organizationTournament = data.tournament?.providerId != null;
   const help = organizationTournament
-    ? adminLabel('Главный организатор и администраторы управляют назначениями судей на этот турнир.', 'The chief organizer and platform administrators manage judge assignments for this tournament.')
+    ? adminLabel('Руководитель организации и администраторы управляют назначениями судей на этот турнир.', 'The organization head and platform administrators manage judge assignments for this tournament.')
     : adminLabel('Организатор турнира и администраторы платформы назначают судей. Судьи управляют проведением турнира. Администраторы платформы получают судейский доступ автоматически.', 'The tournament organizer and platform administrators appoint judges. Judges manage the tournament. Platform administrators receive judge access automatically.');
   const staffRows = roster.staff.filter(person => person.active).map(person => {
     const role = person.role === 'organizer' ? adminLabel('Организатор', 'Organizer')

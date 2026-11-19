@@ -41,11 +41,13 @@ test('disabled admin inputs preserve the role without blocking edits to other fl
 
 test('the role summary does not present tournament ownership as another global grant',()=>{
   const label=helper('adminUserRoleLabels');
-  const summary=label({isAdmin:true,canCreateTournaments:true,isFAQModerator:true,hasOwnedTournaments:true,hasJudgeAssignments:true});
-  for(const part of ['Администратор','Создание турниров','Модератор FAQ','Судья турниров'])assert.ok(summary.includes(part));
+  const summary=label({isAdmin:true,canCreateTournaments:true,isFAQModerator:true,hasOwnedTournaments:true,hasOwnedOrganizations:true,hasJudgeAssignments:true});
+  for(const part of ['Администратор','Создание турниров','Модератор FAQ','Руководитель организации','Судья турниров'])assert.ok(summary.includes(part));
   assert.doesNotMatch(summary,/Организатор турниров/);
   assert.equal(label({canCreateTournaments:true,hasOwnedTournaments:true}),'Создание турниров и событий');
   assert.equal(label({hasOwnedTournaments:true}),'Игрок');
+  assert.equal(label({hasOwnedOrganizations:true}),'Руководитель организации');
+  assert.equal(label({canCreateTournaments:true,hasOwnedOrganizations:true}),'Создание турниров и событий · Руководитель организации');
   assert.equal(label({}),'Игрок');
   assert.match(label(superadministrator),/Суперадминистратор/);
   const markup=helper('adminTournamentRolesMarkup')([{tournamentId:12,name:'<Cup>',role:'organizer'},{tournamentId:13,name:'Judge cup',role:'judge'}]);

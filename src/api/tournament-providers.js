@@ -141,7 +141,7 @@ async function changeMember({client,user,params,body,action}) {
   const userId = action==='leave'?user.id:requirePositiveIntId(params.userId,404,'Member not found');
   const member = await repo.activeMembership(client,ctx.provider.id,userId);
   if (!member) throw new HttpError(404,'Member not found');
-  if (userId===ctx.provider.ownerUserId) throw new ValidationError('Transfer the chief organizer role first');
+  if (userId===ctx.provider.ownerUserId) throw new ValidationError('Transfer organization leadership first');
   let updated;
   if (action==='role') updated=await repo.setMembershipRole(client,member.id,role(body.role));
   else updated=await repo.endMembership(client,member.id);
