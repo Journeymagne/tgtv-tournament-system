@@ -2078,10 +2078,12 @@ function renderPublicTournament(data, live = false) {
   const tournament = data.tournament || {};
   const admin = Boolean(data.management && state.me && canManageTournamentUi(tournament));
   state.publicTournamentDetail = data;
-  setLiveContent(publicTournamentContainer(data), `
+  const container = publicTournamentContainer(data);
+  const editButton = state.tournamentInfoTab === "settings" ? "" : tournamentEditButton(tournament, true);
+  setLiveContent(container, `
     <div data-live-view="tournament" class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
-      ${tournamentInfoPanel(data, { publicRoute: true, admin,
-        actions: `<button class="ghost-button" data-public-back>${t("common.back")}</button>${state.tournamentInfoTab === "settings" ? "" : tournamentEditButton(tournament)}${admin ? adminUi().adminTournamentMenu(data) : ""}`,
+      ${tournamentInfoPanel(data, { publicRoute: true, admin, showBack: true,
+        actions: admin ? adminUi().adminTournamentMenu(data, editButton) : editButton,
         tabActions: admin ? (tab) => adminUi().adminTournamentActionButtons(data, tab) : null,
         extraActions: state.me ? publicTournamentViewerActions(data) : `
           <button class="small-button" data-public-login>${t("auth.tab.signIn")}</button>
@@ -2136,11 +2138,11 @@ function publicTournamentViewerActions(data) {
   return "";
 }
 
-function tournamentEditButton(tournament) {
+function tournamentEditButton(tournament, primary = false) {
   const id = Number(tournament?.id);
   if (tournament?.viewer?.canAdmin === false || !canManageTournamentUi(id) || !Number.isSafeInteger(id) || id < 1) return "";
   const href = tournament.slug ? `${tournamentPublicPath(tournament.slug)}#settings` : `/tournament#/tournaments/admin/${id}`;
-  return `<a href="${href}" data-app-link class="small-button" data-tournament-edit="${id}">${t("common.edit")}</a>`;
+  return `<a href="${href}" data-app-link class="${primary ? "primary-button" : "small-button"}" data-tournament-edit="${id}">${t("common.edit")}</a>`;
 }
 
 async function openTournamentEditor(tournamentId) {
@@ -2703,18 +2705,23 @@ function tournamentCompactHeaderMarkup(data, options = {}) {
     : listedTournamentParticipants(data.participants || []).length;
   const hasLogo = tournament.logoData || (tournament.provider && providerLogoUrl(tournament.provider));
   return `<header class="tournament-compact-header">
-    ${options.actions ? `<div class="row-actions tournament-corner-actions">${options.actions}</div>` : ""}
-    <div class="tournament-preview-hero ${hasLogo ? "has-logo" : ""}">
-      ${hasLogo ? `<div class="tournament-preview-logo">${tournamentLogoMarkup(tournament)}</div>` : ""}
-      <div class="tournament-preview-heading">
-        <p class="profile-label">${escapeHtml(t("tournaments.factions.tag", { count: tournament.factionCount || 1 }))}</p>
-        <h2>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</h2>
-        ${tournament.provider ? eventProviderLink(tournament.provider) : ""}
-        <p class="tournament-compact-status">
-          <span class="status-dot ${tournamentStatusClass(tournament.status)}" aria-hidden="true"></span>
-          ${escapeHtml(tournamentStatusLabel(tournament.status))}
-        </p>
+    ${options.showBack ? `<button type="button" class="tournament-back" ${options.publicRoute ? "data-public-back" : "data-admin-tournament-close"}>
+      <svg class="inline-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m11 6-6 6 6 6M5 12h15"/></svg>${t("common.back")}
+    </button>` : ""}
+    <div class="tournament-heading-row">
+      <div class="tournament-preview-hero ${hasLogo ? "has-logo" : ""}">
+        ${hasLogo ? `<div class="tournament-preview-logo">${tournamentLogoMarkup(tournament)}</div>` : ""}
+        <div class="tournament-preview-heading">
+          <p class="profile-label">${escapeHtml(t("tournaments.factions.tag", { count: tournament.factionCount || 1 }))}</p>
+          <h2>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</h2>
+          ${tournament.provider ? eventProviderLink(tournament.provider) : ""}
+          <p class="tournament-compact-status">
+            <span class="status-dot ${tournamentStatusClass(tournament.status)}" aria-hidden="true"></span>
+            ${escapeHtml(tournamentStatusLabel(tournament.status))}
+          </p>
+        </div>
       </div>
+      ${options.actions || ""}
     </div>
     <section class="profile-grid tournament-metrics">
       ${metricCard(t("tournaments.field.date"), tournamentDateLabel(tournament))}
@@ -3949,7 +3956,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = "/admin.js?v=1.7.0";
+    script.src = "/admin.js?v=1.7.0-2";
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -10251,7 +10258,7 @@ function wireTeamGameResultButtons(root = document) {
 const tournamentFeed = { key: "", revision: null, data: null, anchor: null, epoch: -1, userId: null };
 
 function tournamentLiveEditing() {
-  return tournamentWritesPending > 0 || Boolean(document.querySelector('dialog[open], [data-round-setup-modal], [data-live-dirty], .tournament-registration-shell, [data-tournament-result-form], [data-result-form]'))
+  return tournamentWritesPending > 0 || Boolean(document.querySelector('dialog[open], .tournament-settings-menu[open], [data-round-setup-modal], [data-live-dirty], .tournament-registration-shell, [data-tournament-result-form], [data-result-form]'))
     || Boolean(document.activeElement?.matches('input, textarea, select, [contenteditable="true"]'));
 }
 

@@ -18,7 +18,11 @@ test("Excel export appears in the individual tournament management menu even aft
     const html = render({ tournament: { id: 6, participantMode: "individual", status } });
     assert.match(html, /type="button".*data-admin-tournament-action="export-excel"/);
     assert.doesNotMatch(html, /disabled/);
-    assert.doesNotMatch(html, /<details|<summary/);
+    const settings = html.match(/<details\b[^>]*>([\s\S]*?)<\/details>/)?.[1];
+    assert.ok(settings);
+    assert.match(settings, /<summary[^>]*>tournaments\.tab\.settings/);
+    assert.match(settings, /data-admin-tournament-action="export-excel"/);
+    assert.doesNotMatch(settings, /data-admin-tournament-copy/);
     assert.doesNotMatch(render({ tournament: { id: 6, participantMode: "team", status } }), /export-excel/);
   }
 });

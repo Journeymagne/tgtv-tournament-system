@@ -525,11 +525,14 @@ function adminTournamentRow(tournament) {
 }
 
 function adminTournamentDetailPanel(data) {
+  const editButton = state.tournamentInfoTab !== "settings" && data.tournament?.viewer?.canAdmin !== false && canManageTournamentUi(data.tournament)
+    ? `<button type="button" class="primary-button" data-tournament-info-tab="settings">${t("common.edit")}</button>`
+    : "";
   return `
     <section class="card panel admin-tournament-detail" data-live-view="adminTournament">
       ${tournamentInfoPanel(data, {
-        admin: true,
-        actions: adminTournamentMenu(data),
+        admin: true, showBack: true,
+        actions: adminTournamentMenu(data, editButton),
         tabActions: (tab) => adminTournamentActionButtons(data, tab)
       })}
       <div class="message" data-message></div>
@@ -537,18 +540,38 @@ function adminTournamentDetailPanel(data) {
   `;
 }
 
-function adminTournamentMenu(data) {
+function adminTournamentMenu(data, editButton = "") {
   const tournament = data.tournament || {};
-  const exportButton = tournament.id && tournament.participantMode !== "team"
-    ? `<button type="button" class="small-button" data-admin-tournament-action="export-excel">${t("admin.tournament.action.exportExcel")}</button>`
-    : "";
+  const canExport = tournament.id && tournament.participantMode !== "team";
+  const maintenance = adminTournamentActionButtons(data, "maintenance");
   return `
-    <div class="tournament-admin-menu" role="group" aria-label="${t("admin.tournament.detail.management")}">
+    <div class="tournament-toolbar" role="group" aria-label="${t("admin.tournament.detail.management")}">
+      ${editButton}
       <button type="button" class="small-button" data-admin-tournament-copy="${escapeHtml(tournamentPublicUrl(tournament))}">${t("admin.tournament.detail.copyLink")}</button>
-      <button type="button" class="small-button" data-tournament-history>${t("admin.tournament.detail.history")}</button>
-      ${exportButton}
-      ${adminTournamentActionButtons(data, "maintenance")}
-      <button type="button" class="danger-button" data-admin-tournament-action="delete">${t("admin.tournament.detail.delete")}</button>
+      <details class="tournament-settings-menu">
+        <summary class="small-button">${t("tournaments.tab.settings")}
+          <svg class="inline-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+        </summary>
+        <div class="tournament-settings-panel">
+          <div class="tournament-settings-group">
+            <button type="button" data-tournament-history>
+              <svg class="inline-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.4 7M3 4v7h7M12 7v5l3 2"/></svg>
+              ${t("admin.tournament.detail.history")}
+            </button>
+            ${canExport ? `<button type="button" data-admin-tournament-action="export-excel">
+              <svg class="inline-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg>
+              ${t("admin.tournament.action.exportExcel")}
+            </button>` : ""}
+          </div>
+          ${maintenance ? `<div class="tournament-settings-group">${maintenance}</div>` : ""}
+          <div class="tournament-settings-group">
+            <button type="button" data-admin-tournament-action="delete">
+              <svg class="inline-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>
+              ${t("admin.tournament.detail.delete")}
+            </button>
+          </div>
+        </div>
+      </details>
     </div>
   `;
 }
@@ -602,7 +625,9 @@ function adminTournamentActionButtons(data, tab) {
     }
   }
   if ((!tab || tab === "maintenance") && tournament.participantMode !== "team" && ["in_progress", "completed"].includes(tournament.status)) {
-    buttons.push(`<button class="small-button" data-admin-tournament-action="recalculate-standings">${t("admin.tournament.action.recalculateStandings")}</button>`);
+    buttons.push(`<button type="button" class="small-button" data-admin-tournament-action="recalculate-standings">
+      <svg class="inline-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.4 7a8 8 0 0 1 13.2-2L20 7M4 17l1.4 2A8 8 0 0 0 18.6 17"/></svg>
+      ${t("admin.tournament.action.recalculateStandings")}</button>`);
   }
   return buttons.join("");
 }
@@ -1825,7 +1850,35 @@ function watchTournamentCreatePermissions(form) {
   }
 }
 
+function dismissTournamentSettings(event) {
+  if (event.type === "keydown" && event.key !== "Escape") return;
+  const menu = document.querySelector(".tournament-settings-menu[open]");
+  if (!menu) return;
+  const inside = menu.contains(event.target);
+  const selected = inside && event.type === "click" && event.target.closest("button");
+  if (inside && !selected && event.type !== "keydown") return;
+  menu.open = false;
+  if (selected || event.type === "keydown") menu.querySelector("summary").focus();
+  if (event.type === "keydown") event.preventDefault();
+}
+
+function wireTournamentSettingsMenu() {
+  const menu = document.querySelector(".tournament-settings-menu");
+  if (!menu) return;
+  // Capture before a selection opens its dialog, including after a live render.
+  for (const type of ["click", "focusin", "keydown"]) {
+    document.addEventListener(type, dismissTournamentSettings, true);
+  }
+  onLive(menu, "toggle", () => {
+    if (!menu.open) liveRefresh.flush();
+    else if (document.activeElement === menu.querySelector("summary")) {
+      menu.querySelector("button")?.focus({ preventScroll: true });
+    }
+  });
+}
+
 function wireAdminTournamentControls(options = {}) {
+  wireTournamentSettingsMenu();
   wireTournamentListSections();
   wireAdminTournamentStaff();
   onLive(document.querySelector("[data-tournament-history]"), "click", async () => {
