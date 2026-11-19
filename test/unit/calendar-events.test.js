@@ -31,7 +31,7 @@ test('calendar rejects impossible local dates, times, capacities, types and fees
     {participantLimit:true},{participantLimit:0},{participantLimit:10001},{participantLimit:2.5},
     {tournamentType:'other'},{tournamentType:'teams',participantLimit:2},{entryFee:-1},{entryFee:'NaN'},
     {entryFee:'1.001'},{entryFee:1000001},{name:' '},{city:'x'.repeat(81)},{venue:''},
-    {tournamentType:'teams',participantLimit:385},{tournamentType:'pairs',participantLimit:257},
+    {tournamentType:'teams',participantLimit:385},{tournamentType:'pairs',participantLimit:257},{entryFee:[]},{entryFee:{}},
     {city:'c'.repeat(80),venue:'v'.repeat(160),address:'a'.repeat(300)}]) {
     assert.throws(()=>normalizeCalendarEvent({...event,...changes}),{status:400},JSON.stringify(changes));
   }

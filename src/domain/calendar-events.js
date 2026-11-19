@@ -47,6 +47,7 @@ function normalizeCalendarEvent(body, {allowIncomplete=false} = {}) {
   if (participantLimit!==null&&(!['number', 'string'].includes(typeof body.participantLimit) || !Number.isSafeInteger(participantLimit) || participantLimit < min || participantLimit > max)) {
     throw new ValidationError(`Participant limit must be between ${min} and ${max}`);
   }
+  if (body.entryFee!=null && !['number','string'].includes(typeof body.entryFee)) throw new ValidationError('Invalid entry fee');
   const fee = String(body.entryFee ?? '').replace(',', '.');
   if (fee!==''&&(!/^\d{1,7}(?:\.\d{1,2})?$/.test(fee) || Number(fee) > 1000000)) throw new ValidationError('Entry fee must be between 0 and 1000000 with at most two decimal places');
   const time = body.time === '' || body.time == null ? null : body.time;

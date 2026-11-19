@@ -19,7 +19,7 @@
 
 - Extend the existing pending representation instead of storing fake numbers or textual values in numeric columns.
 - Organization logos are temporary initials pending real assets; unknown venues are explicitly “Уточняется”.
-- Calendar announcements retain the existing solo default for APEX and Engage Zone; this assumption must be disclosed if not clarified.
+- User confirmed solo format for APEX and Engage Zone.
 
 ## Review focus
 
@@ -31,9 +31,9 @@
 
 ## Tasks
 
-- [ ] Add failing unit tests for pending numeric values, zero fee, and conversion; add API persistence coverage.
-- [ ] Update normalization, nullable constraints in migration 119, form placeholders/defaults and bilingual pending copy.
-- [ ] Run focused tests, inspect the form in a browser, and review the final diff.
+- [x] Add failing unit tests for pending numeric values, zero fee, and conversion; add API persistence coverage.
+- [x] Update normalization, nullable constraints in migration 119, form placeholders/defaults and bilingual pending copy.
+- [x] Run focused tests, inspect the form in a browser, and review the final diff.
 - [ ] Publish patch 1.7.1 through the existing release workflow and verify production assets/API.
 - [ ] Import four providers and 34 announcements transactionally with duplicate guards, correct creators, memberships and audit records; grant organizer capability only to user 169.
 - [ ] Verify production public profiles and every imported event against the manifest.
