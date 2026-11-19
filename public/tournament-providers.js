@@ -153,14 +153,14 @@
       select.replaceChildren(new Option(tr('allCities'), ''), ...cities.map(city => new Option(city, city)));
       select.value = filters.city;
       if (host.querySelector('#provider-scope')) host.querySelector('#provider-scope').value = filters.mine ? '1' : '';
-      const cards = data.providers.map(provider => `<article class="row-card provider-card">
+      const cards = data.providers.map(provider => `<a class="row-card provider-card" href="${esc(profileUrl(provider.slug))}" data-app-link data-app-route aria-labelledby="provider-card-name-${provider.id}">
         ${logo(provider)}
         <div class="row-main">
-          <div class="row-title">${routeLink(profileUrl(provider.slug), provider.name)}</div>
+          <div class="row-title" id="provider-card-name-${provider.id}">${esc(provider.name)}</div>
           <div class="row-meta">${esc(provider.city)} · ${esc(ctx.plural('providers.members.count', provider.memberCount || 0))}</div>
           ${provider.archivedAt ? `<span class="status">${esc(tr('archived'))}</span>` : ''}
         </div>
-      </article>`).join('');
+      </a>`).join('');
       host.querySelector('[data-provider-results]').innerHTML = cards
         ? `<div class="provider-catalog">${cards}</div>${pagination(data.pagination, 'catalogPage')}`
         : `<p class="empty">${esc(tr(filters.q || filters.city || filters.mine ? 'noResults' : 'emptyCatalog'))}</p>`;

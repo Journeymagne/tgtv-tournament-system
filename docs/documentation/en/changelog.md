@@ -2,6 +2,10 @@
 
 KT Companion release history, newest first.
 
+## 1.7.2 — 19 November 2026
+
+- The entire organization card now opens its profile, including its logo, city and padding. Keyboard navigation and opening in a new tab remain available.
+
 ## 1.7.1 — 19 November 2026
 
 - Calendar announcements can leave their fee and player capacity blank. Both display as to be confirmed; a fee of 0 still means free entry.

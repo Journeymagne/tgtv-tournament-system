@@ -64,6 +64,12 @@
 .provider-card {
   flex-wrap: nowrap;
   justify-content: flex-start;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.provider-card:hover .row-title {
+  color: var(--accent);
 }
 
 .provider-identity > div,
