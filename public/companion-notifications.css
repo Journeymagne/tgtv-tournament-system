@@ -5,3 +5,16 @@
 .shared-notification-popup h2{font-size:18px;margin:0 0 12px}.shared-notification-popup a{display:flex;flex-direction:column;gap:6px;padding:12px 8px;text-decoration:none;color:var(--ink);border-bottom:1px solid var(--line)}
 .shared-notification-popup a.unread{border-left:3px solid var(--accent);background:rgb(var(--accent-rgb)/.08)}.shared-notification-popup a span,.shared-notification-popup small{font-size:12px;color:var(--muted)}.shared-notification-popup p:empty{display:none}.shared-notification-popup button{margin-top:12px}.shared-notifications[hidden]{display:none}
 @media(max-width:600px){:root .shared-notifications{position:static}.shared-notification-popup{position:fixed;top:var(--companion-bar-height,80px);right:14px;box-sizing:border-box}}
+
+.shared-notification-popup { overscroll-behavior: contain; overflow-wrap: anywhere; }
+@media (max-width: 600px), (max-height: 500px) {
+  .shared-notification-popup {
+    position: fixed;
+    box-sizing: border-box;
+    top: max(12px, env(safe-area-inset-top, 0px));
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    width: auto;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+}

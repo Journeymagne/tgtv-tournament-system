@@ -3695,7 +3695,7 @@ function renderShell() {
             <div class="app-brand-subtitle">${t("nav.brand.subtitle")}</div>
           </div>
         </div>
-        <button class="menu-toggle" type="button" data-sidebar-toggle aria-label="${t("nav.openNavigation")}" aria-expanded="false">
+        <button class="menu-toggle" type="button" data-sidebar-toggle aria-label="${t("nav.openNavigation")}" aria-expanded="false" aria-controls="tournament-navigation">
           <span></span>
           <span></span>
           <span></span>
@@ -3709,9 +3709,10 @@ function renderShell() {
         </a>` : ""}
       </div>
     </header>
-    <button class="sidebar-backdrop" data-sidebar-close aria-label="${t("nav.closeNavigation")}"></button>
+    <button class="sidebar-backdrop" data-sidebar-close tabindex="-1" aria-label="${t("nav.closeNavigation")}"></button>
     <main class="layout">
-      <aside class="card sidebar">
+      <aside class="card sidebar" id="tournament-navigation" aria-label="${t("nav.openNavigation")}">
+        <button class="nav-button sidebar-close" type="button" data-sidebar-dismiss>${t("nav.closeNavigation")}</button>
         ${navButton("top", t("nav.leaderboard"))}
         ${state.me ? navButton("play", t("nav.myGames")) : ""}
         ${navButton("games", t("nav.games"))}
@@ -3740,6 +3741,8 @@ function renderShell() {
     setSidebarOpen(!document.body.classList.contains("sidebar-open"));
   });
   document.querySelector("[data-sidebar-close]").addEventListener("click", () => setSidebarOpen(false));
+  document.querySelector("[data-sidebar-dismiss]").addEventListener("click", () => setSidebarOpen(false));
+  setSidebarOpen(false);
   document.querySelector("[data-logout]")?.addEventListener("click", logout);
   document.querySelector("[data-header-profile]")?.addEventListener("click", async () => {
     setSidebarOpen(false);
@@ -4132,14 +4135,30 @@ async function renderDocumentation() {
 }
 
 function setSidebarOpen(isOpen) {
-  document.body.classList.toggle("sidebar-open", Boolean(isOpen));
-  document.querySelector("[data-sidebar-toggle]")?.setAttribute("aria-expanded", String(Boolean(isOpen)));
+  const mobile = window.matchMedia('(max-width: 900px)').matches;
+  const open = Boolean(isOpen) && mobile;
+  const wasOpen = document.body.classList.contains('sidebar-open');
+  const sidebar = document.querySelector('.sidebar');
+  const toggle = document.querySelector('[data-sidebar-toggle]');
+  document.body.classList.toggle('sidebar-open', open);
+  toggle?.setAttribute('aria-expanded', String(open));
+  if (sidebar) sidebar.inert = mobile && !open;
+  for (const element of document.querySelectorAll('.layout > .content, .companion-utility')) element.inert = open;
+  if (open && !wasOpen) sidebar?.querySelector('button, a[href]')?.focus();
+  else if (wasOpen && !open && mobile) toggle?.focus();
 }
 
 if (!window.__tgtvSidebarEscapeBound) {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") setSidebarOpen(false);
+    if (event.key === 'Tab' && document.body.classList.contains('sidebar-open')) {
+      const items = [...document.querySelectorAll('.sidebar button:not(:disabled), .sidebar a[href]')].filter(element => element.getClientRects().length);
+      const first = items[0], last = items.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
   });
+  window.matchMedia('(max-width: 900px)').addEventListener('change', () => setSidebarOpen(false));
   window.__tgtvSidebarEscapeBound = true;
 }
 

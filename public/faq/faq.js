@@ -315,7 +315,11 @@ if(!requireUser())return;if(['create','edit','review'].includes(mode)&&!state.ca
  $('topic-filter').innerHTML='<option value="">Все темы</option>'+topics.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');$('topic-filter').onchange=()=>{state.topic=$('topic-filter').value;state.limit=16;render();};
  $('sort').onchange=()=>{state.sort=$('sort').value;render();};$('reset-filters').onclick=reset;
  $('saved-filter').onclick=()=>{state.savedOnly=!state.savedOnly;$('saved-filter').setAttribute('aria-pressed',String(state.savedOnly));render();};
- $('load-more').onclick=()=>{state.limit+=16;render();};$('mobile-filters').onclick=()=>$('filters').classList.toggle('mobile-open');
+ $('load-more').onclick=()=>{state.limit+=16;render();};
+ const mobileFilters=$('mobile-filters');
+ mobileFilters.setAttribute('aria-controls','filters');mobileFilters.setAttribute('aria-expanded','false');
+ mobileFilters.onclick=()=>mobileFilters.setAttribute('aria-expanded',String($('filters').classList.toggle('mobile-open')));
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('filters').classList.contains('mobile-open')){$('filters').classList.remove('mobile-open');mobileFilters.setAttribute('aria-expanded','false');mobileFilters.focus();}});
  $('edit-category').onchange=setEditorCategory;$('editor-form').addEventListener('input',e=>{if(e.target.dataset.caption!==undefined)edit.images[Number(e.target.dataset.caption)].caption=e.target.value;updatePreview();});
  $('edit-team-add').onchange=()=>{const v=$('edit-team-add').value;if(v&&!edit.teams.includes(v)){if(v==='Все команды')edit.teams=['Все команды'];else{edit.teams=edit.teams.filter(t=>t!=='Все команды');edit.teams.push(v);}renderEditTeams();updatePreview();}$('edit-team-add').value='';};
  $('upload-image').onclick=()=>$('image-file').click();$('image-file').onchange=async()=>{try{await addImage($('image-file').files[0]);}catch(e){$('editor-status').textContent=e.message;}$('image-file').value='';};
