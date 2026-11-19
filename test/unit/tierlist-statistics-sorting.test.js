@@ -112,7 +112,7 @@ test('all-time player rankings remain visible when the current season has no gam
   targets.set('team-stats-season', { options: [], replaceChildren(...options) { this.options = options; } });
   const context = { teamStats: { teamId: 'aquilons', status: 'ready', data: { season: current, availableSeasons: [current, previous],
     games: 0, winRate: null, topPlayers: [{ userId: 1, games: 11, wins: 9, wilsonScore: 52.3014 }], topTacOps: [] } },
-    state: { selected: 'aquilons', teamsById: new Map([['aquilons', { name: 'Tempestus Aquilons' }]]) },
+    state: { selected: 'aquilons', teamsById: new Map([['aquilons', { id: 'aquilons', name: 'Tempestus Aquilons' }]]) },
     $: get, t: key => key, locale: () => 'en', statsPercent: () => '—', location: { origin: 'http://localhost' }, URL,
     Option: class { constructor(text, value) { this.text = text; this.value = value; } },
     renderStatsRows() {}, positionTeamStats() {}, cancelTeamStats() {} };

@@ -19,10 +19,10 @@ async function publishedIds(client, games) {
   );
   return new Set(rows.map(row => row.id));
 }
-function cacheExpiry(now, season) {
+function nextSeasonBoundary(now, season) {
   const boundaries = [season.endsAt, ...seasons.map(item => item.startsAt)]
     .filter(Boolean).map(Date.parse).filter(time => time > now);
-  return Math.min(now + 60_000, ...boundaries);
+  return Math.min(...boundaries);
 }
 function createHandler({ loadCompleted = gamesApi.listCompleted, loadPublishedIds = publishedIds,
   getSeason = currentSeason, clock = Date.now } = {}) {
@@ -50,8 +50,12 @@ function createHandler({ loadCompleted = gamesApi.listCompleted, loadPublishedId
 
     let snapshot = snapshots.get(season.id);
     if (!snapshot || now >= snapshot.expiresAt) {
-      // Measure from the request start so a slow default-season load cannot outlive a rollover.
-      snapshot = { expiresAt: cacheExpiry(now, season), data: loadSummaries(client, season) };
+      // A snapshot is fresh for a minute after loading, up to the boundary seen at request start.
+      snapshot = { expiresAt: nextSeasonBoundary(now, season) };
+      snapshot.data = loadSummaries(client, season).then(summaries => {
+        snapshot.expiresAt = Math.min(snapshot.expiresAt, clock() + 60_000);
+        return summaries;
+      });
       snapshots.set(season.id, snapshot);
     }
     let summaries;
