@@ -2,6 +2,10 @@
 
 KT Companion release history, newest first.
 
+## 1.8.2 — 19 November 2026
+
+- In tier list statistics, the Season label fits on one line next to the season selector.
+
 ## 1.8.1 — 19 November 2026
 
 - In tier lists, Shuffle reorders all unranked teams in the pool. Undo move restores their previous order.
