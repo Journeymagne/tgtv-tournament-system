@@ -3956,7 +3956,7 @@ async function mountTournamentLeagues(container, options) {
   container.innerHTML = `<section class="card panel" role="status">${t("common.loading")}</section>`;
   try {
     tournamentLeaguesUiPromise ??= loadTournamentAssets(
-      ["tournament-leagues.css", "tournament-leagues-editor.js", "tournament-leagues.js"], "1",
+      ["tournament-leagues.css", "tournament-leagues-editor.js", "tournament-leagues.js"], "1.8.0",
       "KTLeagues", adminLabel("Не удалось загрузить лиги", "Could not load leagues")
     ).catch(error => { tournamentLeaguesUiPromise = null; throw error; });
     const ui = await tournamentLeaguesUiPromise;

@@ -120,7 +120,8 @@ const MIGRATIONS = [
   require("./migrations/120_calendar_pending_conditions_release_notes"),
   require("./migrations/121_provider_card_links_release_notes"),
   require("./migrations/122_provider_card_typography_release_notes"),
-  require("./migrations/123_leagues")
+  require("./migrations/123_leagues"),
+  require("./migrations/124_leagues_release_notes")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `

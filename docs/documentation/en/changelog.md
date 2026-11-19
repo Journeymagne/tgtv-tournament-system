@@ -2,6 +2,13 @@
 
 KT Companion release history, newest first.
 
+## 1.8.0 — 19 November 2026
+
+- Tournaments now has a Leagues tab. A tournament page links to the standings for each league it belongs to.
+- Individual standings keep a registry player's results together when their nickname changes. Each row shows event count, kill teams and a breakdown by tournament. Organization standings add points from every roster and count each doubles or team tournament once.
+- Organizers can link past tournaments, award tournament points or points by place in each set of standings, and copy or customize tie-breakers. A preview shows how the standings will change before saving.
+- Updated tabs, keyboard navigation, menus, tables and FAQ filters on narrow screens. Tournament management actions are grouped under Settings, and the roles list shows current organization heads.
+
 ## 1.7.3 — 19 November 2026
 
 - Clickable organization cards preserve the UI Kit content typography and left alignment.
