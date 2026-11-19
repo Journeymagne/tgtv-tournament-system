@@ -2,6 +2,12 @@
 
 KT Companion release history, newest first.
 
+## 1.8.1 — 19 November 2026
+
+- In tier lists, Shuffle reorders all unranked teams in the pool. Undo move restores their previous order.
+- Choose a season in a kill team's statistics panel to see its games, win rate and top Tac Ops. The selection carries over when you open another team. Player rankings cover all seasons.
+- The 2026 Q4 season is now called “2026 Q4 Dataslate”.
+
 ## 1.8.0 — 19 November 2026
 
 - Tournaments now has a Leagues tab. A tournament page links to the standings for each league it belongs to.

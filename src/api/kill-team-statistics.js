@@ -5,6 +5,8 @@ const { PUBLISHED_STATUSES } = require("../db/repositories/tournaments");
 const gamesApi = require("./games");
 const { TOURNAMENT_SOURCES, eligibleGames, aggregateTeam, orderSummary } = require("../domain/kill-team-statistics");
 
+const availableSeasons = seasons.map(({ id, name }) => ({ id, name })).reverse();
+
 async function publishedIds(client, games) {
   const ids = [...new Set(games.filter(game => TOURNAMENT_SOURCES.has(game.sourceType))
     .map(game => game.tournament?.id).filter(Number.isSafeInteger))];
@@ -18,53 +20,49 @@ async function publishedIds(client, games) {
   return new Set(rows.map(row => row.id));
 }
 function cacheExpiry(now, season) {
-  if (season.endsAt && Date.parse(season.endsAt) <= now) return now;
   const boundaries = [season.endsAt, ...seasons.map(item => item.startsAt)]
     .filter(Boolean).map(Date.parse).filter(time => time > now);
   return Math.min(now + 60_000, ...boundaries);
 }
 function createHandler({ loadCompleted = gamesApi.listCompleted, loadPublishedIds = publishedIds,
   getSeason = currentSeason, clock = Date.now } = {}) {
-  // Cache full aggregate candidates, then select each request's ordering before
-  // each list limit. Different sort queries share I/O without sharing selection.
-  let cache = null, pending = null;
+  const snapshots = new Map();
+  async function loadSummaries(client, season) {
+    const result = await loadCompleted({ client });
+    const visible = await loadPublishedIds(client, result.games);
+    const games = eligibleGames(result.games, season, visible);
+    const allTimeGames = eligibleGames(result.games, null, visible);
+    return new Map(KILL_TEAMS.map(name => {
+      const summary = aggregateTeam(name, games, season);
+      summary.topPlayers = aggregateTeam(name, allTimeGames, season).topPlayers;
+      return [name, summary];
+    }));
+  }
   return async function get({ client, query = new URLSearchParams() }) {
     const input = query.get("team");
     const team = typeof input === "string" && input.length <= 256 ? canonicalKillTeam(input) : null;
     if (!team) throw new HttpError(400, "Choose a valid Kill Team from the list");
     const ordering = Object.fromEntries(['playerSort', 'playerDirection', 'tacOpSort', 'tacOpDirection']
       .map(key => [key, query.get(key)]));
-    const now = clock(), season = getSeason(now);
-    if (!cache || cache.seasonId !== season.id || now >= cache.expiresAt) {
-      if (!pending || pending.seasonId !== season.id) {
-        const entry = { seasonId: season.id };
-        entry.promise = (async () => {
-          const result = await loadCompleted({ client });
-          const visible = await loadPublishedIds(client, result.games);
-          const games = eligibleGames(result.games, season, visible);
-          const allTimeGames = eligibleGames(result.games, null, visible);
-          const data = new Map(KILL_TEAMS.map(name => {
-            const summary = aggregateTeam(name, games, season);
-            summary.topPlayers = aggregateTeam(name, allTimeGames, season).topPlayers;
-            return [name, summary];
-          }));
-          return { seasonId: season.id, expiresAt: cacheExpiry(clock(), season), data };
-        })();
-        pending = entry;
-      }
-      const entry = pending;
-      try {
-        const loaded = await entry.promise;
-        if (pending === entry) cache = loaded;
-        // An older in-flight season must not overwrite the next season cache.
-        const remaining = Math.max(0, Math.floor((loaded.expiresAt - clock()) / 1000));
-        return { body: orderSummary(loaded.data.get(team), ordering), headers: { "Cache-Control": "public, max-age=" + remaining } };
-      } finally {
-        if (pending === entry) pending = null;
-      }
+    const now = clock(), seasonId = query.get("seasonId");
+    const season = seasonId === null ? getSeason(now) : seasons.find(item => item.id === seasonId);
+    if (!season) throw new HttpError(400, "Choose a valid season from the list");
+
+    let snapshot = snapshots.get(season.id);
+    if (!snapshot || now >= snapshot.expiresAt) {
+      // Measure from the request start so a slow default-season load cannot outlive a rollover.
+      snapshot = { expiresAt: cacheExpiry(now, season), data: loadSummaries(client, season) };
+      snapshots.set(season.id, snapshot);
     }
-    const remaining = Math.max(0, Math.floor((cache.expiresAt - now) / 1000));
-    return { body: orderSummary(cache.data.get(team), ordering), headers: { "Cache-Control": "public, max-age=" + remaining } };
+    let summaries;
+    try { summaries = await snapshot.data; }
+    catch (error) {
+      if (snapshots.get(season.id) === snapshot) snapshots.delete(season.id);
+      throw error;
+    }
+    const remaining = Math.max(0, Math.floor((snapshot.expiresAt - clock()) / 1000));
+    return { body: { ...orderSummary(summaries.get(team), ordering), availableSeasons },
+      headers: { "Cache-Control": "public, max-age=" + remaining } };
   };
 }
 module.exports = { get: createHandler(), createHandler };

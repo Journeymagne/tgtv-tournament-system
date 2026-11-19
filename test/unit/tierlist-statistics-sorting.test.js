@@ -31,6 +31,26 @@ test('tierlist-only teams show unavailable statistics without calling the tourna
   assert.equal(renders, 1);
 });
 
+test('shuffling changes the whole unranked pool as one undoable edit', () => {
+  const rows = { S: ['ranked'], A: [], B: [], C: [], F: [], pool: ['one', 'two', 'three'] };
+  const state = { record: { rows }, busy: false };
+  const history = [], drafts = [];
+  const shuffle = loadFunction('shufflePool', { state, Math: { floor: Math.floor, random: () => 0 },
+    remember: () => history.push(structuredClone(rows)),
+    persist: () => drafts.push(structuredClone(rows)), render() {}, toast() {}, t: key => key });
+  shuffle();
+  assert.deepEqual(Array.from(rows.pool), ['two', 'three', 'one']);
+  assert.deepEqual(rows.S, ['ranked']);
+  assert.deepEqual(history.map(snapshot => snapshot.pool), [['one', 'two', 'three']]);
+  assert.deepEqual(drafts.map(snapshot => snapshot.pool), [['two', 'three', 'one']]);
+  state.busy = true;
+  shuffle();
+  state.busy = false;
+  rows.pool = ['one'];
+  shuffle();
+  assert.equal(history.length, 1);
+});
+
 test('tierlist asks the server to select each top three from all candidates and caches each sort combination separately', async () => {
   const requests = [], data = { team: 'Test Team', season: { name: 'Latest' }, games: 5, topPlayers: [], topTacOps: [] };
   const teamStats = { serial: 0, cache: new Map(), playerSort: { key: 'winRate', direction: 'desc' }, tacOpSort: { key: 'winRate', direction: 'desc' } };
@@ -52,6 +72,17 @@ test('tierlist asks the server to select each top three from all candidates and 
   assert.equal(query.get('tacOpDirection'), 'desc');
   await load('team');
   assert.equal(requests.length, 3, 'same sorting uses the corresponding cached ranking');
+  teamStats.seasonId = 'past';
+  const past = { ...data, season: { id: 'past', name: 'Past', endsAt: '2020-01-01' }, games: 1 };
+  context.fetch = async url => { requests.push(url); return { ok: true, json: async () => past, headers: { get: () => 'max-age=60' } }; };
+  await load('team');
+  assert.equal(new URL(requests[3], 'http://localhost').searchParams.get('seasonId'), 'past');
+  assert.equal(teamStats.data.games, 1);
+  await load('team');
+  teamStats.seasonId = '';
+  await load('team');
+  assert.equal(teamStats.data.games, 5);
+  assert.equal(requests.length, 4, 'both the historical and default results are cached separately');
 });
 
 test('tierlist columns and reset independently change one ranking while preserving the other', async () => {
@@ -77,14 +108,20 @@ test('all-time player rankings remain visible when the current season has no gam
     if (!targets.has(id)) targets.set(id, { hidden: false, dataset: {}, setAttribute() {}, getAttribute() { return null; } });
     return targets.get(id);
   };
-  const context = { teamStats: { teamId: 'aquilons', status: 'ready', data: { season: { name: 'Q4' },
+  const current = { id: 'q4', name: 'Q4' }, previous = { id: 'q3', name: 'Q3' };
+  targets.set('team-stats-season', { options: [], replaceChildren(...options) { this.options = options; } });
+  const context = { teamStats: { teamId: 'aquilons', status: 'ready', data: { season: current, availableSeasons: [current, previous],
     games: 0, winRate: null, topPlayers: [{ userId: 1, games: 11, wins: 9, wilsonScore: 52.3014 }], topTacOps: [] } },
     state: { selected: 'aquilons', teamsById: new Map([['aquilons', { name: 'Tempestus Aquilons' }]]) },
     $: get, t: key => key, locale: () => 'en', statsPercent: () => '—', location: { origin: 'http://localhost' }, URL,
+    Option: class { constructor(text, value) { this.text = text; this.value = value; } },
     renderStatsRows() {}, positionTeamStats() {}, cancelTeamStats() {} };
   loadFunction('renderTeamStats', context)();
   assert.equal(get('team-stats-rankings').hidden, false);
   assert.equal(get('team-stats-empty').hidden, false);
+  assert.equal(get('team-stats-season-field').hidden, false);
+  assert.deepEqual(get('team-stats-season').options.map(option => option.value), ['q4', 'q3']);
+  assert.equal(get('team-stats-season').value, 'q4');
   context.teamStats.data.topPlayers = [];
   context.teamStats.data.provisionalPlayers = [{ userId: 1, games: 9, rank: null, provisional: true }];
   loadFunction('renderTeamStats', context)();

@@ -160,6 +160,31 @@ test("cache changes at season rollover and never caches a failed load", async ()
   assert.equal(loads, 3);
 });
 
+test("historical statistics use the requested season for metrics and Tac Ops and keep all-time player rankings", async () => {
+  let loads = 0;
+  const latest = seasons[2];
+  const pastGame = game(1, { winnerId: 2 });
+  const recentGame = game(2, { submittedAt: "2026-11-12T12:00:00Z" });
+  recentGame.result.scores[1].tacOp = "Flank";
+  const get = createHandler({ clock: () => Date.parse("2026-11-19"),
+    loadCompleted: async () => { loads++; return { games: [pastGame, recentGame] }; },
+    loadPublishedIds: async () => new Set() });
+  const request = (params = {}) => get({ query: new URLSearchParams({ team, ...params }) });
+  await assert.rejects(request({ seasonId: "unknown-season" }), error => error.status === 400);
+  assert.equal(loads, 0);
+  const [current, past] = await Promise.all([request(), request({ seasonId: season.id })]);
+  assert.deepEqual([current.body.season.id, current.body.wins, current.body.topTacOps[0].name], [latest.id, 1, "Flank"]);
+  assert.deepEqual([past.body.season.id, past.body.losses, past.body.topTacOps[0].name], [season.id, 1, "Plant Banner"]);
+  assert.deepEqual(past.body.provisionalPlayers, current.body.provisionalPlayers);
+  assert.equal(past.body.provisionalPlayers[0].games, 2);
+  assert.deepEqual(past.body.availableSeasons.map(item => item.id).sort(), seasons.map(item => item.id).sort());
+  assert.equal(past.headers["Cache-Control"], "public, max-age=60");
+  const initialLoads = loads;
+  await request({ seasonId: season.id });
+  await request({ seasonId: latest.id });
+  assert.equal(loads, initialLoads);
+});
+
 test("legacy challenge ids merge real players while hidden profiles and guest namespaces never link", () => {
   const legacy = id => game(id, { players: [{ id: 1, name: "Legacy account" }, { id: 2, name: "Other" }] });
   const legacySummary = summarizeTeam(team, [legacy(1), legacy(2)], season);

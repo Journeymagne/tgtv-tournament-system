@@ -19,7 +19,7 @@ test('Wilson preserves precision, rewards evidence and handles an empty sample',
 });
 test('Q4 starts November 9 at local midnight, overriding earlier tournament tags after the boundary', () => {
   const q4 = seasons.find(s => s.id === '2026-q4-dataslate');
-  assert.equal(q4.name, '2026 Q4');
+  assert.equal(q4.name, '2026 Q4 Dataslate');
   assert.equal(currentSeason('2026-11-08T19:59:59.999Z').id, seasons[1].id);
   assert.equal(currentSeason('2026-11-08T20:00:00Z').id, q4.id);
   for (const sourceType of ['challenge', 'tournament_match', 'team_match_game']) {

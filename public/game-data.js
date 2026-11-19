@@ -67,7 +67,7 @@ const seasons = [
   },
   {
     id: "2026-q4-dataslate",
-    name: "2026 Q4",
+    name: "2026 Q4 Dataslate",
     startsAt: "2026-11-09T00:00:00+04:00",
     endsAt: null
   }

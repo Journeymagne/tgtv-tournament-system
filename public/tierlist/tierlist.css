@@ -20,7 +20,7 @@ body[data-companion-section="tierlist"]{margin:0;min-width:320px}
 .tl-status:empty{display:none}
 .tl-editor-meta{display:flex;align-items:flex-end;gap:16px;padding:18px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
 .tl-editor-meta label,.tl-library-filter{display:flex;flex-direction:column;gap:7px;font-weight:650;min-width:0}
-.tl-editor-meta input,.tl-editor-meta select,.tl-search input,.tl-library-filter select{width:100%;min-height:var(--button-height);padding:9px 12px;border:1px solid var(--line-strong);border-radius:var(--button-radius);background:var(--surface-input);color:var(--ink);font:400 14px/1.4 var(--font-ui)}
+.tl-editor-meta input,.tl-editor-meta select,.tl-search input,.tl-library-filter select,.tl-team-stats-season select{width:100%;min-height:var(--button-height);padding:9px 12px;border:1px solid var(--line-strong);border-radius:var(--button-radius);background:var(--surface-input);color:var(--ink);font:400 14px/1.4 var(--font-ui)}
 .tl-title-field{flex:1 1 320px}.tl-season-field{flex:0 1 270px}
 .tl-save-controls{flex:0 0 auto}.tl-save-state{font-size:12px;max-width:240px;overflow-wrap:anywhere;color:var(--muted)}
 .tl-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:18px 0 12px}
@@ -35,6 +35,7 @@ body[data-companion-section="tierlist"]{margin:0;min-width:320px}
 .tl-team-stats-eyebrow{margin:0 0 4px;font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-text)}
 .tl-team-stats h2{margin:0;font-size:18px;line-height:1.2;letter-spacing:-.02em;overflow-wrap:anywhere}
 .tl-team-stats-season{margin:12px 0 0;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.tl-team-stats-season:not([hidden]){display:flex;align-items:center;gap:12px}.tl-team-stats-season select{min-width:0}
 .tl-team-stats-status{margin:14px 0;color:var(--muted);font-size:13px}.tl-team-stats-status:empty{display:none}.tl-team-stats-status[data-kind="error"]{color:var(--danger)}
 .tl-team-stats-metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}.tl-team-stats-metrics>div{border-bottom:1px solid var(--line);padding-bottom:12px}
 .tl-team-stats-metrics dt{font-size:12px;color:var(--muted)}.tl-team-stats-metrics dd{margin:4px 0 0;font-size:26px;line-height:1.15;font-weight:750;font-variant-numeric:tabular-nums}
@@ -60,7 +61,7 @@ body[data-companion-section="tierlist"]{margin:0;min-width:320px}
 .tl-names .tl-card-name,.tl-card:hover .tl-card-name,.tl-card:focus-visible .tl-card-name{opacity:1}
 .tl-pool-section{margin-top:24px}
 .tl-pool-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
-.tl-pool-heading>div{display:flex;align-items:center;gap:12px}.tl-pool-heading h2{font-size:16px;margin:0}
+.tl-pool-heading>div{display:flex;align-items:center;flex-wrap:wrap;gap:12px}.tl-pool-heading h2{font-size:16px;margin:0}
 .tl-count{color:var(--accent-text);font-size:12px;white-space:nowrap}.tl-search{min-width:200px;max-width:320px;width:30%}
 .tl-pool{min-height:160px}
 .tl-help,.tl-draft-note{font-size:12px;color:var(--muted);margin:12px 0 0}
@@ -80,11 +81,11 @@ body[data-companion-section="tierlist"]{margin:0;min-width:320px}
 .tl-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);max-width:calc(100vw - 32px);padding:12px 18px;border:1px solid var(--line-strong);border-bottom:2px solid var(--accent);border-radius:var(--button-radius);background:var(--panel-2);color:var(--ink);font:14px/1.5 var(--font-ui);z-index:100}
 .tl-record-caption{font-size:24px;font-weight:750;margin-bottom:18px;overflow-wrap:anywhere}
 .tl-record-exit{position:fixed;right:12px;top:12px;z-index:50;opacity:.2}.tl-record-exit:hover,.tl-record-exit:focus-visible{opacity:1}
-.tl-recording [data-companion-nav],.tl-recording :is(.tl-hero,.tl-editor-meta,.tl-toolbar,.tl-help,.tl-draft-note,.tl-selection,.tl-search,#restore-guest,#account-note,#page-status){display:none!important}
+.tl-recording [data-companion-nav],.tl-recording :is(.tl-hero,.tl-editor-meta,.tl-toolbar,.tl-help,.tl-draft-note,.tl-selection,.tl-search,#shuffle-pool,#restore-guest,#account-note,#page-status){display:none!important}
 .tl-recording .tl-page{padding-top:24px}.tl-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 @media(max-width:1100px){.tl-editor-meta{flex-wrap:wrap}.tl-save-controls{width:100%}.tl-save-state{margin-right:auto}}
 @media(max-width:700px){.tl-team-stats{top:auto;right:12px;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:auto;max-height:min(42dvh,310px);padding:14px 16px;border-radius:12px}.tl-team-stats.tl-stats-offscreen{visibility:visible}.tl-team-stats-header{gap:10px}.tl-team-stats-logo{width:44px;height:44px}.tl-team-stats h2{font-size:16px}.tl-team-stats-season{margin-top:8px}.tl-team-stats-metrics{margin:12px 0}.tl-team-stats-metrics dd{font-size:22px}}
 @media(max-width:600px){.tl-page{--tl-card-size:80px;padding:20px 12px 28px}.tl-hero{align-items:flex-start;flex-direction:column;gap:16px}.tl-hero .tl-actions{width:100%}.tl-hero .tl-action{flex:1}.tl-editor-meta{padding:14px;gap:14px}.tl-title-field,.tl-season-field{flex:1 1 100%;width:100%}.tl-save-controls .tl-action{flex:1}.tl-save-state{width:100%;max-width:none}.tl-toolbar{gap:12px}.tl-toolbar>.tl-actions{gap:8px}.tl-display-controls{width:100%;justify-content:space-between}.tl-tier{grid-template-columns:48px minmax(0,1fr);gap:7px}.tl-rank{font-size:26px}.tl-pool-heading{align-items:flex-start;flex-direction:column;gap:12px}.tl-search{width:100%;max-width:none}.tl-dialog{padding:18px}.tl-saved-row{align-items:flex-start;gap:8px}.tl-saved-row>.tl-action{font-size:12px}.tl-dialog-footer .tl-action{flex:1}.tl-display-controls label{font-size:12px}}
-@media print{[data-companion-nav],.tl-hero,.tl-toolbar,.tl-help,.tl-search,.tl-draft-note,.tl-team-stats,#account-note,#page-status,#restore-guest,#exit-recording{display:none!important}.tl-page{max-width:none;padding:0}.tl-editor-meta{border:0;background:transparent;padding:0;margin-bottom:12px}.tl-save-controls{display:none}.tl-tier{break-inside:avoid}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+@media print{[data-companion-nav],.tl-hero,.tl-toolbar,.tl-help,.tl-search,.tl-draft-note,.tl-team-stats,#shuffle-pool,#account-note,#page-status,#restore-guest,#exit-recording{display:none!important}.tl-page{max-width:none;padding:0}.tl-editor-meta{border:0;background:transparent;padding:0;margin-bottom:12px}.tl-save-controls{display:none}.tl-tier{break-inside:avoid}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 
 .tl-stats-scroll{overflow-x:auto}.tl-stats-table{border-collapse:collapse;width:100%;font-size:11px;font-variant-numeric:tabular-nums}.tl-stats-table th,.tl-stats-table td{border-bottom:1px solid var(--line);padding:7px 4px;text-align:right}.tl-stats-table th:first-child,.tl-stats-table td:first-child{text-align:left;min-width:90px}.tl-stats-sort{font:inherit;font-weight:700;white-space:nowrap;border:0;background:transparent;color:inherit;padding:4px 0;cursor:pointer}.tl-stats-sort:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.tl-stats-reset{font-size:11px;margin-bottom:6px}

@@ -11,6 +11,8 @@
     reset: ['Вернуть вниз', 'Return all to pool'], export: ['Экспорт JSON', 'Export JSON'], import: ['Импорт JSON', 'Import JSON'], pictureSize: ['Размер', 'Size'],
     showNames: ['Названия', 'Names'], recordMode: ['Для записи', 'Recording view'], exitRecording: ['Вернуть управление', 'Show controls'],
     tiers: ['Тиры команд', 'Team tiers'], pool: ['Для распределения', 'Unranked'], searchLabel: ['Найти команду', 'Find a team'], searchPlaceholder: ['Найти команду…', 'Find a team…'],
+    shufflePool: ['Перемешать', 'Shuffle'], shufflePoolLabel: ['Перемешать команды в пуле', 'Shuffle unranked teams'],
+    poolShuffled: ['Команды в пуле перемешаны.', 'Unranked teams shuffled.'],
     noResults: ['По этому запросу команд нет.', 'No teams match this search.'],
     help: ['Перетащите фигурку или выберите её и нажмите букву тира. S / A / B / C / F — переместить, 0 — вернуть вниз, Esc — снять выбор. Ctrl+Z — отменить.', 'Drag a miniature, or select it and choose a tier. S / A / B / C / F — move, 0 — return to pool, Esc — clear selection. Ctrl+Z — undo.'],
     restoreGuest: ['Открыть гостевой черновик', 'Open guest draft'], filterSeason: ['Фильтр по сезону', 'Filter by season'], allSeasons: ['Все сезоны', 'All seasons'],
@@ -42,7 +44,7 @@
     restored: ['Восстановлен черновик из этого браузера.', 'Browser draft restored.'], accountChanged: ['Открыт черновик текущего аккаунта. Черновик прежнего аккаунта сохранён отдельно.', 'The current account draft is open. The previous account draft was stored separately.'],
     unknownSeason: ['Сезон {id}', 'Season {id}'], activeSeason: ['текущий', 'current'], login: ['Войти', 'Sign in'],
     storageFull: ['Не удалось сохранить черновик в браузере. Скачайте JSON перед уходом со страницы.', 'Could not store the browser draft. Export JSON before leaving the page.'],
-    statsLatest: ['Последний сезон', 'Latest season'], statsClose: ['Закрыть статистику команды', 'Close team statistics'],
+    statsHeading: ['Статистика команды', 'Team statistics'], statsSeason: ['Сезон', 'Season'], statsClose: ['Закрыть статистику команды', 'Close team statistics'],
     statsLoading: ['Загрузка статистики…', 'Loading statistics…'], statsError: ['Не удалось загрузить статистику команды. Попробуйте ещё раз.', 'Could not load team statistics. Try again.'],
     statsUnavailable: ['Статистика для этой команды пока недоступна.', 'Statistics for this team are not available yet.'],
     statsGames: ['Игры', 'Games'], statsWinRate: ['Винрейт', 'Win rate'], statsTacOps: ['Топ-3 вторички', 'Top 3 Tac Ops'], statsPlayers: ['Топ-5 игроков · за всё время', 'Top 5 players · all time'],
@@ -68,7 +70,7 @@
     csrf: '', savedLists: [], accountGeneration: 0, requestSerial: 0, lastIdentityCheck: 0 };
   const draftKey = user => 'kt-tierlist-draft-v1:' + (user?.id ?? 'guest');
   const preferencesKey = 'kt-tierlist-view-v1';
-  const teamStats = { teamId: null, status: 'idle', data: null, controller: null, serial: 0, cache: new Map(),
+  const teamStats = { teamId: null, seasonId: '', status: 'idle', data: null, controller: null, serial: 0, cache: new Map(),
     playerSort: { key: 'wilsonScore', direction: 'desc' }, tacOpSort: { key: 'winRate', direction: 'desc' } };
   const snapshot = () => JSON.stringify({ title: state.record?.title || '', seasonId: state.record?.seasonId || '', rows: state.record?.rows || {} });
   const isDirty = () => Boolean(state.record && snapshot() !== state.baseline);
@@ -207,6 +209,7 @@
     $('list-title').disabled = $('season').disabled = state.busy;
     for (const id of ['reset', 'import-json', 'restore-guest']) $(id).disabled = state.busy;
     $('undo').disabled = state.busy || !state.history.length;
+    $('shuffle-pool').disabled = state.busy || !state.record || state.record.rows.pool.length < 2;
     $('save-state').textContent = state.record?.id ? (isDirty() ? t('unsaved') : t('saved')) : t('draft');
     $('draft-note').textContent = t(state.user ? 'scopedDraft' : 'browserDraft');
     $('restore-guest').hidden = !state.user || !readDraft(null);
@@ -257,10 +260,10 @@
     const previous = state.selected; state.selected = null; updateSelection();
     if (returnFocus && previous) document.querySelector('.tl-card[data-id="' + previous + '"]')?.focus({ preventScroll: true });
   }
-  function cancelTeamStats() {
+  function cancelTeamStats(hidePanel = true) {
     teamStats.serial++; teamStats.controller?.abort(); teamStats.controller = null;
     teamStats.teamId = null; teamStats.status = 'idle'; teamStats.data = null;
-    $('team-stats').hidden = true;
+    if (hidePanel) $('team-stats').hidden = true;
   }
   function positionTeamStats() {
     const panel = $('team-stats');
@@ -276,9 +279,11 @@
     return games > 0 && Number.isFinite(value) ? new Intl.NumberFormat(locale(), { maximumFractionDigits: 1 }).format(value) + '%' : '—';
   }
   function statsQuery(team) {
-    return new URLSearchParams({ team: team.statsName || team.name,
+    const query = new URLSearchParams({ team: team.statsName || team.name,
       playerSort: teamStats.playerSort.key, playerDirection: teamStats.playerSort.direction,
-      tacOpSort: teamStats.tacOpSort.key, tacOpDirection: teamStats.tacOpSort.direction }).toString();
+      tacOpSort: teamStats.tacOpSort.key, tacOpDirection: teamStats.tacOpSort.direction });
+    if (teamStats.seasonId) query.set('seasonId', teamStats.seasonId);
+    return query.toString();
   }
   function changeStatsSort(surface, key) {
     const view = surface === 'players' ? teamStats.playerSort : surface === 'tacops' ? teamStats.tacOpSort : null;
@@ -359,7 +364,13 @@
       if (logo) image.src = logo; else image.removeAttribute('src');
     }
     const data = teamStats.data, ready = teamStats.status === 'ready';
-    $('team-stats-season').textContent = ready ? String(data.season.name || '') : '';
+    const seasonSelect = $('team-stats-season');
+    if (ready) {
+      const seasons = data.availableSeasons || [data.season];
+      seasonSelect.replaceChildren(...seasons.map(season => new Option(season.name, season.id)));
+      seasonSelect.value = data.season.id;
+    }
+    $('team-stats-season-field').hidden = team.statsAvailable === false || !seasonSelect.options.length;
     $('team-stats-status').textContent = teamStats.status === 'loading' ? t('statsLoading') : teamStats.status === 'error' ? t('statsError') : teamStats.status === 'unavailable' ? t('statsUnavailable') : '';
     $('team-stats-status').dataset.kind = teamStats.status === 'error' ? 'error' : '';
     $('team-stats-retry').hidden = teamStats.status !== 'error';
@@ -388,7 +399,7 @@
   async function loadTeamStats(id, force = false) {
     const team = state.teamsById.get(id);
     if (!team || state.selected !== id) return;
-    cancelTeamStats(); teamStats.teamId = id;
+    cancelTeamStats(false); teamStats.teamId = id;
     if (team.statsAvailable === false) {
       teamStats.status = 'unavailable'; renderTeamStats(); return;
     }
@@ -407,10 +418,11 @@
       const data = await response.json();
       if (!data || data.team !== (team.statsName || team.name) || !Number.isFinite(data.games) || data.games < 0 || !data.season || typeof data.season.name !== 'string') throw Error('statistics');
       if (serial !== teamStats.serial || state.selected !== id || teamStats.teamId !== id) return;
+      if (teamStats.seasonId && data.season.id !== teamStats.seasonId) throw Error('statistics');
       const cacheControl = response.headers?.get('Cache-Control') || '';
       const maxAge = cacheControl.match(/(?:^|,)\s*max-age\s*=\s*"?(\d+)"?(?:\s*,|\s*$)/i);
       const lifetime = /(?:^|,)\s*(?:no-store|no-cache)\b/i.test(cacheControl) ? 0 : Math.min(60, maxAge ? Number(maxAge[1]) : 60);
-      const now = Date.now(), seasonEnd = data.season.endsAt == null ? NaN : Date.parse(data.season.endsAt);
+      const now = Date.now(), seasonEnd = teamStats.seasonId || !data.season.endsAt ? NaN : Date.parse(data.season.endsAt);
       const expiresAt = Math.min(now + lifetime * 1000, Number.isFinite(seasonEnd) ? seasonEnd : Infinity);
       if (expiresAt > now) teamStats.cache.set(cacheKey, { expiresAt, data }); else teamStats.cache.delete(cacheKey);
       teamStats.data = data; teamStats.status = 'ready';
@@ -432,6 +444,21 @@
     remember(); state.record.rows = next; state.selected = null; persist(); render();
     const focus = document.querySelector('.tl-card[data-id="' + id + '"]');
     focus?.focus({ preventScroll: true });
+  }
+  function shufflePool() {
+    const pool = state.record?.rows.pool;
+    if (state.busy || !pool || pool.length < 2) return;
+    const shuffled = [...pool];
+    for (let index = shuffled.length - 1; index > 0; index--) {
+      const other = Math.floor(Math.random() * (index + 1));
+      [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
+    }
+    if (shuffled.every((id, index) => id === pool[index])) {
+      [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+    }
+    remember();
+    state.record.rows.pool = shuffled;
+    persist(); render(); toast(t('poolShuffled'));
   }
   function render() {
     if (!state.record) return;
@@ -572,6 +599,10 @@
   }
   $('confirm-cancel').addEventListener('click', () => finishConfirm(false));
   $('team-stats-close').addEventListener('click', () => clearSelection(true));
+  $('team-stats-season').addEventListener('change', event => {
+    teamStats.seasonId = event.target.value;
+    if (state.selected) void loadTeamStats(state.selected);
+  });
   $('team-stats-retry').addEventListener('click', () => { if (state.selected) void loadTeamStats(state.selected, true); });
   $('team-stats').addEventListener('click', event => {
     const button = event.target.closest('[data-stats-surface],[data-stats-reset]');
@@ -606,6 +637,7 @@
     remember(); state.record.rows = emptyRows(); state.selected = null; $('search').value = ''; persist(); render();
   } });
   $('search').addEventListener('input', render);
+  $('shuffle-pool').addEventListener('click', shufflePool);
   $('card-size').addEventListener('input', savePreferences); $('show-names').addEventListener('change', savePreferences);
   $('record-mode').addEventListener('click', () => recording(true)); $('exit-recording').addEventListener('click', () => recording(false));
   $('export-json').addEventListener('click', () => {

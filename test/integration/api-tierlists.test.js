@@ -34,6 +34,12 @@ test.beforeEach(async()=>{
 });
 test.afterEach(()=>client.release());
 
+test('the tierlist season catalog labels the existing Q4 ID as Dataslate', async () => {
+  const { body } = await api.seasons({ client });
+  const q4 = body.seasons.find(season => season.id === '2026-q4-dataslate');
+  assert.equal(q4.label, '2026 Q4 Dataslate');
+});
+
 test('saved tierlist belongs to the session account and retains season/placement across reads and updates',async()=>{
   const saved=await create();
   assert.equal(saved.revision,1);
