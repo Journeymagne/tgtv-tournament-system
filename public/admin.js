@@ -2590,7 +2590,7 @@ function adminUserRoleLabels(user) {
   else if(user.isAdmin)roles.push(adminLabel('Администратор','Administrator'));
   if(user.canCreateTournaments)roles.push(adminLabel('Создание турниров и событий','Create tournaments and events'));
   if(user.isFAQModerator)roles.push(adminLabel('Модератор FAQ','FAQ moderator'));
-  if(user.hasOwnedTournaments)roles.push(adminLabel('Организатор турниров','Tournament organizer'));
+  // Ownership belongs in the per-tournament roles section, not the global grants summary.
   if(user.hasJudgeAssignments)roles.push(adminLabel('Судья турниров','Tournament judge'));
   return roles.join(' · ')||adminLabel('Игрок','Player');
 }

@@ -39,10 +39,13 @@ test('disabled admin inputs preserve the role without blocking edits to other fl
   assert.equal(payload(form,superadministrator,superadministrator).isAdmin,true);
 });
 
-test('the role summary includes global roles and explicit tournament assignments',()=>{
+test('the role summary does not present tournament ownership as another global grant',()=>{
   const label=helper('adminUserRoleLabels');
   const summary=label({isAdmin:true,canCreateTournaments:true,isFAQModerator:true,hasOwnedTournaments:true,hasJudgeAssignments:true});
-  for(const part of ['Администратор','Создание турниров','Модератор FAQ','Организатор турниров','Судья турниров'])assert.ok(summary.includes(part));
+  for(const part of ['Администратор','Создание турниров','Модератор FAQ','Судья турниров'])assert.ok(summary.includes(part));
+  assert.doesNotMatch(summary,/Организатор турниров/);
+  assert.equal(label({canCreateTournaments:true,hasOwnedTournaments:true}),'Создание турниров и событий');
+  assert.equal(label({hasOwnedTournaments:true}),'Игрок');
   assert.equal(label({}),'Игрок');
   assert.match(label(superadministrator),/Суперадминистратор/);
   const markup=helper('adminTournamentRolesMarkup')([{tournamentId:12,name:'<Cup>',role:'organizer'},{tournamentId:13,name:'Judge cup',role:'judge'}]);
