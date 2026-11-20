@@ -3,14 +3,9 @@
 ## Defense Mechanics
 
 ### Defense Dice
-**All operatives roll exactly 3 defense dice.**
+Start with **3 defense dice**. When **Omnissiah’s Imperative** is active, start with **4** and improve the operative’s Save by one. Enter the original Save in the profile.
 
-This is a **fixed value** in Kill Team 2024 and cannot be modified by abilities or equipment, with one exception:
-
-**Exception - Piercing X:**
-- Piercing 1: Defender rolls 2 defense dice
-- Piercing 2: Defender rolls 1 defense die
-- Piercing 3: Defender rolls 0 defense dice (no save possible)
+Apply **Piercing X** to this pool before retaining cover saves. For example, Piercing 1 leaves two dice in the standard pool or three with Omnissiah’s Imperative.
 
 ### Save Characteristic
 Each operative has a Save value (e.g., 3+, 4+, 5+):
@@ -48,7 +43,7 @@ lock a dice, which can still change one, and the worked examples.
 ❌ **Invulnerable Saves** - This mechanic no longer exists in KT2024
 
 ### Modified Mechanics
-✓ **Defense Dice** - Now always 3 (was variable based on operative profile in 2021)
+✓ **Defense Dice** - The standard pool is three dice. In 2021 the pool size varied by operative profile.
 
 ---
 
@@ -62,9 +57,9 @@ lock a dice, which can still change one, and the worked examples.
    - Normal successes and critical successes
    - Modified by weapon rules (Accurate, Lethal, Rending, Severe, etc.)
 
-3. **Defender rolls defense dice (always 3)**
-   - Modified by attacker's Piercing
-   - Modified by cover saves
+3. **Defender rolls defense dice**
+   - Start with three dice, or four with Omnissiah’s Imperative. Apply the attacker’s Piercing.
+   - Retain any cover saves from that pool and roll the remaining dice.
 
 4. **Defender retains successes**
    - Normal successes and critical successes
@@ -125,11 +120,11 @@ Plague Marines firefight ploy. Tick it on the PLAGUE MARINE. After the enemy rol
 
 ## Key Principles
 
-1. **Defense dice are always 3** (unless reduced by Piercing)
+1. **The standard defense pool is three dice.** Omnissiah’s Imperative adds one before Piercing applies.
 2. **No invulnerable saves** exist in KT2024
 3. **Cover provides auto-successes**, not additional dice
 4. **Piercing is the only way** to reduce defense dice below 3
 
 ---
 
-*Last updated: September 2026*
+*Updated November 2026.*
