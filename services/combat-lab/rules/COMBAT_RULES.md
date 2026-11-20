@@ -90,17 +90,8 @@ When the defender is obscured from the attacker:
 - Crit-triggered abilities cannot trigger (Rending, Punishing blocked)
 - One attacker success is discarded at the end
 
-### Just a Scratch (Crits)
-Cancel one attack die just before damage is resolved, before saves:
-- **Chooses the die that saves the most damage**: tries cancelling a crit and cancelling a normal, and keeps the lower damage
-- Does not always drop the crit. Cancelling the normal is kept when it leaves less damage — the normal deals more, or a save can still block the die that remains
-- On equal damage, cancels the higher per-die damage type (a crit when the two deal the same). If only one hit type landed, that type is cancelled
-- MWx (Devastating) damage is counted from the original crits, so cancelling a crit never removes it
-
-### Just a Scratch (Normals)
-Cancel one normal hit just before damage is resolved:
-- **Only targets normals**: Will not cancel critical hits
-- Useful when you want to preserve the option to cancel crits with saves
+### Just a Scratch
+Ignore the normal damage of one unblocked attack die. Critical damage and separately inflicted Devastating damage still resolve. In a series with one use available, the protection carries forward until a normal die would deal damage.
 
 ### Feel No Pain (FNP)
 Just before damage is resolved, roll one die for each surviving hit (strike):

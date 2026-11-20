@@ -15,7 +15,8 @@ scope.onmessage=(event:MessageEvent<CalculatorJob&{id:number}>)=>{
       result={id:job.id,mode:job.mode,first,second,elapsed:performance.now()-start};
     }else{
       const a=hydrate(job.fighterA),b=hydrate(job.fighterB),o=job.options,first=o.firstFighter==='A';
-      const [x,y]=calcRemainingWounds(first?a:b,first?b:a,first?o.strategyFighterA:o.strategyFighterB,first?o.strategyFighterB:o.strategyFighterA,o.numRounds);
+      const firstIsInitiator = !o.initiator || o.initiator === 'first' || o.firstFighter === o.initiator;
+      const [x,y]=calcRemainingWounds(first?a:b,first?b:a,first?o.strategyFighterA:o.strategyFighterB,first?o.strategyFighterB:o.strategyFighterA,o.numRounds,firstIsInitiator);
       result={id:job.id,mode:job.mode,woundsA:[...(first?x:y)],woundsB:[...(first?y:x)],elapsed:performance.now()-start};
     }
     scope.postMessage(result);

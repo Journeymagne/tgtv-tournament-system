@@ -1,10 +1,12 @@
 export default class Note {
   public name: string;
   public description?: string;
+  public russian?: string;
 
-  public constructor(name: string, description?: string) {
+  public constructor(name: string, description?: string, russian?: string) {
     this.name = name;
     this.description = description;
+    this.russian = russian;
   }
 }
 
@@ -83,27 +85,22 @@ export const CoverCritSaves = new Note(
   `CoverCritSaves`,
   `How many saves can be automatically retained as a critical success. High enough APx/Px can limit these auto-saves.`,
 );
-export const IgnoreOneHit = new Note(
-  `JaS (Crits)`,
-  `Just a Scratch (JaS): Ignore damage from one attack die, choosing whichever die saves the most damage.`,
-);
 export const JustAScratchNorms = new Note(
-  `JaS (Normals)`,
-  `Just a Scratch (JaS): Ignore damage from one normal hit only (cannot ignore crits).`,
+  'Just a Scratch',
+  'Ignore the Normal Dmg inflicted by one attack die.',
+  'Один кубик с обычным уроном наносит 0 урона. Критический урон проходит полностью.',
 );
 export const PuritySeal = new Note(
   `PuritySeal`,
-  `If at least 2 dice fail, discard one fail and change another fail to a normal success; attack only. ` +
-  `Note: KT2024 rule strictly requires two unmodified 1s; this calculator triggers on any 2 failed dice, ` +
-  `so the benefit is slightly overstated on rolls where fails include non-1 values (e.g. 2s on a 3+ stat).`,
+  'Angels of Death. With at least two failed attack dice, discard one and retain another as a normal success.',
 );
 export const MysticScryBuff = new Note(
-  `Mystic Scry Buff`,
+  `Skry Guidance`,
   `In the Roll Attack Dice step, retain one of your fails as a normal success, OR one of your normal successes ` +
   `as a critical success. For each roll the calculator picks whichever option yields more damage, after also ` +
   `resolving Rending — so it correctly seeds a crit for Rending, or adds a norm for Rending to promote, rather ` +
   `than always favoring one. On a shoot, the score is expected damage after the defender's saves, cover, and ` +
-  `Piercing. Attack only. In-game: the "Mystic Scry" ability.`,
+  `Piercing. The Inquisitorial Agents Mystic grants this effect with the Guidance option of Scry.`,
 );
 export const TranshumanPhysiology = new Note(
   `Transhuman Physiology`,

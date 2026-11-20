@@ -10,22 +10,44 @@ export interface FightMove {
   blockNorms?: number;
   enhanced?: boolean;
   bonus?: boolean;
+  venom?: boolean;
 }
 type Outcome = [number, number];
 interface Decision { move?: FightMove; wounds: Outcome }
 const modernRules = [Ability.Dueller, Ability.StrikeOnDeath, Ability.CegorachsJest,
   Ability.DoubleBlock, Ability.BlessingsOfInfection, Ability.CritDamageBonus,
-  Ability.FirstStrikeBonus, Ability.StealthAssault, Ability.TiltingShields];
+  Ability.FirstStrikeBonus, Ability.StealthAssault, Ability.TiltingShields,
+  Ability.Oubliex, Ability.UndauntedExplorers, Ability.Crush];
+const usesRoleRule = (fighter: FighterState) => fighter.isInitiator
+  ? fighter.profile.has(Ability.ViciousVenom) : fighter.profile.has(Ability.SurvivalInstincts);
 export const usesModernFight = (a: FighterState, b: FighterState) =>
-  a.profile.mwx > 0 || b.profile.mwx > 0
+  a.profile.mwx > 0 || b.profile.mwx > 0 || usesRoleRule(a) || usesRoleRule(b)
   || modernRules.some(rule => a.profile.has(rule) || b.profile.has(rule));
 const isStrike = (m: FightMove) => m.choice === FightChoice.CritStrike || m.choice === FightChoice.NormStrike;
 const isCrit = (m: FightMove) => m.choice === FightChoice.CritStrike || m.choice === FightChoice.CritParry;
 
+// Tied totals reroll both dice, so the final result is uniformly distributed
+// over the non-tied ordered pairs. Use the same table in estimates and live play.
+const crushRolls = [0, 1].map(bonus => {
+  const damage: number[] = [];
+  for (let own = 1; own <= 6; own++) {
+    for (let enemy = 1; enemy <= 6; enemy++) {
+      const margin = own + bonus - enemy;
+      if (margin !== 0) damage.push(Math.max(0, Math.min(3, margin)));
+    }
+  }
+  return {damage, mean: damage.reduce((sum, value) => sum + value, 0) / damage.length};
+});
+
 export function legalFightMoves(a: FighterState, b: FighterState, phase: FightPhase = 'turn', ignoreBrutal = false): FightMove[] {
   const moves: FightMove[] = [];
   if (a.crits > 0) {
-    if (a.profile.has(Ability.CritDamageBonus) && !a.critBonusUsed)
+    const bonus = a.profile.has(Ability.CritDamageBonus) && !a.critBonusUsed;
+    if (a.isInitiator && a.profile.has(Ability.ViciousVenom) && !a.venomUsed) {
+      if (bonus) moves.push({choice: FightChoice.CritStrike, bonus: true, venom: true});
+      moves.push({choice: FightChoice.CritStrike, venom: true});
+    }
+    if (bonus)
       moves.push({choice: FightChoice.CritStrike, bonus: true});
     moves.push({choice: FightChoice.CritStrike});
   }
@@ -42,7 +64,8 @@ export function legalFightMoves(a: FighterState, b: FighterState, phase: FightPh
         blockCrits: c, blockNorms: n, enhanced});
     }
   };
-  const enhanced = a.profile.has(Ability.DoubleBlock) && !a.doubleBlockUsed;
+  const enhanced = !a.doubleBlockUsed && (a.profile.has(Ability.DoubleBlock) ||
+    (!a.isInitiator && a.profile.has(Ability.SurvivalInstincts)));
   if (a.crits > 0) { addBlocks(true, false); if (enhanced) addBlocks(true, true); }
   if (a.norms > 0 && (ignoreBrutal || !b.profile.has(Ability.Brutal))) {
     addBlocks(false, false); if (enhanced) addBlocks(false, true);
@@ -64,17 +87,32 @@ function applyDie(a: FighterState, b: FighterState, move: FightMove, phase: Figh
   if (!strike) {
     b.crits -= move.blockCrits ?? 0;
     b.norms -= move.blockNorms ?? 0;
-    if (move.enhanced) { a.doubleBlockUsed = true; a.recordAbilityUse(Ability.DoubleBlock); }
+    if (move.enhanced) {
+      a.doubleBlockUsed = true;
+      const useSurvival = !a.isInitiator && a.profile.has(Ability.SurvivalInstincts) &&
+        (!a.profile.has(Ability.DoubleBlock) || (a.profile.fightOnceAbilities.includes(Ability.DoubleBlock) &&
+          !a.profile.fightOnceAbilities.includes(Ability.SurvivalInstincts)));
+      a.recordAbilityUse(useSurvival ? Ability.SurvivalInstincts : Ability.DoubleBlock);
+    }
     return extra;
   }
   let damage = critical ? a.profile.critDmg : a.profile.normDmg;
   if (move.bonus) { damage++; a.critBonusUsed = true; a.recordAbilityUse(Ability.CritDamageBonus); }
+  if (move.venom) {
+    damage += a.estimateMode ? 2 : 1 + Math.floor((a.strikeRng ?? a.rng ?? Math.random)() * 3);
+    a.venomUsed = true;
+    a.recordAbilityUse(Ability.ViciousVenom);
+  }
+  if (a.profile.has(Ability.Crush)) {
+    const printed = b.profile.woundsStat || b.profile.wounds;
+    const roll = crushRolls[Number(printed <= 9)];
+    damage += a.estimateMode ? roll.mean : roll.damage[Math.floor((a.strikeRng ?? a.rng ?? Math.random)() * roll.damage.length)];
+    a.recordAbilityUse(Ability.Crush);
+  }
+  const halfFirst = !a.hasStruck && b.profile.has(Ability.HalfDamageFirstStrike);
   if (!a.hasStruck) {
     if (a.profile.has(Ability.FirstStrikeBonus)) { damage++; a.recordAbilityUse(Ability.FirstStrikeBonus); }
     if (b.profile.has(Ability.JustAScratch)) { damage = 0; b.scratchUsed = true; }
-    else if (b.profile.has(Ability.HalfDamageFirstStrike) && damage > 2) {
-      damage = Math.ceil(damage / 2); b.recordAbilityUse(Ability.HalfDamageFirstStrike);
-    }
   }
   if (!critical && damage > 0 && b.profile.has(Ability.JustAScratchNorms) && !b.normScratchUsed) {
     damage = 0;
@@ -83,7 +121,7 @@ function applyDie(a: FighterState, b: FighterState, move: FightMove, phase: Figh
   let pending = a.crits > 0 ? a.profile.critDmg + (a.profile.has(Ability.CritDamageBonus) && !a.critBonusUsed ? 1 : 0) : 0;
   if (a.norms > 0 && !(b.profile.has(Ability.JustAScratchNorms) && !b.normScratchUsed))
     pending = Math.max(pending, a.profile.normDmg);
-  b.applyDmg(damage, damage >= pending);
+  b.applyDmg(damage, b.strikeDamageAfterHalving(damage, halfFirst) >= pending, halfFirst);
   if (critical && !a.hasCritStruck && a.profile.has(Ability.Shock)) {
     if (b.norms > 0) { b.norms--; a.recordAbilityUse(Ability.Shock); }
     else if (b.crits > 0) { b.crits--; a.recordAbilityUse(Ability.Shock); }
@@ -104,10 +142,13 @@ const jestChance = (a: FighterState, b: FighterState, move: FightMove) =>
 function stateKey(a: FighterState): string {
   return [a.crits, a.norms, a.currentWounds, a.strategy, +a.hasStruck, +a.hasCritStruck,
     +a.hasResolvedDie, +a.doubleBlockUsed, +a.critBonusUsed, +a.jestUsed, +a.deathStrikeUsed,
-    +a.normScratchUsed, +a.relicUsed, a.relicIgnoresUsed, a.estimateRelicAvailProb].join(',');
+    +a.normScratchUsed, +a.relicUsed, a.relicIgnoresUsed, a.estimateRelicAvailProb,
+    +a.isInitiator, +a.venomUsed, +a.oubliexUsed, +a.undauntedUsed,
+    a.estimateOubliexAvailProb, a.estimateUndauntedAvailProb].join(',');
 }
 const signature = (a: FighterState) => [a.profile.normDmg, a.profile.critDmg, a.profile.diceStat,
-  a.profile.fnp, a.profile.saintlyRelics, ...Array.from(a.profile.abilities).sort()].join(',');
+  a.profile.fnp, a.profile.saintlyRelics, a.profile.woundsStat || a.profile.wounds,
+  ...Array.from(a.profile.abilities).sort()].join(',');
 const swap = (v: Outcome): Outcome => [v[1], v[0]];
 export function betterFightOutcome(next: Outcome, best: Outcome, strategy: FightStrategy): boolean {
   const ownFirst = strategy === FightStrategy.MinDmgToSelf || strategy === FightStrategy.Parry;
@@ -119,13 +160,24 @@ const better = betterFightOutcome;
 
 class Planner {
   private memo = new Map<string, Decision>();
+  private configurations = new Map<string, number>();
+  private configuration = 0;
   constructor(private first: FighterState['profile']) {}
+
+  selectConfiguration(value: string) {
+    let id = this.configurations.get(value);
+    if (id === undefined) {
+      id = this.configurations.size;
+      this.configurations.set(value, id);
+    }
+    this.configuration = id;
+  }
 
   solve(a: FighterState, b: FighterState, phase: FightPhase = 'turn', onlyChoice?: FightChoice): Decision {
     if ((phase !== 'death' && a.currentWounds <= 0) || b.currentWounds <= 0 || a.successes() + b.successes() === 0)
       return {wounds: [a.currentWounds, b.currentWounds]};
     if (a.successes() === 0) return {wounds: swap(this.solve(b, a).wounds)};
-    const key = [a.profile === this.first ? 0 : 1, phase, onlyChoice ?? '', stateKey(a), stateKey(b)].join('|');
+    const key = [this.configuration, a.profile === this.first ? 0 : 1, phase, onlyChoice ?? '', stateKey(a), stateKey(b)].join('|');
     const cached = this.memo.get(key);
     if (cached) return cached;
     let moves = legalFightMoves(a, b, phase);
@@ -148,7 +200,9 @@ class Planner {
     let best: Decision | undefined;
     for (const move of moves) {
       const wounds = this.evaluate(a, b, move, phase).wounds;
-      if (!best || better(wounds, best.wounds, phase === 'death' ? FightStrategy.MaxDmgToEnemy : a.strategy))
+      const preserveVenom = best?.move?.venom && !move.venom && best.move.choice === move.choice &&
+        Math.abs(wounds[0] - best.wounds[0]) < 1e-9 && Math.abs(wounds[1] - best.wounds[1]) < 1e-9;
+      if (!best || preserveVenom || better(wounds, best.wounds, phase === 'death' ? FightStrategy.MaxDmgToEnemy : a.strategy))
         best = {move, wounds};
     }
     const result = best ?? {wounds: [a.currentWounds, b.currentWounds] as Outcome};
@@ -194,8 +248,15 @@ let active: {a: FighterState['profile']; b: FighterState['profile']; signature: 
 function plannerFor(a: FighterState, b: FighterState): Planner {
   const reversed = active?.a === b.profile && active?.b === a.profile;
   const sig = reversed ? signature(b) + '|' + signature(a) : signature(a) + '|' + signature(b);
-  if (!active || (!reversed && (active.a !== a.profile || active.b !== b.profile)) || active.signature !== sig)
-    active = {a: a.profile, b: b.profile, signature: sig, planner: new Planner(a.profile)};
+  if (!active || (!reversed && (active.a !== a.profile || active.b !== b.profile))) {
+    active = {a: a.profile, b: b.profile, signature: '', planner: new Planner(a.profile)};
+  }
+  // Multi-fight samples repeatedly revisit the same injured and spent-effect
+  // configurations. Keep their entries in one bounded memo for this model pair.
+  if (active.signature !== sig) {
+    active.signature = sig;
+    active.planner.selectConfiguration(sig);
+  }
   return active.planner;
 }
 export function modernFightDecision(a: FighterState, b: FighterState, phase: FightPhase = 'turn', onlyChoice?: FightChoice): Decision {

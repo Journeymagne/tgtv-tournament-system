@@ -55,14 +55,14 @@ const ShootSection: React.FC<ShootSectionProps> = ({ isActive }) => {
     mode:'shoot',attacker1:pack(attacker1),defender1:pack(defender1),options1:shootOptions1,
     attacker2:pack(attacker2),defender2:pack(defender2),options2:shootOptions2,
   },currentStamp,isActive);
-  const [secondCollapsed,setSecondCollapsed]=React.useState(false);
+  const [secondCollapsed,setSecondCollapsed]=React.useState(() => !initialState.s2);
   const dirty=!!calc.result&&currentStamp!==calc.stamp;
   const first=React.useMemo(()=>new Map((calc.result?.first||[]).map(([save,distribution])=>[save,new Map(distribution)])),[calc.result]);
   const second=React.useMemo(()=>new Map((calc.result?.second||[]).map(([save,distribution])=>[save,new Map(distribution)])),[calc.result]);
   const combined=React.useMemo(()=>new Map(SaveRange.map(save=>[save,combineDmgProbs(first.get(save)||new Map(),second.get(save)||new Map())])),[first,second]);
   const copy=()=>{setAttacker2(clone(attacker1));setDefender2(clone(defender1));setShootOptions2(clone(shootOptions1));};
   return <div className="calculator-section">
-    <div className="calc-profile-grid">
+    <div className={`calc-profile-grid${secondCollapsed ? ' calc-profile-grid--single' : ''}`}>
       <Panel title={<ProfileTitle letter="A" title="Situation 1"/>} fullWidth className="calc-profile-card" bodyScrollX bodyStyle={{padding:'18px 20px'}}>
         <ShootSituation idPrefix="s1" attacker={attacker1} setAttacker={setAttacker1} defender={defender1} setDefender={setDefender1} shootOptions={shootOptions1} setShootOptions={setShootOptions1} saveToDmgToProb={first} showResults={false}/>
       </Panel>

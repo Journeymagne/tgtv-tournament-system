@@ -33,16 +33,8 @@ export interface Props {
 // leftover space balanced on both sides instead of pooling on the right.
 export const ShootSituation: React.FC<Props> = (props: Props) => {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-        alignItems: 'flex-start',
-        gap: '12px 20px',
-      }}
-    >
-      <AttackerControls idPrefix={`${props.idPrefix}-atk`} attacker={props.attacker} changeHandler={props.setAttacker}>
+    <div className="Shoot-profiles">
+      <AttackerControls idPrefix={`${props.idPrefix}-atk`} attacker={props.attacker} changeHandler={props.setAttacker} rounds={props.shootOptions.numRounds}>
         <ShootOptionControls idPrefix={`${props.idPrefix}-opt`} shootOptions={props.shootOptions} changeHandler={props.setShootOptions} />
       </AttackerControls>
       <DefenderControls idPrefix={`${props.idPrefix}-def`} defender={props.defender} changeHandler={props.setDefender} />

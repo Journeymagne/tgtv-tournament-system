@@ -295,3 +295,82 @@
   margin: 0;
   cursor: pointer;
 }
+
+.calc-profile-grid.calc-profile-grid--single { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.Shoot-profiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr)); gap: 30px; align-items: start; }
+.Profile-editor { min-width: 0; container-type: inline-size; }
+.Profile-role { margin: 0 0 14px; font-size: 1rem; font-weight: 700; color: var(--ink); }
+.Profile-columns { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); align-items: start; gap: 12px 20px; }
+.Profile-column { display: grid; min-width: 0; gap: 8px; align-content: start; }
+.Profile-column h4 { margin: 0 0 2px; color: var(--muted); font-size: .78rem; font-weight: 650; }
+.Profile-controls .IncDec-label { white-space: normal; }
+.Profile-controls .IncDec-select { width: 0; }
+.Profile-controls .IncDec-btn { padding: 0; }
+.Profile-dice { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.Profile-dice output { font-size: 1rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+.Profile-rule-sections { margin-top: 18px; }
+.Profile-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.Profile-disclosure { display: none; }
+.Profile-tabs button[role=tab] {
+  border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent;
+  min-height: 42px; padding: 6px 10px; color: var(--muted); font-size: 13px;
+}
+.Profile-tabs button[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
+.Profile-tabs button:hover { color: var(--ink); background: var(--panel-2); }
+.Profile-tab-count { display: inline-block; width: 2ch; margin-inline-start: 3px; font-size: 11px; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.Profile-tab-count[aria-hidden=true] { visibility: hidden; }
+.Profile-tab-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); gap: 8px 16px; padding-top: 12px; align-items: start; }
+.Profile-tab-panel[hidden] { display: none; }
+@media (max-width: 680px) {
+  .Profile-tabs, .Profile-disclosure[aria-expanded=false] + .Profile-tab-panel { display: none; }
+  .Profile-disclosure {
+    display: flex; align-items: center; width: 100%; min-height: 44px; padding: 8px 10px;
+    border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent;
+    color: var(--ink); font-size: 13px; font-weight: 650; text-align: start;
+  }
+  .Profile-disclosure::after {
+    content: ''; flex: none; width: 8px; height: 8px; margin-inline-start: auto;
+    border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
+  }
+  .Profile-disclosure[aria-expanded=true]::after { border-color: var(--accent-text); transform: rotate(225deg); }
+  .Profile-disclosure:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .Profile-disclosure[aria-expanded=true] + .Profile-tab-panel { padding-bottom: 12px; }
+}
+.Profile-column .Profile-rule { align-self: start; }
+.Profile-controls .CheckItem { min-height: 28px; align-items: center; font-size: 13px; }
+.RuleInfo-line { display: flex; align-items: center; gap: 8px; }
+.RuleInfo-line > :first-child { flex: 1; min-width: 0; }
+.RuleInfo-line--setting { display: grid; grid-template-columns: minmax(0, 1fr) min(44%, 12rem) 30px; gap: 5px; min-height: max(44px, 2.75rem); }
+.RuleInfo-line--setting > * { min-width: 0; }
+.RuleInfo-button { display: grid; place-items: center; flex: 0 0 30px; width: 30px; min-height: 32px; padding: 4px; background: transparent; border: 0; color: var(--muted); }
+.RuleInfo-button svg { width: 18px; height: 18px; }
+.RuleInfo-button:hover, .RuleInfo-button[aria-expanded=true] { color: var(--accent-text); background: var(--panel-2); }
+.RuleInfo-text {
+  z-index: 1070; width: max-content; max-width: min(25rem, calc(100vw - 16px)); max-height: 55vh; overflow: auto;
+  padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--panel-2);
+  color: var(--ink); box-shadow: var(--shadow); font: .85rem/1.5 var(--font-ui); overflow-wrap: anywhere;
+}
+.Profile-controls .FightEffectFrequency { margin: 4px 0 6px; }
+.Profile-controls .FightEffectFrequency label, .Profile-faith label { font-size: 11px; color: var(--muted); }
+.Profile-controls .FightEffectFrequency select { width: 100%; color: var(--ink); background: var(--surface-input); border-color: var(--line); }
+.RuleInfo-line .FightEffectFrequency { margin: 0; }
+.RuleInfo-line .FightEffectFrequency label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.RuleInfo-line .FightEffectFrequency select { padding-inline: 6px 2px; }
+.Profile-faith-group > .Profile-rule + .Profile-rule { margin-inline-start: 16px; }
+.Profile-controls .CheckItem input:disabled + label { color: var(--quiet); cursor: default; }
+.Profile-faith { display: flex; gap: 5px; align-items: center; justify-content: flex-end; }
+.Profile-faith label { margin: 0; }
+.Profile-faith select { min-width: 0; }
+@container (max-width: 23rem) {
+  .Profile-columns { gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .Profile-controls .IncDec-btn { width: 24px; }
+  .Profile-tab-panel { grid-template-columns: minmax(0, 1fr); }
+}
+@container (max-width: 17rem) {
+  .RuleInfo-line--setting { grid-template-columns: minmax(0, 1fr) min(48%, 7.25rem) 30px; gap: 2px; }
+  .Profile-controls .RuleInfo-line--setting .FightEffectFrequency select { padding-inline: 4px 1px; }
+}
+@container (max-width: 16rem) {
+  .Profile-columns { grid-template-columns: minmax(0, 1fr); }
+  .Profile-tabs button[role=tab] { padding-inline: 5px; }
+}

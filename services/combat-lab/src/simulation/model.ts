@@ -1,29 +1,41 @@
 import Ability, {currentAbility, fightAbilityLabels} from 'src/Ability';
 import Model from 'src/Model';
 import {parseFightOnceAbilities} from 'src/FightEffectFrequency';
-import {parseShootOnceAbilities} from 'src/ShootEffectFrequency';
+import {factionRules} from 'src/components/profileRules';
+import {parseShootWeaponRounds, parseShootOnceAbilities} from 'src/ShootEffectFrequency';
 import {Bonus,Effect,Mode,Operative,PackedModel,Side,Team,Weapon} from './types';
 export const uid=()=>Math.random().toString(36).slice(2,10);
-export const abilityNames:Record<string,string>={Balanced:'Balanced · Re-roll 1',DoubleBalanced:'Re-roll 2',Ceaseless:'Ceaseless',Relentless:'Relentless',CritFishRelentless:'Relentless · поиск критов',Ones:'Re-roll единиц',BothOnesAndBalanced:'Единицы + Balanced',CeaselessPlusBalanced:'Ceaseless + Balanced',Rending:'Rending',Severe:'Severe',Punishing:'Punishing',Brutal:'Brutal',Shock:'Shock',JustAScratch:'Игнор одного попадания',JustAScratchNorms:'Игнор нормального попадания',HalfDamageFirstStrike:'Половина первого удара',PuritySeal:'Purity Seal',Indomitus:'Indomitus',MysticScryBuff:'Mystic Scry',CurseOfRot:'Curse of Rot',PreParry:'PreParry',Dueller:'Dueller',...fightAbilityLabels,[Ability.StrikeStrike]:'Strike+Strike'};
-export const effectFields:[string,string][]=[['numDice','Кубики'],['diceStat','Порог попадания / сейва'],['normDmg','Обычный урон'],['critDmg','Критический урон'],['apx','Piercing'],['px','Piercing Crits'],['mwx','Devastating'],['lethal','Lethal'],['autoNorms','Accurate / авто normal'],['autoCrits','Авто crit'],['normsToCrits','Normal → crit'],['failsToNorms','Fail → normal'],['fnp','Feel No Pain'],['hardyx','Hardy'],['saintlyRelics','Saintly Relics'],...Object.entries(abilityNames).map(([k,v]):[string,string]=>['ability:'+k,v])];
+export const abilityNames:Record<string,string>={Balanced:'Balanced · Re-roll 1',DoubleBalanced:'Re-roll 2',Ceaseless:'Ceaseless',Relentless:'Relentless',CritFishRelentless:'Relentless · поиск критов',Ones:'Re-roll единиц',BothOnesAndBalanced:'Единицы + Balanced',CeaselessPlusBalanced:'Ceaseless + Balanced',Rending:'Rending',Severe:'Severe',Punishing:'Punishing',Brutal:'Brutal',Shock:'Shock',JustAScratchNorms:'Just a Scratch',HalfDamageFirstStrike:'Половина первого удара',PuritySeal:'Purity Seal',Indomitus:'Indomitus',MysticScryBuff:'Skry Guidance',CurseOfRot:'Curse of Rot',PreParry:'PreParry',Dueller:'Dueller',...fightAbilityLabels,...Object.fromEntries(factionRules.map(rule => [rule.ability, rule.label ?? rule.note.name])),[Ability.StrikeStrike]:'Strike+Strike'};
+export const effectFields:[string,string][]=[['numDice','Кубики'],['diceStat','Порог попадания / сейва'],['normDmg','Обычный урон'],['critDmg','Критический урон'],['apx','Piercing'],['px','Piercing Crits'],['mwx','Devastating'],['lethal','Lethal'],['autoNorms','Accurate / авто normal'],['autoCrits','Авто crit'],['normsToCrits','Normal → crit'],['failsToNorms','Fail → normal'],['fnp','Feel No Pain'],['hardyx','Hardy'],['saintlyRelics','Saintly Relics'],['faithPoints','Очки веры'],...Object.entries(abilityNames).map(([k,v]):[string,string]=>['ability:'+k,v])];
 const rerolls=new Set(['Balanced','DoubleBalanced','Ceaseless','Relentless','CritFishRelentless','Ones','BothOnesAndBalanced','CeaselessPlusBalanced']);
 export function sourceBonus(name:string,text:string,sourcePage?:number):Bonus{
+ const normalize=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]/g,'');
+ const faction=factionRules.find(rule=>normalize(rule.label ?? rule.note.name)===normalize(name));
+ if (faction) {
+  const shootAttack = faction.roles.includes('attacker');
+  const shootDefence = faction.roles.includes('defender');
+  const mode = faction.roles.includes('fighter') ? shootAttack || shootDefence ? 'both' : 'fight' : 'shoot';
+  const target = shootDefence ? shootAttack ? 'both' : 'defense' : 'attack';
+  const effects: Effect[] = [{field:'ability:'+faction.ability,value:1,operation:'set',target}];
+  if (faction.ability === Ability.ActsOfFaith) effects.push({field:'faithPoints',value:3,operation:'set',target});
+  if (faction.ability === Ability.IconOfFaith) effects.push({field:'ability:'+Ability.ActsOfFaith,value:1,operation:'set',target});
+  return {id:uid(),name,mode,enabled:true,effects,sourcePage,text};
+ }
  const effects:Effect[]=[];const has=(s:string)=>new RegExp('\\b'+s+'\\b','i').test(text);
  let target:'attack'|'defense'='attack';if(/defence dice|defense dice|defending/i.test(text)&&!/attack dice|weapons have|weapons gain/i.test(text))target='defense';
  for(const rule of ['Balanced','Ceaseless','Relentless','Severe','Rending','Punishing','Brutal','Shock'])if(has(rule))effects.push({field:'ability:'+rule,value:1,operation:'set',target});
  for(const [regex,field] of [[/Lethal\s+(\d)\+/i,'lethal'],[/Accurate\s+(\d+)/i,'autoNorms'],[/Piercing Crits\s+(\d+)/i,'px'],[/Piercing\s+(\d+)/i,'apx'],[/Devastating\s+(\d+)/i,'mwx']] as [RegExp,string][]){const m=text.match(regex);if(m)effects.push({field,value:Number(m[1]),operation:'set',target});}
  const namedRules: [RegExp,Ability][] = [
   [/^dueller$/i,Ability.Dueller], [/unending bloodshed|irrepressible purpose|glory to the martyrs/i,Ability.StrikeOnDeath],
-  [/cegorach.s jest/i,Ability.CegorachsJest], [/survival instincts/i,Ability.DoubleBlock],
+  [/cegorach.s jest/i,Ability.CegorachsJest],
   [/blessings of infection/i,Ability.BlessingsOfInfection], [/animalistic fury/i,Ability.CritDamageBonus],
   [/stealth assault/i,Ability.StealthAssault], [/tilting shields/i,Ability.TiltingShields],
  ];
  const named=namedRules.find(([pattern])=>pattern.test(name));
  if(named)return {id:uid(),name,mode:'fight',enabled:true,effects:[{field:'ability:'+named[1],value:1,operation:'set',target:'attack'}],sourcePage,text};
  if(/for cadia/i.test(name)){effects.push({field:'numDice',value:1,operation:'add',target:'attack',max:4},{field:'ability:'+Ability.FirstStrikeBonus,value:1,operation:'set',target:'attack'});}
- if(/just a scratch/i.test(name)&&/Normal Dmg/i.test(text)){return {id:uid(),name,mode:'both',enabled:true,effects:[{field:'ability:JustAScratchNorms',value:1,operation:'set',target:'defense'}],sourcePage,text};}
+ if(/just a scratch/i.test(name)){return {id:uid(),name,mode:'both',enabled:true,effects:[{field:'ability:JustAScratchNorms',value:1,operation:'set',target:'defense'}],sourcePage,text};}
  if(/curse of rot/i.test(name))effects.push({field:'ability:CurseOfRot',value:1,operation:'set',target:'both'});
- if(/just a scratch/i.test(name))effects.push({field:'ability:JustAScratch',value:1,operation:'set',target:'both'});
  if(/saintly relics/i.test(name))effects.push({field:'saintlyRelics',value:1,operation:'set',target:'both'});
  if(/mystic scry/i.test(name))effects.push({field:'ability:MysticScryBuff',value:1,operation:'set',target:'attack'});
  if(/purity seal/i.test(name))effects.push({field:'ability:PuritySeal',value:1,operation:'set',target:'attack'});
@@ -31,7 +43,8 @@ export function sourceBonus(name:string,text:string,sourcePage?:number):Bonus{
  return {id:uid(),name,mode:/ranged|shooting|shoot action/i.test(text)&&!/melee|fighting|fight action/i.test(text)?'shoot':/melee|fighting|fight action/i.test(text)&&!/ranged|shooting|shoot action/i.test(text)?'fight':'both',enabled:true,effects,sourcePage,text};
 }
 export function weaponModel(op:Operative,weapon:Weapon,health:number):Model{
- const m=new Model(weapon.attacks,weapon.hit,weapon.normal,weapon.critical);m.wounds=health;
+ const m=new Model(weapon.attacks,weapon.hit,weapon.normal,weapon.critical);m.wounds=health;m.woundsStat=op.wounds;
+ if(op.id==='ravener-wrecker' && /\bcrush\b/i.test(weapon.rules))m.setAbility(Ability.Crush);
  for(const name of ['Balanced','Relentless','Ceaseless','Rending','Severe','Punishing','Brutal','Shock'])if(new RegExp('\\b'+name+'\\b','i').test(weapon.rules))applyEffect(m,{field:'ability:'+name,value:1,operation:'set',target:'attack'});
  for(const [regex,field] of [[/Lethal\s+(\d)\+/i,'lethal'],[/Accurate\s+(\d+)/i,'autoNorms'],[/Piercing Crits\s+(\d+)/i,'px'],[/Piercing\s+(\d+)/i,'apx'],[/Devastating\s+(\d+)/i,'mwx']] as [RegExp,string][]){const match=weapon.rules.match(regex);if(match)(m as any)[field]=Number(match[1]);}
  if(health<op.wounds/2)m.diceStat=Math.min(6,m.diceStat+1);
@@ -47,5 +60,8 @@ export function makeModels(side:Side,team:Team,mode:Mode){const op=team.operativ
  if(mode==='fight'){attack.fnp=defense.fnp;attack.saintlyRelics=defense.saintlyRelics;for(const a of defense.abilities)if(a!==Ability.ObscuredTarget)attack.abilities.add(a);}
  return {op,weapon,attack,defense};}
 export function pack(m:Model):PackedModel{return {...m,abilities:[...m.abilities]};}
-export function hydrate(raw:PackedModel):Model{const m=new Model();Object.assign(m,raw);m.abilities=new Set(raw.abilities.map(currentAbility).filter((a):a is Ability=>a!==undefined));m.fightOnceAbilities=parseFightOnceAbilities(raw.fightOnceAbilities);m.shootOnceAbilities=parseShootOnceAbilities(raw.shootOnceAbilities);return m;}
+export function hydrate(raw:PackedModel):Model{const m=new Model();Object.assign(m,raw);m.abilities=new Set(raw.abilities.map(currentAbility).filter((a):a is Ability=>a!==undefined));m.fightOnceAbilities=parseFightOnceAbilities(raw.fightOnceAbilities);m.shootOnceAbilities=parseShootOnceAbilities(raw.shootOnceAbilities);
+ m.shootWeaponRounds=parseShootWeaponRounds(raw.shootWeaponRounds);
+ m.faithPoints=Number.isInteger(raw.faithPoints)&&raw.faithPoints>=0&&raw.faithPoints<=15?raw.faithPoints:3;
+ return m;}
 export function effectLabel(e:Effect){const name=effectFields.find(([f])=>f===e.field)?.[1]||e.field;return name+(e.field.startsWith('ability:')?'':` ${e.operation==='add'&&Number(e.value)>0?'+':''}${e.value}`);}

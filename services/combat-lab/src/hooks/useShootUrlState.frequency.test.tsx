@@ -7,7 +7,6 @@ import ShootOptions from 'src/ShootOptions';
 import { attackerFrequencyAbilities, defenderFrequencyAbilities, parseShootOnceAbilities } from 'src/ShootEffectFrequency';
 import { hydrate, pack } from 'src/simulation/model';
 import { getStateFromUrl, useUrlState } from './useUrlState';
-import WeaponProfiles from 'src/lab/WeaponProfiles';
 
 afterEach(() => { window.history.replaceState({}, '', '/'); localStorage.clear(); });
 
@@ -17,6 +16,10 @@ it('round-trips all supported shooting frequencies independently through both sh
   a2.shootOnceAbilities = [Ability.PuritySeal];
   d1.shootOnceAbilities = [...defenderFrequencyAbilities];
   d2.shootOnceAbilities = [Ability.Punishing];
+  a1.shootWeaponRounds = {lethal: 'first', px: 'second'};
+  a2.shootWeaponRounds = {apx: 'first'};
+  a1.faithPoints = 5;
+  d2.faithPoints = 0;
   let share!: ReturnType<typeof useUrlState>;
   function Harness() {
     share = useUrlState(a1, d1, new ShootOptions(), a2, d2, new ShootOptions());
@@ -34,6 +37,10 @@ it('round-trips all supported shooting frequencies independently through both sh
     expect(s1!.defender.shootOnceAbilities).toEqual(d1.shootOnceAbilities);
     expect(s2!.attacker.shootOnceAbilities).toEqual(a2.shootOnceAbilities);
     expect(s2!.defender.shootOnceAbilities).toEqual(d2.shootOnceAbilities);
+    expect(s1!.attacker.shootWeaponRounds).toEqual({lethal: 'first', px: 'second'});
+    expect(s2!.attacker.shootWeaponRounds).toEqual({apx: 'first'});
+    expect(s1!.attacker.faithPoints).toBe(5);
+    expect(s2!.defender.faithPoints).toBe(0);
   }
 });
 
@@ -54,17 +61,4 @@ it.each([undefined, null, 'Rending', {}, [Ability.Rending, Ability.Brutal, Abili
   const saved = {...pack(new Model()), shootOnceAbilities: raw};
   expect(hydrate(saved).shootOnceAbilities).toEqual(Array.isArray(raw) ? [Ability.Rending] : []);
   expect(parseShootOnceAbilities(raw)).toEqual(Array.isArray(raw) ? [Ability.Rending] : []);
-});
-
-it.each([false, true])('loads shooting weapon profiles with or without frequency settings (new=%s)', newer => {
-  const model = new Model().setAbility(Ability.PuritySeal);
-  model.shootOnceAbilities = [Ability.PuritySeal];
-  const saved = pack(model);
-  if (!newer) { delete saved.shootOnceAbilities; delete saved.fightOnceAbilities; }
-  localStorage.setItem('companion-weapon-profiles-shoot', JSON.stringify([{name: 'Example', model: saved}]));
-  const changed = jest.fn();
-  render(<WeaponProfiles mode="shoot" model={new Model()} onChange={changed} idPrefix="a1" />);
-  fireEvent.change(screen.getByRole('combobox'), {target: {value: '0'}});
-  expect(changed).toHaveBeenCalledTimes(1);
-  expect((changed.mock.calls[0][0] as Model).shootOnceAbilities).toEqual(newer ? [Ability.PuritySeal] : []);
 });

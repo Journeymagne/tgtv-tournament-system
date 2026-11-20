@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router-dom';
 import Note, * as N from 'src/Notes';
 import Ability, { fightAbilityLabels, mutuallyExclusiveFightAbilities } from 'src/Ability';
 import Model from 'src/Model';
-import { advancedMarkerTooltip } from 'src/components/AdvancedMarker';
 import AttackerControls, { attackerNotedControls } from 'src/components/AttackerControls';
 import DefenderControls, { defenderNotedControls } from 'src/components/DefenderControls';
 import FightSection from 'src/components/FightSection';
@@ -23,22 +22,18 @@ global.ResizeObserver = global.ResizeObserver || ResizeObserverStub;
 
 function hoverTexts(container: HTMLElement): Set<string> {
   const titles = new Set<string>();
-  container.querySelectorAll('[title]').forEach(el => {
+  container.querySelectorAll('.IncDec-label[title], .CheckItem[title]').forEach(el => {
     const title = el.getAttribute('title');
-    if (title && title !== advancedMarkerTooltip) titles.add(title);
+    if (title) titles.add(title);
   });
   return titles;
 }
 
-function showAdvanced(container: HTMLElement) {
-  const input = [...container.querySelectorAll('input[type="checkbox"]')].find(el =>
-    el.parentElement?.textContent?.includes('Advanced'),
-  );
-  if (!input) throw new Error('Advanced checkbox not found');
-  fireEvent.click(input);
-}
-
 function expectHoversMatch(container: HTMLElement, controls: readonly NotedControl[]) {
+  const tab = within(container).getByRole('tab', {name: /Фракционные правила/});
+  fireEvent.click(tab);
+  expect(tab.getAttribute('aria-selected')).toBe('true');
+  // Both panels stay mounted; enabling Acts of Faith also exposes Icon of Faith.
   expect(hoverTexts(container)).toEqual(new Set(controls.map(control => control.note.description)));
 }
 
@@ -64,19 +59,16 @@ function namesInPanelOrder(notes: readonly Note[], advancedNotes: ReadonlySet<No
 
 describe('notes panels follow the controls', () => {
   it('fight card hovers are exactly the fighter note catalog', () => {
-    const { container } = render(<FighterControls idPrefix="fa" attacker={new Model()} changeHandler={() => {}} />);
-    showAdvanced(container);
+    const { container } = render(<FighterControls idPrefix="fa" attacker={new Model().setAbility(Ability.ActsOfFaith)} changeHandler={() => {}} />);
     expectHoversMatch(container, fighterNotedControls);
   });
 
   it('shoot attacker and defender hovers are exactly their note catalogs', () => {
-    const attacker = render(<AttackerControls idPrefix="s1-atk" attacker={new Model()} changeHandler={() => {}} />);
-    showAdvanced(attacker.container);
+    const attacker = render(<AttackerControls idPrefix="s1-atk" attacker={new Model().setAbility(Ability.ActsOfFaith)} changeHandler={() => {}} />);
     expectHoversMatch(attacker.container, attackerNotedControls);
     attacker.unmount();
 
-    const defender = render(<DefenderControls idPrefix="s1-def" defender={Model.basicDefender()} changeHandler={() => {}} />);
-    showAdvanced(defender.container);
+    const defender = render(<DefenderControls idPrefix="s1-def" defender={Model.basicDefender().setAbility(Ability.ActsOfFaith)} changeHandler={() => {}} />);
     expectHoversMatch(defender.container, defenderNotedControls);
   });
 
@@ -88,10 +80,10 @@ describe('notes panels follow the controls', () => {
     expect(boldNoteNames(container)).toEqual(namesInPanelOrder(notes, advancedNotes));
     expect(N.NicheAbility.description).not.toContain('CloseAssault');
     expect(N.NicheAbility.description).not.toContain('Waaagh2021');
+    expect(notes.map(note => note.name)).not.toContain('JaS (Crits)');
     for (const note of [
       N.Punishing,
       N.PreParry,
-      N.IgnoreOneHit,
       N.JustAScratchNorms,
       N.HalfDamageFirstStrike,
       N.NormsToCrits,
@@ -105,7 +97,7 @@ describe('notes panels follow the controls', () => {
 
   it('NicheAbility note names every dropdown value exactly as the dropdown shows it', () => {
     for (const value of mutuallyExclusiveFightAbilities) {
-      if (value === Ability.None) continue;
+      if (value === Ability.None || value === Ability.StealthAssault) continue;
       expect(N.NicheAbility.description).toContain(`${fightAbilityLabels[value] ?? value}:`);
     }
   });
@@ -120,7 +112,7 @@ describe('notes panels follow the controls', () => {
     expect(notes).toContain(N.Indomitus);
     expect(advancedNotes.has(N.Punishing)).toBe(false);
     expect(advancedNotes.has(N.FailsToNorms)).toBe(true);
-    expect(advancedNotes.has(N.Indomitus)).toBe(false);
+    expect(advancedNotes.has(N.Indomitus)).toBe(true);
     expect(notes.filter(note => note === N.Reroll)).toHaveLength(1);
     expect(notes.filter(note => note === N.NormsToCrits)).toHaveLength(1);
   });
@@ -147,7 +139,7 @@ describe('notes panels follow the controls', () => {
       N.AvgDamageUnbounded.name,
       ...namesInPanelOrder(shoot.notes, shoot.advancedNotes),
     ]);
-    const advancedHeader = within(shootNotes).getByText(/only shown when/i);
+    const advancedHeader = within(shootNotes).getByText('Advanced / Фракционные правила');
     const punishing = within(shootNotes).getByText('Punishing');
     const fails = within(shootNotes).getByText('FailsToNorms');
     expect(

@@ -22,7 +22,7 @@ describe('NotesList', () => {
 
   it('splits notes into a Basic group and an Advanced section', () => {
     render(<NotesList notes={[alpha, bravo, charlie]} advancedNotes={new Set([bravo])} />);
-    const advHeader = screen.getByText(/only shown when/i);
+    const advHeader = screen.getByText('Advanced / Фракционные правила');
     // basic notes precede the advanced header; the advanced note follows it
     expect(before(screen.getByText('Alpha'), advHeader)).toBe(true);
     expect(before(screen.getByText('Charlie'), advHeader)).toBe(true);
@@ -31,7 +31,7 @@ describe('NotesList', () => {
 
   it('renders no Advanced section when nothing is advanced', () => {
     render(<NotesList notes={[alpha, bravo]} />);
-    expect(screen.queryByText(/only shown when/i)).toBeNull();
+    expect(screen.queryByText('Advanced / Фракционные правила')).toBeNull();
   });
 
   it('renders leading children', () => {

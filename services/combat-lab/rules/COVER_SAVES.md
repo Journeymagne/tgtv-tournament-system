@@ -72,7 +72,7 @@ The calculator does make this kind of choice elsewhere: it declines **Punishing*
 in the table above — **the right answer depends on the attacker**, and specifically on what share of
 the incoming hits are critical.
 
-Attack-side retain choices can see the defender. On a shoot, Punishing and Mystic Scry score each
+Attack-side retain choices can see the defender. On a shoot, Punishing and Skry Guidance score each
 line by expected damage against that defender's saves, cover, and Piercing. The cover decision
 cannot: it is made while rolling the defender's own dice, which do not see the incoming hits. A
 save's worth is defined entirely by the hits it has to cancel, and that dice step has no view of

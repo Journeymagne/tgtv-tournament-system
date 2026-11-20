@@ -1,12 +1,8 @@
 import React from 'react';
 import Note from 'src/Notes';
 import * as T from 'src/theme';
-import { advancedMarkerChar } from 'src/components/AdvancedMarker';
-
-// The Notes panel is split into a "Basic" section and an "Advanced" section. The advanced section
-// collects the rules whose control only appears once the per-panel "Advanced" checkbox is ticked, so
-// they line up with the gear-marked controls. FightSection and ShootSection pass the set derived
-// from the same param and checkbox catalogs those panels render.
+import {useEnglishRules} from './ProfileControls';
+import {ruleDescription} from './profileRules';
 
 export interface NotesListProps {
   notes: Note[];
@@ -32,23 +28,20 @@ const advancedHeaderStyle: React.CSSProperties = {
   paddingTop: '10px',
 };
 
-// The explanation after "Advanced —" reads as a sentence, not a label.
-const sentenceStyle: React.CSSProperties = { textTransform: 'none', letterSpacing: 0, fontWeight: 400 };
-
 const gridStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
   gap: '10px 28px',
 };
 
 // Each note renders as a plain block: bold name on top, description on the line below (no bullets).
-function renderNotes(list: Note[]) {
+function renderNotes(list: Note[], english: boolean) {
   return (
     <div style={gridStyle}>
       {list.map(note => (
         <div key={note.name}>
           <b>{note.name}</b>
-          <div style={{ color: T.textBody, textWrap: 'pretty' } as React.CSSProperties}>{note.description}</div>
+          <div style={{ color: T.textBody, textWrap: 'pretty' } as React.CSSProperties}>{ruleDescription(note, english)}</div>
         </div>
       ))}
     </div>
@@ -56,6 +49,7 @@ function renderNotes(list: Note[]) {
 }
 
 const NotesList: React.FC<NotesListProps> = ({ notes, advancedNotes, children }) => {
+  const english = useEnglishRules();
   const advancedList = advancedNotes ? notes.filter(note => advancedNotes.has(note)) : [];
   const basicList = advancedNotes ? notes.filter(note => !advancedNotes.has(note)) : notes;
   const hasAdvanced = advancedList.length > 0;
@@ -66,7 +60,7 @@ const NotesList: React.FC<NotesListProps> = ({ notes, advancedNotes, children })
     return (
       <>
         {children && <ul style={{ marginBottom: '8px' }}>{children}</ul>}
-        {renderNotes(basicList)}
+        {renderNotes(basicList, english)}
       </>
     );
   }
@@ -77,14 +71,13 @@ const NotesList: React.FC<NotesListProps> = ({ notes, advancedNotes, children })
         <>
           <div style={sectionHeaderStyle}>Basic</div>
           {children && <ul style={{ marginBottom: '8px' }}>{children}</ul>}
-          {renderNotes(basicList)}
+          {renderNotes(basicList, english)}
         </>
       }
       <div style={advancedHeaderStyle}>
-        <span aria-hidden="true">{advancedMarkerChar}</span> Advanced{' '}
-        <span style={sentenceStyle}>— only shown when the <b>Advanced</b> checkbox is ticked</span>
+        Advanced / Фракционные правила
       </div>
-      {renderNotes(advancedList)}
+      {renderNotes(advancedList, english)}
     </>
   );
 };

@@ -4,9 +4,12 @@ import DieProbs from "src/DieProbs";
 import * as Util from 'src/Util';
 import NoCoverType from "src/NoCoverType";
 import Die from "src/Die";
+import type { ShootWeaponRounds } from 'src/ShootEffectFrequency';
 
 export default class Model {
   public wounds: number; // fight and shoot-def
+  public woundsStat = 0; // printed Wounds, when starting a catalog operative below full health
+  public faithPoints = 3; // available across all actions in this sequence
   public numDice: number; // all
   public diceStat: number; // all, bs/ws/save
   public normDmg: number; // fight and shoot-attack
@@ -27,6 +30,7 @@ export default class Model {
   public abilities: Set<Ability>; // all, for basically all bool abilities
   public fightOnceAbilities: Ability[] = []; // fight only: one actual use across all selected fights
   public shootOnceAbilities: Ability[] = []; // shooting only: one actual use across all selected Shoot actions
+  public shootWeaponRounds: ShootWeaponRounds = {};
 
   public constructor(
     numDice: number = 4,
@@ -130,6 +134,19 @@ export default class Model {
       return true;
     }
     return this.abilities.has(ability);
+  }
+
+  // Older shares and direct calculator clients may carry both Scratch flags.
+  // They refer to one normal-damage ignore and share its one-use allowance.
+  public withCurrentScratch(): Model {
+    if (!this.abilities.has(Ability.JustAScratch) && !this.fightOnceAbilities.includes(Ability.JustAScratch)
+      && !this.shootOnceAbilities.includes(Ability.JustAScratch)) return this;
+    const normalize = (values: Iterable<Ability>) =>
+      new Set(Array.from(values, rule => rule === Ability.JustAScratch ? Ability.JustAScratchNorms : rule));
+    const current = this.withProp('abilities', normalize(this.abilities));
+    current.fightOnceAbilities = [...normalize(this.fightOnceAbilities)];
+    current.shootOnceAbilities = [...normalize(this.shootOnceAbilities)];
+    return current;
   }
 
   public setAbility(ability: Ability, addIt: boolean = true): Model {

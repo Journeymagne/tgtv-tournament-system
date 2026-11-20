@@ -4,6 +4,10 @@ import {Bonus,Catalog,Effect,Job,Mode,Result,Side,Weapon} from './types';
 import {effectFields,effectLabel,makeModels,pack,sourceBonus,uid} from './model';
 import './simulation.css';
 import IncDecSelect from 'src/components/IncDecSelect';
+import RuleTabs from 'src/components/RuleTabs';
+import {factionRules, ruleDescription} from 'src/components/profileRules';
+import {useEnglishRules} from 'src/components/ProfileControls';
+import {JustAScratchNorms, NormsToCrits, PreParry, SaintlyRelics} from 'src/Notes';
 import {createSimulationWorker} from 'src/lab/createWorkers';
 import {appPath} from 'src/lab/appPath';
 import useCalculationWorker from 'src/lab/useCalculationWorker';
@@ -17,12 +21,33 @@ function createSide(teamId:string,opHint=''):Side{const t=byTeam(teamId);const o
 interface State{a:Side;b:Side;mode:Mode;first:'A'|'B';simulations:number;}
 const defaults=():State=>({a:createSide('kasrkin','gunner'),b:createSide('angels-of-death','intercessor-warrior'),mode:'shoot',first:'A',simulations:15000});
 function cleanSide(value:any):Side{const t=byTeam(value?.teamId);const op=t.operatives.find(o=>o.id===value?.operativeId)||t.operatives[0];const s=createSide(t.id,op.id);const fields=new Set(effectFields.map(([f])=>f));
- return {...s,rangedId:op.weapons.some(w=>w.id===value?.rangedId&&w.kind==='ranged')?value.rangedId:s.rangedId,meleeId:op.weapons.some(w=>w.id===value?.meleeId&&w.kind==='melee')?value.meleeId:s.meleeId,health:Math.round(Math.max(1,Math.min(op.wounds,Number(value?.health)||op.wounds))),cover:[0,1,2].includes(value?.cover)?value.cover:0,obscured:value?.obscured===true,bonuses:Array.isArray(value?.bonuses)?value.bonuses.slice(0,24).map((b:any)=>({id:typeof b.id==='string'?b.id.slice(0,40):uid(),name:String(b.name||'Бонус').slice(0,100),mode:['shoot','fight','both'].includes(b.mode)?b.mode:'both',enabled:b.enabled===true,sourcePage:Number(b.sourcePage)||undefined,text:String(b.text||'').slice(0,6000),effects:Array.isArray(b.effects)?b.effects.filter((e:any)=>fields.has(e.field)).slice(0,12).map((e:any)=>({field:e.field,value:Math.max(-12,Math.min(12,Number(e.value)||0)),operation:e.operation==='add'?'add':'set',max:Number.isFinite(e.max)?Math.max(0,Math.min(12,e.max)):undefined,target:['attack','defense','both'].includes(e.target)?e.target:'attack'})):[]})):[]};}
+ const normalizeEffect=(field:string)=>field==='ability:JustAScratch'?'ability:JustAScratchNorms':field;
+ return {...s,rangedId:op.weapons.some(w=>w.id===value?.rangedId&&w.kind==='ranged')?value.rangedId:s.rangedId,meleeId:op.weapons.some(w=>w.id===value?.meleeId&&w.kind==='melee')?value.meleeId:s.meleeId,health:Math.round(Math.max(1,Math.min(op.wounds,Number(value?.health)||op.wounds))),cover:[0,1,2].includes(value?.cover)?value.cover:0,obscured:value?.obscured===true,bonuses:Array.isArray(value?.bonuses)?value.bonuses.slice(0,24).map((b:any)=>({id:typeof b.id==='string'?b.id.slice(0,40):uid(),name:String(b.name||'Бонус').slice(0,100),mode:['shoot','fight','both'].includes(b.mode)?b.mode:'both',enabled:b.enabled===true,sourcePage:Number(b.sourcePage)||undefined,text:String(b.text||'').slice(0,6000),effects:Array.isArray(b.effects)?b.effects.filter((e:any)=>fields.has(normalizeEffect(e.field))).slice(0,12).map((e:any)=>({field:normalizeEffect(e.field),value:Math.max(-12,Math.min(12,Number(e.value)||0)),operation:e.operation==='add'?'add':'set',max:Number.isFinite(e.max)?Math.max(0,Math.min(12,e.max)):undefined,target:['attack','defense','both'].includes(e.target)?e.target:'attack'})):[]})):[]};}
 function cleanState(v:any):State{if(!v?.a||!v?.b)return defaults();return {a:cleanSide(v.a),b:cleanSide(v.b),mode:v.mode==='fight'?'fight':'shoot',first:v.first==='B'?'B':'A',simulations:[15000,50000,150000].includes(v.simulations)?v.simulations:15000};}
 function loadState():State{try{const text=new URLSearchParams(window.location.search).get('duel');if(text&&text.length<40000){const bytes=Uint8Array.from(atob(text.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));return cleanState(JSON.parse(new TextDecoder().decode(bytes)));}const saved=localStorage.getItem('companion-combat-last');return saved?cleanState(JSON.parse(saved)):defaults();}catch{return defaults();}}
 function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="sim-field"><span>{label}</span>{children}</label>;}
-function WeaponLine({weapon}:{weapon?:Weapon}){if(!weapon)return <p className="sim-empty-weapon">Нет подходящего оружия</p>;return <div className="weapon-line"><span><b>{weapon.attacks}</b> ATK</span><span><b>{weapon.hit}+</b> HIT</span><span><b>{weapon.normal}/{weapon.critical}</b> DMG</span><small>{weapon.rules||'Без специальных правил'}</small></div>;}
-const commonBonuses=[['Balanced','Re-roll · Balanced'],['Ceaseless','Re-roll · Ceaseless'],['Relentless','Re-roll · Relentless'],['JustAScratch','Just a Scratch'],['CurseOfRot','Curse of Rot'],['MysticScryBuff','Mystic Scry'],['Indomitus','Indomitus'],['PuritySeal','Purity Seal'],['saintlyRelics','Saintly Relics']];
+function WeaponLine({weapon}:{weapon?:Weapon}){if(!weapon)return <p className="sim-empty-weapon">Нет подходящего оружия</p>;return <div className="weapon-line"><span><b>{weapon.attacks}</b> ATK</span><span><b>{weapon.hit}+</b> HIT</span><span><b>{weapon.normal}/{weapon.critical}</b> DMG</span></div>;}
+interface CommonBonus {
+  label: string;
+  field: string;
+  target: Effect['target'];
+  mode: Bonus['mode'];
+  description: (english: boolean) => string | undefined;
+}
+const commonBonuses: CommonBonus[] = [
+  {label:'Re-roll · Balanced', field:'ability:Balanced', target:'attack', mode:'both',
+    description: en=>en?'Reroll one failed attack die.':'Перебросьте один провал атаки.'},
+  {label:'Re-roll · Ceaseless', field:'ability:Ceaseless', target:'attack', mode:'both',
+    description: en=>en?'Choose one face and reroll all failed attack dice showing it.':'Выберите одну цифру и перебросьте все провалы атаки с этой цифрой.'},
+  {label:'Re-roll · Relentless', field:'ability:Relentless', target:'attack', mode:'both',
+    description: en=>en?'Reroll all failed attack dice.':'Перебросьте все провалы атаки.'},
+  {label:'Just a Scratch', field:'ability:JustAScratchNorms', target:'defense', mode:'both',
+    description: en=>ruleDescription(JustAScratchNorms,en)},
+  {label:'Normal → crit', field:'normsToCrits', target:'attack', mode:'both',
+    description: en=>ruleDescription(NormsToCrits,en)},
+  {label:'PreParry', field:'ability:PreParry', target:'attack', mode:'fight',
+    description: en=>ruleDescription(PreParry,en)},
+];
 function BonusEditor({bonus,teamId,onChange,onRemove}:{bonus:Bonus;teamId:string;onChange:(b:Bonus)=>void;onRemove:()=>void}){
  const [expanded,setExpanded]=React.useState(bonus.effects.length===0);
  const changeEffect=(i:number,patch:Partial<Effect>)=>onChange({...bonus,effects:bonus.effects.map((e,j)=>j===i?{...e,...patch}:e)});
@@ -40,25 +65,40 @@ function BonusEditor({bonus,teamId,onChange,onRemove}:{bonus:Bonus;teamId:string
 }
 function OperativeCard({side,letter,mode,onChange}:{side:Side;letter:'A'|'B';mode:Mode;onChange:(s:Side)=>void}){
  const team=byTeam(side.teamId);const op=team.operatives.find(o=>o.id===side.operativeId)||team.operatives[0];const ranged=op.weapons.filter(w=>w.kind==='ranged');const melee=op.weapons.filter(w=>w.kind==='melee');
- const [ruleId,setRuleId]=React.useState('');const [common,setCommon]=React.useState('Balanced');const [customName,setCustomName]=React.useState('');
- const rules=[...team.rules,...(op.rulesText?[{id:'operative-rules',name:'Способности '+op.name,category:'OPERATIVE',text:op.rulesText,sourcePage:op.sourcePage}]:[])];
+ const [ruleId,setRuleId]=React.useState('');const [common,setCommon]=React.useState(commonBonuses[0].field);const [customName,setCustomName]=React.useState('');
+ const english = useEnglishRules();
+ const quickBonuses=commonBonuses.filter(bonus=>bonus.mode==='both'||bonus.mode===mode);
+ const quick=quickBonuses.find(bonus=>bonus.field===common)??quickBonuses[0];
+ const weapon = mode==='shoot' ? ranged.find(w=>w.id===side.rangedId) : melee.find(w=>w.id===side.meleeId);
+ const presetRules = factionRules.filter(rule => mode==='fight' ? rule.roles.includes('fighter') : rule.roles.some(role=>role!=='fighter'))
+   .map(rule=>({id:'effect-'+rule.ability,name:rule.label??rule.note.name,category:'EFFECT',text:ruleDescription(rule.note,english)??'',sourcePage:undefined}));
+ presetRules.push({id:'effect-saintly-relics',name:SaintlyRelics.name,category:'EFFECT',text:ruleDescription(SaintlyRelics,english)??'',sourcePage:undefined});
+ const rules=[...team.rules,...presetRules.filter(p=>!team.rules.some(rule=>rule.name.toLowerCase()===p.name.toLowerCase())),...(op.rulesText?[{id:'operative-rules',name:'Способности '+op.name,category:'OPERATIVE',text:op.rulesText,sourcePage:op.sourcePage}]:[])];
  const add=(bonus:Bonus)=>onChange({...side,bonuses:[...side.bonuses,bonus]});
  const addRule=()=>{const rule=rules.find(r=>r.id===ruleId);if(rule){add(sourceBonus(rule.name,rule.text,rule.sourcePage));setRuleId('');}};
- const addCommon=()=>{const field=common==='saintlyRelics'?'saintlyRelics':'ability:'+common;add({id:uid(),name:commonBonuses.find(([id])=>id===common)?.[1]||common,mode:'both',enabled:true,effects:[{field,value:1,operation:'set',target:['JustAScratch','saintlyRelics','Indomitus'].includes(common)?'defense':common==='CurseOfRot'?'both':'attack'}]});};
+ const addCommon=()=>add({id:uid(),name:quick.label,mode:quick.mode,enabled:true,text:quick.description(english),
+   effects:[{field:quick.field,value:1,operation:quick.field==='normsToCrits'?'add':'set',target:quick.target}]});
  return <section className={'operative-card side-'+letter.toLowerCase()} aria-label={'Оперативник '+letter}><div className="operative-heading"><span className="side-letter">{letter}</span><div><small>ОПЕРАТИВНИК {letter}</small><h2>{op.name}</h2></div><a className="pdf-link" title="Карточка в официальном PDF" href={appPath(`/library/${team.id}.pdf#page=${op.sourcePage}`)} target="_blank" rel="noreferrer">PDF ↗</a></div>
- <div className="operative-body"><Field label="Команда"><select aria-label={'Команда '+letter} value={team.id} onChange={e=>{onChange(createSide(e.target.value));setRuleId('');}}>{usableTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
+ <div className="operative-body"><div className="sim-profile-selectors"><Field label="Команда"><select aria-label={'Команда '+letter} value={team.id} onChange={e=>{onChange(createSide(e.target.value));setRuleId('');}}>{usableTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
  <Field label="Оперативник"><select aria-label={'Оперативник '+letter} value={op.id} onChange={e=>{onChange(createSide(team.id,e.target.value));setRuleId('');}}>{team.operatives.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></Field>
+ </div><div className="sim-profile-columns"><div className="sim-profile-column"><h3>Характеристики</h3>
  <div className="operative-stats"><div><small>APL</small><strong>{op.apl}</strong></div><div><small>MOVE</small><strong>{op.move}</strong></div><div><small>SAVE</small><strong>{op.save}+</strong></div><div><small>WOUNDS</small><strong>{side.health}<em>/{op.wounds}</em></strong></div></div>
  <div className="health-control"><IncDecSelect id={'health-'+letter} ariaLabel={'Оставшиеся Wounds '+letter} label="Оставшиеся Wounds" values={Array.from({length:op.wounds},(_,i)=>String(i+1))} selectedValue={side.health} valueChangeHandler={value=>onChange({...side,health:Number(value)})}/><span>{side.health<op.wounds/2?'Injured · HIT хуже на 1':'В строю'}</span></div>
  {mode==='shoot'&&<div className="weapon-block"><Field label="Стрелковое оружие"><select aria-label={'Стрелковое оружие '+letter} disabled={!ranged.length} value={side.rangedId} onChange={e=>onChange({...side,rangedId:e.target.value})}>{!ranged.length&&<option value="">Нет стрелкового оружия</option>}{ranged.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select></Field><WeaponLine weapon={ranged.find(w=>w.id===side.rangedId)}/></div>}
  {mode==='fight'&&<div className="weapon-block"><Field label="Оружие ближнего боя"><select aria-label={'Оружие ближнего боя '+letter} disabled={!melee.length} value={side.meleeId} onChange={e=>onChange({...side,meleeId:e.target.value})}>{!melee.length&&<option value="">Нет оружия ближнего боя</option>}{melee.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select></Field><WeaponLine weapon={melee.find(w=>w.id===side.meleeId)}/></div>}
+ </div><div className="sim-profile-column"><h3>Правила оружия</h3>
+ <p className="sim-keywords">{weapon?.rules || 'Без специальных правил'}</p>
  {mode==='shoot'&&<div className="defense-controls"><IncDecSelect id={'cover-'+letter} ariaLabel={'Укрытие '+letter} label="Сохранённые сейвы за укрытие" values={['Нет','1 normal','2 normal']} selectedValue={['Нет','1 normal','2 normal'][side.cover]} valueChangeHandler={value=>onChange({...side,cover:['Нет','1 normal','2 normal'].indexOf(value)})}/><label className="check-label"><input type="checkbox" checked={side.obscured} onChange={e=>onChange({...side,obscured:e.target.checked})}/>Obscured</label></div>}
- <details className="bonuses-panel"><summary>Бонусы и правила <span>{side.bonuses.filter(b=>b.enabled&&(b.mode===mode||b.mode==='both')).length} активно</span></summary><p className="microcopy">Добавленные правила сразу включены. Базовые свойства оружия уже учтены.</p>
- <div className="add-rule"><select aria-label={'Правило команды '+letter} value={ruleId} onChange={e=>setRuleId(e.target.value)}><option value="">Выберите правило команды…</option>{rules.map(rule=><option key={rule.id} value={rule.id}>{rule.name}</option>)}</select><button disabled={!ruleId} onClick={addRule}>Добавить</button></div>
- <div className="add-rule"><select aria-label={'Быстрый бонус '+letter} value={common} onChange={e=>setCommon(e.target.value)}>{commonBonuses.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select><button onClick={addCommon}>+ Бонус</button></div>
+ <RuleTabs prefix={'sim-'+letter}>{group=>group==='faction' ? <div>
+   <div className="add-rule"><select aria-label={'Правило команды '+letter} value={ruleId} onChange={e=>setRuleId(e.target.value)}><option value="">Выберите правило команды…</option>{rules.map(rule=><option key={rule.id} value={rule.id}>{rule.name}</option>)}</select><button disabled={!ruleId} onClick={addRule}>Добавить</button></div>
+   {ruleId && <details className="sim-rule-info" key={ruleId}><summary>Info</summary><p>{rules.find(rule=>rule.id===ruleId)?.text}</p></details>}
+ </div> : <div>
+   <div className="add-rule"><select aria-label={'Быстрый бонус '+letter} value={quick.field} onChange={e=>setCommon(e.target.value)}>{quickBonuses.map(bonus=><option key={bonus.field} value={bonus.field}>{bonus.label}</option>)}</select><button onClick={addCommon}>+ Бонус</button></div>
+   <details className="sim-rule-info"><summary>Info</summary><p>{quick.description(english)}</p></details>
+   <div className="add-rule"><input aria-label={'Название своего правила '+letter} placeholder="Название своего правила" value={customName} onChange={e=>setCustomName(e.target.value)}/><button disabled={!customName.trim()} onClick={()=>{add({id:uid(),name:customName.trim(),mode:'both',enabled:true,effects:[]});setCustomName('');}}>+ Правило</button></div>
+ </div>}</RuleTabs>
  {side.bonuses.map((bonus,i)=><BonusEditor key={bonus.id} bonus={bonus} teamId={team.id} onChange={b=>onChange({...side,bonuses:side.bonuses.map((x,j)=>i===j?b:x)})} onRemove={()=>onChange({...side,bonuses:side.bonuses.filter((_,j)=>i!==j)})}/>)}
- <div className="add-rule"><input aria-label={'Название своего правила '+letter} placeholder="Название своего правила" value={customName} onChange={e=>setCustomName(e.target.value)}/><button disabled={!customName.trim()} onClick={()=>{add({id:uid(),name:customName.trim(),mode:'both',enabled:true,effects:[]});setCustomName('');}}>+ Правило</button></div>
- </details></div></section>;
+ </div></div></div></section>;
 }
 function Distribution({data,label,color='a'}:{data:[number,number][];label:string;color?:string}){const max=Math.max(...data.map(([,p])=>p),0.01);return <div className={'distribution chart-'+color}><div className="chart-heading"><span>{label}</span><span>Вероятность, %</span></div><div className="chart-bars" role="img" aria-label={label}>{data.filter(([,p])=>p>0.0001).map(([n,p])=><div className="chart-column" key={n} title={`${n}: ${pct(p)}`}><span className="chart-prob">{p>=.05?(p*100).toFixed(0)+'%':''}</span><div className="chart-bar" style={{height:Math.max(2,p/max*100)+'px'}}/><span className="chart-axis">{n}</span></div>)}</div><details className="distribution-table"><summary>Точные значения распределения</summary><table><thead><tr><th>{label}</th><th>Вероятность</th></tr></thead><tbody>{data.map(([n,p])=><tr key={n}><td>{n}</td><td>{(p*100).toFixed(3)}%</td></tr>)}</tbody></table></details></div>;}
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import {render, screen, within} from '@testing-library/react';
+import {fireEvent, render, screen, within} from '@testing-library/react';
 import fs from 'fs';
 import path from 'path';
 import vm from 'vm';
@@ -22,14 +22,15 @@ it('translates shooting frequency labels, choices, and first-action explanation 
       <AttackerControls idPrefix="a1" attacker={new Model().setAbility(Ability.PuritySeal)} changeHandler={() => {}} />
       <DefenderControls idPrefix="d1" defender={Model.basicDefender().setAbility(Ability.CurseOfRot)} changeHandler={() => {}} />
     </>);
+    for (const tab of screen.getAllByRole('tab', {name: /Фракционные правила/})) fireEvent.click(tab);
     world.KTUI.translate();
     const frequency = screen.getByRole('combobox', {name: 'PuritySeal: frequency'});
-    expect(within(frequency).getByRole('option', {name: 'Every shot'})).toBeTruthy();
-    expect(within(frequency).getByRole('option', {name: 'Once per series'})).toBeTruthy();
+    expect(within(frequency).getByRole('option', {name: 'Per shot'})).toBeTruthy();
+    expect(within(frequency).getByRole('option', {name: 'Per series'})).toBeTruthy();
     expect(document.getElementById('d1-CurseOfRot-frequency')?.title).toBe('Every shot: this rule applies to every Shoot action. Once per series: this rule applies throughout the first Shoot action.');
     world.KTAppearance.locale = 'ru'; world.KTUI.translate();
     expect(screen.getByRole('combobox', {name: 'PuritySeal: частота'})).toBe(frequency);
-    expect(within(frequency).getByRole('option', {name: 'Один раз за серию'})).toBeTruthy();
+    expect(within(frequency).getByRole('option', {name: 'За серию'})).toBeTruthy();
     expect(document.getElementById('d1-CurseOfRot-frequency')?.title).toBe('Каждая стрельба: правило действует в каждой стрельбе. Один раз за серию: правило действует всю первую стрельбу.');
   } finally { delete document.body.dataset.companionSection; }
 });

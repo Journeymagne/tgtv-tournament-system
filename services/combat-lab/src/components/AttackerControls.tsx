@@ -1,42 +1,16 @@
-import WeaponProfiles from 'src/lab/WeaponProfiles';
 import React from 'react';
-import {Props as IncProps, propsToFields} from 'src/components/IncDecSelect';
-import {
-  Accepter,
-  boolToCheckX,
-  incDecPropsHasNondefaultSelectedValue,
-  makeNumChangeHandler,
-  makeSetChangeHandlerForSingle,
-  makeTextChangeHandler,
-  preX,
-  requiredAndOptionalItemsToTwoCols,
-  rollSpan,
-  span,
-  xAndCheck,
-  xspan,
-} from 'src/Util';
 import Model from 'src/Model';
-import Ability, {
-  rerollAbilities as rerolls,
-} from 'src/Ability';
+import Ability, {rerollAbilities as rerolls} from 'src/Ability';
 import * as N from 'src/Notes';
-import { LabelWithMarker } from 'src/components/AdvancedMarker';
-import {
-  AbilityCheckbox,
-  NotedControl,
-  ParamSpec,
-  buildParams,
-  notedControlsFromCheckboxes,
-  notedControlsFromParams,
-} from 'src/components/controlNotes';
-import CheckItem from 'src/components/CheckItem';
-import { useCheckboxAndVariable } from 'src/hooks/useCheckboxAndVariable';
-import ShootingEffectFrequencyControl from 'src/components/ShootingEffectFrequencyControl';
-import { attackerFrequencyAbilities } from 'src/ShootEffectFrequency';
-import 'src/components/Controls.css';
+import {Accepter, makeNumChangeHandler, makeTextChangeHandler, preX, rollSpan, span, xspan} from 'src/Util';
+import WeaponProfiles from 'src/lab/WeaponProfiles';
+import {AbilityCheckbox, ParamSpec, notedControlsFromCheckboxes, notedControlsFromParams} from './controlNotes';
+import {Props as IncProps} from './IncDecSelect';
+import ProfileControls from './ProfileControls';
+import {factionRulesFor} from './profileRules';
 
 export interface Props {
-  // Extra content under the abilities (Shoot puts Rounds here).
+  rounds?: number;
   children?: React.ReactNode;
   attacker: Model;
   changeHandler: Accepter<Model>;
@@ -56,8 +30,7 @@ export type AttackerParamId =
   | 'autoNorms'
   | 'autoCrits'
   | 'failsToNorms'
-  | 'normsToCrits'
-  | 'puritySeal';
+  | 'normsToCrits';
 
 // Same list the Shoot notes panel reads. Punishing is an always-visible checkbox; FailsToNorms is
 // an advanced param. Both therefore belong in Notes.
@@ -75,7 +48,6 @@ export const attackerParamSpecs: readonly ParamSpec<AttackerParamId>[] = [
   { id: 'autoCrits', label: N.AutoCrits, advanced: true },
   { id: 'failsToNorms', label: N.FailsToNorms, advanced: true },
   { id: 'normsToCrits', label: N.NormsToCrits, advanced: true },
-  { id: 'puritySeal', label: N.PuritySeal, advanced: true },
 ];
 
 export const attackerBasicCheckboxes: readonly AbilityCheckbox[] = [
@@ -84,35 +56,18 @@ export const attackerBasicCheckboxes: readonly AbilityCheckbox[] = [
   { note: N.Punishing, ability: Ability.Punishing },
 ];
 
-export const attackerAdvancedCheckboxes: readonly AbilityCheckbox[] = [
-  { note: N.MysticScryBuff, ability: Ability.MysticScryBuff },
-  { note: N.CurseOfRot, ability: Ability.CurseOfRot },
-];
+export const attackerAdvancedCheckboxes: readonly AbilityCheckbox[] = [];
 
-export const attackerNotedControls: readonly NotedControl[] = [
+export const attackerNotedControls = [
   ...notedControlsFromParams(attackerParamSpecs),
   ...notedControlsFromCheckboxes(attackerBasicCheckboxes, false),
-  ...notedControlsFromCheckboxes(attackerAdvancedCheckboxes, true),
+  ...notedControlsFromCheckboxes([...attackerAdvancedCheckboxes, ...factionRulesFor('attacker')], true),
 ];
 
-const AttackerControls: React.FC<Props> = (props: Props) => {
+export default function AttackerControls(props: Props) {
   const atk = props.attacker;
   const textHandler = makeTextChangeHandler(atk, props.changeHandler);
   const numHandler = makeNumChangeHandler(atk, props.changeHandler);
-  const [advancedCheckbox, wantShowAdvanced] = useCheckboxAndVariable('Advanced', false, true, `${props.idPrefix}-advanced`);
-
-  function singleHandler(ability: Ability) {
-    return makeSetChangeHandlerForSingle<Model,Ability>(
-      atk,
-      props.changeHandler,
-      'abilities',
-      ability,
-    );
-  }
-
-  function toYN(ability: Ability) {
-    return boolToCheckX(atk.has(ability));
-  }
 
   function buildParam(spec: ParamSpec<AttackerParamId>): IncProps {
     switch (spec.id) {
@@ -142,8 +97,6 @@ const AttackerControls: React.FC<Props> = (props: Props) => {
         return new IncProps(spec.label, atk.failsToNorms, xspan(1, 9), numHandler('failsToNorms'));
       case 'normsToCrits':
         return new IncProps(spec.label, atk.normsToCrits, xspan(1, 9), numHandler('normsToCrits'));
-      case 'puritySeal':
-        return new IncProps(spec.label, toYN(Ability.PuritySeal), xAndCheck, singleHandler(Ability.PuritySeal));
       default: {
         const unexpected: never = spec.id;
         throw new Error(`unknown attacker control '${unexpected}'`);
@@ -151,64 +104,11 @@ const AttackerControls: React.FC<Props> = (props: Props) => {
     }
   }
 
-  const { basicParams, advancedParams } = buildParams(attackerParamSpecs, buildParam);
-
-  const advancedParamsToShow
-    = wantShowAdvanced
-    ? advancedParams
-    : advancedParams.filter(p => incDecPropsHasNondefaultSelectedValue(p));
-
-  const [paramsCol0, paramsCol1] = requiredAndOptionalItemsToTwoCols(
-    basicParams, advancedParamsToShow);
-
-  // Fill the grid row-wise from the two column lists, so each visual column
-  // keeps today's order while rows line up across both columns.
-  const elemsCol0 = propsToFields(paramsCol0, props.idPrefix);
-  const elemsCol1 = propsToFields(paramsCol1, props.idPrefix);
-  const gridCells: JSX.Element[] = [];
-  for (let i = 0; i < Math.max(elemsCol0.length, elemsCol1.length); i++) {
-    gridCells.push(elemsCol0[i] ?? <div key={`empty0-${i}`} />);
-    gridCells.push(elemsCol1[i] ?? <div key={`empty1-${i}`} />);
-  }
-
-  function abilityCheckbox(box: AbilityCheckbox, advanced: boolean) {
-    return (
-      <CheckItem
-        key={box.note.name}
-        id={`${props.idPrefix}-${box.ability}`}
-        title={box.note.description}
-        checked={atk.has(box.ability)}
-        onChange={() => singleHandler(box.ability)(atk.has(box.ability) ? 'X' : '✔')}
-      >
-        {advanced ? <LabelWithMarker text={box.note.name} /> : box.note.name}
-      </CheckItem>
-    );
-  }
-
-  const advancedBoxesToShow = attackerAdvancedCheckboxes.filter(box => wantShowAdvanced || atk.has(box.ability));
-
-  return (
-    <div style={{ width: '288px', maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <WeaponProfiles idPrefix={props.idPrefix} mode="shoot" model={props.attacker} onChange={props.changeHandler}/>
-      <div className='CtlBlock-header'>
-        <span className='CtlBlock-title'>Attacker</span>
-        {advancedCheckbox}
-      </div>
-      <div className='CtlGrid'>
-        {gridCells}
-      </div>
-      <div className='CheckRow'>
-        {attackerBasicCheckboxes.map(box => abilityCheckbox(box, false))}
-        {advancedBoxesToShow.map(box => abilityCheckbox(box, true))}
-      </div>
-      {[...attackerBasicCheckboxes, ...attackerAdvancedCheckboxes,
-        {ability: Ability.PuritySeal, note: N.PuritySeal}].filter(box =>
-        atk.has(box.ability) && attackerFrequencyAbilities.includes(box.ability)).map(box =>
-        <ShootingEffectFrequencyControl key={box.ability} model={atk} ability={box.ability}
-          label={box.note.name} idPrefix={props.idPrefix} onChange={props.changeHandler} />)}
-      {props.children}
-    </div>
-  );
+  return <section className="Profile-editor Profile-editor--attacker">
+    <h3 className="Profile-role">Атакующий</h3>
+    <WeaponProfiles idPrefix={props.idPrefix} mode="shoot" model={atk} onChange={props.changeHandler}/>
+    <ProfileControls idPrefix={props.idPrefix} role="attacker" model={atk} onChange={props.changeHandler}
+      specs={attackerParamSpecs} statIds={['attacks', 'bs', 'normDmg', 'critDmg']} makeField={buildParam}
+      basic={attackerBasicCheckboxes} general={attackerAdvancedCheckboxes} rounds={props.rounds}>{props.children}</ProfileControls>
+  </section>;
 }
-
-export default AttackerControls;

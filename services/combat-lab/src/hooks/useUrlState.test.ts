@@ -17,6 +17,13 @@ describe.each(['d1', 'd2'])('shared Transhuman Physiology on %s', key => {
   });
 });
 
+it.each(['jasc', 'jasn', 'jascjasn'])('maps older shooting Scratch encoding %s to the normal-only effect', code => {
+  window.history.replaceState({}, '', '/?' + new URLSearchParams({d1: `3:12:0:0:0:0:0:0:X:${code}:0:JustAScratch`}));
+  const defender = getStateFromUrl().s1!.defender;
+  expect(defender.abilities).toEqual(new Set([Ability.JustAScratchNorms]));
+  expect(defender.shootOnceAbilities).toEqual([Ability.JustAScratchNorms]);
+});
+
 describe.each(['a1', 'a2'])('shared shooting profile %s', (key) => {
   it.each([
     [0, 0],

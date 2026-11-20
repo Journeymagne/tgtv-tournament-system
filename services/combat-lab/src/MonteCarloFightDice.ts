@@ -1,6 +1,7 @@
 import Model from "src/Model";
 import Ability from "src/Ability";
 import { applyPostRollModifications, canRankByDamage, chooseAutoNorms, PostRollSuccesses } from "src/CalcEngineCommon";
+import { chooseFactionRoll, WeightedRetention } from 'src/FactionDice';
 
 export type RngFunction = () => number; // returns [0, 1)
 
@@ -20,6 +21,44 @@ export function mulberry32(seed: number): RngFunction {
 // which enumerates exact distributions - is cached by the inputs that can change it. Cleared only
 // by process exit; the key space is tiny (one entry per distinct fighter profile).
 const accurateChoiceCache = new Map<string, number>();
+const faithRollCache = new Map<string, WeightedRetention[]>();
+
+function spendFaith(model: Model, dice: number[], rerolled: Set<number>, autoCrits: number,
+  autoNorms: number, shielded: boolean, obscured: boolean, rng: RngFunction) {
+  // Retention cares only about the type of success, but Guidance must distinguish
+  // dice already rerolled from fresh ones. Use representative faces for each type.
+  const crit = Math.max(model.diceStat, model.critSkill());
+  const fresh: number[] = [], replacements: number[] = [];
+  dice.forEach((die, i) => {
+    const pile = rerolled.has(i) ? replacements : fresh;
+    pile.push(die >= crit ? crit : die >= model.diceStat ? model.diceStat : 1);
+  });
+  fresh.sort(); replacements.sort();
+  const key = [fresh.join(','), replacements.join(','), autoCrits, autoNorms, shielded, obscured,
+    model.diceStat, model.critSkill(), model.failsToNorms, model.normsToCrits, model.normDmg,
+    model.critDmg, model.mwx, model.faithPoints, ...Array.from(model.abilities).sort()].join('|');
+  let options = faithRollCache.get(key);
+  if (!options) {
+    options = chooseFactionRoll({model, autoCrits, autoNorms, shielded, obscured},
+      {fresh, rerolled: replacements, prob: 1, cursed: 0}, roll =>
+        model.possibleDmg(roll.crits.length, roll.norms.length));
+    if (faithRollCache.size >= 8192) faithRollCache.clear();
+    faithRollCache.set(key, options);
+  }
+  // The six possible results of Guidance are returned only after choosing to
+  // spend the point. A deterministic retention consumes no further RNG draw.
+  let chosen = options[0].dice;
+  if (options.length > 1) {
+    let sample = rng();
+    for (const row of options) {
+      chosen = row.dice;
+      sample -= row.prob;
+      if (sample < 0) break;
+    }
+  }
+  return {crits: chosen.crits.length, norms: chosen.norms.length,
+    usedFightAbilities: chosen.used, faithSpent: chosen.faith};
+}
 
 // Keyed by VALUE, not by object identity: Model.setProp mutates decision inputs in place and
 // setAbility mutates the ability Set in place, so a cache keyed on (model, abilities) identity
@@ -56,7 +95,7 @@ export function simulateFighterDice(
   model: Model,
   defender: Model | undefined,
   rng: RngFunction = Math.random,
-): PostRollSuccesses & { cursed: number; options?: PostRollSuccesses[] } {
+): PostRollSuccesses & { cursed: number; faithSpent?: number; options?: PostRollSuccesses[] } {
   const shielded = defender?.has(Ability.TiltingShields) ?? false;
   if (shielded) model = model.withProp('lethal', 6).withProp('normsToCrits', 0);
   // lethal must not promote a die that would have failed: clamp critThreshold >= normThreshold
@@ -97,7 +136,10 @@ export function simulateFighterDice(
   }
 
   // Apply rerolls
-  applyRerolls(dice, model.reroll, critThreshold, normThreshold, rng);
+  const faithRerolls = model.has(Ability.ActsOfFaith) ? new Set<number>() : undefined;
+  applyRerolls(dice, model.reroll, critThreshold, normThreshold, rng, faithRerolls);
+  if (faithRerolls) return {...spendFaith(model, dice, faithRerolls, autoCrits, autoNorms,
+    shielded, abilities.has(Ability.ObscuredTarget), rng), cursed};
 
   // Classify final dice (inlined to avoid function call overhead)
   let crits = 0;
@@ -145,23 +187,28 @@ function applyRerolls(
   critThreshold: number,
   normThreshold: number,
   rng: RngFunction,
+  tracked?: Set<number>,
 ): void {
   if (reroll === Ability.None) return;
+  const rollAgain = (i: number) => {
+    tracked?.add(i);
+    dice[i] = (rng() * 6 | 0) + 1;
+  };
 
   // Inline comparisons instead of closure allocations
   if (reroll === Ability.RerollOnes) {
     for (let i = 0; i < dice.length; i++) {
-      if (dice[i] === 1) dice[i] = (rng() * 6 | 0) + 1;
+      if (dice[i] === 1) rollAgain(i);
     }
   }
   else if (reroll === Ability.Relentless) {
     for (let i = 0; i < dice.length; i++) {
-      if (dice[i] < normThreshold) dice[i] = (rng() * 6 | 0) + 1;
+      if (dice[i] < normThreshold) rollAgain(i);
     }
   }
   else if (reroll === Ability.CritFishRelentless) {
     for (let i = 0; i < dice.length; i++) {
-      if (dice[i] < critThreshold) dice[i] = (rng() * 6 | 0) + 1;
+      if (dice[i] < critThreshold) rollAgain(i);
     }
   }
   else if (reroll === Ability.Balanced || reroll === Ability.DoubleBalanced) {
@@ -169,38 +216,38 @@ function applyRerolls(
     let rerolled = 0;
     for (let i = 0; i < dice.length && rerolled < maxRerolls; i++) {
       if (dice[i] < normThreshold) {
-        dice[i] = (rng() * 6 | 0) + 1;
+        rollAgain(i);
         rerolled++;
       }
     }
   }
   else if (reroll === Ability.RerollMostCommonFail) {
-    rerollMostCommonFail(dice, critThreshold, normThreshold, rng);
+    rerollMostCommonFail(dice, normThreshold, rng, rollAgain);
   }
   else if (reroll === Ability.RerollOnesPlusBalanced) {
     // Step 1: Reroll all 1s, tracking which dice were rerolled via bitmask
     let rerolledMask = 0;
     for (let i = 0; i < dice.length; i++) {
       if (dice[i] === 1) {
-        dice[i] = (rng() * 6 | 0) + 1;
+        rollAgain(i);
         rerolledMask |= (1 << i);
       }
     }
     // Step 2: Balanced rerolls one fail that was NOT already rerolled by RerollOnes
     for (let i = 0; i < dice.length; i++) {
       if (!(rerolledMask & (1 << i)) && dice[i] < normThreshold) {
-        dice[i] = (rng() * 6 | 0) + 1;
+        rollAgain(i);
         break;
       }
     }
   }
   else if (reroll === Ability.RerollMostCommonFailPlusBalanced) {
     // Step 1: RerollMostCommonFail, tracking which dice were rerolled
-    const rerolledMask = rerollMostCommonFail(dice, critThreshold, normThreshold, rng);
+    const rerolledMask = rerollMostCommonFail(dice, normThreshold, rng, rollAgain);
     // Step 2: Balanced rerolls one fail that was NOT already rerolled
     for (let i = 0; i < dice.length; i++) {
       if (!(rerolledMask & (1 << i)) && dice[i] < normThreshold) {
-        dice[i] = (rng() * 6 | 0) + 1;
+        rollAgain(i);
         break;
       }
     }
@@ -209,9 +256,9 @@ function applyRerolls(
 
 function rerollMostCommonFail(
   dice: number[],
-  critThreshold: number,
   normThreshold: number,
   rng: RngFunction,
+  rollAgain: (index: number) => void,
 ): number {
   // Group fail dice by face value using fixed arrays (faces 1-5 max)
   // counts[face] = count, masks[face] = bitmask of indices
@@ -257,7 +304,7 @@ function rerollMostCommonFail(
   while (remaining) {
     const bit = remaining & (-remaining); // lowest set bit
     const idx = 31 - Math.clz32(bit);
-    dice[idx] = (rng() * 6 | 0) + 1;
+    rollAgain(idx);
     remaining ^= bit;
   }
 

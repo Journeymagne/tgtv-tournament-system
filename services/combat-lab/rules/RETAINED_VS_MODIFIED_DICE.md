@@ -43,7 +43,7 @@ the moment a critical success is retained. That still doesn't let you defer a de
 promotion which creates a critical success pays out immediately, not that you may wait and see.
 
 That matters for reading the calculator's numbers: when it decides whether to take an optional rule
-(Punishing, Accurate, Mystic Scry), it is making that decision **once, in the dice step**, exactly
+(Punishing, Accurate, Skry Guidance), it is making that decision **once, in the dice step**, exactly
 as a player must. It never adapts the choice to how the damage turns out afterward.
 
 ---
@@ -58,11 +58,11 @@ can promote them afterwards.
 | **Cover saves** | Retained as a normal success without rolling | Defence |
 | **Accurate X** | "Retain up to x attack dice as normal successes without rolling them" | Attack |
 | **Punishing** | "You can **retain** one of your fails as a normal success instead of discarding it" | Attack |
-| **Mystic Scry**, fail→norm half | "**Retain** one of your fails as a normal success" | Attack |
+| **Skry Guidance**, fail→norm half | "**Retain** one of your fails as a normal success" | Attack |
 
-Cover and Accurate are obvious — the dice was never rolled. Punishing and Mystic Scry's fail rescue
+Cover and Accurate are obvious — the dice was never rolled. Punishing and Skry Guidance's fail rescue
 are the ones people miss: they save a fail by *retaining* it, so that dice has now been retained
-once and is closed to further retention. That is why taking Mystic Scry's fail→norm option does not
+once and is closed to further retention. That is why taking Skry Guidance's fail→norm option does not
 hand Rending another norm to promote.
 
 ---
@@ -88,7 +88,7 @@ successes that came off the dice.
 |---|---|
 | **Rending** | Attack |
 | **NormsToCrits** (calculator input) | Both — this is the one that hits cover saves on defence |
-| **Mystic Scry**, norm→crit half | Attack |
+| **Skry Guidance**, norm→crit half | Attack |
 
 ---
 
@@ -150,7 +150,7 @@ and one NormsToCrits promotion, and no criticals.
 
 ## Optional rules the calculator decides for you
 
-Five of these effects are **optional**. Punishing, Mystic Scry, Severe, and Rending say "you
+Five of these effects are **optional**. Punishing, Skry Guidance, Severe, and Rending say "you
 *can*", and Accurate lets you retain "*up to* x", so taking them is a choice and not always the
 right one. The calculator resolves every line and keeps whichever ends better, deciding in the
 dice step exactly as a player must.
@@ -179,7 +179,7 @@ cover, Punishing) is still not a legal target. Ties still convert. Rending alrea
 so Piercing Crits is on for both lines; it is Severe, which creates the first crit, where Piercing
 Crits changes the defence dice between the take and the decline.
 
-**Mystic Scry.** Retain one fail as a normal success, *or* one normal success as a critical success,
+**Skry Guidance.** Retain one fail as a normal success, *or* one normal success as a critical success,
 or decline. The norm→crit half needs a norm that isn't already retained, and the fail→norm half
 produces a locked norm that Rending then can't promote — so the calculator scores all three lines
 through the remaining steps and keeps the best. Its own page, `/notes/mystic-scry-buff`, works
@@ -203,7 +203,7 @@ ahead once you hold norm→crit save promotions *and* most of the incoming hits 
 
 **Accurate is ranked on pre-save damage.** How many Accurate dice to retain is decided before the
 roll, from the damage those dice would deal, without the defender's saves or Piercing. **Punishing,
-Mystic Scry, Severe, and Rending are decided per roll.** On a shoot, each candidate is scored by
+Skry Guidance, Severe, and Rending are decided per roll.** On a shoot, each candidate is scored by
 its expected damage against that defender's saves, cover, and Piercing, and Devastating is part of
 the crit's value; with no defender, and in a fight, they fall back to pre-save damage. For save
 dice, where there is no damage to score, the fallback counts a critical save as two normal saves.
@@ -231,6 +231,6 @@ slightly overstate it on rolls where the resulting norm goes on to be promoted.
 | FailsToNorms | No | — |
 | NormsToCrits | — | Yes |
 | Rending | — | Yes |
-| Mystic Scry (norm→crit half) | — | Yes |
-| Mystic Scry (fail→norm half) | Yes | — |
+| Skry Guidance (norm→crit half) | — | Yes |
+| Skry Guidance (fail→norm half) | Yes | — |
 | Severe | — | No |

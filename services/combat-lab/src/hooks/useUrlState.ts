@@ -4,7 +4,7 @@ import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Model from 'src/Model';
 import { parseFightOnceAbilities } from 'src/FightEffectFrequency';
-import { parseShootOnceAbilities } from 'src/ShootEffectFrequency';
+import { parseShootOnceAbilities, parseShootWeaponRounds, scopedWeaponRules } from 'src/ShootEffectFrequency';
 import ShootOptions from 'src/ShootOptions';
 import FightOptions from 'src/FightOptions';
 import FightStrategy from 'src/FightStrategy';
@@ -22,6 +22,18 @@ interface FightState {
   fighterA: Model;
   fighterB: Model;
   fightOptions: FightOptions;
+}
+
+function restoreAbilities(model: Model, list = '') {
+  for (const value of list.split(',')) {
+    const ability = currentAbility(value);
+    if (ability) model.abilities.add(ability);
+  }
+}
+
+function readFaith(value?: string) {
+  const points = Number(value);
+  return value && Number.isInteger(points) && points >= 0 && points <= 15 ? points : 3;
 }
 
 // Encode attacker to URL param string
@@ -50,6 +62,9 @@ function encodeAttacker(atk: Model): string {
     atk.normsToCrits,
     abilities.join(''),
     parseShootOnceAbilities(atk.shootOnceAbilities).join(','),
+    [...atk.abilities].join(','),
+    scopedWeaponRules.map(key => atk.shootWeaponRounds[key] ?? '').join(','),
+    atk.faithPoints,
   ].join(':');
 }
 
@@ -77,6 +92,8 @@ function encodeDefender(def: Model): string {
     abilities.join(''),
     def.saintlyRelics,
     parseShootOnceAbilities(def.shootOnceAbilities).join(','),
+    [...def.abilities].join(','),
+    def.faithPoints,
   ].join(':');
 }
 
@@ -135,6 +152,10 @@ function decodeAttacker(param: string): Model {
 
   // Append frequency settings so old links keep their per-Shoot behavior.
   atk.shootOnceAbilities = parseShootOnceAbilities(parts[14]?.split(','));
+  restoreAbilities(atk, parts[15]);
+  const scopes = (parts[16] ?? '').split(',');
+  atk.shootWeaponRounds = parseShootWeaponRounds({lethal: scopes[0], apx: scopes[1], px: scopes[2]});
+  atk.faithPoints = readFaith(parts[17]);
   return atk;
 }
 
@@ -161,7 +182,7 @@ function decodeDefender(param: string): Model {
     if (abilities.includes('ind')) def.abilities.add(Ability.Indomitus);
     if (abilities.includes('transhuman')) def.abilities.add(Ability.TranshumanPhysiology);
     if (abilities.includes('obs')) def.abilities.add(Ability.ObscuredTarget);
-    if (abilities.includes('jasc')) def.abilities.add(Ability.JustAScratch);
+    if (abilities.includes('jasc')) def.abilities.add(Ability.JustAScratchNorms);
     if (abilities.includes('jasn')) def.abilities.add(Ability.JustAScratchNorms);
     if (abilities.includes('pun')) def.abilities.add(Ability.Punishing);
     if (abilities.includes('curse')) def.abilities.add(Ability.CurseOfRot);
@@ -174,6 +195,8 @@ function decodeDefender(param: string): Model {
   // appended after abilities; absent in older URLs and sanitized to off for unrecognized values
   def.saintlyRelics = parseRelicMode(parts[10]);
   def.shootOnceAbilities = parseShootOnceAbilities(parts[11]?.split(','));
+  restoreAbilities(def, parts[12]);
+  def.faithPoints = readFaith(parts[13]);
 
   return def;
 }
@@ -216,7 +239,9 @@ function encodeFighter(f: Model): string {
     f.fnp,
     f.mwx,
     [...f.abilities].join(','),
-    f.fightOnceAbilities.join(',')
+    f.fightOnceAbilities.join(','),
+    f.faithPoints,
+    f.woundsStat,
   ].join(':');
 }
 
@@ -254,7 +279,7 @@ function decodeFighter(param: string): Model {
   if (abilities.includes('purity')) f.abilities.add(Ability.PuritySeal);
   if (abilities.includes('mscry')) f.abilities.add(Ability.MysticScryBuff);
   if (abilities.includes('duelist')) f.abilities.add(Ability.PreParry);
-  if (abilities.includes('jas')) f.abilities.add(Ability.JustAScratch);
+  if (abilities.includes('jas')) f.abilities.add(Ability.JustAScratchNorms);
   if (abilities.includes('shock')) f.abilities.add(Ability.Shock);
   if (abilities.includes('scratchnorm')) f.abilities.add(Ability.JustAScratchNorms);
   if (abilities.includes('halfstrike')) f.abilities.add(Ability.HalfDamageFirstStrike);
@@ -270,12 +295,11 @@ function decodeFighter(param: string): Model {
   f.fnp = Number.isInteger(fnp) && fnp >= 4 && fnp <= 6 ? fnp : 0;
 
   f.mwx = Math.max(0, Math.min(12, parseInt(parts[15]) || 0));
-  if (parts[16]) for (const value of parts[16].split(',')) {
-    const ability = currentAbility(value);
-    if (ability) f.abilities.add(ability);
-  }
+  restoreAbilities(f, parts[16]);
   // Append frequency settings so old links keep their per-fight behavior.
   f.fightOnceAbilities = parseFightOnceAbilities(parts[17]?.split(','));
+  f.faithPoints = readFaith(parts[18]);
+  f.woundsStat = Math.max(0, Math.min(40, Number(parts[19]) || 0));
   return f;
 }
 
@@ -286,6 +310,7 @@ function encodeFightOptions(opts: FightOptions): string {
     opts.strategyFighterB,
     opts.firstFighter,
     opts.numRounds,
+    opts.initiator,
   ].join(':');
 }
 
@@ -300,6 +325,7 @@ function decodeFightOptions(param: string): FightOptions {
   const stratB = parts[1] as FightStrategy;
   if (Object.values(FightStrategy).includes(stratB)) opts.strategyFighterB = stratB;
   if (parts[2] === 'A' || parts[2] === 'B') opts.firstFighter = parts[2];
+  if (parts[4] === 'A' || parts[4] === 'B') opts.initiator = parts[4];
   opts.numRounds = parseInt(parts[3]) || 1;
 
   return opts;

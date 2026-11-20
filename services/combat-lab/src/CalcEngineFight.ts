@@ -11,7 +11,9 @@ export function calcRemainingWounds(
   guy1Strategy: FightStrategy = FightStrategy.MaxDmgToEnemy,
   guy2Strategy: FightStrategy = FightStrategy.MaxDmgToEnemy,
   numRounds: number = 1,
+  firstIsInitiator: boolean = true,
 ): [Map<number, number>, Map<number,number>] // remaining wounds to prob
 {
-  return consolidateWoundPairProbs(calcRemainingWoundPairProbs(guy1, guy2, guy1Strategy, guy2Strategy, numRounds));
+  return consolidateWoundPairProbs(calcRemainingWoundPairProbs(guy1, guy2, guy1Strategy, guy2Strategy,
+    numRounds, undefined, undefined, firstIsInitiator));
 }

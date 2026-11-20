@@ -227,7 +227,14 @@ function calcDamageAfterJas(
   normHits: number,
   critSaves: number,
   normSaves: number,
+  allowNormalScratch = defender.has(Ability.JustAScratchNorms),
 ): DamageResult {
+  // A ploy with one use across shots is only spent on damage that gets
+  // through the saves. Allocating saves with and without it distinguishes an
+  // actual ignore from a hit that the defender could already block for free.
+  const withoutScratch = allowNormalScratch && normHits > 0 && defender.shootOnceAbilities.includes(Ability.JustAScratchNorms)
+    ? calcDamageAfterJas(attacker, defender, originalCritHits, mwxDamage, critHits, normHits, critSaves, normSaves, false)
+    : undefined;
   const numNormalSavesToCancelCritHit = 2; // for Kill Team rules, not Fire Team rules
   let normalScratchUsed = false;
 
@@ -252,7 +259,7 @@ function calcDamageAfterJas(
     critHits -= numCancels;
   }
 
-  if (defender.has(Ability.JustAScratchNorms)) {
+  if (allowNormalScratch) {
     if (normHits > 0) {
       normHits--;
       normalScratchUsed = true;
@@ -287,7 +294,8 @@ function calcDamageAfterJas(
     normSavesCancelCritHits();
   }
 
-  return damageFromSurvivors(critHits, normHits);
+  const resolved = damageFromSurvivors(critHits, normHits);
+  return withoutScratch && withoutScratch.damage <= resolved.damage ? withoutScratch : resolved;
 
   function damageFromSurvivors(critHits: number, normHits: number): DamageResult {
     // Only damaging hits get FNP rolls; zero-damage hits must not reduce other hits.

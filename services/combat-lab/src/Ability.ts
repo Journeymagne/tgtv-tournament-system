@@ -18,14 +18,27 @@ export enum Ability {
     TranshumanPhysiology = "TranshumanPhysiology", // shooting defence: retain one eligible normal success as a critical success
     Rending = "Rending", // if have crit, promote one normal hit to crit
     Punishing = "Punishing", // crit triggers promotion of fail to norm; 2024 Punishing; 2021: Starfire, DakkaDakkaDakka, Toxin Sacs
-    JustAScratch = "JustAScratch", // cancel one attack die just before damage; both shoot and fight; shoot picks the die that minimizes damage
-    JustAScratchNorms = "JustAScratchNorms", // cancel one normal hit just before damage
+    JustAScratch = "JustAScratch", // legacy input; migrated to JustAScratchNorms at calculator entry
+    JustAScratchNorms = "JustAScratchNorms", // ignore the damage inflicted by one normal hit
     HalfDamageFirstStrike = "HalfDamageFirstStrike", // first strike damage is halved and rounded up, never below 2 and never above the strike; a 0 or 1 is unchanged
     ObscuredTarget = "ObscuredTarget", // all crits become norms; can't do crit-triggered abilities; discard a success at the end
     PuritySeal = "PuritySeal", // 2024; if at least 2 dice fail, discard one fail and change another fail to a normal success; attack only. Rule strictly requires two unmodified 1s; implementation triggers on any 2 fails.
     MysticScryBuff = "MysticScryBuff", // attack only; retain one fail as a norm OR one norm as a crit, attacker's choice (best per damage). In-game: the "Mystic Scry" ability.
     CurseOfRot = "CurseOfRot", // Plague Marines firefight ploy; set on the PLAGUE MARINE: each 3 the ENEMY rolls on its attack or defence dice is a fail it can't re-roll, and inflicts 1 damage on that enemy
     Indomitus = "Indomitus", // 2024; if at least 2 dice fail, discard one fail and change another fail to a normal success; defense only (Space Marines defending ANGEL OF DEATH). Rule strictly requires two unmodified 1s; implementation triggers on any 2 fails.
+    Oubliex = "Oubliex",
+    SurvivalInstincts = "SurvivalInstincts",
+    DominoField = "DominoField",
+    OmnissiahsImperative = "OmnissiahsImperative",
+    Sturdy = "Sturdy",
+    UndauntedExplorers = "UndauntedExplorers",
+    CriticalShot = "CriticalShot",
+    ViciousVenom = "ViciousVenom",
+    ActsOfFaith = "ActsOfFaith",
+    IconOfFaith = "IconOfFaith",
+    ScryProtection = "ScryProtection",
+    AerialAgility = "AerialAgility",
+    Crush = "Crush",
 
     // fight stuff relevant to 2024
     Brutal = "Brutal", // opponent can only parry with crit
@@ -76,10 +89,10 @@ export const fightAbilityLabels: Readonly<Record<string, string>> = {
   [Ability.TiltingShields]: 'Tilting Shields',
 };
 
-// Only equivalent, neutrally named effects migrate. Removed rules must not silently
-// turn into a different 2024 rule (in particular Dueller2021 != Dueller).
+// Import older shares and presets using today's available controls.
 export function currentAbility(value: string): Ability | undefined {
   const aliases: Record<string, Ability> = {
+    JustAScratch: Ability.JustAScratchNorms,
     MurderousEntrance2021: Ability.CriticalStrike,
     Hammerhand2021: Ability.FirstStrikeBonus,
     Duelist2021: Ability.PreParry,

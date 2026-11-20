@@ -17,9 +17,9 @@ function renderNote() {
 describe('MysticScryBuffNote', () => {
   it('renders the heading and names the in-game ability', () => {
     renderNote();
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Mystic Scry Buff');
-    // getByText throws if the text is absent, so this asserts the in-game credit is documented.
-    expect(screen.getByText(/"Mystic Scry" ability/)).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Skry Guidance');
+    expect(screen.getByText(/retain one of your fails as a normal success/i)).toBeTruthy();
+    expect(screen.getByText(/Inquisitorial Agents Mystic grants this effect with the Guidance option of its Scry action/i)).toBeTruthy();
   });
 
   it('documents both Rending cases: seed a crit when you have none, feed a norm when you do', () => {

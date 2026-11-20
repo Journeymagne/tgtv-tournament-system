@@ -17,7 +17,7 @@
 - [Retained vs modified dice](https://ktcalc.com/rules/retained-vs-modified/): why a dice can only be retained once, which rules lock a dice (cover, Accurate, Punishing) and which can still change one (Severe, Waaagh).
 - [Comparing weapons by power level](https://ktcalc.com/rules/weapon-balance/): measured comparison of KT24 melee and heavy weapon profiles against a fixed slate of targets, plain and buffed, with the balanced sets that result.
 - [Lethal + Relentless: why kill chance can rise as BS gets worse](https://ktcalc.com/notes/lethal-relentless/): walks the math for a scenario where the reported kill chance is higher at BS 5+ than BS 2+.
-- [Mystic Scry Buff + Rending: why the best choice depends on what you rolled](https://ktcalc.com/notes/mystic-scry-buff/): the "retain a fail as a norm, or a norm as a crit" decision is not fixed.
+- [Skry Guidance + Rending: why the best choice depends on what you rolled](https://ktcalc.com/notes/mystic-scry-buff/): the "retain a fail as a norm, or a norm as a crit" decision is not fixed.
 - [Why Punishing can lower your damage](https://ktcalc.com/notes/punishing/): how an optional ability that adds a hit can cost damage by locking a contested fail.
 
 ## About

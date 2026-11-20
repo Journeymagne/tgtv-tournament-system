@@ -8,10 +8,11 @@ interface Props {
   ability: Ability;
   label: string;
   idPrefix: string;
+  compact?: boolean;
   onChange: (model: Model) => void;
 }
 
-export default function ShootingEffectFrequencyControl({model, ability, label, idPrefix, onChange}: Props) {
+export default function ShootingEffectFrequencyControl({model, ability, label, idPrefix, compact, onChange}: Props) {
   const id = `${idPrefix}-${ability}-frequency`;
   return <div className="FightEffectFrequency">
     <label htmlFor={id}>{label}: частота</label>
@@ -24,8 +25,8 @@ export default function ShootingEffectFrequencyControl({model, ability, label, i
         if (event.target.value === 'once') once.push(ability);
         onChange(Object.assign(new Model(), model, {shootOnceAbilities: once}));
       }}>
-      <option value="each">Каждая стрельба</option>
-      <option value="once">Один раз за серию</option>
+      <option value="each">{compact ? 'За выстрел' : 'Каждая стрельба'}</option>
+      <option value="once">{compact ? 'За серию' : 'Один раз за серию'}</option>
     </select>
   </div>;
 }

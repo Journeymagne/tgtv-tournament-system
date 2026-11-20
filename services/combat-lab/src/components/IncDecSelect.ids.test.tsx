@@ -55,13 +55,13 @@ function expectDistinctControls(idA: string, idB: string) {
   expect(a).not.toBe(b);
 }
 
-function showAdvanced(container: HTMLElement) {
-  // Click the label text, as a user does; it must be tied to its own box.
-  const labels = [...container.querySelectorAll('label')].filter(label =>
-    (label.textContent ?? '').trim().startsWith('Advanced'));
-  expect(labels.length).toBeGreaterThan(0);
-  for (const label of labels) {
-    fireEvent.click(label);
+function openFactionPanels(container: HTMLElement) {
+  const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"][id$="-tab-faction"]')];
+  expect(tabs.length).toBeGreaterThan(0);
+  for (const tab of tabs) {
+    fireEvent.click(tab);
+    expect(tab.getAttribute('aria-selected')).toBe('true');
+    expect(document.getElementById(tab.getAttribute('aria-controls')!)?.hidden).toBe(false);
   }
 }
 
@@ -112,7 +112,7 @@ describe('mounted IncDecSelect ids', () => {
     expect(shoot.querySelector('label[for="s2-atk-Attacks"]')).not.toBeNull();
 
     assertCheckboxLabelsTickTheirOwnBox(container);
-    showAdvanced(container);
+    openFactionPanels(container);
     assertLabelsPointAtTheirOwnSelect(container);
     assertCheckboxLabelsTickTheirOwnBox(container);
     expectDistinctControls('s1-atk-Re-roll', 's1-def-Re-roll');
@@ -125,6 +125,7 @@ describe('mounted IncDecSelect ids', () => {
 describe('ability checkbox labels', () => {
   it('ticks and unticks only their own box when the text is clicked', () => {
     const { container } = renderCalculators();
+    openFactionPanels(container);
     for (const id of ['s1-def-CurseOfRot', 's2-def-CurseOfRot', 's1-atk-Rending', 'fb-Rending']) {
       const box = document.getElementById(id) as HTMLInputElement;
       const label = container.querySelector(`label[for="${id}"]`)!;

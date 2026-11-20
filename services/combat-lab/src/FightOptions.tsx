@@ -5,6 +5,7 @@ export default class FightOptions {
   public strategyFighterA: FightStrategy;
   public strategyFighterB: FightStrategy;
   public firstFighter: string;
+  public initiator: 'first' | 'A' | 'B' = 'first';
   public numRounds: number;
 
   public constructor() {

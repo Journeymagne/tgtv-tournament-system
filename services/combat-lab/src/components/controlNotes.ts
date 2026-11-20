@@ -16,6 +16,7 @@ export interface ParamSpec<Id extends string = string> {
   id: Id;
   label: string | Note;
   advanced: boolean;
+  faction?: boolean;
 }
 
 export interface AbilityCheckbox {

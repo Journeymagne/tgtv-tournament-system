@@ -84,12 +84,18 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
   const user = (await ok(admin.post('/api/register', registration('ServiceAdmin')), 201)).user;
   headers['X-Studio-Account'] = String(user.id);
   headers['X-Training-Account'] = String(user.id);
+  headers['X-Weapon-Profile-Account'] = String(user.id);
   await require('../helpers/access').grantOwner(getPool(), user);
   const playerUsers = [];
   for (const [index, player] of players.entries()) {
     playerUsers.push((await ok(player.post('/api/register', registration('ServicePlayer' + index)), 201)).user);
   }
   for (const route of ['/api/session', '/api/me', '/api/notifications', '/api/studio/drafts', '/api/faq', '/api/knowthykt/progress']) await ok(admin.get(route));
+  const weapons = '/api/account/weapon-profiles/shoot';
+  await ok(createClient(origin).get(weapons), 401);
+  await ok(admin.put(weapons, { name: 'Rifle', model: { numDice: 4, diceStat: 3, normDmg: 3, critDmg: 4, abilities: [] } }));
+  assert.equal((await ok(admin.get(weapons))).profiles[0].name, 'Rifle');
+  assert.deepEqual((await ok(players[0].get(weapons))).profiles, []);
   assert.equal((await ok(admin.post('/api/miniapp/session'))).authenticated, true);
   await ok(admin.get('/api/miniapp/summary'));
   await ok(players[0].post('/api/miniapp/session'), 403);
@@ -171,6 +177,7 @@ test('scoped services share sessions, save prepared rounds and survive a tournam
     await db.connect();
     try {
       await assert.rejects(db.query('SELECT password_hash FROM accounts.users'), error => error.code === '42501');
+      await assert.rejects(db.query('SELECT model FROM accounts.weapon_profiles'), error => error.code === '42501');
       if (service === 'tierlists') {
         for (const table of ['tournaments.games', 'studio.studio_projects', 'knowthykt.training_sessions']) {
           await assert.rejects(db.query('SELECT * FROM ' + table), error => error.code === '42501');

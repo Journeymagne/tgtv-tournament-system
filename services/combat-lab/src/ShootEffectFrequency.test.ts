@@ -3,6 +3,7 @@ import { calcDmgProbs } from 'src/CalcEngineShoot';
 import Model from 'src/Model';
 import ShootOptions from 'src/ShootOptions';
 import { SaintlyRelicsNormal } from 'src/SaintlyRelics';
+import {hydrate} from 'src/simulation/model';
 
 function shoot(attacker: Model, defender: Model, rounds = 3): Map<number, number> {
   return calcDmgProbs(attacker, defender, new ShootOptions(rounds));
@@ -18,17 +19,15 @@ function expectDistribution(actual: Map<number, number>, entries: Array<[number,
 }
 
 describe('shooting effect frequency across repeated Shoot actions', () => {
-  it.each([Ability.JustAScratch, Ability.JustAScratchNorms])(
-    '%s ignores the first actual normal hit once, including after a missed action', ability => {
-      // One normal hit on 4+, never a crit: H ~ Binomial(3, 1/2).
-      // Once Scratch leaves max(H - 1, 0) damaging hits; every-action Scratch leaves none.
-      const attacker = new Model(1, 4, 3, 3).setProp('lethal', 7);
-      const defender = new Model(0).setAbility(ability);
-      expectDistribution(shoot(attacker, defender), [[0, 1]]);
-      defender.shootOnceAbilities = [ability];
-      expectDistribution(shoot(attacker, defender), [[0, 1 / 2], [3, 3 / 8], [6, 1 / 8]]);
-    },
-  );
+  it('ignores the first actual normal hit once, including after a missed action', () => {
+    // One normal hit on 4+, never a crit: H ~ Binomial(3, 1/2).
+    // Once Scratch leaves max(H - 1, 0) damaging hits; every-action Scratch leaves none.
+    const attacker = new Model(1, 4, 3, 3).setProp('lethal', 7);
+    const defender = new Model(0).setAbility(Ability.JustAScratchNorms);
+    expectDistribution(shoot(attacker, defender), [[0, 1]]);
+    defender.shootOnceAbilities = [Ability.JustAScratchNorms];
+    expectDistribution(shoot(attacker, defender), [[0, 1 / 2], [3, 3 / 8], [6, 1 / 8]]);
+  });
 
   it('keeps normal-only Scratch available after a critical hit', () => {
     // Per action: fail 1/3, normal 1/2, crit 1/6. Only the first normal is ignored.
@@ -40,12 +39,17 @@ describe('shooting effect frequency across repeated Shoot actions', () => {
     expectDistribution(shoot(attacker, defender, 2), [[0, 16 / 36], [3, 19 / 36], [6, 1 / 36]]);
   });
 
-  it('spends the two Scratch variants separately when they cannot both cancel a hit', () => {
+  it('migrates both legacy Scratch selections to one normal-only use', () => {
     const attacker = new Model(1, 1, 3, 3).setProp('lethal', 7);
-    const defender = new Model(0).setAbility(Ability.JustAScratch).setAbility(Ability.JustAScratchNorms);
-    defender.shootOnceAbilities = [Ability.JustAScratch, Ability.JustAScratchNorms];
-    // One cancels the first Shoot's only hit, the other cancels the second Shoot's hit.
-    expectDistribution(shoot(attacker, defender), [[3, 1]]);
+    const variants = [Ability.JustAScratch, Ability.JustAScratchNorms];
+    const defender = hydrate({numDice: 0, abilities: variants, shootOnceAbilities: variants});
+    expect(defender.abilities).toEqual(new Set([Ability.JustAScratchNorms]));
+    expect(defender.shootOnceAbilities).toEqual([Ability.JustAScratchNorms]);
+    expectDistribution(shoot(attacker, defender), [[6, 1]]);
+    expectDistribution(shoot(attacker.withAlwaysCrit(), defender), [[9, 1]]);
+    const raw = new Model(0).setAbility(Ability.JustAScratch);
+    raw.shootOnceAbilities = [Ability.JustAScratch];
+    expectDistribution(shoot(attacker.withAlwaysCrit(), raw), [[9, 1]]);
   });
 
   it('uses Purity Seal once across three all-failed attack rolls', () => {
@@ -124,30 +128,30 @@ describe('shooting effect frequency across repeated Shoot actions', () => {
 
   it('tracks both models independently without mutating either model or carrying state between calculations', () => {
     const attacker = new Model(2, 1, 3, 5).setProp('lethal', 7).setProp('autoCrits', 1).setAbility(Ability.Rending);
-    const defender = new Model(0).setAbility(Ability.JustAScratch);
+    const defender = new Model(0).setAbility(Ability.JustAScratchNorms);
     attacker.shootOnceAbilities = [Ability.Rending];
-    defender.shootOnceAbilities = [Ability.JustAScratch];
+    defender.shootOnceAbilities = [Ability.JustAScratchNorms];
     const attackerAbilities = attacker.abilities;
     const defenderAbilities = defender.abilities;
     const attackerOnce = attacker.shootOnceAbilities;
     const defenderOnce = defender.shootOnceAbilities;
-    // First Shoot: Rending makes two crits and Scratch cancels one (5 damage).
-    // Later: one crit and one normal per Shoot (8 damage each).
-    expectDistribution(shoot(attacker, defender), [[21, 1]]);
-    expectDistribution(shoot(attacker, defender), [[21, 1]]);
+    // Rending makes two crits in Shoot one. Scratch ignores the normal in
+    // Shoot two. The three actions therefore inflict 10, 5 and 8 damage.
+    expectDistribution(shoot(attacker, defender), [[23, 1]]);
+    expectDistribution(shoot(attacker, defender), [[23, 1]]);
     expect(attacker.abilities).toBe(attackerAbilities);
     expect(attacker.abilities).toEqual(new Set([Ability.Rending]));
     expect(defender.abilities).toBe(defenderAbilities);
-    expect(defender.abilities).toEqual(new Set([Ability.JustAScratch]));
+    expect(defender.abilities).toEqual(new Set([Ability.JustAScratchNorms]));
     expect(attacker.shootOnceAbilities).toBe(attackerOnce);
     expect(attacker.shootOnceAbilities).toEqual([Ability.Rending]);
     expect(defender.shootOnceAbilities).toBe(defenderOnce);
-    expect(defender.shootOnceAbilities).toEqual([Ability.JustAScratch]);
+    expect(defender.shootOnceAbilities).toEqual([Ability.JustAScratchNorms]);
   });
 
   it('combines once Scratch with FNP and the two-success relic cap across three Shoots', () => {
     const attacker = new Model(2, 1, 2, 2).setProp('lethal', 7);
-    const defender = new Model(0).setAbility(Ability.JustAScratch)
+    const defender = new Model(0).setAbility(Ability.JustAScratchNorms)
       .setProp('fnp', 4).setProp('saintlyRelics', SaintlyRelicsNormal);
 
     // A relic retries on eligible hits until one ignore succeeds in that Shoot;
@@ -174,7 +178,7 @@ describe('shooting effect frequency across repeated Shoot actions', () => {
 
     // Every-action Scratch: capped ignore weights [125,75,16]/216 for [1,1,1] hits.
     expectDistribution(shoot(attacker, defender), fnpMixture([1, 1, 1]));
-    defender.shootOnceAbilities = [Ability.JustAScratch];
+    defender.shootOnceAbilities = [Ability.JustAScratchNorms];
     // Once Scratch: weights [3125,3375,1276]/7776 for [1,2,2] hits.
     expectDistribution(shoot(attacker, defender), fnpMixture([1, 2, 2]));
   });

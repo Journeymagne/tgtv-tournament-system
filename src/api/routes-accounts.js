@@ -3,6 +3,7 @@ const email = require("./email");
 const users = require("./users");
 const admin = require("./admin");
 const account = require("./account");
+const weaponProfiles = require('./weapon-profiles');
 const accessManagement = require("./access-management");
 const feedback = require('./feedback');
 
@@ -19,6 +20,10 @@ module.exports = [
   { method:'DELETE', path:'/api/admin/feedback/:id', handler:feedback.remove, auth:'admin', tx:true },
   ...require('./faq').routes.filter(route => route.path.startsWith('/api/faq/moderators')),
   { method:'GET', path:'/api/account', handler:account.profile, auth:'user' },
+  { method:'GET', path:'/api/account/weapon-profiles/:mode', handler:weaponProfiles.list, auth:'user' },
+  { method:'PUT', path:'/api/account/weapon-profiles/:mode', handler:weaponProfiles.save, auth:'user', tx:true, maxBodyBytes:16384 },
+  { method:'DELETE', path:'/api/account/weapon-profiles/:mode', handler:weaponProfiles.remove, auth:'user', tx:true, maxBodyBytes:1024 },
+  { method:'POST', path:'/api/account/weapon-profiles/:mode/import', handler:weaponProfiles.importLegacy, auth:'user', tx:true, maxBodyBytes:900000 },
   { method:'PATCH', path:'/api/account', handler:auth.updateMe, auth:'user', tx:true, rateLimit:'auth' },
   { method:"GET", path:"/api/auth/email-config", handler:email.config },
   { method:"GET", path:"/api/auth/email", handler:email.status, auth:"user" },

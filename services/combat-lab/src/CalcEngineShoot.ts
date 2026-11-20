@@ -2,8 +2,10 @@ import Model from "src/Model";
 import * as Util from 'src/Util';
 import * as Common from 'src/CalcEngineCommon';
 import ShootOptions from "src/ShootOptions";
+import { attackerForShoot } from 'src/ShootEffectFrequency';
 import { maxRelicIgnoresPerBattle } from 'src/SaintlyRelics';
 import { calcLimitedShootSequence, hasLimitedShootEffects } from 'src/CalcEngineShootSequence';
+import {hasFactionShooting} from 'src/FactionShooting';
 import {
   DamageResult,
   calcDefenderFinalDiceStuff,
@@ -22,8 +24,10 @@ export function calcDmgProbs(
   shootOptions: ShootOptions = new ShootOptions(),
 ): Map<number, number> // damage to prob
 {
-  if (shootOptions.numRounds > 1 && hasLimitedShootEffects(attacker, defender))
+  defender = defender.withCurrentScratch();
+  if (hasFactionShooting(attacker, defender) || (shootOptions.numRounds > 1 && hasLimitedShootEffects(attacker, defender)))
     return calcLimitedShootSequence(attacker, defender, shootOptions.numRounds);
+  attacker = attackerForShoot(attacker, 1);
   const defenderStuff = calcDefenderFinalDiceStuff(defender, attacker);
   const attackerFinalDiceProbs = Common.calcFinalDiceProbsForAttacker(
     attacker, defender, hitScorerForDefender(attacker, defender, defenderStuff));

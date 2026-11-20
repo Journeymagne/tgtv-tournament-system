@@ -18,19 +18,20 @@ const captionStyle: React.CSSProperties = {
 const MysticScryBuffNote: React.FC = () => (
   <Container style={{ maxWidth: '760px', padding: '24px 16px', fontSize: '14px', lineHeight: 1.55 }}>
     <Seo
-      title="Mystic Scry Buff + Rending: Best Retain | ktcalc"
+      title="Skry Guidance + Rending: Best Retain | ktcalc"
       description="The Kill Team 2024 'retain a fail as a norm, or a norm as a crit' decision isn't fixed. When each choice wins with Rending, and how ktcalc models it."
       path="/notes/mystic-scry-buff/"
     />
     <p><Link to="/">&larr; Back to calculator</Link></p>
 
-    <h1>Mystic Scry Buff + Rending: why the best choice depends on what you already rolled</h1>
+    <h1>Skry Guidance + Rending: why the best choice depends on what you already rolled</h1>
 
     <p>
-      <strong>Mystic Scry Buff</strong> is the calculator&apos;s name for an attack-dice ability that, in the
+      <strong>Skry Guidance</strong> is the calculator&apos;s name for an attack-dice ability that, in the
       Roll Attack Dice step of a shoot, fight, or retaliation, lets you either <em>retain one of your
       fails as a normal success</em>, <em>or</em> retain one of your normal successes as a critical
-      success. You pick one, each time you attack. In-game it&apos;s the &quot;Mystic Scry&quot; ability.
+      success. You pick one each time you attack. The Inquisitorial Agents Mystic grants this
+      effect with the Guidance option of its Scry action.
     </p>
 
     <p>
@@ -91,7 +92,7 @@ const MysticScryBuffNote: React.FC = () => (
 
     <p>
       <strong>Rending</strong> lets you upgrade one rolled norm to a crit <em>if you already have at
-      least one crit</em>. That conditional is what makes Mystic Scry Buff interesting: the option you pick
+      least one crit</em>. That conditional is what makes Skry Guidance interesting: the option you pick
       changes what Rending can do <em>afterward</em>, so the right pick flips depending on whether you
       already rolled a crit. Both of the following use the same weapon (norm 3, crit 4, no Devastating),
       where the isolated rule from the table above says &quot;add a hit.&quot;
@@ -150,7 +151,7 @@ const MysticScryBuffNote: React.FC = () => (
     <h2 className="h3">How the calculator decides</h2>
 
     <p>
-      Rather than a fixed rule, the calculator treats Mystic Scry Buff as the per-roll choice it actually is.
+      Rather than a fixed rule, the calculator treats Skry Guidance as the per-roll choice it actually is.
       For every possible dice result it:
     </p>
 

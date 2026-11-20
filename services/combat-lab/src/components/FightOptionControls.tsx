@@ -37,14 +37,15 @@ const FightOptionControls: React.FC<Props> = (props: Props) => {
     new IncProps(strategyFighterAId, opts.strategyFighterA, strategies,      textHandler('strategyFighterA')),
     new IncProps(strategyFighterBId, opts.strategyFighterB, strategies,      textHandler('strategyFighterB')),
     new IncProps(firstFighterId,     opts.firstFighter,     ['A', 'B'],      textHandler('firstFighter')),
+    new IncProps('Инициатор боя', opts.initiator, ['first', 'A', 'B'], textHandler('initiator'), {first: 'Кто ходит первым'}),
     new IncProps(numRoundsId,        opts.numRounds,        span(1, 3),      numHandler('numRounds')),
   ];
 
   const paramCols = params.map(p =>
-    <Col key={p.id} className='pr-0 col-auto'><IncDecSelect {...p} idPrefix={props.idPrefix}/></Col>);
+    <Col key={p.id} className='pr-0 col-auto'><IncDecSelect {...p} label={p.id === numRoundsId ? 'Fight actions' : undefined} idPrefix={props.idPrefix}/></Col>);
 
   return (
-    <Container style={{width: '600px'}}>
+    <Container fluid className="p-0">
       <Row>
         General
       </Row>

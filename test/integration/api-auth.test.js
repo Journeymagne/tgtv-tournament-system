@@ -5,6 +5,7 @@ const { Pool } = require("pg");
 const { TEST_DATABASE_URL } = require("../helpers/db");
 const { migrate } = require("../../src/db/migrate");
 const auth = require("../../src/api/auth");
+const weaponProfiles = require("../../src/api/weapon-profiles");
 const users = require("../../src/db/repositories/users");
 const { HttpError } = require("../../src/http/io");
 
@@ -61,6 +62,49 @@ async function withTx(client, fn) {
     throw err;
   }
 }
+
+test("weapon profiles are private by account and mode, and deletion requires the displayed revision", async () => {
+  const owner = (await withTx(client, () => auth.register({ client, body: body("Archer") }))).body.user;
+  const other = (await withTx(client, () => auth.register({ client, body: body("Fencer") }))).body.user;
+  const ctx = (user, mode = 'shoot', payload) => ({ client, user, params: { mode }, body: payload,
+    req: { headers: { 'x-weapon-profile-account': String(user.id) } } });
+  const model = { numDice: 4, diceStat: 3, normDmg: 3, critDmg: 4, abilities: [], shootWeaponRounds: { px: 'second' } };
+  const profile = { name: 'Shared name', model };
+  await withTx(client, () => weaponProfiles.save(ctx(owner, 'shoot', profile)));
+  const [initial] = (await weaponProfiles.list(ctx(owner))).profiles;
+  assert.deepEqual(initial.model, model);
+  assert.deepEqual((await weaponProfiles.list(ctx(other))).profiles, []);
+  assert.deepEqual((await weaponProfiles.list(ctx(owner, 'fight'))).profiles, []);
+  await assert.rejects(() => withTx(client, () => weaponProfiles.remove(ctx(other, 'shoot', initial))), { status: 412 });
+  const switched = ctx(other, 'shoot', profile);
+  switched.req.headers['x-weapon-profile-account'] = String(owner.id);
+  await assert.rejects(() => withTx(client, () => weaponProfiles.save(switched)), { status: 401 });
+  await withTx(client, () => weaponProfiles.save(ctx(owner, 'shoot', { ...profile, model: { ...model, numDice: 5 } })));
+  await assert.rejects(() => withTx(client, () => weaponProfiles.remove(ctx(owner, 'shoot', initial))), { status: 412 });
+  const [updated] = (await weaponProfiles.list(ctx(owner))).profiles;
+  assert.equal(updated.model.numDice, 5);
+  await withTx(client, () => weaponProfiles.remove(ctx(owner, 'shoot', updated)));
+  assert.deepEqual((await weaponProfiles.list(ctx(owner))).profiles, []);
+});
+
+test("legacy weapon imports keep conflicting profiles and a retry never resurrects a deleted item", async () => {
+  const user = (await withTx(client, () => auth.register({ client, body: body("Importer") }))).body.user;
+  const ctx = payload => ({ client, user, params: { mode: 'fight' }, body: payload,
+    req: { headers: { 'x-weapon-profile-account': String(user.id) } } });
+  const model = { numDice: 4, diceStat: 3, normDmg: 3, critDmg: 4, abilities: [] };
+  const original = { name: 'Sword', model };
+  await withTx(client, () => weaponProfiles.save(ctx(original)));
+  const batch = { importId: require('node:crypto').randomUUID(), profiles: [
+    { name: 'Sword', model: { ...model, numDice: 6 } }, { name: 'Sword (2)', model },
+  ] };
+  await withTx(client, () => weaponProfiles.importLegacy(ctx(batch)));
+  const rows = (await weaponProfiles.list(ctx())).profiles;
+  assert.deepEqual(new Map(rows.map(row => [row.name, row.model.numDice])),
+    new Map([['Sword', 4], ['Sword (2)', 4], ['Sword (3)', 6]]));
+  await withTx(client, () => weaponProfiles.remove(ctx(rows.find(row => row.name === 'Sword (3)'))));
+  await withTx(client, () => weaponProfiles.importLegacy(ctx(batch)));
+  assert.deepEqual((await weaponProfiles.list(ctx())).profiles.map(row => row.name).sort(), ['Sword', 'Sword (2)']);
+});
 
 test("регистрация возвращает 201 и ставит cookie", async () => {
   const result = await auth.register({ client, body: body("Alpha") });

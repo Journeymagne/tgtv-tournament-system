@@ -103,7 +103,7 @@ it('limits Shock discard across fights in either resolver', () => {
   }
 });
 
-it.each([Ability.JustAScratch, Ability.JustAScratchNorms])('%s is spent independently across fights in either resolver', ability => {
+it.each([Ability.JustAScratch, Ability.JustAScratchNorms])('%s is one normal-only Scratch, including on older profiles', ability => {
   for (const modern of [false, true]) {
     const a = fighter().setProp('mwx', modern ? 1 : 0);
     const b = fighter(0).setAbility(ability);
@@ -115,15 +115,25 @@ it.each([Ability.JustAScratch, Ability.JustAScratchNorms])('%s is spent independ
     expect(b.has(ability)).toBe(true);
     expect(b.wounds).toBe(30);
     expect(fight(a, b, 1)).toEqual(new Map([[toWoundPairKey(30, 30), 1]]));
+    a.lethal = 1;
+    expect(fight(a, b, 1)).toEqual(new Map([[toWoundPairKey(30, modern ? 26 : 27), 1]]));
   }
 });
 
+it('combines both legacy Scratch flags into one allowance without editing the saved input', () => {
+  const b = fighter(0).setAbility(Ability.JustAScratch).setAbility(Ability.JustAScratchNorms);
+  b.fightOnceAbilities = [Ability.JustAScratch, Ability.JustAScratchNorms];
+  const a = fighter(2);
+  expect(fight(a, b, 2)).toEqual(new Map([[toWoundPairKey(30, 21), 1]]));
+  expect(b.fightOnceAbilities).toEqual([Ability.JustAScratch, Ability.JustAScratchNorms]);
+});
+
 it('tracks each fighter separately and preserves unlimited effects beside a limited one', () => {
-  const a = fighter().setAbility(Ability.JustAScratch);
-  const b = fighter().setAbility(Ability.JustAScratch);
-  a.fightOnceAbilities = [Ability.JustAScratch];
+  const a = fighter().setAbility(Ability.JustAScratchNorms);
+  const b = fighter().setAbility(Ability.JustAScratchNorms);
+  a.fightOnceAbilities = [Ability.JustAScratchNorms];
   expect(fight(a, b)).toEqual(new Map([[toWoundPairKey(24, 30), 1]]));
-  b.fightOnceAbilities = [Ability.JustAScratch];
+  b.fightOnceAbilities = [Ability.JustAScratchNorms];
   expect(fight(a, b)).toEqual(new Map([[toWoundPairKey(24, 24), 1]]));
 });
 

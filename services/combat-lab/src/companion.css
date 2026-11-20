@@ -20,3 +20,5 @@
 .weapon-profiles { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; min-width:0; }
 .weapon-profiles select, .weapon-profiles input { width:100%; min-width:0; }
 .weapon-profiles .scenario-save { flex-wrap:wrap; }
+.weapon-profile-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.weapon-profile-confirm { display:grid; gap:6px; }

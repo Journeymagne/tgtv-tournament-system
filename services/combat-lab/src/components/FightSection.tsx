@@ -2,6 +2,7 @@ import React from 'react';
 import Panel from 'src/components/Panel';
 import FighterControls, { fighterNotedControls } from 'src/components/FighterControls';
 import Model from 'src/Model';
+import Ability from 'src/Ability';
 import FightOptionControls from 'src/components/FightOptionControls';
 import FightResultsDisplay from 'src/components/FightResultsDisplay';
 import FightOptions from 'src/FightOptions';
@@ -41,8 +42,8 @@ const FightSection: React.FC<FightSectionProps> = ({ isActive }) => {
   const woundsB=React.useMemo(()=>new Map(calc.result?.woundsB||[]),[calc.result]);
   return <div className="calculator-section">
     <div className="calc-profile-grid">
-      <Panel title={<ProfileTitle letter="A" title="Fighter A"/>} fullWidth className="calc-profile-card" bodyStyle={{padding:'18px 20px'}} bodyScrollX><FighterControls idPrefix="fa" attacker={fighterA} changeHandler={setFighterA}/></Panel>
-      <Panel title={<ProfileTitle letter="B" title="Fighter B"/>} fullWidth className="calc-profile-card" bodyStyle={{padding:'18px 20px'}} bodyScrollX><FighterControls idPrefix="fb" attacker={fighterB} changeHandler={setFighterB}/></Panel>
+      <Panel title={<ProfileTitle letter="A" title="Fighter A"/>} fullWidth className="calc-profile-card" bodyStyle={{padding:'18px 20px'}} bodyScrollX><FighterControls idPrefix="fa" attacker={fighterA} changeHandler={setFighterA} facingCrush={fighterB.has(Ability.Crush)}/></Panel>
+      <Panel title={<ProfileTitle letter="B" title="Fighter B"/>} fullWidth className="calc-profile-card" bodyStyle={{padding:'18px 20px'}} bodyScrollX><FighterControls idPrefix="fb" attacker={fighterB} changeHandler={setFighterB} facingCrush={fighterA.has(Ability.Crush)}/></Panel>
     </div>
     <Panel title="Параметры боя" fullWidth className="calc-fight-options" bodyStyle={{padding:'16px 20px'}} bodyScrollX><FightOptionControls idPrefix="fo" fightOptions={fightOptions} changeHandler={setFightOptions}/></Panel>
     <RunPanel automatic context="Ближний бой · выбранные стратегии" detail="Результаты обновляются после изменения параметров" busy={calc.busy} onRun={calc.run} onCancel={calc.cancel}/>

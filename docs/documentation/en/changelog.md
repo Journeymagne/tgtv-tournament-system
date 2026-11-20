@@ -2,6 +2,14 @@
 
 KT Companion release history, newest first.
 
+## 1.8.4 — 20 November 2026
+
+- Save weapon profiles to your account and use them on other devices. You can delete a saved profile or import profiles previously saved in this browser.
+- Manual profiles show normal and critical damage together in the characteristics column. Rules and rerolls are in the second column. Shooting situation B starts collapsed.
+- General effects are in Advanced, and faction effects have their own section. Select ⓘ to read what an effect does. On phones, both sections start collapsed and open independently.
+- The calculator now supports Oubliex, Survival Instincts, Domino Field, Omnissiah’s Imperative, Sturdy, Undaunted Explorers, Critical Shot, Vicious Venom, Acts of Faith with Icon of Faith, Scry Protection, Aerial Agility and the Ravener Wrecker’s Crush.
+- In a two-shot sequence, you can apply Lethal and Piercing to just the first or second shot. Just a Scratch cancels one die’s normal damage. Mystic Scry Buff is now called Skry Guidance.
+
 ## 1.8.3 — 20 November 2026
 
 - Drag teams to move them in a tier list. Click a miniature to open its statistics. On a touchscreen, touch and hold the miniature, then drag it to a tier or back to the pool.

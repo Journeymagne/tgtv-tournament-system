@@ -100,11 +100,11 @@ it.each([
   [Ability.Shock],
   [Ability.JustAScratchNorms],
   [Ability.HalfDamageFirstStrike],
-  [Ability.Shock, Ability.JustAScratchNorms, Ability.HalfDamageFirstStrike, Ability.JustAScratch],
+  [Ability.Shock, Ability.JustAScratchNorms, Ability.HalfDamageFirstStrike],
 ])('preserves fight abilities %j without enabling other abilities', (...abilities) => {
   const fighterA = new Model();
   abilities.forEach(ability => fighterA.setAbility(ability));
-  const fighterB = new Model().setAbility(Ability.JustAScratch);
+  const fighterB = new Model().setAbility(Ability.JustAScratchNorms);
   const share = renderFightShare(fighterA, fighterB);
   for (const action of [
     () => window.history.replaceState({}, '', share.getShareUrl()),
@@ -125,7 +125,7 @@ it('preserves abilities in legacy fight links without enabling new or removed ab
   });
   window.history.replaceState({}, '', `/?${params}`);
   const restored = getFightStateFromUrl()!;
-  expect(restored.fighterA.abilities).toEqual(new Set([Ability.Rending, Ability.JustAScratch]));
+  expect(restored.fighterA.abilities).toEqual(new Set([Ability.Rending, Ability.JustAScratchNorms]));
   expect(restored.fighterB.abilities.size).toBe(0);
 });
 

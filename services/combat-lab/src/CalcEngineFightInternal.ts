@@ -34,6 +34,8 @@ const enum RngStream {
   Guy2Dice = 1,   // guy2's attack dice + rerolls
   Guy1Defense = 2, // guy1's Feel No Pain / Saintly Relics rolls (damage guy1 takes)
   Guy2Defense = 3, // guy2's Feel No Pain / Saintly Relics rolls (damage guy2 takes)
+  Guy1Strike = 4, // extra strike damage, independent of dice and prevention
+  Guy2Strike = 5,
 }
 
 // Mix (seed, simIndex, round, stream) into a well-distributed 32-bit seed. An
@@ -97,6 +99,7 @@ export function calcRemainingWoundPairProbs(
   numRounds: number = 1,
   numSimulations: number = 15_000,
   seed: number = DEFAULT_SEED,
+  firstIsInitiator: boolean = true,
 ): Map<string, number> // remaining wound-pairs (as stringified array) to probs
 {
   if (!Number.isInteger(numSimulations) || numSimulations <= 0) {
@@ -108,10 +111,19 @@ export function calcRemainingWoundPairProbs(
 
   // Private profiles let spent effects disappear from every resolver and lookahead without
   // modifying the caller's abilities, including when both fighters share a profile object.
+  guy1 = guy1.withCurrentScratch();
+  guy2 = guy2.withCurrentScratch();
   const guy1Abilities = guy1.abilities;
   const guy2Abilities = guy2.abilities;
   guy1 = guy1.withProp('abilities', new Set(guy1Abilities));
   guy2 = guy2.withProp('abilities', new Set(guy2Abilities));
+  // These three rules explicitly limit the operative to one actual use in
+  // the turning point, including scenarios saved before frequency was added.
+  const fixedOnce = [Ability.Oubliex, Ability.UndauntedExplorers, Ability.IconOfFaith];
+  for (const fighter of [guy1, guy2]) {
+    fighter.woundsStat = fighter.woundsStat || fighter.wounds;
+    fighter.fightOnceAbilities = [...new Set([...fighter.fightOnceAbilities, ...fixedOnce.filter(rule => fighter.has(rule))])];
+  }
 
   function spendLimitedEffects(state: FighterState, diceUsed: readonly Ability[] = []) {
     for (const ability of state.profile.fightOnceAbilities) {
@@ -119,7 +131,7 @@ export function calcRemainingWoundPairProbs(
         : ability === Ability.JustAScratchNorms ? state.normScratchUsed
         : ability === Ability.PreParry ? state.hasPreParried
         : state.usedFightAbilities.includes(ability) || diceUsed.includes(ability)
-          || passiveFightAbilities.includes(ability);
+          || (!fixedOnce.includes(ability) && passiveFightAbilities.includes(ability));
       if (used) state.profile.abilities.delete(ability);
     }
   }
@@ -128,15 +140,23 @@ export function calcRemainingWoundPairProbs(
   // (re)assigned per simulation below to the fighter's own defense stream.
   const guy1State = new FighterState(guy1, 0, 0, guy1Strategy, -1, false, false, null);
   const guy2State = new FighterState(guy2, 0, 0, guy2Strategy, -1, false, false, null);
+  guy1State.isInitiator = firstIsInitiator;
+  guy2State.isInitiator = !firstIsInitiator;
 
   const guy1OrigWounds = guy1.wounds;
   const guy2OrigWounds = guy2.wounds;
   const guy1OrigDiceStat = guy1.diceStat;
   const guy2OrigDiceStat = guy2.diceStat;
+  const guy1Faith = guy1.faithPoints;
+  const guy2Faith = guy2.faithPoints;
+  const firstRollsDamage = guy1.has(Ability.Crush) || guy1.has(Ability.ViciousVenom);
+  const secondRollsDamage = guy2.has(Ability.Crush) || guy2.has(Ability.ViciousVenom);
 
   for (let sim = 0; sim < numSimulations; sim++) {
     let guy1Wounds = guy1OrigWounds;
     let guy2Wounds = guy2OrigWounds;
+    guy1.faithPoints = guy1Faith;
+    guy2.faithPoints = guy2Faith;
 
     // SaintlyRelics two-per-battle cap resets each battle (simulation), not each round/action
     guy1State.relicIgnoresUsed = 0;
@@ -161,6 +181,8 @@ export function calcRemainingWoundPairProbs(
       const guy2DiceRng = mulberry32(mixSeed(seed, sim, round, RngStream.Guy2Dice));
       guy1State.rng = mulberry32(mixSeed(seed, sim, round, RngStream.Guy1Defense));
       guy2State.rng = mulberry32(mixSeed(seed, sim, round, RngStream.Guy2Defense));
+      if (firstRollsDamage) guy1State.strikeRng = mulberry32(mixSeed(seed, sim, round, RngStream.Guy1Strike));
+      if (secondRollsDamage) guy2State.strikeRng = mulberry32(mixSeed(seed, sim, round, RngStream.Guy2Strike));
 
       // Temporarily set wounds to avoid cloning Model objects
       guy1.wounds = guy1Wounds;
@@ -208,7 +230,9 @@ export function calcRemainingWoundPairProbs(
           guy2State.crits = chosen.b.crits; guy2State.norms = chosen.b.norms;
         }
       }
-      resolveFight(guy1State, guy2State);
+      guy1.faithPoints -= guy1Dice.faithSpent ?? 0;
+      guy2.faithPoints -= guy2Dice.faithSpent ?? 0;
+      resolveFight(guy1State, guy2State, firstIsInitiator);
       spendLimitedEffects(guy1State, guy1Dice.usedFightAbilities);
       spendLimitedEffects(guy2State, guy2Dice.usedFightAbilities);
 
@@ -239,8 +263,11 @@ export function calcRemainingWoundPairProbs(
 export function resolveFight(
   guy1State: FighterState,
   guy2State: FighterState,
+  firstIsInitiator: boolean = true,
 ): void
 {
+  guy1State.isInitiator = firstIsInitiator;
+  guy2State.isInitiator = !firstIsInitiator;
   if (guy1State.crits < 0 || guy1State.norms < 0 || guy2State.crits < 0 || guy2State.norms < 0)
     throw new Error('bug: ended up with negative successes');
   let currentGuy = guy1State;
@@ -317,7 +344,7 @@ export function preferredStrikeChoice(chooser: FighterState, enemy: FighterState
     const ch = chooser.asEstimate();
     const en = enemy.asEstimate();
     resolveDieChoice(first, ch, en);
-    resolveFight(en, ch); // enemy acts next
+    resolveFight(en, ch, en.isInitiator); // enemy resolves next, original roles stay in force
     return [ch, en];
   };
 
@@ -432,8 +459,8 @@ export function calcDieChoice(chooser: FighterState, enemy: FighterState): Fight
     resolveDieChoice(strikeChoice, chooserWhoStruck, enemyWeStruck);
     resolveDieChoice(parryChoice, chooserWhoParried, enemyWeParried);
 
-    resolveFight(enemyWeStruck, chooserWhoStruck);
-    resolveFight(enemyWeParried, chooserWhoParried);
+    resolveFight(enemyWeStruck, chooserWhoStruck, enemyWeStruck.isInitiator);
+    resolveFight(enemyWeParried, chooserWhoParried, enemyWeParried.isInitiator);
 
     let wantStrike = true;
 

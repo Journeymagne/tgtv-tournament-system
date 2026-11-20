@@ -203,7 +203,7 @@ const PunishingNote: React.FC = () => (
 
     <p>
       It now resolves <em>both</em> lines through the remaining steps and keeps whichever ends better,
-      the same way it already handled the Mystic Scry choice. Ties keep the retention, so every roll
+      the same way it handles the Skry Guidance choice. Ties keep the retention, so every roll
       where nothing else competes for the fail behaves exactly as before. On a shoot, &quot;better&quot;
       is expected damage after the defender&apos;s saves, cover, and Piercing, so a locked normal that
       wins on raw damage can still lose once a save blocks it. The decision is made in the dice step,

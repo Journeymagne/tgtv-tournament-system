@@ -1,37 +1,14 @@
 import React from 'react';
-import {Props as IncProps, propsToFields} from 'src/components/IncDecSelect';
 import Model from 'src/Model';
 import Ability, {rerollAbilities as rerolls} from 'src/Ability';
 import * as N from 'src/Notes';
-import { MaxWounds, SaveRange } from 'src/KtMisc';
-import {
-  Accepter,
-  boolToCheckX,
-  incDecPropsHasNondefaultSelectedValue,
-  makeIncDecPropsFromLookup,
-  makeNumChangeHandler,
-  makeSetChangeHandlerForSingle,
-  makeTextChangeHandler,
-  preX,
-  span,
-  withPlus,
-  xAndCheck,
-  xspan,
-} from 'src/Util';
-import { relicModeToLabel } from 'src/SaintlyRelics';
-import {
-  AbilityCheckbox,
-  NotedControl,
-  ParamSpec,
-  buildParams,
-  notedControlsFromCheckboxes,
-  notedControlsFromParams,
-} from 'src/components/controlNotes';
-import CheckItem from 'src/components/CheckItem';
-import { useCheckboxAndVariable } from 'src/hooks/useCheckboxAndVariable';
-import ShootingEffectFrequencyControl from 'src/components/ShootingEffectFrequencyControl';
-import { defenderFrequencyAbilities } from 'src/ShootEffectFrequency';
-import 'src/components/Controls.css';
+import {MaxWounds, SaveRange} from 'src/KtMisc';
+import {Accepter, makeIncDecPropsFromLookup, makeNumChangeHandler, makeTextChangeHandler, preX, span, withPlus, xspan} from 'src/Util';
+import {relicModeToLabel} from 'src/SaintlyRelics';
+import {AbilityCheckbox, ParamSpec, notedControlsFromCheckboxes, notedControlsFromParams} from './controlNotes';
+import {Props as IncProps} from './IncDecSelect';
+import ProfileControls from './ProfileControls';
+import {factionRulesFor} from './profileRules';
 
 export interface Props {
   defender: Model;
@@ -46,62 +23,43 @@ export type DefenderParamId =
   | 'coverCrits'
   | 'normsToCrits'
   | 'failsToNorms'
-  | 'punishing'
   | 'hardy'
   | 'fnp'
   | 'relics'
   | 'reroll';
 
 export const defenderParamSpecs: readonly ParamSpec<DefenderParamId>[] = [
-  { id: 'save', label: 'Save', advanced: false },
   { id: 'wounds', label: 'Wounds', advanced: false },
+  { id: 'save', label: 'Save', advanced: false },
   { id: 'coverNorms', label: N.CoverNormSaves, advanced: false },
   { id: 'coverCrits', label: N.CoverCritSaves, advanced: true },
   { id: 'normsToCrits', label: N.NormsToCrits, advanced: true },
   { id: 'failsToNorms', label: N.FailsToNorms, advanced: true },
-  { id: 'punishing', label: N.Punishing, advanced: true },
   { id: 'hardy', label: N.HardyX, advanced: true },
   { id: 'fnp', label: N.FeelNoPain, advanced: true },
-  { id: 'relics', label: N.SaintlyRelics, advanced: true },
-  { id: 'reroll', label: N.Reroll, advanced: true },
+  { id: 'relics', label: N.SaintlyRelics, advanced: true, faction: true },
+  { id: 'reroll', label: N.Reroll, advanced: false },
 ];
 
 export const defenderBasicCheckboxes: readonly AbilityCheckbox[] = [
-  { note: N.Indomitus, ability: Ability.Indomitus },
-  { note: N.ObscuredTarget, ability: Ability.ObscuredTarget, label: 'Obscured' },
-  { note: N.IgnoreOneHit, ability: Ability.JustAScratch },
-  { note: N.JustAScratchNorms, ability: Ability.JustAScratchNorms },
-  { note: N.CurseOfRot, ability: Ability.CurseOfRot },
+  {note: N.ObscuredTarget, ability: Ability.ObscuredTarget, label: 'Obscured'},
 ];
 
 export const defenderAdvancedCheckboxes: readonly AbilityCheckbox[] = [
-  { note: N.TranshumanPhysiology, ability: Ability.TranshumanPhysiology },
+  {note: N.JustAScratchNorms, ability: Ability.JustAScratchNorms},
+  {note: N.Punishing, ability: Ability.Punishing},
 ];
 
-export const defenderNotedControls: readonly NotedControl[] = [
+export const defenderNotedControls = [
   ...notedControlsFromParams(defenderParamSpecs),
   ...notedControlsFromCheckboxes(defenderBasicCheckboxes, false),
-  ...notedControlsFromCheckboxes(defenderAdvancedCheckboxes, true),
+  ...notedControlsFromCheckboxes([...defenderAdvancedCheckboxes, ...factionRulesFor('defender')], true),
 ];
 
-const DefenderControls: React.FC<Props> = (props: Props) => {
+export default function DefenderControls(props: Props) {
   const def = props.defender;
-  const textHandler = makeTextChangeHandler(props.defender, props.changeHandler);
-  const numHandler = makeNumChangeHandler(props.defender, props.changeHandler);
-  const [advancedCheckbox, wantShowAdvanced] = useCheckboxAndVariable('Advanced', false, true, `${props.idPrefix}-advanced`, true);
-
-  function singleHandler(ability: Ability) {
-    return makeSetChangeHandlerForSingle<Model,Ability>(
-      def,
-      props.changeHandler,
-      'abilities',
-      ability,
-    );
-  }
-
-  function toYN(ability: Ability) {
-    return boolToCheckX(def.has(ability));
-  }
+  const textHandler = makeTextChangeHandler(def, props.changeHandler);
+  const numHandler = makeNumChangeHandler(def, props.changeHandler);
 
   function buildParam(spec: ParamSpec<DefenderParamId>): IncProps {
     switch (spec.id) {
@@ -117,8 +75,6 @@ const DefenderControls: React.FC<Props> = (props: Props) => {
         return new IncProps(spec.label, def.normsToCrits, xspan(1, 9), numHandler('normsToCrits'));
       case 'failsToNorms':
         return new IncProps(spec.label, def.failsToNorms, xspan(1, 9), numHandler('failsToNorms'));
-      case 'punishing':
-        return new IncProps(spec.label, toYN(Ability.Punishing), xAndCheck, singleHandler(Ability.Punishing));
       case 'hardy':
         return new IncProps(spec.label, def.hardyx + '+', xspan(5, 2, '+'), numHandler('hardyx'));
       case 'fnp':
@@ -134,47 +90,10 @@ const DefenderControls: React.FC<Props> = (props: Props) => {
     }
   }
 
-  const { basicParams, advancedParams } = buildParams(defenderParamSpecs, buildParam);
-
-  // we actually have 1 column when rendered, and order gets weird if we pretend we have 2
-  const usedAdvancedParams = advancedParams.filter(p => incDecPropsHasNondefaultSelectedValue(p));
-  const advancedParamsToShow = wantShowAdvanced ? advancedParams : usedAdvancedParams;
-  const paramsToShow = basicParams.concat(advancedParamsToShow);
-  const fields = propsToFields(paramsToShow, props.idPrefix);
-  const checkboxesToShow = defenderBasicCheckboxes.concat(
-    defenderAdvancedCheckboxes.filter(box => wantShowAdvanced || def.has(box.ability)),
-  );
-
-  return (
-    <div style={{ width: '152px', maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div className='CtlBlock-header'>
-        <span className='CtlBlock-title'>Defender</span>
-        {/* Gear only: "Advanced" doesn't fit at this width. */}
-        {advancedCheckbox}
-      </div>
-      <div className='CtlStack'>
-        {fields}
-      </div>
-      <div className='CheckCol'>
-        {checkboxesToShow.map(box => (
-          <CheckItem
-            key={box.note.name}
-            id={`${props.idPrefix}-${box.ability}`}
-            title={box.note.description}
-            checked={def.has(box.ability)}
-            onChange={() => singleHandler(box.ability)(def.has(box.ability) ? 'X' : '✔')}
-          >
-            {box.label ?? box.note.name}
-          </CheckItem>
-        ))}
-      </div>
-      {[...defenderBasicCheckboxes, ...defenderAdvancedCheckboxes,
-        {ability: Ability.Punishing, note: N.Punishing}].filter(box =>
-        def.has(box.ability) && defenderFrequencyAbilities.includes(box.ability)).map(box =>
-        <ShootingEffectFrequencyControl key={box.ability} model={def} ability={box.ability}
-          label={box.note.name} idPrefix={props.idPrefix} onChange={props.changeHandler} />)}
-    </div>
-  );
-};
-
-export default DefenderControls;
+  return <section className="Profile-editor Profile-editor--defender">
+    <h3 className="Profile-role">Защитник</h3>
+    <ProfileControls idPrefix={props.idPrefix} role="defender" model={def} onChange={props.changeHandler}
+      specs={defenderParamSpecs} statIds={['wounds', 'save']} makeField={buildParam}
+      basic={defenderBasicCheckboxes} general={defenderAdvancedCheckboxes}/>
+  </section>;
+}

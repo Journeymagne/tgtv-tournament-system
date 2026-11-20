@@ -22,7 +22,7 @@ export const notes: DocLink[] = [
       'Not a bug — Relentless feeds every failed die back into a fixed crit band, and kill chance is a tail probability, not an average.',
   },
   {
-    title: 'Mystic Scry Buff + Rending: why the best choice depends on what you rolled',
+    title: 'Skry Guidance + Rending: why the best choice depends on what you rolled',
     href: '/notes/mystic-scry-buff',
     blurb:
       'The "retain a fail as a norm, or a norm as a crit" decision is not fixed. Explains when each choice wins and how the calculator models it.',
