@@ -37,10 +37,12 @@ it('translates fight effect frequency labels and choices in both languages', asy
   fireEvent.click(screen.getByRole('tab', {name: /Фракционные правила/}));
   world.KTUI.translate();
   const frequency = screen.getByRole('combobox', {name: 'PuritySeal: frequency'});
-  expect(within(frequency).getByRole('option', {name: 'Every fight'})).toBeTruthy();
-  expect(within(frequency).getByRole('option', {name: 'Once across all fights'})).toBeTruthy();
+  expect(within(frequency).getByRole('option', {name: 'Per fight'}).getAttribute('value')).toBe('each');
+  expect(within(frequency).getByRole('option', {name: 'Per series'}).getAttribute('value')).toBe('once');
   world.KTAppearance.locale = 'ru'; world.KTUI.translate();
   expect(screen.getByRole('combobox', {name: 'PuritySeal: частота'})).toBe(frequency);
+  expect(within(frequency).getByRole('option', {name: 'За бой'}).getAttribute('value')).toBe('each');
+  expect(within(frequency).getByRole('option', {name: 'За серию'}).getAttribute('value')).toBe('once');
 });
 
 it('translates account profile actions and preserves user-supplied names', async () => {

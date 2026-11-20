@@ -5,13 +5,19 @@ import Model from 'src/Model';
 import AttackerControls from './AttackerControls';
 import DefenderControls from './DefenderControls';
 import { attackerFrequencyAbilities, defenderFrequencyAbilities } from 'src/ShootEffectFrequency';
+import { factionRulesFor } from './profileRules';
 
 it.each(attackerFrequencyAbilities)('offers attacker frequency for enabled %s in either situation', ability => {
+  const isFaction = factionRulesFor('attacker').some(rule => rule.ability === ability);
   for (const idPrefix of ['a1', 'a2']) {
     const view = render(<AttackerControls idPrefix={idPrefix} attacker={new Model().setAbility(ability)} changeHandler={() => {}} />);
+    if (isFaction) fireEvent.click(view.getByRole('tab', {name: /Фракционные правила/}));
     const select = document.getElementById(`${idPrefix}-${ability}-frequency`) as HTMLSelectElement;
+    expect(select.closest('[hidden]')).toBeNull();
     expect(select.value).toBe('each');
-    expect([...select.options].map(option => option.text)).toEqual(['Каждая стрельба', 'Один раз за серию']);
+    expect([...select.options].map(option => [option.value, option.text])).toEqual(isFaction
+      ? [['each', 'За выстрел'], ['once', 'За серию']]
+      : [['each', 'Каждая стрельба'], ['once', 'Один раз за серию']]);
     view.unmount();
   }
 });
