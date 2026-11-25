@@ -139,6 +139,7 @@ test('public groups hide drafts and images, deduplicate calendar links and pagin
   assert.equal(page1.pagination.total,26);
   assert.equal(page1.items.length,20);
   assert.equal(page2.items.length,6);
+  assert.ok(page2.items.some(item=>item.kind==='calendar' && item.organizer===null && item.provider.id===provider.id));
   assert.equal(new Set([...page1.items,...page2.items].map(i=>i.kind+':'+i.id)).size,26);
 });
 test('deleting a current organization chief explains the transfer prerequisite without a server error',async()=>{
