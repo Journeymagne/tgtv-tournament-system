@@ -159,6 +159,8 @@ test('provider calendar inherits organization on conversion and hides a draft li
   assert.equal(tournament.provider.id,providerId);
   const list = user => calendar.list({client:pool,user,query:new URLSearchParams('month=2099-11')});
   const guest = (await list(null)).events[0];
+  assert.equal(guest.provider.id,providerId);
+  assert.equal(guest.organizer,null);
   assert.equal(guest.tournament,null);
   assert.equal(guest.posterUrl,null);
   const member = (await list(await access.hydrate(pool,judge))).events[0];

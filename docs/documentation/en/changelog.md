@@ -8,6 +8,8 @@ KT Companion release history, newest first.
 - After closing registration, organizers can prepare first-round pairings. If the field is too small, the tournament shows how many more players or rosters it needs and links to the entry list.
 - The pairing editor shows opponents, the number of pairs and who receives the bye. Organizers can edit saved pairings before starting the tournament. Reopening registration asks for confirmation before clearing them.
 - FAQ editors can search by part of a team name and add multiple teams to a question.
+- Calendar cards and event details link to the organizer’s profile or the organization hosting the event.
+- On phones, selecting a team in a tier list keeps the board clear for dragging. On desktop, selecting a team still opens its statistics.
 
 ## 1.8.5 — 25 November 2026
 

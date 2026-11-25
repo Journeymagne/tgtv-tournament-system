@@ -12,6 +12,23 @@ function loadFunction(name, context) {
   return vm.runInNewContext(remaining.slice(0, end) + '\n' + name, context);
 }
 
+test('mobile selection remains available for moving a team without loading its statistics', () => {
+  const state = { selected: 'aquilons' }, teamStats = { teamId: 'aquilons' };
+  const mobileBoard = { matches: true }, requests = [];
+  const sync = loadFunction('syncTeamStats', { state, teamStats, mobileBoard,
+    cancelTeamStats() { teamStats.teamId = null; },
+    renderTeamStats() { assert.fail('Selected team statistics should be hidden on mobile'); },
+    loadTeamStats(id) { requests.push(id); }
+  });
+  sync();
+  assert.equal(state.selected, 'aquilons');
+  assert.equal(teamStats.teamId, null);
+  assert.deepEqual(requests, []);
+  mobileBoard.matches = false;
+  sync();
+  assert.deepEqual(requests, ['aquilons']);
+});
+
 test('tierlist-only teams show unavailable statistics without calling the tournament API', async () => {
   const teamStats = { serial: 0, cache: new Map() };
   let renders = 0;

@@ -3880,10 +3880,11 @@ function providerLogoUrl(provider) {
   return /^\/api\/tournament-provider-logos\/\d+(?:\?v=[a-f0-9]+)?$/i.test(provider?.logoUrl || "") ? provider.logoUrl : "";
 }
 
-function eventProviderLink(provider) {
+function eventProviderLink(provider, { inline = false } = {}) {
   if (!provider?.slug) return "";
   const href = `/tournament#/tournaments/organizations/${encodeURIComponent(provider.slug)}`;
-  return `<div class="row-meta"><a class="text-link-button" href="${href}" data-app-link data-app-route>${escapeHtml(provider.name)}</a></div>`;
+  const link = `<a class="text-link-button" href="${href}" data-app-link data-app-route>${escapeHtml(provider.name)}</a>`;
+  return inline ? link : `<div class="row-meta">${link}</div>`;
 }
 
 async function refreshProviderIdentity() {
@@ -4023,8 +4024,8 @@ async function renderCalendar() {
     if (!calendarUiPromise) {
       if (!calendarUiPromise) calendarUiPromise = new Promise((resolve, reject) => {
         const stylesheet = document.createElement('link');
-        stylesheet.rel = 'stylesheet'; stylesheet.href = '/calendar.css?v=1.7.3';
-        const script = document.createElement('script'); script.src = '/calendar.js?v=1.7.3';
+        stylesheet.rel = 'stylesheet'; stylesheet.href = '/calendar.css?v=1.8.6';
+        const script = document.createElement('script'); script.src = '/calendar.js?v=1.8.6';
         const failed=()=>{stylesheet.remove();script.remove();reject(new Error(t('calendar.loadError')));};
         const stylesReady = new Promise((done, fail) => { stylesheet.onload=done; stylesheet.onerror=()=>{failed();fail(new Error(t('calendar.loadError')));}; });
         const scriptReady = window.TGTV_CALENDAR ? Promise.resolve() : new Promise((done, fail)=>{script.onload=done;script.onerror=()=>{failed();fail(new Error(t('calendar.loadError')));};});

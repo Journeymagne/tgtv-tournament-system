@@ -214,7 +214,7 @@ test('organizers can publish calendar announcements with their own creator ID, b
   assert.equal(event.viewer.canCreateTournament, false);
   assert.equal(stored.rows[0].created_by, organizer.id);
   const visible = await calendar.list({ client: pool, user: null, query: new URLSearchParams('month=2026-11') });
-  assert.ok(visible.events.some(e => e.id === event.id));
+  assert.deepEqual(visible.events.find(e => e.id === event.id)?.organizer, { id: organizer.id, name: organizer.name });
   await assert.rejects(calendar.getAdmin({ client: pool, user: organizer, params: { id: event.id } }), { status: 403 });
   await assert.rejects(tx(client => calendar.update({ client, user: organizer, params: { id: event.id }, body: { ...data, expectedUpdatedAt: event.updatedAt } })), { status: 403 });
   await assert.rejects(tx(client => calendar.remove({ client, user: organizer, params: { id: event.id } })), { status: 403 });

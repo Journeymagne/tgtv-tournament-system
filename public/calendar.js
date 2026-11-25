@@ -80,20 +80,39 @@
     }).join('')}</div><div class="calendar-month-footer"><div class="calendar-legend">${['individual','team'].map(mode=>`<span class="calendar-format-${mode}"><i class="calendar-dot" aria-hidden="true"></i>${ctx.t('tournaments.participantMode.'+mode)}</span>`).join('')}${ctx.user?`<span class="calendar-legend-mine"><span aria-hidden="true">✓</span> ${tr('participating')}</span>`:''}</div><button type="button" class="ghost-button" data-calendar-today>${tr('today')}</button></div></section>`;
   }
 
+  function organizerLink(event) {
+    if (event.provider) return ctx.eventProviderLink(event.provider, { inline: true });
+    const organizer = event.organizer;
+    if (!organizer?.name || !Number.isSafeInteger(organizer.id) || organizer.id < 1) return '';
+    return `<a class="text-link-button" href="/tournament#/players/${organizer.id}" data-app-link data-app-route>${esc(organizer.name)}</a>`;
+  }
+
   function eventRow(event) {
-    return `<button type="button" class="row-card calendar-event-row ${eventClass(event)} ${event.id===selectedId?'active':''}" data-calendar-event="${event.id}"><span class="calendar-event-line">${eventBadges(event)}<span class="muted">${event.time||tr('timePending')}</span></span><strong>${esc(title(event))}</strong>${event.provider ? `<span class="calendar-event-location">${esc(event.provider.name)}</span>` : ''}<span class="calendar-event-location">${esc(place(event))}</span><span class="calendar-event-line calendar-event-footer"><span>${capacity(event)}</span><b>${esc(fee(event))}</b></span></button>`;
+    const organizer = organizerLink(event);
+    return `<article class="row-card calendar-event-row ${eventClass(event)} ${event.id===selectedId?'active':''}">
+      <span class="calendar-event-line">${eventBadges(event)}<span class="muted">${event.time||tr('timePending')}</span></span>
+      <button type="button" class="calendar-event-title" data-calendar-event="${event.id}" aria-pressed="${event.id===selectedId}">${esc(title(event))}</button>
+      <div class="calendar-event-meta">
+        <span class="calendar-event-location">${esc(place(event))}</span>
+        ${organizer ? `<span class="calendar-organizer">${ctx.t('providers.role.organizer')} · ${organizer}</span>` : ''}
+      </div>
+      <span class="calendar-event-line calendar-event-footer"><span>${capacity(event)}</span><b>${esc(fee(event))}</b></span>
+    </article>`;
   }
 
   function details(event, dialog = false) {
     if (!event) return `<section class="card panel calendar-details"><p class="empty">${tr('selectEvent')}</p></section>`;
     let action = '';
+    const organizer = organizerLink(event);
     const actions = calendarActions(viewer, event.viewer);
     if (event.tournament) {
       const href = `/tournaments/${encodeURIComponent(event.tournament.slug)}`;
       action = `<a href="${href}" class="primary-button">${tr('openTournament')}</a>`;
     } else if (event.tournamentCreated) action = `<p class="muted">${tr('tournamentPending')}</p>`;
     else if (actions.createTournament) action = `<a class="primary-button" target="_blank" rel="noopener" href="/tournament?calendarEvent=${event.id}#/administration/tournaments/admin/create">${tr('createTournament')} ↗</a>`;
-    return `<article class="${dialog?'calendar-dialog-details':'card panel calendar-details'} ${eventClass(event)}">${poster(event)}<div class="panel-header"><div><p class="profile-label">${tr('event')}</p><h3 ${dialog?'id="calendar-event-dialog-title"':''}>${esc(title(event))}</h3></div>${dialog?`<button class="dialog-close-button" type="button" data-calendar-close aria-label="${ctx.t('common.close')}">&times;</button>`:''}</div>${eventBadges(event)}${ctx.eventProviderLink(event.provider)}<dl class="calendar-event-fields"><div><dt>${tr('date')}</dt><dd>${esc(fmt(event.date,{day:'numeric',month:'long',year:'numeric'}))}${event.time?' · '+event.time:''}</dd></div><div><dt>${tr('city')}</dt><dd>${esc(event.city||tr('notSpecified'))}</dd></div><div><dt>${tr('venue')}</dt><dd>${esc(event.venue||(!event.address?tr(event.venueMode==='tts'?'online':'locationPending'):''))}${event.address?`<span class="muted">${esc(event.address)}</span>`:''}</dd></div><div><dt>${tr('tournamentType')}</dt><dd>${type(event)}</dd></div>${formatDetails(event)}<div><dt>${tr('participantLimit')}</dt><dd>${capacity(event)}</dd></div><div><dt>${tr('entryFee')}</dt><dd>${esc(fee(event))}</dd></div></dl><div class="row-actions calendar-detail-actions">${action}</div>${actions.edit?`<div class="row-actions calendar-admin-actions"><button class="small-button" data-calendar-edit="${event.id}" type="button">${ctx.t('common.edit')}</button><button class="danger-button" data-calendar-delete="${event.id}" type="button">${ctx.t('common.delete')}</button></div>`:''}</article>`;
+    return `<article class="${dialog?'calendar-dialog-details':'card panel calendar-details'} ${eventClass(event)}">${poster(event)}<div class="panel-header"><div><p class="profile-label">${tr('event')}</p><h3 ${dialog?'id="calendar-event-dialog-title"':''}>${esc(title(event))}</h3></div>${dialog?`<button class="dialog-close-button" type="button" data-calendar-close aria-label="${ctx.t('common.close')}">&times;</button>`:''}</div>${eventBadges(event)}<dl class="calendar-event-fields"><div><dt>${tr('date')}</dt><dd>${esc(fmt(event.date,{day:'numeric',month:'long',year:'numeric'}))}${event.time?' · '+event.time:''}</dd></div><div><dt>${tr('city')}</dt><dd>${esc(event.city||tr('notSpecified'))}</dd></div><div><dt>${tr('venue')}</dt><dd>${esc(event.venue||(!event.address?tr(event.venueMode==='tts'?'online':'locationPending'):''))}${event.address?`<span class="muted">${esc(event.address)}</span>`:''}</dd></div><div><dt>${tr('tournamentType')}</dt><dd>${type(event)}</dd></div>${formatDetails(event)}<div><dt>${tr('participantLimit')}</dt><dd>${capacity(event)}</dd></div><div><dt>${tr('entryFee')}</dt><dd>${esc(fee(event))}</dd></div>
+      ${organizer ? `<div><dt>${ctx.t('providers.role.organizer')}</dt><dd class="calendar-organizer">${organizer}</dd></div>` : ''}
+    </dl><div class="row-actions calendar-detail-actions">${action}</div>${actions.edit?`<div class="row-actions calendar-admin-actions"><button class="small-button" data-calendar-edit="${event.id}" type="button">${ctx.t('common.edit')}</button><button class="danger-button" data-calendar-delete="${event.id}" type="button">${ctx.t('common.delete')}</button></div>`:''}</article>`;
   }
 
   function poster(event) {

@@ -6,13 +6,17 @@ const releaseNotes = {
 - После создания турнира открывается обзор. На каждой вкладке организатор видит текущее состояние и следующее действие. По прямой ссылке он может вернуться и к своему черновику.
 - После закрытия регистрации можно подготовить пары первого раунда. Если участников не хватает, турнир показывает, сколько игроков или составов нужно добавить, и открывает их список.
 - В окне жеребьёвки видны соперники, количество пар и игрок, получивший бай. Сохранённые пары можно изменить до старта. При повторном открытии регистрации организатор подтверждает их сброс.
-- В редакторе FAQ можно найти команду по части названия и добавить к вопросу несколько команд.`,
+- В редакторе FAQ можно найти команду по части названия и добавить к вопросу несколько команд.
+- В календаре имя организатора в карточке события ведёт в его профиль. Для события организации ссылка открывает страницу организации.
+- На телефоне выбор команды в тирлисте оставляет доску открытой для перетаскивания. На компьютере по нажатию по-прежнему открывается статистика команды.`,
   en: `## 1.8.6 — 25 November 2026
 
 - Creating a tournament now opens its overview. Each tab shows the organizer the current stage and next action. Organizers can also return directly to their draft using its link.
 - After closing registration, organizers can prepare first-round pairings. If the field is too small, the tournament shows how many more players or rosters it needs and links to the entry list.
 - The pairing editor shows opponents, the number of pairs and who receives the bye. Organizers can edit saved pairings before starting the tournament. Reopening registration asks for confirmation before clearing them.
-- FAQ editors can search by part of a team name and add multiple teams to a question.`
+- FAQ editors can search by part of a team name and add multiple teams to a question.
+- Calendar cards and event details link to the organizer’s profile or the organization hosting the event.
+- On phones, selecting a team in a tier list keeps the board clear for dragging. On desktop, selecting a team still opens its statistics.`
 };
 
 module.exports = {

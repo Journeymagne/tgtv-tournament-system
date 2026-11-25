@@ -6,6 +6,7 @@ import { createTierlistJpeg } from './jpeg.js?v=1.8.3';
   const $ = id => document.getElementById(id);
   const ranks = ['S', 'A', 'B', 'C', 'F'];
   const zoneKeys = [...ranks, 'pool'];
+  const mobileBoard = window.matchMedia('(max-width: 700px), (hover: none) and (pointer: coarse)');
   const copy = {
     heading: ['Тирлисты', 'Tier lists'], intro: ['Ваша оценка команд — в контексте сезона.', 'Your team rankings, in the context of a season.'],
     myLists: ['Мои тирлисты', 'My tier lists'], newList: ['Новый тирлист', 'New tier list'], loading: ['Загрузка каталога…', 'Loading the catalog…'],
@@ -19,7 +20,8 @@ import { createTierlistJpeg } from './jpeg.js?v=1.8.3';
     shufflePool: ['Перемешать', 'Shuffle'], shufflePoolLabel: ['Перемешать команды в пуле', 'Shuffle unranked teams'],
     poolShuffled: ['Команды в пуле перемешаны.', 'Unranked teams shuffled.'],
     noResults: ['По этому запросу команд нет.', 'No teams match this search.'],
-    help: ['Перетащите команду в тир или обратно в пул. На сенсорном экране удержите фигурку и перетащите. Нажмите на команду, чтобы открыть статистику. Ctrl+Z отменяет ход.', 'Drag a team into a tier or back to the pool. On a touch screen, hold the miniature and drag. Select a team to see its statistics. Ctrl+Z undoes a move.'],
+    help: ['Перетащите команду в тир или обратно в пул. Нажмите на команду, чтобы открыть статистику. Ctrl+Z отменяет ход.', 'Drag a team into a tier or back to the pool. Select a team to see its statistics. Ctrl+Z undoes a move.'],
+    touchHelp: ['Удержите фигурку и перетащите её в тир или обратно в пул.', 'Hold a miniature and drag it into a tier or back to the pool.'],
     restoreGuest: ['Открыть гостевой черновик', 'Open guest draft'], filterSeason: ['Фильтр по сезону', 'Filter by season'], allSeasons: ['Все сезоны', 'All seasons'],
     refresh: ['Обновить', 'Refresh'], close: ['Закрыть', 'Close'], cancel: ['Отмена', 'Cancel'], continue: ['Продолжить', 'Continue'], delete: ['Удалить', 'Delete'],
     guest: ['Можно распределять команды без входа. Войдите в KT Companion, чтобы сохранить тирлист в профиле.', 'You can rank teams without signing in. Sign in to KT Companion to save this tier list to your profile.'],
@@ -239,9 +241,17 @@ import { createTierlistJpeg } from './jpeg.js?v=1.8.3';
   function updateSelection() {
     document.querySelectorAll('.tl-card').forEach(card => {
       const selected = card.dataset.id === state.selected;
-      card.classList.toggle('selected', selected); card.setAttribute('aria-pressed', String(selected)); card.setAttribute('aria-expanded', String(selected));
+      card.classList.toggle('selected', selected);
+      card.setAttribute('aria-pressed', String(selected));
+      if (mobileBoard.matches) {
+        card.removeAttribute('aria-controls');
+        card.removeAttribute('aria-expanded');
+      } else {
+        card.setAttribute('aria-controls', 'team-stats');
+        card.setAttribute('aria-expanded', String(selected));
+      }
     });
-    $('selection-note').textContent = state.selected ? t('selected', { name: state.teamsById.get(state.selected).name }) : '';
+    $('selection-note').textContent = state.selected ? t('selected', { name: state.teamsById.get(state.selected).name }) : mobileBoard.matches ? t('touchHelp') : '';
     syncTeamStats();
   }
   function clearSelection(returnFocus = false) {
@@ -255,7 +265,7 @@ import { createTierlistJpeg } from './jpeg.js?v=1.8.3';
   }
   function positionTeamStats() {
     const panel = $('team-stats');
-    if (panel.hidden || window.matchMedia('(max-width:700px)').matches) return;
+    if (panel.hidden || mobileBoard.matches) return;
     const board = $('board').getBoundingClientRect(), nav = document.querySelector('[data-companion-nav]')?.getBoundingClientRect();
     const exitBottom = $('exit-recording').hidden ? 0 : $('exit-recording').getBoundingClientRect().bottom;
     const top = Math.round(Math.max(12, (nav?.bottom || 0) + 12, exitBottom + 12, board.top));
@@ -380,7 +390,7 @@ import { createTierlistJpeg } from './jpeg.js?v=1.8.3';
     positionTeamStats();
   }
   function syncTeamStats() {
-    if (!state.selected) { cancelTeamStats(); return; }
+    if (!state.selected || mobileBoard.matches) { cancelTeamStats(); return; }
     if (teamStats.teamId === state.selected) { renderTeamStats(); return; }
     void loadTeamStats(state.selected);
   }
@@ -463,7 +473,7 @@ import { createTierlistJpeg } from './jpeg.js?v=1.8.3';
         if (k === 'pool') visiblePool++;
         const button = document.createElement('button'); button.type = 'button'; button.className = 'tl-card'; button.dataset.id = id;
         button.classList.toggle('selected', id === state.selected); button.draggable = !state.busy;
-        button.setAttribute('aria-label', team.name); button.setAttribute('aria-pressed', String(id === state.selected)); button.setAttribute('aria-controls', 'team-stats'); button.setAttribute('aria-expanded', String(id === state.selected)); button.title = team.name;
+        button.setAttribute('aria-label', team.name); button.title = team.name;
         const image = document.createElement('img'); image.src = team.image; image.alt = ''; image.draggable = false; image.decoding = 'async';
         const caption = document.createElement('span'); caption.className = 'tl-card-name'; caption.textContent = team.name;
         button.append(image, caption);
@@ -703,5 +713,6 @@ import { createTierlistJpeg } from './jpeg.js?v=1.8.3';
   }
   $('retry').addEventListener('click', init);
   bindTierlistDrag($('workspace'), move);
+  mobileBoard.addEventListener('change', updateSelection);
   void init();
 })();

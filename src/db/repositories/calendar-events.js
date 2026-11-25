@@ -7,10 +7,14 @@ const COLUMNS = `e.id,e.name,e.provider_id,p.archived_at AS provider_archived_at
     ((e.event_date + COALESCE(e.start_time,TIME '00:00')) AT TIME ZONE e.time_zone) AT TIME ZONE 'UTC',
     'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') END AS starts_at,
   e.participant_limit,e.entry_fee,e.tournament_id,e.swiss_round_count,e.team_size,e.auto_created,
+  organizer.id AS organizer_id,organizer.name AS organizer_name,
   to_char(e.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at,
   t.slug AS tournament_slug,t.status AS tournament_status,t.venue_mode,
   (t.logo_data IS NOT NULL AND t.logo_data<>'') AS has_poster`;
-const FROM = 'tournaments.calendar_events e LEFT JOIN tournaments.tournaments t ON t.id=e.tournament_id LEFT JOIN tournaments.tournament_providers p ON p.id=e.provider_id';
+const FROM = `tournaments.calendar_events e
+  LEFT JOIN tournaments.tournaments t ON t.id=e.tournament_id
+  LEFT JOIN tournaments.tournament_providers p ON p.id=e.provider_id
+  LEFT JOIN accounts.users organizer ON e.provider_id IS NULL AND organizer.id=e.created_by`;
 const FIELDS = ['name','event_date','start_time','city','venue','address','tournament_type','participant_limit','entry_fee','swiss_round_count','team_size'];
 const values = e => [e.name,e.date,e.time,e.city,e.venue,e.address,e.tournamentType,e.participantLimit,e.entryFee,e.swissRoundCount,e.teamSize];
 
@@ -21,6 +25,7 @@ function view(row, user = null) {
   const canEdit = admin || Boolean(row.provider_id && user?.providerMemberships?.some(m => m.providerId === row.provider_id && m.role === 'organizer'));
   const viewer = { canEdit, canCreateTournament: canEdit && !row.provider_archived_at && !row.tournament_id };
   return { id: row.id, providerId:row.provider_id ?? null, provider:row.provider || null, viewer, name: row.name, date: row.date, time: row.time, timeZone:row.time_zone, city: row.city, venue: row.venue,
+    organizer: row.organizer_id == null ? null : { id: row.organizer_id, name: row.organizer_name },
     ...(row.provider_id != null ? { startsAt:row.starts_at } : {}),
     address: row.address, tournamentType: row.tournament_type, participantMode:row.tournament_type==='solo'?'individual':'team',
     teamSize:row.team_size,swissRoundCount:row.swiss_round_count,participantLimit: row.participant_limit==null?null:Number(row.participant_limit),
