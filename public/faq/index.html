@@ -27,7 +27,7 @@
  <script src="/companion-i18n.js?v=shared-768c0123dfd3" defer></script>
  <script src="/companion-shell.js?v=shared-768c0123dfd3" defer></script>
  <script src="/faq/i18n.js?v=1.4.4" defer></script>
- <script src="/faq/faq.js?v=1.8.5" defer></script>
+ <script src="/faq/faq.js?v=1.8.6" defer></script>
   <link rel="stylesheet" href="/team-picker.css?v=shared-768c0123dfd3">
   <script defer src="/team-picker.js?v=shared-768c0123dfd3"></script>
 </head>
@@ -76,7 +76,7 @@
   <div class="editor-layout"><section class="editor-fields">
    <div id="submission-context" class="submission-context" hidden></div>
    <div class="field-row editor-classification"><label>Раздел<select id="edit-category"><option value="community">Community FAQ</option><option value="official">Official · GW</option><option value="conduct">Code of Conduct</option><option value="info">Инфо</option></select></label><label class="ruling-field">Тип рулинга<select id="edit-type"><option value="RAW">RAW</option><option value="Правка">Правка</option><option value="Спор">Спор</option><option value="Произвол">Произвол</option><option value="GW">GW</option><option value="Этикет">Этикет</option></select></label></div>
-   <label class="teams-field">Команды <small>можно выбрать несколько</small><div id="edit-team-chips" class="selected-teams"></div><select id="edit-team-add"><option value="">＋ Добавить kill team</option></select></label>
+   <label class="teams-field">Команды <small>можно выбрать несколько</small><div id="edit-team-chips" class="selected-teams"></div><team-picker><select id="edit-team-add"><option value="">＋ Добавить kill team</option></select></team-picker></label>
    <label class="topic-field">Тема<select id="edit-topic"><option value="Действия и способности">Действия и способности</option><option value="Движение">Движение</option><option value="Атака и урон">Атака и урон</option><option value="Террейн и видимость">Террейн и видимость</option><option value="Маркеры и ресурсы">Маркеры и ресурсы</option><option value="Этика и организация">Этика и организация</option></select></label>
    <label><span id="question-label">Вопрос</span><input id="edit-question" maxlength="1500" placeholder="Одна ситуация — один понятный вопрос" required minlength="3"></label>
    <label id="answer-label"><span id="answer-label-text">Решение / предложенный ответ</span> <small id="answer-hint">Форматирование и иллюстрации</small></label>

@@ -2,6 +2,13 @@
 
 KT Companion release history, newest first.
 
+## 1.8.6 — 25 November 2026
+
+- Creating a tournament now opens its overview. Each tab shows the organizer the current stage and next action. Organizers can also return directly to their draft using its link.
+- After closing registration, organizers can prepare first-round pairings. If the field is too small, the tournament shows how many more players or rosters it needs and links to the entry list.
+- The pairing editor shows opponents, the number of pairs and who receives the bye. Organizers can edit saved pairings before starting the tournament. Reopening registration asks for confirmation before clearing them.
+- FAQ editors can search by part of a team name and add multiple teams to a question.
+
 ## 1.8.5 — 25 November 2026
 
 - Tournaments with configurable standings tiebreakers now offer Total Primary. It adds the Primary bonuses earned by a player or team. A higher total breaks a tie after earlier criteria.
