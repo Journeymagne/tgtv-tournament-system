@@ -323,6 +323,7 @@ test("live GP, wins, VP and raw Tac Op VP include only finished games, even befo
   const next = { ...match, games: [finished, secondPlayer, open] };
   const cumulative = teamStandings(rosters.slice(0, 2), [match, next]);
   assert.equal(cumulative[0].tacOpPoints, 17, "sum raw Tac Op VP across players and rounds, excluding Primary bonus");
+  assert.deepEqual(cumulative.map(row => row.totalPrimary), [9, 4]);
   assert.equal(cumulative[0].totalVp, 52);
   assert.equal(cumulative[0].individualWins, 3);
   const tied = structuredClone(match);

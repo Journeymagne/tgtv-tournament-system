@@ -5,7 +5,9 @@ const { KILL_TEAMS, KILLZONES, CRIT_OPS } = require('../domain/kill-teams');
 const { tacOpOptions } = require('../../public/game-data');
 const { validLayout } = require('../../public/map-catalog');
 const digits = Array.from({ length: 10 }, (_, index) => index);
-const ops = ['crit', 'kill', 'tac', 'primary'];
+const scoreFields = ['crit', 'tac', 'kill', 'primary'];
+// Telegram keyboards already sent to players address edit fields by position.
+const scoreEditOrder = ['crit', 'kill', 'tac', 'primary'];
 const copy = value => structuredClone(value);
 const playerId = player => player.resultKey ?? player.id;
 const factions = player => player.factions?.length ? player.factions : player.faction ? [player.faction] : [];
@@ -15,8 +17,8 @@ const assignedMission = game => game.teamTournamentGame?.mission || game.tournam
 function descriptor(field, id = null, extra = false) {
   return { field, playerId: id, labelKey: `gameDraft.field.${field}`, extra };
 }
-function baseFields(game) {
-  return game.players.flatMap(player => [...ops.map(field => descriptor(field, playerId(player))),
+function baseFields(game, order = scoreFields) {
+  return game.players.flatMap(player => [...order.map(field => descriptor(field, playerId(player))),
     ...(factions(player).length > 1 ? [descriptor('faction', playerId(player))] : [])]);
 }
 function extraFields(game) {
@@ -54,7 +56,7 @@ function tieFields(game, state) {
   if (calculateTieBreakers({ apl, rollOffWinnerId: a }, a, b, sa, sb).decidedBy === 'rollOff') fields.push(descriptor('rollOffWinnerId'));
   return fields;
 }
-function fields(game, state) { return [...baseFields(game), ...tieFields(game, state), ...extraFields(game)]; }
+function fields(game, state) { return [...baseFields(game, scoreEditOrder), ...tieFields(game, state), ...extraFields(game)]; }
 function choicesFor(game, state, field) {
   const player = game.players.find(item => playerId(item) === field.playerId);
   let values;
@@ -107,8 +109,10 @@ function resultBody(game, state) {
 function view(game, state) {
   const editableFields = state.mode === 'submit' && !['saved', 'cancelled'].includes(state.screen)
     ? fields(game, state).map(field => ({ ...field, value: valueFor(state, field) ?? null })) : [];
+  const prompts = baseFields(game);
+  const stepOrder = scoreFields.includes(state.field?.field) ? prompts : editableFields;
   const step = state.screen === 'choice' && state.field ? { ...state.field, value: valueFor(state, state.field) ?? null,
-    index: editableFields.findIndex(field => key(field) === key(state.field)), total: baseFields(game).length } : null;
+    index: stepOrder.findIndex(field => key(field) === key(state.field)), total: prompts.length } : null;
   let result = state.mode === 'submit' ? null : game.pendingResult?.result || null;
   if (state.mode === 'submit' && completeBase(game, state) && !tieFields(game, state).some(field => !state.answered[key(field)])) {
     const [a, b] = game.players.map(playerId);
@@ -147,7 +151,7 @@ function transition(game, original, event) {
   remember();
   const { field, playerId: id, extra } = state.field;
   const value = choices[event.index].value;
-  if (['crit', 'kill', 'tac', 'primary'].includes(field) && value !== valueFor(state, state.field)) {
+  if (scoreFields.includes(field) && value !== valueFor(state, state.field)) {
     for (const item of ['tie', 'rollOffWinnerId']) { delete state.answers[item]; delete state.answered[key(descriptor(item))]; }
     state.answers.aplDigits = {};
     for (const player of game.players) for (const part of ['aplTens', 'aplOnes']) delete state.answered[key(descriptor(part, playerId(player)))];
@@ -167,4 +171,4 @@ function transition(game, original, event) {
   return state;
 }
 
-module.exports = { createState, transition, view, resultBody };
+module.exports = { createState, transition, view, resultBody, scoreFields };

@@ -38,11 +38,18 @@ test('card exposes only current permitted actions and retains Companion fallback
   assert.ok(buttons(review).some(b => b.callback_data === 'g:s:42:confirm'));
   assert.ok(buttons(review).some(b => b.callback_data === 'g:s:42:reject'));
 });
-test('renderer walks every score primary and summary using the real pure engine', () => {
+test('prompts each player for Crit, Tac, Kill and Primary, then shows a compact score summary', () => {
   ready('renderDraft'); let state = engine.createState(game); let version = 0;
-  for (const value of [6, 4, 5, 'crit', 2, 3, 1, 'kill']) {
+  const prompts = [
+    [1, 'Crit Op', 6], [1, 'Tac Op', 5], [1, 'Kill Op', 4], [1, 'Primary Op', 'crit'],
+    [2, 'Crit Op', 2], [2, 'Tac Op', 1], [2, 'Kill Op', 3], [2, 'Primary Op', 'kill']
+  ];
+  for (const [playerId, label, value] of prompts) {
     const view = { ...engine.view(game, state), game, token: 'abcdefghijklmnop', version };
     const payload = messages.renderDraft(view, 'en'); valid(payload);
+    assert.equal(view.step.playerId, playerId);
+    assert.ok(payload.text.includes(` · ${label}</b>`));
+    assert.ok(payload.text.includes(`Step ${version + 1} / 8`));
     const index = view.choices.findIndex(choice => choice.value === value);
     assert.ok(buttons(payload).some(b => b.callback_data === `g:d:abcdefghijklmnop:${version}:choose:${index}`));
     assert.ok(!buttons(payload).some(b => /:submit$/.test(b.callback_data || '')));
@@ -50,10 +57,9 @@ test('renderer walks every score primary and summary using the real pure engine'
   }
   const view = { ...engine.view(game, state), game, token: 'abcdefghijklmnop', version };
   const summary = messages.renderDraft(view, 'ru'); valid(summary);
-  assert.ok(buttons(summary).some(b => b.callback_data === `g:d:abcdefghijklmnop:${version}:submit`));
-  assert.ok(buttons(summary).some(b => /:extras$/.test(b.callback_data || '')));
-  assert.ok(summary.text.includes('6') && summary.text.includes('4'));
-  assert.ok(summary.reply_markup.inline_keyboard.filter(row => row.some(button => /:edit:/.test(button.callback_data || ''))).every(row => row.length === 2));
+  assert.deepEqual(buttons(summary).map(b => b.callback_data),
+    ['submit', 'extras', 'back', 'cancel'].map(action => `g:d:abcdefghijklmnop:${version}:${action}`));
+  assert.ok(summary.text.includes('Crit 6') && summary.text.includes('Kill 4') && summary.text.includes('Tac 5'));
 });
 test('large optional dictionaries page within one version without losing absolute choice indices', () => {
   ready('renderDraft'); const state = engine.createState(game);

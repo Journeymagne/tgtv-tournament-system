@@ -286,6 +286,11 @@ const standingsTiebreakerOptions = [
     descriptionKey: "tiebreaker.totalVp.description"
   },
   {
+    key: "total_primary",
+    labelKey: "tiebreaker.totalPrimary.label",
+    descriptionKey: "tiebreaker.totalPrimary.description"
+  },
+  {
     key: "vp_diff",
     labelKey: "tiebreaker.vpDiff.label",
     descriptionKey: "tiebreaker.vpDiff.description"
@@ -2312,19 +2317,29 @@ function tournamentFactionsLabel(participant = {}) {
     : tournamentRegisteredFactions(participant).join(" / ") || t("tournaments.participant.factionMissing");
 }
 
-function tournamentFactionFields(tournament = {}, name, participant = {}, { optional = false, disabled = false, select = false } = {}) {
+function factionPicker(label, name, choices, selected, placeholder, { optional = false, disabled = false } = {}) {
+  const current = choices.includes(selected) ? selected : validKillTeamName(selected);
+  const aliases = new Map();
+  for (const [alias, team] of killTeamAliases) {
+    if (!aliases.has(team)) aliases.set(team, []);
+    aliases.get(team).push(alias);
+  }
+  return `<div class="field"><label>${escapeHtml(label)}</label><team-picker>
+    <select name="${escapeHtml(name)}" aria-label="${escapeHtml(label)}" ${optional ? "" : "required"} ${disabled ? "disabled" : ""}>
+      <option value="">${escapeHtml(placeholder)}</option>
+      ${choices.map(team => `<option value="${escapeHtml(team)}" data-aliases="${escapeHtml((aliases.get(team) || []).join("|"))}" ${team === current ? "selected" : ""}>${escapeHtml(team)}</option>`).join("")}
+    </select></team-picker></div>`;
+}
+
+function tournamentFactionFields(tournament = {}, name, participant = {}, { optional = false, disabled = false } = {}) {
   const count = tournament.factionCount || 1;
   const factions = tournamentRegisteredFactions(participant);
   return Array.from({ length: count }, (_, index) => {
     const fieldName = index ? `${name}-extra-${index + 1}` : name;
     const label = count > 1 ? t("tournaments.factions.number", { number: index + 1 }) : t("tournaments.field.faction");
     const isOptional = optional || index > 0;
-    return select ? `<div class="field"><label for="${escapeHtml(fieldName)}">${escapeHtml(label)}</label>
-      <select id="${escapeHtml(fieldName)}" name="${escapeHtml(fieldName)}" ${isOptional ? "" : "required"} ${disabled ? "disabled" : ""}>
-        <option value="">${t(isOptional ? "tournaments.factions.optional" : "tournaments.registration.factionPlaceholder")}</option>
-        ${optionsHtml(killTeamOptions, factions[index] || "")}
-      </select></div>` : comboField(label, fieldName, "faction", factions[index] || "",
-        t(isOptional ? "tournaments.factions.optional" : "tournaments.registration.factionPlaceholder"), { optional: isOptional, disabled });
+    return factionPicker(label, fieldName, killTeamOptions, factions[index],
+      t(isOptional ? "tournaments.factions.optional" : "tournaments.registration.factionPlaceholder"), { optional: isOptional, disabled });
   }).join("") + (count > 1 ? `<p class="field-help">${t("tournaments.factions.hint", { count })}</p>` : "");
 }
 
@@ -2350,7 +2365,7 @@ function teamRosterMemberFields(team, roster = null, { allowProxies = false, tea
             <label>${t("teams.tournament.player", { number: index + 1 })}</label>
             <select name="member-${index + 1}" data-user-search required>${options(defaults[index])}${allowProxies || slots[index]?.isProxy ? `<option value="proxy" ${defaults[index] === "proxy" ? "selected" : ""}>${escapeHtml(slots[index]?.isProxy ? slots[index].displayNameSnapshot : t("teams.tournament.emptyProxy"))}</option>` : ""}</select>
           </div>
-          <div>${tournamentFactionFields(tournament, `faction-${index + 1}`, slots[index] || {}, { optional: defaults[index] === "proxy", select: true })}</div>
+          <div>${tournamentFactionFields(tournament, `faction-${index + 1}`, slots[index] || {}, { optional: defaults[index] === "proxy" })}</div>
         </div>
       `).join("")}
     </div>
@@ -2444,7 +2459,7 @@ function renderTeamRosterRegistration(data, editingRoster = null) {
         ${teams.length ? `
           <form class="tournament-registration-form" data-public-team-roster-registration>
             <div class="grid-2">
-              <div class="field"><label>${t("teams.tournament.team")}</label><select name="teamId" required ${editingRoster ? "disabled" : ""}>${teams.map((team) => `<option value="${team.id}" ${team.id === firstTeam?.id ? "selected" : ""}>${escapeHtml(team.name)}</option>`).join("")}</select></div>
+              <div class="field"><label>${t("teams.tournament.team")}</label><team-picker><select name="teamId" required ${editingRoster ? "disabled" : ""}>${teams.map((team) => `<option value="${team.id}" ${team.id === firstTeam?.id ? "selected" : ""}>${escapeHtml(team.name)}</option>`).join("")}</select></team-picker></div>
               <div class="field"><label>${t("teams.tournament.rosterName")}</label><input name="name" minlength="2" maxlength="80" data-default-name="${escapeHtml(suggestedRosterName(firstTeam, data.rosters))}" value="${escapeHtml(editingRoster?.name || suggestedRosterName(firstTeam, data.rosters))}" ${editingRoster ? "required" : ""}></div>
             </div>
             <div data-team-roster-member-fields>${teamRosterMemberFields(firstTeam, editingRoster, { allowProxies, teamSize: teamSizeFor(tournament), tournament })}</div>
@@ -2933,6 +2948,7 @@ function publicStandingsTable(data) {
       if (key === "buchholz") return { label: t("tiebreaker.buchholz.label"), value: (row) => row.buchholz ?? 0 };
       if (key === "head_to_head") return { label: t("tiebreaker.headToHead.label"), value: (row) => row.headToHeadWins ?? 0 };
       if (key === "total_vp") return { label: t("tiebreaker.totalVp.label"), value: (row) => row.totalVp ?? 0 };
+      if (key === "total_primary") return { label: t("tiebreaker.totalPrimary.label"), value: (row) => row.totalPrimary ?? 0 };
       if (key === "vp_diff") return { label: t("tiebreaker.vpDiff.label"), value: (row) => row.vpDiff ?? 0 };
       return null;
     })
@@ -4033,7 +4049,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = "/admin.js?v=1.8.0";
+    script.src = "/admin.js?v=1.8.5";
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -4853,7 +4869,7 @@ async function renderAchievements() {
         ${(state.administrationContext && state.me?.isAdmin) ? `<div class="row-actions achievement-edit-actions"><button type="button" class="small-button" data-achievement-edit>${t("achievements.edit")}</button></div>` : ""}
         ${achievement.tournamentId ? `<p class="muted">${t("achievements.auto")}</p>` : (state.administrationContext && state.me?.isAdmin) ? `
         <form data-achievement-award class="settings-block"><label>${t("achievements.recipient")}
-          <select name="targetId" ${achievement.kind === "player" ? "data-user-search data-user-search-remote" : ""} required disabled><option value="">${t("achievements.loading")}</option></select></label>
+          ${achievement.kind === "team" ? "<team-picker>" : ""}<select name="targetId" ${achievement.kind === "player" ? "data-user-search data-user-search-remote" : ""} required disabled><option value="">${t("achievements.loading")}</option></select>${achievement.kind === "team" ? "</team-picker>" : ""}</label>
           ${achievement.kind === "team" ? `<fieldset data-achievement-roster hidden><legend>${t("achievements.roster")}</legend><p class="muted">${t("achievements.rosterHint")}</p><div data-achievement-members></div></fieldset>` : ""}
           <button class="primary-button" disabled>${t("achievements.award")}</button></form>` : ""}
         <p role="status" data-achievement-message></p><h3>${t("achievements.recipients")}</h3>
@@ -5820,10 +5836,10 @@ function renderGames(live = false) {
         </div>
         <div class="field compact-field">
           <label>${t("games.filter.teamLabel")}</label>
-          <select data-games-team-filter>
+          <team-picker><select data-games-team-filter>
             <option value="">${t("games.filter.allTeams")}</option>
             ${killTeamOptions.map((team) => `<option value="${escapeHtml(team)}" ${state.gameFilters.team === team ? "selected" : ""}>${escapeHtml(team)}</option>`).join("")}
-          </select>
+          </select></team-picker>
         </div>
       </div>
       <div class="filter-summary" data-games-filter-summary aria-live="polite">${gamesFilterSummary()}</div>
@@ -6091,10 +6107,10 @@ function statsFiltersMarkup() {
       </div>
       <div class="field compact-field">
         <label>${t("games.filter.teamLabel")}</label>
-        <select data-stats-team-filter>
+        <team-picker><select data-stats-team-filter>
           <option value="">${t("games.filter.allTeams")}</option>
           ${killTeamOptions.map((team) => `<option value="${escapeHtml(team)}" ${state.statisticsFilters.team === team ? "selected" : ""}>${escapeHtml(team)}</option>`).join("")}
-        </select>
+        </select></team-picker>
       </div>
     </div>
   `;
@@ -8009,10 +8025,9 @@ function scoreCard(player, score = {}) {
     <div class="score-card" data-score-card="${player.id}">
       <h4>${playerProfileLink(player)}</h4>
       <div class="score-meta-grid">
-        ${player.factions?.length ? `<div class="field"><label for="result-faction-${player.id}">${t("games.filter.teamLabel")}</label>
-          <select id="result-faction-${player.id}" name="faction-${player.id}" required>
-            ${optionsHtml(player.factions, player.factions.includes(score.faction) ? score.faction : player.factions[0])}
-          </select></div>` : comboField(t("games.filter.teamLabel"), `faction-${player.id}`, "faction", score.faction || player.faction || "", t("tournaments.score.searchKillTeam"))}
+        ${factionPicker(t("games.filter.teamLabel"), `faction-${player.id}`, player.factions?.length ? player.factions : killTeamOptions,
+          player.factions?.length ? (player.factions.includes(score.faction) ? score.faction : player.factions[0]) : score.faction || player.faction,
+          t("tournaments.score.searchKillTeam"))}
         ${comboField(t("op.tac"), `tac-op-${player.id}`, "tacOp", score.tacOp, t("tournaments.score.searchTacOp"))}
       </div>
       <div class="score-fields">
@@ -8110,9 +8125,7 @@ function comboField(label, name, optionsKey, selected = "", placeholder = t("tou
   const items = options.items ? normalizeComboOptions(options.items) : null;
   const normalizedSelected = valueMode === "value"
     ? String(selected || "")
-    : optionsKey === "faction"
-      ? validKillTeamName(selected) || selected
-      : selected;
+    : selected;
   const selectedOption = items?.find((item) => String(item.value) === String(normalizedSelected));
   const displaySelected = valueMode === "value" ? selectedOption?.label || "" : normalizedSelected || "";
   const itemsAttribute = items ? ` data-combo-items="${escapeHtml(JSON.stringify(items))}"` : "";
@@ -8217,7 +8230,6 @@ function comboOptionsFor(key, combo = null) {
       return [];
     }
   }
-  if (key === "faction") return normalizeComboOptions(killTeamOptions);
   if (key === "tacOp") return normalizeComboOptions(tacOpOptions);
   return [];
 }
@@ -8344,19 +8356,7 @@ function wireComboFields(root = document) {
         input.setCustomValidity(t("common.chooseFromList"));
         return false;
       }
-      if (optionsKey !== "faction") return true;
-      if (optional && !String(input.value || "").trim()) {
-        input.setCustomValidity("");
-        return true;
-      }
-      const validValue = validKillTeamName(input.value);
-      if (validValue) {
-        input.value = validValue;
-        input.setCustomValidity("");
-        return true;
-      }
-      input.setCustomValidity(t("tournaments.registration.factionRequired"));
-      return false;
+      return true;
     };
 
     const close = () => {
@@ -8375,6 +8375,7 @@ function wireComboFields(root = document) {
             ? userSearchMatches(option.search, query) || userSearchMatches(comboOptionLabel(option), query)
             : comboOptionMatchesQuery(option, query))
             .sort((a, b) => {
+              if (optionsKey === "statisticsTeams") return a.label.localeCompare(b.label);
               const aStarts = comboOptionStartsWithQuery(a, query);
               const bStarts = comboOptionStartsWithQuery(b, query);
               return Number(!aStarts) - Number(!bStarts) || comboOptionLabel(a).localeCompare(comboOptionLabel(b));
@@ -9515,7 +9516,7 @@ function openTeamRosterDetailsEditor(data, roster, options = {}) {
     </div>
     <div class="team-roster-member-grid">${members.map((member) => `<div class="team-roster-player-row">
       <div class="field"><label>${t("teams.tournament.player", { number: member.slot })}</label><strong>${escapeHtml(member.displayNameSnapshot)}</strong></div>
-      <div>${tournamentFactionFields(data.tournament, `roster-details-faction-${member.id}`, member, { optional: member.isProxy, select: true })}</div>
+      <div>${tournamentFactionFields(data.tournament, `roster-details-faction-${member.id}`, member, { optional: member.isProxy })}</div>
     </div>`).join("")}</div>
     <div class="message error" data-roster-details-message role="alert" hidden></div>
     <div class="row-actions"><button class="small-button" type="button" data-roster-details-cancel>${t("common.cancel")}</button><button class="primary-button" type="submit">${t("common.save")}</button></div>
@@ -9574,6 +9575,7 @@ function publicTeamRostersList(rosters, data) {
 const teamTiebreakerColumns = {
   individual_wins: ["individualWins", "classic.individual_wins"],
   vp_diff: ["vpDiff", "classic.vp_diff"],
+  total_primary: ["totalPrimary", "tiebreaker.totalPrimary.label"],
   total_vp: ["totalVp", "classic.total_vp"],
   strength_of_schedule: ["strengthOfSchedule", "doubles.sos"],
   tac_op: ['tacOpPoints','teams.tournament.tac']
@@ -9613,9 +9615,10 @@ function teamTournamentTiebreakerFields(tournament, disabled = "") {
     <p class="field-help">${t('wtcDoubles.fixedOrderHint')}</p>
   </div>`;
   const doubles = tournament.pairingType === "doubles";
-  const choices = doubles ? doublesTiebreakerDefaults : teamTiebreakerDefaults;
+  const defaults = doubles ? doublesTiebreakerDefaults : teamTiebreakerDefaults;
+  const choices = [...defaults, "total_primary"];
   const custom = tournament.teamTiebreakerOrder != null || !tournament.id;
-  const order = tournament.teamTiebreakerOrder ?? choices;
+  const order = tournament.teamTiebreakerOrder ?? defaults;
   return `<div class="tournament-tiebreakers" data-standings-tiebreakers data-tiebreaker-locked="${disabled ? '1' : '0'}">
       <div class="tournament-tiebreaker-heading"><span class="muted">${t("classic.tiebreakers")}</span></div>
       <label class="checkbox-line"><input type="checkbox" name="customTeamTiebreakers" ${custom ? "checked" : ""} ${disabled}> <span>${t("classic.customOrder")}</span></label>
@@ -10000,7 +10003,7 @@ function teamPairingControlForSide(match, tournament, side) {
   const adminControls = state.administrationContext && canManageTournamentUi(tournament)
     && ![ownRoster, opponent].some(roster => roster?.captainUserId === state.me?.id);
   if (match.phase === "awaiting_roll" && match.pairingType === "sword_shield_classic") {
-    return `<form class="team-pairing-control" data-team-pairing-form="initiative" data-team-match-id="${match.id}" data-side="${side}"><p>${t("classic.initiativeHint")}</p><label>${t("classic.initiative")}<select name="winnerSide" required>${["a","b"].map(key => `<option value="${key}">${escapeHtml((key === "a" ? match.rosterA : match.rosterB)?.name || key)}</option>`).join("")}</select></label><button type="submit" class="primary-button">${t("common.confirm")}</button></form>`;
+    return `<form class="team-pairing-control" data-team-pairing-form="initiative" data-team-match-id="${match.id}" data-side="${side}"><p>${t("classic.initiativeHint")}</p><label>${t("classic.initiative")}<team-picker><select name="winnerSide" required>${["a","b"].map(key => `<option value="${key}">${escapeHtml((key === "a" ? match.rosterA : match.rosterB)?.name || key)}</option>`).join("")}</select></team-picker></label><button type="submit" class="primary-button">${t("common.confirm")}</button></form>`;
   }
   if (match.phase === "awaiting_roll") {
     const current = (match.rollHistory || [])[Number(match.rollRound || 1) - 1];
@@ -10981,7 +10984,7 @@ function teamRoundSetupMatchRow(match = {}, tables = []) {
 function teamRoundSetupRosterSelect(name, selectedId = "") {
   const rosters = (state.adminTournamentDetail?.rosters || []).filter((roster) => ["registered", "active"].includes(roster.status));
   const allowBye = teamSizeFor(state.adminTournamentDetail?.tournament) !== 2 && name === "rosterBId" && rosters.length % 2 === 1;
-  return `<div class="field"><label>${name === "rosterAId" ? t("teams.tournament.rosterA") : t("teams.tournament.rosterB")}</label><select name="${name}" ${allowBye ? "" : "required"}><option value="" ${!selectedId ? "selected" : ""}>${t(allowBye ? "teams.pairing.bye" : "games.result.notSelected")}</option>${rosters.map((roster) => `<option value="${roster.id}" ${Number(selectedId) === roster.id ? "selected" : ""}>${escapeHtml(roster.name)}</option>`).join("")}</select></div>`;
+  return `<div class="field"><label>${name === "rosterAId" ? t("teams.tournament.rosterA") : t("teams.tournament.rosterB")}</label><team-picker><select name="${name}" ${allowBye ? "" : "required"}><option value="" ${!selectedId ? "selected" : ""}>${t(allowBye ? "teams.pairing.bye" : "games.result.notSelected")}</option>${rosters.map((roster) => `<option value="${roster.id}" ${Number(selectedId) === roster.id ? "selected" : ""}>${escapeHtml(roster.name)}</option>`).join("")}</select></team-picker></div>`;
 }
 
 function roundMissionFields(tournament, round) {

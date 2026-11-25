@@ -12,13 +12,15 @@ function sourceOf(source, name) {
 test('all team formats share checkbox and priority controls, with WTC Doubles fixed', () => {
   const render = new Function('t', 'adminLabel', 'teamTiebreakerColumns', 'doublesTiebreakerDefaults', 'teamTiebreakerDefaults',
     `${sourceOf(app, 'teamTournamentTiebreakerFields')}; return teamTournamentTiebreakerFields;`)(key => key, ru => ru,
-      { individual_wins: ['individualWins', 'wins'], strength_of_schedule: ['strengthOfSchedule', 'sos'], total_vp: ['totalVp', 'vp'], vp_diff: ['vpDiff', 'diff'] },
+      { individual_wins: ['individualWins', 'wins'], strength_of_schedule: ['strengthOfSchedule', 'sos'], total_vp: ['totalVp', 'vp'], vp_diff: ['vpDiff', 'diff'], total_primary: ['totalPrimary', 'primary'] },
       ['strength_of_schedule', 'total_vp'], ['individual_wins', 'vp_diff', 'total_vp']);
-  for (const [pairingType, count] of [['shield_sword', 3], ['sword_shield_classic', 3], ['doubles', 2], ['wtc_doubles', 3]]) {
+  for (const [pairingType, count] of [['shield_sword', 4], ['sword_shield_classic', 4], ['doubles', 3], ['wtc_doubles', 3]]) {
     const html = render({ pairingType, id: 1 });
     assert.match(html, /data-standings-tiebreakers/);
     assert.match(html, /name="customTeamTiebreakers"/);
     assert.equal((html.match(/<select /g) || []).length, count);
+    assert.equal(html.includes('value="total_primary"'), pairingType !== 'wtc_doubles');
+    assert.ok(!html.includes('value="total_primary" selected'));
     if (pairingType === 'wtc_doubles') {
       assert.match(html, /checked disabled/);
       assert.equal((html.match(/disabled aria-readonly="true"/g) || []).length, 3);

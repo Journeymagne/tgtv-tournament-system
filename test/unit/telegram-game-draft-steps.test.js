@@ -25,7 +25,7 @@ function choose(flow, value) {
   assert.notEqual(index, -1, `choice ${JSON.stringify(value)} offered for ${current.step?.field}`);
   return event(flow, { type: 'choose', index });
 }
-function scores(flow, a = [6, 4, 5, 'crit'], b = [2, 3, 1, 'kill']) {
+function scores(flow, a = [6, 5, 4, 'crit'], b = [2, 1, 3, 'kill']) {
   for (const value of [...a, ...b]) choose(flow, value);
   return view(flow);
 }
@@ -56,10 +56,10 @@ test('Back and field editing retain answers while invalid choice indices do not 
     assert.deepEqual(flow.state, original);
   }
   choose(flow, 4);
-  for (const value of [4, 5, 'crit', 2, 3, 1, 'kill']) choose(flow, value);
-  const field = view(flow).editableFields.findIndex(item => item.playerId === 11 && item.field === 'kill');
-  assert.ok(field >= 0);
-  event(flow, { type: 'edit', index: field });
+  for (const value of [5, 4, 'crit', 2, 1, 3, 'kill']) choose(flow, value);
+  // A previously sent summary used edit:1 for the first player's Kill Op.
+  event(flow, { type: 'edit', index: 1 });
+  assert.equal(view(flow).step.field, 'kill');
   assert.equal(view(flow).step.value, 4);
   choose(flow, 6);
   assert.equal(view(flow).screen, 'summary');
@@ -74,11 +74,11 @@ test('only multiple registered factions add a required faction step, including p
     { id: 22, userId: 22, name: 'Bravo', factions: ['Legionaries'] }
   ] });
   const flow = start(context);
-  for (const value of [6, 4, 5, 'crit']) choose(flow, value);
+  for (const value of [6, 5, 4, 'crit']) choose(flow, value);
   assert.equal(view(flow).step.field, 'faction');
   assert.deepEqual(view(flow).choices.map(choice => choice.value), ['Kasrkin', 'Legionaries']);
   choose(flow, 'Kasrkin');
-  for (const value of [2, 3, 1, 'kill']) choose(flow, value);
+  for (const value of [2, 1, 3, 'kill']) choose(flow, value);
   assert.equal(engine.resultBody(context, flow.state).scores[-71].faction, 'Kasrkin');
 });
 
@@ -104,7 +104,7 @@ test('ordinary ties explicitly allow a draw while elimination ties require APL a
 
 test('unequal earlier tie criteria avoid requesting irrelevant APL or roll-off', () => {
   const flow = start(game({ sourceType: 'tournament_match', tournament: { format: 'single_elimination', status: 'in_progress' } }));
-  scores(flow, [4, 0, 0, 'crit'], [2, 3, 0, 'crit']);
+  scores(flow, [4, 0, 0, 'crit'], [2, 0, 3, 'crit']);
   assert.equal(view(flow).screen, 'summary');
   assert.equal(scoring.calculateSubmittedResult(engine.resultBody(flow.context, flow.state), 11, 22).tiebreakers.decidedBy, 'primary');
 });

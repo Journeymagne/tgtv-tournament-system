@@ -56,10 +56,12 @@ const STANDINGS_TIEBREAKERS = [
   "buchholz",
   "head_to_head",
   "total_vp",
+  "total_primary",
   "vp_diff"
 ];
-const TEAM_STANDINGS_TIEBREAKERS = ["individual_wins", "vp_diff", "total_vp"];
-const DOUBLES_STANDINGS_TIEBREAKERS = ["strength_of_schedule", "total_vp"];
+const TEAM_STANDINGS_TIEBREAKERS = ["individual_wins", "vp_diff", "total_vp", "total_primary"];
+const DEFAULT_DOUBLES_TIEBREAKERS = ["strength_of_schedule", "total_vp"];
+const DOUBLES_STANDINGS_TIEBREAKERS = [...DEFAULT_DOUBLES_TIEBREAKERS, "total_primary"];
 
 module.exports = {
   TOURNAMENT_STATUSES,
@@ -75,5 +77,6 @@ module.exports = {
   SINGLE_ELIMINATION_SIZES,
   STANDINGS_TIEBREAKERS,
   TEAM_STANDINGS_TIEBREAKERS,
+  DEFAULT_DOUBLES_TIEBREAKERS,
   DOUBLES_STANDINGS_TIEBREAKERS
 };

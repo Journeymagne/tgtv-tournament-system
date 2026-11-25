@@ -202,6 +202,8 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
     <link rel="stylesheet" href="/companion-tokens.css?v=${SHARED_ASSET_VERSION}">
     <link rel="stylesheet" href="/companion-tabs.css?v=${SHARED_ASSET_VERSION}">
     <link rel="stylesheet" href="/styles.css?v=${SHARED_ASSET_VERSION}">
+    <link rel="stylesheet" href="/team-picker.css?v=${SHARED_ASSET_VERSION}">
+    <script src="/team-picker.js?v=${SHARED_ASSET_VERSION}" defer></script>
     <link rel="stylesheet" href="/map-catalog-ui.css?v=${ASSET_VERSION}">
     <link rel="stylesheet" href="/tournament-results.css?v=${SHARED_ASSET_VERSION}">
     <link rel="stylesheet" href="/training/journey-shared.css?v=${SHARED_ASSET_VERSION}">
@@ -214,8 +216,9 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
 // No locale dictionaries here: theme-boot.js in baseHead() writes a tag for the
 // one the visitor is in, and app.js fetches the other only if they switch.
 function appScript() {
-  return ["maps/catalog-data.js", "map-catalog.js", "map-catalog-ui.js", "game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "table-layout.js", "tournament-results.js", "training/journey-ui.js", "resource-quotas.js", "pairing-instructions.js", "app.js"]
-    .map((file) => `<script src="/${file}?v=${['tournament-results.js', 'table-layout.js'].includes(file) ? SHARED_ASSET_VERSION : ASSET_VERSION}" defer></script>`).join("\n");
+  return ["maps/catalog-data.js", "map-catalog.js", "map-catalog-ui.js", "game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "table-layout.js", "tournament-results.js", "training/journey-ui.js", "resource-quotas.js", "pairing-instructions.js"]
+    .map((file) => `<script src="/${file}?v=${['tournament-tables.js', 'tournament-results.js', 'table-layout.js'].includes(file) ? SHARED_ASSET_VERSION : ASSET_VERSION}" defer></script>`)
+    .concat('<script src="/app.js?v=1.8.5" defer></script>').join("\n");
 }
 
 function tournamentHtml(origin, tournament) {

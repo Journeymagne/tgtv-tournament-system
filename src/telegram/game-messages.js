@@ -1,4 +1,5 @@
 const msg = require('./messages');
+const { scoreFields } = require('./game-draft-steps');
 const PAGE_SIZE = 12;
 const BRAND = '🔶 <b>KT COMPANION</b>';
 const clean = value => msg.short(value, 100);
@@ -89,9 +90,12 @@ function renderDraft(view,locale) {
   const {game}=view; const lines=contextLines(game,locale); const rows=[];
   const prefix=`g:d:${view.token}:${view.version}`;
   const action=(label,type)=>button(label,`${prefix}:${type}`);
-  const editable=(onlyExtras)=>chunks(view.editableFields.map((field,index)=>({field,index})).filter(({field})=>Boolean(field.extra)===onlyExtras)
-    .map(({field,index})=>button(`${field.playerId!==null?msg.short(game.players.find(player=>player.id===field.playerId)?.name,10)+' · ':''}${
-      field.field==='primary'?'Primary Op':field.field==='crit'?'Crit':field.field==='kill'?'Kill':field.field==='tac'?'Tac':fieldName(field.field,locale)}`,`${prefix}:edit:${index}`)),2);
+  const editable = onlyExtras => chunks(view.editableFields.flatMap((field, index) => {
+    if (Boolean(field.extra) !== onlyExtras || scoreFields.includes(field.field)) return [];
+    const player = game.players.find(player => player.id === field.playerId);
+    const label = fieldName(field.field, locale);
+    return [button(player ? `${msg.short(player.name, 10)} · ${label}` : label, `${prefix}:edit:${index}`)];
+  }), 2);
   if(view.screen==='choice') {
     const field=view.step.field;
     const player=game.players.find(item=>item.id===view.step.playerId);

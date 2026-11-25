@@ -4,6 +4,7 @@
   const en = {
     "Дата": "Date",
     "Соперник": "Opponent",
+    "Сумма Праймари": "Total Primary",
     "Разница VP": "VP difference",
     "Изменение рейтинга": "Rating change",
     "Сортировать: {column}": "Sort by {column}",

@@ -1,5 +1,5 @@
 {
-  "version": "shared-b8e41a3c4c5e",
+  "version": "shared-4cedd1a0ea19",
   "assets": [
     "theme-boot.js",
     "companion-tokens.css",
@@ -19,6 +19,8 @@
     "styles.css",
     "dice/dice.css",
     "miniapp/app.css",
+    "team-picker.js",
+    "team-picker.css",
     "account-email.css",
     "faq/faq.css",
     "studio/style.css",

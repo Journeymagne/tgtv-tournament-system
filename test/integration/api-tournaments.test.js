@@ -2335,7 +2335,7 @@ test("captains enter external dice, undo every pairing step, and confirm each ot
         completed: confirmedGames, total: 3, gpA: confirmedGames * 20, gpB: 0,
         winsA: confirmedGames, winsB: 0, tpA: confirmedGames * 3, tpB: 0,
         details: Array.from({ length: confirmedGames }, (_, index) => ({
-          slot: index + 1, a: 20, b: 0, tacA: 6, tacB: 1, vpA: 21, vpB: 4, winnerSide: "a"
+          slot: index + 1, a: 20, b: 0, primaryA: 3, primaryB: 1, tacA: 6, tacB: 1, vpA: 21, vpB: 4, winnerSide: "a"
         }))
       };
       assert.deepEqual((await read()).progress, expectedProgress);

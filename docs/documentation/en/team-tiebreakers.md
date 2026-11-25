@@ -1,5 +1,7 @@
 Team 3×3 has no individual game tiebreakers. Equal final VP is a draw. GP determines the team match outcome but is not a standings tiebreaker.
 
+In formats with configurable tiebreakers, organizers can select Total Primary. It adds the Primary Op bonuses of all team members in games counted in the team standings. When earlier criteria are tied, the higher total ranks first.
+
 ## WTC Doubles · 2×2
 
 Each personal game provides 20 GP using the formula below; two games provide 40 GP. A team with 0–17 GP earns 0 TP, 18–22 GP earns 1 TP, and 23–40 GP earns 2 TP. Existing Doubles' total-VP bonus and personal 2/1/0 TP do not apply.

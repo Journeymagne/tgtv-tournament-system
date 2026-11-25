@@ -301,6 +301,8 @@ const TGTV_I18N_EN = {
   "tiebreaker.headToHead.label": "Head-to-head",
   "tiebreaker.headToHead.description":
     "Number of wins against the other participants in the tied group at this priority. More wins rank higher.",
+  "tiebreaker.totalPrimary.label": "Total Primary",
+  "tiebreaker.totalPrimary.description": "Sum of Primary Op bonuses across completed games. Higher totals rank first.",
   "tiebreaker.totalVp.label": "Total VP",
   "tiebreaker.totalVp.description":
     "Total Victory Points scored by the player across all completed tournament matches.",

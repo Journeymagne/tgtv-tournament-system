@@ -17,9 +17,9 @@ The match winner controls bracket progression. The app's current standings table
 
 ## How priority works
 
-Match points come first: win 3, draw 1, loss 0. Only the tiebreakers enabled by the organizer are applied, in the configured order. Each next criterion compares only players still tied after earlier criteria. Higher is better for all five criteria.
+Match points come first: win 3, draw 1, loss 0. Only the tiebreakers enabled by the organizer are applied, in the configured order. Each next criterion compares only players still tied after earlier criteria. Higher is better for all criteria.
 
-The organizer selects up to four different criteria from five. There is no mandatory universal order. Disabled criteria do not affect places. If all enabled values are equal, the list uses initial seed, then ID; those players can share a displayed rank before final results are published.
+The organizer selects up to four different criteria from six. There is no mandatory universal order. Disabled criteria do not affect places. If all enabled values are equal, the list uses initial seed, then ID; those players can share a displayed rank before final results are published.
 
 ## Strength of Schedule (SoS)
 
@@ -44,6 +44,10 @@ Example: A, B and C remain tied. A beat B and C: 2 wins. B beat C: 1 win. C: 0. 
 The sum of a player's final VP in completed matches. Final VP includes Primary bonus: Crit Op + Kill Op + Tac Op + half the selected Primary Op score, rounded up.
 
 Example: final scores of 14, 18 and 12 give Total VP = 44. These are not match points awarded for wins.
+
+## Total Primary
+
+Sum of Primary Op bonuses across completed games. Higher totals rank first. Primary Op scores of 5 and 2 in two games earn bonuses of 3 and 1, giving a Total Primary of 4.
 
 ## VP Diff
 

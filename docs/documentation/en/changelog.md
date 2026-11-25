@@ -2,6 +2,13 @@
 
 KT Companion release history, newest first.
 
+## 1.8.5 — 25 November 2026
+
+- Tournaments with configurable standings tiebreakers now offer Total Primary. It adds the Primary bonuses earned by a player or team. A higher total breaks a tie after earlier criteria.
+- Type part of a team name to see matching options in alphabetical order. When reporting a tournament result, choose from the player's registered teams.
+- Table layout generation now suggests unused layouts from the same Killzone set first, including edits on other tables that have yet to be saved. Organizers can still select repeated layouts manually.
+- Telegram now asks for Crit Op, Tac Op and Kill Op scores in that order, followed by the Primary Op selection.
+
 ## 1.8.4 — 20 November 2026
 
 - Save weapon profiles to your account and use them on other devices. You can delete a saved profile or import profiles previously saved in this browser.

@@ -11,7 +11,7 @@ const assets = [
   'companion-notifications.css', 'companion/css/common.css', 'companion/css/base.css',
   'companion/css/components.css', 'companion/css/nav.css', 'training/journey-shared.css',
   'exodite-runner.css', 'styles.css', 'dice/dice.css', 'miniapp/app.css',
-  'account-email.css', 'faq/faq.css', 'studio/style.css', 'account/account.js',
+  'team-picker.js', 'team-picker.css', 'account-email.css', 'faq/faq.css', 'studio/style.css', 'account/account.js',
   'studio/login.js', 'studio/account.js', 'i18n/ru.js', 'i18n/en.js',
   'documentation.js', 'documentation.css', 'tournament-results.js', 'tournament-results.css', 'table-layout.js'
 ];

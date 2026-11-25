@@ -452,6 +452,19 @@ test("standings use Total VP and VP Diff only when they are enabled in tiebreake
   assert.equal(withTiebreakers[0].vpDiff, 2);
 });
 
+test("Total Primary sums bonuses per completed game and only breaks ties when selected", () => {
+  const players = [participant(1, 1), participant(2, 2)];
+  const rounds = [[1, 3], [2, 1]].map(([a, b], index) => ({
+    ...completedSwissMatch(index + 1, 1, 2, null),
+    result: { scores: { 1: { total: 10, primaryBonus: a }, 2: { total: 10, primaryBonus: b } } }
+  }));
+  const matches = [...rounds, { ...rounds[1], status: "pending_confirmation" }];
+  const summarize = order => buildStandings(players, matches, order)
+    .map(row => [row.participant.id, row.rank, row.totalPrimary]);
+  assert.deepEqual(summarize(["total_vp"]), [[1, 1, 3], [2, 1, 4]]);
+  assert.deepEqual(summarize(["total_vp", "total_primary"]), [[2, 1, 4], [1, 2, 3]]);
+});
+
 test("head-to-head ranks a tied group by wins against participants in that group", () => {
   const participants = [
     participant(1, 3),

@@ -2,7 +2,7 @@ const { matchWinnerParticipantId, participantScore } = require("./results");
 
 function scoreFor(match, participant, participantsById) {
   if (match.isBye && match.winnerParticipantId === participant.id) {
-    return { points: 3, win: 1, draw: 0, loss: 0, totalVp: 0, vpDiff: 0, opponentId: null };
+    return { points: 3, win: 1, draw: 0, loss: 0, totalVp: 0, totalPrimary: 0, vpDiff: 0, opponentId: null };
   }
   if (match.status !== "completed" || !match.result) return null;
   if (![match.participantAId, match.participantBId].includes(participant.id)) return null;
@@ -15,16 +15,15 @@ function scoreFor(match, participant, participantsById) {
   const oppTotal = Number(oppScore.total || 0);
 
   const winnerParticipantId = matchWinnerParticipantId(match);
-  if (winnerParticipantId === null) {
-    return { points: 1, win: 0, draw: 1, loss: 0, totalVp: ownTotal, vpDiff: ownTotal - oppTotal, opponentId };
-  }
-  const winnerIsParticipant = winnerParticipantId === participant.id;
+  const draw = winnerParticipantId === null;
+  const win = winnerParticipantId === participant.id;
   return {
-    points: winnerIsParticipant ? 3 : 0,
-    win: winnerIsParticipant ? 1 : 0,
-    draw: 0,
-    loss: winnerIsParticipant ? 0 : 1,
+    points: win ? 3 : draw ? 1 : 0,
+    win: Number(win),
+    draw: Number(draw),
+    loss: Number(!win && !draw),
     totalVp: ownTotal,
+    totalPrimary: Number(ownScore.primaryBonus ?? 0),
     vpDiff: ownTotal - oppTotal,
     opponentId
   };
@@ -51,6 +50,7 @@ function assignHeadToHeadWins(rows, matches) {
 }
 
 function rankValue(row, key) {
+  if (key === "total_primary") return row.totalPrimary;
   if (key === "total_vp") return row.totalVp;
   if (key === "vp_diff") return row.vpDiff;
   if (key === "strength_of_schedule") return row.strengthOfSchedule;
@@ -107,6 +107,7 @@ function buildStandings(participants, matches, tiebreakerOrder = []) {
       matchPoints: 0,
       byes: 0,
       totalVp: 0,
+      totalPrimary: 0,
       vpDiff: 0,
       headToHeadWins: 0,
       opponents: []
@@ -119,6 +120,7 @@ function buildStandings(participants, matches, tiebreakerOrder = []) {
       row.losses += score.loss;
       row.matchPoints += score.points;
       row.totalVp += score.totalVp;
+      row.totalPrimary += score.totalPrimary;
       row.vpDiff += score.vpDiff;
       if (match.isBye) row.byes += 1;
       if (score.opponentId) row.opponents.push(score.opponentId);

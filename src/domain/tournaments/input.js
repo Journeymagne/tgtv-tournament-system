@@ -107,8 +107,8 @@ function normalizeTeamTiebreakerOrder(order, pairingType) {
   const allowed = doubles ? DOUBLES_STANDINGS_TIEBREAKERS : TEAM_STANDINGS_TIEBREAKERS;
   if (order !== null && (!Array.isArray(order) || new Set(order).size !== order.length ||
       order.some(key => !allowed.includes(key)))) {
-    throw new ValidationError(doubles ? "Choose unique Doubles tiebreakers: SOS, total VP"
-      : "Choose unique team tiebreakers: individual wins, VP difference, total VP");
+    throw new ValidationError(doubles ? "Choose unique Doubles tiebreakers: SOS, total VP, total Primary"
+      : "Choose unique team tiebreakers: individual wins, VP difference, total VP, total Primary");
   }
   return order;
 }

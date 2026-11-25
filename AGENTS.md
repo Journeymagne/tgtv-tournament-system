@@ -61,3 +61,30 @@ preview workflow.
   release backups are copied. Preserve current backups on errors.
 - If this PC is unavailable, report the local copy as pending and perform it
   explicitly when available; do not restore automatic polling as a workaround.
+
+# Shared services and clients
+
+- For mobile work, identify the affected client. This repository owns the mobile
+  website, Telegram Mini App (`/miniapp`), bot and shared backend API. Native
+  Android/iOS screens live in the `kt-companion-mobile` repository linked in
+  [README.md](README.md). For a shared API change, check the contract used by
+  the affected clients.
+- For changes to match results or permissions, follow the affected player's or
+  organizer's action through the client to the tournament backend. Reuse the
+  existing scoring and authorization logic. For a preview, check the affected
+  role and entry point; an admin session alone cannot verify a player's access.
+  See [Telegram Mini App](docs/telegram-miniapp.md).
+- For changes that cross service boundaries, consult the ownership table and
+  database contracts in [service separation](docs/service-separation.md).
+  Check that each affected service can perform the operation with its own
+  database role in the split deployment.
+- When changing shared UI assets or generated sign-in fields, edit their source
+  and run `npm run assets:sync` to refresh the generated files and cache keys.
+  [The sync script](scripts/sync-shared-assets.js) lists its inputs.
+
+# Kill Team rules in training content
+
+- For a Know Thy Kill Team question or answer correction, check the course
+  scope and source records in the [question bank guide](src/training-data/README.md).
+  Record the rules publication and section supporting the answer. Follow the
+  guide's versioning process so past answers retain the wording the player saw.

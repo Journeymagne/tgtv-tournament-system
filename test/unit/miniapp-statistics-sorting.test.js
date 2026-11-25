@@ -15,7 +15,7 @@ function appFunction(name, context) {
 }
 
 test('every Mini App standings column sorts numerically or by name without changing official ranks', () => {
-  assert.deepEqual(Object.keys(sorting.columns.standings), ['rank', 'name', 'points', 'totalVp', 'strengthOfSchedule']);
+  assert.deepEqual(Object.keys(sorting.columns.standings), ['rank', 'name', 'points', 'totalVp', 'strengthOfSchedule', 'totalPrimary']);
   assert.deepEqual(Object.keys(sorting.columns), ['standings']);
   for (const [surface, fields] of Object.entries(sorting.columns)) {
     if (surface !== 'standings') continue;
@@ -35,7 +35,12 @@ test('table headers expose every column, current direction and keyboard buttons'
   const context = { state: { detail: { tournament: { participantMode: 'team' } } },
     sortView: () => ({ key: 'points', direction: 'desc' }), esc: String, tr: key => key };
   context.sortHeading = appFunction('sortHeading', context);
-  const html = appFunction('standingsHead', context)();
+  context.standingsMetrics = appFunction('standingsMetrics', context);
+  const render = appFunction('standingsHead', context);
+  assert.ok(!render().includes('data-sort-key="totalPrimary"'));
+  context.state.detail.tournament.teamTiebreakerOrder = ['total_primary'];
+  const html = render();
+  assert.ok(html.includes('data-sort-key="totalPrimary"'));
   for (const key of ['rank', 'name', 'points', 'totalVp', 'strengthOfSchedule']) assert.ok(html.includes('data-sort-key="' + key + '"'));
   assert.ok(html.includes('aria-sort="descending"'));
   assert.ok(html.includes('type="button"'));
@@ -61,7 +66,7 @@ test('missing scores stay last in both directions, ties are stable, and resettin
 
 test('standings render preserves published place and sorts filtered rows using raw scores', () => {
   const rows = [{ rank: 1, name: 'A', points: 2 }, { rank: 7, name: 'B', points: 12 }, { rank: 9, name: 'C', points: null }];
-  const tableBody = appFunction('tableBody', { standingsRows: () => rows, state: { query: '', onlyMine: false }, locale: 'en',
+  const tableBody = appFunction('tableBody', { standingsMetrics: () => [], standingsRows: () => rows, state: { query: '', onlyMine: false }, locale: 'en',
     sortView: () => ({ key: 'points', direction: 'desc' }), ordering: sorting, esc: value => String(value ?? ''), tr: x => x });
   const html = tableBody();
   assert.ok(html.indexOf('>7</span>') < html.indexOf('>1</span>'));

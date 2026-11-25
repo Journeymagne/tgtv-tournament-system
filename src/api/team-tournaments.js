@@ -1804,6 +1804,7 @@ async function publishFinalStandings(client, tournament, user) {
     losses: row.losses,
     individualWins: row.individualWins,
     totalVp: row.totalVp,
+    totalPrimary: row.totalPrimary,
     vpDiff: row.vpDiff,
     tacOpPoints: row.tacOpPoints,
     strengthOfSchedule: row.strengthOfSchedule

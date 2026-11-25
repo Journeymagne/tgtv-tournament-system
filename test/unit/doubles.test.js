@@ -60,6 +60,20 @@ test("Doubles can prioritize total VP ahead of SOS when TP are equal", () => {
   assert.deepEqual(rows(["total_vp", "strength_of_schedule"]).map(row => [row.roster.id, row.teamTournamentPoints]), [[2, 5], [1, 5]]);
 });
 
+test("Doubles uses the team Primary sum only for a custom order", () => {
+  const rosters = [{ id: 1, seed: 1 }, { id: 2, seed: 2 }];
+  const games = [game(1, 12, 12), game(2, 10, 10)];
+  games[0].game.result.scores[10].primaryBonus = 1;
+  games[0].game.result.scores[20].primaryBonus = 3;
+  games[1].game.result.scores[10].primaryBonus = 1;
+  const finished = match(1, 2, games);
+  const unfinished = match(1, 2, games, "in_progress");
+  const rows = order => teamStandings(rosters, [finished, unfinished], order, tournament)
+    .map(row => [row.roster.id, row.totalPrimary]);
+  assert.deepEqual(rows(null), [[1, 2], [2, 3]]);
+  assert.deepEqual(rows(["total_primary"]), [[2, 3], [1, 2]]);
+});
+
 test("Doubles constraints keep two slots, four missions, IRL and manual pairings", () => {
   const created = normalizeNewTournament({participantMode:"team",format:"swiss",pairingType:"doubles"},1,"doubles");
   assert.equal(created.teamSize,2);
@@ -69,7 +83,7 @@ test("Doubles constraints keep two slots, four missions, IRL and manual pairings
   assert.throws(()=>normalizeTournamentPatch({venueMode:"tts"},created));
   assert.throws(()=>normalizeTournamentPatch({captainPairingEnabled:true},created));
   assert.throws(()=>normalizeTournamentPatch({teamSize:3},created));
-  const order = ["total_vp", "strength_of_schedule"];
+  const order = ["total_vp", "strength_of_schedule", "total_primary"];
   assert.deepEqual(normalizeTournamentPatch({ teamTiebreakerOrder: order }, created).teamTiebreakerOrder, order);
   const configured = { ...created, teamTiebreakerOrder: order };
   assert.ok(!Object.hasOwn(normalizeTournamentPatch({ description: "Updated rules" }, configured), "teamTiebreakerOrder"));

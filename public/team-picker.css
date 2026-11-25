@@ -1,0 +1,18 @@
+team-picker { display: block; position: relative; min-width: 0; }
+team-picker > input { box-sizing: border-box; width: 100%; padding-inline-end: 2rem; }
+team-picker:has(> input)::after {
+  content: ""; position: absolute; inset-inline-end: 0.85rem; top: calc(50% - 0.22rem);
+  width: 0.45rem; height: 0.45rem; border: solid currentColor; border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg); pointer-events: none;
+}
+team-picker > [hidden] { display: none !important; }
+.team-picker-list {
+  position: absolute; z-index: 40; inset-inline: 0; top: 100%;
+  max-height: min(16rem, 35vh); overflow-y: auto; overscroll-behavior: contain;
+  background: var(--panel, Canvas); color: var(--ink, CanvasText);
+  border: 1px solid var(--line, GrayText); border-radius: 0.4rem;
+  padding: 0.25rem; text-align: start; font: inherit;
+}
+.team-picker-list [role="option"] { padding: 0.5rem; cursor: pointer; }
+.team-picker-list [role="option"]:hover,
+.team-picker-list [aria-selected="true"] { background: Highlight; color: HighlightText; }

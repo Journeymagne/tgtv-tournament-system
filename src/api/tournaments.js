@@ -330,6 +330,7 @@ function finalResultFromStanding(row, rank) {
     losses: row.losses,
     byes: row.byes,
     totalVp: row.totalVp,
+    totalPrimary: row.totalPrimary,
     vpDiff: row.vpDiff,
     strengthOfSchedule: row.strengthOfSchedule,
     buchholz: row.buchholz,

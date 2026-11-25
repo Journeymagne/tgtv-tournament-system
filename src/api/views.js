@@ -368,6 +368,7 @@ function tournamentDetailView({
       buchholz: row.buchholz,
       headToHeadWins: row.headToHeadWins,
       totalVp: row.totalVp,
+      totalPrimary: row.totalPrimary,
       vpDiff: row.vpDiff
     })),
     finalResults: tournament.finalResults || null,

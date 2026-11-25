@@ -3,7 +3,7 @@ const { ValidationError } = require("../http/io");
 const { CRIT_OPS, KILLZONES } = require("./kill-teams");
 const { pairScoreBrackets, pairByTP } = require("./tournaments/swiss");
 const { shuffledIds } = require("./tournaments/seeding");
-const { DOUBLES_STANDINGS_TIEBREAKERS } = require("./tournaments/constants");
+const { DEFAULT_DOUBLES_TIEBREAKERS } = require("./tournaments/constants");
 const { wtcDoublesNextAction } = require('./wtc-doubles');
 
 function teamSizeFor(value) {
@@ -143,6 +143,7 @@ function teamMatchProgress(match) {
       return {
         slot: link.slot, ...(usesIndividualTeamPoints(match) ? {} : gamePointsForTotals(vpA, vpB)), vpA, vpB,
         winnerSide: vpA === vpB ? null : vpA > vpB ? "a" : "b",
+        primaryA: Number(scoreA.primaryBonus ?? 0), primaryB: Number(scoreB.primaryBonus ?? 0),
         tacA: Number(scoreA.tac || 0), tacB: Number(scoreB.tac || 0)
       };
     })
@@ -174,6 +175,7 @@ function teamStandings(rosters, matches, order = null, tournament = {}) {
     teamGamePoints: 0,
     individualWins: 0,
     totalVp: 0,
+    totalPrimary: 0,
     vpDiff: 0,
     tacOpPoints: 0,
     strengthOfSchedule: 0,
@@ -199,6 +201,7 @@ function teamStandings(rosters, matches, order = null, tournament = {}) {
       row.teamGamePoints += Number(gamePoints || 0);
       row.individualWins += details.filter((item) => item.winnerSide === side).length;
       row.totalVp += details.reduce((sum, item) => sum + Number(side === "a" ? item.vpA || 0 : item.vpB || 0), 0);
+      row.totalPrimary += details.reduce((sum, item) => sum + Number((side === "a" ? item.primaryA : item.primaryB) ?? 0), 0);
       row.vpDiff += details.reduce((sum, item) => sum + (side === "a" ? Number(item.vpA || 0) - Number(item.vpB || 0) : Number(item.vpB || 0) - Number(item.vpA || 0)), 0);
       row.tacOpPoints += details.reduce((sum, item) => sum + Number(side === "a" ? item.tacA : item.tacB), 0);
       if (classic) row.teamTournamentPoints += score;
@@ -216,8 +219,8 @@ function teamStandings(rosters, matches, order = null, tournament = {}) {
     for (const row of rows) row.strengthOfSchedule = row.opponents.reduce((sum, id) => sum + (byId.get(id)?.teamTournamentPoints || 0), 0) /
       (wtcDoubles ? Math.max(1,row.opponents.length) : 1);
   }
-  const fields = { individual_wins: "individualWins", vp_diff: "vpDiff", total_vp: "totalVp", strength_of_schedule: "strengthOfSchedule", tac_op: 'tacOpPoints' };
-  const tiebreakers = wtcDoubles ? ['individual_wins','strength_of_schedule','total_vp','tac_op'] : order ?? (doubles ? DOUBLES_STANDINGS_TIEBREAKERS : null);
+  const fields = { individual_wins: "individualWins", vp_diff: "vpDiff", total_vp: "totalVp", total_primary: "totalPrimary", strength_of_schedule: "strengthOfSchedule", tac_op: 'tacOpPoints' };
+  const tiebreakers = wtcDoubles ? ['individual_wins','strength_of_schedule','total_vp','tac_op'] : order ?? (doubles ? DEFAULT_DOUBLES_TIEBREAKERS : null);
   rows.sort((left, right) =>
     right.teamTournamentPoints - left.teamTournamentPoints ||
     (tiebreakers === null ? right.individualWins - left.individualWins || right.totalVp - left.totalVp || right.tacOpPoints - left.tacOpPoints

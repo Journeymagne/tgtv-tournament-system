@@ -1206,7 +1206,7 @@ async function openAdminTeamRosterCreator(data, reserve = null) {
   dialog.innerHTML = `<form class="tiebreaker-help-content" data-admin-team-roster-creator>
     <div class="tiebreaker-help-header"><div><h3>${t("teams.tournament.addTitle")}</h3></div><button class="dialog-close-button" type="button" data-team-roster-creator-close aria-label="${t("common.close")}">&times;</button></div>
     <div class="grid-2">
-      <div class="field"><label>${t("teams.tournament.team")}</label><select name="teamId" required>${teams.map((team) => `<option value="${team.id}">${escapeHtml(team.name)}</option>`).join("")}</select></div>
+      <div class="field"><label>${t("teams.tournament.team")}</label><team-picker><select name="teamId" required>${teams.map((team) => `<option value="${team.id}">${escapeHtml(team.name)}</option>`).join("")}</select></team-picker></div>
       <div class="field"><label>${t("teams.tournament.rosterName")}</label><input name="name" minlength="2" maxlength="80" data-default-name="${escapeHtml(suggestedRosterName(teams[0], data.rosters))}" value="${escapeHtml(suggestedRosterName(teams[0], data.rosters))}"></div>
     </div>
     <div data-admin-team-roster-creator-members><div class="empty">${t("teams.loading")}</div></div>
@@ -1722,12 +1722,29 @@ function wireAdminSoloTableRow(row) {
   });
   onLive(deployment, "change", () => syncAdminSoloTableRow(row));
   onLive(row.querySelector("[data-admin-table-generate]"), "click", () => {
-    const choices = TGTVMapCatalog.mapsFor(killzone.value).filter(map => String(map.slot) !== deployment.value);
+    const otherTables = state.adminTournamentDetail.tables
+      .filter(table => table.id !== Number(row.dataset.adminSoloTable))
+      .map(table => adminSoloTableDrafts.get(table.id) || table);
+    const choices = suggestedTableLayouts(killzone.value, deployment.value, otherTables);
     if (!choices.length) return;
     deployment.value = String(choices[Math.floor(Math.random() * choices.length)].slot);
     deployment.dispatchEvent(new Event("change", { bubbles: true }));
   });
   syncAdminSoloTableRow(row);
+}
+
+function suggestedTableLayouts(killzone, currentSlot, otherTables) {
+  const choices = TGTVMapCatalog.mapsFor(killzone).filter(map => map.slot !== Number(currentSlot));
+  if (!choices.length) return [];
+  const usage = new Map(choices.map(map => [map.slot, 0]));
+  for (const table of otherTables) {
+    const map = TGTVMapCatalog.find(table);
+    if (map?.set === choices[0].set && usage.has(map.slot)) {
+      usage.set(map.slot, usage.get(map.slot) + 1);
+    }
+  }
+  const leastUsed = Math.min(...usage.values());
+  return choices.filter(map => usage.get(map.slot) === leastUsed);
 }
 
 function syncAdminSoloTableRow(row) {
@@ -2154,7 +2171,7 @@ function adminTournamentBodyFromForm(form, options = {}) {
   }
   if (participantMode === 'team' && form.elements.customTeamTiebreakers && !form.elements.customTeamTiebreakers.disabled) {
     body.teamTiebreakerOrder = form.elements.customTeamTiebreakers.checked
-      ? [0,1,2].map(index => form.elements[`teamTiebreaker-${index}`]?.value).filter(Boolean) : null;
+      ? Array.from(form.querySelectorAll('select[name^="teamTiebreaker-"]'), select => select.value).filter(Boolean) : null;
   }
   return body;
 }
@@ -2490,11 +2507,12 @@ async function saveAdminTournamentParticipantFaction(participantId) {
   const tournament = detail?.tournament;
   if (!tournament) return;
   const input = document.querySelector(`[name="participant-faction-${participantId}"]`);
-  if (input && !input.reportValidity()) return;
+  const fields = input.closest(".participant-faction-control");
+  if ([...fields.querySelectorAll("input")].some(field => !field.reportValidity())) return;
   try {
     await api(`/api/admin/tournaments/${tournament.id}/participants/${participantId}`, {
       method: "PATCH",
-      body: { factions: factionsFromForm(input.closest(".participant-faction-control"), `participant-faction-${participantId}`) }
+      body: { factions: factionsFromForm(fields, `participant-faction-${participantId}`) }
     });
     await refreshTournamentParticipantView(tournament);
   } catch (err) {

@@ -14,6 +14,7 @@ import useCalculationWorker from 'src/lab/useCalculationWorker';
 import {EmptyResult,ModeSwitch,PageHeading,ResultNotice,ResultsHeader,RunPanel,ScenarioActions} from 'src/lab/LabUi';
 const catalog=rawCatalog as Catalog;
 const usableTeams=catalog.teams.filter(t=>t.operatives.length>0);
+const sortedTeamChoices = [...usableTeams].sort((a, b) => a.name.localeCompare(b.name));
 const pct=(v:number)=>(v*100).toFixed(1)+'%';
 const interval=(p:number,n:number)=>{const z=1.96,d=1+z*z/n,c=(p+z*z/(2*n))/d,r=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/d;return `${(Math.max(0,c-r)*100).toFixed(2)}–${(Math.min(1,c+r)*100).toFixed(2)}%`;};
 const byTeam=(id:string)=>usableTeams.find(t=>t.id===id)||usableTeams[0];
@@ -63,6 +64,23 @@ function BonusEditor({bonus,teamId,onChange,onRemove}:{bonus:Bonus;teamId:string
  <p className="microcopy">Правило включается при добавлении. Если его условия не выполнены, снимите галочку. Проверьте выбранное оружие, дистанцию и ограничения из PDF.</p>
  </details></div>;
 }
+function SimulationTeamPicker({teamId, letter, onChange}: {teamId: string; letter: string; onChange: (id: string) => void}) {
+  const [query, setQuery] = React.useState<string | null>(null);
+  const name = byTeam(teamId).name;
+  const listId = 'simulation-teams-' + letter;
+  return <Field label="Команда">
+    <input aria-label={'Команда ' + letter} list={listId} autoComplete="off" value={query ?? name} placeholder={name}
+      onFocus={() => setQuery('')} onBlur={() => setQuery(null)}
+      onChange={event => {
+        const text = event.target.value;
+        setQuery(text);
+        const match = usableTeams.find(team => team.name.toLowerCase() === text.trim().toLowerCase());
+        if (match && match.id !== teamId) onChange(match.id);
+      }} />
+    <datalist id={listId}>{sortedTeamChoices.map(team => <option key={team.id} value={team.name} />)}</datalist>
+  </Field>;
+}
+
 function OperativeCard({side,letter,mode,onChange}:{side:Side;letter:'A'|'B';mode:Mode;onChange:(s:Side)=>void}){
  const team=byTeam(side.teamId);const op=team.operatives.find(o=>o.id===side.operativeId)||team.operatives[0];const ranged=op.weapons.filter(w=>w.kind==='ranged');const melee=op.weapons.filter(w=>w.kind==='melee');
  const [ruleId,setRuleId]=React.useState('');const [common,setCommon]=React.useState(commonBonuses[0].field);const [customName,setCustomName]=React.useState('');
@@ -79,7 +97,7 @@ function OperativeCard({side,letter,mode,onChange}:{side:Side;letter:'A'|'B';mod
  const addCommon=()=>add({id:uid(),name:quick.label,mode:quick.mode,enabled:true,text:quick.description(english),
    effects:[{field:quick.field,value:1,operation:quick.field==='normsToCrits'?'add':'set',target:quick.target}]});
  return <section className={'operative-card side-'+letter.toLowerCase()} aria-label={'Оперативник '+letter}><div className="operative-heading"><span className="side-letter">{letter}</span><div><small>ОПЕРАТИВНИК {letter}</small><h2>{op.name}</h2></div><a className="pdf-link" title="Карточка в официальном PDF" href={appPath(`/library/${team.id}.pdf#page=${op.sourcePage}`)} target="_blank" rel="noreferrer">PDF ↗</a></div>
- <div className="operative-body"><div className="sim-profile-selectors"><Field label="Команда"><select aria-label={'Команда '+letter} value={team.id} onChange={e=>{onChange(createSide(e.target.value));setRuleId('');}}>{usableTeams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
+ <div className="operative-body"><div className="sim-profile-selectors"><SimulationTeamPicker teamId={team.id} letter={letter} onChange={id=>{onChange(createSide(id));setRuleId('');}} />
  <Field label="Оперативник"><select aria-label={'Оперативник '+letter} value={op.id} onChange={e=>{onChange(createSide(team.id,e.target.value));setRuleId('');}}>{team.operatives.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></Field>
  </div><div className="sim-profile-columns"><div className="sim-profile-column"><h3>Характеристики</h3>
  <div className="operative-stats"><div><small>APL</small><strong>{op.apl}</strong></div><div><small>MOVE</small><strong>{op.move}</strong></div><div><small>SAVE</small><strong>{op.save}+</strong></div><div><small>WOUNDS</small><strong>{side.health}<em>/{op.wounds}</em></strong></div></div>

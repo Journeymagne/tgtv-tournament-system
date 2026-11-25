@@ -5,7 +5,7 @@
 })(typeof globalThis === 'object' ? globalThis : this, function () {
   'use strict';
   const columns = {
-    standings: { rank: 'number', name: 'text', points: 'number', totalVp: 'number', strengthOfSchedule: 'number' }
+    standings: { rank: 'number', name: 'text', points: 'number', totalVp: 'number', strengthOfSchedule: 'number', totalPrimary: 'number' }
   };
   function sortRows(rows, view, fields, locale) {
     if (!view.key || !Object.hasOwn(fields, view.key)) return rows.slice();

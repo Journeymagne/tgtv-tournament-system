@@ -6,6 +6,7 @@ const TIEBREAKERS = {
   strength_of_schedule: ["strengthOfSchedule", "Strength of Schedule"],
   buchholz: ["buchholz", "Бухгольц"],
   head_to_head: ["headToHeadWins", "Личная встреча"],
+  total_primary: ["totalPrimary", "Сумма Праймари"],
   total_vp: ["totalVp", "Всего VP"],
   vp_diff: ["vpDiff", "Разница VP"]
 };

@@ -49,7 +49,7 @@ async function move(view, event, user = alpha, ownLink = link) {
 }
 async function filled(user = alpha, ownLink = link) {
   let view = await start('submit', user, ownLink);
-  for (const value of [6, 4, 5, 'crit', 2, 3, 1, 'kill']) {
+  for (const value of [6, 5, 4, 'crit', 2, 1, 3, 'kill']) {
     assert.equal(view.screen, 'choice');
     const index = view.choices.findIndex(choice => choice.value === value);
     assert.ok(index >= 0, `offers ${value} for ${view.step?.field}`);
@@ -280,7 +280,7 @@ test('ordinary numeric taps have bounded narrow reads and never hydrate website 
   await tx(async client => {
     const tracked = { query: (...args) => { queries.push(String(args[0]?.text || args[0])); return client.query(...args); } };
     const next = await drafts.transitionDraft(tracked, { user: alpha, link, token: initial.token, version: initial.version, event: { type: 'choose', index: 6 } });
-    assert.equal(next.step.field, 'kill');
+    assert.equal(next.step.field, 'tac');
   });
   assert.ok(queries.length <= 7, `tap has at most seven SQL statements including savepoint: ${queries.length}`);
   assert.ok(!queries.some(sql => /avatar|logo_data|description|tournament_match_results|password_hash|sessions/i.test(sql)), 'tap reads no heavy game detail or credentials');
@@ -367,7 +367,7 @@ test('actual restricted tournaments role creates and submits drafts without pass
   await tx(async client => {
     await client.query('SET LOCAL ROLE kt_tournaments');
     let view = await drafts.startDraft(client, { user: alpha, link, gameId: game.id, mode: 'submit' });
-    for (const value of [6, 4, 5, 'crit', 2, 3, 1, 'kill']) {
+    for (const value of [6, 5, 4, 'crit', 2, 1, 3, 'kill']) {
       view = await drafts.transitionDraft(client, { user: alpha, link, token: view.token, version: view.version,
         event: { type: 'choose', index: view.choices.findIndex(choice => choice.value === value) } });
     }

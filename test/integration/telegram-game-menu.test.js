@@ -33,7 +33,7 @@ async function act(action, messageId) { const value = update(action, messageId);
 async function latest() { return (await pool.query('SELECT * FROM telegram_outbox WHERE link_id=$1 ORDER BY id DESC LIMIT 1', [link.id])).rows[0]; }
 const buttons = payload => payload.reply_markup.inline_keyboard.flat();
 async function current() { const token = (await pool.query('SELECT token FROM telegram_game_drafts WHERE link_id=$1', [link.id])).rows[0].token; return tx(client => drafts.readDraft(client, { user: alpha, link, token })); }
-async function fill(values = [6, 4, 5, 'crit', 2, 3, 1, 'kill']) {
+async function fill(values = [6, 5, 4, 'crit', 2, 1, 3, 'kill']) {
   await act(`g:s:${game.id}:submit`);
   for (const value of values) {
     const view = await current(); const index = view.choices.findIndex(choice => choice.value === value); assert.ok(index >= 0, `choice ${value} for ${view.step?.field}`);
@@ -95,7 +95,7 @@ test('Back Edit Extras and Cancel preserve choices and never reuse a version for
   ready(messages, 'renderDraft'); await act(`g:s:${game.id}:submit`);
   let view = await current(); await act(`g:d:${view.token}:0:choose:6`); view = await current();
   await act(`g:d:${view.token}:${view.version}:back`); const back = await current(); assert.equal(back.step.field, 'crit'); assert.equal(back.step.value, 6);
-  await act(`g:d:${view.token}:1:choose:0`); assert.equal((await current()).version, back.version, 'old Kill choice cannot overwrite Crit after Back');
+  await act(`g:d:${view.token}:1:choose:0`); assert.equal((await current()).version, back.version, 'old Tac choice cannot overwrite Crit after Back');
   view = await fill(); await act(`g:d:${view.token}:${view.version}:extras`); view = await current();
   const index = view.editableFields.findIndex(field => field.extra && field.field === 'faction'); assert.ok(index >= 0);
   await act(`g:d:${view.token}:${view.version}:edit:${index}`); view = await current(); assert.equal(view.step.field, 'faction');
@@ -345,7 +345,7 @@ test('restricted tournaments role runs the actual bot wizard and screen delivery
   await require('../../scripts/provision-service-roles').provision();
   const restricted = fn => tx(async client => { await client.query('SET LOCAL ROLE kt_tournaments'); return fn(client); });
   await restricted(client => bot.handleUpdate(client, update(`g:s:${game.id}:submit`)));
-  for(const value of [6, 4, 5, 'crit', 2, 3, 1, 'kill']) {
+  for(const value of [6, 5, 4, 'crit', 2, 1, 3, 'kill']) {
     const view = await current(); const index = view.choices.findIndex(choice => choice.value === value);
     await restricted(client => bot.handleUpdate(client, update(`g:d:${view.token}:${view.version}:choose:${index}`)));
   }

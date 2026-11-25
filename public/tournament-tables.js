@@ -85,7 +85,13 @@
         render();
         options.onChange?.();
       });
-      label.append(title, input);
+      if (name === "team") {
+        const picker = doc.createElement("team-picker");
+        picker.append(input);
+        label.append(title, picker);
+      } else {
+        label.append(title, input);
+      }
       controls.append(label);
       fields.set(name, input);
     }
@@ -105,7 +111,10 @@
     reset.textContent = t("tournaments.table.reset");
     reset.addEventListener("click", () => {
       Object.assign(view, defaults);
-      for (const [name, input] of fields) input.value = String(view[name]);
+      for (const [name, input] of fields) {
+        input.value = String(view[name]);
+        if (name === "team") input.closest("team-picker")?.sync?.();
+      }
       render();
       options.onChange?.();
     });
