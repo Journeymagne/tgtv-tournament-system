@@ -37,23 +37,73 @@ test("round setup reserves the hidden bye recipient in player choices", () => {
   }
 });
 
-test("registration closed offers preparation first and a separate start only after saving a round", () => {
-  const render = new Function("t", `${actionButtonsSource}; return adminTournamentActionButtons;`)((key) => key);
+test("the pairing summary reflects current selections and names the player with a bye", () => {
+  const summary = {};
+  const slots = ["8", "11"];
+  const row = { querySelector: selector => ({ value: slots[selector.includes("AId") ? 0 : 1] }) };
+  const form = { querySelectorAll: () => [row] };
+  const preview = { round: { matches: [{ isBye: true, participantAId: 12, participantA: { displayName: "Mira" } }] } };
+  const update = new Function("plural", "t", functionSource("updateRoundSetupSummary") + "; return updateRoundSetupSummary;")(
+    (key, n) => key.split(".").at(-1) + "=" + n, (_key, { name }) => "bye=" + name
+  );
+  update(summary, form, preview);
+  assert.equal(summary.textContent, "players=3 · pairs=1 · bye=Mira");
+  slots[1] = "";
+  update(summary, form, preview);
+  assert.equal(summary.textContent, "players=2 · pairs=0 · bye=Mira");
+  slots[1] = "22";
+  update(summary, form, { teamRound: true, round: { matches: [] } });
+  assert.equal(summary.textContent, "rosters=2 · pairs=1");
+});
+
+test("the organizer's next action follows the stage across tabs and in the empty match list", () => {
+  const render = new Function("t", "plural", "escapeHtml", "tournamentStatusLabel", "tournamentStatusClass",
+    `${functionSource("preparedFirstRound")}; ${functionSource("adminTournamentWorkflow")}; return adminTournamentWorkflow;`
+  )(key => key, (key, n) => `${key} ${n}`, String, String, String);
   for (const participantMode of ["individual", "team"]) {
-    const data = { tournament: { status: "registration_closed", participantMode }, rounds: [] };
-    const initial = render(data);
-    assert.match(initial, /admin.tournament.action.generateFirst/);
-    assert.doesNotMatch(initial, /data-admin-tournament-action="start"/);
-    assert.match(render(data, "preview"), /data-admin-tournament-action="generate-next-round"/);
-    assert.doesNotMatch(render(data, "matches"), /data-admin-tournament-action="generate-next-round"/);
+    const data = { tournament: { status: "draft", participantMode }, rounds: [] };
+    assert.match(render(data), /data-admin-tournament-action="publish-open"/);
+    data.tournament.status = "registration_open";
+    data.firstRoundEntryIssue = { reason: participantMode === "team" ? "missingRosters" : "missingPlayers", missing: 1 };
+    assert.match(render(data), /data-admin-tournament-action="close-registration"/);
+    data.tournament.status = "registration_closed";
+    for (const inMatchList of [false, true]) {
+      const blocked = render(data, inMatchList);
+      assert.match(blocked, /data-tournament-info-tab="participants"/);
+      assert.match(blocked, /admin.workflow.missing(Players|Rosters) 1/);
+      assert.doesNotMatch(blocked, /data-admin-tournament-action="generate-next-round"/);
+    }
+    data.firstRoundEntryIssue = null;
+    assert.match(render(data), /data-admin-tournament-action="generate-next-round"/);
+    assert.match(render(data, true), /data-admin-tournament-action="generate-next-round"/);
+    assert.doesNotMatch(render(data), /data-admin-tournament-action="start"/);
     data.rounds = [{ roundNumber: 1, status: "not_ready" }];
     const prepared = render(data);
     assert.match(prepared, /data-admin-tournament-action="generate-next-round">admin.tournament.action.editFirst/);
-    if (participantMode === "team") assert.match(prepared, /data-admin-tournament-action="rollback-latest-round"/);
     assert.match(prepared, /data-admin-tournament-action="start"/);
-    assert.match(render(data, "matches"), /data-admin-tournament-action="generate-next-round"/);
-    assert.doesNotMatch(render(data, "preview"), /data-admin-tournament-action="generate-next-round"/);
+    assert.match(prepared, /admin.workflow.pairsReady/);
+    data.tournament.status = "in_progress";
+    assert.equal(render(data), "");
   }
+});
+
+test("reopening registration confirms the saved first round and keeps it on cancel", async () => {
+  const detail = { tournament: { id: 17, status: "registration_closed" }, rounds: [{ id: 9, roundNumber: 1, status: "not_ready" }] };
+  const calls = [], confirmations = [];
+  let accepted = false;
+  const run = new Function("state", "api", "confirmAction", "t", "loadTournamentAdmin", "renderTournaments", "setMessage",
+    `${functionSource("preparedFirstRound")}; ${runActionSource}; return runAdminTournamentAction;`
+  )({ adminTournamentDetail: detail }, async (_, options) => calls.push(options.body),
+    async options => { confirmations.push(options); return accepted; }, key => key, async () => {}, () => {}, assert.fail);
+  await run("reopen-registration");
+  assert.equal(confirmations[0].cancelLabel, "admin.workflow.keepPairs");
+  assert.deepEqual(calls, []);
+  accepted = true;
+  await run("reopen-registration");
+  detail.rounds = [];
+  await run("reopen-registration");
+  assert.equal(confirmations.length, 2);
+  assert.deepEqual(calls, [{ expectedFirstRoundId: 9 }, { expectedFirstRoundId: null }]);
 });
 
 test("preparation only opens setup, while Start explicitly activates either tournament mode", async () => {

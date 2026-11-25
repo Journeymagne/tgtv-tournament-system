@@ -2118,10 +2118,11 @@ function renderPublicTournament(data, live = false) {
   const admin = Boolean(data.management && state.me && canManageTournamentUi(tournament));
   state.publicTournamentDetail = data;
   const container = publicTournamentContainer(data);
-  const editButton = state.tournamentInfoTab === "settings" ? "" : tournamentEditButton(tournament, true);
+  const workflow = admin ? adminUi().adminTournamentWorkflow(data) : "";
+  const editButton = state.tournamentInfoTab === "settings" ? "" : tournamentEditButton(tournament, !workflow);
   setLiveContent(container, `
     <div data-live-view="tournament" class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
-      ${tournamentInfoPanel(data, { publicRoute: true, admin, showBack: true,
+      ${tournamentInfoPanel(data, { publicRoute: true, admin, showBack: true, workflow,
         actions: leagueResultsActions(tournament.leagues) + (admin ? adminUi().adminTournamentMenu(data, editButton) : editButton),
         tabActions: admin ? (tab) => adminUi().adminTournamentActionButtons(data, tab) : null,
         extraActions: state.me ? publicTournamentViewerActions(data) : `
@@ -2612,7 +2613,10 @@ function tournamentFormatSummary(tournament) {
   ].join(" · ");
 }
 
-function tournamentMatchStatusLabel(status) {
+function tournamentMatchStatusLabel(status, tournament, roundNumber) {
+  if (status === "not_ready" && tournament?.status === "registration_closed" && roundNumber === 1) {
+    return t("admin.roundSetup.awaitingStart");
+  }
   const labels = {
     not_ready: "tournaments.status.notReady",
     active: "tournaments.status.active",
@@ -2764,10 +2768,10 @@ function tournamentCompactHeaderMarkup(data, options = {}) {
           <p class="profile-label">${escapeHtml(t("tournaments.factions.tag", { count: tournament.factionCount || 1 }))}</p>
           <h2>${escapeHtml(tournament.name || t("tournaments.fallbackName"))}</h2>
           ${tournament.provider ? eventProviderLink(tournament.provider) : ""}
-          <p class="tournament-compact-status">
+          ${options.workflow || `<p class="tournament-compact-status">
             <span class="status-dot ${tournamentStatusClass(tournament.status)}" aria-hidden="true"></span>
             ${escapeHtml(tournamentStatusLabel(tournament.status))}
-          </p>
+          </p>`}
         </div>
       </div>
       ${options.actions || ""}
@@ -2799,7 +2803,7 @@ function tournamentPreviewMarkup(data) {
     <section class="tournament-preview-round">
       <div class="public-round-title">
         <h3>${t("tournaments.preview.currentRound")}${round ? ` · ${t("tournaments.round.title", { number: round.roundNumber })}` : ""}</h3>
-        ${round ? `<span class="status ${round.status === "completed" ? "completed" : "pending"}">${escapeHtml(tournamentMatchStatusLabel(round.status))}</span>` : ""}
+        ${round ? `<span class="status ${round.status === "completed" ? "completed" : "pending"}">${escapeHtml(tournamentMatchStatusLabel(round.status, tournament, round.roundNumber))}</span>` : ""}
       </div>
       ${round ? `<p class="tournament-round-deadline"><strong>${t("tournaments.round.deadline")}:</strong> ${tournamentRoundDeadlineMarkup(round)}</p>
         ${tournamentRoundProgressMarkup(round, tournament)}
@@ -2853,7 +2857,7 @@ function tournamentInfoPanel(data, options = {}) {
       ${tournamentInfoTabs(activeTab, data, options)}
       ${!["preview", "settings", "results"].includes(activeTab) ? `<div class="panel-header tournament-tab-heading">
         <div>
-          <h3>${titleByTab[activeTab]}</h3>
+          <h3 tabindex="-1">${titleByTab[activeTab]}</h3>
           ${subtitleByTab[activeTab] ? `<p class="muted">${escapeHtml(subtitleByTab[activeTab])}</p>` : ""}
         </div>
       </div>` : ""}
@@ -2922,6 +2926,9 @@ function tournamentInfoTabContent(activeTab, data, options = {}) {
 }
 
 function tournamentMatchesContent(data, options = {}) {
+  if (options.admin && data.tournament?.status === "registration_closed" && !data.rounds?.length) {
+    return adminUi().adminTournamentWorkflow(data, true);
+  }
   if (data?.tournament?.participantMode === "team") {
     return teamTournamentRoundsMarkup(data, options);
   }
@@ -3011,8 +3018,9 @@ function publicRoundsMarkup(rounds, tournament = {}) {
     pairingWarnings: individualPairingWarnings(match, { tournament, rounds }) }, tournament), tournament.id, tournament);
 }
 
-function defaultTournamentRoundNumber(rounds = []) {
+function defaultTournamentRoundNumber(rounds = [], tournament = {}) {
   const ordered = [...rounds].sort((a, b) => Number(a.roundNumber) - Number(b.roundNumber));
+  if (tournament.status === "registration_closed") return ordered[0]?.roundNumber || 0;
   const active = ordered.filter((round) => round.status === "active");
   return Number((active.at(-1) || ordered.at(-1))?.roundNumber || 0);
 }
@@ -3072,7 +3080,7 @@ function tournamentMatchSearchText(match) {
 function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "", tournament = {}) {
   const ordered = [...rounds].sort((a, b) => Number(a.roundNumber) - Number(b.roundNumber));
   const saved = selectionKey ? tournamentRoundSelections.get(String(selectionKey)) : null;
-  const selectedRoundNumber = ordered.some((round) => Number(round.roundNumber) === saved) ? saved : defaultTournamentRoundNumber(ordered);
+  const selectedRoundNumber = ordered.some((round) => Number(round.roundNumber) === saved) ? saved : defaultTournamentRoundNumber(ordered, tournament);
   return `
     <div class="tournament-round-switcher" data-tournament-round-switcher data-round-selection-key="${escapeHtml(selectionKey)}">
       <div class="tabs tournament-round-tabs" role="tablist" aria-label="${t("tournaments.round.tabsAria")}">
@@ -3091,7 +3099,7 @@ function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "", to
         <section class="public-round" data-tournament-round-panel="${round.roundNumber}" ${Number(round.roundNumber) === selectedRoundNumber ? "" : "hidden"}>
           <div class="public-round-title">
             <strong>${t("tournaments.round.title", { number: round.roundNumber })}</strong>
-            <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(round.status))}</span>
+            <span class="status ${round.status === "active" ? "pending" : round.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(round.status, tournament, round.roundNumber))}</span>
           </div>
           <p class="tournament-round-deadline"><strong>${t("tournaments.round.deadline")}:</strong> ${tournamentRoundDeadlineMarkup(round)}</p>
           ${tournamentRoundProgressMarkup(round, tournament)}
@@ -3116,7 +3124,7 @@ function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "", to
 }
 
 function publicMatchMarkup(match, tournament = {}) {
-  const score = publicMatchScore(match);
+  const score = publicMatchScore(match, tournament);
   const meta = [score, matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
     <details class="row-card tournament-match-disclosure" data-match-disclosure="${match.id}" ${state.tournamentMatchViews?.[tournament.id]?.expanded?.[match.id] ? "open" : ""}>
@@ -3125,7 +3133,7 @@ function publicMatchMarkup(match, tournament = {}) {
           <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
           <div class="row-meta">${escapeHtml(score)}</div>
         </div>
-        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
+        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status, tournament, match.roundNumber))}</span>
       </summary>
       <div class="tournament-match-content">
         <div class="row-meta">${escapeHtml(meta)}</div>
@@ -3157,8 +3165,9 @@ function publicMatchActions(match, tournament = {}) {
   return "";
 }
 
-function publicMatchScore(match) {
+function publicMatchScore(match, tournament) {
   if (match.isBye) return t("tournaments.match.bye");
+  if (match.status === "not_ready" && tournament?.status === "registration_closed") return "";
   const result = match.result || match.pendingResult?.result;
   const a = match.participantA;
   const b = match.participantB;
@@ -4063,7 +4072,7 @@ function loadAdminUi() {
 // player who never loads it: panels render as nothing, actions do nothing.
 // A non-admin path that reaches one of these can therefore never throw.
 const ADMIN_UI_MARKUP = [
-  "adminTournamentActionButtons", "adminTournamentMenu", "adminActiveGamesPanel", "adminChallengeActions", "adminPendingGamesCard",
+  "adminTournamentActionButtons", "adminTournamentWorkflow", "adminTournamentMenu", "adminActiveGamesPanel", "adminChallengeActions", "adminPendingGamesCard",
   "adminPlayerToolsCard", "adminTeamPairingOverrideForm", "adminTeamsPanel",
   "adminTournamentAdminView", "adminTournamentParticipantsContent",
   "adminTournamentRoundsPanel", "adminTournamentSettingsContent", "adminTournamentTablesContent",
@@ -10587,7 +10596,20 @@ function wireTournamentInfoControls(data, options = {}) {
   wireTeamRosterDetailsControls(data, options);
   if (data?.tournament?.participantMode === "team") wireTeamTournamentControls(data, options);
   wireTeamTournamentStandingsTabs(data, options);
-  document.querySelectorAll("[data-tournament-info-tab]").forEach((button) => {
+  wireTournamentTabButtons(document, data, options);
+  if (document.querySelector("[data-admin-tournament-table-add]")) {
+    adminUi().wireTournamentTableAdminControls();
+  }
+  if (document.querySelector("[data-admin-tournament-add-participant]")) {
+    wireComboFields();
+    adminUi().wireTournamentParticipantAdminControls();
+  }
+  // Bind every row's profile links before restoring filters that hide some rows.
+  wireTournamentDataTables(data);
+}
+
+function wireTournamentTabButtons(root, data, options) {
+  root.querySelectorAll("[data-tournament-info-tab]").forEach((button) => {
     onLive(button, "click", async () => {
       const tab = button.dataset.tournamentInfoTab || "preview";
       state.tournamentInfoTab = tab;
@@ -10602,6 +10624,7 @@ function wireTournamentInfoControls(data, options = {}) {
         if (options.publicRoute && (navigationUrl() !== origin || !isCurrentPublicTournamentRoute(data?.tournament?.slug) || state.tournamentInfoTab !== tab)) return;
         if (options.publicRoute) renderPublicTournament(data);
         else renderTournaments();
+        if (button.dataset.focusEntries !== undefined) document.querySelector(".tournament-tab-heading h3")?.focus();
         rememberNavigationContext();
       } catch (err) {
         setMessage(err.message, true);
@@ -10609,15 +10632,6 @@ function wireTournamentInfoControls(data, options = {}) {
     });
   });
 
-  if (document.querySelector("[data-admin-tournament-table-add]")) {
-    adminUi().wireTournamentTableAdminControls();
-  }
-  if (document.querySelector("[data-admin-tournament-add-participant]")) {
-    wireComboFields();
-    adminUi().wireTournamentParticipantAdminControls();
-  }
-  // Bind every row's profile links before restoring filters that hide some rows.
-  wireTournamentDataTables(data);
 }
 
 function wireTeamTournamentStandingsTabs(data, options = {}) {
@@ -10785,34 +10799,37 @@ function renderRoundSetupModal(preview) {
   const tables = preview.tables || state.adminTournamentDetail?.tables || [];
   document.body.insertAdjacentHTML("beforeend", `
     <div class="modal-backdrop" data-round-setup-modal>
-      <section class="card panel round-setup-dialog" role="dialog" aria-modal="true">
+      <section class="card panel round-setup-dialog" role="dialog" aria-modal="true" aria-labelledby="round-setup-title">
         <div class="panel-header">
           <div>
-            <p class="profile-label">${escapeHtml(venueModeLabel(tournament.venueMode))}</p>
-            <h2>${t(preview.activePairings ? "admin.round.pairingsTitle" : preview.tableOnly ? "admin.round.tablesTitle" : preview.restoredDraft ? "admin.roundSetup.regenerateTitle" : "admin.roundSetup.title", { number: round.roundNumber || "" })}</h2>
+            <h2 id="round-setup-title">${t(preview.activePairings ? "admin.round.pairingsTitle" : preview.tableOnly ? "admin.round.tablesTitle" : preview.prepared ? "admin.roundSetup.firstPairingsTitle" : preview.restoredDraft ? "admin.roundSetup.regenerateTitle" : "admin.roundSetup.title", { number: round.roundNumber || "" })}</h2>
             <p class="muted">${t(preview.activePairings ? "admin.round.pairingsHint" : preview.tableOnly ? "admin.round.tablesHint" : preview.prepared ? "admin.roundSetup.prepareHint" : preview.restoredDraft ? "admin.roundSetup.restoredHint" : "admin.roundSetup.hint")}</p>
           </div>
           <button class="ghost-button" type="button" data-round-setup-close>${t("common.cancel")}</button>
         </div>
         <form class="round-setup-form" data-round-setup-form>
-          ${!preview.tableOnly ? `<div class="row-actions"><button class="small-button" type="button" data-round-setup-shuffle>${t("admin.roundSetup.shuffle")}</button></div>` : ""}
-          ${tournament.venueMode === "tts" && !preview.activePairings && !preview.tableOnly ? `<div class="field round-deadline-field">
-            <label for="round-ends-at">${t("admin.roundSetup.deadline")}</label>
-            <input id="round-ends-at" name="roundEndsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(round.endsAt || round.metadata?.endsAt))}" aria-describedby="round-deadline-hint">
-            <span class="field-help" id="round-deadline-hint">${escapeHtml(t("admin.roundSetup.deadlineHint", { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }))}</span>
+          ${!preview.tableOnly ? `<div class="round-setup-tools">
+            ${preview.prepared ? '<strong data-round-setup-summary aria-live="polite"></strong>' : ""}
+            <button class="small-button" type="button" data-round-setup-shuffle>${t("admin.roundSetup.shuffle")}</button>
           </div>` : ""}
-          ${preview.activePairings ? `<div class="field-help" data-round-setup-unassigned></div>${preview.lockedMatches.length ? `<section class="admin-subpanel"><h3>${t("admin.round.lockedPairings")}</h3><div class="list">${preview.lockedMatches.map(match => `<div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(match.participantA?.displayName || "—")} vs ${match.isBye ? t("tournaments.match.byeUpper") : escapeHtml(match.participantB?.displayName || "—")}</div><div class="row-meta">${escapeHtml(tournamentMatchStatusLabel(match.status))}</div></div></div>`).join("")}</div></section>` : ""}` : preview.tableOnly ? teamTableSetupFields(tables, tournament.venueMode, preview.lines === false && tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic") : preview.teamRound ? teamRoundMissionFields(tables, round, preview.reuseLines) : roundMissionFields(tournament, round)}
+          ${preview.activePairings ? `<div class="field-help" data-round-setup-unassigned></div>${preview.lockedMatches.length ? `<section class="admin-subpanel"><h3>${t("admin.round.lockedPairings")}</h3><div class="list">${preview.lockedMatches.map(match => `<div class="row-card compact-row-card"><div class="row-main"><div class="row-title">${escapeHtml(match.participantA?.displayName || "—")} vs ${match.isBye ? t("tournaments.match.byeUpper") : escapeHtml(match.participantB?.displayName || "—")}</div><div class="row-meta">${escapeHtml(tournamentMatchStatusLabel(match.status))}</div></div></div>`).join("")}</div></section>` : ""}` : ""}
           <div class="round-setup-list" data-round-setup-list>
             ${(preview.tableOnly ? [] : round.matches || []).map((match, index) =>
               match.isBye ? `<input type="hidden" data-round-bye-index="${index}" value="${match.participantAId || ""}">`
               : preview.teamRound ? teamRoundSetupMatchRow(match, tables) : roundSetupMatchRow(match, tournament, tables, preview.participants, tournament.format === "swiss" && !preview.activePairings)
             ).join("")}
           </div>
+          ${tournament.format === "swiss" && !preview.teamRound && !preview.tableOnly ? `<div><button class="small-button" type="button" data-round-setup-add-empty>${t("admin.roundSetup.addEmpty")}</button></div>` : ""}
+          ${tournament.venueMode === "tts" && !preview.activePairings && !preview.tableOnly ? `<div class="field round-deadline-field">
+            <label for="round-ends-at">${t("admin.roundSetup.deadline")}</label>
+            <input id="round-ends-at" name="roundEndsAt" type="datetime-local" value="${escapeHtml(datetimeLocalValue(round.endsAt || round.metadata?.endsAt))}" aria-describedby="round-deadline-hint">
+            <span class="field-help" id="round-deadline-hint">${escapeHtml(t("admin.roundSetup.deadlineHint", { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }))}</span>
+          </div>` : ""}
+          ${preview.activePairings ? "" : preview.tableOnly ? teamTableSetupFields(tables, tournament.venueMode, preview.lines === false && tournament.venueMode === "tts" && tournament.pairingType !== "sword_shield_classic") : preview.teamRound ? teamRoundMissionFields(tables, round, preview.reuseLines) : roundMissionFields(tournament, round)}
           <div class="row-actions">
-            ${tournament.format === "swiss" && !preview.teamRound && !preview.tableOnly ? `<button class="small-button" type="button" data-round-setup-add-empty>${t("admin.roundSetup.addEmpty")}</button>` : ""}
             <button class="primary-button" type="submit">${t(preview.activePairings || preview.tableOnly ? "common.save" : preview.prepared ? "admin.roundSetup.prepareSubmit" : preview.restoredDraft ? "admin.roundSetup.regenerateSubmit" : "admin.roundSetup.submit")}</button>
           </div>
-          <div class="message" data-round-setup-message></div>
+          <div class="message" data-round-setup-message role="status"></div>
         </form>
       </section>
     </div>
@@ -11103,6 +11120,27 @@ function shuffleRoundSetupPairings(form, random = Math.random) {
   return true;
 }
 
+function updateRoundSetupSummary(summary, form, preview) {
+  const prefix = preview.teamRound ? "roster" : "participant";
+  const byes = (preview.round.matches || []).filter(match => match.isBye);
+  const assigned = new Set(byes.map(match => String(match.participantAId)));
+  let pairs = 0;
+  for (const row of form.querySelectorAll(".round-setup-match-row")) {
+    const a = row.querySelector(`[name="${prefix}AId"]`).value;
+    const b = row.querySelector(`[name="${prefix}BId"]`).value;
+    if (a) assigned.add(a);
+    if (b) assigned.add(b);
+    if (a && b) pairs++;
+  }
+  const parts = [plural(preview.teamRound ? "admin.roundSetup.rosters" : "admin.roundSetup.players", assigned.size),
+    plural("admin.roundSetup.pairs", pairs)];
+  for (const match of byes) {
+    const name = match.participantA?.displayName || t("games.filter.playerFallback", { id: match.participantAId });
+    parts.push(t("admin.roundSetup.byeRecipient", { name }));
+  }
+  summary.textContent = parts.join(" · ");
+}
+
 function wireRoundSetupModal(tournament, tables, preview = {}) {
   const form = document.querySelector("[data-round-setup-form]");
   const updatePlayers = () => {
@@ -11110,6 +11148,8 @@ function wireRoundSetupModal(tournament, tables, preview = {}) {
     if (!preview.tableOnly) updateRoundSetupWarnings(tournament, tables, preview);
     const shuffle = form.querySelector("[data-round-setup-shuffle]");
     if (shuffle) shuffle.disabled = roundSetupShuffleFields(form).length < 2;
+    const summary = form.querySelector("[data-round-setup-summary]");
+    if (summary) updateRoundSetupSummary(summary, form, preview);
     const help = document.querySelector("[data-round-setup-unassigned]");
     if (!help) return;
     const assigned = new Set([...document.querySelectorAll('.round-setup-match-row select[name="participantAId"], .round-setup-match-row select[name="participantBId"]')].map(select => Number(select.value)));

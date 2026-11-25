@@ -166,12 +166,14 @@ test("individual factions and faction rules remain private until the first round
 
 test("prepared first round can be edited safely and is invalidated when registration or participants change", async () => {
   const cup = await tournament();
+  const base = `/api/admin/tournaments/${cup.id}`;
+  assert.deepEqual((await admin.http.get(base)).body.firstRoundEntryIssue, { reason: "missingPlayers", missing: 4 });
   for (const name of ["Alpha", "Beta", "Gamma", "Delta"]) {
     const player = await register(name);
     assert.equal((await player.http.post(`/api/tournaments/${cup.id}/join`, { faction: "Kommandos" })).status, 200);
   }
-  const base = `/api/admin/tournaments/${cup.id}`;
   await admin.http.post(`${base}/registration/close`);
+  assert.equal((await admin.http.get(base)).body.firstRoundEntryIssue, null);
   const prepared = await admin.http.post(`${base}/rounds/next`);
   assert.equal(prepared.status, 200);
   const ids = prepared.body.participants.map((participant) => participant.id);
@@ -190,7 +192,11 @@ test("prepared first round can be edited safely and is invalidated when registra
   const invalid = await admin.http.post(`${base}/rounds/next`, { matchups: [matchups[0], matchups[0]] });
   assert.equal(invalid.status, 400);
   assert.equal((await admin.http.get(base)).body.rounds[0].id, edited.body.rounds[0].id, "failed edits keep the saved round");
-  await admin.http.post(`${base}/registration/reopen`);
+  for (const expectedFirstRoundId of [null, prepared.body.rounds[0].id]) {
+    assert.equal((await admin.http.post(`${base}/registration/reopen`, { expectedFirstRoundId })).status, 409);
+    assert.equal((await admin.http.get(base)).body.rounds[0].id, edited.body.rounds[0].id);
+  }
+  assert.equal((await admin.http.post(`${base}/registration/reopen`, { expectedFirstRoundId: edited.body.rounds[0].id })).status, 200);
   assert.equal((await admin.http.get(base)).body.rounds.length, 0);
   await admin.http.post(`${base}/registration/close`);
   assert.equal((await admin.http.post(`${base}/start`)).status, 409);

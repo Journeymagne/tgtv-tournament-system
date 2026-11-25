@@ -51,6 +51,7 @@ const RATING_POLICIES = ["ranked", "unranked"];
 const CHALLENGE_CREDIT_POLICIES = ["count", "none"];
 const VENUE_MODES = ["tts", "irl"];
 const SINGLE_ELIMINATION_SIZES = [8, 16, 32, 64];
+const SWISS_ENTRY_LIMITS = { min: 4, max: 128 };
 const STANDINGS_TIEBREAKERS = [
   "strength_of_schedule",
   "buchholz",
@@ -75,6 +76,7 @@ module.exports = {
   CHALLENGE_CREDIT_POLICIES,
   VENUE_MODES,
   SINGLE_ELIMINATION_SIZES,
+  SWISS_ENTRY_LIMITS,
   STANDINGS_TIEBREAKERS,
   TEAM_STANDINGS_TIEBREAKERS,
   DEFAULT_DOUBLES_TIEBREAKERS,

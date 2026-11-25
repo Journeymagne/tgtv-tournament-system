@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const { canManageTournament } = require("../domain/access");
 
 const tournamentsRepo = require("../db/repositories/tournaments");
 const { SECURITY_HEADERS } = require("./io");
@@ -238,7 +239,7 @@ function tournamentHtml(origin, tournament) {
   return `<!doctype html>
 <html lang="en">
   <head>
-    ${baseHead({ title, description, canonical: url, imageUrl })}
+    ${baseHead({ title, description, canonical: url, imageUrl, robots: tournament.status === "draft" ? "noindex, nofollow" : undefined })}
     <script type="application/ld+json" nonce="${escapeHtml(nonce)}">${jsonLdForTournament(origin, tournament)}</script>
     <script type="application/ld+json" nonce="${escapeHtml(nonce)}">${jsonLdForTournamentBreadcrumb(origin, tournament)}</script>
   </head>
@@ -348,8 +349,20 @@ async function handleSeoRequest(req, res, { withClient }) {
 
   const slug = tournamentSlugFromPath(url.pathname);
   if (slug) {
-    const tournament = await withClient((client) => tournamentsRepo.findBySlug(client, slug));
-    if (!tournament || !tournamentsRepo.PUBLISHED_STATUSES.includes(tournament.status)) {
+    const tournament = await withClient(async (client) => {
+      const found = await tournamentsRepo.findBySlug(client, slug);
+      if (!found || tournamentsRepo.PUBLISHED_STATUSES.includes(found.status)) return found;
+      if (found.status !== "draft" || !req.headers.cookie) return null;
+      try {
+        const viewer = await require("../api/auth").loadUserFromRequest(client, req);
+        return canManageTournament(viewer, found) ? found : null;
+      } catch (err) {
+        if (err.status === 403) return null;
+        throw err;
+      }
+    });
+    if (req.renewedSessionCookie) res.setHeader("Set-Cookie", req.renewedSessionCookie);
+    if (!tournament) {
       sendHtml(res, 404, notFoundHtml(origin, slug), {
         ...SECURITY_HEADERS,
         "Cache-Control": "no-store, max-age=0"
@@ -360,7 +373,7 @@ async function handleSeoRequest(req, res, { withClient }) {
     const nonce = html.match(/nonce="([^"]+)"/)?.[1] || "";
     sendHtml(res, 200, html, {
       ...securityHeadersWithNonce(nonce),
-      "Cache-Control": "no-store, max-age=0"
+      "Cache-Control": tournament.status === "draft" ? "private, no-store" : "no-store, max-age=0"
     });
     return true;
   }

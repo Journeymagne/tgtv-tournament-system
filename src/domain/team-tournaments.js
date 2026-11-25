@@ -3,7 +3,7 @@ const { ValidationError } = require("../http/io");
 const { CRIT_OPS, KILLZONES } = require("./kill-teams");
 const { pairScoreBrackets, pairByTP } = require("./tournaments/swiss");
 const { shuffledIds } = require("./tournaments/seeding");
-const { DEFAULT_DOUBLES_TIEBREAKERS } = require("./tournaments/constants");
+const { DEFAULT_DOUBLES_TIEBREAKERS, SWISS_ENTRY_LIMITS } = require("./tournaments/constants");
 const { wtcDoublesNextAction } = require('./wtc-doubles');
 
 function teamSizeFor(value) {
@@ -100,8 +100,9 @@ function validateTeamTournament(tournament, rosters) {
   }
   const started = tournament.status === "in_progress" || Boolean(tournament.startedAt);
   if (started && !rosters.length) throw new ValidationError("No active rosters remain in this tournament");
-  if (rosters.length < (started ? 1 : 4) || rosters.length > 128) {
-    throw new ValidationError("Team Swiss requires 4-128 active rosters");
+  const { min, max } = SWISS_ENTRY_LIMITS;
+  if (rosters.length < (started ? 1 : min) || rosters.length > max) {
+    throw new ValidationError(`Team Swiss requires ${min}-${max} active rosters`);
   }
   if ((!started || teamSizeFor(tournament) === 2) && rosters.length % 2 !== 0) {
     throw new ValidationError("Team Swiss requires an even number of rosters; bye is not supported");

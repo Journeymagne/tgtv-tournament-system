@@ -1,11 +1,12 @@
 const { ValidationError } = require("../../http/io");
-const { MATCH_STATUSES, ROUND_STATUSES } = require("./constants");
+const { MATCH_STATUSES, ROUND_STATUSES, SWISS_ENTRY_LIMITS } = require("./constants");
 const { seedParticipants } = require("./seeding");
 const { buildStandings } = require("./standings");
 
 function validateSwiss(participants, roundCount) {
-  if (participants.length < 4 || participants.length > 128) {
-    throw new ValidationError("Swiss requires 4-128 active participants");
+  const { min, max } = SWISS_ENTRY_LIMITS;
+  if (participants.length < min || participants.length > max) {
+    throw new ValidationError(`Swiss requires ${min}-${max} active participants`);
   }
   if (!Number.isSafeInteger(roundCount) || roundCount < 1) {
     throw new ValidationError("Swiss round count must be 1 or greater");

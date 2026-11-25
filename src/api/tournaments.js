@@ -9,7 +9,7 @@ const auditRepo = require("../db/repositories/tournament-audit-events");
 const usersRepo = require("../db/repositories/users");
 const gamesRepo = require("../db/repositories/games");
 const { requirePositiveIntId } = require("./params");
-const { clearPreparedRounds, requirePreparedFirstRound } = require("./tournament-preparation");
+const { firstRoundEntryIssue, clearPreparedRounds, requirePreparedFirstRound } = require("./tournament-preparation");
 const {
   tournamentDetailView,
   tournamentSummaryView,
@@ -443,6 +443,9 @@ async function getAdmin({ client, user, params, query }) {
   const tournament = await requireTournament(client, params.id);
   if (!canManageTournament(user, tournament)) throw new HttpError(403, "Tournament access required");
   const result = require("./tournament-payload").tournamentPayload(await fullView(client, tournament, user, { includeAudit: query?.get("audit") === "1" }), query);
+  if (["registration_open", "registration_closed"].includes(tournament.status)) {
+    result.firstRoundEntryIssue = firstRoundEntryIssue(result);
+  }
   result.staff = await require("./access-management").staff({client,user,params});
   return result;
 }
@@ -521,7 +524,8 @@ async function updateAdmin({ client, user, params, body }) {
     if (patch.registrationLimit < count) throw new HttpError(409, "Registration limit cannot be lower than the number already registered");
   }
   const preparationFields = ["pairingMode", "format", "participantMode", "teamSize", "pairingType", "swissRoundCount", "singleEliminationSize", "venueMode"];
-  if (preparationFields.some((key) => Object.hasOwn(patch, key) && patch[key] !== tournament[key])) {
+  const preparationChanged = preparationFields.some((key) => Object.hasOwn(patch, key) && patch[key] !== tournament[key]);
+  if (preparationChanged) {
     await clearPreparedRounds(client, tournament);
   }
   const updated = await tournamentsRepo.update(client, tournament.id, patch);
@@ -541,7 +545,7 @@ async function updateAdmin({ client, user, params, body }) {
       before: { seasonId: tournament.seasonId }, after: { seasonId: updated.seasonId }
     });
   }
-  return { tournament: tournamentSummaryView(updated) };
+  return { tournament: tournamentSummaryView(updated), preparationChanged };
 }
 
 async function deleteAdmin({ client, params }) {
@@ -600,7 +604,7 @@ async function publishAdmin({ client, user, params, body }) {
   return { tournament: tournamentSummaryView(updated) };
 }
 
-async function setRegistration({ client, user, params, status }) {
+async function setRegistration({ client, user, params, status, body }) {
   const tournament = await requireTournament(client, params.id, { forUpdate: true });
   if (
     ![TOURNAMENT_STATUSES.REGISTRATION_OPEN, TOURNAMENT_STATUSES.REGISTRATION_CLOSED].includes(
@@ -609,7 +613,7 @@ async function setRegistration({ client, user, params, status }) {
   ) {
     throw new HttpError(409, "Registration can be changed only before tournament start");
   }
-  if (status === TOURNAMENT_STATUSES.REGISTRATION_OPEN) await clearPreparedRounds(client, tournament);
+  if (status === TOURNAMENT_STATUSES.REGISTRATION_OPEN) await clearPreparedRounds(client, tournament, body?.expectedFirstRoundId);
   const updated = await tournamentsRepo.update(client, tournament.id, { status });
   await audit(client, updated, user, `registration_${status}`, { before: tournament, after: updated });
   if (

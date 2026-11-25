@@ -46,6 +46,39 @@ test("direct public tournament pages load data and translations before the app",
   assert.doesNotMatch(html, /i18n\/(en|ru)\.js/);
 });
 
+test("direct draft links show private tournament details only to its managers", async (t) => {
+  const row = { id: 7, slug: "private-draft", status: "draft", name: "Unpublished cup" };
+  const withClient = (fn) => fn({ query: async () => ({ rows: [row] }) });
+  let viewer;
+  const loadUser = t.mock.method(require("../../src/api/auth"), "loadUserFromRequest", async () => viewer);
+  async function visit(cookie) {
+    const result = {};
+    await handleSeoRequest(
+      { method: "GET", url: "/tournaments/private-draft", headers: { host: "localhost", cookie } },
+      {
+        writeHead(status, headers) { Object.assign(result, { status, headers }); },
+        end(html) { result.html = html; }
+      },
+      { withClient }
+    );
+    return result;
+  }
+  const guest = await visit();
+  assert.equal(guest.status, 404);
+  assert.doesNotMatch(guest.html, /Unpublished cup/);
+  assert.equal(loadUser.mock.callCount(), 0);
+  viewer = { id: 3, managedTournamentIds: [8] };
+  const otherManager = await visit("sid=example");
+  assert.equal(otherManager.status, 404);
+  assert.doesNotMatch(otherManager.html, /Unpublished cup/);
+  viewer.managedTournamentIds = [7];
+  const organizer = await visit("sid=example");
+  assert.equal(organizer.status, 200);
+  assert.equal(organizer.headers["Cache-Control"], "private, no-store");
+  assert.match(organizer.html, /Unpublished cup/);
+  assert.match(organizer.html, /content="noindex, nofollow"/);
+});
+
 test("tournamentSlugFromPath accepts clean public tournament URLs", () => {
   assert.equal(tournamentSlugFromPath("/tournaments/tgtv-open"), "tgtv-open");
   assert.equal(tournamentSlugFromPath("/tournaments/tgtv%20open"), "tgtv open");

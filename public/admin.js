@@ -525,13 +525,14 @@ function adminTournamentRow(tournament) {
 }
 
 function adminTournamentDetailPanel(data) {
+  const workflow = adminTournamentWorkflow(data);
   const editButton = state.tournamentInfoTab !== "settings" && data.tournament?.viewer?.canAdmin !== false && canManageTournamentUi(data.tournament)
-    ? `<button type="button" class="primary-button" data-tournament-info-tab="settings">${t("common.edit")}</button>`
+    ? `<button type="button" class="${workflow ? "small-button" : "primary-button"}" data-tournament-info-tab="settings">${t("common.edit")}</button>`
     : "";
   return `
     <section class="card panel admin-tournament-detail" data-live-view="adminTournament">
       ${tournamentInfoPanel(data, {
-        admin: true, showBack: true,
+        admin: true, showBack: true, workflow,
         actions: adminTournamentMenu(data, editButton),
         tabActions: (tab) => adminTournamentActionButtons(data, tab)
       })}
@@ -576,28 +577,56 @@ function adminTournamentMenu(data, editButton = "") {
   `;
 }
 
+function preparedFirstRound(data) {
+  return data.tournament.status === "registration_closed"
+    ? data.rounds?.find(round => round.roundNumber === 1 && round.status === "not_ready") : null;
+}
+
+function adminTournamentWorkflow(data, emptyMatches = false) {
+  const tournament = data.tournament;
+  if (!["draft", "registration_open", "registration_closed"].includes(tournament.status)) return "";
+  const action = (id, label, style = "small-button") =>
+    `<button type="button" class="${style}" data-admin-tournament-action="${id}">${t(label)}</button>`;
+  const entries = (style) => `<button type="button" class="${style}" data-tournament-info-tab="participants" data-focus-entries>${t(tournament.participantMode === "team" ? "admin.workflow.manageRosters" : "admin.workflow.managePlayers")}</button>`;
+  let status = tournamentStatusLabel(tournament.status);
+  let primary, secondary = "", hint = "";
+  const issue = data.firstRoundEntryIssue;
+  if (issue) {
+    const key = `admin.workflow.${issue.reason}`;
+    hint = issue.missing ? plural(key, issue.missing) : t(key, issue);
+  }
+  if (tournament.status === "draft") {
+    status = t("admin.workflow.draftSaved");
+    primary = action("publish-open", "admin.tournament.action.publishOpen", "primary-button");
+    secondary = action("publish-closed", "admin.tournament.action.publishClosed");
+  } else if (tournament.status === "registration_open") {
+    primary = action("close-registration", "admin.tournament.action.closeRegistration", "primary-button");
+    if (hint) secondary = entries("small-button");
+  } else {
+    secondary = action("reopen-registration", "admin.tournament.action.reopenRegistration");
+    if (preparedFirstRound(data)) {
+      status = t("admin.workflow.pairsReady");
+      hint = t("admin.workflow.entriesResetPairs");
+      primary = action("start", "admin.tournament.action.start", "primary-button");
+      secondary = action("generate-next-round", "admin.tournament.action.editFirst") + secondary;
+    } else {
+      const style = emptyMatches ? "small-button" : "primary-button";
+      primary = issue ? entries(style) : action("generate-next-round", tournament.roundDraft ? "admin.round.resumeDraft" : "admin.workflow.prepareFirst", style);
+    }
+  }
+  if (emptyMatches) return `<div class="empty tournament-empty-pairings"><p>${escapeHtml(hint || t("admin.workflow.noPairs"))}</p>${primary}</div>`;
+  return `<div class="tournament-workflow">
+    <p class="tournament-compact-status"><span class="status-dot ${tournamentStatusClass(tournament.status)}" aria-hidden="true"></span>${escapeHtml(status)}</p>
+    ${hint ? `<p class="field-help">${escapeHtml(hint)}</p>` : ""}
+    <fieldset class="row-actions tournament-workflow-actions" aria-label="${t("admin.tournament.detail.management")}">${primary}${secondary}</fieldset>
+  </div>`;
+}
+
 function adminTournamentActionButtons(data, tab) {
   const tournament = data.tournament || {};
   const buttons = [];
-  if ((!tab || tab === "preview") && tournament.status === "draft") {
-    buttons.push(`<button class="primary-button" data-admin-tournament-action="publish-open">${t("admin.tournament.action.publishOpen")}</button>`);
-    buttons.push(`<button class="small-button" data-admin-tournament-action="publish-closed">${t("admin.tournament.action.publishClosed")}</button>`);
-  }
-  if ((!tab || tab === "preview") && tournament.status === "registration_open") {
-    buttons.push(`<button class="small-button" data-admin-tournament-action="close-registration">${t("admin.tournament.action.closeRegistration")}</button>`);
-  }
-  if ((!tab || tab === "preview") && tournament.status === "registration_closed") {
-    buttons.push(`<button class="small-button" data-admin-tournament-action="reopen-registration">${t("admin.tournament.action.reopenRegistration")}</button>`);
-  }
-  if (tournament.status === "registration_closed") {
-    const prepared = (data.rounds || []).some((round) => round.roundNumber === 1 && round.status === "not_ready");
-    if (!tab || tab === (prepared ? "matches" : "preview")) {
-      buttons.push(`<button class="${prepared ? "small-button" : "primary-button"}" data-admin-tournament-action="generate-next-round">${t(prepared ? "admin.tournament.action.editFirst" : tournament.roundDraft ? "admin.round.resumeDraft" : "admin.tournament.action.generateFirst")}</button>`);
-    }
-    if ((!tab || tab === "matches") && prepared) {
-      if (tournament.participantMode === "team") buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round">${t("admin.tournament.action.rollbackLatestRound")}</button>`);
-      buttons.push(`<button class="primary-button" data-admin-tournament-action="start">${t("admin.tournament.action.start")}</button>`);
-    }
+  if ((!tab || tab === "matches") && tournament.participantMode === "team" && tournament.status === "registration_closed" && preparedFirstRound(data)) {
+    buttons.push(`<button class="danger-button" data-admin-tournament-action="rollback-latest-round">${t("admin.tournament.action.rollbackLatestRound")}</button>`);
   }
   if ((!tab || tab === "matches") && tournament.status === "in_progress") {
     const rollbackState = rollbackRoundActionState(data);
@@ -1050,7 +1079,7 @@ function adminTournamentRoundsPanel(data) {
       <div class="panel-header">
         <div>
           <h3>${t("admin.tournament.rounds.title")}</h3>
-          <p class="muted">${t("admin.tournament.rounds.hint")}</p>
+          ${data.tournament?.status === "in_progress" ? `<p class="muted">${t("admin.tournament.rounds.hint")}</p>` : ""}
         </div>
       </div>
       ${tournamentRoundsTabbedMarkup(rounds, match => adminTournamentMatchMarkup(match, data), data.tournament?.id, data.tournament)}
@@ -1066,15 +1095,16 @@ function adminTournamentMatchMarkup(match, data = {}) {
     data.rounds?.at(-1)?.id === match.roundId && !match.isBye &&
     ["completed", "pending_confirmation"].includes(match.status);
   const actionLabel = match.status === "active" ? t("play.action.enterResult") : t("play.action.editResult");
-  const meta = [publicMatchScore(match), matchSetupMeta(match)].filter(Boolean).join(" / ");
+  const score = publicMatchScore(match, data.tournament);
+  const meta = [score, matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
     <details class="row-card tournament-match-disclosure" data-match-disclosure="${match.id}" ${state.tournamentMatchViews?.[data.tournament?.id]?.expanded?.[match.id] ? "open" : ""}>
       <summary>
       <div class="row-main">
         <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
-        <div class="row-meta">${escapeHtml(publicMatchScore(match))}</div>
+        ${score ? `<div class="row-meta">${escapeHtml(score)}</div>` : ""}
       </div>
-        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status))}</span>
+        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status, data.tournament, match.roundNumber))}</span>
       </summary>
       <div class="tournament-match-content">
         <div class="row-meta">${escapeHtml(meta)}</div>
@@ -1606,6 +1636,8 @@ function wireAdminTournamentAutosave(form) {
   const status = form.querySelector("[data-admin-tournament-autosave-status]");
 
   const setStatus = (text, kind = "") => {
+    const actions = form.closest(".tournament-compact-page")?.querySelector(".tournament-workflow-actions");
+    if (actions) actions.disabled = Boolean(kind && kind !== "saved");
     if (!status) return;
     status.textContent = text;
     status.dataset.status = kind;
@@ -1894,6 +1926,21 @@ function wireTournamentSettingsMenu() {
   });
 }
 
+function wireAdminTournamentActions(root) {
+  root.querySelectorAll("[data-admin-tournament-action]").forEach(button => {
+    onLive(button, "click", async () => {
+      const controls = button.closest(".tournament-workflow, .tournament-empty-pairings")
+        ? document.querySelectorAll(".tournament-workflow button, .tournament-empty-pairings button") : [];
+      for (const control of controls) control.disabled = true;
+      try {
+        await runAdminTournamentAction(button.dataset.adminTournamentAction);
+      } finally {
+        for (const control of controls) control.disabled = false;
+      }
+    });
+  });
+}
+
 function wireAdminTournamentControls(options = {}) {
   wireTournamentSettingsMenu();
   wireTournamentListSections();
@@ -1931,7 +1978,7 @@ function wireAdminTournamentControls(options = {}) {
       clearCalendarTournamentSource();
       state.selectedTournamentId = data.tournament.id;
       state.adminTournamentMode = "detail";
-      state.tournamentInfoTab = "settings";
+      state.tournamentInfoTab = "preview";
       state.tournamentSetupTab = "tournament";
       await loadTournamentAdmin();
       syncAppHash();
@@ -1954,7 +2001,7 @@ function wireAdminTournamentControls(options = {}) {
         state.view = "tournaments";
         state.tournamentsTab = "admin";
         state.adminTournamentMode = "detail";
-        state.tournamentInfoTab = "standings";
+        state.tournamentInfoTab = "";
         state.tournamentSetupTab = "tournament";
         await loadAdminTournamentDetail(Number(button.dataset.adminTournamentOpen));
         syncAppHash();
@@ -1982,12 +2029,7 @@ function wireAdminTournamentControls(options = {}) {
     }
   });
 
-  document.querySelectorAll("[data-admin-tournament-action]").forEach((button) => {
-    onLive(button, "click", async () => {
-      const action = button.dataset.adminTournamentAction;
-      await runAdminTournamentAction(action);
-    });
-  });
+  wireAdminTournamentActions(document);
 
   onLive(document.querySelector("[data-admin-tournament-copy]"), "click", async (event) => {
     const button = event.currentTarget;
@@ -2066,6 +2108,16 @@ async function saveAdminTournamentUpdate(form, options = {}) {
   if (renderAfterSave) {
     await loadTournamentAdmin();
     renderTournaments();
+  } else if (data.preparationChanged && form.isConnected && form.closest(".tournament-compact-page")?.querySelector(".tournament-workflow")) {
+    // A format change can invalidate saved pairs. Update the next action without replacing the editor mid-typing.
+    const detail = await api(`/api/admin/tournaments/${id}`);
+    if (form.isConnected && state.adminTournamentDetail?.tournament?.id === id) {
+      Object.assign(state.adminTournamentDetail, detail);
+      const header = form.closest(".tournament-compact-page").querySelector(".tournament-compact-header");
+      header.querySelector(".tournament-workflow").outerHTML = adminTournamentWorkflow(detail);
+      wireAdminTournamentActions(header);
+      wireTournamentTabButtons(header, state.adminTournamentDetail, { admin: true, publicRoute: Boolean(tournamentSlugFromLocation()) });
+    }
   }
   return data;
 }
@@ -2196,7 +2248,14 @@ async function runAdminTournamentAction(action) {
     } else if (action === "close-registration") {
       await api(`/api/admin/tournaments/${tournament.id}/registration/close`, { method: "POST" });
     } else if (action === "reopen-registration") {
-      await api(`/api/admin/tournaments/${tournament.id}/registration/reopen`, { method: "POST" });
+      const first = preparedFirstRound(state.adminTournamentDetail);
+      if (first && !await confirmAction({
+        message: t("admin.workflow.reopenQuestion"), confirmLabel: t("admin.workflow.resetAndReopen"),
+        cancelLabel: t("admin.workflow.keepPairs"), danger: true
+      })) return;
+      await api(`/api/admin/tournaments/${tournament.id}/registration/reopen`, {
+        method: "POST", body: { expectedFirstRoundId: first?.id ?? null }
+      });
     } else if (action === "start") {
       if (!await confirmAction({ message: t("dialog.admin.startTournament"), confirmLabel: t("admin.tournament.action.start"), danger: false })) return;
       await api(`/api/admin/tournaments/${tournament.id}/start`, { method: "POST" });
@@ -2267,6 +2326,11 @@ async function runAdminTournamentAction(action) {
     await loadTournamentAdmin();
     renderTournaments();
   } catch (err) {
+    if (action === "reopen-registration" && err.status === 409) {
+      await refreshAdminTournamentDetailView();
+      setMessage(t("admin.workflow.preparationChanged"), true);
+      return;
+    }
     setMessage(err.message, true);
   }
 }
@@ -2609,6 +2673,7 @@ function wireAdminTeamRosterControls(data) {
 
 window.TGTV_ADMIN = {
   adminTournamentActionButtons,
+  adminTournamentWorkflow,
   adminTournamentMenu,
   runAdminTournamentAction,
   adminActiveGamesPanel,
