@@ -8,7 +8,7 @@ const { SERVICE_PATHS } = require("../domain/sites");
 const SITE_NAME = "KT Companion";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.8.1";
+const ASSET_VERSION = "1.8.5";
 const { version: SHARED_ASSET_VERSION } = require("./shared-assets.json");
 
 function requestOrigin(req) {
@@ -216,9 +216,9 @@ function baseHead({ title, description, canonical, imageUrl, robots = "index, fo
 // No locale dictionaries here: theme-boot.js in baseHead() writes a tag for the
 // one the visitor is in, and app.js fetches the other only if they switch.
 function appScript() {
-  return ["maps/catalog-data.js", "map-catalog.js", "map-catalog-ui.js", "game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "table-layout.js", "tournament-results.js", "training/journey-ui.js", "resource-quotas.js", "pairing-instructions.js"]
+  return ["maps/catalog-data.js", "map-catalog.js", "map-catalog-ui.js", "game-data.js", "i18n.js", "live-refresh.js", "pairing-warnings.js", "tournament-tables.js", "table-layout.js", "tournament-results.js", "training/journey-ui.js", "resource-quotas.js", "pairing-instructions.js", "app.js"]
     .map((file) => `<script src="/${file}?v=${['tournament-tables.js', 'tournament-results.js', 'table-layout.js'].includes(file) ? SHARED_ASSET_VERSION : ASSET_VERSION}" defer></script>`)
-    .concat('<script src="/app.js?v=1.8.5" defer></script>').join("\n");
+    .join("\n");
 }
 
 function tournamentHtml(origin, tournament) {

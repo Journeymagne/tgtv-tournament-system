@@ -302,7 +302,7 @@ const TGTV_I18N_RU = {
   "tiebreaker.headToHead.description":
     "Количество побед над другими участниками группы, оставшимися равными на этом приоритете. Больше побед — выше место.",
   "tiebreaker.totalPrimary.label": "Сумма Праймари",
-  "tiebreaker.totalPrimary.description": "Сумма бонусов за выбранную операцию во всех завершённых играх. Выше место у того, кто набрал больше.",
+  "tiebreaker.totalPrimary.description": "Сумма бонусов Primary Op за все завершённые игры. Выше место у того, кто набрал больше.",
   "tiebreaker.totalVp.label": "Всего VP",
   "tiebreaker.totalVp.description":
     "Сумма победных очков (VP), набранных игроком во всех завершённых матчах турнира.",

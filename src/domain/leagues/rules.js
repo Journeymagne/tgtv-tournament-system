@@ -1,5 +1,5 @@
 const { ValidationError } = require("../../http/io");
-const { DOUBLES_STANDINGS_TIEBREAKERS } = require("../tournaments/constants");
+const { DEFAULT_DOUBLES_TIEBREAKERS } = require("../tournaments/constants");
 
 const DEFAULT_SCALE = [10, 8, 6, 4, 0];
 const COMMON = ["total_vp", "vp_diff", "individual_wins", "tac_op", "events"];
@@ -30,7 +30,7 @@ function supportedTrackMetrics(track, formats) {
 function resolveTournamentOrder(tournament) {
   if (leagueFormat(tournament) === "solo") return [...(tournament.tiebreakerOrder ?? [])];
   if (tournament.pairingType === "wtc_doubles") return ["individual_wins", "average_sos", "total_vp", "tac_op"];
-  const fallback = tournament.pairingType === "doubles" ? DOUBLES_STANDINGS_TIEBREAKERS : ["individual_wins", "total_vp", "tac_op"];
+  const fallback = tournament.pairingType === "doubles" ? DEFAULT_DOUBLES_TIEBREAKERS : ["individual_wins", "total_vp", "tac_op"];
   return [...(tournament.teamTiebreakerOrder ?? fallback)];
 }
 
