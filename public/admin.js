@@ -1095,29 +1095,12 @@ function adminTournamentMatchMarkup(match, data = {}) {
     data.rounds?.[data.rounds.length - 1]?.id === match.roundId && !match.isBye &&
     ["completed", "pending_confirmation"].includes(match.status);
   const actionLabel = match.status === "active" ? t("play.action.enterResult") : t("play.action.editResult");
-  const score = publicMatchScore(match, data.tournament);
-  const meta = [score, matchSetupMeta(match)].filter(Boolean).join(" / ");
-  return `
-    <details class="row-card tournament-match-disclosure" data-match-disclosure="${match.id}" ${state.tournamentMatchViews?.[data.tournament?.id]?.expanded?.[match.id] ? "open" : ""}>
-      <summary>
-      <div class="row-main">
-        <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
-        ${score ? `<div class="row-meta">${escapeHtml(score)}</div>` : ""}
-      </div>
-        <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status, data.tournament, match.roundNumber))}</span>
-      </summary>
-      <div class="tournament-match-content">
-        <div class="row-meta">${escapeHtml(meta)}</div>
-        ${match.isBye ? "" : teamTableImageMarkup(match.table?.imageId ? match.table : match.mission || match.table)}
-        ${pairingWarningsMarkup(individualPairingWarnings(match, data))}
-        <div class="row-actions">
-        ${canReview ? `<button class="primary-button" data-admin-tournament-match-review="${match.id}">${t("play.action.reviewResult")}</button>` : ""}
-        ${canResult ? `<button class="small-button" data-admin-tournament-match-result="${match.id}">${actionLabel}</button>` : ""}
-        ${canReset ? `<button class="danger-button" data-admin-tournament-match-reset="${match.id}">${t("admin.round.resetMatch")}</button>` : ""}
-        </div>
-      </div>
-    </details>
+  const actions = `
+    ${canReview ? `<button class="primary-button" data-admin-tournament-match-review="${match.id}">${t("play.action.reviewResult")}</button>` : ""}
+    ${canResult ? `<button class="small-button" data-admin-tournament-match-result="${match.id}">${actionLabel}</button>` : ""}
+    ${canReset ? `<button class="danger-button" data-admin-tournament-match-reset="${match.id}">${t("admin.round.resetMatch")}</button>` : ""}
   `;
+  return publicMatchMarkup({ ...match, pairingWarnings: individualPairingWarnings(match, data) }, data.tournament, actions);
 }
 
 function adminActiveGamesPanel() {

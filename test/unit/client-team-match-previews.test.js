@@ -15,7 +15,7 @@ const escape = value => String(value).replaceAll("&", "&amp;").replaceAll("<", "
 
 function previewRenderer(me) {
   return new Function("state", "t", "escapeHtml", "teamRosterLabel", "teamTournamentTables", require("../helpers/statistics-client-source") + "\n" + [
-    "teamTournamentMatchPreviewMarkup", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "teamMatchPhaseLabel",
+    "teamTournamentMatchPreviewMarkup", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "tournamentGameDetailsLink", "teamMatchPhaseLabel",
     "teamRosterMemberLabel", "teamPairingMemberLabel", "teamMissionLabel", "tableLabel",
     "teamGameResultPermissions", "teamGamePendingMessage", "teamMatchScoreLabel", "teamPairingPhaseLabel"
   ].map(sourceOf).join("\n") + ";return teamTournamentMatchPreviewMarkup;")(
@@ -69,7 +69,7 @@ test("all team formats offer managers review beside Details only for valid pendi
       const html = render(match, { id: 6, status: "in_progress" });
       const canManage = Boolean(me?.isAdmin || me?.managedTournamentIds?.includes(6));
       assert.equal((html.match(/data-team-game-review=/g) || []).length, canManage ? 1 : 0);
-      assert.match(html, /data-team-tournament-game="11"/);
+      assert.match(html, /href="\/tournament#\/games\/game\/11" data-app-link data-app-route/);
       if (canManage) assert.match(html, /data-team-game-admin-review="1"/);
       for (const resolution of ["bye", "forfeit"]) {
         assert.doesNotMatch(render({ ...match, resolution }, { id: 6, status: "in_progress" }), /data-team-game-review/);

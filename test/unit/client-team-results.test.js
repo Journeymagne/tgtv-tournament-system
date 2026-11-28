@@ -95,7 +95,7 @@ test("admin polling preserves independent Shield drafts for both sides", () => {
 
 test("anonymous pairing shows submitted VP while only confirmed results count toward GP", () => {
   const render = new Function("state", "t", "escapeHtml", "teamMissionLabel", "teamRosterMemberLabel",
-    require("../helpers/statistics-client-source") + "\n" + ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
+    require("../helpers/statistics-client-source") + "\n" + ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "tournamentGameDetailsLink"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
   )({ me: null }, (key, values) => key === "teams.results.progress"
     ? `${values.count}/${values.total}: ${values.a}:${values.b}` : key, String, () => "Volkus", () => "Player");
   const match = { progress: { completed: 1, total: 3, gpA: 14, gpB: 6 }, games: [
@@ -109,7 +109,7 @@ test("anonymous pairing shows submitted VP while only confirmed results count to
   for (const status of ["completed", "pending_confirmation", "open"]) assert.match(html, new RegExp(`data-team-game-status="${status}"`));
   assert.equal((html.match(/teams.results.notCounted/g) || []).length, 2);
   assert.match(html, /teams.results.pending · 21:0 VP · teams.results.notCounted/);
-  assert.doesNotMatch(html, /data-team-tournament-game/);
+  assert.doesNotMatch(html, /data-app-route/);
   const pendingGame = match.games[1].game;
   pendingGame.resultPlayerIds = [-12, -22];
   pendingGame.pendingResult.result.scores = { "-12": { total: 0 }, "-22": { total: 21 } };
@@ -122,7 +122,7 @@ test("anonymous pairing shows submitted VP while only confirmed results count to
 test("each game keeps one card as pairings, partial environment choices and results arrive", () => {
   const messages = require("../../public/i18n/en.js");
   const render = new Function("state", "t", "escapeHtml", "teamTournamentTables",
-    require("../helpers/statistics-client-source") + "\n" + ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "teamMissionLabel", "tableLabel", "teamRosterMemberLabel", "teamPairingMemberLabel"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
+    require("../helpers/statistics-client-source") + "\n" + ["teamGameResultPermissions", "teamGamePendingMessage", "teamMatchProgressMarkup", "teamMatchGamesMarkup", "tournamentGameDetailsLink", "teamMissionLabel", "tableLabel", "teamRosterMemberLabel", "teamPairingMemberLabel"].map(sourceOf).join("\n") + "; return teamMatchGamesMarkup;"
   )({ me: { id: 1 } }, (key, values = {}) => (messages[key] || key).replace(/\{(\w+)\}/g, (_, name) => values[name]), String,
     () => assert.fail("use the match's table snapshot"));
   const match = {
@@ -137,7 +137,7 @@ test("each game keeps one card as pairings, partial environment choices and resu
   assert.match(html, /Game 1 · Alice \(Novitiates\) vs Carol \(Sanctifiers\)/);
   assert.match(html, /shield A · Table 2 \/ Volkus \/ Deployment 6/);
   assert.match(html, /Game 2 · Bob \(Kasrkin\) vs Dave \(Kommandos\)/);
-  assert.doesNotMatch(html, /data-team-tournament-game|team-match-progress|data-team-game-status/);
+  assert.doesNotMatch(html, /data-app-route|team-match-progress|data-team-game-status/);
 
   match.environment.assignments.unshift({ slot: 2, mission: { critOp: "Loot", killzone: "Gallowdark", layout: 4 } });
   match.environment.assignments[1].mission = { critOp: "Orb", killzone: "Volkus", layout: 6 };
@@ -152,10 +152,10 @@ test("each game keeps one card as pairings, partial environment choices and resu
   assert.match(cards[0], /data-team-game-slot="1"/);
   assert.match(cards[0], /shield A · Orb · Volkus · Layout 6 · Table 2/);
   assert.match(cards[0], /20:6 VP · 20:0 GP/);
-  assert.match(cards[0], /data-team-tournament-game="101"/);
+  assert.match(cards[0], /href="\/tournament#\/games\/game\/101" data-app-link data-app-route/);
   assert.doesNotMatch(cards[0], /Loot|Dave/);
   assert.match(cards[1], /Loot · Gallowdark · Layout 4/);
-  assert.match(cards[1], /data-team-tournament-game="102"/);
+  assert.match(cards[1], /href="\/tournament#\/games\/game\/102" data-app-link data-app-route/);
   assert.doesNotMatch(cards[1], /shield A|Orb|20:6 VP/);
   for (const phase of ["in_progress", "completed"]) {
     const finished = render({ ...match, phase });

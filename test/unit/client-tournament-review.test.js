@@ -11,14 +11,19 @@ function sourceOf(name) {
 
 test("solo Swiss and elimination lists offer direct review of pending results and retain editing", () => {
   const render = new Function("state", "t", "escapeHtml", "publicMatchScore", "matchSetupMeta", "tournamentParticipantProfileLink", "tournamentMatchStatusLabel", "pairingWarningsMarkup", "individualPairingWarnings", "teamTableImageMarkup",
-    `${sourceOf("adminTournamentMatchMarkup")}; return adminTournamentMatchMarkup;`
+    `${sourceOf("publicMatchMarkup")}; ${sourceOf("tournamentGameDetailsLink")}; ${sourceOf("adminTournamentMatchMarkup")}; return adminTournamentMatchMarkup;`
   )({}, key => key, String, () => "13:12", () => "", player => player?.displayName || "", String, () => "", () => [], () => "");
   for (const format of ["swiss", "single_elimination"]) {
     const data = { tournament: { id: 6, format, status: "in_progress" }, rounds: [] };
-    const match = { id: 9, participantA: { displayName: "Alpha" }, participantB: { displayName: "Beta" }, status: "pending_confirmation", pendingResult: { result: { scores: {} } } };
+    const match = { id: 9, gameId: 73, participantA: { displayName: "Alpha" }, participantB: { displayName: "Beta" }, status: "pending_confirmation", pendingResult: { result: { scores: {} } } };
     const html = render(match, data);
     assert.match(html, /class="primary-button" data-admin-tournament-match-review="9">play.action.reviewResult/);
     assert.match(html, /data-admin-tournament-match-result="9"/);
+    const details = 'href="/tournament#/games/game/73" data-app-link data-app-route';
+    assert.ok(html.includes(details));
+    assert.ok(render({ ...match, status: "completed" }, data).includes(details));
+    assert.ok(!render({ ...match, isBye: true }, data).includes(details));
+    assert.doesNotMatch(render({ ...match, gameId: null }, data), /play.action.details/);
     for (const status of ["active", "completed", "cancelled"]) assert.doesNotMatch(render({ ...match, status }, data), /data-admin-tournament-match-review/);
     assert.doesNotMatch(render({ ...match, isBye: true }, data), /data-admin-tournament-match-review/);
     assert.doesNotMatch(render({ ...match, pendingResult: null }, data), /data-admin-tournament-match-review/);

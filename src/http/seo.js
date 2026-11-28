@@ -14,7 +14,7 @@ const dictionaries = {
 const SITE_NAME = "KT Companion";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.8.7";
+const ASSET_VERSION = "1.8.7.1";
 const { version: SHARED_ASSET_VERSION } = require("./shared-assets.json");
 
 function requestOrigin(req) {

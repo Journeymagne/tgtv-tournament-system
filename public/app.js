@@ -3121,7 +3121,12 @@ function tournamentRoundsTabbedMarkup(rounds, matchMarkup, selectionKey = "", to
   `;
 }
 
-function publicMatchMarkup(match, tournament = {}) {
+function tournamentGameDetailsLink(gameId) {
+  if (!Number.isSafeInteger(gameId) || gameId <= 0) return "";
+  return `<a class="small-button" href="/tournament#/games/game/${gameId}" data-app-link data-app-route>${t("play.action.details")}</a>`;
+}
+
+function publicMatchMarkup(match, tournament = {}, actions = publicMatchActions(match, tournament)) {
   const score = publicMatchScore(match, tournament);
   const meta = [score, matchSetupMeta(match)].filter(Boolean).join(" / ");
   return `
@@ -3129,7 +3134,7 @@ function publicMatchMarkup(match, tournament = {}) {
       <summary>
         <div class="row-main">
           <div class="row-title">${tournamentParticipantProfileLink(match.participantA)} vs ${match.isBye ? t("tournaments.match.byeUpper") : tournamentParticipantProfileLink(match.participantB)}</div>
-          <div class="row-meta">${escapeHtml(score)}</div>
+          ${score ? `<div class="row-meta">${escapeHtml(score)}</div>` : ""}
         </div>
         <span class="status ${match.status === "active" || match.status === "pending_confirmation" ? "pending" : match.status === "completed" ? "completed" : ""}">${escapeHtml(tournamentMatchStatusLabel(match.status, tournament, match.roundNumber))}</span>
       </summary>
@@ -3138,8 +3143,8 @@ function publicMatchMarkup(match, tournament = {}) {
         ${match.isBye ? "" : teamTableImageMarkup(match.table?.imageId ? match.table : match.mission || match.table)}
         ${pairingWarningsMarkup(match.pairingWarnings)}
         <div class="row-actions">
-          ${match.gameId && !match.isBye ? `<a class="small-button" data-app-link href="/tournament#/games/tournament-match/${match.id}">${t("play.action.details")}</a>` : ""}
-          ${publicMatchActions(match, tournament)}
+          ${match.isBye ? "" : tournamentGameDetailsLink(match.gameId)}
+          ${actions}
         </div>
       </div>
     </details>
@@ -4057,7 +4062,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = "/admin.js?v=1.8.7";
+    script.src = "/admin.js?v=1.8.7.1";
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -9948,7 +9953,7 @@ function teamMatchGamesMarkup(match, options = {}) {
       : link?.permissions?.canReview ? `<button class="primary-button" data-team-game-review="${game?.id}">${t("play.action.reviewResult")}</button>` : "";
     const awaitingReview = game?.status === "pending_confirmation"
       ? `<p class="row-meta">${escapeHtml(teamGamePendingMessage({ ...game, teamMatch: match, resultPermissions: link.permissions }))}</p>` : "";
-    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${pairingWarningsMarkup(teamPairingWarnings(match, slot))}${tableImage}${result}${awaitingReview}</div>${game?.id ? `<div class="row-actions team-game-actions">${resultAction}<a href="/tournament#/games/${String(game.id).replace(/^tournament-match-/, "tournament-match/").replace(/^(\d+)$/, "game/$1")}" data-app-link class="small-button" data-team-tournament-game="${game.id}">${t("play.action.details")}</a></div>` : ""}</div>`;
+    return `<div class="team-match-game" data-team-game-slot="${slot}"${game ? ` data-team-game-status="${escapeHtml(game.status || "open")}"` : ""}><div class="row-main"><strong>${t("teams.pairing.game", { number: slot })}${matchup ? ` · ${escapeHtml(matchup)}` : ""}</strong>${environment ? `<div class="row-meta">${escapeHtml(environment)}</div>` : ""}${pairingWarningsMarkup(teamPairingWarnings(match, slot))}${tableImage}${result}${awaitingReview}</div>${game?.id ? `<div class="row-actions team-game-actions">${resultAction}${tournamentGameDetailsLink(game.id)}</div>` : ""}</div>`;
   }).join("")}</div>`;
 }
 
@@ -10318,9 +10323,6 @@ function wireTeamMatchPreviews(root) {
   wireTeamGameResultButtons(root);
   root.querySelectorAll("[data-team-pairing-open]").forEach((button) => {
     onLive(button, "click", () => openTeamPairing(button.dataset.teamPairingOpen));
-  });
-  root.querySelectorAll("[data-team-tournament-game]").forEach((button) => {
-    onLive(button, "click", () => openGameDetail(Number(button.dataset.teamTournamentGame)));
   });
 }
 
@@ -11648,9 +11650,6 @@ function wireTeamTournamentControls(data, options = {}) {
   });
   document.querySelectorAll("[data-team-pairing-open]").forEach((button) => {
     onLive(button, "click", () => openTeamPairing(button.dataset.teamPairingOpen));
-  });
-  document.querySelectorAll("[data-team-tournament-game]").forEach((button) => {
-    onLive(button, "click", () => openGameDetail(Number(button.dataset.teamTournamentGame)));
   });
   wireTeamGameResultButtons();
   document.querySelectorAll("[data-team-pair-action='roll']").forEach((button) => {
