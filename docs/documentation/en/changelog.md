@@ -2,6 +2,10 @@
 
 KT Companion release history, newest first.
 
+## 1.8.8 — 28 November 2026
+
+- In individual and team tournaments, the Details button on a game card opens the score breakdown. Players, spectators and organizers can use it in Swiss and single-elimination rounds. Back returns to the round’s matches.
+
 ## 1.8.7 — 28 November 2026
 
 - Players and organizers can open tournaments and view the current round again in older mobile browsers.
