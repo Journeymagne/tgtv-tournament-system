@@ -469,6 +469,9 @@ const TGTV_I18N_EN = {
 
   // -- tournaments ------------------------------------------------------------
   "tournaments.loading": "Loading tournament...",
+  "tournaments.loadError": "Could not open tournament",
+  "tournaments.reloadHint": "Refresh the page to try again.",
+  "tournaments.rosterLimit": "Roster limit",
   "tournaments.notFound.title": "Tournament not found",
   "tournaments.fallbackName": "Tournament",
   "tournaments.action.join": "Join",

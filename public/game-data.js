@@ -78,7 +78,7 @@ function currentSeason(at = Date.now(), available = seasons) {
   const startsAt = season => season.startsAt ? Date.parse(season.startsAt) : Number.NEGATIVE_INFINITY;
   const ordered = [...available].sort((a, b) => startsAt(b) - startsAt(a));
   return ordered.find(season => time >= startsAt(season) && (!season.endsAt || time < Date.parse(season.endsAt))) ||
-    ordered.find(season => time >= startsAt(season)) || ordered.at(-1);
+    ordered.find(season => time >= startsAt(season)) || ordered[ordered.length - 1];
 }
 
 // Q4 introduces result-date membership for all game sources. Earlier events

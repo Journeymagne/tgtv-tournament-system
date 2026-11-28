@@ -46,6 +46,28 @@ test("direct public tournament pages load data and translations before the app",
   assert.doesNotMatch(html, /i18n\/(en|ru)\.js/);
 });
 
+test("first paint respects the tournament locale and labels the start time in UTC", async () => {
+  const row = { id: 1, slug: "apex", name: "APEX", status: "registration_closed", format: "swiss",
+    starts_at: "2026-11-28T08:00:00Z", registration_limit: 40 };
+  for (const [cookie, locale, statusLabel] of [
+    ["", "ru", "Регистрация закрыта"],
+    ["sid=abc; tgtv-locale=en", "en", "Registration closed"]
+  ]) {
+    let html;
+    await handleSeoRequest(
+      { method: "GET", url: "/tournaments/apex", headers: { host: "localhost", cookie } },
+      { writeHead() {}, end(value) { html = value; } },
+      { withClient: fn => fn({ query: async () => ({ rows: [row] }) }) }
+    );
+    assert.ok(html.includes(`<html lang="${locale}">`));
+    const body = html.slice(html.indexOf("<body"));
+    assert.ok(body.includes(statusLabel));
+    assert.match(body, /08:00.*UTC/);
+    assert.doesNotMatch(body, /T08:00|Kill Team rankings/);
+    assert.match(html, /"startDate":"2026-11-28T08:00:00.000Z"/);
+  }
+});
+
 test("direct draft links show private tournament details only to its managers", async (t) => {
   const row = { id: 7, slug: "private-draft", status: "draft", name: "Unpublished cup" };
   const withClient = (fn) => fn({ query: async () => ({ rows: [row] }) });

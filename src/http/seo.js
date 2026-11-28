@@ -6,10 +6,15 @@ const { SECURITY_HEADERS } = require("./io");
 const { siteOrigin } = require("./sites");
 const { SERVICE_PATHS } = require("../domain/sites");
 
+const dictionaries = {
+  en: require("../../public/i18n/en"),
+  ru: require("../../public/i18n/ru")
+};
+
 const SITE_NAME = "KT Companion";
 const DEFAULT_DESCRIPTION =
   "Kill Team rankings, tournament standings, matchmaking, match results, and All Kill Team Challenge tracking.";
-const ASSET_VERSION = "1.8.6";
+const ASSET_VERSION = "1.8.6.1";
 const { version: SHARED_ASSET_VERSION } = require("./shared-assets.json");
 
 function requestOrigin(req) {
@@ -65,30 +70,16 @@ function tournamentPublicUrl(origin, tournament) {
   return `${origin}/tournaments/${encodeURIComponent(tournament.slug || "")}`;
 }
 
-function tournamentStatusLabel(status) {
-  const labels = {
-    draft: "Draft",
-    registration_open: "Registration open",
-    registration_closed: "Registration closed",
-    in_progress: "In progress",
-    completed: "Completed",
-    cancelled: "Cancelled"
-  };
-  return labels[status] || status || "";
-}
-
-function formatLabel(format) {
-  return format === "single_elimination" ? "Single elimination" : format === "swiss" ? "Swiss" : format || "";
-}
-
-function tournamentFormatLabel(tournament) {
-  return tournament?.participantMode === "team" ? "Teams" : formatLabel(tournament?.format);
-}
-
-function tournamentFormatSummary(tournament) {
-  return tournament?.participantMode === "team"
-    ? tournament.pairingType === 'wtc_doubles' ? 'Teams · Teams Of Two · WTC Doubles' : "Teams · Teams Of Three · WTC"
-    : formatLabel(tournament?.format);
+function tournamentFormatSummary(tournament, format, labels) {
+  if (tournament.participantMode !== "team") return format;
+  const pairing = {
+    doubles: "doubles.name",
+    wtc_doubles: "wtcDoubles.name",
+    sword_shield_classic: "classic.name"
+  }[tournament.pairingType] || "tournaments.pairingType.shieldSword";
+  const size = ["doubles", "wtc_doubles"].includes(tournament.pairingType)
+    ? "doubles.teamSize" : "tournaments.teamVariant.teamsOfThree";
+  return [format, labels[size], labels[pairing]].join(" · ");
 }
 
 function eventStatusUrl(status) {
@@ -222,22 +213,36 @@ function appScript() {
     .join("\n");
 }
 
-function tournamentHtml(origin, tournament) {
+function tournamentHtml(origin, tournament, locale) {
+  const labels = dictionaries[locale];
   const nonce = crypto.randomBytes(16).toString("base64");
   const url = tournamentPublicUrl(origin, tournament);
   const title = `${tournament.name || "Kill Team tournament"} | ${SITE_NAME}`;
   const description = metaDescription(tournament.description || tournament.rulesSummary);
   const imageUrl = `${origin}/brand/kt-companion/social.png`;
+  const team = tournament.participantMode === "team";
+  const formatKey = team ? "tournaments.participantMode.team" : {
+    swiss: "tournaments.format.swiss", single_elimination: "tournaments.format.singleElimination"
+  }[tournament.format];
+  const format = labels[formatKey] || tournament.format || "";
+  const statusKey = String(tournament.status || "").replace(/_(\w)/g, (_, char) => char.toUpperCase());
+  const status = labels[`tournaments.status.${statusKey}`] || tournament.status || "";
   const facts = [
-    ["Format", tournamentFormatLabel(tournament)],
-    ["Status", tournamentStatusLabel(tournament.status)],
-    ["Game system", tournament.gameSystem || "Warhammer 40k Kill Team"],
-    ["Rating", tournament.ratingPolicy === "ranked" ? "Ranked" : "Unranked"]
+    [labels["tournaments.field.format"], format],
+    [labels["stats.sort.status"], status],
+    [labels["admin.tournament.field.gameSystem"], tournament.gameSystem || "Warhammer 40k Kill Team"],
+    [labels["tournaments.card.rating"], labels[tournament.ratingPolicy === "ranked" ? "tournaments.card.ranked" : "tournaments.card.unranked"]]
   ];
-  if (tournament.startsAt) facts.splice(2, 0, ["Starts", new Date(tournament.startsAt).toISOString()]);
-  if (tournament.registrationLimit) facts.push([tournament.participantMode === "team" ? "Roster limit" : "Player limit", tournament.registrationLimit]);
+  const starts = tournament.startsAt && new Date(tournament.startsAt);
+  if (starts && Number.isFinite(starts.getTime())) {
+    facts.splice(2, 0, [labels["tournaments.card.starts"], starts.toLocaleString(locale, {
+      year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+      hourCycle: "h23", timeZone: "UTC", timeZoneName: "short"
+    })]);
+  }
+  if (tournament.registrationLimit) facts.push([labels[team ? "tournaments.rosterLimit" : "calendar.participantLimit"], tournament.registrationLimit]);
   return `<!doctype html>
-<html lang="en">
+<html lang="${locale}">
   <head>
     ${baseHead({ title, description, canonical: url, imageUrl, robots: tournament.status === "draft" ? "noindex, nofollow" : undefined })}
     <script type="application/ld+json" nonce="${escapeHtml(nonce)}">${jsonLdForTournament(origin, tournament)}</script>
@@ -251,12 +256,12 @@ function tournamentHtml(origin, tournament) {
         <section class="card panel public-tournament-shell">
           <div class="panel-header public-tournament-header">
             <div>
-              <p class="profile-label">${escapeHtml(tournamentFormatSummary(tournament))}</p>
+              <p class="profile-label">${escapeHtml(tournamentFormatSummary(tournament, format, labels))}</p>
               <h1>${escapeHtml(tournament.name || "Kill Team tournament")}</h1>
-              <p class="muted">${escapeHtml(tournamentStatusLabel(tournament.status))}</p>
+              <p class="muted">${escapeHtml(status)}</p>
             </div>
           </div>
-          <p>${escapeHtml(description)}</p>
+          ${textFromMarkdown(tournament.description || tournament.rulesSummary) ? `<p>${escapeHtml(description)}</p>` : ""}
           <dl class="tournament-card-facts">
             ${facts.map(([label, value]) => `
               <div>
@@ -273,12 +278,13 @@ function tournamentHtml(origin, tournament) {
 </html>`;
 }
 
-function notFoundHtml(origin, slug) {
-  const title = `Tournament not found | ${SITE_NAME}`;
+function notFoundHtml(origin, slug, locale) {
+  const heading = dictionaries[locale]["tournaments.notFound.title"];
+  const title = `${heading} | ${SITE_NAME}`;
   const canonical = `${origin}/tournaments/${encodeURIComponent(slug || "")}`;
   const description = "This tournament page is not available.";
   return `<!doctype html>
-<html lang="en">
+<html lang="${locale}">
   <head>
     ${baseHead({
       title,
@@ -293,8 +299,7 @@ function notFoundHtml(origin, slug) {
     <div id="app" class="app-shell">
       <main class="public-tournament-layout">
         <section class="card panel public-tournament-shell">
-          <h1>Tournament not found</h1>
-          <p>${escapeHtml(description)}</p>
+          <h1>${escapeHtml(heading)}</h1>
         </section>
       </main>
     </div>
@@ -349,6 +354,7 @@ async function handleSeoRequest(req, res, { withClient }) {
 
   const slug = tournamentSlugFromPath(url.pathname);
   if (slug) {
+    const locale = /(?:^|;\s*)tgtv-locale=(en|ru)(?:;|$)/.exec(req.headers.cookie || "")?.[1] || "ru";
     const tournament = await withClient(async (client) => {
       const found = await tournamentsRepo.findBySlug(client, slug);
       if (!found || tournamentsRepo.PUBLISHED_STATUSES.includes(found.status)) return found;
@@ -363,13 +369,13 @@ async function handleSeoRequest(req, res, { withClient }) {
     });
     if (req.renewedSessionCookie) res.setHeader("Set-Cookie", req.renewedSessionCookie);
     if (!tournament) {
-      sendHtml(res, 404, notFoundHtml(origin, slug), {
+      sendHtml(res, 404, notFoundHtml(origin, slug, locale), {
         ...SECURITY_HEADERS,
         "Cache-Control": "no-store, max-age=0"
       });
       return true;
     }
-    const html = tournamentHtml(origin, tournament);
+    const html = tournamentHtml(origin, tournament, locale);
     const nonce = html.match(/nonce="([^"]+)"/)?.[1] || "";
     sendHtml(res, 200, html, {
       ...securityHeadersWithNonce(nonce),

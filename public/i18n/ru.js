@@ -474,6 +474,9 @@ const TGTV_I18N_RU = {
 
   // -- tournaments ------------------------------------------------------------
   "tournaments.loading": "Загрузка турнира...",
+  "tournaments.loadError": "Не удалось открыть турнир",
+  "tournaments.reloadHint": "Обновите страницу, чтобы попробовать ещё раз.",
+  "tournaments.rosterLimit": "Лимит составов",
   "tournaments.notFound.title": "Турнир не найден",
   "tournaments.fallbackName": "Турнир",
   "tournaments.action.join": "Присоединиться",

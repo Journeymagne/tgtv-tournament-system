@@ -261,6 +261,27 @@ test("an in-flight tournament refresh is ignored after navigation", async () => 
   assert.deepEqual(rendered, []);
 });
 
+test("only a missing public tournament shows the not-found screen", async () => {
+  const container = {};
+  for (const [error, expected] of [
+    [{ status: 404, requestPath: "/api/tournaments/cup" }, "tournaments.notFound.title"],
+    [{ status: 404, requestPath: "/api/admin/tournaments/1" }, "tournaments.loadError"],
+    [{ status: 503, requestPath: "/api/tournaments/cup" }, "tournaments.loadError"],
+    [new TypeError("render failed"), "tournaments.loadError"]
+  ]) {
+    const cached = error instanceof TypeError ? { tournament: {} } : null;
+    const fail = () => { throw error; };
+    const render = new Function("state", "isCurrentPublicTournamentRoute", "getKnownPublicTournament",
+      "publicTournamentContainer", "loadPublicTournament", "renderPublicTournament", "window", "console",
+      "t", "wirePublicTournamentNav",
+      `let publicTournamentRequestId = 0; ${renderPublicTournamentRouteSource}; return renderPublicTournamentRoute;`
+    )({}, () => true, () => cached, () => container, fail, fail, { location: {} }, { error() {} }, key => key, () => {});
+    await render("cup");
+    assert.ok(container.innerHTML.includes(`<h2>${expected}</h2>`));
+    assert.ok(!container.innerHTML.includes("render failed"));
+  }
+});
+
 test("opening a team explicitly leaves the tournament polling route", () => {
   assert.ok(navigateToPlayerTeamSource, "could not find navigateToPlayerTeam in public/app.js");
   const calls = [];

@@ -631,7 +631,7 @@ function adminTournamentActionButtons(data, tab) {
   if ((!tab || tab === "matches") && tournament.status === "in_progress") {
     const rollbackState = rollbackRoundActionState(data);
     if (tournament.participantMode !== "team" && tournament.format === "swiss" &&
-        data.rounds?.at(-1)?.status === "active" && !tournament.roundDraft) {
+        data.rounds?.[data.rounds.length - 1]?.status === "active" && !tournament.roundDraft) {
       buttons.push(`<button class="small-button" data-admin-tournament-action="edit-active-pairings">${t("admin.round.editPairings")}</button>`);
     }
     if (tournament.participantMode === "team" && (data.rounds || []).length && !tournament.roundDraft) {
@@ -1092,7 +1092,7 @@ function adminTournamentMatchMarkup(match, data = {}) {
   const canReview = canResult && data.tournament?.status === "in_progress" && match.status === "pending_confirmation" && match.pendingResult?.result;
   const canReset = data.tournament?.status === "in_progress" && data.tournament?.format === "swiss" &&
     data.tournament?.participantMode !== "team" && !data.tournament?.roundDraft &&
-    data.rounds?.at(-1)?.id === match.roundId && !match.isBye &&
+    data.rounds?.[data.rounds.length - 1]?.id === match.roundId && !match.isBye &&
     ["completed", "pending_confirmation"].includes(match.status);
   const actionLabel = match.status === "active" ? t("play.action.enterResult") : t("play.action.editResult");
   const score = publicMatchScore(match, data.tournament);
@@ -2298,13 +2298,15 @@ async function runAdminTournamentAction(action) {
       }
       return;
     } else if (action === "edit-active-pairings") {
-      const round = state.adminTournamentDetail?.rounds?.at(-1);
+      const rounds = state.adminTournamentDetail?.rounds;
+      const round = rounds?.[rounds.length - 1];
       if (!round) return;
       const preview = await api(`/api/admin/tournaments/${tournament.id}/rounds/${round.id}/pairings`);
       renderRoundSetupModal(preview);
       return;
     } else if (action === "edit-round-tables") {
-      const round = state.adminTournamentDetail?.rounds?.at(-1);
+      const rounds = state.adminTournamentDetail?.rounds;
+      const round = rounds?.[rounds.length - 1];
       if (!round) return;
       const preview = await api(`/api/admin/tournaments/${tournament.id}/rounds/${round.id}/tables`);
       renderRoundSetupModal({ ...preview, teamRound: true, tableOnly: true });

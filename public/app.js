@@ -452,6 +452,7 @@ async function api(path, options = {}) {
     if (!res.ok) {
       const error = new Error(data.message || data.error || t("common.requestFailed"));
       error.status = res.status;
+      error.requestPath = path.split("?")[0];
       if (Array.isArray(data.issues)) error.issues = data.issues;
       if (data.pairingWarningReview) error.pairingWarningReview = data.pairingWarningReview;
       throw error;
@@ -2047,27 +2048,24 @@ async function renderPublicTournamentRoute(slug, options = {}) {
   const { force = false } = options;
   const requestId = ++publicTournamentRequestId;
   const cached = force ? null : getKnownPublicTournament(slug);
-  if (cached) {
-    if (window.location.hash === "#settings" && cached.management) state.tournamentInfoTab = "settings";
-    renderPublicTournament(cached);
-    return;
-  }
-  publicTournamentContainer().innerHTML = `<div class="loading">${t("tournaments.loading")}</div>`;
   try {
-    const data = await loadPublicTournament(slug, { force });
+    if (!cached) publicTournamentContainer().innerHTML = `<div class="loading">${t("tournaments.loading")}</div>`;
+    const data = cached || await loadPublicTournament(slug, { force });
     if (requestId !== publicTournamentRequestId || !isCurrentPublicTournamentRoute(slug)) return;
     if (window.location.hash === "#settings" && data.management) state.tournamentInfoTab = "settings";
     renderPublicTournament(data);
   } catch (err) {
     if (requestId !== publicTournamentRequestId || !isCurrentPublicTournamentRoute(slug)) return;
     state.publicTournamentDetail = null;
+    const missing = err.status === 404 && err.requestPath === `/api/tournaments/${encodeURIComponent(slug)}`;
+    if (!missing) console.error("Could not display tournament", err);
     publicTournamentContainer().innerHTML = `
       <div class="public-tournament-layout ${state.me ? "embedded-public-tournament" : ""}">
         <section class="card panel public-tournament-shell">
           <div class="panel-header">
             <div>
-              <h2>${t("tournaments.notFound.title")}</h2>
-              <p class="muted">${escapeHtml(err.message)}</p>
+              <h2>${t(missing ? "tournaments.notFound.title" : "tournaments.loadError")}</h2>
+              ${missing ? "" : `<p class="muted">${t("tournaments.reloadHint")}</p>`}
             </div>
             ${state.me ? "" : `
               <div class="row-actions">
@@ -2723,8 +2721,8 @@ function canManageTournamentParticipants(data) {
 
 function tournamentPreviewRound(rounds = []) {
   const ordered = [...rounds].sort((a, b) => Number(a.roundNumber) - Number(b.roundNumber));
-  return ordered.filter(round => round.status === "active").at(-1)
-    || ordered.filter(round => round.status === "completed").at(-1)
+  return ordered.filter(round => round.status === "active").pop()
+    || ordered.filter(round => round.status === "completed").pop()
     || ordered[0] || null;
 }
 
@@ -3022,7 +3020,7 @@ function defaultTournamentRoundNumber(rounds = [], tournament = {}) {
   const ordered = [...rounds].sort((a, b) => Number(a.roundNumber) - Number(b.roundNumber));
   if (tournament.status === "registration_closed") return ordered[0]?.roundNumber || 0;
   const active = ordered.filter((round) => round.status === "active");
-  return Number((active.at(-1) || ordered.at(-1))?.roundNumber || 0);
+  return Number((active[active.length - 1] || ordered[ordered.length - 1])?.roundNumber || 0);
 }
 
 function tournamentRoundMatchCounts(round, tournament = {}) {
@@ -4059,7 +4057,7 @@ function loadAdminUi() {
   if (adminUiPromise) return adminUiPromise;
   adminUiPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = "/admin.js?v=1.8.6";
+    script.src = "/admin.js?v=1.8.6.1";
     // Resolves either way: a failed load leaves the placeholder below in
     // charge, so the rest of the page still renders for the administrator.
     script.onload = () => resolve(window.TGTV_ADMIN || null);
@@ -4179,7 +4177,7 @@ if (!window.__tgtvSidebarEscapeBound) {
     if (event.key === "Escape") setSidebarOpen(false);
     if (event.key === 'Tab' && document.body.classList.contains('sidebar-open')) {
       const items = [...document.querySelectorAll('.sidebar button:not(:disabled), .sidebar a[href]')].filter(element => element.getClientRects().length);
-      const first = items[0], last = items.at(-1);
+      const first = items[0], last = items[items.length - 1];
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     }

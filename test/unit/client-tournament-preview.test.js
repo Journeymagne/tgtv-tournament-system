@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const source = fs.readFileSync(path.join(__dirname, "../../public/app.js"), "utf8");
 const names = ["normalizeTournamentMatchSearch", "tournamentMatchSearchText", "tournamentPreviewRound",
   "roundSetupPayload", "teamTableSetupPayload", "datetimeLocalToIso", "datetimeLocalValue"];
@@ -27,12 +28,16 @@ test("round search finds nicknames, roster/club names, visible factions and publ
 });
 
 test("preview shows the active round before future bracket rounds, then the latest completed round", () => {
+  // Exercise the browser implementation without changing Array.prototype in Node.
+  const preview = vm.runInNewContext(`delete Array.prototype.at; ${functions}; tournamentPreviewRound`);
   const rounds = [{ roundNumber: 3, status: "not_ready" }, { roundNumber: 2, status: "active" }, { roundNumber: 1, status: "completed" }];
-  assert.equal(ui.tournamentPreviewRound(rounds).roundNumber, 2);
+  assert.equal(preview(rounds).roundNumber, 2);
+  const extraActive = { roundNumber: 4, status: "active" };
+  assert.equal(preview([extraActive, ...rounds]), extraActive);
   rounds[1].status = "completed";
-  assert.equal(ui.tournamentPreviewRound(rounds).roundNumber, 2);
-  assert.equal(ui.tournamentPreviewRound([{ roundNumber: 2, status: "not_ready" }, { roundNumber: 1, status: "not_ready" }]).roundNumber, 1);
-  assert.equal(ui.tournamentPreviewRound([]), null);
+  assert.equal(preview(rounds).roundNumber, 2);
+  assert.equal(preview([{ roundNumber: 2, status: "not_ready" }, { roundNumber: 1, status: "not_ready" }]).roundNumber, 1);
+  assert.equal(preview([]), null);
 });
 
 test("solo and team setup send an absolute optional deadline and restore it in the local input", () => {
