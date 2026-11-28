@@ -2,6 +2,12 @@
 
 KT Companion release history, newest first.
 
+## 1.8.7 — 28 November 2026
+
+- Players and organizers can open tournaments and view the current round again in older mobile browsers.
+- The page shows “Tournament not found” when the tournament is unavailable at that link. If the page fails to load, it prompts you to try again.
+- Opening a tournament link now shows labels in your selected language and a start time marked in UTC on the initial card.
+
 ## 1.8.6 — 25 November 2026
 
 - Creating a tournament now opens its overview. Each tab shows the organizer the current stage and next action. Organizers can also return directly to their draft using its link.

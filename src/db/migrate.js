@@ -128,7 +128,8 @@ const MIGRATIONS = [
   require("./migrations/128_account_weapon_profiles"),
   require("./migrations/129_combat_profiles_release_notes"),
   require("./migrations/130_tournament_options_release_notes"),
-  require("./migrations/131_tournament_organizer_release_notes")
+  require("./migrations/131_tournament_organizer_release_notes"),
+  require("./migrations/132_tournament_mobile_release_notes")
 ].sort((a, b) => a.version - b.version);
 
 const JOURNAL = `
